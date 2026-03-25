@@ -327,6 +327,7 @@ if [[ "$UPDATE" == true ]]; then
 
   # ─── 7. Skills: always overwrite (harness infra) ───
   info "Skills 업데이트..."
+  mkdir -p .claude/skills
   for f in "$TEMPLATE_DIR"/claude/skills/*.md; do
     [[ -f "$f" ]] && update_file "$f" ".claude/skills/$(basename "$f")" "overwrite"
   done
