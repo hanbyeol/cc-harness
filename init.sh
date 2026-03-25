@@ -327,9 +327,11 @@ if [[ "$UPDATE" == true ]]; then
 
   # ─── 7. Skills: always overwrite (harness infra) ───
   info "Skills 업데이트..."
-  mkdir -p .claude/skills
-  for f in "$TEMPLATE_DIR"/claude/skills/*.md; do
-    [[ -f "$f" ]] && update_file "$f" ".claude/skills/$(basename "$f")" "overwrite"
+  for skill_dir in "$TEMPLATE_DIR"/claude/skills/*/; do
+    [[ -d "$skill_dir" ]] || continue
+    skill_name=$(basename "$skill_dir")
+    mkdir -p ".claude/skills/$skill_name"
+    update_file "$skill_dir/SKILL.md" ".claude/skills/$skill_name/SKILL.md" "overwrite"
   done
 
   # ─── 8. Evals calibration: add if missing, don't touch if exists ───
@@ -495,7 +497,12 @@ cp "$TEMPLATE_DIR"/claude/settings.json .claude/settings.json
 log "✓ .claude/settings.json"
 
 # ─── Skills ───
-cp "$TEMPLATE_DIR"/claude/skills/*.md .claude/skills/ 2>/dev/null || true
+for skill_dir in "$TEMPLATE_DIR"/claude/skills/*/; do
+  [[ -d "$skill_dir" ]] || continue
+  skill_name=$(basename "$skill_dir")
+  mkdir -p ".claude/skills/$skill_name"
+  cp "$skill_dir"SKILL.md ".claude/skills/$skill_name/SKILL.md"
+done
 log "✓ .claude/skills/ (4 skills)"
 
 # ─── Rules (always-included) ───
