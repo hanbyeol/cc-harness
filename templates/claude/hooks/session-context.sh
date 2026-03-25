@@ -30,7 +30,7 @@ if [[ -f progress/session-handoff.json ]]; then
 fi
 
 # Latest evaluator feedback
-LATEST_FEEDBACK=$(ls -t progress/agent-comms/evaluator-feedback-*.json 2>/dev/null | head -1)
+LATEST_FEEDBACK=$(ls -t progress/agent-comms/evaluator-feedback-*.json 2>/dev/null | head -1 || true)
 if [[ -n "$LATEST_FEEDBACK" ]]; then
   echo ""
   echo "=== Latest Evaluator Feedback ==="
