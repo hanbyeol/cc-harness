@@ -38,4 +38,8 @@ if [[ -n "$LATEST_FEEDBACK" ]]; then
 fi
 
 echo ""
+echo "=== Workflow Reminder ==="
+echo "기능 추가/변경/삭제 요청 시: 산출물 업데이트(SPEC, criteria, feature_list) → Sprint Contract → 구현 → Evaluator 검증"
+echo "코드부터 작성하지 않는다. CLAUDE.md의 '기능 추가/변경/삭제 시 필수 절차' 참조."
+echo ""
 echo "→ progress/claude-progress.txt와 git log 먼저 확인"
