@@ -7,6 +7,8 @@
         "spec_written": false,
         "feature_list_created": false,
         "acceptance_criteria_defined": false,
+        "security_requirements_defined": false,
+        "quality_attributes_defined": false,
         "user_approved": false
       }
     },
@@ -15,7 +17,10 @@
       "criteria": {
         "architecture_doc": false,
         "api_design": false,
-        "adr_written": false
+        "adr_written": false,
+        "threat_model_complete": false,
+        "security_checklist_created": false,
+        "error_handling_strategy": false
       }
     },
     "implementation": {
@@ -27,6 +32,7 @@
       "criteria": {
         "all_features_passing": false,
         "evaluator_approved": false,
+        "security_criteria_met": false,
         "lint_clean": false
       }
     },

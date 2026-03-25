@@ -27,6 +27,14 @@ Correctness > Safety > Speed
 - 매 기능 완료 시 git commit + progress 업데이트
 - 세션 종료 전 progress/session-handoff-draft.json 업데이트
 
+## Security & Quality by Design
+- **모든 단계에서 보안과 품질을 내재화** — 검증 단계에서 뒤늦게 잡지 않는다
+- Spec: 기능별 보안 요구사항 + 에러 시나리오 명시
+- Architecture: 위협 모델링 + SECURITY-CHECKLIST.md 생성
+- Implementation: Sprint Contract에 security_criteria + error_scenarios 포함
+- Evaluator: 보안/에러 처리 점수가 미달이면 기능 통과 불가
+- security_tier: critical 기능은 보안 점수 7/10 미만 시 자동 fail
+
 ## Generator-Evaluator Loop
 - **Implementer는 passes를 직접 true로 변경하지 않음**
 - 구현 완료 → implementer-output.json 작성 → evaluator 실행 요청

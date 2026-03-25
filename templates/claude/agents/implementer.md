@@ -5,23 +5,29 @@ feature_list.json에서 기능을 선택하여 구현.
 **평가는 evaluator agent가 수행** — passes 필드를 직접 true로 변경하지 않는다.
 
 ## Input
-- progress/agent-comms/architect-output.json (tech_stack, components 참조)
+- progress/agent-comms/architect-output.json (tech_stack, components, threat_model)
 - progress/agent-comms/evaluator-feedback-*.json (이전 iteration 피드백)
 - progress/contracts/sprint-*.json (현재 sprint contract)
+- docs/SECURITY-CHECKLIST.md (기능별 보안 체크리스트)
 
 ## Process
 1. progress/claude-progress.txt + git log 확인
 2. evaluator 피드백이 있으면 먼저 검토 후 수정사항 반영
 3. feature_list.json에서 미완료 기능 중 최우선 선택
-4. Sprint Contract 작성: progress/contracts/sprint-{n}.json
+4. **docs/SECURITY-CHECKLIST.md에서 해당 기능의 보안 요건 확인**
+5. Sprint Contract 작성: progress/contracts/sprint-{n}.json
    - 구현할 기능, 완료 기준, 테스트 시나리오 명시
-5. 해당 디렉토리의 CLAUDE.md 읽기
-6. 기능 구현 + 테스트 작성
-7. 린트 + 테스트 실행
-8. git commit + progress 업데이트
+   - **보안 체크리스트 항목 포함 (security_tier에 따라)**
+   - **에러/엣지 케이스 시나리오 포함**
+6. 해당 디렉토리의 CLAUDE.md 읽기
+7. 기능 구현 + 테스트 작성
+   - security_tier: critical → 보안 테스트 필수 (인가 우회, 입력 검증, 시크릿 노출)
+   - 에러 경로도 테스트 (잘못된 입력, 권한 부족, 리소스 없음)
+8. **구현 완료 전 self-check**: Security Checklist 항목 충족 여부 확인
+9. 린트 + 테스트 실행
+10. git commit + progress 업데이트
 
 ## Output
-완료 시 아래 파일에 구조화된 결과 기록:
 ```json
 // progress/agent-comms/implementer-output.json
 {
@@ -30,6 +36,12 @@ feature_list.json에서 기능을 선택하여 구현.
   "files_changed": ["services/auth/handler.go"],
   "tests_added": ["services/auth/handler_test.go"],
   "iteration": 1,
+  "security_self_check": {
+    "checklist_items": 5,
+    "checklist_passed": 5,
+    "notes": "JWT secret loaded from env, input validation on all endpoints"
+  },
+  "error_scenarios_tested": ["invalid credentials", "expired token", "missing header"],
   "self_notes": "error handling in edge case X needs review",
   "ready_for": "evaluation"
 }
@@ -41,15 +53,29 @@ feature_list.json에서 기능을 선택하여 구현.
 {
   "sprint": 1,
   "features": ["F1: User Auth"],
+  "security_tier": "critical",
   "acceptance_criteria": [
     "POST /login returns JWT on valid credentials",
     "Invalid credentials return 401 with error message",
     "JWT expires after 24h"
   ],
+  "security_criteria": [
+    "JWT secret is loaded from environment variable, not hardcoded",
+    "Password is hashed with bcrypt (cost >= 12)",
+    "Error responses do not expose internal stack traces",
+    "Rate limiting on /login endpoint (max 10/min per IP)"
+  ],
+  "error_scenarios": [
+    "invalid password → 401 with generic message",
+    "malformed JSON body → 400 with validation errors",
+    "expired token → 401 with 'token_expired' code"
+  ],
   "test_scenarios": [
     "happy path login",
     "invalid password",
-    "expired token refresh"
+    "expired token refresh",
+    "SQL injection attempt in username",
+    "brute force rate limit trigger"
   ],
   "agreed": false
 }
@@ -59,3 +85,4 @@ feature_list.json에서 기능을 선택하여 구현.
 - 한 세션에 1-2개 기능만
 - **passes를 직접 true로 변경 금지** — evaluator가 판정
 - feature_list.json 테스트 삭제 금지
+- security_tier: critical 기능은 보안 테스트 없이 구현 완료 불가
