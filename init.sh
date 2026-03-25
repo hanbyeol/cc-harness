@@ -198,7 +198,7 @@ mkdir -p progress/agent-comms progress/contracts docs/DECISIONS evals/calibratio
 
 # ─── Agents ───
 cp "$TEMPLATE_DIR"/claude/agents/*.md .claude/agents/
-log "✓ .claude/agents/ (7 agents)"
+log "✓ .claude/agents/ (8 agents)"
 
 # ─── Hooks ───
 cp "$TEMPLATE_DIR"/claude/hooks/*.sh .claude/hooks/
@@ -344,7 +344,7 @@ if command -v tree &>/dev/null; then
 else
   echo "  .claude/"
   echo "    ├── settings.json     (hooks 설정)"
-  echo "    ├── agents/           (7 agents — evaluator 포함)"
+  echo "    ├── agents/           (8 agents — evaluator + QA)"
   echo "    ├── hooks/            (5 hook scripts)"
   echo "    ├── rules/            (path-scoped rules)"
   echo "    └── skills/           (빈 폴더, 필요 시 추가)"

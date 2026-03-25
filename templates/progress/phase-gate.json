@@ -35,7 +35,8 @@
       "criteria": {
         "tests_pass": false,
         "security_scan_clean": false,
-        "evaluator_final_pass": false
+        "evaluator_final_pass": false,
+        "qa_review_complete": false
       }
     },
     "deployment": {
