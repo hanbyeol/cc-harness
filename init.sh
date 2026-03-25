@@ -3,8 +3,7 @@
 # cc-harness — Claude Code Full-SDLC Harness Bootstrapper
 #
 # One-command harness setup for Claude Code projects.
-# Generates .claude/ (hooks, rules, agents, skills), CLAUDE.md,
-# progress files, Makefile, and phase-gate infrastructure.
+# Copies templates/ into target project with preset-based filtering.
 #
 # Install & Run:
 #   bash <(curl -sL https://raw.githubusercontent.com/hanbyeol/cc-harness/main/init.sh)
@@ -35,6 +34,15 @@ log()  { echo -e "${GREEN}[harness]${NC} $*"; }
 warn() { echo -e "${YELLOW}[warn]${NC} $*"; }
 err()  { echo -e "${RED}[error]${NC} $*" >&2; }
 info() { echo -e "${CYAN}[info]${NC} $*"; }
+
+# ─── Cross-platform sed -i ───
+sedi() {
+  if [[ "$OSTYPE" == darwin* ]]; then
+    sed -i '' "$@"
+  else
+    sed -i "$@"
+  fi
+}
 
 # ─── Parse args ───
 PRESET=""
@@ -162,662 +170,146 @@ if [[ -d ".claude" ]]; then
 fi
 
 # ═══════════════════════════════════════════════════════════════════
+# RESOLVE TEMPLATE SOURCE
+# ═══════════════════════════════════════════════════════════════════
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEMPLATE_DIR="$SCRIPT_DIR/templates"
+CLEANUP_TEMP=false
+
+if [[ ! -d "$TEMPLATE_DIR" ]]; then
+  TEMPLATE_DIR="/tmp/cc-harness-$$"
+  log "템플릿 다운로드 중..."
+  git clone --depth 1 https://github.com/hanbyeol/cc-harness.git "$TEMPLATE_DIR" 2>/dev/null
+  TEMPLATE_DIR="$TEMPLATE_DIR/templates"
+  CLEANUP_TEMP=true
+fi
+
+# ═══════════════════════════════════════════════════════════════════
 # CREATE DIRECTORY STRUCTURE
 # ═══════════════════════════════════════════════════════════════════
 
 mkdir -p .claude/{agents,hooks,rules,skills}
-mkdir -p progress docs/DECISIONS evals
+mkdir -p progress/agent-comms progress/contracts docs/DECISIONS evals/calibration
 
 # ═══════════════════════════════════════════════════════════════════
-# 1. ROOT CLAUDE.md
+# COPY TEMPLATES
 # ═══════════════════════════════════════════════════════════════════
 
-BUILD_CMDS=""
-[[ "$HAS_GO" == true ]] && BUILD_CMDS+="- Go: \`make test-go\` / \`make lint-go\`\n"
-[[ "$HAS_REACT" == true ]] && BUILD_CMDS+="- Web: \`make test-web\` / \`make lint-web\`\n"
-[[ "$HAS_IOS" == true ]] && BUILD_CMDS+="- iOS: \`make test-ios\` / \`make lint-ios\`\n"
-[[ "$HAS_ANDROID" == true ]] && BUILD_CMDS+="- Android: \`make test-android\` / \`make lint-android\`\n"
-[[ "$HAS_PROTO" == true ]] && BUILD_CMDS+="- Proto: \`make proto-gen\` / \`make proto-lint\`\n"
+# ─── Agents ───
+cp "$TEMPLATE_DIR"/claude/agents/*.md .claude/agents/
+log "✓ .claude/agents/ (7 agents)"
 
-cat > CLAUDE.md << CLAUDEMD
-# $PROJECT_NAME
+# ─── Hooks ───
+cp "$TEMPLATE_DIR"/claude/hooks/*.sh .claude/hooks/
+chmod +x .claude/hooks/*.sh
+log "✓ .claude/hooks/ (5 hooks)"
 
-## Priority
-Correctness > Safety > Speed
+# ─── Settings ───
+cp "$TEMPLATE_DIR"/claude/settings.json .claude/settings.json
+log "✓ .claude/settings.json"
 
-## Build & Test
-$(echo -e "$BUILD_CMDS")
-## Workflow
-- 변경 전 해당 디렉토리의 CLAUDE.md 먼저 읽을 것
-- 기존 코드 패턴 먼저 확인 후 구현
-- 한 번에 하나의 기능만 구현
-- feature_list.json의 passes만 변경 (테스트 삭제/수정 금지)
-- 매 기능 완료 시 git commit + progress 업데이트
+# ─── Rules (always-included) ───
+cp "$TEMPLATE_DIR"/claude/rules/general.md .claude/rules/
+log "✓ .claude/rules/general.md"
 
-## Phase Gate
-- progress/phase-gate.json 확인 후 현재 단계에 맞는 작업
-- Phase 미통과 시 다음 단계 진입 금지
-CLAUDEMD
+# ─── Rules (conditional) ───
+declare -A RULE_FLAGS=(
+  [go-backend.md]=HAS_GO
+  [react-frontend.md]=HAS_REACT
+  [ios-swift.md]=HAS_IOS
+  [android-kotlin.md]=HAS_ANDROID
+  [spring-boot.md]=HAS_SPRING
+  [k8s-infra.md]=HAS_K8S
+  [proto-api.md]=HAS_PROTO
+)
+for rule in "${!RULE_FLAGS[@]}"; do
+  flag_var="${RULE_FLAGS[$rule]}"
+  if [[ "${!flag_var}" == true ]]; then
+    cp "$TEMPLATE_DIR/claude/rules/$rule" .claude/rules/
+    log "✓ .claude/rules/$rule"
+  fi
+done
+
+# ─── Progress ───
+cp "$TEMPLATE_DIR"/progress/phase-gate.json progress/
+cp "$TEMPLATE_DIR"/progress/feature_list.json progress/
+cp "$TEMPLATE_DIR"/progress/claude-progress.txt progress/
+log "✓ progress/"
+
+# ─── Evals ───
+cp "$TEMPLATE_DIR"/evals/acceptance-criteria.json evals/
+cp "$TEMPLATE_DIR"/evals/calibration/false-positives.json evals/calibration/
+log "✓ evals/"
+
+# ─── Docs (only if not already existing) ───
+[[ ! -f docs/SPEC.md ]] && cp "$TEMPLATE_DIR"/docs/SPEC.md docs/
+[[ ! -f docs/ARCHITECTURE.md ]] && cp "$TEMPLATE_DIR"/docs/ARCHITECTURE.md docs/
+log "✓ docs/"
+
+# ═══════════════════════════════════════════════════════════════════
+# CLAUDE.md — process template with conditionals
+# ═══════════════════════════════════════════════════════════════════
+
+cp "$TEMPLATE_DIR"/CLAUDE.md.tmpl CLAUDE.md
+
+# Strip disabled conditional blocks, keep enabled ones (remove markers only)
+strip_conditional() {
+  local flag="$1" tag="$2" file="$3"
+  if [[ "${!flag}" != true ]]; then
+    sedi "/<!-- IF:${tag} -->/,/<!-- ENDIF:${tag} -->/d" "$file"
+  else
+    sedi "/<!-- IF:${tag} -->/d" "$file"
+    sedi "/<!-- ENDIF:${tag} -->/d" "$file"
+  fi
+}
+
+strip_conditional HAS_GO      GO      CLAUDE.md
+strip_conditional HAS_REACT   REACT   CLAUDE.md
+strip_conditional HAS_IOS     IOS     CLAUDE.md
+strip_conditional HAS_ANDROID ANDROID CLAUDE.md
+strip_conditional HAS_PROTO   PROTO   CLAUDE.md
 
 log "✓ CLAUDE.md"
 
 # ═══════════════════════════════════════════════════════════════════
-# 2. .claude/rules/ — Path-scoped rules
+# VARIABLE SUBSTITUTION — {{PROJECT_NAME}}
 # ═══════════════════════════════════════════════════════════════════
 
-# General (always loaded)
-cat > .claude/rules/general.md << 'EOF'
-# General Rules
-- 한국어 주석 OK, 코드·커밋 메시지는 영어
-- PR 제목: `[component] description`
-- main 직접 커밋 금지
-- 공유 패키지 변경 시 의존 패키지 전체 테스트
-EOF
-log "✓ .claude/rules/general.md"
+sedi "s/{{PROJECT_NAME}}/$PROJECT_NAME/g" \
+  CLAUDE.md \
+  progress/feature_list.json \
+  evals/acceptance-criteria.json \
+  docs/SPEC.md \
+  docs/ARCHITECTURE.md
 
-if [[ "$HAS_GO" == true ]]; then
-cat > .claude/rules/go-backend.md << 'GORULE'
----
-paths:
-  - "services/**/*.go"
-  - "packages/**/*.go"
-  - "cmd/**/*.go"
-  - "internal/**/*.go"
----
-# Go Rules
-- Error wrapping: `fmt.Errorf("[context]: %w", err)`
-- context.Context는 첫 번째 파라미터
-- Table-driven tests with t.Run()
-- 구조화 로깅: slog 사용
-- internal/ 패키지 경계 준수
-- cmd/에는 main.go만, 비즈니스 로직 금지
-- 신규 의존성 추가 시 `go mod tidy` 실행
-GORULE
-log "✓ .claude/rules/go-backend.md"
-fi
-
-if [[ "$HAS_REACT" == true ]]; then
-cat > .claude/rules/react-frontend.md << 'REACTRULE'
----
-paths:
-  - "apps/web/**/*.ts"
-  - "apps/web/**/*.tsx"
----
-# React/TypeScript Rules
-- Strict TypeScript: no `any`, no `as` casting
-- Named export, Props interface 같은 파일
-- Custom hooks: use* 접두어, 별도 파일
-- 테스트: Vitest + Testing Library
-REACTRULE
-log "✓ .claude/rules/react-frontend.md"
-fi
-
-if [[ "$HAS_IOS" == true ]]; then
-cat > .claude/rules/ios-swift.md << 'IOSRULE'
----
-paths:
-  - "apps/ios/**/*.swift"
----
-# iOS/Swift Rules
-- SwiftUI 우선, UIKit은 레거시 호환 시만
-- async/await 사용
-- 인증 토큰: Keychain only (UserDefaults 금지)
-- force unwrap 금지
-- 네트워크: URLSession async/await
-IOSRULE
-log "✓ .claude/rules/ios-swift.md"
-fi
-
-if [[ "$HAS_ANDROID" == true ]]; then
-cat > .claude/rules/android-kotlin.md << 'ANDROIDRULE'
----
-paths:
-  - "apps/android/**/*.kt"
-  - "apps/android/**/*.kts"
----
-# Android/Kotlin Rules
-- Kotlin-first, Java 금지 (레거시 제외)
-- Jetpack Compose 우선
-- DI: Hilt
-- Coroutines + Flow
-- ProGuard/R8 규칙 업데이트 확인
-ANDROIDRULE
-log "✓ .claude/rules/android-kotlin.md"
-fi
-
-if [[ "$HAS_SPRING" == true ]]; then
-cat > .claude/rules/spring-boot.md << 'SPRINGRULE'
----
-paths:
-  - "services/legacy/**/*.java"
----
-# Spring Boot Rules (Legacy)
-- Constructor injection (field injection 금지)
-- @Transactional은 서비스 레이어만
-- 새 기능은 Go 마이그레이션 검토 우선
-SPRINGRULE
-log "✓ .claude/rules/spring-boot.md"
-fi
-
-if [[ "$HAS_K8S" == true ]]; then
-cat > .claude/rules/k8s-infra.md << 'K8SRULE'
----
-paths:
-  - "deploy/**/*.yaml"
-  - "deploy/**/*.yml"
----
-# Kubernetes Rules
-- Kustomize overlay: base → dev/staging/prod
-- Image tag: git SHA short
-- SecurityContext: runAsNonRoot=true
-- Resource limits 필수
-- Secret: External Secrets Operator
-K8SRULE
-log "✓ .claude/rules/k8s-infra.md"
-fi
-
-if [[ "$HAS_PROTO" == true ]]; then
-cat > .claude/rules/proto-api.md << 'PROTORULE'
----
-paths:
-  - "proto/**/*.proto"
----
-# Protocol Buffers Rules
-- proto3 syntax
-- 필드 번호 재사용 금지
-- breaking change → 새 버전(v2) 생성
-- 변경 후 `make proto-gen` 필수
-PROTORULE
-log "✓ .claude/rules/proto-api.md"
-fi
+log "✓ 변수 치환 (PROJECT_NAME=$PROJECT_NAME)"
 
 # ═══════════════════════════════════════════════════════════════════
-# 3. HOOKS
-# ═══════════════════════════════════════════════════════════════════
-
-# ─── Session Context ───
-cat > .claude/hooks/session-context.sh << 'HOOKEOF'
-#!/usr/bin/env bash
-set -euo pipefail
-cd "$CLAUDE_PROJECT_DIR" 2>/dev/null || exit 0
-
-BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
-LAST=$(git log --oneline -1 2>/dev/null || echo "none")
-PHASE=$(jq -r '.current_phase // "unknown"' progress/phase-gate.json 2>/dev/null || echo "init")
-PENDING=$(jq '[.features[] | select(.passes == false)] | length' progress/feature_list.json 2>/dev/null || echo "?")
-
-cat <<CTX
-=== Session Context ===
-Branch: $BRANCH | Phase: $PHASE | Pending: $PENDING
-Last: $LAST
-→ progress/claude-progress.txt와 git log 먼저 확인
-CTX
-HOOKEOF
-chmod +x .claude/hooks/session-context.sh
-log "✓ .claude/hooks/session-context.sh"
-
-# ─── Pre-bash Firewall ───
-cat > .claude/hooks/pre-bash-firewall.sh << 'HOOKEOF'
-#!/usr/bin/env bash
-set -euo pipefail
-INPUT=$(cat)
-CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || echo "")
-[[ -z "$CMD" ]] && exit 0
-
-BLOCKED=(
-  "rm -rf /"
-  "git push.*--force"
-  "git reset --hard"
-  "kubectl delete namespace"
-  "DROP TABLE"
-  "DROP DATABASE"
-)
-
-for p in "${BLOCKED[@]}"; do
-  if echo "$CMD" | grep -qiE "$p"; then
-    echo "BLOCKED: 위험 명령어 — '$p'" >&2
-    exit 2
-  fi
-done
-exit 0
-HOOKEOF
-chmod +x .claude/hooks/pre-bash-firewall.sh
-log "✓ .claude/hooks/pre-bash-firewall.sh"
-
-# ─── Post-edit Format (language-aware) ───
-cat > .claude/hooks/post-edit-format.sh << 'HOOKEOF'
-#!/usr/bin/env bash
-set -euo pipefail
-INPUT=$(cat)
-FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || echo "")
-[[ -z "$FILE" ]] && exit 0
-cd "$CLAUDE_PROJECT_DIR" 2>/dev/null || exit 0
-
-case "$FILE" in
-  *.go)       gofmt -w "$FILE" 2>/dev/null; goimports -w "$FILE" 2>/dev/null ;;
-  *.swift)    swiftformat "$FILE" 2>/dev/null ;;
-  *.kt|*.kts) ktlint --format "$FILE" 2>/dev/null ;;
-  *.ts|*.tsx|*.js|*.jsx) npx prettier --write "$FILE" 2>/dev/null ;;
-  *.java)     google-java-format -i "$FILE" 2>/dev/null ;;
-  *.proto)    buf format -w "$FILE" 2>/dev/null ;;
-  *.json)     jq '.' "$FILE" > "$FILE.tmp" 2>/dev/null && mv "$FILE.tmp" "$FILE" ;;
-esac
-exit 0
-HOOKEOF
-chmod +x .claude/hooks/post-edit-format.sh
-log "✓ .claude/hooks/post-edit-format.sh"
-
-# ─── Pre-commit Gate ───
-cat > .claude/hooks/pre-commit-gate.sh << 'HOOKEOF'
-#!/usr/bin/env bash
-set -euo pipefail
-INPUT=$(cat)
-echo "$INPUT" | jq -r '.stop_hook_active' 2>/dev/null | grep -q "true" && exit 0
-cd "$CLAUDE_PROJECT_DIR" 2>/dev/null || exit 0
-
-CHANGED=$(git diff --name-only HEAD 2>/dev/null || echo "")
-[[ -z "$CHANGED" ]] && exit 0
-ERRS=()
-
-# Go
-if echo "$CHANGED" | grep -q '\.go$'; then
-  PKGS=$(echo "$CHANGED" | grep '\.go$' | xargs -I{} dirname {} | sort -u)
-  for p in $PKGS; do
-    go test "./$p/..." -count=1 -timeout=60s 2>/dev/null || ERRS+=("go test: $p")
-  done
-fi
-
-# TypeScript
-if echo "$CHANGED" | grep -qE '\.(ts|tsx)$'; then
-  if [[ -f "apps/web/package.json" ]]; then
-    (cd apps/web && npx tsc --noEmit 2>/dev/null) || ERRS+=("tsc type check")
-  fi
-fi
-
-# Proto
-if echo "$CHANGED" | grep -q '\.proto$'; then
-  buf lint 2>/dev/null || ERRS+=("buf lint")
-fi
-
-if [ ${#ERRS[@]} -gt 0 ]; then
-  printf "Quality Gate FAILED:\n" >&2
-  for e in "${ERRS[@]}"; do printf "  - %s\n" "$e" >&2; done
-  exit 2
-fi
-exit 0
-HOOKEOF
-chmod +x .claude/hooks/pre-commit-gate.sh
-log "✓ .claude/hooks/pre-commit-gate.sh"
-
-# ═══════════════════════════════════════════════════════════════════
-# 4. .claude/settings.json
-# ═══════════════════════════════════════════════════════════════════
-
-cat > .claude/settings.json << 'SETTINGS'
-{
-  "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup",
-        "hooks": [{ "type": "command", "command": ".claude/hooks/session-context.sh" }]
-      },
-      {
-        "matcher": "compact",
-        "hooks": [{ "type": "command", "command": ".claude/hooks/session-context.sh" }]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [{ "type": "command", "command": ".claude/hooks/pre-bash-firewall.sh" }]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit|MultiEdit",
-        "hooks": [{ "type": "command", "command": ".claude/hooks/post-edit-format.sh" }]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [{ "type": "command", "command": ".claude/hooks/pre-commit-gate.sh", "timeout": 120 }]
-      }
-    ]
-  }
-}
-SETTINGS
-log "✓ .claude/settings.json"
-
-# ═══════════════════════════════════════════════════════════════════
-# 5. AGENTS
-# ═══════════════════════════════════════════════════════════════════
-
-cat > .claude/agents/spec-writer.md << 'AGENTEOF'
-# Spec Writer Agent
-
-## Role
-사용자 요구사항을 체계적 스펙으로 변환
-
-## Process
-1. AskUserQuestion으로 상세 인터뷰
-2. docs/SPEC.md 작성
-3. progress/feature_list.json 생성 (모든 기능 passes: false)
-4. evals/acceptance-criteria.json 생성
-
-## Constraints
-- 코드 작성 금지, 문서만 작성
-- 모호한 요구사항은 반드시 질문
-AGENTEOF
-
-cat > .claude/agents/architect.md << 'AGENTEOF'
-# Architect Agent
-
-## Role
-SPEC.md 기반으로 기술 아키텍처 설계
-
-## Process
-1. docs/SPEC.md 읽기
-2. docs/ARCHITECTURE.md 작성 (Mermaid 다이어그램 포함)
-3. docs/API-DESIGN.md 작성
-4. docs/DECISIONS/에 ADR 작성
-
-## Constraints
-- 비즈니스 로직 구현 금지
-- 스캐폴딩만 가능 (디렉토리, interface)
-AGENTEOF
-
-cat > .claude/agents/implementer.md << 'AGENTEOF'
-# Implementer Agent
-
-## Role
-feature_list.json에서 기능을 선택하여 구현
-
-## Process
-1. progress/claude-progress.txt + git log 확인
-2. feature_list.json에서 미완료 기능 중 최우선 선택
-3. 해당 디렉토리의 CLAUDE.md 읽기
-4. 기능 구현 + 테스트 작성
-5. 린트 + 테스트 실행
-6. passes → true, git commit, progress 업데이트
-
-## Constraints
-- 한 세션에 1-2개 기능만
-- feature_list.json 테스트 삭제 금지
-AGENTEOF
-
-cat > .claude/agents/security-auditor.md << 'AGENTEOF'
-# Security Auditor Agent
-
-## Role
-코드베이스 보안 취약점 탐지 및 리포트
-
-## Process
-1. 언어별 보안 스캔 (gosec, govulncheck, npm audit 등)
-2. OWASP Top 10 기준 수동 리뷰
-3. Secret 하드코딩 검사
-4. K8s SecurityContext 검증
-5. progress/security-report.json 작성
-
-## Constraints
-- 보안 이슈 발견 시 즉시 보고
-AGENTEOF
-
-cat > .claude/agents/test-writer.md << 'AGENTEOF'
-# Test Writer Agent
-
-## Role
-통합/E2E 테스트 작성 및 실행
-
-## Process
-1. evals/acceptance-criteria.json 읽기
-2. 통합 테스트 작성
-3. 전체 테스트 실행 + 커버리지 리포트
-4. progress/test-report.json 기록
-AGENTEOF
-
-cat > .claude/agents/deploy-operator.md << 'AGENTEOF'
-# Deploy Operator Agent
-
-## Role
-검증 완료된 코드를 배포
-
-## Process
-1. Phase Gate 확인 (검증 완료 여부)
-2. 이미지 빌드 + 태깅
-3. K8s manifest 업데이트
-4. staging 배포 → 스모크 테스트
-5. progress/deploy-log.json 기록
-
-## Constraints
-- 검증 미통과 시 배포 거부
-- staging 먼저, prod 나중에
-AGENTEOF
-log "✓ .claude/agents/ (6 agents)"
-
-# ═══════════════════════════════════════════════════════════════════
-# 6. PROGRESS FILES
-# ═══════════════════════════════════════════════════════════════════
-
-cat > progress/claude-progress.txt << 'PROGRESS'
-# Claude Progress Log
-# 각 세션 종료 시 업데이트
-
-## Latest
-- Harness 초기화 완료
-PROGRESS
-
-cat > progress/feature_list.json << 'FEATURES'
-{
-  "project": "",
-  "features": []
-}
-FEATURES
-# project name injection
-if command -v jq &>/dev/null; then
-  jq --arg name "$PROJECT_NAME" '.project = $name' progress/feature_list.json > progress/feature_list.json.tmp \
-    && mv progress/feature_list.json.tmp progress/feature_list.json
-else
-  sed -i "s/\"project\": \"\"/\"project\": \"$PROJECT_NAME\"/" progress/feature_list.json
-fi
-
-cat > progress/phase-gate.json << 'PHASEGATE'
-{
-  "current_phase": "specification",
-  "phases": {
-    "specification": {
-      "status": "pending",
-      "criteria": {
-        "spec_written": false,
-        "feature_list_created": false,
-        "acceptance_criteria_defined": false,
-        "user_approved": false
-      }
-    },
-    "architecture": {
-      "status": "pending",
-      "criteria": {
-        "architecture_doc": false,
-        "api_design": false,
-        "adr_written": false
-      }
-    },
-    "implementation": {
-      "status": "pending",
-      "criteria": {
-        "all_features_passing": false,
-        "lint_clean": false
-      }
-    },
-    "verification": {
-      "status": "pending",
-      "criteria": {
-        "tests_pass": false,
-        "security_scan_clean": false,
-        "qa_review_complete": false
-      }
-    },
-    "deployment": {
-      "status": "pending",
-      "criteria": {
-        "staging_deployed": false,
-        "smoke_test_pass": false
-      }
-    },
-    "observability": {
-      "status": "pending",
-      "criteria": {
-        "metrics_instrumented": false,
-        "logging_structured": false,
-        "alerts_configured": false
-      }
-    }
-  }
-}
-PHASEGATE
-log "✓ progress/ (phase-gate, feature_list, progress)"
-
-# ═══════════════════════════════════════════════════════════════════
-# 7. EVALS
-# ═══════════════════════════════════════════════════════════════════
-
-cat > evals/acceptance-criteria.json << 'EVALS'
-{
-  "project": "",
-  "criteria": []
-}
-EVALS
-if command -v jq &>/dev/null; then
-  jq --arg name "$PROJECT_NAME" '.project = $name' evals/acceptance-criteria.json > evals/acceptance-criteria.json.tmp \
-    && mv evals/acceptance-criteria.json.tmp evals/acceptance-criteria.json
-else
-  sed -i "s/\"project\": \"\"/\"project\": \"$PROJECT_NAME\"/" evals/acceptance-criteria.json
-fi
-
-# ═══════════════════════════════════════════════════════════════════
-# 8. DOCS STUBS
-# ═══════════════════════════════════════════════════════════════════
-
-[[ ! -f docs/SPEC.md ]] && echo "# $PROJECT_NAME — Specification\n\n> Phase 1에서 spec-writer agent가 작성" > docs/SPEC.md
-[[ ! -f docs/ARCHITECTURE.md ]] && echo "# $PROJECT_NAME — Architecture\n\n> Phase 2에서 architect agent가 작성" > docs/ARCHITECTURE.md
-
-# ═══════════════════════════════════════════════════════════════════
-# 9. MAKEFILE (if not exists)
+# MAKEFILE (if not exists)
 # ═══════════════════════════════════════════════════════════════════
 
 if [[ ! -f Makefile ]]; then
-cat > Makefile << 'MAKEFILE'
-.PHONY: help
-help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
-
-# ─── Go ───
-.PHONY: test-go lint-go
-test-go: ## Run Go tests
-	@for dir in $$(find . -name 'go.mod' -not -path '*/vendor/*' -exec dirname {} \;); do \
-		echo "Testing $$dir..."; (cd "$$dir" && go test ./... -count=1 -timeout=120s) || exit 1; \
-	done
-
-lint-go: ## Lint Go code
-	@for dir in $$(find . -name 'go.mod' -not -path '*/vendor/*' -exec dirname {} \;); do \
-		echo "Linting $$dir..."; (cd "$$dir" && golangci-lint run) || exit 1; \
-	done
-
-security-go: ## Security scan Go
-	@for dir in $$(find . -name 'go.mod' -not -path '*/vendor/*' -exec dirname {} \;); do \
-		(cd "$$dir" && gosec ./... && govulncheck ./...) || exit 1; \
-	done
-
-MAKEFILE
-
-# Conditional targets
-if [[ "$HAS_REACT" == true ]]; then
-cat >> Makefile << 'MK'
-
-# ─── Web ───
-.PHONY: test-web lint-web
-test-web: ## Run web tests
-	cd apps/web && pnpm test
-
-lint-web: ## Lint web code
-	cd apps/web && pnpm lint
-MK
-fi
-
-if [[ "$HAS_IOS" == true ]]; then
-cat >> Makefile << 'MK'
-
-# ─── iOS ───
-.PHONY: test-ios lint-ios
-test-ios: ## Run iOS tests
-	cd apps/ios && xcodebuild test -scheme MerchantApp -destination 'platform=iOS Simulator,name=iPhone 16'
-
-lint-ios: ## Lint Swift code
-	cd apps/ios && swiftlint
-MK
-fi
-
-if [[ "$HAS_ANDROID" == true ]]; then
-cat >> Makefile << 'MK'
-
-# ─── Android ───
-.PHONY: test-android lint-android
-test-android: ## Run Android tests
-	cd apps/android && ./gradlew testDebugUnitTest
-
-lint-android: ## Lint Kotlin code
-	cd apps/android && ./gradlew ktlintCheck
-MK
-fi
-
-if [[ "$HAS_PROTO" == true ]]; then
-cat >> Makefile << 'MK'
-
-# ─── Proto ───
-.PHONY: proto-gen proto-lint
-proto-gen: ## Generate protobuf code
-	buf generate proto/
-
-proto-lint: ## Lint protobuf
-	buf lint proto/
-	buf breaking --against '.git#branch=main' proto/
-MK
-fi
-
-if [[ "$HAS_K8S" == true ]]; then
-cat >> Makefile << 'MK'
-
-# ─── Deploy ───
-IMAGE_TAG ?= $(shell git rev-parse --short HEAD)
-
-.PHONY: deploy-staging
-deploy-staging: ## Deploy to staging
-	kustomize build deploy/k8s/overlays/staging | kubectl apply -f -
-	kubectl rollout status deployment -l app=$(shell basename $(CURDIR)) --timeout=300s
-MK
-fi
-
-# All targets
-cat >> Makefile << 'MK'
-
-# ─── All ───
-.PHONY: test-all lint-all
-test-all: test-go ## Run all tests
-lint-all: lint-go ## Run all linters
-MK
-
-log "✓ Makefile"
+  cp "$TEMPLATE_DIR"/Makefile.base Makefile
+  [[ "$HAS_REACT" == true ]]   && cat "$TEMPLATE_DIR"/Makefile.react   >> Makefile
+  [[ "$HAS_IOS" == true ]]     && cat "$TEMPLATE_DIR"/Makefile.ios     >> Makefile
+  [[ "$HAS_ANDROID" == true ]] && cat "$TEMPLATE_DIR"/Makefile.android >> Makefile
+  [[ "$HAS_PROTO" == true ]]   && cat "$TEMPLATE_DIR"/Makefile.proto   >> Makefile
+  [[ "$HAS_K8S" == true ]]     && cat "$TEMPLATE_DIR"/Makefile.k8s     >> Makefile
+  cat "$TEMPLATE_DIR"/Makefile.tail >> Makefile
+  log "✓ Makefile"
 fi
 
 # ═══════════════════════════════════════════════════════════════════
-# 10. .gitignore additions
+# .gitignore additions
 # ═══════════════════════════════════════════════════════════════════
 
 GITIGNORE_ADDITIONS=(
   "CLAUDE.local.md"
   ".claude/settings.local.json"
   "trace/"
+  "progress/session-handoff-draft.json"
+  "evals/screenshots/"
 )
 
 for entry in "${GITIGNORE_ADDITIONS[@]}"; do
@@ -826,6 +318,14 @@ for entry in "${GITIGNORE_ADDITIONS[@]}"; do
   fi
 done
 log "✓ .gitignore updated"
+
+# ═══════════════════════════════════════════════════════════════════
+# CLEANUP
+# ═══════════════════════════════════════════════════════════════════
+
+if [[ "$CLEANUP_TEMP" == true ]]; then
+  rm -rf "/tmp/cc-harness-$$"
+fi
 
 # ═══════════════════════════════════════════════════════════════════
 # SUMMARY
@@ -844,14 +344,19 @@ if command -v tree &>/dev/null; then
 else
   echo "  .claude/"
   echo "    ├── settings.json     (hooks 설정)"
-  echo "    ├── agents/           (6 sub-agents)"
-  echo "    ├── hooks/            (4 hook scripts)"
+  echo "    ├── agents/           (7 agents — evaluator 포함)"
+  echo "    ├── hooks/            (5 hook scripts)"
   echo "    ├── rules/            (path-scoped rules)"
   echo "    └── skills/           (빈 폴더, 필요 시 추가)"
   echo "  progress/"
-  echo "    ├── phase-gate.json"
+  echo "    ├── phase-gate.json   (iteration 추적 포함)"
   echo "    ├── feature_list.json"
-  echo "    └── claude-progress.txt"
+  echo "    ├── claude-progress.txt"
+  echo "    ├── agent-comms/      (에이전트 간 통신)"
+  echo "    └── contracts/        (sprint contracts)"
+  echo "  evals/"
+  echo "    ├── acceptance-criteria.json"
+  echo "    └── calibration/      (evaluator 보정 데이터)"
   echo "  docs/"
   echo "    ├── SPEC.md"
   echo "    └── ARCHITECTURE.md"
@@ -871,6 +376,10 @@ echo "  3. Phase 1 (기획) 시작:"
 echo '     "SPEC.md를 작성해줘. AskUserQuestion으로 상세 인터뷰부터 시작해.'
 echo '      완료 후 feature_list.json과 acceptance-criteria.json 생성해."'
 echo ""
+echo "  4. 구현 후 평가:"
+echo '     "evaluator agent로 구현 결과를 검증해줘."'
+echo ""
 echo -e "  ${YELLOW}Tip:${NC} CLAUDE.md는 /init 결과보다 수동 정제가 낫습니다."
 echo -e "  ${YELLOW}Tip:${NC} 실패 패턴 발견 시 → rules/ 또는 hooks/에 가드레일 추가"
+echo -e "  ${YELLOW}Tip:${NC} evaluator가 너무 관대/엄격하면 evals/calibration/에 오판 기록 추가"
 echo ""

@@ -1,0 +1,5 @@
+
+# ─── All ───
+.PHONY: test-all lint-all
+test-all: test-go ## Run all tests
+lint-all: lint-go ## Run all linters

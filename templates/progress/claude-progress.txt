@@ -1,0 +1,5 @@
+# Claude Progress Log
+# 각 세션 종료 시 업데이트
+
+## Latest
+- Harness 초기화 완료

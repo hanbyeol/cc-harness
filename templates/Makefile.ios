@@ -1,0 +1,8 @@
+
+# ─── iOS ───
+.PHONY: test-ios lint-ios
+test-ios: ## Run iOS tests
+	cd apps/ios && xcodebuild test -scheme MerchantApp -destination 'platform=iOS Simulator,name=iPhone 16'
+
+lint-ios: ## Lint Swift code
+	cd apps/ios && swiftlint

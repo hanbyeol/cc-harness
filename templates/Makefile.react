@@ -1,0 +1,8 @@
+
+# ─── Web ───
+.PHONY: test-web lint-web
+test-web: ## Run web tests
+	cd apps/web && pnpm test
+
+lint-web: ## Lint web code
+	cd apps/web && pnpm lint

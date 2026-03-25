@@ -1,0 +1,8 @@
+
+# ─── Android ───
+.PHONY: test-android lint-android
+test-android: ## Run Android tests
+	cd apps/android && ./gradlew testDebugUnitTest
+
+lint-android: ## Lint Kotlin code
+	cd apps/android && ./gradlew ktlintCheck

@@ -1,0 +1,9 @@
+
+# ─── Proto ───
+.PHONY: proto-gen proto-lint
+proto-gen: ## Generate protobuf code
+	buf generate proto/
+
+proto-lint: ## Lint protobuf
+	buf lint proto/
+	buf breaking --against '.git#branch=main' proto/

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+INPUT=$(cat)
+echo "$INPUT" | jq -r '.stop_hook_active' 2>/dev/null | grep -q "true" && exit 0
+cd "$CLAUDE_PROJECT_DIR" 2>/dev/null || exit 0
+
+CHANGED=$(git diff --name-only HEAD 2>/dev/null || echo "")
+[[ -z "$CHANGED" ]] && exit 0
+ERRS=()
+
+# Go
+if echo "$CHANGED" | grep -q '\.go$'; then
+  PKGS=$(echo "$CHANGED" | grep '\.go$' | xargs -I{} dirname {} | sort -u)
+  for p in $PKGS; do
+    go test "./$p/..." -count=1 -timeout=60s 2>/dev/null || ERRS+=("go test: $p")
+  done
+fi
+
+# TypeScript
+if echo "$CHANGED" | grep -qE '\.(ts|tsx)$'; then
+  if [[ -f "apps/web/package.json" ]]; then
+    (cd apps/web && npx tsc --noEmit 2>/dev/null) || ERRS+=("tsc type check")
+  fi
+fi
+
+# Proto
+if echo "$CHANGED" | grep -q '\.proto$'; then
+  buf lint 2>/dev/null || ERRS+=("buf lint")
+fi
+
+if [ ${#ERRS[@]} -gt 0 ]; then
+  printf "Quality Gate FAILED:\n" >&2
+  for e in "${ERRS[@]}"; do printf "  - %s\n" "$e" >&2; done
+  exit 2
+fi
+exit 0

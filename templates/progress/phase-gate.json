@@ -1,0 +1,57 @@
+{
+  "current_phase": "specification",
+  "phases": {
+    "specification": {
+      "status": "pending",
+      "criteria": {
+        "spec_written": false,
+        "feature_list_created": false,
+        "acceptance_criteria_defined": false,
+        "user_approved": false
+      }
+    },
+    "architecture": {
+      "status": "pending",
+      "criteria": {
+        "architecture_doc": false,
+        "api_design": false,
+        "adr_written": false
+      }
+    },
+    "implementation": {
+      "status": "pending",
+      "current_iteration": 0,
+      "max_iterations": 5,
+      "pass_threshold": 7,
+      "iterations": [],
+      "criteria": {
+        "all_features_passing": false,
+        "evaluator_approved": false,
+        "lint_clean": false
+      }
+    },
+    "verification": {
+      "status": "pending",
+      "criteria": {
+        "tests_pass": false,
+        "security_scan_clean": false,
+        "evaluator_final_pass": false
+      }
+    },
+    "deployment": {
+      "status": "pending",
+      "criteria": {
+        "staging_deployed": false,
+        "smoke_test_pass": false
+      }
+    },
+    "observability": {
+      "status": "pending",
+      "criteria": {
+        "metrics_instrumented": false,
+        "logging_structured": false,
+        "alerts_configured": false
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+.PHONY: help
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+# ─── Go ───
+.PHONY: test-go lint-go
+test-go: ## Run Go tests
+	@for dir in $$(find . -name 'go.mod' -not -path '*/vendor/*' -exec dirname {} \;); do \
+		echo "Testing $$dir..."; (cd "$$dir" && go test ./... -count=1 -timeout=120s) || exit 1; \
+	done
+
+lint-go: ## Lint Go code
+	@for dir in $$(find . -name 'go.mod' -not -path '*/vendor/*' -exec dirname {} \;); do \
+		echo "Linting $$dir..."; (cd "$$dir" && golangci-lint run) || exit 1; \
+	done
+
+security-go: ## Security scan Go
+	@for dir in $$(find . -name 'go.mod' -not -path '*/vendor/*' -exec dirname {} \;); do \
+		(cd "$$dir" && gosec ./... && govulncheck ./...) || exit 1; \
+	done

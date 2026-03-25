@@ -1,0 +1,8 @@
+
+# ─── Deploy ───
+IMAGE_TAG ?= $(shell git rev-parse --short HEAD)
+
+.PHONY: deploy-staging
+deploy-staging: ## Deploy to staging
+	kustomize build deploy/k8s/overlays/staging | kubectl apply -f -
+	kubectl rollout status deployment -l app=$(shell basename $(CURDIR)) --timeout=300s
