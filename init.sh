@@ -325,7 +325,13 @@ if [[ "$UPDATE" == true ]]; then
     SKIPPED=$((SKIPPED + 1))
   fi
 
-  # ─── 7. Evals calibration: add if missing, don't touch if exists ───
+  # ─── 7. Skills: always overwrite (harness infra) ───
+  info "Skills 업데이트..."
+  for f in "$TEMPLATE_DIR"/claude/skills/*.md; do
+    [[ -f "$f" ]] && update_file "$f" ".claude/skills/$(basename "$f")" "overwrite"
+  done
+
+  # ─── 8. Evals calibration: add if missing, don't touch if exists ───
   mkdir -p evals/calibration
   if [[ ! -f evals/calibration/false-positives.json ]]; then
     cp "$TEMPLATE_DIR"/evals/calibration/false-positives.json evals/calibration/
@@ -333,10 +339,10 @@ if [[ "$UPDATE" == true ]]; then
     UPDATED=$((UPDATED + 1))
   fi
 
-  # ─── 8. New directories: ensure they exist ───
+  # ─── 9. New directories: ensure they exist ───
   mkdir -p progress/agent-comms progress/contracts docs/DECISIONS evals/calibration
 
-  # ─── 9. .gitignore additions ───
+  # ─── 10. .gitignore additions ───
   GITIGNORE_ADDITIONS=(
     "CLAUDE.local.md"
     ".claude/settings.local.json"
@@ -487,6 +493,10 @@ log "✓ .claude/hooks/ (5 hooks)"
 cp "$TEMPLATE_DIR"/claude/settings.json .claude/settings.json
 log "✓ .claude/settings.json"
 
+# ─── Skills ───
+cp "$TEMPLATE_DIR"/claude/skills/*.md .claude/skills/ 2>/dev/null || true
+log "✓ .claude/skills/ (4 skills)"
+
 # ─── Rules (always-included) ───
 cp "$TEMPLATE_DIR"/claude/rules/general.md .claude/rules/
 log "✓ .claude/rules/general.md"
@@ -625,7 +635,7 @@ else
   echo "    ├── agents/           (8 agents — evaluator + QA)"
   echo "    ├── hooks/            (5 hook scripts)"
   echo "    ├── rules/            (path-scoped rules)"
-  echo "    └── skills/           (빈 폴더, 필요 시 추가)"
+  echo "    └── skills/           (4 skills: change-request, sync-docs, progress, implement)"
   echo "  progress/"
   echo "    ├── phase-gate.json   (iteration 추적 포함)"
   echo "    ├── feature_list.json"

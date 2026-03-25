@@ -47,6 +47,12 @@ Correctness > Safety > Speed
 - 각 에이전트는 자신의 output 파일 작성, 다음 에이전트의 input 파일 참조
 - 세션 간 상태 전달은 progress/session-handoff.json으로 자동 수행
 
+## Skills (Slash Commands)
+- `/change-request {설명}` — 기능 변경/추가/삭제 시 산출물 연쇄 업데이트
+- `/sync-docs` — 구현과 문서 간 drift 탐지 및 동기화
+- `/progress` — 진행 현황 대시보드 (phase gate, features, evaluator 피드백)
+- `/implement [F{n}]` — Sprint Contract → 구현 → Evaluator 검증 가이드
+
 ## Phase Gate
 - progress/phase-gate.json 확인 후 현재 단계에 맞는 작업
 - Phase 미통과 시 다음 단계 진입 금지
