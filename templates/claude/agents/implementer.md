@@ -19,13 +19,25 @@ feature_list.json에서 기능을 선택하여 구현.
    - 구현할 기능, 완료 기준, 테스트 시나리오 명시
    - **보안 체크리스트 항목 포함 (security_tier에 따라)**
    - **에러/엣지 케이스 시나리오 포함**
-6. 해당 디렉토리의 CLAUDE.md 읽기
-7. 기능 구현 + 테스트 작성
+6. **기준 검증 (Sprint Contract 작성 중 필수)**
+   - evals/acceptance-criteria.json과 Sprint Contract의 acceptance_criteria 대조
+   - 누락/모호/불일치 발견 시 **코드 작성 전에** 상위 산출물 보완:
+     - evals/acceptance-criteria.json — 누락된 기준 추가, 모호한 기준 구체화
+     - docs/SPEC.md — 요구사항 누락 시 해당 섹션 보완
+     - docs/SECURITY-CHECKLIST.md — 보안 요건 누락 시 추가
+   - 보완 내역을 output의 `criteria_backfill`에 기록
+7. 해당 디렉토리의 CLAUDE.md 읽기
+8. 기능 구현 + 테스트 작성
    - security_tier: critical → 보안 테스트 필수 (인가 우회, 입력 검증, 시크릿 노출)
    - 에러 경로도 테스트 (잘못된 입력, 권한 부족, 리소스 없음)
-8. **구현 완료 전 self-check**: Security Checklist 항목 충족 여부 확인
-9. 린트 + 테스트 실행
-10. git commit + progress 업데이트
+9. **구현 중 기준 갭 발견 시 즉시 보완**
+   - 구현하면서 acceptance criteria에 없는 엣지 케이스, 에러 시나리오 발견 시:
+     - evals/acceptance-criteria.json에 해당 기준 추가
+     - Sprint Contract의 error_scenarios/test_scenarios에도 반영
+   - **기준 보완 후 구현 계속** (코드만 작성하고 기준 업데이트를 미루지 않는다)
+10. **구현 완료 전 self-check**: Security Checklist 항목 충족 여부 확인
+11. 린트 + 테스트 실행
+12. git commit + progress 업데이트
 
 ## Output
 ```json
@@ -42,6 +54,13 @@ feature_list.json에서 기능을 선택하여 구현.
     "notes": "JWT secret loaded from env, input validation on all endpoints"
   },
   "error_scenarios_tested": ["invalid credentials", "expired token", "missing header"],
+  "criteria_backfill": {
+    "acceptance_criteria_added": ["GET /me returns 401 when token is malformed"],
+    "error_scenarios_added": ["malformed JWT → 401 with 'invalid_token' code"],
+    "spec_updated": false,
+    "security_checklist_updated": false,
+    "reason": "구현 중 malformed JWT 케이스가 acceptance criteria에 누락된 것을 발견"
+  },
   "self_notes": "error handling in edge case X needs review",
   "ready_for": "evaluation"
 }

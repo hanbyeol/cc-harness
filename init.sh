@@ -82,6 +82,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ─── Detect project root ───
+if ! command -v git &>/dev/null; then
+  err "git이 설치되어 있지 않습니다."
+  exit 1
+fi
+
 if ! git rev-parse --is-inside-work-tree &>/dev/null; then
   err "git 리포지토리가 아닙니다. 프로젝트 루트에서 실행하세요."
   exit 1
@@ -94,6 +99,13 @@ if [[ -z "$PROJECT_NAME" ]]; then
   PROJECT_NAME=$(basename "$PROJECT_ROOT")
 fi
 
+# Validate PROJECT_NAME (alphanumeric, hyphens, underscores, dots only)
+if ! [[ "$PROJECT_NAME" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+  err "프로젝트 이름에 허용되지 않는 문자가 포함되어 있습니다: $PROJECT_NAME"
+  err "영문, 숫자, 하이픈(-), 언더스코어(_), 점(.)만 사용 가능합니다."
+  exit 1
+fi
+
 # ═══════════════════════════════════════════════════════════════════
 # RESOLVE TEMPLATE SOURCE
 # ═══════════════════════════════════════════════════════════════════
@@ -103,10 +115,19 @@ TEMPLATE_DIR="$SCRIPT_DIR/templates"
 CLEANUP_TEMP=false
 
 if [[ ! -d "$TEMPLATE_DIR" ]]; then
-  TEMPLATE_DIR="/tmp/cc-harness-$$"
+  TEMP_CLONE="/tmp/cc-harness-$$"
   log "템플릿 다운로드 중..."
-  git clone --depth 1 https://github.com/hanbyeol/cc-harness.git "$TEMPLATE_DIR" 2>/dev/null
-  TEMPLATE_DIR="$TEMPLATE_DIR/templates"
+  if ! git clone --depth 1 https://github.com/hanbyeol/cc-harness.git "$TEMP_CLONE" 2>&1 | tail -3; then
+    err "템플릿 다운로드 실패. 인터넷 연결을 확인하세요."
+    rm -rf "$TEMP_CLONE"
+    exit 1
+  fi
+  TEMPLATE_DIR="$TEMP_CLONE/templates"
+  if [[ ! -d "$TEMPLATE_DIR" ]]; then
+    err "다운로드된 템플릿 구조가 올바르지 않습니다."
+    rm -rf "$TEMP_CLONE"
+    exit 1
+  fi
   CLEANUP_TEMP=true
 fi
 
@@ -117,7 +138,7 @@ fi
 if [[ "$UPDATE" == true ]]; then
   if [[ ! -d ".claude" ]]; then
     err "harness가 설치되어 있지 않습니다. --update 대신 init을 먼저 실행하세요."
-    [[ "$CLEANUP_TEMP" == true ]] && rm -rf "/tmp/cc-harness-$$"
+    [[ "$CLEANUP_TEMP" == true ]] && [[ -d "/tmp/cc-harness-$$" ]] && rm -rf "/tmp/cc-harness-$$"
     exit 1
   fi
 
@@ -191,7 +212,11 @@ if [[ "$UPDATE" == true ]]; then
     esac
   }
 
-  # ─── Detect preset from installed rules ───
+  # ─── Detect preset from saved info or installed rules ───
+  if [[ -z "$PRESET" ]] && [[ -f .claude/preset.txt ]]; then
+    PRESET=$(cat .claude/preset.txt)
+    log "저장된 프리셋 사용: $PRESET"
+  fi
   if [[ -z "$PRESET" ]]; then
     HAS_GO=false; HAS_REACT=false; HAS_IOS=false; HAS_ANDROID=false
     HAS_SPRING=false; HAS_K8S=false; HAS_PROTO=false
@@ -202,7 +227,7 @@ if [[ "$UPDATE" == true ]]; then
     [[ -f .claude/rules/spring-boot.md ]]      && HAS_SPRING=true
     [[ -f .claude/rules/k8s-infra.md ]]        && HAS_K8S=true
     [[ -f .claude/rules/proto-api.md ]]        && HAS_PROTO=true
-    log "기존 설치에서 프리셋 자동 감지"
+    log "기존 설치에서 프리셋 자동 감지 (fallback)"
   else
     # Use preset flags as in init mode
     HAS_GO=false; HAS_REACT=false; HAS_IOS=false; HAS_ANDROID=false
@@ -272,13 +297,17 @@ if [[ "$UPDATE" == true ]]; then
   strip_conditional_file HAS_IOS     IOS     "$CLAUDE_MD_TMP"
   strip_conditional_file HAS_ANDROID ANDROID "$CLAUDE_MD_TMP"
   strip_conditional_file HAS_PROTO   PROTO   "$CLAUDE_MD_TMP"
-  sedi "s/{{PROJECT_NAME}}/$PROJECT_NAME/g" "$CLAUDE_MD_TMP"
+  sedi "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "$CLAUDE_MD_TMP"
 
   update_file "$CLAUDE_MD_TMP" "CLAUDE.md" "merge"
   rm -f "$CLAUDE_MD_TMP"
 
   # ─── 6. Phase gate: schema merge (add new criteria, preserve values) ───
   info "Phase gate 스키마 업데이트..."
+  if ! command -v jq &>/dev/null; then
+    warn "jq가 설치되어 있지 않습니다. phase-gate 병합 및 일부 기능이 제한됩니다."
+    warn "설치: brew install jq (macOS) / apt install jq (Linux)"
+  fi
   if command -v jq &>/dev/null && [[ -f progress/phase-gate.json ]]; then
     # Deep merge: template provides new keys/structure, existing values are preserved
     MERGED=$(jq -s '
@@ -501,7 +530,7 @@ for skill_dir in "$TEMPLATE_DIR"/claude/skills/*/; do
   [[ -d "$skill_dir" ]] || continue
   skill_name=$(basename "$skill_dir")
   mkdir -p ".claude/skills/$skill_name"
-  cp "$skill_dir"SKILL.md ".claude/skills/$skill_name/SKILL.md"
+  cp "$skill_dir/SKILL.md" ".claude/skills/$skill_name/SKILL.md"
 done
 log "✓ .claude/skills/ (4 skills)"
 
@@ -568,11 +597,15 @@ strip_conditional HAS_PROTO   PROTO   CLAUDE.md
 
 log "✓ CLAUDE.md"
 
+# ─── Save preset info for future --update ───
+echo "$PRESET" > .claude/preset.txt
+log "✓ .claude/preset.txt (preset=$PRESET)"
+
 # ═══════════════════════════════════════════════════════════════════
 # VARIABLE SUBSTITUTION — {{PROJECT_NAME}}
 # ═══════════════════════════════════════════════════════════════════
 
-sedi "s/{{PROJECT_NAME}}/$PROJECT_NAME/g" \
+sedi "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" \
   CLAUDE.md \
   progress/feature_list.json \
   evals/acceptance-criteria.json \
@@ -619,7 +652,7 @@ log "✓ .gitignore updated"
 # CLEANUP
 # ═══════════════════════════════════════════════════════════════════
 
-if [[ "$CLEANUP_TEMP" == true ]]; then
+if [[ "$CLEANUP_TEMP" == true ]] && [[ -d "/tmp/cc-harness-$$" ]]; then
   rm -rf "/tmp/cc-harness-$$"
 fi
 

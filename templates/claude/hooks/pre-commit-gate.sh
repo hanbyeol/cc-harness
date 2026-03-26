@@ -10,22 +10,33 @@ ERRS=()
 
 # Go
 if echo "$CHANGED" | grep -q '\.go$'; then
-  PKGS=$(echo "$CHANGED" | grep '\.go$' | xargs -I{} dirname {} | sort -u)
-  for p in $PKGS; do
-    go test "./$p/..." -count=1 -timeout=60s 2>/dev/null || ERRS+=("go test: $p")
-  done
+  if command -v go &>/dev/null; then
+    while IFS= read -r p; do
+      go test "./$p/..." -count=1 -timeout=60s 2>/dev/null || ERRS+=("go test: $p")
+    done < <(echo "$CHANGED" | grep '\.go$' | xargs -I{} dirname {} | sort -u)
+  else
+    echo "warning: go not found, skipping Go tests" >&2
+  fi
 fi
 
 # TypeScript
 if echo "$CHANGED" | grep -qE '\.(ts|tsx)$'; then
   if [[ -f "apps/web/package.json" ]]; then
-    (cd apps/web && npx tsc --noEmit 2>/dev/null) || ERRS+=("tsc type check")
+    if command -v npx &>/dev/null; then
+      (cd apps/web && npx tsc --noEmit 2>/dev/null) || ERRS+=("tsc type check")
+    else
+      echo "warning: npx not found, skipping TypeScript check" >&2
+    fi
   fi
 fi
 
 # Proto
 if echo "$CHANGED" | grep -q '\.proto$'; then
-  buf lint 2>/dev/null || ERRS+=("buf lint")
+  if command -v buf &>/dev/null; then
+    buf lint 2>/dev/null || ERRS+=("buf lint")
+  else
+    echo "warning: buf not found, skipping proto lint" >&2
+  fi
 fi
 
 if [ ${#ERRS[@]} -gt 0 ]; then

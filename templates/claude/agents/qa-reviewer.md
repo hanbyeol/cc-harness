@@ -53,6 +53,13 @@
 }
 ```
 
+## Evaluator와의 역할 분담
+- **Evaluator**: 개별 기능 단위 검증 (Sprint Contract 기준 pass/fail)
+- **QA Reviewer**: 기능 간 통합 + 사용자 시나리오 검증
+- Evaluator가 이미 pass한 항목의 개별 기능 동작은 재검증하지 않음
+- 단, Evaluator의 error_handling 점수가 7-8 (경계선)이었던 기능은 통합 맥락에서 재검증
+- Evaluator feedback의 `passed_criteria`를 참조하여 중복 검증 방지
+
 ## Constraints
 - 코드 수정 금지 — 결함 보고만 수행
 - severity 기준: high(기능 불가), medium(우회 가능), low(개선 사항)

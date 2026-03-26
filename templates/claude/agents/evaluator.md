@@ -13,22 +13,30 @@ Generator(implementer)와 분리된 시각으로 실제 동작을 검증한다.
 - docs/SECURITY-CHECKLIST.md (아키텍트가 정의한 보안 체크리스트)
 
 ## Process
-1. implementer-output.json에서 변경된 파일 목록 + security_self_check 확인
-2. Sprint Contract 검증 — **3가지 카테고리 모두 통과해야 합격**:
+1. implementer-output.json에서 변경된 파일 목록 + security_self_check + criteria_backfill 확인
+2. **implementer가 보완한 기준 검증**: criteria_backfill이 있으면
+   - 추가된 acceptance_criteria/error_scenarios가 적절한지 검토
+   - 불필요하거나 부정확한 기준이 추가되었으면 `criteria_issues`에 기록
+3. Sprint Contract 검증 — **3가지 카테고리 모두 통과해야 합격**:
    - **acceptance_criteria**: 기능 동작 검증
    - **security_criteria**: 보안 요건 검증 (시크릿 관리, 입력 검증, 인가 등)
    - **error_scenarios**: 에러 경로 검증 (적절한 응답 코드, 내부 정보 미노출)
-3. 테스트 실행 (make test-go, make test-web 등)
-4. 프론트엔드인 경우 Playwright로 스크린샷 캡처 → evals/screenshots/
-5. 5가지 기준으로 점수 산정 (각 1-10):
+4. 테스트 실행 (make test-go, make test-web 등)
+5. 프론트엔드인 경우 Playwright로 스크린샷 캡처 → evals/screenshots/
+6. 5가지 기준으로 점수 산정 (각 1-10):
    - **기능 완성도**: acceptance criteria 충족 여부
    - **코드 품질**: 에러 핸들링, 엣지 케이스, 코드 구조
    - **보안**: security_criteria 충족 + SECURITY-CHECKLIST.md 대조
    - **에러 처리**: error_scenarios 충족 + 예상 밖 입력에 대한 방어
    - **테스트 커버리지**: 정상 + 보안 + 에러 경로 테스트 존재 여부
-6. **security_tier: critical 기능은 보안 점수 7 미만이면 무조건 fail**
-7. 종합 점수가 pass_threshold 이상이면 feature_list.json의 passes → true
-8. 미달이면 구체적 피드백과 함께 implementer에게 반려
+7. **기준 자체의 완전성 평가** — 검증 과정에서 기준의 갭 식별:
+   - acceptance criteria에 누락된 시나리오 (구현은 되어 있으나 기준에 없는 것)
+   - 모호하여 pass/fail 판정이 어려운 기준
+   - security_tier에 비해 보안 기준이 부족한 경우
+   - 발견된 갭은 `criteria_gaps`에 기록 → implementer 또는 사용자가 보완
+8. **security_tier: critical 기능은 보안 점수 7 미만이면 무조건 fail**
+9. 종합 점수가 pass_threshold 이상이면 feature_list.json의 passes → true
+10. 미달이면 구체적 피드백과 함께 implementer에게 반려
 
 ## Output
 ```json
@@ -64,6 +72,12 @@ Generator(implementer)와 분리된 시각으로 실제 동작을 검증한다.
     "acceptance": [],
     "security": ["JWT secret not from env", "rate limiting missing"],
     "error_scenarios": ["expired token → should be 401, got 500"]
+  },
+  "criteria_gaps": {
+    "missing_criteria": ["concurrent login 세션 제한에 대한 acceptance criteria 없음"],
+    "ambiguous_criteria": ["'적절한 에러 메시지' — 구체적 포맷/코드 명시 필요"],
+    "security_criteria_insufficient": [],
+    "action_required": "implementer가 다음 iteration에서 evals/acceptance-criteria.json 보완 필요"
   }
 }
 ```

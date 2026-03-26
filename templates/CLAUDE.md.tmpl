@@ -45,12 +45,14 @@ Correctness > Safety > Speed
 ### Step 4. 구현
 - Sprint Contract 합의 후에만 코드 작성 시작
 - 구현 + 테스트 (보안 테스트, 에러 경로 테스트 포함)
-- 보안 self-check → implementer-output.json 작성
+- **구현 중 기준 갭 발견 시 즉시 상위 산출물 보완** (아래 역전파 원칙 참조)
+- 보안 self-check → implementer-output.json 작성 (criteria_backfill 포함)
 - git commit + progress 업데이트
 
 ### Step 5. 검증 요청
 - evaluator에게 검증 요청 (사용자에게 안내)
 - evaluator만 passes → true 변경 가능
+- evaluator 피드백의 `criteria_gaps` → 다음 iteration에서 기준 보완 필수
 
 > **상세 절차**: .claude/skills/change-request.md, .claude/skills/implement.md 참조
 
@@ -60,6 +62,14 @@ Correctness > Safety > Speed
 - 한 번에 하나의 기능만 구현
 - 매 기능 완료 시 git commit + progress 업데이트
 - 세션 종료 전 progress/session-handoff-draft.json 업데이트
+
+## 기준 역전파 원칙 (Criteria Backpropagation)
+모든 단계에서 상위 산출물(SPEC, acceptance criteria, security checklist)의 **누락·모호·불일치**를 발견하면 즉시 보완한다.
+- **Sprint Contract 작성 시**: acceptance-criteria.json에 없는 시나리오 → 기준 추가 후 contract 작성
+- **구현 중**: 엣지 케이스/에러 시나리오 발견 → evals/acceptance-criteria.json + Sprint Contract 동시 갱신
+- **Evaluator 반려 시**: criteria_gaps 피드백 → 다음 iteration에서 기준 보완 **선행** 후 코드 수정
+- 기준 보완 시 변경 이유를 implementer-output.json의 `criteria_backfill`에 기록
+- **코드만 수정하고 기준 업데이트를 미루지 않는다**
 
 ## Security & Quality by Design
 - **모든 단계에서 보안과 품질을 내재화** — 검증 단계에서 뒤늦게 잡지 않는다

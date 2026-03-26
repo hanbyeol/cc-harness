@@ -4,23 +4,23 @@
     "SessionStart": [
       {
         "matcher": "startup",
-        "hooks": [{ "type": "command", "command": ".claude/hooks/session-context.sh" }]
+        "hooks": [{ "type": "command", "command": ".claude/hooks/session-context.sh", "timeout": 15 }]
       },
       {
         "matcher": "compact",
-        "hooks": [{ "type": "command", "command": ".claude/hooks/session-context.sh" }]
+        "hooks": [{ "type": "command", "command": ".claude/hooks/session-context.sh", "timeout": 15 }]
       }
     ],
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "hooks": [{ "type": "command", "command": ".claude/hooks/pre-bash-firewall.sh" }]
+        "hooks": [{ "type": "command", "command": ".claude/hooks/pre-bash-firewall.sh", "timeout": 5 }]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit|MultiEdit",
-        "hooks": [{ "type": "command", "command": ".claude/hooks/post-edit-format.sh" }]
+        "hooks": [{ "type": "command", "command": ".claude/hooks/post-edit-format.sh", "timeout": 30 }]
       }
     ],
     "Stop": [

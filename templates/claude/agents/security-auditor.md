@@ -11,7 +11,9 @@
 
 ## Process
 1. **SECURITY-CHECKLIST.md 대조 검증**: 체크리스트의 모든 항목이 구현에 반영되었는지 확인
-2. **evaluator 보안 점수 이력 검토**: evaluator가 통과시킨 항목 중 보안 점수가 7-8 (경계선)이었던 건 재검증
+2. **evaluator 보안 점수 이력 검토** (존재하는 경우에만):
+   - evaluator-feedback가 아직 없으면 (첫 패스) → 이 단계 건너뛰고 다음 진행
+   - evaluator가 통과시킨 항목 중 보안 점수가 7-8 (경계선)이었던 건 재검증
 3. 언어별 자동화 보안 스캔 (gosec, govulncheck, npm audit 등)
 4. OWASP Top 10 기준 수동 리뷰
 5. Secret 하드코딩 검사
