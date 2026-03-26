@@ -76,6 +76,7 @@ your-project/
 ├── docs/
 │   ├── SPEC.md                     # Phase 1 산출물
 │   ├── ARCHITECTURE.md             # Phase 2 산출물
+│   ├── HARNESS-GUIDE.md            # 개발 전과정 실전 가이드
 │   └── DECISIONS/                  # ADR
 ├── evals/
 │   └── acceptance-criteria.json    # 인수 기준

@@ -371,7 +371,11 @@ if [[ "$UPDATE" == true ]]; then
     UPDATED=$((UPDATED + 1))
   fi
 
-  # ─── 9. New directories: ensure they exist ───
+  # ─── 9. Harness Guide: always overwrite (harness documentation) ───
+  info "Harness Guide 업데이트..."
+  update_file "$TEMPLATE_DIR/docs/HARNESS-GUIDE.md" "docs/HARNESS-GUIDE.md" "overwrite"
+
+  # ─── 10. New directories: ensure they exist ───
   mkdir -p progress/agent-comms progress/contracts docs/DECISIONS evals/calibration
 
   # ─── 10. .gitignore additions ───
@@ -567,10 +571,11 @@ cp "$TEMPLATE_DIR"/evals/acceptance-criteria.json evals/
 cp "$TEMPLATE_DIR"/evals/calibration/false-positives.json evals/calibration/
 log "✓ evals/"
 
-# ─── Docs (only if not already existing) ───
+# ─── Docs (only if not already existing, except guide which is always updated) ───
 [[ ! -f docs/SPEC.md ]] && cp "$TEMPLATE_DIR"/docs/SPEC.md docs/
 [[ ! -f docs/ARCHITECTURE.md ]] && cp "$TEMPLATE_DIR"/docs/ARCHITECTURE.md docs/
-log "✓ docs/"
+cp "$TEMPLATE_DIR"/docs/HARNESS-GUIDE.md docs/HARNESS-GUIDE.md
+log "✓ docs/ (HARNESS-GUIDE.md 포함)"
 
 # ═══════════════════════════════════════════════════════════════════
 # CLAUDE.md — process template with conditionals
@@ -688,7 +693,8 @@ else
   echo "    └── calibration/      (evaluator 보정 데이터)"
   echo "  docs/"
   echo "    ├── SPEC.md"
-  echo "    └── ARCHITECTURE.md"
+  echo "    ├── ARCHITECTURE.md"
+  echo "    └── HARNESS-GUIDE.md  (실전 가이드)"
 fi
 
 echo ""
