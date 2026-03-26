@@ -1,6 +1,6 @@
 ---
 name: implement
-description: 다음 기능의 구현을 Sprint Contract부터 evaluator 검증까지 안내
+description: "기능을 구현할 때 사용. TRIGGER: 사용자가 '구현해줘', '코딩 시작', 'implement', '만들어줘', '개발해줘', 'Sprint Contract' 등 구현을 요청하면 이 스킬 실행. 반드시 Sprint Contract 합의 후 코드 작성을 시작한다."
 ---
 # /implement — 기능 구현 가이드
 

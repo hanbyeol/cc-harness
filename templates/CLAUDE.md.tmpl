@@ -91,12 +91,41 @@ Correctness > Safety > Speed
 - 각 에이전트는 자신의 output 파일 작성, 다음 에이전트의 input 파일 참조
 - 세션 간 상태 전달은 progress/session-handoff.json으로 자동 수행
 
-## Skills (Slash Commands)
-- `/change-request {설명}` — 기능 변경/추가/삭제 시 산출물 연쇄 업데이트 (상세 가이드)
-- `/sync-docs` — 구현과 문서 간 drift 탐지 및 동기화
-- `/progress` — 진행 현황 대시보드 (phase gate, features, evaluator 피드백)
-- `/implement [F{n}]` — Sprint Contract → 구현 → Evaluator 검증 가이드
+## 요청 → 행동 라우팅 (자동 적용)
+사용자 요청의 의도를 판단하여 **아래 표에 따라 적절한 skill 또는 agent를 자동 선택**한다.
 
-## Phase Gate
-- progress/phase-gate.json 확인 후 현재 단계에 맞는 작업
-- Phase 미통과 시 다음 단계 진입 금지
+| 사용자 의도 | 행동 | 비고 |
+|-------------|------|------|
+| 기능 추가/변경/삭제 요청 | → `/change-request` 실행 | "~~ 추가해줘", "~~ 변경", "~~ 삭제", "새 기능" |
+| 기능 구현 요청 | → `/implement` 실행 | "구현해줘", "만들어줘", "코딩 시작" |
+| 진행 상태 확인 | → `/progress` 실행 | "어디까지 했어", "현재 상태", "다음 할 일" |
+| 문서 동기화/점검 | → `/sync-docs` 실행 | "문서 업데이트", "drift 확인" |
+| 스펙 작성 | → **spec-writer** agent | Phase 1 (specification) |
+| 아키텍처 설계 | → **architect** agent | Phase 2 (architecture) |
+| 구현 결과 검증 | → **evaluator** agent | "검증해줘", "평가해줘" |
+| 보안 감사 | → **security-auditor** agent | "보안 점검", "취약점 검사" |
+| E2E/통합 테스트 | → **test-writer** agent | "테스트 작성해줘" |
+| QA/사용자 관점 검증 | → **qa-reviewer** agent | "QA 검증", "사용자 테스트" |
+| 배포 | → **deploy-operator** agent | Phase 5 (deployment) |
+
+**규칙**: 기능 추가/변경/삭제 요청 시 코드부터 작성하지 않는다 — 반드시 `/change-request`를 먼저 실행한다.
+
+## Phase 기반 에이전트 가이드
+현재 phase에 따라 사용할 수 있는 에이전트가 제한된다:
+
+| Phase | 주요 에이전트 | 전제 조건 |
+|-------|--------------|-----------|
+| specification | spec-writer | — |
+| architecture | architect | spec 완료 |
+| implementation | implementer (`/implement`) | architecture 완료, Sprint Contract 합의 |
+| verification | evaluator, test-writer, security-auditor, qa-reviewer | implementation 완료 |
+| deployment | deploy-operator | verification 통과 |
+
+**현재 phase 확인**: `progress/phase-gate.json`의 `current_phase` 참조.
+Phase 미통과 시 다음 단계의 에이전트 실행 금지 — 사용자에게 현재 단계 완료를 먼저 안내.
+
+## Skills (Slash Commands)
+- `/change-request {설명}` — 기능 변경/추가/삭제 시 산출물 연쇄 업데이트
+- `/implement [F{n}]` — Sprint Contract → 구현 → Evaluator 검증 가이드
+- `/progress` — 진행 현황 대시보드 + 다음 작업 제안
+- `/sync-docs` — 구현과 문서 간 drift 탐지 및 동기화

@@ -1,6 +1,6 @@
 ---
 name: change-request
-description: 기능 변경/추가/삭제 요청을 받아 관련 산출물을 연쇄 업데이트
+description: "기능을 추가, 변경, 삭제할 때 사용. TRIGGER: 사용자가 '기능 추가해줘', '~~ 변경해줘', '~~ 삭제해줘', '새 기능', 'add feature', 'modify feature', 'remove feature' 등 기능 변경을 요청하면 반드시 이 스킬을 먼저 실행. 코드부터 작성하지 않고 산출물(SPEC, criteria, feature_list)을 먼저 업데이트한다."
 ---
 # /change-request — 변경 요청 처리
 

@@ -1,6 +1,6 @@
 ---
 name: progress
-description: 프로젝트 진행 현황을 한눈에 파악하고 다음 작업을 제안
+description: "프로젝트 진행 상태 확인. TRIGGER: 사용자가 '진행 현황', '진행 상태', '어디까지 했어', '현재 상태', '뭐 해야 돼', 'progress', 'status', '다음 할 일' 등을 물으면 이 스킬 실행."
 ---
 # /progress — 진행 현황 대시보드
 
