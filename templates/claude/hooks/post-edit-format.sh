@@ -23,6 +23,9 @@ case "$FILE" in
   *.java)
     command -v google-java-format &>/dev/null && google-java-format -i "$FILE" 2>/dev/null || true
     ;;
+  *.dart)
+    command -v dart &>/dev/null && dart format "$FILE" 2>/dev/null || true
+    ;;
   *.proto)
     command -v buf &>/dev/null && buf format -w "$FILE" 2>/dev/null || true
     ;;

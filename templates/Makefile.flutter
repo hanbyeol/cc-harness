@@ -1,0 +1,8 @@
+
+# ─── Flutter ───
+.PHONY: test-flutter lint-flutter
+test-flutter: ## Run Flutter tests
+	cd apps/flutter && flutter test
+
+lint-flutter: ## Lint Dart code
+	cd apps/flutter && flutter analyze

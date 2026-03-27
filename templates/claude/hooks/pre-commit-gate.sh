@@ -30,6 +30,17 @@ if echo "$CHANGED" | grep -qE '\.(ts|tsx)$'; then
   fi
 fi
 
+# Dart/Flutter
+if echo "$CHANGED" | grep -q '\.dart$'; then
+  if command -v flutter &>/dev/null; then
+    flutter analyze 2>/dev/null || ERRS+=("flutter analyze")
+  elif command -v dart &>/dev/null; then
+    dart analyze 2>/dev/null || ERRS+=("dart analyze")
+  else
+    echo "warning: dart/flutter not found, skipping Dart analysis" >&2
+  fi
+fi
+
 # Proto
 if echo "$CHANGED" | grep -q '\.proto$'; then
   if command -v buf &>/dev/null; then

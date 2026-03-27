@@ -218,10 +218,13 @@ if [[ "$UPDATE" == true ]]; then
     log "저장된 프리셋 사용: $PRESET"
   fi
   if [[ -z "$PRESET" ]]; then
-    HAS_GO=false; HAS_REACT=false; HAS_IOS=false; HAS_ANDROID=false
+    HAS_GO=false; HAS_REACT=false; HAS_RN=false; HAS_FLUTTER=false
+    HAS_IOS=false; HAS_ANDROID=false
     HAS_SPRING=false; HAS_K8S=false; HAS_PROTO=false
     [[ -f .claude/rules/go-backend.md ]]       && HAS_GO=true
     [[ -f .claude/rules/react-frontend.md ]]   && HAS_REACT=true
+    [[ -f .claude/rules/react-native.md ]]     && HAS_RN=true
+    [[ -f .claude/rules/flutter-dart.md ]]     && HAS_FLUTTER=true
     [[ -f .claude/rules/ios-swift.md ]]        && HAS_IOS=true
     [[ -f .claude/rules/android-kotlin.md ]]   && HAS_ANDROID=true
     [[ -f .claude/rules/spring-boot.md ]]      && HAS_SPRING=true
@@ -230,12 +233,14 @@ if [[ "$UPDATE" == true ]]; then
     log "기존 설치에서 프리셋 자동 감지 (fallback)"
   else
     # Use preset flags as in init mode
-    HAS_GO=false; HAS_REACT=false; HAS_IOS=false; HAS_ANDROID=false
+    HAS_GO=false; HAS_REACT=false; HAS_RN=false; HAS_FLUTTER=false
+    HAS_IOS=false; HAS_ANDROID=false
     HAS_SPRING=false; HAS_K8S=false; HAS_PROTO=false
     case "$PRESET" in
       go-minimal) HAS_GO=true ;;
       go-k8s) HAS_GO=true; HAS_K8S=true ;;
       fullstack) HAS_GO=true; HAS_REACT=true; HAS_IOS=true; HAS_ANDROID=true; HAS_K8S=true; HAS_PROTO=true ;;
+      mobile) HAS_RN=true; HAS_FLUTTER=true ;;
       *) err "Unknown preset: $PRESET"; exit 1 ;;
     esac
   fi
@@ -260,6 +265,8 @@ if [[ "$UPDATE" == true ]]; then
   declare -A RULE_FLAGS=(
     [go-backend.md]=HAS_GO
     [react-frontend.md]=HAS_REACT
+    [react-native.md]=HAS_RN
+    [flutter-dart.md]=HAS_FLUTTER
     [ios-swift.md]=HAS_IOS
     [android-kotlin.md]=HAS_ANDROID
     [spring-boot.md]=HAS_SPRING
@@ -294,6 +301,8 @@ if [[ "$UPDATE" == true ]]; then
 
   strip_conditional_file HAS_GO      GO      "$CLAUDE_MD_TMP"
   strip_conditional_file HAS_REACT   REACT   "$CLAUDE_MD_TMP"
+  strip_conditional_file HAS_RN      RN      "$CLAUDE_MD_TMP"
+  strip_conditional_file HAS_FLUTTER FLUTTER "$CLAUDE_MD_TMP"
   strip_conditional_file HAS_IOS     IOS     "$CLAUDE_MD_TMP"
   strip_conditional_file HAS_ANDROID ANDROID "$CLAUDE_MD_TMP"
   strip_conditional_file HAS_PROTO   PROTO   "$CLAUDE_MD_TMP"
@@ -443,14 +452,16 @@ if [[ -z "$PRESET" ]]; then
   echo "    1) go-minimal   — Go 단일 서비스 (가장 가벼움)"
   echo "    2) go-k8s       — Go + Kubernetes + ArgoCD"
   echo "    3) fullstack    — Go + React + iOS + Android + K8s"
-  echo "    4) custom       — 대화형으로 구성"
+  echo "    4) mobile       — React Native + Flutter (모바일 전용)"
+  echo "    5) custom       — 대화형으로 구성"
   echo ""
-  read -rp "  선택 [1-4]: " choice
+  read -rp "  선택 [1-5]: " choice
   case $choice in
     1) PRESET="go-minimal" ;;
     2) PRESET="go-k8s" ;;
     3) PRESET="fullstack" ;;
-    4) PRESET="custom" ;;
+    4) PRESET="mobile" ;;
+    5) PRESET="custom" ;;
     *) err "잘못된 선택"; exit 1 ;;
   esac
 fi
@@ -458,6 +469,8 @@ fi
 # ─── Feature flags by preset ───
 HAS_GO=false
 HAS_REACT=false
+HAS_RN=false
+HAS_FLUTTER=false
 HAS_IOS=false
 HAS_ANDROID=false
 HAS_SPRING=false
@@ -480,9 +493,15 @@ case "$PRESET" in
     HAS_K8S=true
     HAS_PROTO=true
     ;;
+  mobile)
+    HAS_RN=true
+    HAS_FLUTTER=true
+    ;;
   custom)
     read -rp "  Go backend? [Y/n]: " r; [[ "${r,,}" != "n" ]] && HAS_GO=true
-    read -rp "  React frontend? [y/N]: " r; [[ "${r,,}" == "y" ]] && HAS_REACT=true
+    read -rp "  React frontend (web)? [y/N]: " r; [[ "${r,,}" == "y" ]] && HAS_REACT=true
+    read -rp "  React Native? [y/N]: " r; [[ "${r,,}" == "y" ]] && HAS_RN=true
+    read -rp "  Flutter? [y/N]: " r; [[ "${r,,}" == "y" ]] && HAS_FLUTTER=true
     read -rp "  iOS (Swift)? [y/N]: " r; [[ "${r,,}" == "y" ]] && HAS_IOS=true
     read -rp "  Android (Kotlin)? [y/N]: " r; [[ "${r,,}" == "y" ]] && HAS_ANDROID=true
     read -rp "  Spring Boot (legacy)? [y/N]: " r; [[ "${r,,}" == "y" ]] && HAS_SPRING=true
@@ -546,6 +565,8 @@ log "✓ .claude/rules/general.md"
 declare -A RULE_FLAGS=(
   [go-backend.md]=HAS_GO
   [react-frontend.md]=HAS_REACT
+  [react-native.md]=HAS_RN
+  [flutter-dart.md]=HAS_FLUTTER
   [ios-swift.md]=HAS_IOS
   [android-kotlin.md]=HAS_ANDROID
   [spring-boot.md]=HAS_SPRING
@@ -596,6 +617,8 @@ strip_conditional() {
 
 strip_conditional HAS_GO      GO      CLAUDE.md
 strip_conditional HAS_REACT   REACT   CLAUDE.md
+strip_conditional HAS_RN      RN      CLAUDE.md
+strip_conditional HAS_FLUTTER FLUTTER CLAUDE.md
 strip_conditional HAS_IOS     IOS     CLAUDE.md
 strip_conditional HAS_ANDROID ANDROID CLAUDE.md
 strip_conditional HAS_PROTO   PROTO   CLAUDE.md
@@ -626,6 +649,8 @@ log "✓ 변수 치환 (PROJECT_NAME=$PROJECT_NAME)"
 if [[ ! -f Makefile ]]; then
   cp "$TEMPLATE_DIR"/Makefile.base Makefile
   [[ "$HAS_REACT" == true ]]   && cat "$TEMPLATE_DIR"/Makefile.react   >> Makefile
+  [[ "$HAS_RN" == true ]]      && cat "$TEMPLATE_DIR"/Makefile.rn      >> Makefile
+  [[ "$HAS_FLUTTER" == true ]] && cat "$TEMPLATE_DIR"/Makefile.flutter >> Makefile
   [[ "$HAS_IOS" == true ]]     && cat "$TEMPLATE_DIR"/Makefile.ios     >> Makefile
   [[ "$HAS_ANDROID" == true ]] && cat "$TEMPLATE_DIR"/Makefile.android >> Makefile
   [[ "$HAS_PROTO" == true ]]   && cat "$TEMPLATE_DIR"/Makefile.proto   >> Makefile

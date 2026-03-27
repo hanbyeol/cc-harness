@@ -1,0 +1,8 @@
+
+# ─── React Native ───
+.PHONY: test-rn lint-rn
+test-rn: ## Run React Native tests
+	cd apps/mobile && npx jest
+
+lint-rn: ## Lint React Native code
+	cd apps/mobile && npx eslint . --ext .ts,.tsx

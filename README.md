@@ -36,6 +36,7 @@ claude    # ← 자동으로 harness 적용
 | `go-minimal` | Go rules + hooks | Go 단일 서비스 |
 | `go-k8s` | Go + K8s + deploy agent | Go 마이크로서비스 |
 | `fullstack` | Go + React + iOS + Android + K8s + Proto | 폴리글랏 모노레포 |
+| `mobile` | React Native + Flutter | 모바일 전용 |
 | `custom` | 대화형 선택 | 맞춤 구성 |
 
 ```bash
@@ -105,6 +106,7 @@ Last: abc1234 feat: implement NATS publisher
 | `*.kt` | `ktlint --format` |
 | `*.ts`, `*.tsx` | `prettier --write` |
 | `*.java` | `google-java-format` |
+| `*.dart` | `dart format` |
 | `*.proto` | `buf format` |
 | `*.json` | `jq` 정렬 |
 
