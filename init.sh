@@ -19,6 +19,8 @@
 #   go-minimal  — Go single service (lightest)
 #   go-k8s      — Go + Kubernetes + ArgoCD
 #   fullstack   — Go + React + iOS + Android + K8s + Proto
+#   mobile      — React Native + Flutter
+#   unity       — Unity3D + C# (with mcp-unity MCP auto-config)
 #   custom      — Interactive selection
 #
 # https://github.com/hanbyeol/cc-harness
@@ -65,7 +67,7 @@ while [[ $# -gt 0 ]]; do
       echo "Usage: init.sh [OPTIONS]"
       echo ""
       echo "Options:"
-      echo "  --preset <name>   Preset: go-minimal | go-k8s | fullstack | custom"
+      echo "  --preset <name>   Preset: go-minimal | go-k8s | fullstack | mobile | unity | custom"
       echo "  --name <name>     Project name (default: directory name)"
       echo "  --force           Overwrite existing .claude/ (backs up to .claude.bak.*)"
       echo "  --update          Update harness in existing project (preserves user data)"
@@ -220,7 +222,7 @@ if [[ "$UPDATE" == true ]]; then
   if [[ -z "$PRESET" ]]; then
     HAS_GO=false; HAS_REACT=false; HAS_RN=false; HAS_FLUTTER=false
     HAS_IOS=false; HAS_ANDROID=false
-    HAS_SPRING=false; HAS_K8S=false; HAS_PROTO=false
+    HAS_SPRING=false; HAS_K8S=false; HAS_PROTO=false; HAS_UNITY=false
     [[ -f .claude/rules/go-backend.md ]]       && HAS_GO=true
     [[ -f .claude/rules/react-frontend.md ]]   && HAS_REACT=true
     [[ -f .claude/rules/react-native.md ]]     && HAS_RN=true
@@ -230,17 +232,19 @@ if [[ "$UPDATE" == true ]]; then
     [[ -f .claude/rules/spring-boot.md ]]      && HAS_SPRING=true
     [[ -f .claude/rules/k8s-infra.md ]]        && HAS_K8S=true
     [[ -f .claude/rules/proto-api.md ]]        && HAS_PROTO=true
+    [[ -f .claude/rules/unity3d.md ]]          && HAS_UNITY=true
     log "기존 설치에서 프리셋 자동 감지 (fallback)"
   else
     # Use preset flags as in init mode
     HAS_GO=false; HAS_REACT=false; HAS_RN=false; HAS_FLUTTER=false
     HAS_IOS=false; HAS_ANDROID=false
-    HAS_SPRING=false; HAS_K8S=false; HAS_PROTO=false
+    HAS_SPRING=false; HAS_K8S=false; HAS_PROTO=false; HAS_UNITY=false
     case "$PRESET" in
       go-minimal) HAS_GO=true ;;
       go-k8s) HAS_GO=true; HAS_K8S=true ;;
       fullstack) HAS_GO=true; HAS_REACT=true; HAS_IOS=true; HAS_ANDROID=true; HAS_K8S=true; HAS_PROTO=true ;;
       mobile) HAS_RN=true; HAS_FLUTTER=true ;;
+      unity) HAS_UNITY=true ;;
       *) err "Unknown preset: $PRESET"; exit 1 ;;
     esac
   fi
@@ -272,6 +276,7 @@ if [[ "$UPDATE" == true ]]; then
     [spring-boot.md]=HAS_SPRING
     [k8s-infra.md]=HAS_K8S
     [proto-api.md]=HAS_PROTO
+    [unity3d.md]=HAS_UNITY
   )
   for rule in "${!RULE_FLAGS[@]}"; do
     flag_var="${RULE_FLAGS[$rule]}"
@@ -283,6 +288,21 @@ if [[ "$UPDATE" == true ]]; then
   # ─── 4. Settings: interactive merge (user may have custom hooks) ───
   info "Settings 업데이트..."
   update_file "$TEMPLATE_DIR/claude/settings.json" ".claude/settings.json" "merge"
+
+  # ─── Unity MCP (update mode) ───
+  if [[ "$HAS_UNITY" == true ]] && command -v jq &>/dev/null && [[ -f .claude/settings.json ]]; then
+    if ! jq -e '.mcpServers.unity' .claude/settings.json &>/dev/null; then
+      jq '.mcpServers = (.mcpServers // {}) + {
+        "unity": {
+          "command": "npx",
+          "args": ["-y", "mcp-unity"],
+          "env": { "UNITY_PORT": "8090" }
+        }
+      }' .claude/settings.json > .claude/settings.json.tmp && \
+        mv .claude/settings.json.tmp .claude/settings.json
+      log "✓ Unity MCP 설정 추가"
+    fi
+  fi
 
   # ─── 5. CLAUDE.md: interactive merge (user may have customized) ───
   info "CLAUDE.md 업데이트..."
@@ -306,6 +326,7 @@ if [[ "$UPDATE" == true ]]; then
   strip_conditional_file HAS_IOS     IOS     "$CLAUDE_MD_TMP"
   strip_conditional_file HAS_ANDROID ANDROID "$CLAUDE_MD_TMP"
   strip_conditional_file HAS_PROTO   PROTO   "$CLAUDE_MD_TMP"
+  strip_conditional_file HAS_UNITY   UNITY   "$CLAUDE_MD_TMP"
   sedi "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "$CLAUDE_MD_TMP"
 
   update_file "$CLAUDE_MD_TMP" "CLAUDE.md" "merge"
@@ -453,15 +474,17 @@ if [[ -z "$PRESET" ]]; then
   echo "    2) go-k8s       — Go + Kubernetes + ArgoCD"
   echo "    3) fullstack    — Go + React + iOS + Android + K8s"
   echo "    4) mobile       — React Native + Flutter (모바일 전용)"
-  echo "    5) custom       — 대화형으로 구성"
+  echo "    5) unity        — Unity3D + C# (MCP 자동 설정)"
+  echo "    6) custom       — 대화형으로 구성"
   echo ""
-  read -rp "  선택 [1-5]: " choice
+  read -rp "  선택 [1-6]: " choice
   case $choice in
     1) PRESET="go-minimal" ;;
     2) PRESET="go-k8s" ;;
     3) PRESET="fullstack" ;;
     4) PRESET="mobile" ;;
-    5) PRESET="custom" ;;
+    5) PRESET="unity" ;;
+    6) PRESET="custom" ;;
     *) err "잘못된 선택"; exit 1 ;;
   esac
 fi
@@ -476,6 +499,7 @@ HAS_ANDROID=false
 HAS_SPRING=false
 HAS_K8S=false
 HAS_PROTO=false
+HAS_UNITY=false
 
 case "$PRESET" in
   go-minimal)
@@ -497,6 +521,9 @@ case "$PRESET" in
     HAS_RN=true
     HAS_FLUTTER=true
     ;;
+  unity)
+    HAS_UNITY=true
+    ;;
   custom)
     read -rp "  Go backend? [Y/n]: " r; [[ "${r,,}" != "n" ]] && HAS_GO=true
     read -rp "  React frontend (web)? [y/N]: " r; [[ "${r,,}" == "y" ]] && HAS_REACT=true
@@ -507,6 +534,7 @@ case "$PRESET" in
     read -rp "  Spring Boot (legacy)? [y/N]: " r; [[ "${r,,}" == "y" ]] && HAS_SPRING=true
     read -rp "  Kubernetes? [y/N]: " r; [[ "${r,,}" == "y" ]] && HAS_K8S=true
     read -rp "  Protocol Buffers? [y/N]: " r; [[ "${r,,}" == "y" ]] && HAS_PROTO=true
+    read -rp "  Unity3D? [y/N]: " r; [[ "${r,,}" == "y" ]] && HAS_UNITY=true
     ;;
   *)
     err "Unknown preset: $PRESET"
@@ -548,6 +576,26 @@ log "✓ .claude/hooks/ (5 hooks)"
 cp "$TEMPLATE_DIR"/claude/settings.json .claude/settings.json
 log "✓ .claude/settings.json"
 
+# ─── Unity MCP ───
+if [[ "$HAS_UNITY" == true ]]; then
+  if command -v jq &>/dev/null; then
+    jq '.mcpServers = {
+      "unity": {
+        "command": "npx",
+        "args": ["-y", "mcp-unity"],
+        "env": { "UNITY_PORT": "8090" }
+      }
+    }' .claude/settings.json > .claude/settings.json.tmp && \
+      mv .claude/settings.json.tmp .claude/settings.json
+    log "✓ Unity MCP 설정 주입 (mcp-unity, 포트 8090)"
+    info "Unity Editor에서 'Tools > MCP Server'로 서버를 시작한 뒤 Claude를 실행하세요."
+  else
+    warn "jq가 없어 Unity MCP를 자동 설정할 수 없습니다."
+    warn "수동으로 .claude/settings.json에 다음을 추가하세요:"
+    warn '  "mcpServers": { "unity": { "command": "npx", "args": ["-y", "mcp-unity"], "env": { "UNITY_PORT": "8090" } } }'
+  fi
+fi
+
 # ─── Skills ───
 for skill_dir in "$TEMPLATE_DIR"/claude/skills/*/; do
   [[ -d "$skill_dir" ]] || continue
@@ -572,6 +620,7 @@ declare -A RULE_FLAGS=(
   [spring-boot.md]=HAS_SPRING
   [k8s-infra.md]=HAS_K8S
   [proto-api.md]=HAS_PROTO
+  [unity3d.md]=HAS_UNITY
 )
 for rule in "${!RULE_FLAGS[@]}"; do
   flag_var="${RULE_FLAGS[$rule]}"
@@ -622,6 +671,7 @@ strip_conditional HAS_FLUTTER FLUTTER CLAUDE.md
 strip_conditional HAS_IOS     IOS     CLAUDE.md
 strip_conditional HAS_ANDROID ANDROID CLAUDE.md
 strip_conditional HAS_PROTO   PROTO   CLAUDE.md
+strip_conditional HAS_UNITY   UNITY   CLAUDE.md
 
 log "✓ CLAUDE.md"
 

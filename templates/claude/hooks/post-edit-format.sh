@@ -29,6 +29,14 @@ case "$FILE" in
   *.proto)
     command -v buf &>/dev/null && buf format -w "$FILE" 2>/dev/null || true
     ;;
+  *.cs)
+    if command -v dotnet &>/dev/null; then
+      PROJ=$(find "$(dirname "$FILE")" -maxdepth 4 -name "*.csproj" 2>/dev/null | head -1)
+      if [[ -n "$PROJ" ]]; then
+        dotnet format "$(dirname "$PROJ")" --include "$FILE" 2>/dev/null || true
+      fi
+    fi
+    ;;
   *.json)
     if command -v jq &>/dev/null; then
       if jq '.' "$FILE" > "$FILE.tmp" 2>/dev/null; then

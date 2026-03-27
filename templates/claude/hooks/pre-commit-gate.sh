@@ -41,6 +41,18 @@ if echo "$CHANGED" | grep -q '\.dart$'; then
   fi
 fi
 
+# Unity (C#)
+if echo "$CHANGED" | grep -q '\.cs$'; then
+  if command -v dotnet &>/dev/null; then
+    CSPROJ=$(find . -maxdepth 5 -name "*.csproj" 2>/dev/null | head -1)
+    if [[ -n "$CSPROJ" ]]; then
+      dotnet build "$CSPROJ" --no-restore -v quiet 2>/dev/null || ERRS+=("dotnet build")
+    fi
+  else
+    echo "warning: dotnet not found, skipping Unity C# build check" >&2
+  fi
+fi
+
 # Proto
 if echo "$CHANGED" | grep -q '\.proto$'; then
   if command -v buf &>/dev/null; then
