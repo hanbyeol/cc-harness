@@ -1,5 +1,12 @@
 # Claude Progress Log
-# 각 세션 종료 시 업데이트
+# Stop hook이 세션 종료 시 자동 업데이트 (session-handoff.json)
+# 수동 기록이 필요하면 아래 형식을 따를 것
 
 ## Latest
 - Harness 초기화 완료
+
+## Template
+# - [ISO-DATE] Phase: {phase} | Features: {passed}/{total}
+#   Accomplished: ...
+#   Blockers: ...
+#   Next: ...

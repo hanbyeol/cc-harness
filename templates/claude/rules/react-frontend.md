@@ -4,7 +4,7 @@ paths:
   - "apps/web/**/*.tsx"
 ---
 # React/TypeScript Rules
-- Strict TypeScript: no `any`, no `as` casting
+- Strict TypeScript: no `any`, `as` 캐스팅은 타입 추론 불가 시에만 허용 (사유 주석 필수)
 - Named export, Props interface 같은 파일
 - Custom hooks: use* 접두어, 별도 파일
 - 테스트: Vitest + Testing Library
@@ -17,3 +17,5 @@ paths:
 - 인증 토큰: localStorage 대신 httpOnly cookie 또는 메모리 저장
 - API 호출: 인증 헤더는 중앙 interceptor에서 관리
 - 민감 정보: 클라이언트 번들에 API key, secret 포함 금지
+- CORS: 허용 origin을 명시적으로 제한 (wildcard * 금지)
+- CSP: Content-Security-Policy 헤더 설정 (최소 default-src 'self')

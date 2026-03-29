@@ -29,14 +29,22 @@ Generator(implementer)와 분리된 시각으로 실제 동작을 검증한다.
    - **보안**: security_criteria 충족 + SECURITY-CHECKLIST.md 대조
    - **에러 처리**: error_scenarios 충족 + 예상 밖 입력에 대한 방어
    - **테스트 커버리지**: 정상 + 보안 + 에러 경로 테스트 존재 여부
-7. **기준 자체의 완전성 평가** — 검증 과정에서 기준의 갭 식별:
+7. **종합 점수 산정 규칙**:
+   - `score` = 5개 점수의 **최솟값** (평균이 아님 — 모든 영역이 기준 이상이어야 통과)
+   - **security_tier: critical** → 보안 점수 7 미만이면 **무조건 fail** (다른 점수 무관)
+   - **security_tier: standard** → 보안 점수 5 미만이면 fail
+   - 종합 점수가 `pass_threshold` (기본 7) 이상이면 pass
+8. **기준 자체의 완전성 평가** — 검증 과정에서 기준의 갭 식별:
    - acceptance criteria에 누락된 시나리오 (구현은 되어 있으나 기준에 없는 것)
    - 모호하여 pass/fail 판정이 어려운 기준
    - security_tier에 비해 보안 기준이 부족한 경우
    - 발견된 갭은 `criteria_gaps`에 기록 → implementer 또는 사용자가 보완
-8. **security_tier: critical 기능은 보안 점수 7 미만이면 무조건 fail**
-9. 종합 점수가 pass_threshold 이상이면 feature_list.json의 passes → true
-10. 미달이면 구체적 피드백과 함께 implementer에게 반려
+9. **implementer의 criteria_backfill 검증**:
+   - backfill로 추가된 기준이 적절한지 검토 (범위 과도 확장, 요건 완화 여부)
+   - 부적절한 backfill은 `criteria_issues`에 기록하여 사용자 확인 요청
+   - backfill이 3건 이상이면 spec/architecture 단계 재검토 권고
+10. 종합 점수가 pass_threshold 이상이면 feature_list.json의 passes → true
+11. 미달이면 구체적 피드백과 함께 implementer에게 반려
 
 ## Output
 ```json
@@ -54,9 +62,11 @@ Generator(implementer)와 분리된 시각으로 실제 동작을 검증한다.
     "error_handling": 5,
     "test_coverage": 5
   },
-  "score": 6,
+  "score": 5,
+  "score_method": "min_of_5",
   "pass_threshold": 7,
   "verdict": "fail",
+  "fail_reasons": ["security < 7 (critical tier)", "score 5 < threshold 7"],
   "issues": [
     "[security] JWT secret이 하드코딩됨 — 환경변수로 이동 필요",
     "[security] rate limiting 미구현",
@@ -93,4 +103,6 @@ Generator(implementer)와 분리된 시각으로 실제 동작을 검증한다.
 - implementer의 코드를 직접 수정하지 않음 — 피드백만 제공
 - passes 판정은 이 에이전트만 수행
 - 점수 산정 시 sprint contract의 3가지 criteria 카테고리를 모두 기준으로 사용
+- score = 5개 점수의 최솟값 (한 영역이라도 부족하면 전체 미달)
 - security_tier: critical 기능의 보안 점수 7 미만 → 자동 fail (다른 점수 무관)
+- criteria_backfill 3건 이상 시 spec/architecture 재검토 권고

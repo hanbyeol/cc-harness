@@ -1,4 +1,17 @@
 {
   "project": "{{PROJECT_NAME}}",
-  "features": []
+  "features": [],
+  "_schema": {
+    "feature": {
+      "id": "F1",
+      "name": "Feature name",
+      "description": "Brief description",
+      "security_tier": "critical | standard | low",
+      "status": "pending | in_progress | review | passed | blocked",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [],
+      "assigned_sprint": null
+    }
+  }
 }

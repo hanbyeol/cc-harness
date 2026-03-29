@@ -53,3 +53,5 @@
 - 테스트 코드에 하드코딩된 시크릿 금지
 - 기존 implementer 단위 테스트와 중복 작성 금지
 - Sprint Contract의 error_scenarios와 security_criteria 커버리지 확인 필수
+- uncovered_criteria가 있으면 output에 명시 → evaluator가 다음 iteration에서 기준 보완 판단
+- 테스트 데이터: factory/fixture 패턴 사용, 하드코딩된 테스트 데이터 최소화

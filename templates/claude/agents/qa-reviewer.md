@@ -64,4 +64,5 @@
 - 코드 수정 금지 — 결함 보고만 수행
 - severity 기준: high(기능 불가), medium(우회 가능), low(개선 사항)
 - high severity가 1개라도 있으면 verdict: fail
+  - 단, architect-output.json의 `threat_model.accepted_risks`에 문서화된 리스크는 제외
 - **개별 기능에서 이미 검증된 항목은 재검증하지 않음** — 크로스 기능/통합 이슈에 집중

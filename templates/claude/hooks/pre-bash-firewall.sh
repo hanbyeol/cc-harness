@@ -4,18 +4,25 @@ INPUT=$(cat)
 CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || echo "")
 [[ -z "$CMD" ]] && exit 0
 
-# Normalize whitespace to prevent bypass via extra spaces
-NORMALIZED_CMD=$(echo "$CMD" | tr -s '[:space:]' ' ')
+# Normalize all whitespace (tabs, newlines, multiple spaces) to single space
+NORMALIZED_CMD=$(echo "$CMD" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')
 
 BLOCKED=(
   "rm -rf /"
-  "rm -rf /\\*"
-  "git push.*--force[^-]"
-  "git push.*--force$"
+  "rm -rf /[*]"
+  "rm -rf [~]"
+  "git push.*--force"
   "git reset --hard"
+  "git clean -fd"
   "kubectl delete namespace"
+  "kubectl delete -A"
   "DROP TABLE"
   "DROP DATABASE"
+  "TRUNCATE TABLE"
+  "> /dev/sd"
+  "mkfs[.]"
+  ":(){ :|:& };:"
+  "chmod -R 777 /"
 )
 
 for p in "${BLOCKED[@]}"; do

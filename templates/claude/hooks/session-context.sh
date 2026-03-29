@@ -2,15 +2,28 @@
 set -euo pipefail
 cd "$CLAUDE_PROJECT_DIR" 2>/dev/null || exit 0
 
+# Ensure required directories exist
+mkdir -p progress/agent-comms progress/contracts 2>/dev/null || true
+
 BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 LAST=$(git log --oneline -1 2>/dev/null || echo "none")
-PHASE=$(jq -r '.current_phase // "unknown"' progress/phase-gate.json 2>/dev/null || echo "init")
-PENDING=$(jq '[.features[] | select(.passes == false)] | length' progress/feature_list.json 2>/dev/null || echo "?")
-TOTAL=$(jq '[.features[]] | length' progress/feature_list.json 2>/dev/null || echo "?")
-PASSED=$(jq '[.features[] | select(.passes == true)] | length' progress/feature_list.json 2>/dev/null || echo "0")
+PHASE="init"
+PENDING="?"
+TOTAL="?"
+PASSED="0"
+ITERATION="0"
 
-# Iteration info
-ITERATION=$(jq -r '.phases[.current_phase].current_iteration // 0' progress/phase-gate.json 2>/dev/null || echo "0")
+if command -v jq &>/dev/null; then
+  if [[ -f progress/phase-gate.json ]]; then
+    PHASE=$(jq -r '.current_phase // "unknown"' progress/phase-gate.json 2>/dev/null || echo "init")
+    ITERATION=$(jq -r '.phases[.current_phase].current_iteration // 0' progress/phase-gate.json 2>/dev/null || echo "0")
+  fi
+  if [[ -f progress/feature_list.json ]]; then
+    PENDING=$(jq '[.features[] | select(.passes == false)] | length' progress/feature_list.json 2>/dev/null || echo "?")
+    TOTAL=$(jq '[.features[]] | length' progress/feature_list.json 2>/dev/null || echo "?")
+    PASSED=$(jq '[.features[] | select(.passes == true)] | length' progress/feature_list.json 2>/dev/null || echo "0")
+  fi
+fi
 
 cat <<CTX
 === Session Context ===
@@ -32,7 +45,10 @@ if [[ -f progress/session-handoff.json ]]; then
 fi
 
 # Latest evaluator feedback
-LATEST_FEEDBACK=$(find progress/agent-comms -maxdepth 1 -name "evaluator-feedback-*.json" -print 2>/dev/null | sort -r | head -1 || true)
+LATEST_FEEDBACK=""
+if [[ -d progress/agent-comms ]]; then
+  LATEST_FEEDBACK=$(find progress/agent-comms -maxdepth 1 -name "evaluator-feedback-*.json" -print 2>/dev/null | sort -r | head -1 || true)
+fi
 if [[ -n "$LATEST_FEEDBACK" ]]; then
   echo ""
   echo "=== Latest Evaluator Feedback ==="
@@ -81,7 +97,12 @@ case "$PHASE" in
   deployment)
     echo "Phase 5: deploy-operator agent로 배포"
     ;;
+  observability)
+    echo "Phase 6: 메트릭, 로깅, 알럿 설정"
+    echo "  → metrics instrumentation + structured logging + alerts 구성"
+    ;;
   *)
+    echo "⚠ 알 수 없는 phase: $PHASE"
     echo "/progress로 현재 상태를 확인하세요."
     ;;
 esac

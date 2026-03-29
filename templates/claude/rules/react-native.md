@@ -6,7 +6,7 @@ paths:
   - "apps/rn/**/*.tsx"
 ---
 # React Native Rules
-- Strict TypeScript: no `any`, no `as` casting
+- Strict TypeScript: no `any`, `as` 캐스팅은 타입 추론 불가 시에만 허용 (사유 주석 필수)
 - 네비게이션: React Navigation (type-safe routes)
 - 상태 관리: Zustand 또는 TanStack Query (API 캐싱)
 - 스타일: StyleSheet.create() 사용, inline style 최소화

@@ -27,13 +27,17 @@
 #
 set -euo pipefail
 
-# ─── Colors ───
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+# ─── Colors (disabled in non-TTY) ───
+if [[ -t 1 ]]; then
+  RED='\033[0;31m'
+  GREEN='\033[0;32m'
+  YELLOW='\033[1;33m'
+  BLUE='\033[0;34m'
+  CYAN='\033[0;36m'
+  NC='\033[0m'
+else
+  RED='' GREEN='' YELLOW='' BLUE='' CYAN='' NC=''
+fi
 
 log()  { echo -e "${GREEN}[harness]${NC} $*"; }
 warn() { echo -e "${YELLOW}[warn]${NC} $*"; }
@@ -116,10 +120,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATE_DIR="$SCRIPT_DIR/templates"
 CLEANUP_TEMP=false
 
+# ─── Cleanup trap for temp directories ───
+cleanup() { [[ "$CLEANUP_TEMP" == true ]] && rm -rf "/tmp/cc-harness-$$" 2>/dev/null || true; }
+trap cleanup EXIT INT TERM
+
 if [[ ! -d "$TEMPLATE_DIR" ]]; then
   TEMP_CLONE="/tmp/cc-harness-$$"
   log "템플릿 다운로드 중..."
-  if ! git clone --depth 1 https://github.com/hanbyeol/cc-harness.git "$TEMP_CLONE" 2>&1 | tail -3; then
+  if ! git clone --depth 1 --single-branch https://github.com/hanbyeol/cc-harness.git "$TEMP_CLONE" 2>&1 | tail -3; then
     err "템플릿 다운로드 실패. 인터넷 연결을 확인하세요."
     rm -rf "$TEMP_CLONE"
     exit 1
@@ -299,7 +307,9 @@ if [[ "$UPDATE" == true ]]; then
           "env": { "UNITY_PORT": "8090" }
         }
       }' .claude/settings.json > .claude/settings.json.tmp && \
-        mv .claude/settings.json.tmp .claude/settings.json
+        jq '.' .claude/settings.json.tmp > /dev/null 2>&1 && \
+        mv .claude/settings.json.tmp .claude/settings.json || \
+        { rm -f .claude/settings.json.tmp; warn "Unity MCP JSON 병합 실패"; }
       log "✓ Unity MCP 설정 추가"
     fi
   fi
@@ -327,7 +337,8 @@ if [[ "$UPDATE" == true ]]; then
   strip_conditional_file HAS_ANDROID ANDROID "$CLAUDE_MD_TMP"
   strip_conditional_file HAS_PROTO   PROTO   "$CLAUDE_MD_TMP"
   strip_conditional_file HAS_UNITY   UNITY   "$CLAUDE_MD_TMP"
-  sedi "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" "$CLAUDE_MD_TMP"
+  SAFE_NAME=$(printf '%s' "$PROJECT_NAME" | sed 's/[&/\]/\\&/g')
+  sedi "s/{{PROJECT_NAME}}/${SAFE_NAME}/g" "$CLAUDE_MD_TMP"
 
   update_file "$CLAUDE_MD_TMP" "CLAUDE.md" "merge"
   rm -f "$CLAUDE_MD_TMP"
@@ -586,7 +597,9 @@ if [[ "$HAS_UNITY" == true ]]; then
         "env": { "UNITY_PORT": "8090" }
       }
     }' .claude/settings.json > .claude/settings.json.tmp && \
-      mv .claude/settings.json.tmp .claude/settings.json
+      jq '.' .claude/settings.json.tmp > /dev/null 2>&1 && \
+      mv .claude/settings.json.tmp .claude/settings.json || \
+      { rm -f .claude/settings.json.tmp; warn "Unity MCP JSON 병합 실패"; }
     log "✓ Unity MCP 설정 주입 (mcp-unity, 포트 8090)"
     info "Unity Editor에서 'Tools > MCP Server'로 서버를 시작한 뒤 Claude를 실행하세요."
   else
@@ -683,7 +696,9 @@ log "✓ .claude/preset.txt (preset=$PRESET)"
 # VARIABLE SUBSTITUTION — {{PROJECT_NAME}}
 # ═══════════════════════════════════════════════════════════════════
 
-sedi "s|{{PROJECT_NAME}}|${PROJECT_NAME}|g" \
+# Escape sed special chars in PROJECT_NAME to prevent injection
+SAFE_PROJECT_NAME=$(printf '%s' "$PROJECT_NAME" | sed 's/[&/\]/\\&/g')
+sedi "s/{{PROJECT_NAME}}/${SAFE_PROJECT_NAME}/g" \
   CLAUDE.md \
   progress/feature_list.json \
   evals/acceptance-criteria.json \

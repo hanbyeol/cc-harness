@@ -8,6 +8,19 @@ CHANGED=$(git diff --name-only HEAD 2>/dev/null || echo "")
 [[ -z "$CHANGED" ]] && exit 0
 ERRS=()
 
+# Sprint Contract enforcement: code changes require agreed contract
+if echo "$CHANGED" | grep -qE '\.(go|ts|tsx|js|jsx|dart|kt|swift|cs|java)$'; then
+  if command -v jq &>/dev/null; then
+    LATEST_CONTRACT=$(find progress/contracts -maxdepth 1 -name "sprint-*.json" -print 2>/dev/null | sort -r | head -1 || true)
+    if [[ -n "$LATEST_CONTRACT" ]]; then
+      AGREED=$(jq -r '.agreed // false' "$LATEST_CONTRACT" 2>/dev/null || echo "false")
+      if [[ "$AGREED" != "true" ]]; then
+        ERRS+=("Sprint Contract 미합의: $LATEST_CONTRACT (agreed: false)")
+      fi
+    fi
+  fi
+fi
+
 # Go
 if echo "$CHANGED" | grep -q '\.go$'; then
   if command -v go &>/dev/null; then

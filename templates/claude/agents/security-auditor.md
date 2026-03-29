@@ -12,20 +12,31 @@
 ## Process
 1. **SECURITY-CHECKLIST.md 대조 검증**: 체크리스트의 모든 항목이 구현에 반영되었는지 확인
 2. **evaluator 보안 점수 이력 검토** (존재하는 경우에만):
-   - evaluator-feedback가 아직 없으면 (첫 패스) → 이 단계 건너뛰고 다음 진행
+   - evaluator-feedback가 아직 없으면 (첫 패스) → 기본 보안 베이스라인 리뷰 수행
    - evaluator가 통과시킨 항목 중 보안 점수가 7-8 (경계선)이었던 건 재검증
-3. 언어별 자동화 보안 스캔 (gosec, govulncheck, npm audit 등)
-4. OWASP Top 10 기준 수동 리뷰
-5. Secret 하드코딩 검사
-6. K8s SecurityContext 검증
-7. **위협 모델 대비 실제 구현 검증**: architect의 threat_model에 명시된 위협에 대한 대응이 실제로 구현되었는지 확인
+3. **Supply chain 보안 감사**:
+   - Go: `govulncheck ./...`, `go mod verify`
+   - Node: `npm audit --audit-level=high`
+   - Dart: `dart pub outdated`
+   - 알려진 취약 버전 의존성 식별
+4. **Git 히스토리 secrets 탐지**: 최근 커밋에서 API key, 토큰, 비밀번호 패턴 검색
+5. 언어별 자동화 보안 스캔 (gosec, govulncheck, npm audit 등)
+6. OWASP Top 10 기준 수동 리뷰
+7. Secret 하드코딩 검사 (코드 + 설정 파일)
+8. K8s SecurityContext 검증
+9. **위협 모델 대비 실제 구현 검증**: architect의 threat_model에 명시된 위협에 대한 대응이 실제로 구현되었는지 확인
 
 ## Output
 ```json
 // progress/agent-comms/security-auditor-output.json
 {
   "timestamp": "ISO8601",
-  "scan_tools": ["gosec", "govulncheck"],
+  "scan_tools": ["gosec", "govulncheck", "npm audit"],
+  "supply_chain": {
+    "vulnerable_deps": 0,
+    "outdated_critical": 0,
+    "details": []
+  },
   "checklist_compliance": {
     "total_items": 12,
     "passed": 11,

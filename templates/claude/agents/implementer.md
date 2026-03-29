@@ -105,3 +105,5 @@ feature_list.json에서 기능을 선택하여 구현.
 - **passes를 직접 true로 변경 금지** — evaluator가 판정
 - feature_list.json 테스트 삭제 금지
 - security_tier: critical 기능은 보안 테스트 없이 구현 완료 불가
+- criteria_backfill은 **추가만 허용** — 기존 기준 완화/삭제 금지 (사용자 승인 필요)
+- backfill 3건 이상 시 spec/architecture 단계 재검토를 evaluator에게 권고

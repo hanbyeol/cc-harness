@@ -51,10 +51,28 @@ else
   exit 0
 fi
 
-# Merge in agent-written fields if draft exists
+# Merge in agent-written fields if draft exists (recursive deep merge)
 if [[ -f progress/session-handoff-draft.json ]]; then
   if command -v jq &>/dev/null; then
-    if jq -s '.[0] * .[1]' progress/session-handoff.json progress/session-handoff-draft.json \
+    if jq -s '
+      def deep_merge(a; b):
+        a as $a | b as $b |
+        if ($a | type) == "object" and ($b | type) == "object" then
+          ($a | keys) as $ak | ($b | keys) as $bk |
+          ([$ak[], $bk[]] | unique) | reduce .[] as $k (
+            {};
+            if ($a | has($k)) and ($b | has($k)) then
+              . + { ($k): deep_merge($a[$k]; $b[$k]) }
+            elif ($b | has($k)) then
+              . + { ($k): $b[$k] }
+            else
+              . + { ($k): $a[$k] }
+            end
+          )
+        elif ($b | type) == "null" then $a
+        else $b end;
+      deep_merge(.[0]; .[1])
+    ' progress/session-handoff.json progress/session-handoff-draft.json \
         > progress/session-handoff.json.tmp 2>/dev/null; then
       mv progress/session-handoff.json.tmp progress/session-handoff.json
       rm -f progress/session-handoff-draft.json

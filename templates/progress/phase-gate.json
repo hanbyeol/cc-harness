@@ -1,5 +1,6 @@
 {
   "current_phase": "specification",
+  "phase_transition_rule": "all criteria == true AND user_approved → auto-advance to next phase",
   "phases": {
     "specification": {
       "status": "pending",
@@ -41,6 +42,7 @@
       "criteria": {
         "tests_pass": false,
         "security_scan_clean": false,
+        "supply_chain_audit_clean": false,
         "evaluator_final_pass": false,
         "qa_review_complete": false
       }
@@ -49,7 +51,9 @@
       "status": "pending",
       "criteria": {
         "staging_deployed": false,
-        "smoke_test_pass": false
+        "smoke_test_pass": false,
+        "monitoring_alerts_verified": false,
+        "rollback_plan_tested": false
       }
     },
     "observability": {
@@ -57,7 +61,8 @@
       "criteria": {
         "metrics_instrumented": false,
         "logging_structured": false,
-        "alerts_configured": false
+        "alerts_configured": false,
+        "runbooks_complete": false
       }
     }
   }

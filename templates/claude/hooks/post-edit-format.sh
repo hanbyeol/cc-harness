@@ -6,6 +6,11 @@ FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || ech
 cd "$CLAUDE_PROJECT_DIR" 2>/dev/null || exit 0
 [[ ! -f "$FILE" ]] && exit 0
 
+# Path traversal protection: resolve real path and verify within project
+REAL_FILE=$(realpath "$FILE" 2>/dev/null) || exit 0
+REAL_PROJECT=$(realpath "$CLAUDE_PROJECT_DIR" 2>/dev/null) || exit 0
+[[ "$REAL_FILE" != "$REAL_PROJECT"/* ]] && exit 0
+
 case "$FILE" in
   *.go)
     command -v gofmt &>/dev/null && gofmt -w "$FILE" 2>/dev/null || true

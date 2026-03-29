@@ -7,3 +7,5 @@
 - Deprecated 코드: `// Deprecated: use X instead (removal: vN.M)` 주석 + 호출처 업데이트
 - 환경 변수로 시크릿 관리 — 코드에 하드코딩 금지
 - 에러 응답에 내부 스택 트레이스 노출 금지
+- 의존성 감사: 주기적으로 취약 의존성 확인 (go: govulncheck, node: npm audit, dart: dart pub outdated)
+- 구조화 로깅 사용 (언어별 규칙 참조)

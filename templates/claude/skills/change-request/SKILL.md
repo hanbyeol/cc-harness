@@ -19,6 +19,9 @@ description: "기능을 추가, 변경, 삭제할 때 사용. TRIGGER: 사용자
 ### 1. 변경 영향 분석
 - 변경 요청의 유형 분류: `add` (신규 기능) | `modify` (기존 변경) | `remove` (기능 삭제)
 - 영향받는 기능 식별 (feature_list.json에서 관련 feature ID)
+- **의존성 분석**: feature_list.json의 `dependencies` 필드로 연쇄 영향 파악
+  - 변경 대상 기능에 의존하는 다른 기능 식별 → passes 리셋 대상에 포함
+  - 순환 의존 여부 확인
 - 영향받는 산출물 목록 도출
 
 ### 2. 스펙 업데이트 — docs/SPEC.md

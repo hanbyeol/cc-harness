@@ -45,3 +45,5 @@ SPEC.md 기반으로 기술 아키텍처 설계.
 - 비즈니스 로직 구현 금지
 - 스캐폴딩만 가능 (디렉토리, interface)
 - security_critical 기능의 인증/인가 설계 누락 시 phase 통과 불가
+- ADR 파일 네이밍: `ADR-{NNN}-{slug}.md` (예: ADR-001-auth-strategy.md)
+- DB 마이그레이션 전략 명시 (해당 시): 마이그레이션 도구, 롤백 방법, CI 테스트 방안
