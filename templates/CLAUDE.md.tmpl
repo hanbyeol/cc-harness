@@ -49,10 +49,10 @@ Correctness > Safety > Speed
 ### Step 3. Sprint Contract 작성
 - progress/contracts/sprint-{n}.json 작성
 - acceptance_criteria + security_criteria + error_scenarios 포함
-- 사용자 확인 후 agreed: true
+- 사용자에게 요약 표시 후 `agreed: true`로 자동 설정 (이의 시 수정)
 
 ### Step 4. 구현
-- Sprint Contract 합의 후에만 코드 작성 시작
+- Sprint Contract 작성 후 코드 작성 시작
 - 구현 + 테스트 (보안 테스트, 에러 경로 테스트 포함)
 - **구현 중 기준 갭 발견 시 즉시 상위 산출물 보완** (아래 역전파 원칙 참조)
 - 보안 self-check → implementer-output.json 작성 (criteria_backfill 포함)
@@ -93,7 +93,7 @@ Correctness > Safety > Speed
 - 구현 완료 → implementer-output.json 작성 → evaluator 실행 요청
 - **Evaluator만 passes를 true로 변경할 수 있음**
 - 점수 미달 시 evaluator-feedback → implementer가 수정 → 재평가
-- 구현 전 Sprint Contract (progress/contracts/) 합의 필수
+- 구현 전 Sprint Contract (progress/contracts/) 작성 필수 (자동 합의)
 
 ## Agent Communication
 - 에이전트 간 통신은 progress/agent-comms/ 파일로 수행

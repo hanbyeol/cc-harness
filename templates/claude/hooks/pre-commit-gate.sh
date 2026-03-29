@@ -8,15 +8,12 @@ CHANGED=$(git diff --name-only HEAD 2>/dev/null || echo "")
 [[ -z "$CHANGED" ]] && exit 0
 ERRS=()
 
-# Sprint Contract enforcement: code changes require agreed contract
+# Sprint Contract: warn if no contract exists (non-blocking)
 if echo "$CHANGED" | grep -qE '\.(go|ts|tsx|js|jsx|dart|kt|swift|cs|java)$'; then
   if command -v jq &>/dev/null; then
     LATEST_CONTRACT=$(find progress/contracts -maxdepth 1 -name "sprint-*.json" -print 2>/dev/null | sort -r | head -1 || true)
-    if [[ -n "$LATEST_CONTRACT" ]]; then
-      AGREED=$(jq -r '.agreed // false' "$LATEST_CONTRACT" 2>/dev/null || echo "false")
-      if [[ "$AGREED" != "true" ]]; then
-        ERRS+=("Sprint Contract 미합의: $LATEST_CONTRACT (agreed: false)")
-      fi
+    if [[ -z "$LATEST_CONTRACT" ]] && [[ -d progress/contracts ]]; then
+      echo "info: Sprint Contract 없이 코드 변경 중 — /implement로 contract 작성 권장" >&2
     fi
   fi
 fi

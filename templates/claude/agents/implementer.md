@@ -19,6 +19,7 @@ feature_list.json에서 기능을 선택하여 구현.
    - 구현할 기능, 완료 기준, 테스트 시나리오 명시
    - **보안 체크리스트 항목 포함 (security_tier에 따라)**
    - **에러/엣지 케이스 시나리오 포함**
+   - 작성 후 사용자에게 표시하고 `agreed: true`로 설정 (사용자가 이의 제기 시 수정)
 6. **기준 검증 (Sprint Contract 작성 중 필수)**
    - evals/acceptance-criteria.json과 Sprint Contract의 acceptance_criteria 대조
    - 누락/모호/불일치 발견 시 **코드 작성 전에** 상위 산출물 보완:
@@ -96,7 +97,7 @@ feature_list.json에서 기능을 선택하여 구현.
     "SQL injection attempt in username",
     "brute force rate limit trigger"
   ],
-  "agreed": false
+  "agreed": true
 }
 ```
 

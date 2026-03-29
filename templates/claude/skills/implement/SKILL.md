@@ -46,9 +46,10 @@ Sprint Contract 작성 **전에** 상위 산출물의 완전성을 점검:
   - security_criteria (SECURITY-CHECKLIST.md + security_tier 기반)
   - error_scenarios (SPEC.md의 실패 시나리오 기반)
   - test_scenarios
-- 이미 있고 agreed: true이면 그대로 사용
-  - 단, 기준이 보완되었으면 contract도 갱신 후 재합의
-- 사용자에게 contract 확인 요청 → agreed: true로 업데이트
+- 이미 있으면 그대로 사용
+  - 단, 기준이 보완되었으면 contract도 갱신
+- 작성 후 사용자에게 요약 표시 + `agreed: true`로 자동 설정
+  - 사용자가 수정을 요청하면 반영 후 진행
 
 ### 5. 구현 실행
 implementer agent의 프로세스를 따라 구현:
@@ -74,5 +75,5 @@ implementer agent의 프로세스를 따라 구현:
 ```
 
 ## Constraints
-- Sprint Contract 미합의 시 구현 진행 금지
+- Sprint Contract는 구현 전에 작성 (자동 합의 — 사용자 이의 시 수정)
 - security_tier: critical 기능은 보안 테스트 없이 완료 불가

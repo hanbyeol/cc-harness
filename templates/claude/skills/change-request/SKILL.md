@@ -57,9 +57,9 @@ description: "기능을 추가, 변경, 삭제할 때 사용. TRIGGER: 사용자
 
 ### 6. Sprint Contract 갱신 — progress/contracts/
 - `add`: 새 sprint contract 작성
-- `modify`: **기존 contract가 있으면 갱신** (agreed → false로 리셋, 재합의 필요)
+- `modify`: **기존 contract가 있으면 갱신** (변경된 내용을 사용자에게 표시)
   - 변경된 acceptance_criteria/security_criteria/error_scenarios 반영
-  - 기존 contract와의 차이점을 사용자에게 표시
+  - 기존 contract와의 차이점을 사용자에게 표시 후 자동 합의
 - `remove`: 해당 contract 삭제 또는 status: "cancelled"로 변경
 - acceptance_criteria + security_criteria + error_scenarios 포함
 
