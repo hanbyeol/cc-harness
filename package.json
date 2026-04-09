@@ -1,6 +1,6 @@
 {
   "name": "cc-harness",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "One command to bootstrap a full-SDLC harness for Claude Code",
   "bin": {
     "cc-harness": "./init.sh"
