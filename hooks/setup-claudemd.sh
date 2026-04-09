@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 #
-# setup-claudemd.sh — CLAUDE.md 자동 생성/업데이트
+# setup-claudemd.sh — Plugin SessionStart bootstrapper
 #
-# SessionStart 시 실행. 프로젝트의 CLAUDE.md에 harness 섹션이 없으면 추가.
-# 기존 CLAUDE.md가 있으면 내용을 보존하고 harness 섹션만 append.
+# SessionStart 시 실행. 프로젝트에 harness 구성요소를 자동 세팅:
+# 1. CLAUDE.md 생성/업데이트
+# 2. agents, skills, hooks, rules → .claude/ 에 복사
+# 3. settings.json에 hooks 등록
+#
+# 이미 세팅된 항목은 건너뛴다 (idempotent).
 #
 set -euo pipefail
 cd "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}" 2>/dev/null || exit 0
@@ -11,6 +15,72 @@ cd "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}" 
 # Plugin root: 스크립트 위치 기준으로 결정
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# ─── 1. Agents 복사 ───
+if [[ -d "$PLUGIN_ROOT/agents" ]]; then
+  mkdir -p .claude/agents
+  for f in "$PLUGIN_ROOT"/agents/*.md; do
+    [[ -f "$f" ]] || continue
+    BASENAME=$(basename "$f")
+    if [[ ! -f ".claude/agents/$BASENAME" ]]; then
+      cp "$f" ".claude/agents/$BASENAME"
+    fi
+  done
+fi
+
+# ─── 2. Skills 복사 ───
+if [[ -d "$PLUGIN_ROOT/skills" ]]; then
+  for skill_dir in "$PLUGIN_ROOT"/skills/*/; do
+    [[ -d "$skill_dir" ]] || continue
+    SKILL_NAME=$(basename "$skill_dir")
+    if [[ ! -d ".claude/skills/$SKILL_NAME" ]]; then
+      mkdir -p ".claude/skills/$SKILL_NAME"
+      cp -r "$skill_dir"* ".claude/skills/$SKILL_NAME/"
+    fi
+  done
+fi
+
+# ─── 3. Hooks 복사 (hooks.json 제외) ───
+if [[ -d "$PLUGIN_ROOT/hooks" ]]; then
+  mkdir -p .claude/hooks
+  for f in "$PLUGIN_ROOT"/hooks/*.sh; do
+    [[ -f "$f" ]] || continue
+    BASENAME=$(basename "$f")
+    # setup-claudemd.sh 자체는 복사하지 않음 (plugin hook으로만 실행)
+    [[ "$BASENAME" == "setup-claudemd.sh" ]] && continue
+    if [[ ! -f ".claude/hooks/$BASENAME" ]]; then
+      cp "$f" ".claude/hooks/$BASENAME"
+      chmod +x ".claude/hooks/$BASENAME"
+    fi
+  done
+fi
+
+# ─── 4. Rules 복사 ───
+if [[ -d "$PLUGIN_ROOT/rules" ]]; then
+  mkdir -p .claude/rules
+  for f in "$PLUGIN_ROOT"/rules/*.md; do
+    [[ -f "$f" ]] || continue
+    BASENAME=$(basename "$f")
+    if [[ ! -f ".claude/rules/$BASENAME" ]]; then
+      cp "$f" ".claude/rules/$BASENAME"
+    fi
+  done
+fi
+
+# ─── 5. settings.json에 hooks 등록 ───
+SETTINGS=".claude/settings.json"
+if [[ -f "$SETTINGS" ]]; then
+  # hooks 키가 없으면 추가
+  if command -v jq &>/dev/null; then
+    if ! jq -e '.hooks' "$SETTINGS" &>/dev/null; then
+      MERGED=$(jq -s '.[0] * .[1]' "$SETTINGS" "$PLUGIN_ROOT/settings.json" 2>/dev/null) || true
+      if [[ -n "$MERGED" ]]; then
+        echo "$MERGED" | jq '.' > "$SETTINGS"
+      fi
+    fi
+  fi
+fi
+
+# ─── 6. CLAUDE.md 생성/업데이트 ───
 HARNESS_CLAUDE="$PLUGIN_ROOT/CLAUDE.md"
 if [[ ! -f "$HARNESS_CLAUDE" ]]; then
   exit 0
@@ -19,42 +89,31 @@ fi
 MARKER="<!-- cc-harness:begin -->"
 MARKER_END="<!-- cc-harness:end -->"
 
-# harness 섹션 내용 생성
 harness_section() {
   echo "$MARKER"
-  # CLAUDE.md에서 첫 번째 줄(# cc-harness) 제외하고 출력
   tail -n +2 "$HARNESS_CLAUDE"
   echo ""
   echo "$MARKER_END"
 }
 
 if [[ ! -f CLAUDE.md ]]; then
-  # CLAUDE.md가 없으면 새로 생성
   {
-    echo "# $(basename "$CLAUDE_PROJECT_DIR")"
+    PROJECT_NAME=$(basename "${CLAUDE_PROJECT_DIR:-$(pwd)}")
+    echo "# $PROJECT_NAME"
     echo ""
     harness_section
   } > CLAUDE.md
   exit 0
 fi
 
-# CLAUDE.md가 이미 있는 경우
 if grep -q "$MARKER" CLAUDE.md 2>/dev/null; then
-  # 기존 harness 섹션 교체 (업데이트)
-  # marker 사이 내용을 새 내용으로 교체
   TMPFILE=$(mktemp)
   trap 'rm -f "$TMPFILE"' EXIT
-
-  # begin 마커 이전 내용
   sed -n "1,/^${MARKER}$/{ /^${MARKER}$/!p; }" CLAUDE.md > "$TMPFILE"
-  # 새 harness 섹션
   harness_section >> "$TMPFILE"
-  # end 마커 이후 내용
   sed -n "/^${MARKER_END}$/,\${ /^${MARKER_END}$/!p; }" CLAUDE.md >> "$TMPFILE"
-
   mv "$TMPFILE" CLAUDE.md
 else
-  # harness 섹션이 없으면 끝에 추가
   {
     echo ""
     harness_section
