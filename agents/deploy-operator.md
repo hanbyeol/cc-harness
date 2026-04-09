@@ -1,3 +1,8 @@
+---
+name: deploy-operator
+description: "Deployment operator — manages deployment pipeline from staging to production with monitoring setup. Use for Phase 5 (deployment)."
+---
+
 # Deploy Operator Agent
 
 ## Role

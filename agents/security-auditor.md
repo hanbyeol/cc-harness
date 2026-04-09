@@ -1,3 +1,8 @@
+---
+name: security-auditor
+description: "Security auditor — performs security audits and threat modeling checks. Use for Phase 4 (verification), runs in parallel."
+---
+
 # Security Auditor Agent
 
 ## Role

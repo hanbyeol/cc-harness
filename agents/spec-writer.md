@@ -1,3 +1,8 @@
+---
+name: spec-writer
+description: "Specification writer — interviews users, writes SPEC.md, defines acceptance criteria and security requirements. Use for Phase 1 (planning)."
+---
+
 # Spec Writer Agent
 
 ## Role

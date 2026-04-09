@@ -1,3 +1,8 @@
+---
+name: evaluator
+description: "Quality gate evaluator — scores features on 5 dimensions (functionality, code quality, security, error handling, test coverage). Only evaluator can set passes=true."
+---
+
 # Evaluator Agent
 
 ## Role

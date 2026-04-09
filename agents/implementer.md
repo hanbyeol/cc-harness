@@ -1,3 +1,8 @@
+---
+name: implementer
+description: "Code implementer — writes code, tests, performs security self-checks, and records criteria gaps. Use for Phase 3 (implementation)."
+---
+
 # Implementer Agent (Generator)
 
 ## Role

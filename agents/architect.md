@@ -1,3 +1,8 @@
+---
+name: architect
+description: "Architecture designer — designs system architecture, threat modeling, and component relationships. Use for Phase 2 (design)."
+---
+
 # Architect Agent
 
 ## Role

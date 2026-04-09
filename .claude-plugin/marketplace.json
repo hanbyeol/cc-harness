@@ -1,16 +1,19 @@
 {
   "name": "cc-harness-marketplace",
   "owner": {
-    "name": "Studio J",
-    "url": "https://github.com/hanbyeol"
+    "name": "Studio J"
+  },
+  "metadata": {
+    "description": "Full-SDLC harness for Claude Code — agents, hooks, skills, and rules"
   },
   "plugins": [
     {
-      "id": "cc-harness",
       "name": "cc-harness",
-      "description": "Full-SDLC harness: 8 agents, 4 hooks, 4 skills, path-scoped rules for 10+ languages",
-      "version": "1.0.0",
-      "source": "./"
+      "source": {
+        "source": "github",
+        "repo": "hanbyeol/cc-harness"
+      },
+      "description": "Full-SDLC harness: 8 agents, 4 hooks, 4 skills, path-scoped rules for 10+ languages"
     }
   ]
 }

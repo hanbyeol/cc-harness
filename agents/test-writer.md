@@ -1,3 +1,8 @@
+---
+name: test-writer
+description: "Test engineer — writes unit, integration, and E2E tests. Use for Phase 4 (verification), runs in parallel."
+---
+
 # Test Writer Agent
 
 ## Role
