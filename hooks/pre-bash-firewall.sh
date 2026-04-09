@@ -50,7 +50,10 @@ INDIRECT_PATTERNS=(
   '&&\s*eval\b'                  # ... && eval "rm -rf /"
   '\|\|\s*eval\b'               # ... || eval "rm -rf /"
   '\bexec\b\s'                  # exec rm -rf /
-  '\$\('                        # $(echo rm) -rf /
+  '\$\([^)]*\brm\b'             # $(... rm ...) — command substitution with dangerous cmd
+  '\$\([^)]*\bchmod\b'          # $(... chmod ...)
+  '\$\([^)]*\bmkfs\b'           # $(... mkfs ...)
+  '\$\([^)]*\bkubectl\s+delete' # $(... kubectl delete ...)
   '`[^`]+`'                     # `echo rm` -rf /
   '\bcurl\b.*\|\s*\b(ba)?sh\b' # curl ... | sh (pipe-to-shell)
   '\bwget\b.*\|\s*\b(ba)?sh\b' # wget ... | sh

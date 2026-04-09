@@ -215,6 +215,16 @@ run_firewall() {
   [ "$status" -eq 0 ]
 }
 
+@test "allows git commit with HEREDOC cat substitution" {
+  run run_firewall '{"tool_input":{"command":"git commit -m \"$(cat /tmp/msg.txt)\""}}'
+  [ "$status" -eq 0 ]
+}
+
+@test "blocks dangerous command inside substitution" {
+  run run_firewall '{"tool_input":{"command":"$(echo rm) -rf /"}}'
+  [ "$status" -eq 2 ]
+}
+
 # --- Edge cases ---
 
 @test "passes through empty command gracefully" {
