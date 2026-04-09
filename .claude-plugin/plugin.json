@@ -1,7 +1,7 @@
 {
   "name": "cc-harness",
-  "version": "1.0.0",
-  "description": "Full-SDLC harness for Claude Code — agents, hooks, skills, and rules for the entire development lifecycle (planning, design, implementation, testing, security, QA, deployment, observability)",
+  "version": "1.1.0",
+  "description": "Full-SDLC harness for Claude Code — 8 agents, 5 hooks, 4 skills, 11 rules for the entire development lifecycle",
   "author": {
     "name": "Studio J"
   },
