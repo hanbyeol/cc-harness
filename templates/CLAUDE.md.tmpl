@@ -86,7 +86,12 @@ Correctness > Safety > Speed
 - Architecture: 위협 모델링 + SECURITY-CHECKLIST.md 생성
 - Implementation: Sprint Contract에 security_criteria + error_scenarios 포함
 - Evaluator: 종합 점수 = 5개 점수의 최솟값 (한 영역이라도 미달 시 전체 fail)
-- security_tier: critical 기능은 보안 점수 7/10 미만 시 자동 fail
+- 채점 임계값은 `progress/harness-config.json`에서 설정 가능:
+  - `scoring.pass_threshold`: 통과 기준 (기본 7)
+  - `scoring.security_thresholds.critical`: critical tier 보안 최소 점수 (기본 7)
+  - `scoring.security_thresholds.standard`: standard tier 보안 최소 점수 (기본 5)
+  - `scoring.security_thresholds.low`: low tier 보안 최소 점수 (기본 3)
+- 테스트 커버리지: `progress/coverage-report.json`에 실측값 자동 기록 (pre-commit-gate)
 
 ## Generator-Evaluator Loop
 - **Implementer는 passes를 직접 true로 변경하지 않음**
@@ -107,6 +112,7 @@ Correctness > Safety > Speed
 |-------------|------|------|
 | 기능 추가/변경/삭제 요청 | → `/change-request` 실행 | "~~ 추가해줘", "~~ 변경", "~~ 삭제", "새 기능" |
 | 기능 구현 요청 | → `/implement` 실행 | "구현해줘", "만들어줘", "코딩 시작" |
+| 긴급 버그 수정 (3파일 이하) | → `/hotfix` 실행 | "핫픽스", "빠르게 고쳐", "1줄 수정", "quick fix" |
 | 진행 상태 확인 | → `/progress` 실행 | "어디까지 했어", "현재 상태", "다음 할 일" |
 | 문서 동기화/점검 | → `/sync-docs` 실행 | "문서 업데이트", "drift 확인" |
 | 스펙 작성 | → **spec-writer** agent | Phase 1 (specification) |
@@ -136,5 +142,6 @@ Phase 미통과 시 다음 단계의 에이전트 실행 금지 — 사용자에
 ## Skills (Slash Commands)
 - `/change-request {설명}` — 기능 변경/추가/삭제 시 산출물 연쇄 업데이트
 - `/implement [F{n}]` — Sprint Contract → 구현 → Evaluator 검증 가이드
+- `/hotfix [설명]` — 긴급 버그 수정 경량 워크플로우 (3파일 이하, 비보안)
 - `/progress` — 진행 현황 대시보드 + 다음 작업 제안
 - `/sync-docs` — 구현과 문서 간 drift 탐지 및 동기화
