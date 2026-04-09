@@ -119,3 +119,42 @@ else
     harness_section
   } >> CLAUDE.md
 fi
+
+# ─── 7. 첫 실행 시 설치 완료 메시지 ───
+FIRSTRUN_MARKER=".claude/.cc-harness-installed"
+if [[ ! -f "$FIRSTRUN_MARKER" ]]; then
+  mkdir -p .claude
+  touch "$FIRSTRUN_MARKER"
+  cat <<'MSG'
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  cc-harness 설치 완료
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+하네스 구성을 완료하려면 Claude Code를 재실행해주세요.
+
+  $ claude
+
+[왜 재실행이 필요한가요?]
+하네스는 SessionStart 훅을 통해 부트스트래핑됩니다.
+새 세션을 시작해야 다음 구성요소들이 프로젝트에 자동 복사됩니다:
+
+  Agents   → .claude/agents/    (spec-writer, architect, evaluator 등 8개)
+  Skills   → .claude/skills/    (/change-request, /implement, /progress, /sync-docs)
+  Hooks    → .claude/hooks/     (bash-firewall, auto-formatter, session-handoff 등)
+  Rules    → .claude/rules/     (언어/플랫폼별 코딩 규칙 11개)
+  CLAUDE.md → 프로젝트 루트      (하네스 워크플로우 가이드 자동 삽입)
+
+[부트스트래핑 확인 방법]
+재실행 후 정상 완료되면:
+  1. .claude/agents/, skills/, hooks/, rules/ 디렉토리 생성됨
+  2. CLAUDE.md에 cc-harness 섹션이 삽입됨
+  3. 세션 시작 시 브랜치, phase, pending features 컨텍스트 자동 주입됨
+
+[첫 사용]
+부트스트래핑 완료 후 /progress 를 실행하면
+현재 프로젝트 상태와 다음 작업을 확인할 수 있습니다.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MSG
+fi
