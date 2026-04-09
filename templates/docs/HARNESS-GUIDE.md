@@ -691,7 +691,7 @@ npm audit            # Node
 ### harness 업데이트
 
 ```bash
-bash init.sh --update
+npx cc-harness --update
 ```
 
 - 에이전트, 훅, 스킬, 규칙 → 최신 버전으로 교체

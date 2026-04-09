@@ -6,14 +6,12 @@
 # Copies templates/ into target project with preset-based filtering.
 #
 # Install & Run:
+#   npx cc-harness                    # recommended
+#   npm install -g cc-harness         # global install
 #   bash <(curl -sL https://raw.githubusercontent.com/hanbyeol/cc-harness/main/init.sh)
 #
 # Update existing harness:
-#   bash init.sh --update
-#
-# Or clone & run:
-#   git clone https://github.com/hanbyeol/cc-harness.git /tmp/cc-harness
-#   bash /tmp/cc-harness/init.sh --preset go-k8s
+#   npx cc-harness --update
 #
 # Presets:
 #   go-minimal  — Go single service (lightest)
@@ -68,7 +66,8 @@ while [[ $# -gt 0 ]]; do
     -h|--help)
       echo "cc-harness — Claude Code Full-SDLC Harness Bootstrapper"
       echo ""
-      echo "Usage: init.sh [OPTIONS]"
+      echo "Usage: npx cc-harness [OPTIONS]"
+      echo "       cc-harness [OPTIONS]"
       echo ""
       echo "Options:"
       echo "  --preset <name>   Preset: go-minimal | go-k8s | fullstack | mobile | unity | custom"
@@ -77,11 +76,16 @@ while [[ $# -gt 0 ]]; do
       echo "  --update          Update harness in existing project (preserves user data)"
       echo "  -h, --help        Show this help"
       echo ""
+      echo "Install:"
+      echo "  npx cc-harness                             # one-time run (recommended)"
+      echo "  npm install -g cc-harness && cc-harness    # global install"
+      echo "  bash <(curl -sL https://raw.githubusercontent.com/hanbyeol/cc-harness/main/init.sh)"
+      echo ""
       echo "Examples:"
-      echo "  bash init.sh                              # interactive"
-      echo "  bash init.sh --preset go-k8s              # Go + Kubernetes"
-      echo "  bash init.sh --preset fullstack --force    # full stack, overwrite"
-      echo "  bash init.sh --update                     # update existing harness"
+      echo "  npx cc-harness                             # interactive"
+      echo "  npx cc-harness --preset go-k8s             # Go + Kubernetes"
+      echo "  npx cc-harness --preset fullstack --force   # full stack, overwrite"
+      echo "  npx cc-harness --update                    # update existing harness"
       exit 0 ;;
     *) err "Unknown arg: $1"; exit 1 ;;
   esac
@@ -118,6 +122,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATE_DIR="$SCRIPT_DIR/templates"
+PLUGIN_DIR="$SCRIPT_DIR"
 CLEANUP_TEMP=false
 
 # ─── Cleanup trap for temp directories ───
@@ -133,6 +138,7 @@ if [[ ! -d "$TEMPLATE_DIR" ]]; then
     exit 1
   fi
   TEMPLATE_DIR="$TEMP_CLONE/templates"
+  PLUGIN_DIR="$TEMP_CLONE"
   if [[ ! -d "$TEMPLATE_DIR" ]]; then
     err "다운로드된 템플릿 구조가 올바르지 않습니다."
     rm -rf "$TEMP_CLONE"
@@ -259,20 +265,20 @@ if [[ "$UPDATE" == true ]]; then
 
   # ─── 1. Agents: always overwrite (harness infra, no user data) ───
   info "Agents 업데이트..."
-  for f in "$TEMPLATE_DIR"/claude/agents/*.md; do
+  for f in "$PLUGIN_DIR"/agents/*.md; do
     update_file "$f" ".claude/agents/$(basename "$f")" "overwrite"
   done
 
   # ─── 2. Hooks: always overwrite ───
   info "Hooks 업데이트..."
-  for f in "$TEMPLATE_DIR"/claude/hooks/*.sh; do
+  for f in "$PLUGIN_DIR"/hooks/*.sh; do
     update_file "$f" ".claude/hooks/$(basename "$f")" "overwrite"
   done
   chmod +x .claude/hooks/*.sh 2>/dev/null || true
 
   # ─── 3. Rules: overwrite existing, add new conditional ones ───
   info "Rules 업데이트..."
-  update_file "$TEMPLATE_DIR/claude/rules/general.md" ".claude/rules/general.md" "overwrite"
+  update_file "$PLUGIN_DIR/rules/general.md" ".claude/rules/general.md" "overwrite"
 
   declare -A RULE_FLAGS=(
     [go-backend.md]=HAS_GO
@@ -289,13 +295,13 @@ if [[ "$UPDATE" == true ]]; then
   for rule in "${!RULE_FLAGS[@]}"; do
     flag_var="${RULE_FLAGS[$rule]}"
     if [[ "${!flag_var}" == true ]]; then
-      update_file "$TEMPLATE_DIR/claude/rules/$rule" ".claude/rules/$rule" "overwrite"
+      update_file "$PLUGIN_DIR/rules/$rule" ".claude/rules/$rule" "overwrite"
     fi
   done
 
   # ─── 4. Settings: interactive merge (user may have custom hooks) ───
   info "Settings 업데이트..."
-  update_file "$TEMPLATE_DIR/claude/settings.json" ".claude/settings.json" "merge"
+  update_file "$PLUGIN_DIR/settings.json" ".claude/settings.json" "merge"
 
   # ─── Unity MCP (update mode) ───
   if [[ "$HAS_UNITY" == true ]] && command -v jq &>/dev/null && [[ -f .claude/settings.json ]]; then
@@ -397,7 +403,7 @@ if [[ "$UPDATE" == true ]]; then
 
   # ─── 7. Skills: always overwrite (harness infra) ───
   info "Skills 업데이트..."
-  for skill_dir in "$TEMPLATE_DIR"/claude/skills/*/; do
+  for skill_dir in "$PLUGIN_DIR"/skills/*/; do
     [[ -d "$skill_dir" ]] || continue
     skill_name=$(basename "$skill_dir")
     mkdir -p ".claude/skills/$skill_name"
@@ -575,16 +581,16 @@ mkdir -p progress/agent-comms progress/contracts docs/DECISIONS evals/calibratio
 # ═══════════════════════════════════════════════════════════════════
 
 # ─── Agents ───
-cp "$TEMPLATE_DIR"/claude/agents/*.md .claude/agents/
+cp "$PLUGIN_DIR"/agents/*.md .claude/agents/
 log "✓ .claude/agents/ (8 agents)"
 
 # ─── Hooks ───
-cp "$TEMPLATE_DIR"/claude/hooks/*.sh .claude/hooks/
+cp "$PLUGIN_DIR"/hooks/*.sh .claude/hooks/
 chmod +x .claude/hooks/*.sh
 log "✓ .claude/hooks/ (5 hooks)"
 
 # ─── Settings ───
-cp "$TEMPLATE_DIR"/claude/settings.json .claude/settings.json
+cp "$PLUGIN_DIR"/settings.json .claude/settings.json
 log "✓ .claude/settings.json"
 
 # ─── Unity MCP ───
@@ -610,7 +616,7 @@ if [[ "$HAS_UNITY" == true ]]; then
 fi
 
 # ─── Skills ───
-for skill_dir in "$TEMPLATE_DIR"/claude/skills/*/; do
+for skill_dir in "$PLUGIN_DIR"/skills/*/; do
   [[ -d "$skill_dir" ]] || continue
   skill_name=$(basename "$skill_dir")
   mkdir -p ".claude/skills/$skill_name"
@@ -619,7 +625,7 @@ done
 log "✓ .claude/skills/ (4 skills)"
 
 # ─── Rules (always-included) ───
-cp "$TEMPLATE_DIR"/claude/rules/general.md .claude/rules/
+cp "$PLUGIN_DIR"/rules/general.md .claude/rules/
 log "✓ .claude/rules/general.md"
 
 # ─── Rules (conditional) ───
@@ -638,7 +644,7 @@ declare -A RULE_FLAGS=(
 for rule in "${!RULE_FLAGS[@]}"; do
   flag_var="${RULE_FLAGS[$rule]}"
   if [[ "${!flag_var}" == true ]]; then
-    cp "$TEMPLATE_DIR/claude/rules/$rule" .claude/rules/
+    cp "$PLUGIN_DIR/rules/$rule" .claude/rules/
     log "✓ .claude/rules/$rule"
   fi
 done

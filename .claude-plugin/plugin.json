@@ -1,0 +1,20 @@
+{
+  "name": "cc-harness",
+  "version": "1.0.0",
+  "description": "Full-SDLC harness for Claude Code — agents, hooks, skills, and rules for the entire development lifecycle (planning, design, implementation, testing, security, QA, deployment, observability)",
+  "author": {
+    "name": "Studio J"
+  },
+  "repository": "https://github.com/hanbyeol/cc-harness",
+  "license": "MIT",
+  "keywords": [
+    "sdlc",
+    "harness",
+    "agents",
+    "hooks",
+    "quality-gates",
+    "security",
+    "deployment"
+  ],
+  "homepage": "https://github.com/hanbyeol/cc-harness"
+}

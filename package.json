@@ -1,0 +1,41 @@
+{
+  "name": "cc-harness",
+  "version": "1.0.0",
+  "description": "One command to bootstrap a full-SDLC harness for Claude Code",
+  "bin": {
+    "cc-harness": "./init.sh"
+  },
+  "files": [
+    "init.sh",
+    ".claude-plugin/",
+    "agents/",
+    "skills/",
+    "hooks/",
+    "rules/",
+    "settings.json",
+    "templates/"
+  ],
+  "keywords": [
+    "claude-code",
+    "harness",
+    "sdlc",
+    "ai-agent",
+    "claude",
+    "anthropic",
+    "bootstrapper",
+    "developer-tools"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hanbyeol/cc-harness.git"
+  },
+  "homepage": "https://github.com/hanbyeol/cc-harness",
+  "bugs": {
+    "url": "https://github.com/hanbyeol/cc-harness/issues"
+  },
+  "license": "MIT",
+  "author": "Studio J",
+  "engines": {
+    "node": ">=16"
+  }
+}

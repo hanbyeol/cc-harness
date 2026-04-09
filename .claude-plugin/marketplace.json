@@ -1,0 +1,11 @@
+{
+  "plugins": [
+    {
+      "id": "cc-harness",
+      "name": "CC Harness — Full-SDLC",
+      "description": "Full-SDLC harness: 8 agents, 4 hooks, 4 skills, path-scoped rules for 10+ languages. Automates planning → design → implementation → testing → security → QA → deployment → observability.",
+      "version": "1.0.0",
+      "source": "."
+    }
+  ]
+}
