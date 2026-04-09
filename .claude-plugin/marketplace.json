@@ -9,11 +9,12 @@
   "plugins": [
     {
       "name": "cc-harness",
+      "version": "1.1.0",
       "source": {
         "source": "github",
         "repo": "hanbyeol/cc-harness"
       },
-      "description": "Full-SDLC harness: 8 agents, 4 hooks, 4 skills, path-scoped rules for 10+ languages"
+      "description": "Full-SDLC harness: 8 agents, 5 hooks, 4 skills, path-scoped rules for 10+ languages"
     }
   ]
 }
