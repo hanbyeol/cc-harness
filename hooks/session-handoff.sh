@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd "$CLAUDE_PROJECT_DIR" 2>/dev/null || exit 0
+cd "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}" 2>/dev/null || exit 0
 
 # Read current progress state (with validation)
 PHASE="unknown"

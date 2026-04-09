@@ -3,7 +3,7 @@ set -euo pipefail
 INPUT=$(cat)
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || echo "")
 [[ -z "$FILE" ]] && exit 0
-cd "$CLAUDE_PROJECT_DIR" 2>/dev/null || exit 0
+cd "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}" 2>/dev/null || exit 0
 [[ ! -f "$FILE" ]] && exit 0
 
 # Path traversal protection: resolve real path and verify within project

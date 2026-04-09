@@ -6,14 +6,10 @@
 # 기존 CLAUDE.md가 있으면 내용을 보존하고 harness 섹션만 append.
 #
 set -euo pipefail
-cd "$CLAUDE_PROJECT_DIR" 2>/dev/null || exit 0
+cd "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}" 2>/dev/null || exit 0
 
-# Plugin root에서 harness CLAUDE.md 참조
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
-if [[ -z "$PLUGIN_ROOT" ]]; then
-  # fallback: 이 스크립트 기준으로 plugin root 추정
-  PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-fi
+# Plugin root: 스크립트 위치 기준으로 결정
+PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 HARNESS_CLAUDE="$PLUGIN_ROOT/CLAUDE.md"
 if [[ ! -f "$HARNESS_CLAUDE" ]]; then

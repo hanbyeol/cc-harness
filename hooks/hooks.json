@@ -1,38 +1,36 @@
 {
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup",
-        "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/setup-claudemd.sh", "timeout": 10 },
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-context.sh", "timeout": 15 }
-        ]
-      },
-      {
-        "matcher": "compact",
-        "hooks": [{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-context.sh", "timeout": 15 }]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash-firewall.sh", "timeout": 5 }]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit|MultiEdit",
-        "hooks": [{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/post-edit-format.sh", "timeout": 30 }]
-      }
-    ],
-    "Stop": [
-      {
-        "matcher": "",
-        "hooks": [
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-commit-gate.sh", "timeout": 120 },
-          { "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-handoff.sh", "timeout": 30 }
-        ]
-      }
-    ]
-  }
+  "SessionStart": [
+    {
+      "matcher": "startup",
+      "hooks": [
+        { "type": "command", "command": "hooks/setup-claudemd.sh", "timeout": 10 },
+        { "type": "command", "command": "hooks/session-context.sh", "timeout": 15 }
+      ]
+    },
+    {
+      "matcher": "compact",
+      "hooks": [{ "type": "command", "command": "hooks/session-context.sh", "timeout": 15 }]
+    }
+  ],
+  "PreToolUse": [
+    {
+      "matcher": "Bash",
+      "hooks": [{ "type": "command", "command": "hooks/pre-bash-firewall.sh", "timeout": 5 }]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "Write|Edit|MultiEdit",
+      "hooks": [{ "type": "command", "command": "hooks/post-edit-format.sh", "timeout": 30 }]
+    }
+  ],
+  "Stop": [
+    {
+      "matcher": "",
+      "hooks": [
+        { "type": "command", "command": "hooks/pre-commit-gate.sh", "timeout": 120 },
+        { "type": "command", "command": "hooks/session-handoff.sh", "timeout": 30 }
+      ]
+    }
+  ]
 }

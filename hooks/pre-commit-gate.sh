@@ -2,7 +2,7 @@
 set -euo pipefail
 INPUT=$(cat)
 echo "$INPUT" | jq -r '.stop_hook_active' 2>/dev/null | grep -q "true" && exit 0
-cd "$CLAUDE_PROJECT_DIR" 2>/dev/null || exit 0
+cd "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}" 2>/dev/null || exit 0
 
 CHANGED=$(git diff --name-only HEAD 2>/dev/null || echo "")
 [[ -z "$CHANGED" ]] && exit 0
