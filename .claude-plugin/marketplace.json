@@ -1,11 +1,16 @@
 {
+  "name": "cc-harness-marketplace",
+  "owner": {
+    "name": "Studio J",
+    "url": "https://github.com/hanbyeol"
+  },
   "plugins": [
     {
       "id": "cc-harness",
-      "name": "CC Harness — Full-SDLC",
-      "description": "Full-SDLC harness: 8 agents, 4 hooks, 4 skills, path-scoped rules for 10+ languages. Automates planning → design → implementation → testing → security → QA → deployment → observability.",
+      "name": "cc-harness",
+      "description": "Full-SDLC harness: 8 agents, 4 hooks, 4 skills, path-scoped rules for 10+ languages",
       "version": "1.0.0",
-      "source": "."
+      "source": "./"
     }
   ]
 }
