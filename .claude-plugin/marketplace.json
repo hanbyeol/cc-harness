@@ -11,8 +11,8 @@
       "name": "cc-harness",
       "version": "1.1.0",
       "source": {
-        "source": "github",
-        "repo": "hanbyeol/cc-harness"
+        "source": "git",
+        "url": "https://github.com/hanbyeol/cc-harness.git"
       },
       "description": "Full-SDLC harness: 8 agents, 5 hooks, 4 skills, path-scoped rules for 10+ languages"
     }
