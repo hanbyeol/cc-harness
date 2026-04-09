@@ -422,6 +422,15 @@ if [[ "$UPDATE" == true ]]; then
   info "Harness Guide 업데이트..."
   update_file "$TEMPLATE_DIR/docs/HARNESS-GUIDE.md" "docs/HARNESS-GUIDE.md" "overwrite"
 
+  # ─── 9.5. Harness Config: preserve (user-customizable settings) ───
+  if [[ ! -f progress/harness-config.json ]]; then
+    cp "$TEMPLATE_DIR/progress/harness-config.json" progress/harness-config.json
+    log "✓ [new] progress/harness-config.json"
+    UPDATED=$((UPDATED + 1))
+  else
+    SKIPPED=$((SKIPPED + 1))
+  fi
+
   # ─── 10. New directories: ensure they exist ───
   mkdir -p progress/agent-comms progress/contracts docs/DECISIONS evals/calibration
 
@@ -653,6 +662,7 @@ done
 cp "$TEMPLATE_DIR"/progress/phase-gate.json progress/
 cp "$TEMPLATE_DIR"/progress/feature_list.json progress/
 cp "$TEMPLATE_DIR"/progress/claude-progress.txt progress/
+cp "$TEMPLATE_DIR"/progress/harness-config.json progress/
 log "✓ progress/"
 
 # ─── Evals ───

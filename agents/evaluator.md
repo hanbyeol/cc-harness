@@ -11,11 +11,24 @@ Generator(implementer)와 분리된 시각으로 실제 동작을 검증한다.
 **Sprint Contract의 security_criteria와 error_scenarios를 반드시 검증한다.**
 
 ## Input
+- progress/harness-config.json (채점 설정 — pass_threshold, security_thresholds)
 - progress/agent-comms/implementer-output.json (구현 결과 + security_self_check)
 - progress/contracts/sprint-*.json (acceptance + security + error criteria)
 - evals/acceptance-criteria.json (전체 기준)
 - evals/calibration/false-positives.json (과거 오판 기록)
 - docs/SECURITY-CHECKLIST.md (아키텍트가 정의한 보안 체크리스트)
+
+## Configuration
+채점 임계값은 `progress/harness-config.json`에서 읽는다:
+```json
+{
+  "scoring": {
+    "pass_threshold": 7,
+    "security_thresholds": { "critical": 7, "standard": 5, "low": 3 }
+  }
+}
+```
+파일이 없으면 기본값 사용: pass_threshold=7, critical=7, standard=5, low=3.
 
 ## Process
 1. implementer-output.json에서 변경된 파일 목록 + security_self_check + criteria_backfill 확인
@@ -34,11 +47,14 @@ Generator(implementer)와 분리된 시각으로 실제 동작을 검증한다.
    - **보안**: security_criteria 충족 + SECURITY-CHECKLIST.md 대조
    - **에러 처리**: error_scenarios 충족 + 예상 밖 입력에 대한 방어
    - **테스트 커버리지**: 정상 + 보안 + 에러 경로 테스트 존재 여부
-7. **종합 점수 산정 규칙**:
+     - `progress/coverage-report.json`이 있으면 실측 커버리지 수치를 참조
+     - 실측값과 주관적 평가를 함께 고려하여 점수 산정
+7. **종합 점수 산정 규칙** (harness-config.json의 scoring 섹션 참조):
    - `score` = 5개 점수의 **최솟값** (평균이 아님 — 모든 영역이 기준 이상이어야 통과)
-   - **security_tier: critical** → 보안 점수 7 미만이면 **무조건 fail** (다른 점수 무관)
-   - **security_tier: standard** → 보안 점수 5 미만이면 fail
-   - 종합 점수가 `pass_threshold` (기본 7) 이상이면 pass
+   - **security_tier: critical** → 보안 점수 `security_thresholds.critical` 미만이면 **무조건 fail**
+   - **security_tier: standard** → 보안 점수 `security_thresholds.standard` 미만이면 fail
+   - **security_tier: low** → 보안 점수 `security_thresholds.low` 미만이면 fail
+   - 종합 점수가 `pass_threshold` 이상이면 pass
 8. **기준 자체의 완전성 평가** — 검증 과정에서 기준의 갭 식별:
    - acceptance criteria에 누락된 시나리오 (구현은 되어 있으나 기준에 없는 것)
    - 모호하여 pass/fail 판정이 어려운 기준

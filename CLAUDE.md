@@ -51,6 +51,7 @@ Correctness > Safety > Speed
 |-------------|------|
 | 기능 추가/변경/삭제 | → `/change-request` 실행 |
 | 기능 구현 | → `/implement` 실행 |
+| 긴급 버그 수정 (3파일 이하) | → `/hotfix` 실행 |
 | 진행 상태 확인 | → `/progress` 실행 |
 | 문서 동기화 | → `/sync-docs` 실행 |
 | 스펙 작성 | → **spec-writer** agent |
@@ -74,5 +75,6 @@ Correctness > Safety > Speed
 ## Skills
 - `/change-request {설명}` — 기능 변경/추가/삭제 시 산출물 연쇄 업데이트
 - `/implement [F{n}]` — Sprint Contract → 구현 → Evaluator 검증 가이드
+- `/hotfix [설명]` — 긴급 버그 수정 경량 워크플로우 (3파일 이하, 비보안)
 - `/progress` — 진행 현황 대시보드 + 다음 작업 제안
 - `/sync-docs` — 구현과 문서 간 drift 탐지 및 동기화

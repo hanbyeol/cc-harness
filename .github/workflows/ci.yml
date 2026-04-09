@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shellcheck on all hook scripts
+        run: |
+          shellcheck hooks/*.sh
+          shellcheck init.sh
+
+  json-validate:
+    name: JSON Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate all JSON files
+        run: |
+          failed=0
+          for f in package.json .claude-plugin/plugin.json .claude-plugin/marketplace.json \
+                   settings.json hooks/hooks.json \
+                   templates/progress/phase-gate.json \
+                   templates/progress/feature_list.json \
+                   templates/evals/acceptance-criteria.json; do
+            if [ -f "$f" ]; then
+              if ! jq '.' "$f" > /dev/null 2>&1; then
+                echo "FAIL: $f is not valid JSON"
+                failed=1
+              fi
+            fi
+          done
+          exit $failed
+
+  version-check:
+    name: Version Consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check version consistency across manifests
+        run: |
+          PKG=$(jq -r '.version' package.json)
+          PLUGIN=$(jq -r '.version' .claude-plugin/plugin.json)
+          MKT=$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)
+          echo "package.json:    $PKG"
+          echo "plugin.json:     $PLUGIN"
+          echo "marketplace.json: $MKT"
+          if [ "$PKG" != "$PLUGIN" ] || [ "$PKG" != "$MKT" ]; then
+            echo "ERROR: Version mismatch detected"
+            exit 1
+          fi
+
+  hook-tests:
+    name: Hook Tests (bats)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install bats-core
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q bats
+      - name: Run hook tests
+        run: bats tests/

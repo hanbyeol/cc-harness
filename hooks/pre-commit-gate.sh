@@ -21,9 +21,29 @@ fi
 # Go
 if echo "$CHANGED" | grep -q '\.go$'; then
   if command -v go &>/dev/null; then
+    COVERAGE_DIR=$(mktemp -d)
+    GO_COVERAGE_TOTAL=""
     while IFS= read -r p; do
-      go test "./$p/..." -count=1 -timeout=60s 2>/dev/null || ERRS+=("go test: $p")
+      COVER_FILE="$COVERAGE_DIR/$(echo "$p" | tr '/' '_').out"
+      go test "./$p/..." -count=1 -timeout=60s -coverprofile="$COVER_FILE" 2>/dev/null || ERRS+=("go test: $p")
     done < <(echo "$CHANGED" | grep '\.go$' | xargs -I{} dirname {} | sort -u)
+    # Aggregate coverage and report
+    if command -v go &>/dev/null; then
+      for f in "$COVERAGE_DIR"/*.out; do
+        [[ -f "$f" ]] || continue
+        COV=$(go tool cover -func="$f" 2>/dev/null | tail -1 | awk '{print $NF}' || true)
+        if [[ -n "$COV" ]]; then
+          GO_COVERAGE_TOTAL="$COV"
+          echo "info: Go coverage: $COV" >&2
+        fi
+      done
+    fi
+    rm -rf "$COVERAGE_DIR"
+    # Write coverage to progress for evaluator
+    if [[ -n "$GO_COVERAGE_TOTAL" ]] && command -v jq &>/dev/null; then
+      mkdir -p progress
+      jq -n --arg go "$GO_COVERAGE_TOTAL" '{"go": $go}' > progress/coverage-report.json 2>/dev/null || true
+    fi
   else
     echo "warning: go not found, skipping Go tests" >&2
   fi
@@ -31,12 +51,35 @@ fi
 
 # TypeScript
 if echo "$CHANGED" | grep -qE '\.(ts|tsx)$'; then
-  if [[ -f "apps/web/package.json" ]]; then
-    if command -v npx &>/dev/null; then
-      (cd apps/web && npx tsc --noEmit 2>/dev/null) || ERRS+=("tsc type check")
-    else
-      echo "warning: npx not found, skipping TypeScript check" >&2
+  if command -v npx &>/dev/null; then
+    # Find tsconfig.json dynamically (not hardcoded to apps/web)
+    TS_ROOT=""
+    for candidate in "apps/web" "." $(echo "$CHANGED" | grep -E '\.(ts|tsx)$' | head -1 | xargs dirname 2>/dev/null); do
+      if [[ -f "$candidate/tsconfig.json" ]]; then
+        TS_ROOT="$candidate"
+        break
+      fi
+    done
+    if [[ -n "$TS_ROOT" ]]; then
+      (cd "$TS_ROOT" && npx tsc --noEmit 2>/dev/null) || ERRS+=("tsc type check: $TS_ROOT")
+      # Coverage: check if jest is available
+      if [[ -f "$TS_ROOT/package.json" ]] && grep -q '"jest"' "$TS_ROOT/package.json" 2>/dev/null; then
+        TS_COV=$(cd "$TS_ROOT" && npx jest --coverage --coverageReporters=text-summary 2>/dev/null | grep 'Stmts' | awk '{print $4}' || true)
+        if [[ -n "$TS_COV" ]]; then
+          echo "info: TypeScript coverage (statements): $TS_COV" >&2
+          if command -v jq &>/dev/null; then
+            mkdir -p progress
+            if [[ -f progress/coverage-report.json ]]; then
+              jq --arg ts "$TS_COV" '. + {"typescript": $ts}' progress/coverage-report.json > progress/coverage-report.json.tmp 2>/dev/null && mv progress/coverage-report.json.tmp progress/coverage-report.json || true
+            else
+              jq -n --arg ts "$TS_COV" '{"typescript": $ts}' > progress/coverage-report.json 2>/dev/null || true
+            fi
+          fi
+        fi
+      fi
     fi
+  else
+    echo "warning: npx not found, skipping TypeScript check" >&2
   fi
 fi
 
@@ -69,6 +112,18 @@ if echo "$CHANGED" | grep -q '\.proto$'; then
     buf lint 2>/dev/null || ERRS+=("buf lint")
   else
     echo "warning: buf not found, skipping proto lint" >&2
+  fi
+fi
+
+# Secrets detection (gitleaks)
+if command -v gitleaks &>/dev/null; then
+  if ! gitleaks detect --source . --no-banner --no-color -v 2>/dev/null | head -5 >/dev/null 2>&1; then
+    ERRS+=("gitleaks: secrets detected in repository")
+  fi
+else
+  # Fallback: basic pattern scan on staged/changed files
+  if echo "$CHANGED" | xargs grep -lEi '(AKIA[0-9A-Z]{16}|sk-[a-zA-Z0-9]{48}|ghp_[a-zA-Z0-9]{36}|-----BEGIN (RSA |EC )?PRIVATE KEY)' 2>/dev/null | head -3 | grep -q .; then
+    ERRS+=("secrets: potential API key or private key detected in changed files")
   fi
 fi
 

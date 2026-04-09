@@ -2,6 +2,10 @@
 set -euo pipefail
 cd "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}" 2>/dev/null || exit 0
 
+# Use PID-specific tmp to avoid race conditions when multiple Stop hooks run concurrently
+TMP="progress/session-handoff.json.tmp.$$"
+trap 'rm -f "$TMP"' EXIT
+
 # Read current progress state (with validation)
 PHASE="unknown"
 PENDING="[]"
@@ -41,13 +45,12 @@ jq -n \
     blockers: [],
     next_actions: [],
     key_decisions: []
-  }' > progress/session-handoff.json.tmp 2>/dev/null
+  }' > "$TMP" 2>/dev/null
 
 # Validate and move
-if jq '.' progress/session-handoff.json.tmp &>/dev/null; then
-  mv progress/session-handoff.json.tmp progress/session-handoff.json
+if jq '.' "$TMP" &>/dev/null; then
+  mv "$TMP" progress/session-handoff.json
 else
-  rm -f progress/session-handoff.json.tmp
   exit 0
 fi
 
@@ -73,11 +76,9 @@ if [[ -f progress/session-handoff-draft.json ]]; then
         else $b end;
       deep_merge(.[0]; .[1])
     ' progress/session-handoff.json progress/session-handoff-draft.json \
-        > progress/session-handoff.json.tmp 2>/dev/null; then
-      mv progress/session-handoff.json.tmp progress/session-handoff.json
+        > "$TMP" 2>/dev/null; then
+      mv "$TMP" progress/session-handoff.json
       rm -f progress/session-handoff-draft.json
-    else
-      rm -f progress/session-handoff.json.tmp
     fi
   fi
 fi

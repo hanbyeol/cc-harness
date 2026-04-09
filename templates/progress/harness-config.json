@@ -1,0 +1,22 @@
+{
+  "version": "1.0",
+  "scoring": {
+    "pass_threshold": 7,
+    "max_iterations": 5,
+    "score_method": "min_of_5",
+    "security_thresholds": {
+      "critical": 7,
+      "standard": 5,
+      "low": 3
+    }
+  },
+  "hotfix": {
+    "max_files": 3,
+    "consecutive_limit": 3,
+    "allowed_security_tiers": ["low", "standard"]
+  },
+  "agent_comms": {
+    "max_files_per_type": 10,
+    "archive_enabled": true
+  }
+}
