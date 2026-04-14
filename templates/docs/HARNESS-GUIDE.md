@@ -569,7 +569,7 @@ EOF
 {
   "PreToolUse": [{
     "matcher": "Bash",
-    "hooks": [{ "type": "command", "command": ".claude/hooks/my-hook.sh", "timeout": 10 }]
+    "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/my-hook.sh\"", "timeout": 10 }]
   }]
 }
 ```

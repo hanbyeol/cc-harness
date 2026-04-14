@@ -174,7 +174,7 @@ EOF
 {
   "PreToolUse": [{
     "matcher": "mcp__github__create_pull_request",
-    "hooks": [{ "type": "command", "command": ".claude/hooks/pre-pr-test.sh" }]
+    "hooks": [{ "type": "command", "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-pr-test.sh\"" }]
   }]
 }
 ```
