@@ -1,6 +1,7 @@
 ---
 name: qa-reviewer
 description: "QA reviewer — user-perspective QA validation and integration testing. Use for Phase 4 (verification), runs in parallel."
+model: claude-haiku-4-5
 ---
 
 # QA Reviewer Agent

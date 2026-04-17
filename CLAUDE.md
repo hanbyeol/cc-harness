@@ -18,12 +18,17 @@ Correctness > Safety > Speed
 - progress/feature_list.json — 기능 항목 추가/수정 (passes: false)
 
 ### Step 3. Sprint Contract 작성
-- progress/contracts/sprint-{n}.json 작성
+- progress/contracts/sprint-{n}.json 작성 (`agreed: false`로 초기화)
 - acceptance_criteria + security_criteria + error_scenarios 포함
-- 사용자에게 요약 표시 후 `agreed: true`로 자동 설정
+
+### Step 3.5. Plan 게이트 — 사용자 승인
+- Claude Code의 **ExitPlanMode** tool로 계획(acceptance_criteria + security_criteria + 구현 순서)을 요약 제시
+- **사용자 승인 시에만** Sprint Contract의 `agreed`를 `true`로 전환
+- 거부/수정 요청 시: 피드백을 반영해 Step 3의 Sprint Contract 재작성 → Plan 재제시 루프
+- 승인 없이는 Step 4로 진입하지 않는다
 
 ### Step 4. 구현
-- Sprint Contract 작성 후 코드 작성 시작
+- Plan 게이트 승인 후 코드 작성 시작
 - 구현 + 테스트 (보안 테스트, 에러 경로 테스트 포함)
 - **구현 중 기준 갭 발견 시 즉시 상위 산출물 보완**
 - git commit + progress 업데이트

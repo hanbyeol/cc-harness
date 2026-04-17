@@ -47,12 +47,17 @@ Correctness > Safety > Speed
 - progress/agent-comms/change-request-{timestamp}.json — 변경 이력 기록
 
 ### Step 3. Sprint Contract 작성
-- progress/contracts/sprint-{n}.json 작성
+- progress/contracts/sprint-{n}.json 작성 (`agreed: false`로 초기화)
 - acceptance_criteria + security_criteria + error_scenarios 포함
-- 사용자에게 요약 표시 후 `agreed: true`로 자동 설정 (이의 시 수정)
+
+### Step 3.5. Plan 게이트 — 사용자 승인
+- ExitPlanMode로 Sprint Contract 요약(기능 ID, acceptance/security criteria, 구현 순서, 테스트 범위) 제시
+- **사용자 승인 시에만** Sprint Contract의 `agreed`를 `true`로 전환
+- 거부 시 Step 3으로 돌아가 Contract/acceptance-criteria/SPEC 중 필요 항목 갱신 후 재제시
+- 승인 없이는 Step 4(구현) 진입 금지
 
 ### Step 4. 구현
-- Sprint Contract 작성 후 코드 작성 시작
+- Plan 게이트 승인 후 코드 작성 시작
 - 구현 + 테스트 (보안 테스트, 에러 경로 테스트 포함)
 - **구현 중 기준 갭 발견 시 즉시 상위 산출물 보완** (아래 역전파 원칙 참조)
 - 보안 self-check → implementer-output.json 작성 (criteria_backfill 포함)
@@ -98,7 +103,7 @@ Correctness > Safety > Speed
 - 구현 완료 → implementer-output.json 작성 → evaluator 실행 요청
 - **Evaluator만 passes를 true로 변경할 수 있음**
 - 점수 미달 시 evaluator-feedback → implementer가 수정 → 재평가
-- 구현 전 Sprint Contract (progress/contracts/) 작성 필수 (자동 합의)
+- 구현 전 Sprint Contract (progress/contracts/) 작성 필수 — Plan 게이트(ExitPlanMode)에서 사용자 승인 후 `agreed:true`
 
 ## Agent Communication
 - 에이전트 간 통신은 progress/agent-comms/ 파일로 수행
@@ -132,7 +137,7 @@ Correctness > Safety > Speed
 |-------|--------------|-----------|
 | specification | spec-writer | — |
 | architecture | architect | spec 완료 |
-| implementation | implementer (`/implement`) | architecture 완료, Sprint Contract 합의 |
+| implementation | implementer (`/implement`) | architecture 완료, Sprint Contract Plan 게이트 승인 |
 | verification | evaluator, test-writer, security-auditor, qa-reviewer | implementation 완료 |
 | deployment | deploy-operator | verification 통과 |
 
@@ -144,4 +149,4 @@ Phase 미통과 시 다음 단계의 에이전트 실행 금지 — 사용자에
 - `/implement [F{n}]` — Sprint Contract → 구현 → Evaluator 검증 가이드
 - `/hotfix [설명]` — 긴급 버그 수정 경량 워크플로우 (3파일 이하, 비보안)
 - `/progress` — 진행 현황 대시보드 + 다음 작업 제안
-- `/sync-docs` — 구현과 문서 간 drift 탐지 및 동기화
+- `/sync-docs` — 구현과 문서 간 drift 탐지 및 동기화 (`--deep` 플래그로 1M 컨텍스트 전수 검사, 고비용·월 1회 권장)

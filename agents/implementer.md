@@ -1,6 +1,7 @@
 ---
 name: implementer
 description: "Code implementer — writes code, tests, performs security self-checks, and records criteria gaps. Use for Phase 3 (implementation)."
+model: claude-sonnet-4-6
 ---
 
 # Implementer Agent (Generator)

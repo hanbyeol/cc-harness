@@ -1,6 +1,7 @@
 ---
 name: spec-writer
 description: "Specification writer — interviews users, writes SPEC.md, defines acceptance criteria and security requirements. Use for Phase 1 (planning)."
+model: claude-sonnet-4-6
 ---
 
 # Spec Writer Agent

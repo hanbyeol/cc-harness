@@ -1,6 +1,7 @@
 ---
 name: test-writer
 description: "Test engineer — writes unit, integration, and E2E tests. Use for Phase 4 (verification), runs in parallel."
+model: claude-haiku-4-5
 ---
 
 # Test Writer Agent

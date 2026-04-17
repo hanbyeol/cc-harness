@@ -1,6 +1,7 @@
 ---
 name: architect
 description: "Architecture designer — designs system architecture, threat modeling, and component relationships. Use for Phase 2 (design)."
+model: claude-opus-4-7
 ---
 
 # Architect Agent
