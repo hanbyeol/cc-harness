@@ -1,7 +1,7 @@
 ---
 name: implementer
 description: "Code implementer — writes code, tests, performs security self-checks, and records criteria gaps. Use for Phase 3 (implementation)."
-model: claude-sonnet-4-6
+model: claude-opus-4-8
 ---
 
 # Implementer Agent (Generator)
@@ -109,6 +109,8 @@ feature_list.json에서 기능을 선택하여 구현.
 
 ## Constraints
 - 한 세션에 1-2개 기능만
+- **요청 범위만 구현 (no-tidying)**: Sprint Contract에 없는 리팩터링, 추상화, 헬퍼, 기능 추가 금지
+  - 발생할 수 없는 시나리오에 대한 방어 코드/fallback 추가 금지 — 검증은 시스템 경계(사용자 입력, 외부 API)에서만
 - **passes를 직접 true로 변경 금지** — evaluator가 판정
 - feature_list.json 테스트 삭제 금지
 - security_tier: critical 기능은 보안 테스트 없이 구현 완료 불가

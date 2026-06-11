@@ -72,12 +72,15 @@ Actions needed: 3 items
 ## Deep Audit 모드 — `/sync-docs --deep`
 
 기본 모드는 git log·feature_list 기반 **샘플링**이라 cross-file 불일치를 놓칠 수 있다.
-Deep 모드는 Opus 4.7의 **1M 컨텍스트 윈도우**(`claude-opus-4-7[1m]`)를 활용해 repo 전체를 단일 컨텍스트에 로드하고 전수 교차 검증을 수행한다.
+Deep 모드는 **1M 컨텍스트 윈도우**를 활용해 repo 전체를 단일 컨텍스트에 로드하고 전수 교차 검증을 수행한다.
 
 ### 실행 전제
-- 모델: `claude-opus-4-7[1m]` (1M context) 사용 중인지 확인
-  - 현재 세션 모델 ID가 `[1m]` suffix를 포함하지 않으면 사용자에게 전환 안내 후 중단
+- 모델: 1M 컨텍스트 모델 사용 중인지 확인 — 아래 중 하나면 통과:
+  - `claude-fable-5` / `claude-mythos-5` (1M 컨텍스트가 기본)
+  - `claude-opus-4-8`, `claude-opus-4-7` 등 모델 ID에 `[1m]` suffix 포함
+  - 어느 조건도 아니면 사용자에게 전환 안내 후 중단
 - 비용 경고: **일반 `/sync-docs` 대비 10~20배 토큰 소비**. 실행 전 사용자에게 명시적 동의 요청
+  - Fable 5 / Mythos 5는 새 tokenizer로 동일 콘텐츠가 **~30% 더 많은 토큰**으로 계산되고 단가도 높음($10/$50 per MTok) — 비용 추정 시 반영
 - 권장 실행 빈도: **월 1회** 또는 **major milestone 직전**(릴리스/아키텍처 리팩터링 전)
 
 ### 1. 컨텍스트 로드 (단일 패스)
@@ -102,7 +105,7 @@ Deep 모드는 Opus 4.7의 **1M 컨텍스트 윈도우**(`claude-opus-4-7[1m]`)�
 ### 3. Deep Report 출력 예시
 ```
 === Deep Sync Report (1M context, full-repo audit) ===
-Model: claude-opus-4-7[1m]
+Model: claude-fable-5
 Scope: 247 files, ~820K tokens loaded
 Duration: 4m 12s
 
@@ -143,4 +146,4 @@ Actions needed: 7 items (3 critical, 4 warning)
 ## Constraints
 - 코드 수정 금지 — 문서만 업데이트
 - 자동 수정은 사용자 확인 후에만 적용
-- `--deep` 모드는 모델이 `[1m]` 컨텍스트 지원 시에만 실행. 미지원 시 사용자에게 전환 안내 후 중단
+- `--deep` 모드는 1M 컨텍스트 모델(Fable 5/Mythos 5 기본, 또는 `[1m]` suffix)에서만 실행. 미지원 시 사용자에게 전환 안내 후 중단

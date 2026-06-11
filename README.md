@@ -91,16 +91,24 @@ npx cc-harness                                 # 대화형
 
 ### Agents (8개)
 
-| Agent | Phase | 역할 |
-|-------|-------|------|
-| `spec-writer` | 1. 기획 | 요구사항 인터뷰 → SPEC.md 작성 |
-| `architect` | 2. 설계 | 아키텍처 설계 + 위협 모델링 |
-| `implementer` | 3. 구현 | 코드 구현 + 보안 셀프체크 |
-| `test-writer` | 4. 검증 | 단위/통합/E2E 테스트 작성 |
-| `security-auditor` | 4. 검증 | 보안 감사 + 위협 모델링 검증 |
-| `qa-reviewer` | 4. 검증 | 사용자 관점 QA + 통합 테스트 |
-| `evaluator` | 게이트 | 5차원 품질 평가 (min-of-5 scoring) |
-| `deploy-operator` | 5. 배포 | staging → production 배포 관리 |
+| Agent | Phase | 역할 | 모델 |
+|-------|-------|------|------|
+| `spec-writer` | 1. 기획 | 요구사항 인터뷰 → SPEC.md 작성 | Sonnet 4.6 |
+| `architect` | 2. 설계 | 아키텍처 설계 + 위협 모델링 | **Fable 5** |
+| `implementer` | 3. 구현 | 코드 구현 + 보안 셀프체크 | Opus 4.8 |
+| `test-writer` | 4. 검증 | 단위/통합/E2E 테스트 작성 | Haiku 4.5 |
+| `security-auditor` | 4. 검증 | 보안 감사 + 위협 모델링 검증 | Opus 4.8 |
+| `qa-reviewer` | 4. 검증 | 사용자 관점 QA + 통합 테스트 | Haiku 4.5 |
+| `evaluator` | 게이트 | 5차원 품질 평가 (min-of-5 scoring) | **Fable 5** |
+| `deploy-operator` | 5. 배포 | staging → production 배포 관리 | Haiku 4.5 |
+
+> **모델 라우팅 (v1.4.0)** — 추론 강도에 따라 모델을 차등 배치:
+> - **Fable 5** (`claude-fable-5`): 설계·품질 게이트처럼 판단 품질이 결과를 좌우하는 단계.
+>   1M 컨텍스트 기본. 단, **30일 데이터 보존 정책 필수**(ZDR 조직 사용 불가), 단가 $10/$50 per MTok.
+>   Fable 5를 사용할 수 없는 환경은 `agents/architect.md`, `agents/evaluator.md`의 `model:`을 `claude-opus-4-8`로 변경.
+> - **Opus 4.8**: 에이전틱 코딩(implementer)과 보안 감사(security-auditor).
+>   security-auditor는 Fable 5의 cyber 안전 분류기가 보안 분석을 refusal할 수 있어 **의도적으로 Opus 사용**.
+> - **Haiku 4.5**: 체크리스트성 검증·배포 등 비용 효율이 중요한 단계.
 
 ### Skills (4개)
 

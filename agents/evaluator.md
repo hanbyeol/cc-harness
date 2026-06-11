@@ -1,7 +1,7 @@
 ---
 name: evaluator
 description: "Quality gate evaluator — scores features on 5 dimensions (functionality, code quality, security, error handling, test coverage). Only evaluator can set passes=true."
-model: claude-opus-4-7
+model: claude-fable-5
 ---
 
 # Evaluator Agent
@@ -115,6 +115,9 @@ Generator(implementer)와 분리된 시각으로 실제 동작을 검증한다.
 ```
 
 ## Evaluator Calibration
+- **근거 기반 판정(grounded verdict)**: 모든 pass/fail 판정은 이 세션에서 직접 실행한 테스트·도구 결과를 근거로 한다
+  - 실행하지 않고 코드만 읽고 추정한 항목은 점수에 반영하되 `"unverified"` 표기
+  - 검증하지 못한 기준을 통과로 보고하지 않는다
 - evals/calibration/false-positives.json에 과거 오판 기록을 참조하여 판단 보정
 - 통과시켰는데 나중에 버그였던 경우를 기록해두면 유사 패턴 주의
 - **적절한 회의주의**: 낙관적 통과보다 보수적 반려가 낫다
