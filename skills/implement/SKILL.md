@@ -83,15 +83,18 @@ implementer agent의 프로세스를 따라 구현:
 - git commit
 - progress/claude-progress.txt 업데이트
 
-### 8. Evaluator 실행 안내
-```
-구현 완료! 다음 단계:
-  evaluator agent로 검증을 실행하세요.
+### 8. 검증 디스패치
+구현 완료 후 verification phase 에이전트를 실행한다:
 
-  프롬프트 예시:
-  "evaluator agent로 F4 구현 결과를 검증해줘.
-   Sprint Contract: progress/contracts/sprint-4.json"
-```
+1. **evaluator** (게이트, 우선 실행): Sprint Contract 기준 검증 — passes 판정은 evaluator만 가능
+   ```
+   "evaluator agent로 F4 구현 결과를 검증해줘.
+    Sprint Contract: progress/contracts/sprint-4.json"
+   ```
+2. evaluator 통과 후 나머지 검증은 **한 메시지에서 동시(병렬) 실행**:
+   - **test-writer** (통합/E2E 테스트) + **security-auditor** (보안 감사) + **qa-reviewer** (크로스 기능 QA)
+   - 서로 독립적이므로 순차 실행하지 않는다 — Agent tool 호출 3개를 같은 메시지에 담아 디스패치
+3. 결과는 progress/agent-comms/에 수집 — fail이 있으면 `--retry`로 implementer 루프 재진입
 
 ## Constraints
 - Sprint Contract는 구현 전에 작성 — **Plan 게이트에서 사용자 승인(ExitPlanMode)을 받은 뒤에만 `agreed: true`로 전환**

@@ -144,6 +144,9 @@ Correctness > Safety > Speed
 **현재 phase 확인**: `progress/phase-gate.json`의 `current_phase` 참조.
 Phase 미통과 시 다음 단계의 에이전트 실행 금지 — 사용자에게 현재 단계 완료를 먼저 안내.
 
+**verification 병렬 실행**: evaluator(게이트) 통과 후 test-writer·security-auditor·qa-reviewer는
+서로 독립적이므로 **한 메시지에서 동시(병렬) 실행**한다 — 순차 실행하지 않는다.
+
 ## Skills (Slash Commands)
 - `/change-request {설명}` — 기능 변경/추가/삭제 시 산출물 연쇄 업데이트
 - `/implement [F{n}]` — Sprint Contract → 구현 → Evaluator 검증 가이드

@@ -77,6 +77,8 @@ Correctness > Safety > Speed
 | verification | evaluator, test-writer, security-auditor, qa-reviewer | implementation 완료 |
 | deployment | deploy-operator | verification 통과 |
 
+**verification 병렬 실행**: evaluator(게이트) 통과 후 test-writer·security-auditor·qa-reviewer는 서로 독립적이므로 **한 메시지에서 동시(병렬) 실행**한다 — 순차 실행하지 않는다.
+
 ## Skills
 - `/change-request {설명}` — 기능 변경/추가/삭제 시 산출물 연쇄 업데이트
 - `/implement [F{n}]` — Sprint Contract → 구현 → Evaluator 검증 가이드
