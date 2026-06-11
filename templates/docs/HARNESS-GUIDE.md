@@ -300,18 +300,16 @@ Sprint Contract는 작성 즉시 `agreed: true`로 설정됩니다.
 ### 실행 예시
 
 ```
-# 개별 기능 검증
+# 개별 기능 검증 (게이트 — 먼저 실행)
 evaluator agent로 F3 검증해줘.
 
-# 통합 테스트 작성
-test-writer agent로 통합 테스트를 작성해줘. 특히 인증 플로우 E2E 테스트.
-
-# 보안 감사
-security-auditor agent로 전체 코드 보안 감사해줘.
-
-# QA 검증
-qa-reviewer agent로 사용자 시나리오 기반 QA 검증해줘.
+# evaluator 통과 후 — 아래 3개는 서로 독립적이므로 한 번에 요청 (병렬 실행)
+test-writer agent로 통합 테스트 작성, security-auditor agent로 보안 감사,
+qa-reviewer agent로 사용자 시나리오 QA 검증을 동시에 실행해줘.
 ```
+
+> **병렬 실행**: evaluator(게이트) 통과 후 test-writer·security-auditor·qa-reviewer는
+> 한 메시지에서 동시에 디스패치됩니다 — 순차 실행보다 검증 시간이 크게 단축됩니다.
 
 ### Evaluator 점수 체계
 
