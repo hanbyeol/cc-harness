@@ -36,11 +36,11 @@ run_setup() {
   [ ! -d .claude/hooks ]
 }
 
-@test "idempotent: running twice yields identical CLAUDE.md" {
+@test "idempotent: running twice yields byte-identical CLAUDE.md" {
   run_setup >/dev/null 2>&1
-  FIRST=$(cat CLAUDE.md)
+  cp CLAUDE.md claudemd.run1
   run_setup >/dev/null 2>&1
-  [ "$FIRST" = "$(cat CLAUDE.md)" ]
+  cmp -s CLAUDE.md claudemd.run1
 }
 
 @test "user CLAUDE.md: content preserved, one marker section appended" {

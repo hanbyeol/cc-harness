@@ -198,12 +198,12 @@ if [[ -f "$HARNESS_CLAUDE" ]]; then
       OUTSIDE_AFTER=$(sed -n "/^${MARKER_END}$/,\${ /^${MARKER_END}$/!p; }" CLAUDE.md)
       if grep -qF "$SENTINEL" "$TMPFILE" 2>/dev/null || { [[ -n "$OUTSIDE_AFTER" ]] && grep -qF "$SENTINEL" <<<"$OUTSIDE_AFTER"; }; then
         # 마커 밖에 이미 하네스 내용 존재 → 중복 섹션 제거 (dedupe)
-        printf '%s\n' "$OUTSIDE_AFTER" >> "$TMPFILE"
+        [[ -n "$OUTSIDE_AFTER" ]] && printf '%s\n' "$OUTSIDE_AFTER" >> "$TMPFILE"
         mv "$TMPFILE" CLAUDE.md
       else
         # 정상 케이스: 마커 섹션을 최신 내용으로 교체
         harness_section >> "$TMPFILE"
-        printf '%s\n' "$OUTSIDE_AFTER" >> "$TMPFILE"
+        [[ -n "$OUTSIDE_AFTER" ]] && printf '%s\n' "$OUTSIDE_AFTER" >> "$TMPFILE"
         mv "$TMPFILE" CLAUDE.md
       fi
     fi

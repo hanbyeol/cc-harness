@@ -20,3 +20,6 @@
 - F11: /finish-branch 스킬 (테스트 게이트→drift→PR/머지/보류, 외부 동작 사용자 확인)
 - ADR-003: 채택/미채택 근거 (inline self-review 미채택 — 독립 evaluator 유지)
 검증: bats 111/111, shellcheck 클린. 다음: evaluator 검증
+
+[2026-06-12] hotfix — setup-claudemd.sh CLAUDE.md trailing blank line (evaluator 기록 이슈 해소)
+- 재현 테스트 먼저(바이트 단위 cmp 멱등성, 기존 $(cat) 비교가 trailing newline을 숨겼음) → OUTSIDE_AFTER 빈 문자열 시 append 스킵
