@@ -1,0 +1,79 @@
+{
+  "timestamp": "2026-06-12T14:00:00Z",
+  "sprint": 1,
+  "iteration": 1,
+  "features_evaluated": ["F1", "F2", "F3", "F4", "F5", "F6"],
+  "security_tier": "critical",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 8,
+    "security": 9,
+    "error_handling": 8,
+    "test_coverage": 9
+  },
+  "score": 8,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_thresholds_applied": {"critical": 7, "standard": 5, "low": 3},
+  "verdict": "pass",
+  "fail_reasons": [],
+  "verification_method": {
+    "bats": "tests/ 디렉터리 전체 실행 — 103/103 pass, 0 fail",
+    "shellcheck": "hooks/*.sh 전체 통과 (exit 0)",
+    "firewall_smoke": "JSON stdin → bash hooks/pre-bash-firewall.sh 직접 실행으로 F2 6개 카테고리 케이스 모두 확인",
+    "idempotency_sandbox": "mktemp 디렉터리에서 setup-claudemd.sh 5회 반복 실행 — 마커 쌍 1벌 유지 확인",
+    "doc_grep": "grep -rn '자동 합의/자동으로 agreed' templates/ skills/ CLAUDE.md → 0 hits, evaluator.md 점수 앵커 표 존재 확인",
+    "manifest_consistency": "jq로 package.json/.claude-plugin/{plugin,marketplace}.json 버전 = 1.5.0 일치, plugin.json description의 '8 agents, 6 hooks, 5 skills, 11 rules'가 실제 파일 카운트와 일치"
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "F1: hooks/hooks.json이 CLAUDE_PLUGIN_ROOT 기반으로 5개 hook(SessionStart×2, PreToolUse, PostToolUse, Stop×2) 등록 — 확인",
+      "F1: 샌드박스에서 setup-claudemd.sh 5회 실행 후 BEGIN/END 마커 쌍 1벌만 존재 — 확인",
+      "F1: setup-claudemd.sh가 agents/skills/hooks를 .claude/로 복사하지 않음 (bats #82 통과) — 확인",
+      "F2: rm -rf /tmp/build, kubectl exec -it pod -- sh, git commit -m \"use `foo`\", git push --force-with-lease 모두 exit 0 (차단되지 않음) — 직접 실행으로 확인",
+      "F2: rm -rf /, rm -rf ~, mkfs.ext4, curl|sh, fork bomb 모두 exit 2 + BLOCKED 메시지 — 직접 실행으로 확인",
+      "F2: git reset --hard / git clean -fd → permissionDecision=ask JSON 반환 — 직접 실행으로 확인",
+      "F3: agents/spec-writer.md 라인 14는 '메인 루프가 사용자 인터뷰(AskUserQuestion)로 수집' (메인 루프 책임 명시), 라인 63은 '서브에이전트는 사용자에게 질문할 수 없다' 명시 — AskUserQuestion 사용 지시 아님",
+      "F3: templates/, skills/, CLAUDE.md 어디에도 '자동 합의/자동으로 agreed' 문자열 없음 — Plan 게이트와 정합",
+      "F3: agents/evaluator.md 라인 51-58에 9-10/7-8/5-6/3-4/1-2 점수 앵커 표 + unverified 규칙(최대 6점) 명시",
+      "F4: templates/CLAUDE.md.tmpl, CLAUDE.md, skills/implement/SKILL.md 3곳에서 session-handoff-draft.json 기록 지시 확인",
+      "F4: session-context.sh에서 agent_comms.max_files_per_type 초과 시 progress/agent-comms/archive/로 mv (bats #68-71 통과)",
+      "F5: package.json/plugin.json/marketplace.json 모두 1.5.0, plugin.json description의 8/6/5/11이 실제 파일 카운트와 정확히 일치",
+      "F5: tests/version-consistency.bats 5개 모두 통과",
+      "F6: .claude/.cc-harness-installed에 PLUGIN_VERSION 기록 (bats #92 통과 + 샌드박스에서 '1.5.0' 기록 확인)",
+      "F6: bats #93 동일 버전 스킵, #94 버전 변경 트리거, #95 pristine rule 갱신, #96 user-modified 보존, #97 pre-1.5 빈 마커 업그레이드, #98 안내 출력 — 모두 통과"
+    ],
+    "security": [
+      "firewall 완화는 오탐 제거에 한정 — 직접 실행으로 파괴적 패턴(루트/홈 삭제, mkfs, pipe-to-shell, fork bomb)의 deny 유지 확인",
+      "ask 강등은 git reset --hard, git clean -fd 등 복구 가능 명령에만 한정 — JSON permissionDecision=ask로 응답",
+      "hook 스크립트 6개 모두 shellcheck 통과 (exit 0)",
+      "bats에 우회 시나리오 테스트 존재(공백 변형, 명령 치환, 백틱, eval) — pre-bash-firewall.bats 58개 케이스"
+    ],
+    "error_scenarios": [
+      "빈 stdin / 빈 JSON / 잘못된 JSON 모두 exit 0 (graceful) — 직접 실행으로 확인",
+      "post-edit-format.sh CLAUDE_PROJECT_DIR unbound variable 가드 (bats 통과)",
+      "settings.json hooks 사용자 수정 시 마이그레이션이 건드리지 않음 (bats #91)",
+      "CLAUDE.md begin 마커만 있고 end 없을 때 파일 미파괴 — 샌드박스에서 직접 확인 (bats #87)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "issues_minor": [
+    "[quality][cosmetic] setup-claudemd.sh: 첫 재실행 시 CLAUDE.md 끝에 빈 줄 1개가 추가됨 (run1: 5211 bytes → run2: 5212 bytes, run3 이후 안정). 마커 쌍은 정확히 1벌 유지되므로 acceptance criterion('정확히 1벌만 존재한다')은 만족하지만, bats #83의 idempotency 비교가 $(cat …) 명령 치환으로 trailing newline을 제거해 통과한 것이라 byte-수준 멱등성은 깨져있음. 추후 hotfix로 trailing newline normalization 권고 — 통과 판정에는 영향 없음."
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "action_required": null
+  },
+  "criteria_backfill_review": {
+    "items_added_by_implementer": 3,
+    "appropriateness": "ok",
+    "notes": "implementer가 추가한 backfill 3건(F6 전체, F2 git checkout --force ask 추가, pre-1.5 업그레이드 에러 시나리오)은 모두 사용자의 mid-sprint 요청에 따른 적법한 보완. 범위 확장이 아니라 필수 보완 항목으로 판단. 3건 기준선과 같으나 모두 정당하므로 spec/architecture 재검토는 권고하지 않음."
+  },
+  "calibration_notes": "F2가 critical tier이므로 firewall 직접 스모크를 6개 카테고리 모두 실행해 통과 확인. 추정/코드 리딩만으로 점수를 매긴 차원 없음 — unverified 표기 해당사항 없음."
+}
