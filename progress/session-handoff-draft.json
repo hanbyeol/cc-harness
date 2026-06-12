@@ -1,11 +1,9 @@
 {
-  "in_progress": "브랜치 push 완료 + hotfix 반영 — PR 수동 생성 대기 (gh CLI 미설치)",
-  "blockers": [
-    "gh CLI 미설치 — PR 자동 생성 불가, compare URL로 수동 생성 필요"
-  ],
+  "in_progress": "PR #1 오픈됨 — 리뷰/머지 대기",
+  "blockers": [],
   "next_actions": [
-    "GitHub에서 PR 생성: feat/v1.5.0-harness-hardening → main",
-    "머지 후 marketplace plugin 캐시 갱신 확인 (1.4.0 → 1.6.0 업그레이드 경로가 실프로젝트에서 동작하는지)"
+    "PR #1 리뷰 후 머지: https://github.com/hanbyeol/cc-harness/pull/1",
+    "머지 후 marketplace plugin 캐시 갱신 확인 (1.4.0 → 1.6.0 업그레이드가 실프로젝트 첫 세션에서 자동 적용되는지)"
   ],
   "key_decisions": [
     "superpowers inline self-review 미채택 — 독립 Generator-Evaluator 유지 (ADR-003)",
