@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034,SC2015
+# SC2034: HAS_* 변수는 strip_conditional_file의 간접 확장(${!1})으로 읽힘 — 오탐
+# SC2015: `A && B || true` 는 의도적 graceful-skip 패턴
 #
 # cc-harness — Claude Code Full-SDLC Harness Bootstrapper
 #
