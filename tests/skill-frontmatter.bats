@@ -44,10 +44,13 @@ PLUGIN_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
   [ "$ACTUAL" = "$CLAIMED" ] || { echo "hooks: actual=$ACTUAL claimed=$CLAIMED"; return 1; }
 }
 
-@test "every routed skill appears in CLAUDE.md routing table" {
-  for skill in brainstorm change-request implement hotfix debug finish-branch progress sync-docs; do
+@test "every skill appears in CLAUDE.md and template routing" {
+  # 목록을 하드코딩하지 않고 skills/에서 도출 — 새 스킬 추가 시 라우팅 누락을 자동 검출
+  for d in "$PLUGIN_ROOT"/skills/*/; do
+    skill=$(basename "$d")
     grep -q "/$skill" "$PLUGIN_ROOT/CLAUDE.md" || { echo "missing in CLAUDE.md: /$skill"; return 1; }
     grep -q "/$skill" "$PLUGIN_ROOT/templates/CLAUDE.md.tmpl" || { echo "missing in tmpl: /$skill"; return 1; }
+    grep -q "/$skill" "$PLUGIN_ROOT/README.md" || { echo "missing in README: /$skill"; return 1; }
   done
 }
 

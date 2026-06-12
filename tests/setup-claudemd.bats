@@ -74,6 +74,38 @@ run_setup() {
   [ "$BEFORE" = "$(cat CLAUDE.md)" ]
 }
 
+@test "two complete marker sections: collapsed to exactly one pair" {
+  { echo "# proj"; echo
+    echo "<!-- cc-harness:begin -->"; echo "old section A"; echo "<!-- cc-harness:end -->"
+    echo "user middle content"
+    echo "<!-- cc-harness:begin -->"; echo "old section B"; echo "<!-- cc-harness:end -->"
+    echo "user tail content"; } > CLAUDE.md
+  run_setup >/dev/null 2>&1
+  [ "$(grep -cF '<!-- cc-harness:begin -->' CLAUDE.md)" -eq 1 ]
+  [ "$(grep -cF '<!-- cc-harness:end -->' CLAUDE.md)" -eq 1 ]
+  [ "$(grep -c 'user middle content' CLAUDE.md)" -eq 1 ]
+  [ "$(grep -c 'user tail content' CLAUDE.md)" -eq 1 ]
+}
+
+@test "begin marker on line 1: user tail preserved exactly once" {
+  { echo "<!-- cc-harness:begin -->"; echo "old stuff"; echo "<!-- cc-harness:end -->"
+    echo "user tail line"; } > CLAUDE.md
+  run_setup >/dev/null 2>&1
+  [ "$(grep -cF '<!-- cc-harness:begin -->' CLAUDE.md)" -eq 1 ]
+  [ "$(grep -cF '<!-- cc-harness:end -->' CLAUDE.md)" -eq 1 ]
+  [ "$(grep -c 'user tail line' CLAUDE.md)" -eq 1 ]
+  grep -q "$SENTINEL" CLAUDE.md
+}
+
+@test "same version: CLAUDE.md not rewritten (mtime preserved)" {
+  run_setup >/dev/null 2>&1
+  touch -t 202001010000 CLAUDE.md
+  BEFORE_MTIME=$(stat -f %m CLAUDE.md 2>/dev/null || stat -c %Y CLAUDE.md)
+  run_setup >/dev/null 2>&1
+  AFTER_MTIME=$(stat -f %m CLAUDE.md 2>/dev/null || stat -c %Y CLAUDE.md)
+  [ "$BEFORE_MTIME" = "$AFTER_MTIME" ]
+}
+
 @test "v1.4 migration: identical agent/skill copies removed" {
   mkdir -p .claude/agents .claude/skills
   cp "$PLUGIN_ROOT"/agents/*.md .claude/agents/
@@ -184,4 +216,37 @@ PLUGIN_VERSION_NOW() {
   echo "1.4.0" > .claude/.cc-harness-installed
   run run_setup
   [[ "$output" == *"1.4.0 → $(PLUGIN_VERSION_NOW) 업그레이드"* ]]
+}
+
+@test "migration: partial hooks (one modified) deletes nothing — no broken settings refs" {
+  mkdir -p .claude/hooks
+  cp "$PLUGIN_ROOT/hooks/pre-commit-gate.sh" .claude/hooks/
+  cp "$PLUGIN_ROOT/hooks/pre-bash-firewall.sh" .claude/hooks/
+  echo "# user tweak" >> .claude/hooks/pre-bash-firewall.sh
+  cp "$PLUGIN_ROOT/settings.json" .claude/settings.json
+  run_setup >/dev/null 2>&1
+  # all-or-nothing: 하나라도 제거 불가면 전부 보존 (settings.json 참조 보호)
+  [ -f .claude/hooks/pre-commit-gate.sh ]
+  [ -f .claude/hooks/pre-bash-firewall.sh ]
+  [ "$(jq 'has("hooks")' .claude/settings.json)" = "true" ]
+}
+
+@test "migration: pristine v1.4.0 copies removed via legacy hash" {
+  CACHE="$HOME/.claude/plugins/cache/cc-harness-marketplace/cc-harness/1.4.0"
+  [ -d "$CACHE/agents" ] || skip "v1.4.0 plugin cache not available"
+  mkdir -p .claude/agents
+  cp "$CACHE/agents/evaluator.md" .claude/agents/
+  # 이번 릴리스에서 내용이 바뀐 파일이라 현재 원본과는 다르지만, legacy hash로 식별돼야 함
+  ! cmp -s .claude/agents/evaluator.md "$PLUGIN_ROOT/agents/evaluator.md"
+  run_setup >/dev/null 2>&1
+  [ ! -f .claude/agents/evaluator.md ]
+}
+
+@test "self-defense: copy of this script inside .claude does not wipe the install" {
+  mkdir -p .claude/hooks .claude/agents
+  cp "$PLUGIN_ROOT/hooks/setup-claudemd.sh" .claude/hooks/
+  cp "$PLUGIN_ROOT/agents/architect.md" .claude/agents/
+  CLAUDE_PROJECT_DIR="$WORK" bash .claude/hooks/setup-claudemd.sh >/dev/null 2>&1
+  [ -f .claude/agents/architect.md ]
+  [ -f .claude/hooks/setup-claudemd.sh ]
 }

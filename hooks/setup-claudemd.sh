@@ -21,6 +21,13 @@ cd "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}" 
 # Plugin root: 스크립트 위치 기준으로 결정
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# 자기 방어: init.sh가 이 스크립트를 .claude/hooks/로 복사한 사본이 프로젝트 안에서
+# 실행되면 PLUGIN_ROOT가 프로젝트의 .claude를 가리킨다 — 마이그레이션이 설치 자체를
+# 자기 자신과 비교해 삭제(self-wipe)하므로 즉시 중단한다.
+if [[ -d "$PWD/.claude" ]] && [[ "$PLUGIN_ROOT" -ef "$PWD/.claude" ]]; then
+  exit 0
+fi
+
 # ─── 버전 상태 ───
 STATE_FILE=".claude/.cc-harness-installed"
 RULES_MANIFEST=".claude/.cc-harness-rules.sha256"
@@ -96,7 +103,43 @@ fi
 
 # ─── 2. 마이그레이션 (버전 변경 시에만) ───
 # v1.4 이하: agents/skills/hooks를 .claude/에 복사하던 방식 → 네이티브 로딩으로 전환.
-# plugin 원본과 동일한 복사본만 제거하고, 수정된 파일은 사용자 커스터마이징으로 보존.
+# 복사본이 "현재 plugin 원본과 동일" 또는 "과거 릴리스 배포본과 동일(legacy hash)"일 때만
+# 제거하고, 그 외(사용자 수정본)는 보존한다.
+#
+# v1.4.0 배포 파일들의 sha256 — 이번 릴리스에서 내용이 바뀐 파일의 pristine 구버전
+# 복사본을 식별하기 위함. 새 릴리스에서 파일을 변경하면 직전 릴리스 해시를 여기 추가한다.
+LEGACY_HASHES="
+005b956f3c9e71dbdafbbe84fa4cf35fdad5ed0ff345acb53449f05b46032002
+048804bcaec4dc2062a4edbac55a32402ff1af2be5926c4c310525604356f746
+0a5249d8459ccc1a905c5f8848ccf95810435928e7853c97a91ab112a1c28712
+1ae92c0ce6bb6ac7847ec49279af691b5f9955f96bd3e97b5dd085785e2d820b
+1bd21fd5ae000c86023989acc4d5964b057897571060e86b4372e28b08f3119e
+2ebc8b1b6da8726ca6859da6a9372d82a0030d736fe9fcba485379c004e1f927
+4cf614e1d7c3d0dedfd0dc28eea749ae55287dd3a8cfc3f7d1004292f34b4e74
+4e43213ee0f946440100498ec3de0736eafc50c2752d169b13f8e25724bb541e
+91a37d04c980332efafc62d7e7b7dff92f8fde9d3fabd12c20d5293c2ecc0de2
+95c3a7493b2dbbb964638479f1a73ce27f91b410c8320428947ef3a13580523d
+9f805bf96bd6b589e20a64aae325e5163fb23043ac6f5a8bd6d8c2dd5b1996e4
+af9b8d8d3b56d16ef3fb3ab943faa167c38e4b381d1e75cbc59d0a53947fe3cf
+bcfce525e5463ee9b2aaaed34267acc6f6e81b51612c8ae93f5793ffeeddeb9b
+c8b33ac956790d995292c23bbc209d8a3cde2d5f53d45ea30e5cf5ed666dc851
+ced1f27b3b1446cb5850c596f312cefc338cd2d01b04e8e18e06f8679d3e669d
+d1e4ca70a2192e1d8a56a9745c1624976d348fa3e1385e9ba3abaa54fc546e19
+df79886572da82b97b2f2713d8a99405b9ecefe6910aff3b3996d060d126bbfb
+e9859eadbc83be9a64443e9036ba4ae5a76065e3910e2cd52f129bfae4c806cf
+f019975f6a8083cb641153d403103766fffb7285b4e5eac5d78b61eddd1da3ef
+"
+
+# 파일이 제거 가능한가: 현재 plugin 원본과 동일 OR 과거 배포본 해시와 일치
+removable_copy() {
+  local file="$1" src="$2" h
+  if [[ -f "$src" ]] && cmp -s "$file" "$src"; then
+    return 0
+  fi
+  h=$(hash_file "$file")
+  [[ -n "$h" && "$LEGACY_HASHES" == *"$h"* ]]
+}
+
 MIGRATED=0
 CUSTOMIZED=()
 if [[ "$VERSION_CHANGED" == "1" ]]; then
@@ -105,7 +148,7 @@ if [[ "$VERSION_CHANGED" == "1" ]]; then
       [[ -f "$f" ]] || continue
       SRC="$PLUGIN_ROOT/agents/$(basename "$f")"
       if [[ -f "$SRC" ]]; then
-        if cmp -s "$f" "$SRC"; then
+        if removable_copy "$f" "$SRC"; then
           rm -f "$f"; MIGRATED=1
         else
           CUSTOMIZED+=("$f")
@@ -123,6 +166,9 @@ if [[ "$VERSION_CHANGED" == "1" ]]; then
       if [[ -d "$SRC" ]]; then
         if diff -rq "$d" "$SRC" &>/dev/null; then
           rm -rf "$d"; MIGRATED=1
+        elif [[ -f "$d/SKILL.md" && $(find "$d" -type f | wc -l) -eq 1 ]] && removable_copy "$d/SKILL.md" "$SRC/SKILL.md"; then
+          # SKILL.md 하나뿐인 디렉토리가 과거 배포본과 일치 → 제거 가능
+          rm -rf "$d"; MIGRATED=1
         else
           CUSTOMIZED+=("$d")
         fi
@@ -131,10 +177,19 @@ if [[ "$VERSION_CHANGED" == "1" ]]; then
     rmdir .claude/skills 2>/dev/null || true
   fi
 
-  # hooks: settings.json의 hooks 섹션이 plugin 기본값과 동일할 때만 함께 제거
-  # (스크립트만 지우면 settings.json의 참조가 깨져 매 세션 에러가 나므로 쌍으로 처리)
+  # hooks: 스크립트와 settings.json 등록은 쌍으로만 제거한다 (부분 삭제 시 깨진 참조가
+  # 매 이벤트마다 에러를 냄). 조건: (a) .claude/hooks의 모든 스크립트가 제거 가능하고
+  # (b) settings.json의 hooks 섹션이 plugin 기본값과 동일(또는 settings.json 부재).
   SETTINGS=".claude/settings.json"
   if [[ -d .claude/hooks ]] && command -v jq &>/dev/null; then
+    HOOKS_ALL_REMOVABLE=1
+    for f in .claude/hooks/*.sh; do
+      [[ -f "$f" ]] || continue
+      if ! removable_copy "$f" "$PLUGIN_ROOT/hooks/$(basename "$f")"; then
+        HOOKS_ALL_REMOVABLE=0
+        CUSTOMIZED+=("$f")
+      fi
+    done
     SETTINGS_HOOKS_MATCH=0
     if [[ -f "$SETTINGS" && -f "$PLUGIN_ROOT/settings.json" ]]; then
       if [[ "$(jq -S '.hooks // empty' "$SETTINGS" 2>/dev/null)" == "$(jq -S '.hooks // empty' "$PLUGIN_ROOT/settings.json" 2>/dev/null)" ]]; then
@@ -143,35 +198,34 @@ if [[ "$VERSION_CHANGED" == "1" ]]; then
     elif [[ ! -f "$SETTINGS" ]]; then
       SETTINGS_HOOKS_MATCH=1
     fi
-    if [[ "$SETTINGS_HOOKS_MATCH" == "1" ]]; then
-      for f in .claude/hooks/*.sh; do
-        [[ -f "$f" ]] || continue
-        SRC="$PLUGIN_ROOT/hooks/$(basename "$f")"
-        if [[ -f "$SRC" ]] && cmp -s "$f" "$SRC"; then
-          rm -f "$f"; MIGRATED=1
-        fi
-      done
+    if [[ "$HOOKS_ALL_REMOVABLE" == "1" && "$SETTINGS_HOOKS_MATCH" == "1" ]]; then
+      rm -f .claude/hooks/*.sh
       rmdir .claude/hooks 2>/dev/null || true
-      if [[ ! -d .claude/hooks && -f "$SETTINGS" ]]; then
+      if [[ -f "$SETTINGS" ]]; then
         TMP=$(mktemp)
         if jq 'del(.hooks)' "$SETTINGS" > "$TMP" 2>/dev/null; then
           mv "$TMP" "$SETTINGS"
         else
           rm -f "$TMP"
         fi
-        MIGRATED=1
       fi
+      MIGRATED=1
     fi
   fi
 fi
 
-# ─── 3. CLAUDE.md 생성/갱신 (멱등 — 매 세션 self-heal) ───
+# ─── 3. CLAUDE.md 생성/갱신 (멱등 — 매 세션 self-heal, 내용 동일 시 재작성 없음) ───
 HARNESS_CLAUDE="$PLUGIN_ROOT/CLAUDE.md"
 if [[ -f "$HARNESS_CLAUDE" ]]; then
   MARKER="<!-- cc-harness:begin -->"
   MARKER_END="<!-- cc-harness:end -->"
   # 마커 밖에 이미 하네스 내용이 존재하는지 판별하는 센티널 (CLAUDE.md 고유 문구)
   SENTINEL="## 기준 역전파 원칙"
+
+  SECTION_TMP=""
+  OUTSIDE_TMP=""
+  NEW_TMP=""
+  trap 'rm -f "$SECTION_TMP" "$OUTSIDE_TMP" "$NEW_TMP"' EXIT
 
   harness_section() {
     echo "$MARKER"
@@ -188,27 +242,36 @@ if [[ -f "$HARNESS_CLAUDE" ]]; then
       harness_section
     } > CLAUDE.md
   elif grep -qF "$MARKER" CLAUDE.md 2>/dev/null; then
-    if ! grep -qF "$MARKER_END" CLAUDE.md 2>/dev/null; then
-      # 손상된 마커(begin만 존재): 사용자 내용 파괴 위험 — 건드리지 않음
-      echo "cc-harness: CLAUDE.md의 마커가 손상되어(end 누락) 갱신을 건너뜁니다." >&2
+    BEGIN_COUNT=$(grep -cF "$MARKER" CLAUDE.md 2>/dev/null || true)
+    END_COUNT=$(grep -cF "$MARKER_END" CLAUDE.md 2>/dev/null || true)
+    if [[ "$BEGIN_COUNT" != "$END_COUNT" ]]; then
+      # 손상된 마커(쌍 불일치): 사용자 내용 파괴 위험 — 건드리지 않음
+      echo "cc-harness: CLAUDE.md의 마커 쌍이 불일치하여(begin=$BEGIN_COUNT end=$END_COUNT) 갱신을 건너뜁니다." >&2
     else
-      TMPFILE=$(mktemp)
-      trap 'rm -f "$TMPFILE"' EXIT
-      sed -n "1,/^${MARKER}$/{ /^${MARKER}$/!p; }" CLAUDE.md > "$TMPFILE"
-      OUTSIDE_AFTER=$(sed -n "/^${MARKER_END}$/,\${ /^${MARKER_END}$/!p; }" CLAUDE.md)
-      if grep -qF "$SENTINEL" "$TMPFILE" 2>/dev/null || { [[ -n "$OUTSIDE_AFTER" ]] && grep -qF "$SENTINEL" <<<"$OUTSIDE_AFTER"; }; then
-        # 마커 밖에 이미 하네스 내용 존재 → 중복 섹션 제거 (dedupe)
-        [[ -n "$OUTSIDE_AFTER" ]] && printf '%s\n' "$OUTSIDE_AFTER" >> "$TMPFILE"
-        mv "$TMPFILE" CLAUDE.md
+      SECTION_TMP=$(mktemp)
+      OUTSIDE_TMP=$(mktemp)
+      NEW_TMP=$(mktemp)
+      harness_section > "$SECTION_TMP"
+      # 마커 섹션(복수 가능)을 모두 제외한 바깥 내용 — 위치·개수와 무관하게 정확함
+      awk -v b="$MARKER" -v e="$MARKER_END" '$0==b{s=1;next} $0==e{s=0;next} !s' CLAUDE.md > "$OUTSIDE_TMP"
+      if grep -qF "$SENTINEL" "$OUTSIDE_TMP" 2>/dev/null; then
+        # 마커 밖에 이미 하네스 내용 존재 → 마커 섹션 전부 제거 (dedupe)
+        cp "$OUTSIDE_TMP" "$NEW_TMP"
       else
-        # 정상 케이스: 마커 섹션을 최신 내용으로 교체
-        harness_section >> "$TMPFILE"
-        [[ -n "$OUTSIDE_AFTER" ]] && printf '%s\n' "$OUTSIDE_AFTER" >> "$TMPFILE"
-        mv "$TMPFILE" CLAUDE.md
+        # 첫 마커 섹션을 최신 내용으로 교체, 나머지 중복 섹션은 제거
+        awk -v b="$MARKER" -v e="$MARKER_END" -v sec="$SECTION_TMP" '
+          $0==b { if (!r) { while ((getline line < sec) > 0) print line; r=1 } s=1; next }
+          $0==e { s=0; next }
+          !s { print }
+        ' CLAUDE.md > "$NEW_TMP"
+      fi
+      # 내용이 같으면 재작성하지 않음 (mtime 불필요 갱신 방지)
+      if ! cmp -s "$NEW_TMP" CLAUDE.md; then
+        mv "$NEW_TMP" CLAUDE.md
       fi
     fi
   elif grep -qF "$SENTINEL" CLAUDE.md 2>/dev/null; then
-    # 마커는 없지만 하네스 내용이 이미 존재 (템플릿으로 생성된 경우) → 삽입 스킵
+    # 마커는 없지만 하네스 내용이 이미 존재 (구버전 템플릿으로 생성된 경우) → 삽입 스킵
     :
   else
     {

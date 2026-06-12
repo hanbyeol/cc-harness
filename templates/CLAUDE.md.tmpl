@@ -29,6 +29,8 @@ Correctness > Safety > Speed
 - Unity: `dotnet build` (C# 컴파일) / Unity Test Runner (EditMode/PlayMode)
 <!-- ENDIF:UNITY -->
 
+<!-- cc-harness:begin -->
+
 ## Workflow — 기능 추가/변경/삭제 시 필수 절차
 사용자가 기능 추가, 변경, 삭제를 요청하면 (**"~~ 기능 추가해줘", "~~ 변경해줘" 등**)
 아래 절차를 **반드시** 따른다. 코드부터 작성하지 않는다.
@@ -166,3 +168,5 @@ Phase 미통과 시 다음 단계의 에이전트 실행 금지 — 사용자에
 - `/finish-branch` — 브랜치 마무리: 테스트 → drift 확인 → PR/머지/보류
 - `/progress` — 진행 현황 대시보드 + 다음 작업 제안
 - `/sync-docs` — 구현과 문서 간 drift 탐지 및 동기화 (`--deep` 플래그로 1M 컨텍스트 전수 검사, 고비용·월 1회 권장)
+
+<!-- cc-harness:end -->

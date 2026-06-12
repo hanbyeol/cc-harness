@@ -115,6 +115,11 @@ feature_list.json에서 기능을 선택하여 구현.
     "SQL injection attempt in username",
     "brute force rate limit trigger"
   ],
+  "implementation_steps": [
+    {"step": "JWT 발급/검증 로직 + 단위 테스트", "verify": "go test ./auth/ -run TestJWT", "done": false},
+    {"step": "POST /login 핸들러 + 에러 경로 테스트", "verify": "go test ./auth/ -run TestLogin", "done": false},
+    {"step": "rate limiting 미들웨어 + 보안 테스트", "verify": "go test ./auth/ -run TestRateLimit", "done": false}
+  ],
   "agreed": true
 }
 ```
