@@ -30,13 +30,28 @@ feature_list.json에서 기능을 선택하여 구현.
      (acceptance-criteria.json, SPEC.md, SECURITY-CHECKLIST.md) 보완 후 `criteria_backfill`에 기록
    - **`agreed: true`인 Contract에서만 구현 시작** — 승인은 메인 루프의 Plan 게이트(/implement, ExitPlanMode)에서 이루어진다.
      미승인 상태면 구현하지 말고 output에 승인 필요를 기록 후 종료
-4. **구현 + 테스트**: 해당 디렉토리의 CLAUDE.md 규칙 준수
-   - security_tier: critical → 보안 테스트 필수 (인가 우회, 입력 검증, 시크릿 노출)
+4. **구현 — TDD (RED-GREEN-REFACTOR)**: 해당 디렉토리의 CLAUDE.md 규칙 준수
+   - **RED**: Sprint Contract의 acceptance/security/error criteria에서 **실패하는 테스트를 먼저 작성**하고
+     실패를 실행으로 확인한다 (실패를 본 적 없는 테스트는 검증력이 없다)
+     - security_tier: critical → 보안 테스트(인가 우회, 입력 검증, 시크릿 노출)도 RED부터
+   - **GREEN**: 그 테스트를 통과시키는 **최소 구현** — 테스트가 요구하지 않는 코드를 미리 쓰지 않는다
+   - **REFACTOR**: 테스트 green을 유지하며 구조 정리
+   - 체크포인트 태스크(Sprint Contract의 implementation_steps) 단위로 사이클 반복 — 태스크 하나가
+     끝날 때마다 해당 테스트 통과를 확인하고 다음으로
    - 에러 경로 테스트 포함 (잘못된 입력, 권한 부족, 리소스 없음)
    - 구현 중 기준에 없는 엣지 케이스/에러 시나리오 발견 시 **즉시** acceptance-criteria.json과
      Sprint Contract를 보완하고 구현 계속 (기준 업데이트를 미루지 않는다)
-5. **완료 처리**: Security Checklist self-check → 린트 + 테스트 실행 → git commit + progress 업데이트
+   - TDD 예외: 탐색용 스파이크, 설정 파일, 문서 등 테스트 불가 항목은 output에 사유 기록
+5. **완료 처리 — evidence 필수**: Security Checklist self-check → 린트 + 테스트 실행 → git commit + progress 업데이트
+   - **실행하지 않은 검증을 완료로 보고하지 않는다** — 테스트·린트의 실제 실행 결과 요약을
+     output JSON의 `evidence`에 기록 (evaluator의 unverified 규칙과 대칭: 주장이 아니라 증거)
    - 이번 iteration에서 얻은 교훈(잘못 짚었던 접근, 확인된 패턴)은 progress/lessons.md에 한 줄 요약과 함께 기록
+
+## 테스트 안티패턴 — 금지
+- 구현에 맞추기 위한 기존 테스트 수정/단언 약화 (테스트가 빨간 이유를 먼저 규명)
+- 테스트 스킵/삭제로 green 만들기
+- 구현을 끝낸 뒤 통과하는 모양으로 끼워맞춘 테스트 (RED를 본 적 없는 테스트)
+- 구현 내부 구조에 결합된 테스트 (동작이 아니라 구현을 단언)
 
 ## Output
 ```json
@@ -53,6 +68,11 @@ feature_list.json에서 기능을 선택하여 구현.
     "notes": "JWT secret loaded from env, input validation on all endpoints"
   },
   "error_scenarios_tested": ["invalid credentials", "expired token", "missing header"],
+  "evidence": {
+    "tests": "go test ./services/auth/... — 14 passed, 0 failed (coverage 82%)",
+    "lint": "golangci-lint run — clean",
+    "tdd_exceptions": []
+  },
   "criteria_backfill": {
     "acceptance_criteria_added": ["GET /me returns 401 when token is malformed"],
     "error_scenarios_added": ["malformed JWT → 401 with 'invalid_token' code"],

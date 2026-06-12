@@ -57,7 +57,7 @@ claude    # ← 자동으로 harness 적용
 |---|---|---|
 | **agents** (8개) | O (네이티브 로딩) | O (.claude/ 복사) |
 | **hooks** (6개) | O (네이티브 등록) | O (.claude/ 복사) |
-| **skills** (5개) | O (네이티브 로딩) | O (.claude/ 복사) |
+| **skills** (8개) | O (네이티브 로딩) | O (.claude/ 복사) |
 | **rules** (11개) | O (.claude/rules/ 복사) | O (프리셋 기반 선택) |
 | **settings.json** | 불필요 (hooks.json 네이티브) | O |
 | progress/ | - | O |
@@ -110,15 +110,21 @@ npx cc-harness                                 # 대화형
 >   security-auditor는 Fable 5의 cyber 안전 분류기가 보안 분석을 refusal할 수 있어 **의도적으로 Opus 사용**.
 > - **Haiku 4.5**: 체크리스트성 검증·배포 등 비용 효율이 중요한 단계.
 
-### Skills (5개)
+### Skills (8개)
 
 | Skill | 설명 |
 |-------|------|
+| `/brainstorm` | 코드/스펙 전 소크라테스식 설계 정제 (Phase 0.5) |
 | `/change-request` | 기능 변경 요청 + 연쇄 영향 분석 |
-| `/implement` | 가이드 기반 기능 구현 (Plan 게이트 포함) |
-| `/hotfix` | 긴급 버그 수정 경량 워크플로우 (3파일 이하, 비보안) |
+| `/implement` | 가이드 기반 기능 구현 (Plan 게이트 + 체크포인트 태스크 + TDD) |
+| `/hotfix` | 긴급 버그 수정 경량 워크플로우 (재현 테스트 먼저, 3파일 이하, 비보안) |
+| `/debug` | 원인 불명 버그의 4단계 근본원인 디버깅 |
+| `/finish-branch` | 브랜치 마무리: 테스트 → drift 확인 → PR/머지/보류 |
 | `/progress` | 상태 대시보드 + 다음 액션 |
 | `/sync-docs` | 코드-문서 드리프트 감지 (`--deep` 1M 컨텍스트 전수 검사) |
+
+> 프로세스 방법론(brainstorm/TDD/debug/finish-branch)은 [obra/superpowers](https://github.com/obra/superpowers)에서
+> 선택적으로 채택했습니다 — 채택/미채택 근거는 [ADR-003](docs/DECISIONS/ADR-003-superpowers-adoption.md) 참조.
 
 ### Hooks (6개)
 

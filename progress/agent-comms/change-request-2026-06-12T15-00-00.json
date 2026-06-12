@@ -1,0 +1,38 @@
+{
+  "timestamp": "2026-06-12T15:00:00Z",
+  "type": "add",
+  "description": "superpowers(obra, v5.1.0) 방법론 채택 — brainstorming, TDD, systematic debugging, 작업 분해/완료 전 검증, 브랜치 마무리 워크플로우를 cc-harness에 이식",
+  "affected_features": ["F7", "F8", "F9", "F10", "F11"],
+  "comparison_basis": {
+    "adopted_from_superpowers": [
+      "brainstorming (소크라테스식 설계 정제)",
+      "test-driven-development (RED-GREEN-REFACTOR + 안티패턴 가드)",
+      "systematic-debugging (4단계 근본원인)",
+      "writing-plans (체크포인트 태스크 분해) + verification-before-completion (evidence over claims)",
+      "finishing-a-development-branch"
+    ],
+    "deliberately_not_adopted": [
+      "inline self-review (v5.0.6) — Generator-Evaluator 독립 검증이 우월하다고 판단, 유지",
+      "writing-skills 메타스킬 — README Improvement Loop + Claude Code 기본 skill 지원으로 충분",
+      "using-superpowers 메타스킬 — CLAUDE.md 라우팅 테이블이 동일 역할 수행"
+    ],
+    "cc_harness_advantages_kept": [
+      "정량 품질 게이트 (min-of-5, security thresholds)",
+      "보안 내재화 (security_tier, threat model, security-auditor, supply chain)",
+      "세션 간 상태 추적 (feature_list, phase-gate, handoff)",
+      "결정론적 훅 enforcement (firewall, format, quality gate)",
+      "모델 라우팅 (Fable 5/Opus/Haiku)",
+      "SDLC 후반부 (deployment, observability)"
+    ]
+  },
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": false,
+    "acceptance_criteria_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false,
+    "notes": "plugin 소스 repo — feature_list + sprint contract가 스펙 역할. 아키텍처 변경 없음 (스킬 3개 신규, 프롬프트 2개 보강)"
+  },
+  "new_sprint_contract": "progress/contracts/sprint-2.json",
+  "rollback_to_phase": null
+}

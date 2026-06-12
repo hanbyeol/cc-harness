@@ -46,6 +46,14 @@ Sprint Contract 작성 **전에** 상위 산출물의 완전성을 점검:
   - security_criteria (SECURITY-CHECKLIST.md + security_tier 기반)
   - error_scenarios (SPEC.md의 실패 시나리오 기반)
   - test_scenarios
+  - implementation_steps — **체크포인트 태스크 목록**: 각 태스크는 작고(파일 1-3개 수준)
+    **독립적으로 검증 가능**해야 한다 (해당 태스크의 테스트/실행으로 완료 확인 가능)
+    ```json
+    "implementation_steps": [
+      {"step": "JWT 발급 로직 + 단위 테스트", "verify": "go test ./auth/ -run TestIssue", "done": false},
+      {"step": "POST /login 핸들러 연결", "verify": "curl 스모크 + handler 테스트", "done": false}
+    ]
+    ```
 - 이미 있으면 그대로 사용
   - 단, 기준이 보완되었으면 contract도 갱신
 - 작성 후 `agreed: false` 상태로 저장 (아직 미승인)
@@ -59,7 +67,7 @@ Sprint Contract 작성 직후, 구현을 시작하기 **전에** Claude Code의 
   2. Sprint Contract의 `acceptance_criteria` 요약
   3. `security_criteria` 요약 (security_tier 표시)
   4. `error_scenarios` 핵심 항목
-  5. **구현 순서**: 어떤 파일/모듈을 어떤 순서로 변경·추가할지 단계별로
+  5. **구현 순서**: implementation_steps의 체크포인트 태스크 목록 — 태스크별 검증 방법 포함
   6. 예상 테스트 범위 (단위/통합/보안)
 - 사용자 응답 분기:
   - **승인(approve)**: Sprint Contract의 `agreed`를 `true`로 갱신 후 Step 6(구현 실행)으로 진행
@@ -73,10 +81,11 @@ Sprint Contract 작성 직후, 구현을 시작하기 **전에** Claude Code의 
 ### 6. 구현 실행
 implementer agent의 프로세스를 따라 구현:
 1. 해당 디렉토리의 CLAUDE.md 읽기
-2. 기능 구현 + 테스트 작성 (security_criteria, error_scenarios 포함)
+2. implementation_steps의 체크포인트 태스크 단위로 **TDD 사이클(RED-GREEN-REFACTOR)** 진행
+   — 태스크 완료마다 verify 명령 실행 + contract의 `done: true` 갱신
 3. **구현 중 기준 갭 발견 시 즉시 보완** (evals/acceptance-criteria.json + Sprint Contract 동시 갱신)
 4. 보안 self-check 실행
-5. 린트 + 테스트 실행
+5. 린트 + 테스트 실행 — 결과를 implementer-output.json의 `evidence`에 기록 (evidence over claims)
 
 ### 7. 구현 완료 처리
 - progress/agent-comms/implementer-output.json 작성 (criteria_backfill 포함)

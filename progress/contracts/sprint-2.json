@@ -1,0 +1,42 @@
+{
+  "sprint": 2,
+  "title": "superpowers 방법론 채택 — 프로세스 깊이 강화 (v1.6.0)",
+  "features": [
+    "F7",
+    "F8",
+    "F9",
+    "F10",
+    "F11"
+  ],
+  "security_tier": "standard",
+  "acceptance_criteria": [
+    "F7: skills/brainstorm/SKILL.md 존재 — 소크라테스식 질문(한 번에 하나), 대안 2개 이상 탐색, 트레이드오프 기록, docs/brainstorms/{date}-{slug}.md 산출, spec-writer 브리프로 연결되는 출구 명시",
+    "F7: CLAUDE.md 라우팅에 '설계 탐색/아이디어 정리' 의도 → /brainstorm 추가, 모호한 기능 요청 시 /change-request 전에 /brainstorm 권장 규칙",
+    "F8: agents/implementer.md에 RED-GREEN-REFACTOR 사이클이 명시되고(실패 테스트 먼저 → 통과 최소 구현 → 리팩터), 테스트 안티패턴 금지 목록(구현에 맞춘 테스트 수정, 단언 약화, 테스트 스킵) 포함",
+    "F8: skills/hotfix/SKILL.md의 수정 절차가 '실패를 재현하는 테스트 작성 → 수정 → 테스트 통과 확인' 순서로 변경",
+    "F9: skills/debug/SKILL.md 존재 — 4단계(재현 고정 → 근본 원인 추적 → 최소 수정 → 회귀 테스트 추가), 증상 패치 금지 제약, 라우팅 테이블에 디버깅 의도 추가",
+    "F10: skills/implement/SKILL.md Step 5(Plan 게이트)의 구현 순서가 '각각 독립 검증 가능한 체크포인트 태스크 목록'으로 분해되도록 명시",
+    "F10: agents/implementer.md 완료 처리에 evidence 의무화 — 테스트/린트 실행 출력 요약을 output JSON에 포함, 실행 없이 완료 선언 금지",
+    "F11: skills/finish-branch/SKILL.md 존재 — 전체 테스트 → /sync-docs drift 확인 → 커밋 정리 → PR 생성/로컬 머지/보류 옵션 제시, main 직접 커밋 금지 준수",
+    "전역: 신규/수정 스킬은 TRIGGER 문구를 포함한 description 보유 (자동 라우팅), plugin.json·README의 skill 개수 갱신, 버전 1.6.0 통일",
+    "전역: Generator-Evaluator 독립성 유지 — superpowers의 inline self-review로 대체하지 않음 (ADR-003에 결정 기록)"
+  ],
+  "security_criteria": [
+    "/debug, /finish-branch 스킬이 firewall ask/deny 정책과 충돌하는 명령(git reset --hard 등)을 우회 지시하지 않는다",
+    "F8 TDD 가드: security_tier critical 기능의 보안 테스트도 RED 단계부터 작성하도록 명시",
+    "/finish-branch는 push/PR 등 외부 공개 동작 전 사용자 확인을 요구한다"
+  ],
+  "error_scenarios": [
+    "/brainstorm: docs/brainstorms/ 부재 시 생성, 동일 주제 기존 문서 존재 시 이어쓰기 제안",
+    "/debug: 재현 불가능한 버그 → 재현 시도 기록 후 가설 목록과 함께 사용자에게 추가 정보 요청",
+    "/finish-branch: 테스트 실패 시 마무리 중단 + /debug 또는 /implement --retry 안내",
+    "/finish-branch: gh 미설치/원격 없음 → PR 옵션 대신 로컬 머지/보류 옵션만 제시"
+  ],
+  "test_scenarios": [
+    "스킬 frontmatter 유효성 (name, description+TRIGGER) — 신규 3개 스킬",
+    "version-consistency: 1.6.0 매니페스트 3종 일치",
+    "plugin.json description의 skill 개수 == skills/ 디렉토리 수",
+    "기존 bats 103개 회귀 없음"
+  ],
+  "agreed": true
+}

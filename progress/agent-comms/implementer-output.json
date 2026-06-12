@@ -1,57 +1,50 @@
 {
-  "timestamp": "2026-06-12T13:30:00Z",
-  "sprint": 1,
-  "features_implemented": ["F1", "F2", "F3", "F4", "F5", "F6"],
+  "timestamp": "2026-06-12T16:00:00Z",
+  "sprint": 2,
+  "features_implemented": ["F7", "F8", "F9", "F10", "F11"],
   "files_changed": [
-    "hooks/hooks.json",
-    "hooks/setup-claudemd.sh",
-    "hooks/pre-bash-firewall.sh",
-    "hooks/session-context.sh",
-    "hooks/post-edit-format.sh",
-    "agents/spec-writer.md",
-    "agents/evaluator.md",
+    "skills/brainstorm/SKILL.md (new)",
+    "skills/debug/SKILL.md (new)",
+    "skills/finish-branch/SKILL.md (new)",
+    "skills/hotfix/SKILL.md",
     "skills/implement/SKILL.md",
-    "skills/change-request/SKILL.md",
+    "agents/implementer.md",
+    "CLAUDE.md",
     "templates/CLAUDE.md.tmpl",
     "templates/docs/HARNESS-GUIDE.md",
-    "CLAUDE.md",
     "README.md",
     "package.json",
     ".claude-plugin/plugin.json",
     ".claude-plugin/marketplace.json",
-    "docs/DECISIONS/ADR-001-plugin-native-loading.md",
-    "docs/DECISIONS/ADR-002-versioned-upgrade.md"
+    "docs/DECISIONS/ADR-003-superpowers-adoption.md (new)"
   ],
   "tests_added": [
-    "tests/setup-claudemd.bats (18 tests: native loading, idempotency, migration, versioned upgrade)",
-    "tests/session-context.bats (5 tests: context injection, archive rotation)",
-    "tests/pre-bash-firewall.bats (rewritten: 58 tests incl. false-positive + ask-tier + bypass cases)"
+    "tests/skill-frontmatter.bats (8 tests: SKILL.md 존재/name 일치/TRIGGER 포함, plugin.json 구성요소 수 == 실제 파일 수, 라우팅 테이블 동기화, agent frontmatter)"
   ],
   "iteration": 1,
   "security_self_check": {
-    "checklist_items": 4,
-    "checklist_passed": 4,
-    "notes": "firewall 완화는 오탐 제거에 한정 — 루트/홈 삭제, pipe-to-shell, fork bomb, sudo rm, dd-to-device deny 유지. ask 강등은 git reset --hard / git clean / git checkout --force만. 우회 시나리오(eval, 명령치환, 백틱, 공백 변형) 테스트 존재. shellcheck 통과."
+    "checklist_items": 3,
+    "checklist_passed": 3,
+    "notes": "신규 스킬들이 firewall 우회를 지시하지 않음 (debug/finish-branch에 명시적 제약). finish-branch는 push/PR 전 사용자 확인 의무. F8: critical tier 보안 테스트 RED부터 명시."
   },
   "error_scenarios_tested": [
-    "jq 미설치: firewall이 CMD 추출 실패 시 exit 0 (graceful)",
-    "CLAUDE_PROJECT_DIR 미설정: post-edit-format.sh unbound variable 가드",
-    "CLAUDE.md 손상 마커(begin만): 파일 미파괴 (bats)",
-    "settings.json hooks 사용자 수정: 마이그레이션이 건드리지 않음 (bats)",
-    "manifest 없는 pre-1.5 rules: 수정본으로 간주해 보존 (안전 우선)"
+    "brainstorm: 기존 동일 주제 문서 → 이어쓰기 제안, 디렉토리 부재 → 생성 (스킬에 명시)",
+    "debug: 재현 불가 → 가설 목록과 함께 사용자 보고 종료, 가설 3회 기각 → 중단 보고",
+    "finish-branch: 테스트 실패 → 중단 + /debug 또는 /implement --retry 안내",
+    "finish-branch: gh 미설치/원격 없음 → PR 옵션 제외"
   ],
+  "evidence": {
+    "tests": "bats tests/ — 111 passed, 0 failed (기존 103 + 신규 frontmatter 8)",
+    "lint": "shellcheck hooks/*.sh — clean (훅 변경 없음, 회귀 확인)",
+    "tdd_exceptions": ["마크다운 스킬/프롬프트 산출물 — frontmatter/라우팅 정합성은 bats로 검증"]
+  },
   "criteria_backfill": {
-    "acceptance_criteria_added": [
-      "F6 전체 (버전 기반 업그레이드) — 사용자 mid-sprint 요청으로 추가",
-      "F2: git checkout --force도 ask 대상에 포함"
-    ],
-    "error_scenarios_added": [
-      "pre-1.5 설치(빈 marker 파일)에서의 업그레이드 경로"
-    ],
+    "acceptance_criteria_added": [],
+    "error_scenarios_added": [],
     "spec_updated": false,
     "security_checklist_updated": false,
-    "reason": "사용자가 구현 중 업그레이드 프로세스 보완을 직접 요청 — feature_list(F6)와 sprint contract에 add-only로 반영"
+    "reason": "backfill 없음 — contract 기준으로 충분했음"
   },
-  "self_notes": "init.sh(bootstrapper)는 의도적으로 미변경 — plugin 경로와 독립. shellcheck info 경고(init.sh)는 HEAD부터 존재하던 기존 상태.",
+  "self_notes": "implementation_steps 필드는 sprint-3부터 contract에 사용 (이번 sprint contract는 이전 형식). evaluator는 acceptance_criteria의 grep 가능 항목을 직접 실행으로 검증 가능.",
   "ready_for": "evaluation"
 }

@@ -49,14 +49,19 @@ Correctness > Safety > Speed
 ## Generator-Evaluator Loop
 - Implementer는 passes를 직접 true로 변경하지 않음
 - Evaluator만 passes를 true로 변경할 수 있음
+- **Evidence over claims**: 구현·디버깅·검증 모두 실행 결과를 근거로 완료를 선언한다 —
+  실행하지 않은 검증을 완료로 보고하지 않는다 (implementer `evidence`, evaluator `unverified` 규칙)
 
 ## 요청 → 행동 라우팅
 
 | 사용자 의도 | 행동 |
 |-------------|------|
-| 기능 추가/변경/삭제 | → `/change-request` 실행 |
+| 설계 탐색/아이디어 정리 (요구사항 미확정) | → `/brainstorm` 실행 |
+| 기능 추가/변경/삭제 | → `/change-request` 실행 (요구사항이 모호하면 `/brainstorm` 먼저) |
 | 기능 구현 | → `/implement` 실행 |
-| 긴급 버그 수정 (3파일 이하) | → `/hotfix` 실행 |
+| 긴급 버그 수정 (원인 명확, 3파일 이하) | → `/hotfix` 실행 |
+| 원인 불명 버그/이상 동작 | → `/debug` 실행 |
+| 브랜치 마무리/PR/머지 준비 | → `/finish-branch` 실행 |
 | 진행 상태 확인 | → `/progress` 실행 |
 | 문서 동기화 | → `/sync-docs` 실행 |
 | 스펙 작성 | → 메인 루프가 AskUserQuestion으로 인터뷰 후 **spec-writer** agent에 브리프 전달 |
@@ -93,8 +98,11 @@ Correctness > Safety > Speed
 세션 종료 시 Stop 훅(session-handoff.sh)이 자동 상태와 병합해 다음 세션에 주입한다.
 
 ## Skills
+- `/brainstorm [주제]` — 코드/스펙 전 소크라테스식 설계 정제 (Phase 0.5)
 - `/change-request {설명}` — 기능 변경/추가/삭제 시 산출물 연쇄 업데이트
 - `/implement [F{n}]` — Sprint Contract → 구현 → Evaluator 검증 가이드
-- `/hotfix [설명]` — 긴급 버그 수정 경량 워크플로우 (3파일 이하, 비보안)
+- `/hotfix [설명]` — 긴급 버그 수정 경량 워크플로우 (3파일 이하, 비보안, 재현 테스트 먼저)
+- `/debug [증상]` — 원인 불명 버그의 4단계 근본원인 디버깅
+- `/finish-branch` — 브랜치 마무리: 테스트 → drift 확인 → PR/머지/보류
 - `/progress` — 진행 현황 대시보드 + 다음 작업 제안
 - `/sync-docs` — 구현과 문서 간 drift 탐지 및 동기화
