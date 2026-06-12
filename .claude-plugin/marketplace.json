@@ -7,8 +7,8 @@
     {
       "name": "cc-harness",
       "source": "./",
-      "description": "Full-SDLC harness: 8 agents, 5 hooks, 4 skills, path-scoped rules for 10+ languages",
-      "version": "1.4.0"
+      "description": "Full-SDLC harness: 8 agents, 6 hooks, 8 skills, path-scoped rules, quality gates, security audit, deployment pipeline",
+      "version": "1.6.0"
     }
   ]
 }

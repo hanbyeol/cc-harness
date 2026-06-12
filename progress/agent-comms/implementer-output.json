@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-06-12T16:00:00Z",
+  "sprint": 2,
+  "features_implemented": ["F7", "F8", "F9", "F10", "F11"],
+  "files_changed": [
+    "skills/brainstorm/SKILL.md (new)",
+    "skills/debug/SKILL.md (new)",
+    "skills/finish-branch/SKILL.md (new)",
+    "skills/hotfix/SKILL.md",
+    "skills/implement/SKILL.md",
+    "agents/implementer.md",
+    "CLAUDE.md",
+    "templates/CLAUDE.md.tmpl",
+    "templates/docs/HARNESS-GUIDE.md",
+    "README.md",
+    "package.json",
+    ".claude-plugin/plugin.json",
+    ".claude-plugin/marketplace.json",
+    "docs/DECISIONS/ADR-003-superpowers-adoption.md (new)"
+  ],
+  "tests_added": [
+    "tests/skill-frontmatter.bats (8 tests: SKILL.md 존재/name 일치/TRIGGER 포함, plugin.json 구성요소 수 == 실제 파일 수, 라우팅 테이블 동기화, agent frontmatter)"
+  ],
+  "iteration": 1,
+  "security_self_check": {
+    "checklist_items": 3,
+    "checklist_passed": 3,
+    "notes": "신규 스킬들이 firewall 우회를 지시하지 않음 (debug/finish-branch에 명시적 제약). finish-branch는 push/PR 전 사용자 확인 의무. F8: critical tier 보안 테스트 RED부터 명시."
+  },
+  "error_scenarios_tested": [
+    "brainstorm: 기존 동일 주제 문서 → 이어쓰기 제안, 디렉토리 부재 → 생성 (스킬에 명시)",
+    "debug: 재현 불가 → 가설 목록과 함께 사용자 보고 종료, 가설 3회 기각 → 중단 보고",
+    "finish-branch: 테스트 실패 → 중단 + /debug 또는 /implement --retry 안내",
+    "finish-branch: gh 미설치/원격 없음 → PR 옵션 제외"
+  ],
+  "evidence": {
+    "tests": "bats tests/ — 111 passed, 0 failed (기존 103 + 신규 frontmatter 8)",
+    "lint": "shellcheck hooks/*.sh — clean (훅 변경 없음, 회귀 확인)",
+    "tdd_exceptions": ["마크다운 스킬/프롬프트 산출물 — frontmatter/라우팅 정합성은 bats로 검증"]
+  },
+  "criteria_backfill": {
+    "acceptance_criteria_added": [],
+    "error_scenarios_added": [],
+    "spec_updated": false,
+    "security_checklist_updated": false,
+    "reason": "backfill 없음 — contract 기준으로 충분했음"
+  },
+  "self_notes": "implementation_steps 필드는 sprint-3부터 contract에 사용 (이번 sprint contract는 이전 형식). evaluator는 acceptance_criteria의 grep 가능 항목을 직접 실행으로 검증 가능.",
+  "ready_for": "evaluation"
+}

@@ -55,11 +55,11 @@ claude    # ← 자동으로 harness 적용
 
 | | Plugin (`/plugin install`) | Bootstrapper (`npx cc-harness`) |
 |---|---|---|
-| **agents** (8개) | O | O |
-| **hooks** (5개) | O | O |
-| **skills** (4개) | O | O |
-| **rules** (11개) | O | O (프리셋 기반 선택) |
-| **settings.json** | O | O |
+| **agents** (8개) | O (네이티브 로딩) | O (.claude/ 복사) |
+| **hooks** (6개) | O (네이티브 등록) | O (.claude/ 복사) |
+| **skills** (8개) | O (네이티브 로딩) | O (.claude/ 복사) |
+| **rules** (11개) | O (.claude/rules/ 복사) | O (프리셋 기반 선택) |
+| **settings.json** | 불필요 (hooks.json 네이티브) | O |
 | progress/ | - | O |
 | docs/ (SPEC, ARCHITECTURE) | - | O |
 | evals/ | - | O |
@@ -110,24 +110,34 @@ npx cc-harness                                 # 대화형
 >   security-auditor는 Fable 5의 cyber 안전 분류기가 보안 분석을 refusal할 수 있어 **의도적으로 Opus 사용**.
 > - **Haiku 4.5**: 체크리스트성 검증·배포 등 비용 효율이 중요한 단계.
 
-### Skills (4개)
+### Skills (8개)
 
 | Skill | 설명 |
 |-------|------|
+| `/brainstorm` | 코드/스펙 전 소크라테스식 설계 정제 (Phase 0.5) |
 | `/change-request` | 기능 변경 요청 + 연쇄 영향 분석 |
-| `/implement` | 가이드 기반 기능 구현 |
+| `/implement` | 가이드 기반 기능 구현 (Plan 게이트 + 체크포인트 태스크 + TDD) |
+| `/hotfix` | 긴급 버그 수정 경량 워크플로우 (재현 테스트 먼저, 3파일 이하, 비보안) |
+| `/debug` | 원인 불명 버그의 4단계 근본원인 디버깅 |
+| `/finish-branch` | 브랜치 마무리: 테스트 → drift 확인 → PR/머지/보류 |
 | `/progress` | 상태 대시보드 + 다음 액션 |
-| `/sync-docs` | 코드-문서 드리프트 감지 |
+| `/sync-docs` | 코드-문서 드리프트 감지 (`--deep` 1M 컨텍스트 전수 검사) |
 
-### Hooks (5개)
+> 프로세스 방법론(brainstorm/TDD/debug/finish-branch)은 [obra/superpowers](https://github.com/obra/superpowers)에서
+> 선택적으로 채택했습니다 — 채택/미채택 근거는 [ADR-003](docs/DECISIONS/ADR-003-superpowers-adoption.md) 참조.
+
+### Hooks (6개)
+
+plugin 설치 시 `hooks.json`을 통해 **네이티브 등록**됩니다 — settings.json 수정 불필요:
 
 | Event | Hook | 동작 |
 |-------|------|------|
-| SessionStart | `session-context.sh` | 브랜치, Phase, 미완료 기능 주입 |
-| PreToolUse | `pre-bash-firewall.sh` | 위험 명령어 차단 |
+| SessionStart | `setup-claudemd.sh` | rules 복사, CLAUDE.md 섹션 세팅 (멱등), v1.4 복사본 마이그레이션 |
+| SessionStart | `session-context.sh` | 브랜치, Phase, 미완료 기능 주입 + agent-comms 아카이빙 |
+| PreToolUse | `pre-bash-firewall.sh` | 파괴적 명령어 차단(deny) / 위험 명령어 확인(ask) |
 | PostToolUse | `post-edit-format.sh` | 자동 포맷팅 (gofmt, prettier 등) |
-| Stop | `pre-commit-gate.sh` | 선택적 린트 + 테스트 |
-| Stop | `session-handoff.sh` | 세션 상태 저장 |
+| Stop | `pre-commit-gate.sh` | 선택적 린트 + 테스트 + 시크릿 스캔 |
+| Stop | `session-handoff.sh` | 세션 상태 저장 (draft 병합) |
 
 ### Rules (11개)
 
@@ -156,8 +166,9 @@ spec-writer   architect    implementer   test-writer      deploy-op    observabi
 |--------|------|
 | 세션 시작 | 브랜치, Phase, 미완료 기능, 마지막 커밋 주입 |
 | 코드 편집 | gofmt, prettier, swiftformat, ktlint, dart format 등 자동 실행 |
-| Bash 실행 | `rm -rf /`, `git push --force`, `DROP TABLE` 등 차단 |
+| Bash 실행 | `rm -rf /`, `git push --force`, `DROP TABLE` 등 차단(deny), `git reset --hard` 등은 확인(ask) |
 | 세션 종료 | 변경 파일 언어별 린트 + 테스트, 상태 저장 |
+| plugin 업데이트 | 버전 감지 → 마이그레이션 + 미수정 rules 자동 갱신 (수정본은 보존, [ADR-002](docs/DECISIONS/ADR-002-versioned-upgrade.md)) |
 
 ## 커스터마이징
 
@@ -190,10 +201,11 @@ EOF
 ### Skill 추가
 
 ```bash
-cat > .claude/skills/deploy-checklist.md << 'EOF'
+mkdir -p .claude/skills/deploy-checklist
+cat > .claude/skills/deploy-checklist/SKILL.md << 'EOF'
 ---
 name: deploy-checklist
-description: 배포 전 체크리스트
+description: "배포 전 체크리스트. TRIGGER: '배포 준비', 'deploy checklist' 요청 시 실행."
 ---
 # Deploy Checklist
 1. 모든 테스트 통과 확인

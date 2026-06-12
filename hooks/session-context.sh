@@ -5,6 +5,26 @@ cd "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}" 
 # Ensure required directories exist
 mkdir -p progress/agent-comms progress/contracts 2>/dev/null || true
 
+# Agent-comms rotation: archive files beyond max_files_per_type (harness-config.json)
+if command -v jq &>/dev/null && [[ -d progress/agent-comms ]]; then
+  MAX_FILES=$(jq -r '.agent_comms.max_files_per_type // 10' progress/harness-config.json 2>/dev/null || echo 10)
+  # jq의 // 는 false도 기본값으로 덮으므로 명시적 비교 사용
+  ARCHIVE_ENABLED=$(jq -r 'if .agent_comms.archive_enabled == false then "false" else "true" end' progress/harness-config.json 2>/dev/null || echo true)
+  [[ "$MAX_FILES" =~ ^[0-9]+$ ]] || MAX_FILES=10
+  if [[ "$ARCHIVE_ENABLED" == "true" ]]; then
+    for prefix in evaluator-feedback change-request; do
+      COUNT=$(find progress/agent-comms -maxdepth 1 -name "${prefix}-*.json" 2>/dev/null | wc -l | tr -d ' ')
+      if [[ "$COUNT" -gt "$MAX_FILES" ]]; then
+        mkdir -p progress/agent-comms/archive
+        # 파일명의 ISO timestamp 순 정렬 — 오래된 것부터 초과분만 이동
+        find progress/agent-comms -maxdepth 1 -name "${prefix}-*.json" -print 2>/dev/null | sort | head -n $((COUNT - MAX_FILES)) | while IFS= read -r f; do
+          mv "$f" progress/agent-comms/archive/ 2>/dev/null || true
+        done
+      fi
+    done
+  fi
+fi
+
 BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
 LAST=$(git log --oneline -1 2>/dev/null || echo "none")
 PHASE="init"

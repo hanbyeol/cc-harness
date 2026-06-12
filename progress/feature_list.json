@@ -1,0 +1,131 @@
+{
+  "project": "cc-harness",
+  "features": [
+    {
+      "id": "F1",
+      "name": "Plugin-native loading (이중 등록 제거)",
+      "description": "setup-claudemd.sh가 agents/skills를 .claude/에 복사해 플러그인 네이티브 로딩과 중복 등록되는 문제 제거. hooks도 plugin hooks.json에서 CLAUDE_PLUGIN_ROOT 경로로 직접 등록. CLAUDE.md 중복 삽입 방지(내용 동일 시 스킵).",
+      "security_tier": "standard",
+      "status": "passed",
+      "passes": true,
+      "iteration": 0,
+      "dependencies": [],
+      "assigned_sprint": 1
+    },
+    {
+      "id": "F2",
+      "name": "Bash firewall 정밀화",
+      "description": "pre-bash-firewall.sh의 오버블로킹 제거 — 'rm -rf /' substring 매치, 백틱 전면 차단, kubectl/docker exec 차단, --force-with-lease 차단 등. deny/ask 2단계 결정(JSON permissionDecision) 도입.",
+      "security_tier": "critical",
+      "status": "passed",
+      "passes": true,
+      "iteration": 0,
+      "dependencies": [],
+      "assigned_sprint": 1
+    },
+    {
+      "id": "F3",
+      "name": "Agent/Skill 프롬프트 정합성",
+      "description": "spec-writer의 AskUserQuestion 모순 해소(서브에이전트는 사용자 질문 불가 — 인터뷰를 메인 루프 책임으로 재구조화), HARNESS-GUIDE.md의 'Sprint Contract 자동 합의' drift를 Plan 게이트로 동기화, evaluator 점수 루브릭 앵커 추가, 검증 병렬 실행 시 test-writer 파일 충돌 가이드.",
+      "security_tier": "standard",
+      "status": "passed",
+      "passes": true,
+      "iteration": 0,
+      "dependencies": [],
+      "assigned_sprint": 1
+    },
+    {
+      "id": "F4",
+      "name": "데드 기능 활성화",
+      "description": "session-handoff-draft.json 작성 지시를 CLAUDE.md 템플릿/skills에 추가(merge 로직만 있고 작성 주체 없음), harness-config.json의 agent_comms.max_files_per_type 아카이빙 실제 구현.",
+      "security_tier": "low",
+      "status": "passed",
+      "passes": true,
+      "iteration": 0,
+      "dependencies": [],
+      "assigned_sprint": 1
+    },
+    {
+      "id": "F5",
+      "name": "문서/메타데이터 일관성 + 소소한 버그 픽스",
+      "description": "plugin.json·README의 '4 skills' → 5 skills(hotfix 누락), README hooks/skills 표 갱신, post-edit-format.sh의 CLAUDE_PROJECT_DIR unbound variable 픽스, 버전 1.5.0 bump, bats 테스트 갱신.",
+      "security_tier": "low",
+      "status": "passed",
+      "passes": true,
+      "iteration": 0,
+      "dependencies": [
+        "F1",
+        "F2"
+      ],
+      "assigned_sprint": 1
+    },
+    {
+      "id": "F6",
+      "name": "버전 기반 업그레이드 프로세스",
+      "description": "plugin 업그레이드 감지 및 마이그레이션 체계: .cc-harness-installed에 설치 버전 기록, 버전 변경 시에만 마이그레이션 실행, rules는 hash manifest로 pristine 여부를 판별해 미수정 파일만 자동 갱신(수정본 보존), 업그레이드 안내 출력.",
+      "security_tier": "standard",
+      "status": "passed",
+      "passes": true,
+      "iteration": 0,
+      "dependencies": [
+        "F1"
+      ],
+      "assigned_sprint": 1
+    },
+    {
+      "id": "F7",
+      "name": "/brainstorm 스킬 — 설계 정제 단계",
+      "description": "superpowers brainstorming 채택: 코드/스펙 작성 전 소크라테스식 질문으로 요구사항·대안·트레이드오프를 정제하는 Phase 0.5. 산출물 docs/brainstorms/{date}-{topic}.md → spec-writer 브리프의 입력이 된다.",
+      "security_tier": "low",
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
+      "dependencies": [],
+      "assigned_sprint": 2
+    },
+    {
+      "id": "F8",
+      "name": "TDD 통합 (RED-GREEN-REFACTOR)",
+      "description": "superpowers test-driven-development 채택: implementer에 RED-GREEN-REFACTOR 사이클 의무화 + 테스트 안티패턴 가드(구현 후 테스트 끼워맞춤, 테스트 약화 금지). hotfix는 실패 재현 테스트 먼저.",
+      "security_tier": "standard",
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
+      "dependencies": [],
+      "assigned_sprint": 2
+    },
+    {
+      "id": "F9",
+      "name": "/debug 스킬 — 체계적 디버깅",
+      "description": "superpowers systematic-debugging 채택: 재현→근본원인 추적→최소 수정→회귀 테스트의 4단계. 증상 패치 금지. 요청→행동 라우팅에 버그/디버깅 의도 추가.",
+      "security_tier": "standard",
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
+      "dependencies": [],
+      "assigned_sprint": 2
+    },
+    {
+      "id": "F10",
+      "name": "작업 분해 + 완료 전 검증 강화",
+      "description": "superpowers writing-plans/verification-before-completion 채택: Plan 게이트의 구현 순서를 체크포인트 태스크 목록(작은 단위, 각각 검증 가능)으로 분해. implementer 완료 선언에 실행 evidence(테스트/린트 출력) 의무화 — evidence over claims.",
+      "security_tier": "low",
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
+      "dependencies": [],
+      "assigned_sprint": 2
+    },
+    {
+      "id": "F11",
+      "name": "/finish-branch 스킬 — 브랜치 마무리",
+      "description": "superpowers finishing-a-development-branch 채택: 전체 테스트→문서 drift 확인→커밋 정리→PR 생성/머지 옵션 제시의 마무리 워크플로우. main 직접 커밋 금지 규칙과 연결.",
+      "security_tier": "low",
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
+      "dependencies": [],
+      "assigned_sprint": 2
+    }
+  ]
+}

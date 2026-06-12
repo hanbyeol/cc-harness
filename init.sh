@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034,SC2015
+# SC2034: HAS_* 변수는 strip_conditional_file의 간접 확장(${!1})으로 읽힘 — 오탐
+# SC2015: `A && B || true` 는 의도적 graceful-skip 패턴
 #
 # cc-harness — Claude Code Full-SDLC Harness Bootstrapper
 #
@@ -272,6 +275,9 @@ if [[ "$UPDATE" == true ]]; then
   # ─── 2. Hooks: always overwrite ───
   info "Hooks 업데이트..."
   for f in "$PLUGIN_DIR"/hooks/*.sh; do
+    # setup-claudemd.sh는 plugin SessionStart 전용 — 프로젝트에 복사하면 PLUGIN_ROOT가
+    # .claude를 가리켜 자기 설치를 지우는 self-wipe 위험이 있어 제외한다
+    [[ "$(basename "$f")" == "setup-claudemd.sh" ]] && continue
     update_file "$f" ".claude/hooks/$(basename "$f")" "overwrite"
   done
   chmod +x .claude/hooks/*.sh 2>/dev/null || true
@@ -594,7 +600,11 @@ cp "$PLUGIN_DIR"/agents/*.md .claude/agents/
 log "✓ .claude/agents/ (8 agents)"
 
 # ─── Hooks ───
-cp "$PLUGIN_DIR"/hooks/*.sh .claude/hooks/
+for f in "$PLUGIN_DIR"/hooks/*.sh; do
+  # setup-claudemd.sh는 plugin 전용 (self-wipe 방지) — 복사 제외
+  [[ "$(basename "$f")" == "setup-claudemd.sh" ]] && continue
+  cp "$f" .claude/hooks/
+done
 chmod +x .claude/hooks/*.sh
 log "✓ .claude/hooks/ (5 hooks)"
 

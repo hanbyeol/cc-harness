@@ -2,3 +2,12 @@
 *.tmp
 .DS_Store
 node_modules/
+
+# Claude Code runtime state (project-local, not plugin source)
+.claude/
+
+# Runtime artifacts mutated by hooks (would keep the tree permanently dirty)
+progress/session-handoff.json
+progress/session-handoff-draft.json
+progress/coverage-report.json
+progress/agent-comms/archive/

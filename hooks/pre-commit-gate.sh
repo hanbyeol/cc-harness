@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2015  # `A && B || true` 는 의도적 graceful-skip 패턴
 set -euo pipefail
 INPUT=$(cat)
 echo "$INPUT" | jq -r '.stop_hook_active' 2>/dev/null | grep -q "true" && exit 0
