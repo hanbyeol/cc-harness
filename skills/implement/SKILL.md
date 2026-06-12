@@ -82,6 +82,8 @@ implementer agent의 프로세스를 따라 구현:
 - progress/agent-comms/implementer-output.json 작성 (criteria_backfill 포함)
 - git commit
 - progress/claude-progress.txt 업데이트
+- 미완료 작업·블로커·핵심 결정이 있으면 progress/session-handoff-draft.json에 기록
+  (Stop 훅이 자동 상태와 병합해 다음 세션에 주입)
 
 ### 8. 검증 디스패치
 구현 완료 후 verification phase 에이전트를 실행한다:
@@ -94,6 +96,8 @@ implementer agent의 프로세스를 따라 구현:
 2. evaluator 통과 후 나머지 검증은 **한 메시지에서 동시(병렬) 실행**:
    - **test-writer** (통합/E2E 테스트) + **security-auditor** (보안 감사) + **qa-reviewer** (크로스 기능 QA)
    - 서로 독립적이므로 순차 실행하지 않는다 — Agent tool 호출 3개를 같은 메시지에 담아 디스패치
+   - test-writer는 테스트 파일을 생성하므로 **`isolation: "worktree"`로 디스패치** —
+     다른 검증 에이전트와의 파일 충돌을 방지하고, 완료 후 변경분을 메인 워크트리로 가져온다
 3. 결과는 progress/agent-comms/에 수집 — fail이 있으면 `--retry`로 implementer 루프 재진입
 
 ## Constraints

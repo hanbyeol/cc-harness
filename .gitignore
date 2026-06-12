@@ -2,3 +2,6 @@
 *.tmp
 .DS_Store
 node_modules/
+
+# Claude Code runtime state (project-local, not plugin source)
+.claude/

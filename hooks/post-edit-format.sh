@@ -8,7 +8,7 @@ cd "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}" 
 
 # Path traversal protection: resolve real path and verify within project
 REAL_FILE=$(realpath "$FILE" 2>/dev/null) || exit 0
-REAL_PROJECT=$(realpath "$CLAUDE_PROJECT_DIR" 2>/dev/null) || exit 0
+REAL_PROJECT=$(realpath "${CLAUDE_PROJECT_DIR:-$(pwd)}" 2>/dev/null) || exit 0
 [[ "$REAL_FILE" != "$REAL_PROJECT"/* ]] && exit 0
 
 case "$FILE" in

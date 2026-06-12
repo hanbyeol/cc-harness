@@ -48,7 +48,7 @@ Phase 1 시작: spec-writer agent로 SPEC.md 작성
 ### 핵심 원칙
 
 - **코드부터 작성하지 않는다** — 기능 요청 시 산출물(SPEC, criteria) 업데이트가 먼저
-- **Sprint Contract를 먼저 작성한다** — 자동 합의 후 즉시 구현 진행
+- **Sprint Contract를 먼저 작성한다** — Plan 게이트(ExitPlanMode)에서 사용자 승인 후 구현 진행
 - **Evaluator만 passes: true를 설정한다** — 구현자가 자체 통과 판정을 내리지 않음
 - **기준 갭은 즉시 보완한다** — 구현 중 발견한 누락 기준은 미루지 않고 즉시 반영
 - **기준 보완은 추가만 허용** — 기존 기준의 완화/삭제는 사용자 승인 필요
@@ -82,12 +82,16 @@ Phase 1 시작: spec-writer agent로 SPEC.md 작성
 SPEC.md를 작성해줘. AskUserQuestion으로 상세 인터뷰부터 시작해.
 ```
 
-### spec-writer agent가 하는 일
+### 동작 방식
 
-1. **사용자 인터뷰** — AskUserQuestion으로 요구사항 상세 파악
-2. **docs/SPEC.md 작성** — 기능 요구사항 + 보안 요구사항 + 에러 시나리오
-3. **progress/feature_list.json 생성** — 각 기능에 security_tier 태깅
-4. **evals/acceptance-criteria.json 생성** — 기능별 인수 조건
+1. **사용자 인터뷰** — 메인 루프가 AskUserQuestion으로 요구사항 상세 파악
+   (서브에이전트는 사용자에게 질문할 수 없으므로 인터뷰는 디스패치 전에 끝낸다)
+2. **spec-writer agent 디스패치** — 인터뷰 브리프를 프롬프트로 전달
+3. spec-writer가 **docs/SPEC.md 작성** — 기능 요구사항 + 보안 요구사항 + 에러 시나리오
+4. **progress/feature_list.json 생성** — 각 기능에 security_tier 태깅
+5. **evals/acceptance-criteria.json 생성** — 기능별 인수 조건
+6. 브리프에 없던 항목은 `open_questions`로 반환 — blocking 항목이 있으면 메인 루프가
+   사용자에게 질문 후 답변과 함께 재디스패치
 
 ### 산출물 예시
 
@@ -201,9 +205,9 @@ Sprint Contract를 합의하고, 기능을 하나씩 구현합니다.
 - 누락된 에러 시나리오, 보안 기준이 있으면 **먼저 보완** 후 진행
 - 이전 evaluator 피드백에 `criteria_gaps`가 있으면 반드시 반영
 
-#### Step 2. Sprint Contract
+#### Step 2. Sprint Contract + Plan 게이트
 
-implementer가 Sprint Contract를 작성하고 사용자에게 확인을 요청합니다:
+Sprint Contract를 작성하고 Plan 게이트에서 사용자 승인을 받습니다:
 
 ```json
 {
@@ -218,8 +222,9 @@ implementer가 Sprint Contract를 작성하고 사용자에게 확인을 요청�
 }
 ```
 
-Contract 작성 후 자동으로 `agreed: true`가 설정되고 구현이 시작됩니다.
-내용에 수정이 필요하면 말씀하세요 — 반영 후 진행합니다.
+Contract는 `agreed: false`로 저장된 뒤, **Plan 게이트(ExitPlanMode)** 에서 acceptance/security
+criteria와 구현 순서가 요약 제시됩니다. **사용자가 승인하면** `agreed: true`로 전환되고 구현이
+시작됩니다. 거부하거나 수정을 요청하면 Contract를 재작성해 다시 제시합니다.
 
 #### Step 3. 구현 + 테스트
 
@@ -260,10 +265,11 @@ Issues:
 /implement --retry
 ```
 
-### Sprint Contract 자동 합의
+### Sprint Contract 합의 — Plan 게이트
 
-Sprint Contract는 작성 즉시 `agreed: true`로 설정됩니다.
-사용자가 수정을 요청하면 반영 후 진행합니다 — 별도 승인 절차 없이 바로 구현 시작.
+Sprint Contract는 작성 시 `agreed: false`이며, **사용자 승인 없이는 `agreed: true`로 전환되지
+않습니다.** 승인은 Plan 게이트(ExitPlanMode)에서 이루어지고, 거부/수정 요청 시 피드백을 반영해
+Contract를 재작성한 뒤 다시 제시합니다. 승인 전에는 구현을 시작하지 않습니다.
 
 ### criteria_backfill 규칙
 
@@ -310,6 +316,7 @@ qa-reviewer agent로 사용자 시나리오 QA 검증을 동시에 실행해줘.
 
 > **병렬 실행**: evaluator(게이트) 통과 후 test-writer·security-auditor·qa-reviewer는
 > 한 메시지에서 동시에 디스패치됩니다 — 순차 실행보다 검증 시간이 크게 단축됩니다.
+> test-writer는 테스트 파일을 생성하므로 `isolation: "worktree"`로 격리해 파일 충돌을 방지합니다.
 
 ### Evaluator 점수 체계
 
@@ -687,6 +694,22 @@ npm audit            # Node
 ```
 
 ### harness 업데이트
+
+**Plugin 설치 사용자** — 자동:
+
+```bash
+/plugin    # → Installed 탭에서 cc-harness 업데이트
+```
+
+업데이트 후 첫 세션에서 SessionStart 훅이 자동으로:
+- 설치 버전(`.claude/.cc-harness-installed`)과 새 버전을 비교해 마이그레이션 실행
+- **수정하지 않은** rules만 새 버전으로 갱신 (`.claude/.cc-harness-rules.sha256` 해시로 판별),
+  수정한 rules는 보존 + 안내 출력
+- CLAUDE.md 하네스 섹션을 최신으로 교체 (마커 밖 사용자 내용은 보존)
+- agents/skills/hooks는 plugin이 네이티브로 로드하므로 즉시 새 버전 반영
+- `{이전 버전} → {새 버전}` 업그레이드 내역을 세션 시작 시 출력
+
+**Bootstrapper 사용자**:
 
 ```bash
 npx cc-harness --update

@@ -1,0 +1,12 @@
+[2026-06-12] Sprint 1 — v1.5.0 harness hardening (branch: feat/v1.5.0-harness-hardening)
+
+완료:
+- F1: plugin-native loading — hooks.json 네이티브 등록, setup-claudemd 복사 제거, v1.4 복사본 마이그레이션, CLAUDE.md 멱등/dedupe
+- F2: bash firewall 정밀화 — 앵커링된 deny 패턴, ask 티어(permissionDecision) 도입, 오탐 제거 (58 bats tests)
+- F3: 프롬프트 정합성 — spec-writer 인터뷰 모델 재설계(open_questions 루프), evaluator 점수 앵커 + unverified 상한, HARNESS-GUIDE 자동합의 모순 제거, worktree 격리 가이드
+- F4: 데드 기능 활성화 — session-handoff-draft 작성 지시, agent-comms 아카이빙 구현
+- F5: 메타데이터 정합 — 5 skills/6 hooks 정정, v1.5.0 bump, post-edit-format unbound var 픽스, ADR-001
+- F6: 버전 기반 업그레이드 — 버전 기록/게이트, rules hash manifest(pristine 갱신/수정본 보존), 업그레이드 안내, ADR-002
+
+검증: bats 103/103, shellcheck hooks 통과, 샌드박스 멱등성/마이그레이션 확인
+다음: evaluator 검증 → 통과 시 verification phase 병렬 디스패치 검토

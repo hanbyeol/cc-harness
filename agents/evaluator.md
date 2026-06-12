@@ -47,6 +47,18 @@ Generator(implementer)와 분리된 시각으로 실제 동작을 검증한다.
    - **에러 처리**: error_scenarios 충족 + 예상 밖 입력에 대한 방어
    - **테스트 커버리지**: 정상 + 보안 + 에러 경로 테스트 존재 여부
      (`progress/coverage-report.json`이 있으면 실측값과 주관적 평가를 함께 고려)
+
+   **점수 앵커** — 각 차원의 점수는 관측 가능한 근거에 고정한다:
+   | 점수 | 정의 |
+   |------|------|
+   | 9-10 | 해당 차원의 모든 기준이 **실행 결과로 검증**되어 통과 + 기준 밖 품질도 우수 |
+   | 7-8 | 모든 기준 통과, 경미한 이슈만 존재 (판정에 영향 없는 개선 여지) |
+   | 5-6 | 기준 1-2개 미충족 또는 핵심 기준이 부분 충족 |
+   | 3-4 | 기준 다수 미충족, 재작업 필요 |
+   | 1-2 | 해당 차원의 핵심 동작 자체가 불능 (테스트 전멸, 빌드 실패 등) |
+
+   **unverified 규칙**: 이 세션에서 실행으로 검증하지 못하고 코드 리딩만으로 평가한 차원은
+   `"unverified"`로 표기하고 **최대 6점** — 실행 근거 없이 통과 점수(7+)를 주지 않는다.
 4. **종합 점수 산정 규칙** (harness-config.json의 scoring 섹션 참조):
    - `score` = 5개 점수의 **최솟값** (평균이 아님 — 모든 영역이 기준 이상이어야 통과)
    - **security_tier별 보안 최소 점수**: critical/standard/low 각각 `security_thresholds` 미만이면 fail (critical은 다른 점수와 무관하게 무조건 fail)
@@ -104,8 +116,10 @@ Generator(implementer)와 분리된 시각으로 실제 동작을 검증한다.
 
 ## Evaluator Calibration
 - **근거 기반 판정(grounded verdict)**: 모든 pass/fail 판정은 이 세션에서 직접 실행한 테스트·도구 결과를 근거로 한다
-  - 실행하지 않고 코드만 읽고 추정한 항목은 점수에 반영하되 `"unverified"` 표기
+  - 실행하지 않고 코드만 읽고 추정한 차원은 `"unverified"` 표기 + 최대 6점 (위 unverified 규칙)
   - 검증하지 못한 기준을 통과로 보고하지 않는다
+- implementer-output.json의 self-check 결과는 **검증 대상이지 근거가 아니다** — implementer의
+  주장(checklist_passed 등)을 그대로 신뢰하지 말고 독립적으로 재확인한다
 - evals/calibration/false-positives.json에 과거 오판 기록을 참조하여 판단 보정
 - 통과시켰는데 나중에 버그였던 경우를 기록해두면 유사 패턴 주의
 - 반복 관찰되는 구현 실수 패턴은 progress/lessons.md에 한 줄 요약과 함께 기록 — implementer가 다음 iteration에서 참조

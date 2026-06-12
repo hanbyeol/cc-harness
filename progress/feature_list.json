@@ -1,0 +1,76 @@
+{
+  "project": "cc-harness",
+  "features": [
+    {
+      "id": "F1",
+      "name": "Plugin-native loading (이중 등록 제거)",
+      "description": "setup-claudemd.sh가 agents/skills를 .claude/에 복사해 플러그인 네이티브 로딩과 중복 등록되는 문제 제거. hooks도 plugin hooks.json에서 CLAUDE_PLUGIN_ROOT 경로로 직접 등록. CLAUDE.md 중복 삽입 방지(내용 동일 시 스킵).",
+      "security_tier": "standard",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [],
+      "assigned_sprint": 1
+    },
+    {
+      "id": "F2",
+      "name": "Bash firewall 정밀화",
+      "description": "pre-bash-firewall.sh의 오버블로킹 제거 — 'rm -rf /' substring 매치, 백틱 전면 차단, kubectl/docker exec 차단, --force-with-lease 차단 등. deny/ask 2단계 결정(JSON permissionDecision) 도입.",
+      "security_tier": "critical",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [],
+      "assigned_sprint": 1
+    },
+    {
+      "id": "F3",
+      "name": "Agent/Skill 프롬프트 정합성",
+      "description": "spec-writer의 AskUserQuestion 모순 해소(서브에이전트는 사용자 질문 불가 — 인터뷰를 메인 루프 책임으로 재구조화), HARNESS-GUIDE.md의 'Sprint Contract 자동 합의' drift를 Plan 게이트로 동기화, evaluator 점수 루브릭 앵커 추가, 검증 병렬 실행 시 test-writer 파일 충돌 가이드.",
+      "security_tier": "standard",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [],
+      "assigned_sprint": 1
+    },
+    {
+      "id": "F4",
+      "name": "데드 기능 활성화",
+      "description": "session-handoff-draft.json 작성 지시를 CLAUDE.md 템플릿/skills에 추가(merge 로직만 있고 작성 주체 없음), harness-config.json의 agent_comms.max_files_per_type 아카이빙 실제 구현.",
+      "security_tier": "low",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [],
+      "assigned_sprint": 1
+    },
+    {
+      "id": "F5",
+      "name": "문서/메타데이터 일관성 + 소소한 버그 픽스",
+      "description": "plugin.json·README의 '4 skills' → 5 skills(hotfix 누락), README hooks/skills 표 갱신, post-edit-format.sh의 CLAUDE_PROJECT_DIR unbound variable 픽스, 버전 1.5.0 bump, bats 테스트 갱신.",
+      "security_tier": "low",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F1",
+        "F2"
+      ],
+      "assigned_sprint": 1
+    },
+    {
+      "id": "F6",
+      "name": "버전 기반 업그레이드 프로세스",
+      "description": "plugin 업그레이드 감지 및 마이그레이션 체계: .cc-harness-installed에 설치 버전 기록, 버전 변경 시에만 마이그레이션 실행, rules는 hash manifest로 pristine 여부를 판별해 미수정 파일만 자동 갱신(수정본 보존), 업그레이드 안내 출력.",
+      "security_tier": "standard",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F1"
+      ],
+      "assigned_sprint": 1
+    }
+  ]
+}

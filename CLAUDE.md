@@ -59,7 +59,7 @@ Correctness > Safety > Speed
 | 긴급 버그 수정 (3파일 이하) | → `/hotfix` 실행 |
 | 진행 상태 확인 | → `/progress` 실행 |
 | 문서 동기화 | → `/sync-docs` 실행 |
-| 스펙 작성 | → **spec-writer** agent |
+| 스펙 작성 | → 메인 루프가 AskUserQuestion으로 인터뷰 후 **spec-writer** agent에 브리프 전달 |
 | 아키텍처 설계 | → **architect** agent |
 | 구현 결과 검증 | → **evaluator** agent |
 | 보안 감사 | → **security-auditor** agent |
@@ -71,13 +71,26 @@ Correctness > Safety > Speed
 
 | Phase | 주요 에이전트 | 전제 조건 |
 |-------|--------------|-----------|
-| specification | spec-writer | — |
+| specification | spec-writer | 메인 루프 인터뷰 완료 |
 | architecture | architect | spec 완료 |
 | implementation | implementer | architecture 완료, Sprint Contract 합의 |
 | verification | evaluator, test-writer, security-auditor, qa-reviewer | implementation 완료 |
 | deployment | deploy-operator | verification 통과 |
 
 **verification 병렬 실행**: evaluator(게이트) 통과 후 test-writer·security-auditor·qa-reviewer는 서로 독립적이므로 **한 메시지에서 동시(병렬) 실행**한다 — 순차 실행하지 않는다.
+단, test-writer는 테스트 파일을 생성하므로 **`isolation: "worktree"`로 디스패치**해 다른 에이전트와의 파일 충돌을 방지한다.
+
+**서브에이전트 공통 제약**: 서브에이전트는 사용자에게 질문(AskUserQuestion)할 수 없다.
+사용자 입력이 필요한 결정은 메인 루프가 디스패치 전에 수집해 프롬프트로 전달한다.
+
+## Session Handoff
+작업 중 **중요 결정·블로커·다음 작업**이 생기면 `progress/session-handoff-draft.json`에 기록한다:
+
+```json
+{ "in_progress": "F3 구현 중 — handler까지 완료", "blockers": ["Stripe API key 미발급"], "next_actions": ["F3 테스트 작성"], "key_decisions": ["세션 저장소는 Redis로 결정"] }
+```
+
+세션 종료 시 Stop 훅(session-handoff.sh)이 자동 상태와 병합해 다음 세션에 주입한다.
 
 ## Skills
 - `/change-request {설명}` — 기능 변경/추가/삭제 시 산출물 연쇄 업데이트
