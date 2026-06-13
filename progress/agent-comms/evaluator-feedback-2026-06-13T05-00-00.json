@@ -1,0 +1,77 @@
+{
+  "timestamp": "2026-06-13T05:00:00Z",
+  "sprint": 3,
+  "iteration": 4,
+  "features_evaluated": [
+    "F12"
+  ],
+  "security_tier": "critical",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 8,
+    "security": 8,
+    "error_handling": 8,
+    "test_coverage": 9
+  },
+  "score": 8,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "pass",
+  "evidence": {
+    "tests_invariant_guard": "27/27 ok (RESIDUAL-4/5/6 closed: tc20 del+decoy, tc21 rename, tc22 comment disguise exit2, tc23 deny() body neutralization)",
+    "tests_total": "171 ok across bats suite",
+    "shellcheck": "hooks/invariant-guard.sh clean (no findings)",
+    "spot_reproductions": {
+      "hooks_json_rename_to_disabled": "exit=2, denied with INV-7 message ('hooks.json에서 invariant-guard.sh 실행 등록 제거/변경')",
+      "guard_exit2_comment_disguise": "exit=2, denied with semantic-gutting message ('exit 2 1 -> 0')"
+    },
+    "threat_model_doc": "docs/INVARIANTS.md lines 69-87 explicitly scope guard as speed-bump against automation; defers (a) plugin-cache isolation and (b) code-review+CI for intentional rewrites"
+  },
+  "threat_model_verdict": "A_valid",
+  "threat_model_rationale": "INVARIANTS.md L69-87 honestly acknowledges the self-referential limit (guard source is itself editable in this repo) and delegates (1) intentional guard-source rewrites to plugin-cache isolation (${CLAUDE_PLUGIN_ROOT} read-only at deploy time) and (2) bypass detection to PR review + bats/shellcheck CI as a 2nd defense line. The guard's stated mission is 'block accidental/easy weakening by automation' — exactly what RESIDUAL-4/5/6 tests now cover semantically (jq-based command extraction, line-anchored exit2 count, deny() body integrity via awk). This is a principled scope statement, not an excuse: every threat *inside* the documented model (auto-loop lowering thresholds, removing patterns, deleting tests, disabling registration, neutralizing exit2 via comments or function-body rewrites) is now blocked deterministically.",
+  "passed_criteria": {
+    "acceptance": [
+      "pass_threshold lowering blocked (Write/Edit/MultiEdit)",
+      "security_thresholds lowering/removal blocked",
+      "BLOCKED pattern removal blocked; cross-array swap blocked",
+      "@test count reduction blocked",
+      "invariant-guard.sh / INVARIANTS.md size shrink (>30%) blocked",
+      "hooks.json invariant-guard registration removal blocked (jq-semantic, decoy-resistant)",
+      "Guard rename to disabled variant blocked (RESIDUAL-4/5)",
+      "exit 2 comment disguise blocked via line-anchored regex (RESIDUAL-6a)",
+      "deny() body neutralization blocked via awk function-body scan (RESIDUAL-6b)",
+      "Add-only direction allowed (raise threshold, add patterns, add tests)"
+    ],
+    "security": [
+      "Self-referential threat model documented (INVARIANTS.md 위협 모델 section)",
+      "Defense-in-depth: plugin-cache isolation + PR review/CI explicitly named as out-of-scope handlers",
+      "fail-open on jq-missing for harness-config only (documented availability tradeoff for secondary gate)",
+      "deny() exits with code 2 (Claude Code PreToolUse block convention)",
+      "No secrets / no stack-trace leak in deny messages — just file path + invariant reference"
+    ],
+    "error_scenarios": [
+      "Empty stdin -> exit 0 (graceful)",
+      "Missing file_path -> exit 0 (tc26)",
+      "Invalid hook JSON -> exit 0 (tc27)",
+      "Non-existent target file -> exit 0 (new file creation is not weakening)",
+      "Invalid JSON in harness-config NEW -> deny (tc5)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "action_required": "none — threat model scoping in INVARIANTS.md closes prior ambiguity about what 'guard self-protection' should cover"
+  },
+  "criteria_issues": [],
+  "notes": [
+    "Out-of-scope bypasses (intentional, surgical guard-source rewrite that simultaneously satisfies all semantic checks) are explicitly NOT a fail reason per the documented threat model — they are delegated to plugin-cache isolation and CI.",
+    "All in-scope automation bypasses tried in iter1-3 (RESIDUAL-4/5/6) are now closed: tests 20-23 prove RED->GREEN.",
+    "min-of-5 = min(9,8,8,8,9) = 8 >= pass_threshold 7; security 8 >= critical-tier floor 7 -> pass."
+  ]
+}

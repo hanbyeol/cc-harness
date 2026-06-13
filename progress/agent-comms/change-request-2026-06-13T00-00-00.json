@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-06-13T00:00:00Z",
+  "type": "add",
+  "description": "재귀적 자기개선 루프 — 자동 발견 프로브 + 불변식 가드 + /improve 오케스트레이션",
+  "brainstorm": "docs/brainstorms/2026-06-13-recursive-self-improvement.md",
+  "affected_features": [
+    "F12",
+    "F13",
+    "F14",
+    "F15"
+  ],
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": false,
+    "acceptance_criteria_updated": false,
+    "feature_list_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false,
+    "notes": "plugin 소스 repo — feature_list + sprint contract가 스펙 역할. SPEC.md/ARCHITECTURE.md/evals/ 미사용 구조. F12는 critical (자기약화 방지 안전장치)."
+  },
+  "new_sprint_contract": "progress/contracts/sprint-3.json",
+  "rollback_to_phase": null,
+  "design_decisions": {
+    "self_weakening_guard": "INVARIANTS.md(명문화) + invariant-guard.sh(결정론적 PreToolUse 집행) — 임계값 하향·deny 축소·테스트 삭제를 차단하고 사람 승인 요구. add-only는 허용",
+    "reuse_existing_gates": "새 워크플로우 미신설 — /improve는 진단→/change-request→Plan 게이트→evaluator→/code-review→finish-branch 기존 게이트를 오케스트레이션",
+    "recursion_source": "루프가 만든 개선이 다음 회전의 진단 품질을 높임 (예: completeness critic 개선 → 다음 회전 더 많은 갭 발견)",
+    "convergence": "backlog 비고 자동발견 2회전 연속 신규 0이면 종료"
+  }
+}

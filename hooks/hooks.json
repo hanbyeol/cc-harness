@@ -26,6 +26,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/invariant-guard.sh\"",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PostToolUse": [
