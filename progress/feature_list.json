@@ -189,6 +189,39 @@
         "F14"
       ],
       "assigned_sprint": 4
+    },
+    {
+      "id": "F17",
+      "name": "프롬프트 토큰 다이어트",
+      "description": "P2: 과도하게 장황한 스킬 산문 압축(sync-docs 149줄 등)하되 non-obvious 지침은 유지. 동일 컨텍스트 내 진짜 중복만 제거 — 에이전트 간 재기술은 서브에이전트가 CLAUDE.md를 못 보므로 필수라 유지. 측정: skills 총줄수 감소, 회귀 0.",
+      "security_tier": "low",
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
+      "dependencies": [],
+      "assigned_sprint": 5
+    },
+    {
+      "id": "F18",
+      "name": "독립 실패 병렬 디스패치 (/debug 확장)",
+      "description": "P3: 새 스킬 신설 대신 /debug에 독립적 복수 실패를 worktree 서브에이전트로 병렬 진단하는 모드 추가(superpowers dispatching-parallel-agents). 격리 컨텍스트, 병합(요약→충돌→전체테스트). 연관 실패·탐색적 디버깅은 직렬 폴백. 스킬 수 증가 회피(토큰).",
+      "security_tier": "standard",
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
+      "dependencies": [],
+      "assigned_sprint": 5
+    },
+    {
+      "id": "F19",
+      "name": "검증 티어링 (약화 없음)",
+      "description": "P4: security_tier·변경 크기에 검증 강도를 매칭하는 가이드 명문화 — 저위험에 경량 경로 추가만, critical 게이트는 절대 미하향(invariant-guard가 임계값 하향 차단). per-checkpoint 검증으로 조기 발견. evaluator 독립성·min-of-5·임계값 불변.",
+      "security_tier": "standard",
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
+      "dependencies": [],
+      "assigned_sprint": 5
     }
   ]
 }

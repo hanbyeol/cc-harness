@@ -117,8 +117,25 @@ implementer agent 프로세스를 한 컨텍스트에서 따른다:
 - 미완료 작업·블로커·핵심 결정이 있으면 progress/session-handoff-draft.json에 기록
   (Stop 훅이 자동 상태와 병합해 다음 세션에 주입)
 
-### 8. 검증 디스패치
-구현 완료 후 verification phase 에이전트를 실행한다:
+### 8. 검증 디스패치 — 강도를 변경에 맞춘다 (티어링)
+
+검증 강도는 **security_tier·변경 크기**에 매칭한다. 단, **하향이 아니라 저위험에 경량 경로를
+추가**하는 것이다 — critical 게이트는 절대 경량화하지 않는다:
+
+| 변경 | 검증 강도 |
+|------|-----------|
+| **low·문서·1-3파일 비보안** | 경량 — `/hotfix`류(재현 테스트 + 변경 범위 테스트 + pre-commit-gate). evaluator 생략 가능 |
+| **standard** | 독립 **evaluator** (아래 1) |
+| **critical** | full evaluator + **security-auditor** + qa-reviewer (현행) — **절대 경량화 금지** |
+
+**per-checkpoint 검증**: 기능 끝에 한 번만 검증하지 말고, implementation_steps의 `verify`를
+**체크포인트(태스크)마다** 실행해 문제를 조기에 잡는다(재시도 비용↓). 최종 게이트(evaluator)는
+그대로 1회 — per-checkpoint는 evaluator를 **보완**할 뿐 대체하지 않는다(INV-1).
+
+> 임계값(pass_threshold·security_thresholds)은 바꾸지 않는다 — 티어링은 *어떤 에이전트를
+> 부르는가*의 문제이지 *통과 기준을 낮추는* 것이 아니다. critical 기능의 보안 게이트는 불변.
+
+구현 완료 후 verification phase 에이전트를 실행한다(standard 이상):
 
 1. **evaluator** (게이트, 우선 실행): Sprint Contract 기준 검증 — passes 판정은 evaluator만 가능
    ```
