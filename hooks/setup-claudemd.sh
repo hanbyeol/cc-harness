@@ -21,6 +21,14 @@ cd "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}" 
 # Plugin root: 스크립트 위치 기준으로 결정
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# 공용 헬퍼 (version_lt 등). 부재 시 폴백 정의로 동작 보장.
+# shellcheck source=lib.sh
+# shellcheck disable=SC1091
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh" 2>/dev/null || true
+if ! command -v version_lt &>/dev/null; then
+  version_lt() { [[ "$1" != "$2" ]] && { [[ -z "$1" ]] || [[ "$1" == "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" ]]; }; }
+fi
+
 # 자기 방어: init.sh가 이 스크립트를 .claude/hooks/로 복사한 사본이 프로젝트 안에서
 # 실행되면 PLUGIN_ROOT가 프로젝트의 .claude를 가리킨다 — 마이그레이션이 설치 자체를
 # 자기 자신과 비교해 삭제(self-wipe)하므로 즉시 중단한다.
@@ -142,7 +150,14 @@ removable_copy() {
 
 MIGRATED=0
 CUSTOMIZED=()
-if [[ "$VERSION_CHANGED" == "1" ]]; then
+# v1.4 네이티브 로딩 마이그레이션은 "1.5.0 이전에서 올라올 때"만 필요하다.
+# version_lt로 적용 범위를 가드 — 1.5+ 에서 1.6/1.7로 올라갈 땐 이 블록을 건너뛴다
+# (이미 .claude 복사본이 없으므로 무해하지만, 비멱등 마이그레이션 추가 시 이 가드가 안전판).
+NEEDS_V15_MIGRATION=0
+if [[ "$VERSION_CHANGED" == "1" ]] && version_lt "$INSTALLED_VERSION" "1.5.0"; then
+  NEEDS_V15_MIGRATION=1
+fi
+if [[ "$NEEDS_V15_MIGRATION" == "1" ]]; then
   if [[ -d .claude/agents && -d "$PLUGIN_ROOT/agents" ]]; then
     for f in .claude/agents/*.md; do
       [[ -f "$f" ]] || continue

@@ -1,50 +1,56 @@
 {
-  "timestamp": "2026-06-12T16:00:00Z",
-  "sprint": 2,
-  "features_implemented": ["F7", "F8", "F9", "F10", "F11"],
-  "files_changed": [
-    "skills/brainstorm/SKILL.md (new)",
-    "skills/debug/SKILL.md (new)",
-    "skills/finish-branch/SKILL.md (new)",
-    "skills/hotfix/SKILL.md",
-    "skills/implement/SKILL.md",
-    "agents/implementer.md",
-    "CLAUDE.md",
-    "templates/CLAUDE.md.tmpl",
-    "templates/docs/HARNESS-GUIDE.md",
-    "README.md",
-    "package.json",
-    ".claude-plugin/plugin.json",
-    ".claude-plugin/marketplace.json",
-    "docs/DECISIONS/ADR-003-superpowers-adoption.md (new)"
+  "timestamp": "2026-06-13T01:00:00Z",
+  "sprint": 3,
+  "scope": "F12, F15 (this part)",
+  "features_implemented": [
+    "F12",
+    "F15"
   ],
-  "tests_added": [
-    "tests/skill-frontmatter.bats (8 tests: SKILL.md 존재/name 일치/TRIGGER 포함, plugin.json 구성요소 수 == 실제 파일 수, 라우팅 테이블 동기화, agent frontmatter)"
+  "files_changed": [
+    "docs/INVARIANTS.md (new)",
+    "hooks/invariant-guard.sh (new)",
+    "hooks/lib.sh (new)",
+    "hooks/hooks.json (PreToolUse Edit|Write|MultiEdit matcher)",
+    "hooks/pre-commit-gate.sh (gate cache + lib.sh source)",
+    "hooks/setup-claudemd.sh (version_lt migration guard + lib.sh source)",
+    "tests/invariant-guard.bats (new, 16)",
+    "tests/lib.bats (new, 10)",
+    "tests/pre-commit-gate.bats (new, 5)",
+    "tests/skill-frontmatter.bats (hook count excludes lib.sh)",
+    ".gitignore (progress/.gate-cache)",
+    "package.json / .claude-plugin/*.json (v1.7.0, 7 hooks)"
   ],
   "iteration": 1,
+  "tdd": "RED-GREEN per feature — invariant-guard.bats RED(exit 127) → guard GREEN; lib.bats RED → lib.sh GREEN; pre-commit-gate.bats caught a real pipefail cache-write bug (RED) → fixed (GREEN)",
   "security_self_check": {
-    "checklist_items": 3,
-    "checklist_passed": 3,
-    "notes": "신규 스킬들이 firewall 우회를 지시하지 않음 (debug/finish-branch에 명시적 제약). finish-branch는 push/PR 전 사용자 확인 의무. F8: critical tier 보안 테스트 RED부터 명시."
+    "checklist_items": 5,
+    "checklist_passed": 5,
+    "notes": "invariant-guard는 critical 안전장치 — 자기 파일 축소도 deny(INV-7). add-only 원칙: 임계값 상향·deny 추가·테스트 추가 허용, 하향·삭제 deny. jq 부재 시 fail-open(보조 게이트, 근거 INVARIANTS.md 명시). 프로브(F13)는 이번 범위 아님."
   },
   "error_scenarios_tested": [
-    "brainstorm: 기존 동일 주제 문서 → 이어쓰기 제안, 디렉토리 부재 → 생성 (스킬에 명시)",
-    "debug: 재현 불가 → 가설 목록과 함께 사용자 보고 종료, 가설 3회 기각 → 중단 보고",
-    "finish-branch: 테스트 실패 → 중단 + /debug 또는 /implement --retry 안내",
-    "finish-branch: gh 미설치/원격 없음 → PR 옵션 제외"
+    "invariant-guard: 잘못된 JSON 편집 → deny (bats)",
+    "invariant-guard: 무관 파일·신규 생성·잘못된 입력 → 통과 (bats)",
+    "gate 캐시: 동일 트리 재실행 skip / 트리 변경 시 무효화 / clean tree no-cache (bats)",
+    "version_lt: 빈 버전=최古, 숫자 비교(1.5<1.10), 동일 버전 false (bats)",
+    "cfg_get: false 값이 default로 덮이지 않음 (bats)"
   ],
   "evidence": {
-    "tests": "bats tests/ — 111 passed, 0 failed (기존 103 + 신규 frontmatter 8)",
-    "lint": "shellcheck hooks/*.sh — clean (훅 변경 없음, 회귀 확인)",
-    "tdd_exceptions": ["마크다운 스킬/프롬프트 산출물 — frontmatter/라우팅 정합성은 bats로 검증"]
+    "tests": "bats tests/ — 160 passed, 0 failed (129 기존 + invariant-guard 16 + lib 10 + pre-commit-gate 5)",
+    "lint": "shellcheck -x hooks/*.sh init.sh — clean (lib.sh 포함)",
+    "smoke": "invariant-guard 기존 config 7→5 deny(exit2)·7→8 allow(exit0) 직접 확인; gate 캐시 2회 실행 cache hit 확인; version_lt 1.4<1.5 true·1.6<1.5 false"
   },
   "criteria_backfill": {
-    "acceptance_criteria_added": [],
-    "error_scenarios_added": [],
-    "spec_updated": false,
-    "security_checklist_updated": false,
-    "reason": "backfill 없음 — contract 기준으로 충분했음"
+    "tests_added": [
+      "tests/pre-commit-gate.bats — 캐시 동작 명시 검증 (contract test_scenario에 암묵 포함이던 것을 명시 테스트로)"
+    ],
+    "reason": "gate 캐시 acceptance를 실행 검증으로 못박기 위해 전용 bats 추가 (add-only)"
   },
-  "self_notes": "implementation_steps 필드는 sprint-3부터 contract에 사용 (이번 sprint contract는 이전 형식). evaluator는 acceptance_criteria의 grep 가능 항목을 직접 실행으로 검증 가능.",
+  "deferred": {
+    "features": [
+      "F13 자동 발견 프로브",
+      "F14 /improve 스킬"
+    ],
+    "reason": "Plan 승인 범위가 F12+F15 — 안전장치/인프라 검증 후 다음 스프린트. CLAUDE.md/README의 /improve 라우팅도 F14와 함께."
+  },
   "ready_for": "evaluation"
 }

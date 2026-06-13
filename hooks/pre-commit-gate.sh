@@ -1,12 +1,24 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2015  # `A && B || true` 는 의도적 graceful-skip 패턴
 set -euo pipefail
+# shellcheck source=lib.sh
+# shellcheck disable=SC1091
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh" 2>/dev/null || true
 INPUT=$(cat)
 echo "$INPUT" | jq -r '.stop_hook_active' 2>/dev/null | grep -q "true" && exit 0
-cd "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}" 2>/dev/null || exit 0
+if command -v harness_cd &>/dev/null; then harness_cd || exit 0; else
+  cd "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}" 2>/dev/null || exit 0
+fi
 
 CHANGED=$(git diff --name-only HEAD 2>/dev/null || echo "")
 [[ -z "$CHANGED" ]] && exit 0
+
+# 캐시: 직전에 성공적으로 통과한 트리 상태와 동일하면 재실행 skip (Stop 훅 매번 전체 재실행 방지)
+GATE_CACHE="progress/.gate-cache"
+DIFF_SHA=$(git diff HEAD 2>/dev/null | (command -v shasum &>/dev/null && shasum -a 256 || sha256sum) 2>/dev/null | awk '{print $1}' || echo "")
+if [[ -n "$DIFF_SHA" && -f "$GATE_CACHE" ]] && grep -qx "$DIFF_SHA" "$GATE_CACHE" 2>/dev/null; then
+  exit 0
+fi
 ERRS=()
 
 # Sprint Contract: warn if no contract exists (non-blocking)
@@ -131,6 +143,14 @@ fi
 if [ ${#ERRS[@]} -gt 0 ]; then
   printf "Quality Gate FAILED:\n" >&2
   for e in "${ERRS[@]}"; do printf "  - %s\n" "$e" >&2; done
+  # 실패 상태는 캐시하지 않는다 (수정 후 재검증되어야 함)
   exit 2
+fi
+
+# 통과한 트리 상태를 캐시에 기록 (동일 상태 재실행 skip용). 최근 5개만 유지.
+if [[ -n "$DIFF_SHA" ]]; then
+  mkdir -p progress
+  { echo "$DIFF_SHA"; cat "$GATE_CACHE" 2>/dev/null || true; } | awk '!seen[$0]++' | head -5 > "$GATE_CACHE.tmp" 2>/dev/null \
+    && mv "$GATE_CACHE.tmp" "$GATE_CACHE" 2>/dev/null || true
 fi
 exit 0

@@ -38,8 +38,9 @@ PLUGIN_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
   [ "$ACTUAL" = "$CLAIMED" ] || { echo "agents: actual=$ACTUAL claimed=$CLAIMED"; return 1; }
 }
 
-@test "plugin.json hook count matches hooks/ script count" {
-  ACTUAL=$(find "$PLUGIN_ROOT/hooks" -maxdepth 1 -name '*.sh' | wc -l | tr -d ' ')
+@test "plugin.json hook count matches event-hook script count" {
+  # lib.sh는 이벤트 훅이 아니라 source되는 공용 라이브러리이므로 제외한다
+  ACTUAL=$(find "$PLUGIN_ROOT/hooks" -maxdepth 1 -name '*.sh' -not -name 'lib.sh' | wc -l | tr -d ' ')
   CLAIMED=$(jq -r '.description' "$PLUGIN_ROOT/.claude-plugin/plugin.json" | grep -oE '[0-9]+ hooks' | grep -oE '[0-9]+')
   [ "$ACTUAL" = "$CLAIMED" ] || { echo "hooks: actual=$ACTUAL claimed=$CLAIMED"; return 1; }
 }

@@ -57,5 +57,9 @@
     "F13 (프로브) — F12 가드 위에서 안전하게 진단",
     "F14 (/improve) — 위 셋을 오케스트레이션"
   ],
-  "agreed": false
+  "agreed": true,
+  "scope_this_part": [
+    "F12",
+    "F15"
+  ]
 }
