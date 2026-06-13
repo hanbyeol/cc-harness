@@ -2,7 +2,7 @@
 
 > A full-SDLC harness for Claude Code — quality gates, security by design, and a development methodology that enforces itself.
 
-Claude Code의 전체 개발 생명주기(설계 정제 → 기획 → 아키텍처 → 구현 → 검증 → 배포 → 관측)를 구조화하는 harness입니다. plugin 설치 한 번으로 8 agents · 9 skills · 7 hooks · 11 rules가 적용됩니다.
+Claude Code의 전체 개발 생명주기(설계 정제 → 기획 → 아키텍처 → 구현 → 검증 → 배포 → 관측)를 구조화하는 harness입니다. plugin 설치 한 번으로 8 agents · 10 skills · 7 hooks · 11 rules가 적용됩니다.
 
 > **Note:** 이 프로젝트는 [Harness.io](https://harness.io) (CI/CD 플랫폼)와 무관합니다. 여기서 "harness"는 [AI agent harness engineering](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) 개념 — 에이전트가 일관된 품질로 일하도록 둘러싸는 구조 — 을 의미합니다.
 
@@ -117,7 +117,7 @@ claude
 
 **서브에이전트 제약**: 서브에이전트는 사용자에게 질문할 수 없습니다 — 사용자 입력이 필요한 결정(인터뷰, 승인)은 메인 루프가 디스패치 전에 수집해 프롬프트로 전달하는 구조입니다.
 
-### Skills (9개)
+### Skills (10개)
 
 | Skill | 설명 |
 |-------|------|
@@ -128,6 +128,7 @@ claude
 | `/debug` | 원인 불명 버그의 4단계 디버깅: 재현 고정 → 근본원인 추적 → 최소 수정 → 회귀 테스트 |
 | `/finish-branch` | 브랜치 마무리: 전체 테스트 → drift 확인 → PR 생성/로컬 머지/보류 |
 | `/improve` | 자기개선 루프 1회전 — 진단 프로브 → 후보 → 기존 게이트 오케스트레이션 |
+| `/plan-review` | (iac 프로파일) terraform plan diff 리뷰 게이트 — 정책·smoke·drift |
 | `/progress` | 진행 대시보드(phase, 기능, 최근 피드백) + 다음 액션 제안 |
 | `/sync-docs` | 코드-문서 drift 감지 (`--deep`: 1M 컨텍스트 전수 교차 검사) |
 
@@ -191,7 +192,7 @@ plugin 업데이트(`/plugin` → Installed) 후 **첫 세션에서 자동 마�
 
 | | Plugin (`/plugin install`) | Bootstrapper (`npx cc-harness`) |
 |---|---|---|
-| **agents** (8) / **skills** (9) / **hooks** (7) | O — 네이티브 로딩 (업데이트 즉시 반영) | O — `.claude/` 복사 |
+| **agents** (8) / **skills** (10) / **hooks** (7) | O — 네이티브 로딩 (업데이트 즉시 반영) | O — `.claude/` 복사 |
 | **rules** (11) | O — `.claude/rules/` 복사 | O — 프리셋 기반 선택 |
 | settings.json | 불필요 (hooks.json 네이티브) | O |
 | progress/ · docs/ · evals/ · Makefile · CLAUDE.md 스캐폴딩 | CLAUDE.md 섹션만 | O |

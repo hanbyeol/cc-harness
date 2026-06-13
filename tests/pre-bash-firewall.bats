@@ -161,6 +161,42 @@ run_firewall() {
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
 }
 
+@test "asks on terraform destroy" {
+  run run_firewall '{"tool_input":{"command":"terraform destroy"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "asks on terraform apply -auto-approve" {
+  run run_firewall '{"tool_input":{"command":"terraform apply -auto-approve"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "asks on terraform state rm" {
+  run run_firewall '{"tool_input":{"command":"terraform state rm aws_instance.foo"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "allows terraform plan (read-only)" {
+  run run_firewall '{"tool_input":{"command":"terraform plan -out=tfplan"}}'
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "allows terraform apply with a plan file (reviewed)" {
+  run run_firewall '{"tool_input":{"command":"terraform apply tfplan"}}'
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "allows terraform fmt/validate" {
+  run run_firewall '{"tool_input":{"command":"terraform validate"}}'
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 # --- Safe commands that must pass (no false positives) ---
 
 @test "allows git status" {

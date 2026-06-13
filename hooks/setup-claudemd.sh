@@ -230,7 +230,26 @@ if [[ "$NEEDS_V15_MIGRATION" == "1" ]]; then
 fi
 
 # ─── 3. CLAUDE.md 생성/갱신 (멱등 — 매 세션 self-heal, 내용 동일 시 재작성 없음) ───
+# 라이프사이클 프로파일: harness-config.json의 .profile에 따라 주입 소스를 고른다.
+# sdlc(기본)=플러그인 CLAUDE.md(회귀 0), iac=profiles/iac.md. 미지정·알수없음·파일부재는 sdlc 폴백.
+PROFILE="sdlc"
+if command -v cfg_get &>/dev/null; then
+  PROFILE=$(cfg_get progress/harness-config.json '.profile' 'sdlc')
+elif command -v jq &>/dev/null && [[ -f progress/harness-config.json ]]; then
+  PROFILE=$(jq -r 'if .profile then .profile else "sdlc" end' progress/harness-config.json 2>/dev/null || echo sdlc)
+fi
 HARNESS_CLAUDE="$PLUGIN_ROOT/CLAUDE.md"
+case "$PROFILE" in
+  sdlc) : ;;  # 기본 — 플러그인 CLAUDE.md 그대로
+  iac|ops)
+    if [[ -f "$PLUGIN_ROOT/profiles/$PROFILE.md" ]]; then
+      HARNESS_CLAUDE="$PLUGIN_ROOT/profiles/$PROFILE.md"
+    else
+      echo "cc-harness: profile '$PROFILE' 섹션 파일이 없어 sdlc로 폴백합니다." >&2
+    fi
+    ;;
+  *) echo "cc-harness: 알 수 없는 profile '$PROFILE' — sdlc로 폴백합니다." >&2 ;;
+esac
 if [[ -f "$HARNESS_CLAUDE" ]]; then
   MARKER="<!-- cc-harness:begin -->"
   MARKER_END="<!-- cc-harness:end -->"
