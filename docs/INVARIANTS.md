@@ -26,11 +26,14 @@ implementer는 `feature_list.json`의 `passes`를 직접 `true`로 바꿀 수 �
 evaluator 종합 점수 = 5개 차원(기능·품질·보안·에러처리·테스트) 점수의 **최솟값**.
 평균으로 바꾸지 않는다. **왜 불변**: 평균은 한 영역의 치명적 약점을 다른 영역으로 가린다.
 
-### INV-3. 임계값은 하향 불가
+### INV-3. 임계값은 하향·제거 불가
 `progress/harness-config.json`(및 templates 기본값)의 `scoring.pass_threshold`,
-`scoring.security_thresholds.{critical,standard,low}`는 **낮출 수 없다**. 높이는 것은 허용.
+`scoring.security_thresholds.{critical,standard,low}`는 **낮출 수 없고, 키를 제거할 수도 없다**
+(제거는 기본값으로의 암묵적 완화 또는 게이트 무력화이므로 하향과 동급으로 본다). 높이는 것은 허용.
 현재 기준선: pass_threshold ≥ 7, critical ≥ 7, standard ≥ 5, low ≥ 3.
-**왜 불변**: 임계값 하향은 "기준 미달을 통과로 재정의"하는 것 — 가장 직접적인 자기약화.
+**왜 불변**: 임계값 하향·제거는 "기준 미달을 통과로 재정의"하는 것 — 가장 직접적인 자기약화.
+가드는 Write·Edit·MultiEdit 모두에서 최종 적용 결과(NEW)를 재구성해 검사한다 — 편집 도구를
+바꿔 우회할 수 없다.
 
 ### INV-4. security_tier critical 자동 fail
 `security_tier: critical` 기능은 보안 점수가 임계값 미만이면 다른 점수와 무관하게 fail.
@@ -38,7 +41,8 @@ evaluator 종합 점수 = 5개 차원(기능·품질·보안·에러처리·테�
 
 ### INV-5. Firewall deny 목록은 add-only
 `hooks/pre-bash-firewall.sh`의 `BLOCKED`·`INDIRECT_PATTERNS` 배열에서 패턴을 **삭제할 수 없다**
-(추가는 자유). ask 티어로의 강등도 deny 목록 축소로 간주한다.
+(추가는 자유). ask 티어로의 강등도 deny 목록 축소로 간주한다. 가드는 **배열별로** 패턴 수를
+검사하므로, 한 배열에서 빼고 다른 배열에 더해 총수를 맞추는 swap 우회도 차단한다.
 **왜 불변**: 파괴적 명령 차단의 축소는 안전 회귀다. 오탐 수정이 필요하면 패턴을 *정밀화*하되
 (같은 위험을 여전히 잡도록) 삭제하지 않는다 — 정밀화는 사람이 검토한다.
 

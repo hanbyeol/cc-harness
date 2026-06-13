@@ -1,0 +1,163 @@
+{
+  "timestamp": "2026-06-13T02:00:00Z",
+  "sprint": 3,
+  "scope": "Part 1 (F12 + F15) only — F13/F14 deferred to Part 2",
+  "iteration": 1,
+  "features_evaluated": [
+    "F12",
+    "F15"
+  ],
+  "security_tier_F12": "critical",
+  "security_tier_F15": "standard",
+  "pass_threshold": 7,
+  "security_thresholds": {
+    "critical": 7,
+    "standard": 5,
+    "low": 3
+  },
+  "evidence_gathered": {
+    "bats": "bats tests/ — 160 passed / 0 failed (129 baseline + invariant-guard 16 + lib 10 + pre-commit-gate 5; sum 160 matches implementer claim)",
+    "shellcheck": "shellcheck -x hooks/*.sh init.sh — exit 0, clean (lib.sh included)",
+    "version_consistency": "package.json=1.7.0, plugin.json=1.7.0, marketplace.json=1.7.0",
+    "hooks_json_registration": "PreToolUse matcher 'Edit|Write|MultiEdit' → invariant-guard.sh registered with timeout 5",
+    "invariants_md": "INV-1..INV-7 all present (5 required + INV-4 critical auto-fail + INV-7 self-protection)",
+    "gitignore": "progress/.gate-cache 등록",
+    "smoke_tests_passed": [
+      "harness-config pass_threshold 7→5 (Write) → exit 2",
+      "harness-config pass_threshold 7→8 → exit 0",
+      "harness-config security_thresholds.critical 7→4 → exit 2",
+      "harness-config invalid JSON → exit 2",
+      "harness-config Edit lowering via new_string only (7→4) → exit 2",
+      "firewall BLOCKED removal (Write) → exit 2",
+      "firewall BLOCKED addition → exit 0",
+      "firewall Edit removing single pattern line → exit 2",
+      "tests/*.bats @test deletion (Write) → exit 2",
+      "tests/*.bats @test addition → exit 0",
+      "invariant-guard.sh self-shrink (121→2 lines) → exit 2",
+      "INVARIANTS.md self-shrink → exit 2",
+      "unrelated file edit → exit 0",
+      "new file (no prior on disk) → exit 0",
+      "invalid hook input → exit 0 (documented fail-open)",
+      "missing file_path → exit 0",
+      "lib.sh: cfg_get preserves false (not overwritten by default true)",
+      "lib.sh: version_lt 1.5<1.10 true (numeric), 1.10<1.5 false, ''<X true, X<X false",
+      "pre-commit-gate cache: 1st run writes cache, 2nd identical hits cache (no coverage rewrite), tree change invalidates"
+    ]
+  },
+  "bypass_attempts": [
+    {
+      "name": "MultiEdit threshold lowering",
+      "input": "tool_name=MultiEdit, edits=[{old:'\"pass_threshold\":7', new:'\"pass_threshold\":3'}]",
+      "result": "exit 0 (BYPASS)",
+      "root_cause": "hook case statement only handles Write and Edit; MultiEdit falls into default arm which sets NEW_CONTENT to OLD file content unchanged, so all subsequent comparisons are no-ops",
+      "severity": "high",
+      "scope": "F12 INV-3, INV-5, INV-6 all bypassable via MultiEdit despite hooks.json registering MultiEdit matcher"
+    },
+    {
+      "name": "MultiEdit @test deletion",
+      "input": "tool_name=MultiEdit, file=tests/*.bats, edits=[{old:'@test \"c\" {...}\\n', new:''}]",
+      "result": "exit 0 (BYPASS)",
+      "severity": "high"
+    },
+    {
+      "name": "harness-config key removal (no value to compare)",
+      "input": "Write content='{\"scoring\":{}}' (no pass_threshold, no security_thresholds)",
+      "result": "exit 0 (BYPASS) — schedule disables thresholds entirely while passing the guard",
+      "root_cause": "threshold-lowering loop skips when [[ -n OLD && -n NEW ]] fails; missing keys evaluate to empty, treated as no-op rather than as 'removal = deepest lowering'",
+      "severity": "high",
+      "scope": "F12 INV-3 bypassable by deleting the key instead of lowering its numeric value"
+    },
+    {
+      "name": "cross-array pattern swap in firewall",
+      "input": "Write pre-bash-firewall.sh with -1 INDIRECT_PATTERNS line and +1 BLOCKED line (net count unchanged)",
+      "result": "exit 0 (BYPASS) — INDIRECT protection silently removed",
+      "root_cause": "count_patterns greps both arrays together as a single count via '^[[:space:]]*\\'' regex; tier loss masked by tier gain",
+      "severity": "medium",
+      "scope": "F12 INV-5 — contract explicitly names BLOCKED *and* INDIRECT_PATTERNS as separately add-only"
+    }
+  ],
+  "passed_criteria": {
+    "F12_acceptance": [
+      "docs/INVARIANTS.md 존재 + 5개 필수 불변식 명문화 (실제 7개)",
+      "hooks/invariant-guard.sh 존재 + PreToolUse Edit|Write|MultiEdit matcher 등록 (단, MultiEdit 실효성은 문제)",
+      "Write/Edit 경로에서 pass_threshold·security_thresholds 수치 하향 → exit 2",
+      "Write/Edit 경로에서 firewall BLOCKED 라인 삭제, @test 삭제 → exit 2",
+      "상향·추가는 통과시킴 (add-only 보존)"
+    ],
+    "F12_security": [
+      "자기 보호: invariant-guard.sh, INVARIANTS.md 30% 이상 축소 deny (INV-7)",
+      "jq 부재 시 fail-open + 경고 출력 — INVARIANTS.md에 명시"
+    ],
+    "F12_error_scenarios": [
+      "잘못된 JSON harness-config 편집 → deny + 사유 출력",
+      "무관 파일·신규 생성·잘못된 input → pass through"
+    ],
+    "F15_acceptance": [
+      "pre-commit-gate git diff sha 캐시 도입, 동일 트리 재실행 skip (직접 smoke 확인)",
+      "hooks/lib.sh 신설, 2개 훅(pre-commit-gate, setup-claudemd)이 source",
+      "setup-claudemd.sh가 version_lt 기반 NEEDS_V15_MIGRATION 가드로 1.5 이전 설치만 마이그레이션 — 1.5+에서 1.7로 올라갈 때 v1.4 마이그레이션 skip"
+    ],
+    "F15_security": [
+      "gate 캐시는 .gitignore 등록 (커밋되어 다른 머신에서 stale 캐시로 게이트 우회 방지)",
+      "실패 상태는 캐시하지 않음 — 통과한 트리만 SHA 기록"
+    ],
+    "F15_error_scenarios": [
+      "cfg_get: 파일 없음 / 키 없음 → default 반환 (단, false 값은 default로 덮지 않음)",
+      "version_lt: 빈 문자열을 가장 오래된 버전으로 취급, 숫자 비교"
+    ]
+  },
+  "failed_criteria": {
+    "F12_security": [
+      "MultiEdit tool에서 INV-3/5/6 검사가 모두 우회됨 — hooks.json은 MultiEdit matcher 등록했으나 case 분기가 default(cat \"$FILE\")로 떨어져 OLD=NEW가 되어 모든 비교가 무의미",
+      "harness-config의 threshold 키 자체를 삭제하면 (값 하향이 아니라 키 제거) 검사 루프가 skip되어 통과 — 키 제거가 가장 강한 약화(임계값 무효화)인데 정작 차단되지 않음",
+      "firewall 배열간 패턴 swap(INDIRECT 1줄 삭제 + BLOCKED 1줄 추가)이 총 카운트로 합산되어 우회 — INVARIANTS.md INV-5는 두 배열을 분리 add-only로 명시"
+    ]
+  },
+  "criteria_backfill_review": {
+    "implementer_added": [
+      "tests/pre-commit-gate.bats — gate 캐시 acceptance를 실행 검증으로 명시"
+    ],
+    "verdict": "적절. add-only 원칙 준수 (테스트 추가)."
+  },
+  "criteria_gaps": {
+    "missing_test_scenarios": [
+      "F12: MultiEdit 입력에 대한 bats 케이스 — 현재 invariant-guard.bats는 Write/Edit만 시험",
+      "F12: harness-config 키 자체 제거(예: scoring={}) → deny 요구하는 bats 케이스 없음",
+      "F12: firewall BLOCKED와 INDIRECT_PATTERNS를 분리하여 각각 add-only 검사하는 bats 케이스 없음"
+    ],
+    "ambiguous_criteria": [
+      "F12 acceptance #2가 'PreToolUse Edit|Write|MultiEdit'을 명시하지만, MultiEdit 분기 동작에 대한 구체 기대치는 contract에 없음 → 가드 구현이 'no-op fall-through'로 빠지더라도 형식상 통과로 해석될 여지가 있음. 다음 iteration에서 'MultiEdit 입력에서도 동일 효력' 명시 필요."
+    ],
+    "action_required": "implementer가 다음 iteration에서 (a) invariant-guard.sh의 MultiEdit 처리 구현 (edits 배열 순차 적용 결과를 NEW_CONTENT로), (b) threshold 키 제거 검사 추가, (c) BLOCKED/INDIRECT 분리 카운트, (d) 위 3건에 대한 bats 케이스 추가. INVARIANTS.md/contract도 동시 보완 (criteria backpropagation)."
+  },
+  "scores": {
+    "functionality": 7,
+    "code_quality": 8,
+    "security": 5,
+    "error_handling": 7,
+    "test_coverage": 7,
+    "rationale": {
+      "functionality": "Write/Edit 경로의 add-only 검증은 정확. F15 캐시·lib.sh·version_lt 모두 contract 충족. F12 MultiEdit 경로 미구현이 기능 차원 -1.",
+      "code_quality": "lib.sh의 cfg_get가 jq -e의 false-=exit-1 함정을 인식하고 명시적 != null 분기로 회피한 점은 양호. setup-claudemd가 lib.sh 부재 시 폴백을 정의해 가용성 보장. 가드 코드의 case 분기 default가 사실상 '모든 검사 skip'으로 동작하는 함정이 코드 품질 -2.",
+      "security": "critical 안전장치인데 (1) MultiEdit 우회 (2) 키 제거 우회 (3) BLOCKED/INDIRECT cross-swap 우회 3건이 직접 시연됨. INVARIANTS.md가 INV-3/5/6를 명시한 만큼 우회는 실질적 위반. critical tier 임계값 7 미만으로 자동 fail.",
+      "error_handling": "잘못된 JSON, 무관 파일, 입력 부재 등은 정확히 처리. jq 부재 fail-open은 보조 게이트라는 근거 충분. -3 = MultiEdit 입력에 대한 안내 부재(보수적 검사라 주장하지만 실효 검사 없음).",
+      "test_coverage": "16+10+5 = 31개 신규 bats가 add-only/false-preserve/캐시 등 주요 경로를 잘 짚음. 다만 위 3건의 우회 경로 회귀 테스트가 없음 → -3."
+    }
+  },
+  "score": 5,
+  "score_method": "min_of_5",
+  "auto_fail_rule_triggered": "security_tier critical(F12) — 보안 점수 5 < 7 → 자동 fail",
+  "verdict": "fail",
+  "fail_reasons": [
+    "F12 security < 7 (critical tier 자동 fail 규칙)",
+    "min-of-5 종합 점수 5 < pass_threshold 7"
+  ],
+  "issues": [
+    "[security][F12] MultiEdit으로 harness-config threshold 하향 / @test 삭제 / firewall 패턴 삭제가 모두 통과(exit 0). hooks.json은 MultiEdit matcher를 등록했으므로 가드가 실제로 호출됨에도 case 분기 default가 OLD=NEW로 처리해 모든 검사를 무력화. 해결: MultiEdit의 edits 배열을 OLD 파일에 순차 치환해 NEW_CONTENT 산출.",
+    "[security][F12] harness-config의 scoring.pass_threshold 키 자체를 삭제(예: '{\"scoring\":{}}')하면 임계값이 사라지지만 가드는 '값 하향'이 아니므로 통과. 키 제거가 임계값 무효화로 INV-3의 가장 강한 약화 형태인데 검사하지 않음. 해결: OLD에는 키가 있는데 NEW에는 없으면 deny.",
+    "[security][F12] pre-bash-firewall.sh의 BLOCKED와 INDIRECT_PATTERNS를 단일 grep으로 합산 카운트해서, BLOCKED +1·INDIRECT -1 같은 cross-array swap이 통과. INVARIANTS.md INV-5는 두 배열을 분리 add-only로 명시. 해결: 각 배열을 시작·종료 마커로 구분해 분리 카운트.",
+    "[test][F12] 위 3건의 우회 회귀 테스트가 invariant-guard.bats에 없음. 수정 후 RED→GREEN bats 추가 필요.",
+    "[clarity][F12] INVARIANTS.md의 INV-3 본문이 '낮출 수 없다'만 명시하고 '제거할 수 없다'는 누락. 키 제거가 약화로 분류됨을 명문화 필요(criteria backpropagation)."
+  ],
+  "passes_feature_list_action": "feature_list.json은 변경하지 않음 — F12·F15 모두 passes=false 유지. fail 사유 위 issues 참조. F13·F14는 이번 범위 밖, 변경하지 않음. F1~F11은 변경하지 않음."
+}

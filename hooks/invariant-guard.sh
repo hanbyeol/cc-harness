@@ -18,6 +18,19 @@ INPUT=$(cat 2>/dev/null || echo "")
 
 has_jq() { command -v jq &>/dev/null; }
 
+# old_string의 첫 출현을 new_string으로 치환한 전체 내용을 stdout으로.
+# 매치가 없으면 원본 그대로. (리터럴 치환 — 정규식 메타 영향 없음)
+apply_replace() {
+  awk -v o="$2" -v n="$3" '
+    BEGIN { RS="\0" }
+    {
+      idx=index($0,o);
+      if (idx>0) { printf "%s", substr($0,1,idx-1) n substr($0,idx+length(o)) }
+      else { printf "%s", $0 }
+    }
+  ' <<<"$1" 2>/dev/null || printf '%s' "$1"
+}
+
 if ! has_jq; then
   # jq 없이는 입력 파싱 불가 — 보조 게이트이므로 경고 후 통과 (INV: fail-open)
   echo "invariant-guard: jq not found — guard inactive (가용성 우선)" >&2
@@ -39,16 +52,24 @@ case "$TOOL" in
     OLD_S=$(echo "$INPUT" | jq -r '.tool_input.old_string // empty' 2>/dev/null || echo "")
     NEW_S=$(echo "$INPUT" | jq -r '.tool_input.new_string // empty' 2>/dev/null || echo "")
     if [[ -n "$OLD_S" ]]; then
-      NEW_CONTENT=$(python_replace=$'' awk -v o="$OLD_S" -v n="$NEW_S" '
-        BEGIN { RS="\0" } { idx=index($0,o); if(idx>0){ print substr($0,1,idx-1) n substr($0,idx+length(o)) } else { print } }
-      ' "$FILE" 2>/dev/null || cat "$FILE")
+      NEW_CONTENT=$(apply_replace "$(cat "$FILE")" "$OLD_S" "$NEW_S")
     else
       NEW_CONTENT=$(cat "$FILE")
     fi
     ;;
-  *)
-    # MultiEdit 등 정밀 재구성이 어려운 경우: new_string 조각만으로 보수적 검사
+  MultiEdit)
+    # edits 배열을 순차 적용해 실제 NEW_CONTENT를 재구성한다 (no-op 우회 차단)
     NEW_CONTENT=$(cat "$FILE")
+    EDIT_COUNT=$(echo "$INPUT" | jq -r '.tool_input.edits | length' 2>/dev/null || echo 0)
+    for ((ei = 0; ei < EDIT_COUNT; ei++)); do
+      EO=$(echo "$INPUT" | jq -r ".tool_input.edits[$ei].old_string // empty" 2>/dev/null || echo "")
+      EN=$(echo "$INPUT" | jq -r ".tool_input.edits[$ei].new_string // empty" 2>/dev/null || echo "")
+      [[ -z "$EO" ]] && continue
+      NEW_CONTENT=$(apply_replace "$NEW_CONTENT" "$EO" "$EN")
+    done
+    ;;
+  *)
+    exit 0
     ;;
 esac
 [[ -z "$NEW_CONTENT" ]] && exit 0
@@ -74,7 +95,11 @@ if [[ "$BASENAME" == "harness-config.json" ]]; then
               '.scoring.security_thresholds.low'; do
     OLD_V=$(jq -r "$path // empty" "$FILE" 2>/dev/null || echo "")
     NEW_V=$(echo "$NEW_CONTENT" | jq -r "$path // empty" 2>/dev/null || echo "")
-    if [[ -n "$OLD_V" && -n "$NEW_V" ]]; then
+    if [[ -n "$OLD_V" ]]; then
+      # 키 제거도 약화다 — old에 있던 임계값이 new에서 사라지면 deny (INV-3)
+      if [[ -z "$NEW_V" ]]; then
+        deny "$path 제거 ($OLD_V → 없음) — 임계값 키 제거는 약화 (INV-3)"
+      fi
       # 숫자 비교 — 하향이면 deny
       if awk -v a="$OLD_V" -v b="$NEW_V" 'BEGIN{exit !(b+0 < a+0)}'; then
         deny "$path 하향 ($OLD_V → $NEW_V) — 임계값은 add-only(상향만) (INV-3)"
@@ -86,12 +111,30 @@ fi
 
 # === pre-bash-firewall.sh: deny 패턴 수 감소 차단 (INV-5) ===
 if [[ "$BASENAME" == "pre-bash-firewall.sh" ]]; then
-  # BLOCKED + INDIRECT_PATTERNS 배열 내 패턴 라인(작은따옴표로 시작) 개수
-  count_patterns() { grep -cE "^[[:space:]]*'" <<<"$1" 2>/dev/null || true; }
-  OLD_N=$(count_patterns "$(cat "$FILE")")
-  NEW_N=$(count_patterns "$NEW_CONTENT")
-  if [[ "$NEW_N" -lt "$OLD_N" ]]; then
-    deny "firewall deny 패턴 감소 ($OLD_N → $NEW_N) — deny 목록은 add-only (INV-5)"
+  # 배열별로 패턴 라인 수를 센다 — 배열 간 swap(한쪽 삭제+다른쪽 추가)으로 총합을
+  # 유지하는 우회를 차단하기 위해 BLOCKED·INDIRECT_PATTERNS·ASK를 개별 검사.
+  # awk: `NAME=(` 부터 닫는 `)` 까지 구간에서 작은따옴표로 시작하는 라인 수.
+  count_array() {
+    awk -v arr="$2" '
+      $0 ~ "^"arr"=\\(" { inb=1; next }
+      inb && /^\)/ { inb=0 }
+      inb && /^[[:space:]]*'\''/ { c++ }
+      END { print c+0 }
+    ' <<<"$1" 2>/dev/null || echo 0
+  }
+  OLD_ALL=$(cat "$FILE")
+  for arr in BLOCKED INDIRECT_PATTERNS ASK_PATTERNS; do
+    O=$(count_array "$OLD_ALL" "$arr")
+    N=$(count_array "$NEW_CONTENT" "$arr")
+    if [[ "$N" -lt "$O" ]]; then
+      deny "firewall $arr 패턴 감소 ($O → $N) — deny 목록은 add-only (INV-5)"
+    fi
+  done
+  # 안전판: 전체 패턴 수 감소도 차단 (배열 정의 자체 삭제 등)
+  count_total() { grep -cE "^[[:space:]]*'" <<<"$1" 2>/dev/null || true; }
+  OLD_T=$(count_total "$OLD_ALL"); NEW_T=$(count_total "$NEW_CONTENT")
+  if [[ "$NEW_T" -lt "$OLD_T" ]]; then
+    deny "firewall deny 패턴 총수 감소 ($OLD_T → $NEW_T) — deny 목록은 add-only (INV-5)"
   fi
   exit 0
 fi

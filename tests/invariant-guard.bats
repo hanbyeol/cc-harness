@@ -32,6 +32,18 @@ mk_edit_input() {
     '{tool_name:"Edit", tool_input:{file_path:$fp, old_string:$old, new_string:$new}}'
 }
 
+mk_multiedit_input() {
+  # $1=file_path, 그 뒤 old,new 쌍 반복
+  local fp="$1"; shift
+  local edits="[]"
+  while [[ $# -ge 2 ]]; do
+    edits=$(jq -c --arg o "$1" --arg n "$2" '. + [{old_string:$o, new_string:$n}]' <<<"$edits")
+    shift 2
+  done
+  jq -n --arg fp "$fp" --argjson edits "$edits" \
+    '{tool_name:"MultiEdit", tool_input:{file_path:$fp, edits:$edits}}'
+}
+
 # --- harness-config threshold ---
 
 @test "denies pass_threshold lowered 7 -> 5 (Write)" {
@@ -68,6 +80,23 @@ mk_edit_input() {
   [ "$status" -eq 2 ]
 }
 
+@test "denies pass_threshold lowered via MultiEdit (no-op bypass closed)" {
+  run run_write "$(mk_multiedit_input "$WORK/progress/harness-config.json" '"pass_threshold": 7' '"pass_threshold": 3')"
+  [ "$status" -eq 2 ]
+}
+
+@test "denies threshold KEY removal (not just lowering)" {
+  NEW='{ "scoring": { "pass_threshold": 7, "security_thresholds": { "standard": 5, "low": 3 } } }'
+  run run_write "$(mk_write_input "$WORK/progress/harness-config.json" "$NEW")"
+  [ "$status" -eq 2 ]
+}
+
+@test "denies whole security_thresholds removal" {
+  NEW='{ "scoring": { "pass_threshold": 7 } }'
+  run run_write "$(mk_write_input "$WORK/progress/harness-config.json" "$NEW")"
+  [ "$status" -eq 2 ]
+}
+
 # --- firewall deny list add-only ---
 
 @test "denies removal of a BLOCKED pattern (fewer patterns)" {
@@ -93,6 +122,22 @@ SH
   NEW=$'BLOCKED=(\n  \'rm -rf /\'\n  \'git push.*--force\'\n  \'mkfs\'\n)\n'
   run run_write "$(mk_write_input "$WORK/hooks/pre-bash-firewall.sh" "$NEW")"
   [ "$status" -eq 0 ]
+}
+
+@test "denies cross-array swap (BLOCKED+1, INDIRECT-1, total unchanged)" {
+  cat > "$WORK/hooks/pre-bash-firewall.sh" <<'SH'
+BLOCKED=(
+  'rm -rf /'
+)
+INDIRECT_PATTERNS=(
+  'eval'
+  'sudo rm'
+)
+SH
+  # INDIRECT에서 하나 삭제하고 BLOCKED에 하나 추가 → 총수 동일하지만 INDIRECT 약화
+  NEW=$'BLOCKED=(\n  \'rm -rf /\'\n  \'mkfs\'\n)\nINDIRECT_PATTERNS=(\n  \'eval\'\n)\n'
+  run run_write "$(mk_write_input "$WORK/hooks/pre-bash-firewall.sh" "$NEW")"
+  [ "$status" -eq 2 ]
 }
 
 # --- tests add-only ---

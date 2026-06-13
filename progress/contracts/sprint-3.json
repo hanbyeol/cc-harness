@@ -23,7 +23,10 @@
     "F15: pre-commit-gate.sh가 git diff 해시로 직전 성공 상태와 동일하면 재실행 skip",
     "F15: hooks/lib.sh 신설 — jq config 읽기·cd 가드 관용구를 함수로 추출, 최소 2개 훅이 source",
     "F15: setup-claudemd.sh 마이그레이션이 version_lt 비교로 적용 범위를 결정 (비멱등 마이그레이션 대비)",
-    "전역: 신규 스킬 TRIGGER 포함 description, 버전 1.7.0 통일, 기존 bats 129개 회귀 없음, CLAUDE.md 라우팅에 /improve 추가"
+    "전역: 신규 스킬 TRIGGER 포함 description, 버전 1.7.0 통일, 기존 bats 129개 회귀 없음, CLAUDE.md 라우팅에 /improve 추가",
+    "F12: invariant-guard는 MultiEdit의 edits 배열을 적용해 NEW를 재구성한다 — Write/Edit와 동일하게 약화를 차단(편집 도구 우회 불가)",
+    "F12: harness-config의 임계값 키 제거(하향이 아닌 삭제)도 deny",
+    "F12: firewall 배열 간 swap(한쪽 삭제+다른쪽 추가, 총수 동일)도 배열별 카운트로 deny"
   ],
   "security_criteria": [
     "invariant-guard.sh는 security_tier: critical — 자신을 우회·비활성화하는 변경(자기 파일 삭제·deny 로직 약화)도 감지 대상에 포함",
