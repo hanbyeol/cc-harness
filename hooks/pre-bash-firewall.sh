@@ -95,6 +95,13 @@ ASK_PATTERNS=(
   'terraform[^;|&]* state +(rm|push)'
   'terraform[^;|&]* import'
   'terraform[^;|&]* taint'
+  # k8s 운영 (ops 프로파일) — 라이브 파괴/중단. namespace/-A 통째 삭제는 위 BLOCKED가 선처리(deny).
+  # 환경(prod) 강제는 /rollout·Plan 게이트가 담당.
+  'kubectl[^;|&]* delete '
+  'kubectl[^;|&]* scale[^;|&]*--replicas[= ]?0'
+  'helm[^;|&]* (uninstall|delete)'
+  'kubectl[^;|&]* rollout undo'
+  'kubectl[^;|&]* drain'
 )
 
 if echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then

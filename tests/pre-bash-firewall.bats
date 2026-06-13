@@ -197,6 +197,61 @@ run_firewall() {
   [ -z "$output" ]
 }
 
+# --- ops profile: k8s 운영 안전 (add-only) ---
+
+@test "asks on kubectl delete pod" {
+  run run_firewall '{"tool_input":{"command":"kubectl delete pod my-pod -n app"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "asks on kubectl scale --replicas=0" {
+  run run_firewall '{"tool_input":{"command":"kubectl scale deploy/web --replicas=0 -n app"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "asks on helm uninstall" {
+  run run_firewall '{"tool_input":{"command":"helm uninstall myrelease -n app"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "asks on kubectl rollout undo" {
+  run run_firewall '{"tool_input":{"command":"kubectl rollout undo deploy/web -n app"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "asks on kubectl drain" {
+  run run_firewall '{"tool_input":{"command":"kubectl drain node-1 --ignore-daemonsets"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "still DENIES kubectl delete namespace (precedence — deny before ask)" {
+  run run_firewall '{"tool_input":{"command":"kubectl delete namespace prod"}}'
+  [ "$status" -eq 2 ]
+}
+
+@test "allows kubectl get/describe/logs (read-only)" {
+  run run_firewall '{"tool_input":{"command":"kubectl get pods -n app"}}'
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "allows kubectl logs" {
+  run run_firewall '{"tool_input":{"command":"kubectl logs deploy/web -n app --tail=100"}}'
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "allows helm upgrade (forward change, reviewed via /rollout)" {
+  run run_firewall '{"tool_input":{"command":"helm upgrade myrelease ./chart -n app"}}'
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
 # --- Safe commands that must pass (no false positives) ---
 
 @test "allows git status" {
