@@ -45,6 +45,8 @@ Correctness > Safety > Speed
 - 모든 단계에서 보안과 품질을 내재화
 - Evaluator 종합 점수 = 5개 점수의 최솟값 (한 영역이라도 미달 시 전체 fail)
 - security_tier: critical 기능은 보안 점수 7/10 미만 시 자동 fail
+- **검증 티어링**: 검증 강도를 security_tier·변경 크기에 매칭 — low/문서는 경량(hotfix류, evaluator 생략 가능),
+  standard는 evaluator, critical은 full evaluator+security-auditor. **경량 경로는 저위험에만 추가하며 critical 게이트·임계값은 절대 미하향**(invariant-guard가 하향 차단)
 
 ## Generator-Evaluator Loop
 - Implementer는 passes를 직접 true로 변경하지 않음
