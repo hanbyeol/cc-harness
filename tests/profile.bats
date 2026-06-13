@@ -63,6 +63,57 @@ run_setup() { CLAUDE_PROJECT_DIR="$WORK" bash "$HOOK"; }
   grep -qF "$SENTINEL_SDLC" CLAUDE.md
 }
 
+# --- 멀티 프로파일 (.profiles 배열) ---
+
+@test "profiles=[iac,ops] → both sections injected (plan-review + rollout)" {
+  echo '{"profiles":["iac","ops"]}' > progress/harness-config.json
+  run_setup >/dev/null 2>&1
+  grep -qiE 'plan-review|terraform plan' CLAUDE.md
+  grep -qiE 'rollout|관측' CLAUDE.md
+  ! grep -qF "$SENTINEL_SDLC" CLAUDE.md
+  [ "$(grep -cF '<!-- cc-harness:begin -->' CLAUDE.md)" -eq 1 ]
+  [ "$(grep -cF '<!-- cc-harness:end -->' CLAUDE.md)" -eq 1 ]
+}
+
+@test "profiles=[iac] (array of one) → iac only" {
+  echo '{"profiles":["iac"]}' > progress/harness-config.json
+  run_setup >/dev/null 2>&1
+  grep -qiE 'plan-review' CLAUDE.md
+  ! grep -qiE 'rollout' CLAUDE.md
+}
+
+@test ".profile=iac (singular, backward compat) still works" {
+  echo '{"profile":"iac"}' > progress/harness-config.json
+  run_setup >/dev/null 2>&1
+  grep -qiE 'plan-review' CLAUDE.md
+}
+
+@test "profiles=[] → sdlc fallback" {
+  echo '{"profiles":[]}' > progress/harness-config.json
+  run_setup >/dev/null 2>&1
+  grep -qF "$SENTINEL_SDLC" CLAUDE.md
+}
+
+@test "profiles=[bogus,iac] → iac only (skip unknown)" {
+  echo '{"profiles":["bogus","iac"]}' > progress/harness-config.json
+  run_setup >/dev/null 2>&1
+  grep -qiE 'plan-review' CLAUDE.md
+}
+
+@test "profiles=[iac,iac] → deduped, single iac section" {
+  echo '{"profiles":["iac","iac"]}' > progress/harness-config.json
+  run_setup >/dev/null 2>&1
+  [ "$(grep -c '/plan-review — terraform plan diff 리뷰 게이트' CLAUDE.md)" -le 1 ]
+}
+
+@test "multi-profile injection is idempotent (byte-identical on re-run)" {
+  echo '{"profiles":["iac","ops"]}' > progress/harness-config.json
+  run_setup >/dev/null 2>&1
+  cp CLAUDE.md run1.txt
+  run_setup >/dev/null 2>&1
+  cmp -s CLAUDE.md run1.txt
+}
+
 # --- profiles/ 소스 파일 존재 ---
 
 @test "profile=ops → ops workflow section (observe/diagnose/remediate/verify), no SDLC cascade" {

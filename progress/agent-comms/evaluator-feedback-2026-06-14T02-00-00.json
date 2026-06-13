@@ -1,0 +1,118 @@
+{
+  "timestamp": "2026-06-14T02:00:00Z",
+  "sprint": 8,
+  "iteration": 1,
+  "features_evaluated": [
+    "F22"
+  ],
+  "security_tier": "standard",
+  "pass_threshold": 7,
+  "security_thresholds": {
+    "critical": 7,
+    "standard": 5,
+    "low": 3
+  },
+  "scores": {
+    "functionality": 9,
+    "code_quality": 9,
+    "security": 8,
+    "error_handling": 9,
+    "test_coverage": 8
+  },
+  "score": 8,
+  "score_method": "min_of_5",
+  "verdict": "pass",
+  "fail_reasons": [],
+  "verification_evidence": {
+    "shellcheck": {
+      "target": "hooks/setup-claudemd.sh",
+      "exit_code": 0,
+      "notes": "clean — bash 3.2 호환(연관배열 미사용, 문자열 dedup), set -euo pipefail 유지"
+    },
+    "bats": {
+      "command": "bats tests/",
+      "planned": 232,
+      "passed": 232,
+      "failed": 0,
+      "notes": "기대 232 케이스 전부 통과. tests/profile.bats 멀티 케이스(8건 신규: [iac,ops], [iac], [iac,iac] dedup, [bogus,iac], [], .profile=iac 단수, 멀티 멱등성, 단일 프로파일 동등) 포함. setup-claudemd 회귀 0."
+    },
+    "smoke_tests": {
+      "multi_iac_ops": {
+        "markers_begin": 1,
+        "markers_end": 1,
+        "iac_keywords": "plan-review × 10건",
+        "ops_keywords": "rollout/관측 × 12건",
+        "sdlc_sentinel": 0,
+        "idempotent_byte_identical": true
+      },
+      "regression_equivalence": {
+        "profiles_empty_vs_no_config": "body byte-identical (H1 헤더 제외)",
+        "malformed_json_vs_no_config": "body byte-identical (sdlc 폴백)",
+        "profile_singular_vs_profiles_single_array": "body byte-identical — .profile=iac 와 .profiles=[iac] 동일 출력"
+      },
+      "dedup": {
+        "profiles_iac_iac": "body byte-identical to profiles=[iac] (dedup 정상)"
+      },
+      "unknown_profile_warning": "stderr 출력: cc-harness: 알 수 없는 profile 'bogus' — 건너뜁니다.",
+      "broken_marker_INV7": {
+        "behavior": "begin=1 end=0 → CLAUDE.md untouched, stderr 경고",
+        "preserved": true
+      }
+    },
+    "invariants": {
+      "INV-7_marker_safety": "broken marker 시 파일 보존 + 경고 — 멀티 프로파일 경로도 동일 분기 사용 (verified)",
+      "INV-8_profile_blind_verification": "evaluator agent 정의·hooks/invariant-guard.sh·hooks/pre-bash-firewall.sh 어디에도 profile 분기 없음. setup-claudemd.sh의 프로파일 분기는 CLAUDE.md 워크플로우 텍스트 선택에만 영향. 검증 모델은 프로파일 교체일 뿐 제거 아님 — iac.md/ops.md 모두 '독립 evaluator 대체 게이트'(plan-review, health+회귀)를 명시",
+      "F1_F21_unchanged": "feature_list.json에서 F1~F21 passes=true 그대로, 코드 변경은 setup-claudemd.sh·profiles/*는 그대로·tests/profile.bats 추가만"
+    },
+    "version_consistency": {
+      "plugin_json": "1.12.0",
+      "marketplace_json": "1.12.0",
+      "package_json": "1.12.0",
+      "all_match": true
+    }
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "F22: .profiles 배열 지원 ([iac,ops] 두 섹션 순서대로 연결)",
+      "F22: .profile 단수 하위호환 유지 — .profiles=[iac]와 byte-identical 결과",
+      "F22: 알 수 없는/파일부재 프로파일 건너뜀 + 경고, 전부 무효면 sdlc 폴백",
+      "F22: 마커쌍 정확히 1, 멱등(2회 실행 byte-identical), 프로젝트 헤더 보존",
+      "전역: 버전 1.12.0, 232 bats 통과 (단일·sdlc 회귀 0), shellcheck 클린"
+    ],
+    "security": [
+      "멀티 프로파일은 검증을 약화하지 않음 — iac.md/ops.md 본문이 독립 검증 게이트를 명시(plan-review 게이트·health+회귀 게이트). INV-8 유지.",
+      "프로파일 조합으로 sdlc 임계값·INV-1~8 우회 불가 — invariant-guard·pre-bash-firewall은 profile 분기 없음(grep 검증)",
+      "주입 로직 변경(harness_section 함수의 단일/멀티 분기, dedup 루프)이 INV-7 손상 마커 보호 분기를 그대로 통과 — 직접 스모크로 검증"
+    ],
+    "error_scenarios": [
+      ".profiles=[] → sdlc 폴백(no-config body와 byte-identical)",
+      ".profiles=[iac,iac] → dedup, [iac] 단일과 byte-identical 본문",
+      ".profiles=[bogus,iac] → iac만 + stderr 경고",
+      "malformed JSON → sdlc 폴백, exit 0, 크래시 없음"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "notes": [
+    "F22 acceptance crit '플러그인 CLAUDE.md 섹션도 연결(sdlc는 CLAUDE.md, iac/ops는 profiles/*.md)' — 코드상 sdlc 소스가 $PLUGIN_ROOT/CLAUDE.md, iac/ops가 profiles/*.md로 정확히 매핑됨. profiles=[sdlc,iac] 같은 혼합 시나리오는 bats에서 직접 다루지 않으나 코드 경로상 동작하도록 분기되어 있음(작은 갭이지만 기능적 영향 없음).",
+    "F22의 단일 프로파일 멱등성은 기존 profile.bats 회귀 케이스가 커버하고, 멀티 프로파일 멱등성은 신규 케이스 'multi-profile injection is idempotent'가 커버 — 모두 GREEN.",
+    "코드 품질: bash 3.2 호환을 위해 연관배열 대신 ' '로 분리한 seen 문자열 + case 패턴 매칭으로 dedup 구현, awk로 마커 섹션 제거(위치 무관), 단일/멀티 경로를 length 분기로 회귀 0 유지 — 깔끔하고 의도가 명확."
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [
+      "profiles=[sdlc,iac] 같은 sdlc+다른 프로파일 혼합 시나리오에 대한 acceptance/test 없음 — 코드 경로상 작동하지만 명시적 검증 부재 (F23+로 보류 가능)"
+    ],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "action_required": "선택적: 다음 sprint에서 sdlc+iac 혼합 시나리오 bats 케이스 1건 추가 권고. 현 sprint 통과를 막을 정도는 아님."
+  },
+  "criteria_issues": [],
+  "implementer_backfill_review": {
+    "backfill_count": 0,
+    "appropriate": true
+  },
+  "decision": "F22 passes=true. F1~F21은 본 sprint 변경 대상이 아니며 feature_list에서 그대로 passes=true 유지(불변 확인). 멀티 프로파일은 검증을 약화하지 않음 — INV-8 유지."
+}
