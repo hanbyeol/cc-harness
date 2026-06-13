@@ -1,0 +1,61 @@
+{
+  "sprint": 3,
+  "title": "재귀적 자기개선 루프 (v1.7.0)",
+  "features": [
+    "F12",
+    "F13",
+    "F14",
+    "F15"
+  ],
+  "security_tier": "critical",
+  "brainstorm": "docs/brainstorms/2026-06-13-recursive-self-improvement.md",
+  "acceptance_criteria": [
+    "F12: docs/INVARIANTS.md 존재 — evaluator 독립성, min-of-5, pass_threshold·security_thresholds 하향 금지, firewall deny 목록 add-only, 테스트/기준 add-only를 각각 명문화",
+    "F12: hooks/invariant-guard.sh (PreToolUse Edit|Write|MultiEdit) — harness-config.json의 pass_threshold/security_thresholds 수치 하향을 감지해 deny(exit 2), 사람 승인 안내",
+    "F12: invariant-guard가 pre-bash-firewall.sh의 BLOCKED/INDIRECT 배열 라인 삭제, tests/*.bats의 @test 삭제를 감지해 deny",
+    "F12: invariant-guard는 임계값 상향·deny 패턴 추가·테스트 추가는 통과시킨다 (add-only는 허용)",
+    "F13: scripts/probes/ 또는 hooks에 4개 프로브 구현 — 각 프로브는 개선 후보를 {id,name,description,security_tier,source} JSON으로 출력",
+    "F13: 메트릭 프로브가 progress/metrics-history.json에 테스트 수·shellcheck 경고 수·훅 실행시간을 append하고 직전 대비 악화를 후보화",
+    "F13: 후보 중복 제거 — 이미 feature_list.json 또는 backlog에 존재하는 항목은 재생성하지 않는다",
+    "F14: skills/improve/SKILL.md 존재 — 진단→후보→/change-request→Plan 게이트→구현→evaluator→/code-review→finish-branch→수렴판정 단계를 기존 게이트 재사용으로 명시",
+    "F14: /improve는 불변식 저촉 변경을 만나면 자동 진행하지 않고 사람 승인을 요구한다 (F12 가드와 연동)",
+    "F14: 수렴 조건 명시 — backlog 비고 자동발견 2회전 연속 신규 0이면 루프 종료",
+    "F15: pre-commit-gate.sh가 git diff 해시로 직전 성공 상태와 동일하면 재실행 skip",
+    "F15: hooks/lib.sh 신설 — jq config 읽기·cd 가드 관용구를 함수로 추출, 최소 2개 훅이 source",
+    "F15: setup-claudemd.sh 마이그레이션이 version_lt 비교로 적용 범위를 결정 (비멱등 마이그레이션 대비)",
+    "전역: 신규 스킬 TRIGGER 포함 description, 버전 1.7.0 통일, 기존 bats 129개 회귀 없음, CLAUDE.md 라우팅에 /improve 추가"
+  ],
+  "security_criteria": [
+    "invariant-guard.sh는 security_tier: critical — 자신을 우회·비활성화하는 변경(자기 파일 삭제·deny 로직 약화)도 감지 대상에 포함",
+    "자동 발견 프로브가 firewall/evaluator/harness-config를 수정 제안하면 /improve가 자동 진행하지 않고 사람 승인 게이트",
+    "루프가 생성하는 커밋도 기존 pre-commit-gate(시크릿 스캔 포함)를 통과해야 한다",
+    "invariant-guard는 jq 부재 시 fail-closed가 아니라 경고 후 통과 — 단 harness-config 변경은 jq 필수임을 안내",
+    "프로브가 실행하는 외부 명령은 firewall ask/deny 정책을 우회하지 않는다"
+  ],
+  "error_scenarios": [
+    "invariant-guard: harness-config.json이 잘못된 JSON으로 편집되면 차단하고 사유 출력",
+    "메트릭 프로브: metrics-history.json 부재 시 생성, 첫 실행은 baseline만 기록(악화 후보 없음)",
+    "자동 발견: 모든 프로브가 0건이면 /improve는 'backlog만 처리' 또는 '수렴' 안내",
+    "/improve: 불변식 저촉 + 사용자 거부 시 해당 후보를 skip하고 다음으로 진행",
+    "/improve: 구현 중 테스트 실패 → finish-branch 중단, /debug 안내 (기존 동작 재사용)"
+  ],
+  "test_scenarios": [
+    "bats: invariant-guard가 pass_threshold 7→5 하향 편집을 deny",
+    "bats: invariant-guard가 pass_threshold 7→8 상향, security_thresholds 추가는 허용",
+    "bats: invariant-guard가 firewall BLOCKED 배열 라인 삭제를 deny, 추가는 허용",
+    "bats: invariant-guard가 tests/*.bats의 @test 삭제를 deny",
+    "bats: invariant-guard가 잘못된 JSON 편집을 deny",
+    "bats: 메트릭 프로브 baseline 생성 + 악화 감지",
+    "bats: 후보 중복 제거 (기존 feature id 재생성 안 함)",
+    "bats: lib.sh 함수 단위 동작 (config 읽기 기본값, cd 가드)",
+    "스킬 frontmatter 유효성 (improve), version-consistency 1.7.0",
+    "기존 129 bats 회귀 없음, shellcheck 클린"
+  ],
+  "implementation_order": [
+    "F12 (INVARIANTS + guard) — 안전장치를 먼저 박는다",
+    "F15 (backlog/lib.sh) — 공용 인프라 + 첫 먹이로 루프 자체를 검증",
+    "F13 (프로브) — F12 가드 위에서 안전하게 진단",
+    "F14 (/improve) — 위 셋을 오케스트레이션"
+  ],
+  "agreed": false
+}
