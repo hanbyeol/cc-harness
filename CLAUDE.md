@@ -62,6 +62,7 @@ Correctness > Safety > Speed
 | 긴급 버그 수정 (원인 명확, 3파일 이하) | → `/hotfix` 실행 |
 | 원인 불명 버그/이상 동작 | → `/debug` 실행 |
 | 브랜치 마무리/PR/머지 준비 | → `/finish-branch` 실행 |
+| 하네스 자기개선/진단 | → `/improve` 실행 |
 | 진행 상태 확인 | → `/progress` 실행 |
 | 문서 동기화 | → `/sync-docs` 실행 |
 | 스펙 작성 | → 메인 루프가 AskUserQuestion으로 인터뷰 후 **spec-writer** agent에 브리프 전달 |
@@ -104,5 +105,6 @@ Correctness > Safety > Speed
 - `/hotfix [설명]` — 긴급 버그 수정 경량 워크플로우 (3파일 이하, 비보안, 재현 테스트 먼저)
 - `/debug [증상]` — 원인 불명 버그의 4단계 근본원인 디버깅
 - `/finish-branch` — 브랜치 마무리: 테스트 → drift 확인 → PR/머지/보류
+- `/improve` — 자기개선 루프 1회전: 진단 프로브 → 후보 → 기존 게이트 오케스트레이션
 - `/progress` — 진행 현황 대시보드 + 다음 작업 제안
 - `/sync-docs` — 구현과 문서 간 drift 탐지 및 동기화
