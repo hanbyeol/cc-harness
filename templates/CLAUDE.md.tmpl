@@ -101,6 +101,8 @@ Correctness > Safety > Speed
   - `scoring.security_thresholds.standard`: standard tier 보안 최소 점수 (기본 5)
   - `scoring.security_thresholds.low`: low tier 보안 최소 점수 (기본 3)
 - 테스트 커버리지: `progress/coverage-report.json`에 실측값 자동 기록 (pre-commit-gate)
+- **검증 티어링**: 검증 강도를 security_tier·변경 크기에 매칭 — low/문서는 경량(hotfix류, evaluator 생략 가능),
+  standard는 evaluator, critical은 full evaluator+security-auditor. **경량 경로는 저위험에만 추가하며 critical 게이트·임계값은 절대 미하향**
 
 ## Generator-Evaluator Loop
 - **Implementer는 passes를 직접 true로 변경하지 않음**
