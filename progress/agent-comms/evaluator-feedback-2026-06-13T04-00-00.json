@@ -1,0 +1,149 @@
+{
+  "timestamp": "2026-06-13T04:00:00Z",
+  "sprint": 3,
+  "scope": "F12 — iteration 3 self-protection follow-up audit",
+  "iteration": 3,
+  "features_evaluated": [
+    "F12"
+  ],
+  "security_tier_F12": "critical",
+  "pass_threshold": 7,
+  "security_thresholds": {
+    "critical": 7,
+    "standard": 5,
+    "low": 3
+  },
+  "audit_mission": "iter2 evaluator-feedback에서 보고한 RESIDUAL-2(hooks.json 등록 제거)·RESIDUAL-3(semantic gutting via sed)가 이번 커밋 29acee9에서 닫혔는지 + 회귀 없음 + 새 자기보호 로직 자체가 새 우회를 만들지 않았는지를 검증.",
+  "prior_residuals_reported_in_iter2": {
+    "RESIDUAL-2 hooks.json 등록 제거": {
+      "fix_summary": "BASENAME=='hooks.json' 분기 추가 — OLD에 'invariant-guard' 문자열이 있는데 NEW에 없으면 deny (INV-7).",
+      "reproduction": "임시 hooks.json 복사 → jq 'del(.hooks.PreToolUse[] | select(.hooks[].command | test(\"invariant-guard\")))' 적용 → Write hook 입력으로 invariant-guard.sh에 stdin 전달 → exit 2 ('hooks.json에서 invariant-guard 등록 제거 — 안전장치 자기 보호 (INV-7)') 확인.",
+      "status": "CLOSED (단, RESIDUAL-4로 우회 surface 확장 — 아래 참조)"
+    },
+    "RESIDUAL-3 semantic gutting (sed 's/  deny /  : x /g')": {
+      "fix_summary": "invariant-guard.sh 자기 보호에 '^[[:space:]]*deny ' 와 'exit 2' 토큰 카운트가 OLD→NEW로 감소 시 deny 추가.",
+      "reproduction": "sed 's/  deny /  : x /g' invariant-guard.sh → OLD lines=184=NEW lines, OLD deny=9 → NEW deny=0 → exit 2 ('차단 로직 감소 (deny 9 → 0) — semantic gutting 차단 (INV-7)') 확인.",
+      "status": "CLOSED (단, RESIDUAL-5·6로 다른 semantic gutting 경로가 여전히 열림 — 아래 참조)"
+    }
+  },
+  "regression_evidence": {
+    "previously_closed_3_residuals_still_blocked": {
+      "MultiEdit pass_threshold lower": "exit 2 (INV-3 .scoring.pass_threshold 하향 7→3) — 단, 테스트 입력의 콜론-공백 일치 필요 확인",
+      "harness-config security_thresholds 키 제거": "exit 2 (.scoring.security_thresholds.critical 제거 7→없음)",
+      "firewall cross-array swap (BLOCKED+1, INDIRECT-1)": "exit 2 (INDIRECT_PATTERNS 15→14)"
+    },
+    "add_only_paths_still_allowed": {
+      "threshold raise (pass=9, crit=9)": "exit 0",
+      "firewall add BLOCKED pattern": "exit 0",
+      "tests/*.bats add @test": "exit 0",
+      "unrelated file (random.txt)": "exit 0",
+      "self-extension: add a new deny line to invariant-guard.sh (deny 9→10)": "exit 0 (legitimate guard 강화 통과)",
+      "no-op refactor: rename a function in invariant-guard.sh (counts preserved)": "exit 0",
+      "hooks.json reorder PreToolUse array (keeps invariant-guard reg)": "exit 0",
+      "hooks.json change matcher 'Edit|Write|MultiEdit' → 'Edit|Write' (keeps reg)": "exit 0"
+    },
+    "bats_total": "167 passed / 0 failed (invariant-guard.bats 23 — 신규 #17/18/19 자기보호 RED→GREEN 포함)",
+    "shellcheck": "shellcheck -x hooks/*.sh init.sh — exit 0, clean",
+    "INVARIANTS_md_INV7": "본문에 hooks.json 등록 보호, semantic gutting(deny/exit2 카운트) 보호, 알려진 한계(skip 주입 — pre-commit-gate가 2차 방어) 모두 명문화 확인 (docs/INVARIANTS.md:52-66)."
+  },
+  "new_bypasses_found_in_iter3_self_protection_logic": [
+    {
+      "id": "RESIDUAL-4",
+      "name": "hooks.json grep 'invariant-guard' 미끼 우회",
+      "severity": "high",
+      "description": "iter3에서 추가된 hooks.json 검사는 'OLD에 \\\"invariant-guard\\\" 문자열이 있고 NEW에 없으면 deny'다. grep -q 는 문자열 단순 매치이므로, 실제 PreToolUse hook 등록은 삭제하면서 미끼 필드(예: {\\\"_legacy_invariant-guard_note\\\": \\\"moved\\\"})를 추가하면 통과한다.",
+      "reproduction": "jq 'del(.hooks.PreToolUse[] | select(.hooks[].command | test(\\\"invariant-guard\\\"))) | . + {\\\"_legacy_invariant-guard_note\\\": \\\"moved\\\"}' hooks.json — JSON 유효, 'invariant-guard' 문자열 1개 잔존, PreToolUse hook 0개 → guard exit 0 (BYPASS).",
+      "variant": "더 자연스러운 공격: jq '(.hooks.PreToolUse[].hooks[] | select(.command | test(\\\"invariant-guard\\\")) | .command) |= sub(\\\"invariant-guard.sh\\\"; \\\"invariant-guard-disabled.sh\\\")' — 스크립트가 존재하지 않으므로 다음 세션부터 hook이 silently no-op. 문자열 'invariant-guard' 잔존 → guard exit 0.",
+      "mitigation_suggestion": "grep 대신 jq로 의미 검사: NEW.hooks.PreToolUse[].hooks[].command 중 'invariant-guard.sh'로 끝나는(또는 정확히 매치하는) 실제 등록이 OLD에 있었는데 NEW에 없으면 deny. 추가로 .matcher가 'Edit|Write|MultiEdit'을 모두 포함하는지도 검사하여 matcher 축소 우회 차단(예: matcher='Bash' 변경)."
+    },
+    {
+      "id": "RESIDUAL-5",
+      "name": "exit 2 토큰 유지 + 실제 exit 무력화",
+      "severity": "high",
+      "description": "semantic gutting 검사는 'grep -cE \"exit 2\"' 카운트만 본다. 실제 'exit 2' 라인을 ': # exit 2'로 치환하면 토큰은 잔존(주석 내부)하므로 카운트 동일, 그러나 deny() 함수의 유일한 exit 2가 no-op이 되어 모든 deny 호출이 통과한다.",
+      "reproduction": "sed 's/^  exit 2$/  : # exit 2/' invariant-guard.sh — OLD/NEW exit 2 카운트 모두 4 (deny call 9개도 동일) → guard exit 0 (BYPASS). 결과 가드를 실제로 돌려 threshold 하향 입력을 주면 exit 0으로 fail-open 확인.",
+      "mitigation_suggestion": "토큰 카운트가 아니라 '^\\\\s*exit 2\\\\s*$'처럼 라인 시작 + 끝 앵커로 카운트하면 주석 처리는 카운트에서 빠진다. 또는 deny()를 함수 인라인하지 말고 단일 정의된 함수 본문 fingerprint(sha) 비교."
+    },
+    {
+      "id": "RESIDUAL-6",
+      "name": "deny() 함수 재정의로 본문 무력화",
+      "severity": "high",
+      "description": "deny() 함수의 본문을 'echo + return 0'으로 바꾸고 '# exit 2'를 주석으로 본문에 남기면, 모든 deny 호출은 메시지 출력 후 0으로 리턴. 카운트는 보존되어 guard는 통과시킨다.",
+      "reproduction": "awk로 'deny() {' ~ '}' 본문을 'echo $1 >&2; return 0; # exit 2'로 치환 → OLD/NEW deny=9, exit 2 토큰=4 (주석 안에 1개 포함) → guard exit 0 (BYPASS). 가공된 가드를 threshold 하향 입력에 돌리면 exit 0으로 무력화 확인.",
+      "mitigation_suggestion": "RESIDUAL-5와 동일 — exit 2 카운트를 라인 시작 앵커로 강화 + deny() 함수 본문 자체의 sha256 비교(보수적이지만 결정론적). 또는 가공된 가드를 stdin=빈 입력으로 dry-run 실행해서 exit 2가 나오는지 simulate(메타 가드 — 단, 비결정성/지연 우려)."
+    }
+  ],
+  "scores": {
+    "functionality": 9,
+    "code_quality": 8,
+    "security": 5,
+    "error_handling": 8,
+    "test_coverage": 7,
+    "rationale": {
+      "functionality": "RESIDUAL-2/-3 모두 구체적·결정론적으로 닫음. bats 23/23, regression 없음.",
+      "code_quality": "이전과 동일 — sed 기반 awk 헬퍼, count_tok 추가로 ~22줄 증가. shellcheck clean. 다만 grep 기반 hooks.json 검사가 의미 분석이 아닌 텍스트 매칭이라는 설계 약점 노출.",
+      "security": "5 — 이전 보고된 2건은 닫혔으나 동일 카테고리에서 3건의 신규 high가 드러남. 자기보호 강화 시 표면적이 같이 늘었음. critical tier 임계값 7 미달 → 자동 fail.",
+      "error_handling": "이전과 동일 — fail-open(jq 부재) 및 신규 생성/잘못된 입력 pass-through 정상.",
+      "test_coverage": "신규 bats 3건(#17/18/19)으로 RED→GREEN 입증되었으나, 신규 RESIDUAL-4/5/6 대응 테스트 부재. 카운트 기반 검사의 우회 surface가 테스트에 반영되지 않음."
+    },
+    "min_of_5": 5
+  },
+  "score": 5,
+  "score_method": "min_of_5",
+  "verdict": "fail (downgrade)",
+  "fail_reasons": [
+    "security_tier critical 기능의 보안 점수 5 < threshold 7 → 자동 fail",
+    "iter3에서 도입된 자기보호 로직(hooks.json grep, deny/exit2 토큰 카운트)이 의미 분석이 아닌 텍스트 매칭이라 RESIDUAL-4/5/6 신규 high 우회 surface 발생",
+    "사용자 audit 미션 '새 자기보호 로직이 새 우회를 만들지 않았는지'에 대해 '만들었다'가 답",
+    "단, iter2에서 보고된 2건(RESIDUAL-2/-3)은 정확히 닫혔고 회귀 없음 — 점수 5의 이유는 신규 발견에 한정"
+  ],
+  "feature_list_action": {
+    "F12": "passes=true → passes=false 로 되돌림. iteration=3, status='in_progress'로 갱신. 사유: RESIDUAL-4/5/6 신규 high.",
+    "F13_F14_F1_to_F11_F15": "건드리지 않음 (사용자 지시)"
+  },
+  "passed_criteria": {
+    "F12_acceptance": [
+      "iter2에서 닫은 3건(MultiEdit/threshold key/cross-array swap)이 여전히 exit 2",
+      "RESIDUAL-2 (hooks.json del entry) 정상 deny",
+      "RESIDUAL-3 (sed deny→noop) 정상 deny",
+      "add-only 5건(threshold raise, firewall+, bats add, unrelated, self-extension) 모두 exit 0"
+    ],
+    "F12_self_protection": [
+      "invariant-guard.sh 자기 확장(add-only deny 추가)이 막히지 않음",
+      "hooks.json timeout만 바꾸는 정상 편집 통과",
+      "hooks.json matcher 축약(Edit|Write로) 통과 — 단, 이는 RESIDUAL-4 변형으로 사용 가능"
+    ]
+  },
+  "failed_criteria": {
+    "F12_security": [
+      "hooks.json self-registration 검사가 의미 분석(jq)이 아닌 grep — 미끼 문자열로 우회 가능 (RESIDUAL-4)",
+      "semantic gutting 검사 'exit 2' 토큰 카운트가 라인 앵커 없음 — 주석 위장으로 우회 가능 (RESIDUAL-5)",
+      "deny() 함수 재정의 자체를 막지 못함 — 카운트는 보존하면서 본문 무력화 가능 (RESIDUAL-6)"
+    ]
+  },
+  "criteria_backfill_review": {
+    "implementer_added_in_iter3": [
+      "sprint-3.json acceptance_criteria에 2건 추가: 'invariant-guard.sh의 deny 호출/exit 2 개수 감소(semantic gutting)를 차단', 'hooks.json에서 invariant-guard 등록 제거를 차단'",
+      "INVARIANTS.md INV-7 본문에 '검사 로직 약화·hooks.json 등록 제거·deny/exit2 카운트 감소 차단·알려진 한계(skip 주입)' 명문화"
+    ],
+    "verdict": "방향성 적절하나 검사 강도 부족. backpropagate된 criteria가 'grep 기반 텍스트 매칭'이라는 약한 검증을 정당화하지 않도록 다음 iter에서 'jq 의미 분석' 또는 'sha 본문 비교'로 acceptance_criteria 어휘를 강화해야 함."
+  },
+  "criteria_gaps": {
+    "missing_test_scenarios": [
+      "F12: hooks.json의 미끼 문자열(JSON 필드명/주석 위치) 우회 (RESIDUAL-4) — bats RED 케이스 필요",
+      "F12: exit 2 라인을 주석으로 둘러싸는 우회 (RESIDUAL-5) — bats RED 케이스 필요",
+      "F12: deny() 함수 재정의 (RESIDUAL-6) — bats RED 케이스 필요",
+      "F12: hooks.json matcher='Bash'로 축소 (Edit|Write|MultiEdit 제거) — RESIDUAL-4 변형"
+    ],
+    "ambiguous_criteria": [
+      "sprint-3.json의 'hooks.json에서 invariant-guard 등록 제거를 차단' — '등록'의 정의가 '문자열 등장'인지 'PreToolUse[].hooks[].command 실제 등록'인지 명시 필요"
+    ],
+    "action_required": "다음 iteration에서 (1) hooks.json 검사를 jq 의미 검사로 교체, (2) exit 2 카운트를 라인 앵커 기반으로 강화 + deny() 함수 본문 fingerprint 비교, (3) RESIDUAL-4/5/6 bats RED→GREEN 추가, (4) sprint-3.json acceptance 어휘 명확화"
+  },
+  "unverified": [
+    "Claude Code 런타임에서 실제로 hooks.json을 Write로 편집할 때 invariant-guard가 호출되는지(sandbox에서는 stdin 시뮬레이션만 검증). hooks.json 자체가 매치 대상에 포함된다는 plugin 동작 가정.",
+    "RESIDUAL-1 (@test 본문 skip 주입) — 이번 iter 범위 외, 여전히 medium 잔존",
+    "pre-commit-gate가 무력화된 테스트라도 실제 실행해 회귀를 드러낸다는 INVARIANTS.md INV-7 주석의 보증 — 본 게이트는 시뮬레이션 없이 문서만 확인"
+  ],
+  "summary_for_main_loop": "F12를 iter2에서 통과시켰는데, iter3가 그 사이 보고된 high 잔존 2건(RESIDUAL-2/3)을 정확히 닫고 회귀를 만들지 않았음을 확인했다. 다만 사용자가 명시적으로 audit해달라고 한 '새 자기보호 로직 자체가 새 우회를 만드는지'에 대해 3건의 신규 high 우회(RESIDUAL-4: hooks.json grep 미끼, RESIDUAL-5: exit 2 주석 위장, RESIDUAL-6: deny() 재정의)를 재현했다. 모두 카운트 기반 텍스트 매칭이 의미 분석이 아닌 한계에서 비롯된다. critical tier 보안 7 미달이므로 F12 passes=true → false로 되돌리고 다음 iter에서 jq 의미 검사 + 라인 앵커 + 함수 본문 sha 비교로 강화 필요."
+}

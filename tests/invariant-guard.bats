@@ -202,6 +202,41 @@ exit 0'
   [ "$status" -eq 0 ]
 }
 
+@test "denies hooks.json del + decoy field (semantic, not substring)" {
+  mkdir -p "$WORK/hooks"
+  cp "$PLUGIN_ROOT/hooks/hooks.json" "$WORK/hooks/hooks.json"
+  NEW=$(jq 'del(.hooks.PreToolUse[] | select(.hooks[].command | test("invariant-guard"))) | . + {"_legacy_invariant-guard_note":"moved"}' "$WORK/hooks/hooks.json")
+  run run_write "$(mk_write_input "$WORK/hooks/hooks.json" "$NEW")"
+  [ "$status" -eq 2 ]
+}
+
+@test "denies hooks.json renaming guard command to disabled variant" {
+  mkdir -p "$WORK/hooks"
+  cp "$PLUGIN_ROOT/hooks/hooks.json" "$WORK/hooks/hooks.json"
+  NEW=$(jq '(.hooks.PreToolUse[].hooks[].command) |= sub("invariant-guard.sh"; "invariant-guard-disabled.sh")' "$WORK/hooks/hooks.json")
+  run run_write "$(mk_write_input "$WORK/hooks/hooks.json" "$NEW")"
+  [ "$status" -eq 2 ]
+}
+
+@test "denies guard exit-2 disabled via comment disguise (line-anchored)" {
+  cp "$HOOK" "$WORK/hooks/invariant-guard.sh"
+  GUTTED=$(sed 's/^  exit 2$/  : # exit 2/' "$HOOK")
+  run run_write "$(mk_write_input "$WORK/hooks/invariant-guard.sh" "$GUTTED")"
+  [ "$status" -eq 2 ]
+}
+
+@test "denies guard deny() function body neutralized" {
+  cp "$HOOK" "$WORK/hooks/invariant-guard.sh"
+  # deny() 함수 본문을 무력화 (echo + return 0), 토큰은 주석으로 위장
+  GUTTED=$(awk '
+    /^deny\(\) \{/ { print "deny() {"; print "  echo \"$1\" >&2  # exit 2"; print "  return 0"; print "}"; skip=1; next }
+    skip && /^\}/ { skip=0; next }
+    !skip { print }
+  ' "$HOOK")
+  run run_write "$(mk_write_input "$WORK/hooks/invariant-guard.sh" "$GUTTED")"
+  [ "$status" -eq 2 ]
+}
+
 # --- unrelated files pass through ---
 
 @test "allows edits to unrelated files" {

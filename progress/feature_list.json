@@ -132,9 +132,9 @@
       "name": "INVARIANTS.md + invariant-guard 훅",
       "description": "하네스의 약화 불가 성질(evaluator 독립성, min-of-5, pass_threshold·security_thresholds 하향 금지, firewall deny 목록 축소 금지, 테스트·기준 add-only)을 docs/INVARIANTS.md에 명문화하고, PreToolUse 훅 invariant-guard.sh가 harness-config.json 임계값 하향·firewall deny 패턴 삭제·테스트 삭제를 결정론적으로 감지해 차단(사람 승인 요구). 재귀 자기개선의 자기약화 방지 핵심.",
       "security_tier": "critical",
-      "status": "passed",
-      "passes": true,
-      "iteration": 2,
+      "status": "in_progress",
+      "passes": false,
+      "iteration": 3,
       "dependencies": [],
       "assigned_sprint": 3
     },

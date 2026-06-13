@@ -150,11 +150,16 @@ if [[ "$FILE" == *"/tests/"*.bats || "$BASENAME" == *.bats ]]; then
   exit 0
 fi
 
-# === hooks.json: invariant-guard 등록 제거 차단 (INV-7) ===
-# 가드가 자기 등록을 보호하지 않으면 hooks.json 한 줄로 비활성화된다.
+# === hooks.json: invariant-guard 실제 실행 등록 보존 (INV-7) ===
+# 텍스트 substring이 아니라 jq로 실제 hook command를 추출해 검사한다 (미끼 필드·rename 우회 차단).
 if [[ "$BASENAME" == "hooks.json" ]]; then
-  if grep -q 'invariant-guard' "$FILE" 2>/dev/null && ! grep -q 'invariant-guard' <<<"$NEW_CONTENT"; then
-    deny "hooks.json에서 invariant-guard 등록 제거 — 안전장치 자기 보호 (INV-7)"
+  # OLD가 invariant-guard.sh를 PreToolUse command로 등록하고 있었는가?
+  guard_registered() {
+    jq -r '[.. | objects | .command? // empty] | .[]' <<<"$1" 2>/dev/null \
+      | grep -qE 'invariant-guard\.sh("|$| )'
+  }
+  if guard_registered "$(cat "$FILE")" && ! guard_registered "$NEW_CONTENT"; then
+    deny "hooks.json에서 invariant-guard.sh 실행 등록 제거/변경 — 안전장치 자기 보호 (INV-7)"
   fi
   exit 0
 fi
@@ -167,16 +172,25 @@ if [[ "$BASENAME" == "invariant-guard.sh" || "$BASENAME" == "INVARIANTS.md" ]]; 
   if [[ "$OLD_LINES" -gt 0 ]] && awk -v o="$OLD_LINES" -v n="$NEW_LINES" 'BEGIN{exit !(n+0 < o*0.7)}'; then
     deny "$BASENAME 대폭 축소 ($OLD_LINES → $NEW_LINES 줄) — 안전장치 자기 보호 (INV-7)"
   fi
-  # semantic gutting 차단: deny 호출·exit 2 개수가 줄면 라인 수가 유지돼도 약화 (guard 한정)
+  # semantic gutting 차단: deny 호출·실제 exit 2 statement 수가 줄면 라인 수가 유지돼도 약화.
+  # exit 2는 라인 앵커로 검사해 주석 위장(`: # exit 2`)을 배제한다.
   if [[ "$BASENAME" == "invariant-guard.sh" ]]; then
     count_tok() { grep -cE "$2" <<<"$1" 2>/dev/null || true; }
-    for tok in '^[[:space:]]*deny ' 'exit 2'; do
+    for tok in '^[[:space:]]*deny ' '^[[:space:]]*exit 2[[:space:]]*$'; do
       O=$(count_tok "$(cat "$FILE")" "$tok")
       N=$(count_tok "$NEW_CONTENT" "$tok")
       if [[ "$N" -lt "$O" ]]; then
         deny "invariant-guard.sh의 차단 로직 감소 ('$tok' $O → $N) — semantic gutting 차단 (INV-7)"
       fi
     done
+    # deny() 함수 본문 무결성: 함수 안에 실제 'exit 2' statement가 남아 있어야 한다.
+    # (본문을 return 0으로 재정의하고 토큰을 주석으로 위장하는 우회 차단)
+    deny_has_exit() {
+      awk '/^deny\(\) *\{/{inf=1} inf && /^[[:space:]]*exit 2[[:space:]]*$/{found=1} inf && /^\}/{inf=0} END{exit !found}' <<<"$1"
+    }
+    if deny_has_exit "$(cat "$FILE")" && ! deny_has_exit "$NEW_CONTENT"; then
+      deny "invariant-guard.sh의 deny() 함수에서 'exit 2' 제거 — 안전장치 무력화 차단 (INV-7)"
+    fi
   fi
   exit 0
 fi
