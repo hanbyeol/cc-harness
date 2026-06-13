@@ -29,3 +29,8 @@
 - F15: hooks/lib.sh(cfg_get/version_lt/harness_cd) + pre-commit-gate 캐시(동일 트리 skip) + setup-claudemd version_lt 마이그레이션 가드
 - 검증: bats 160/160(+31), shellcheck 클린. TDD 중 pre-commit-gate pipefail 캐시 버그 RED→GREEN
 - 보류: F13 프로브, F14 /improve (다음 스프린트). 다음: evaluator 검증
+
+[2026-06-13] Sprint 3 Part 1 — evaluator 4-iter 루프 후 F12·F15 통과 (v1.7.0)
+- F12 PASS (security 8) — invariant-guard. evaluator가 4 iter에 걸쳐 우회 8건(MultiEdit no-op, 키 제거, cross-array swap, hooks.json 등록제거, sed deny gutting, del+decoy/rename, exit2 주석위장, deny() 본문무력화)을 발견→전부 의미기반 검사로 차단. INVARIANTS.md에 위협모델 경계 명문화(가드=speed bump, 정교한 재작성은 캐시분리+코드리뷰 위임)
+- F15 PASS — lib.sh, gate 캐시, version_lt
+- 검증: bats 171/171, shellcheck 클린. 다음: /finish-branch (CI→PR→머지). F13·F14는 다음 스프린트
