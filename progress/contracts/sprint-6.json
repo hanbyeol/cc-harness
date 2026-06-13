@@ -13,7 +13,7 @@
     "F20: profiles/{sdlc,iac}.md 프로파일 섹션 파일 존재 — sdlc는 현 CLAUDE.md 하네스 워크플로우, iac는 plan→apply 경량 워크플로우(SPEC/ARCH cascade 없음)",
     "F20: setup-claudemd.sh가 활성 프로파일을 읽어 해당 프로파일 섹션만 CLAUDE.md에 주입(cc-harness:begin/end 사이). sdlc 프로파일 출력이 기존 CLAUDE.md 하네스 섹션과 동등(회귀 0)",
     "F20: skills/plan-review/SKILL.md 존재 — terraform plan diff 리뷰 게이트: (1)plan 의도 일치 (2)tflint/trivy 정책 (3)smoke-test (4)apply 후 state 무drift. TRIGGER 포함",
-    "F20: pre-bash-firewall.sh에 iac deny 추가(add-only) — 'terraform destroy'(prod), 'terraform apply -auto-approve'(prod), 'terraform state rm/push' = deny; 'terraform import/taint' = ask",
+    "F20: pre-bash-firewall.sh에 iac 패턴 추가(add-only) — terraform destroy·apply -auto-approve·state rm/push·import·taint = ask(firewall는 prod를 못 보므로 환경 무관 ask; prod 강제 승인은 /plan-review·Plan 게이트가 담당). 기존 deny 패턴 미삭제",
     "F20: docs/INVARIANTS.md에 iac 불변식 추가 — plan 미확인 apply 금지, prod auto-approve 금지, plan-review 게이트는 자체 통과 기준을 낮출 수 없음(add-only)",
     "전역: 버전 1.10.0, skill 수 9→10 정합, 기존 201 bats 회귀 없음, shellcheck 클린"
   ],
@@ -64,5 +64,6 @@
       "done": false
     }
   ],
-  "agreed": true
+  "agreed": true,
+  "criteria_backfill": "acceptance[4] deny→ask: firewall가 명령에서 prod를 신뢰성 있게 감지 못함 → 환경 무관 ask + prod는 Plan 게이트(계층 방어). evaluator 승인, INV-5 add-only 유지"
 }
