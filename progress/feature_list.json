@@ -175,6 +175,20 @@
       "iteration": 1,
       "dependencies": [],
       "assigned_sprint": 3
+    },
+    {
+      "id": "F16",
+      "name": "서브에이전트 구동 병렬 구현",
+      "description": "/implement가 Sprint Contract의 독립적 implementation_steps를 격리된 worktree 서브에이전트로 디스패치. 부모는 contract를 1회 읽고 각 서브에이전트에 task별 컨텍스트만 큐레이션(전체 contract 미전달)해 토큰 절감. 의존성 분석으로 독립 태스크만 병렬화, 병합 프로토콜(요약 검토→충돌 확인→전체 테스트) 후 독립 evaluator로 검증. evaluator 독립성·per-task 검증·보안 게이트는 유지(약화 없음). superpowers subagent-driven-development 채택, ADR-003 계열.",
+      "security_tier": "standard",
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
+      "dependencies": [
+        "F10",
+        "F14"
+      ],
+      "assigned_sprint": 4
     }
   ]
 }

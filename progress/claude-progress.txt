@@ -40,3 +40,9 @@
 - F14: skills/improve/SKILL.md — 진단→후보→기존 게이트(change-request→Plan→evaluator→code-review→finish-branch) 오케스트레이션, 불변식 저촉 시 사람 승인, 수렴 판정
 - 자기적용 스모크: run-all 후보 0건(클린), metrics baseline 181 tests/0 warnings
 - 검증: bats 181/181, shellcheck 클린. 다음: evaluator → finish-branch
+
+[2026-06-13] Sprint 4 — 서브에이전트 구동 병렬 구현 (F16, P1, v1.8.0, branch feat/subagent-driven-implementation)
+- 출처: cc-harness vs superpowers 비교 분석 P1 → /improve 루프
+- /implement Step 6: 직렬/서브에이전트 구동 2모드 — 독립 implementation_steps를 worktree 서브에이전트 병렬 디스패치, task별 컨텍스트만 큐레이션(토큰 보존), 병합 프로토콜(요약→충돌→전체테스트), 단일/의존은 직렬 폴백
+- implementer.md: 부모(오케스트레이션·병합)/자식(단일 태스크 TDD) 역할, INV-1 유지(서브에이전트 passes 미설정), inline self-review 미대체(ADR-003)
+- 검증: bats 190/190(+9 subagent-mode), shellcheck 클린. 다음: evaluator → finish-branch
