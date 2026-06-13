@@ -254,9 +254,9 @@
       "name": "멀티 프로파일 (한 repo에 iac+ops)",
       "description": "harness-config.json의 .profiles 배열로 한 repo에 여러 라이프사이클 프로파일을 동시 적용(예: terraform+k8s repo는 [iac,ops]). setup-claudemd가 각 프로파일 섹션을 순서대로 연결해 주입. .profile(단수)은 하위호환 유지, .profiles 우선. 미지정=sdlc. 각 프로파일의 검증 게이트·firewall은 그대로(INV-8 불변). brainstorm 미해결질문 #2 해소.",
       "security_tier": "standard",
-      "status": "pending",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [
         "F20",
         "F21"
