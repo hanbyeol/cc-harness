@@ -89,6 +89,12 @@ ASK_PATTERNS=(
   'git reset[^;|&]*--hard'
   'git clean[^;|&]* -[a-zA-Z]*f'
   'git checkout[^;|&]* --force'
+  # IaC (iac 프로파일) — 복구 불가·리뷰 우회·state 수술. 환경(prod) 강제는 /plan-review·Plan 게이트가 담당.
+  'terraform[^;|&]* destroy'
+  'terraform[^;|&]* apply[^;|&]* -auto-approve'
+  'terraform[^;|&]* state +(rm|push)'
+  'terraform[^;|&]* import'
+  'terraform[^;|&]* taint'
 )
 
 if echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then

@@ -1,0 +1,69 @@
+{
+  "sprint": 6,
+  "title": "라이프사이클 프로파일 추상화 + iac 프로파일 (F20, v1.10.0)",
+  "features": [
+    "F20"
+  ],
+  "security_tier": "critical",
+  "brainstorm": "docs/brainstorms/2026-06-13-lifecycle-profiles.md",
+  "source": "innocrew/infrastructure가 full-SDLC 하네스로 terraform 프로비저닝 시 토큰·시간 과다",
+  "scope_this_sprint": "프로파일 메커니즘 + iac 프로파일 핵심(CLAUDE.md 주입·firewall·불변식·/plan-review). /apply·/drift 스킬과 ops 프로파일은 후속 스프린트.",
+  "acceptance_criteria": [
+    "F20: harness-config.json에 'profile' 키(sdlc|iac|ops) 지원. 미지정/파일부재 시 'sdlc' 기본 — 기존 사용자 무영향",
+    "F20: profiles/{sdlc,iac}.md 프로파일 섹션 파일 존재 — sdlc는 현 CLAUDE.md 하네스 워크플로우, iac는 plan→apply 경량 워크플로우(SPEC/ARCH cascade 없음)",
+    "F20: setup-claudemd.sh가 활성 프로파일을 읽어 해당 프로파일 섹션만 CLAUDE.md에 주입(cc-harness:begin/end 사이). sdlc 프로파일 출력이 기존 CLAUDE.md 하네스 섹션과 동등(회귀 0)",
+    "F20: skills/plan-review/SKILL.md 존재 — terraform plan diff 리뷰 게이트: (1)plan 의도 일치 (2)tflint/trivy 정책 (3)smoke-test (4)apply 후 state 무drift. TRIGGER 포함",
+    "F20: pre-bash-firewall.sh에 iac 패턴 추가(add-only) — terraform destroy·apply -auto-approve·state rm/push·import·taint = ask(firewall는 prod를 못 보므로 환경 무관 ask; prod 강제 승인은 /plan-review·Plan 게이트가 담당). 기존 deny 패턴 미삭제",
+    "F20: docs/INVARIANTS.md에 iac 불변식 추가 — plan 미확인 apply 금지, prod auto-approve 금지, plan-review 게이트는 자체 통과 기준을 낮출 수 없음(add-only)",
+    "전역: 버전 1.10.0, skill 수 9→10 정합, 기존 201 bats 회귀 없음, shellcheck 클린"
+  ],
+  "security_criteria": [
+    "iac 프로파일은 sdlc 검증 장치를 약화하지 않는다 — sdlc pass_threshold·security_thresholds·evaluator 독립성(INV-1~7) 불변. profile은 '검증 모델 교체'이지 '검증 제거'가 아니다(각 프로파일은 자기 게이트 보유)",
+    "프로파일 전환이 검증 우회로 악용 불가 — invariant-guard는 sdlc 임계값 하향을 계속 차단, iac 불변식도 INVARIANTS에 명문화해 가드 대상",
+    "iac firewall 확장은 add-only(INV-5) — 기존 deny 패턴 미삭제. prod 파괴 명령은 deny, 복구가능·이미징은 ask",
+    "프로파일 섹션 주입이 invariant-guard·firewall 등록을 약화시키지 않는다(INV-7)"
+  ],
+  "error_scenarios": [
+    "harness-config.json 부재/잘못된 JSON → profile=sdlc 기본 (graceful)",
+    "알 수 없는 profile 값 → sdlc 폴백 + 경고",
+    "profiles/{value}.md 파일 부재 → sdlc 섹션 주입 + 경고",
+    "iac 프로파일에서 sdlc 전용 스킬(/implement) 호출 시 → 프로파일 부적합 안내(차단은 아님)"
+  ],
+  "test_scenarios": [
+    "bats: profile 미지정→sdlc 섹션 주입(기존 CLAUDE.md 하네스 섹션과 동등)",
+    "bats: profile=iac→iac 섹션 주입(SPEC cascade 없음, plan 워크플로우 키워드 존재)",
+    "bats: 잘못된 profile/JSON→sdlc 폴백",
+    "bats: firewall 'terraform destroy'·'apply -auto-approve' deny, 'import' ask, 기존 패턴 회귀 없음",
+    "bats: invariant-guard가 INVARIANTS의 iac 불변식·sdlc 임계값 하향 모두 차단",
+    "bats: /plan-review frontmatter 유효, skill 수 10 정합, version 1.10.0"
+  ],
+  "implementation_steps": [
+    {
+      "step": "profiles/ 디렉토리 + sdlc.md(현 섹션 추출)·iac.md 작성 + profile.bats(RED)",
+      "verify": "bats profile 주입",
+      "done": false
+    },
+    {
+      "step": "setup-claudemd.sh profile-aware 주입 + lib.sh cfg_get 재사용",
+      "verify": "setup-claudemd.bats + profile.bats",
+      "done": false
+    },
+    {
+      "step": "firewall iac deny/ask 확장 + pre-bash-firewall.bats",
+      "verify": "firewall bats",
+      "done": false
+    },
+    {
+      "step": "INVARIANTS iac 불변식 + invariant-guard 연동 확인",
+      "verify": "invariant-guard.bats",
+      "done": false
+    },
+    {
+      "step": "skills/plan-review/SKILL.md + 라우팅 + 버전 1.10.0",
+      "verify": "skill-frontmatter + version-consistency",
+      "done": false
+    }
+  ],
+  "agreed": true,
+  "criteria_backfill": "acceptance[4] deny→ask: firewall가 명령에서 prod를 신뢰성 있게 감지 못함 → 환경 무관 ask + prod는 Plan 게이트(계층 방어). evaluator 승인, INV-5 add-only 유지"
+}

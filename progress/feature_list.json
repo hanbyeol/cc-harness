@@ -222,6 +222,19 @@
       "iteration": 1,
       "dependencies": [],
       "assigned_sprint": 5
+    },
+    {
+      "id": "F20",
+      "name": "라이프사이클 프로파일 추상화 + iac 프로파일",
+      "description": "harness-config.json의 profile(sdlc|iac|ops) 키로 라이프사이클을 전환. setup-claudemd가 활성 프로파일의 CLAUDE.md 섹션만 주입(토큰 절감). iac 프로파일: plan-review 게이트(plan diff+tflint/trivy+smoke+drift)로 5차원 evaluator 대체, SPEC/ARCH cascade 폐지(코드+plan이 스펙), /plan-review 스킬, iac firewall 확장(prod terraform destroy·apply -auto-approve·state 편집 deny), iac 불변식. profile 미지정=sdlc 기본(기존 무영향). ops 프로파일은 후속.",
+      "security_tier": "critical",
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
+      "dependencies": [
+        "F19"
+      ],
+      "assigned_sprint": 6
     }
   ]
 }

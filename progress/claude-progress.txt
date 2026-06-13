@@ -53,3 +53,11 @@
 - F18(P3): /debug에 독립 실패 병렬 모드(worktree 격리·병합 프로토콜), 연관/탐색적은 직렬 폴백 — 새 스킬 미신설
 - F19(P4): 검증 티어링(저위험 경량 경로 추가, critical 절대 미하향, per-checkpoint) — 임계값/INV-1 불변
 - 검증: bats 201/201(+11), shellcheck 클린. 다음: evaluator → finish-branch
+
+[2026-06-14] Sprint 6 — 라이프사이클 프로파일 + iac 프로파일 (F20, v1.10.0, branch feat/v1.10.0-iac-profile)
+- 출처: innocrew/infrastructure full-SDLC 토큰 과다 → 검토 → 프로파일 추상화
+- 프로파일 메커니즘: harness-config.profile(sdlc|iac|ops), setup-claudemd가 활성 프로파일 섹션만 주입. sdlc=기존 CLAUDE.md(회귀 0), iac=profiles/iac.md(64줄 경량)
+- iac 프로파일: plan→apply 루프, /plan-review 게이트(plan diff+tflint/trivy+smoke+drift)가 5차원 evaluator 대체, SPEC/ARCH cascade 폐지
+- firewall iac add-only: terraform destroy/apply -auto-approve/state rm·push/import/taint = ask (prod 강제는 Plan 게이트)
+- INVARIANTS INV-8: 프로파일은 검증 모델 교체일 뿐 제거 아님, sdlc 임계값·INV-1~7 불변, 프로파일 전환 우회 금지
+- 검증: bats 214/214(+13), shellcheck 클린. iac 주입 64줄(sdlc 114 대비), sdlc 회귀 0. 다음: evaluator → finish-branch
