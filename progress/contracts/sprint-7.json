@@ -1,0 +1,63 @@
+{
+  "sprint": 7,
+  "title": "ops 프로파일 — k8s 운영 (F21, v1.11.0)",
+  "features": [
+    "F21"
+  ],
+  "security_tier": "critical",
+  "brainstorm": "docs/brainstorms/2026-06-13-lifecycle-profiles.md",
+  "source": "프로파일 추상화(F20) 위에 3번째 라이프사이클 — k8s day-2 운영",
+  "scope_this_sprint": "ops 프로파일 섹션 + /rollout 스킬 + ops firewall + INV-8 ops 게이트. runbook은 산출물 가이드로 명시(전용 스킬은 후속).",
+  "acceptance_criteria": [
+    "F21: profiles/ops.md 존재 — 관측→진단→조치→검증 운영 루프. SDLC의 spec/implement/evaluator cascade 없음. cc-harness 마커로 감싸짐",
+    "F21: ops 프로파일 검증 게이트가 'desired state 도달 + health + 회귀 없음'으로 5차원 evaluator를 대체한다고 명시",
+    "F21: setup-claudemd가 profile=ops일 때 profiles/ops.md 주입 (F20 메커니즘 재사용 — 신규 코드 없이 동작)",
+    "F21: skills/rollout/SKILL.md 존재 — 라이브 변경 안전 루프: 현 상태 관측 → 변경안 + 영향 → Plan 게이트 승인(prod 필수) → 롤백 준비 적용 → health/회귀 검증 → 실패 시 자동 롤백. TRIGGER 포함",
+    "F21: ops 프로파일이 /debug(인시던트 진단)·deploy-operator(canary·롤백)·rules/k8s-infra·Phase6 관측성을 재사용한다고 명시(중복 신설 없음)",
+    "F21: pre-bash-firewall.sh ops add-only — prod 네임스페이스 'kubectl delete'·'kubectl scale --replicas=0'·'helm uninstall'·'kubectl rollout undo'·'kubectl drain' = ask. 기존 'kubectl delete namespace/-A' deny 유지",
+    "F21: docs/INVARIANTS.md INV-8에 ops 게이트(health+회귀, 자체 기준 미하향) 추가",
+    "전역: 버전 1.11.0, skill 수 10→11 정합, 기존 214 bats 회귀 없음, shellcheck 클린"
+  ],
+  "security_criteria": [
+    "ops 프로파일은 sdlc/iac 검증 장치를 약화하지 않는다 — sdlc 임계값·INV-1~8 불변. profile은 검증 모델 교체일 뿐(INV-8). 프로파일 전환으로 우회 불가",
+    "ops firewall은 add-only(INV-5) — 기존 deny 미삭제. prod 파괴적 kubectl/helm은 ask, 읽기(get/describe/logs)는 통과",
+    "라이브 변경(/rollout)은 작성 주체가 스스로 'OK' 판정 못 함 — Plan 게이트(사용자)와 health 검증이 승인. prod 변경은 사용자 확인 필수",
+    "rollout은 롤백 경로를 항상 준비 — 실패 시 이전 안정 버전으로 복구(deploy-operator 패턴)"
+  ],
+  "error_scenarios": [
+    "profile=ops인데 profiles/ops.md 부재 → sdlc 폴백 + 경고 (F20 메커니즘)",
+    "/rollout 중 health 검증 실패 → 자동 롤백 + 원인 /debug 안내",
+    "독립성 판정 불가(상태 관측 실패) → 변경 중단, 사용자에게 관측 정보 요청",
+    "firewall: prod 외 네임스페이스 kubectl delete는 ask이되 차단 아님(운영 유연성)"
+  ],
+  "test_scenarios": [
+    "bats(profile): profile=ops → ops 섹션 주입(관측/진단/조치/검증 키워드, SDLC cascade 부재)",
+    "bats(firewall): kubectl delete pod·scale --replicas=0·helm uninstall·rollout undo → ask, kubectl get/describe/logs → 통과, 기존 delete namespace deny 유지",
+    "bats: /rollout frontmatter 유효, skill 수 11 정합",
+    "bats: INVARIANTS ops 게이트 라인 자기보호(invariant-guard), version 1.11.0",
+    "기존 214 회귀 없음"
+  ],
+  "implementation_steps": [
+    {
+      "step": "profiles/ops.md (관측→진단→조치→검증, runbook, 재사용 명시) + profile.bats ops 케이스(RED)",
+      "verify": "bats profile ops 주입",
+      "done": false
+    },
+    {
+      "step": "skills/rollout/SKILL.md (라이브 변경 안전 루프) + 라우팅 3곳",
+      "verify": "skill-frontmatter",
+      "done": false
+    },
+    {
+      "step": "firewall ops add-only(kubectl/helm prod 파괴 ask) + pre-bash-firewall.bats",
+      "verify": "firewall bats",
+      "done": false
+    },
+    {
+      "step": "INVARIANTS INV-8 ops 게이트 + 버전 1.11.0 + plugin.json 11 skills",
+      "verify": "invariant-guard.bats + version-consistency",
+      "done": false
+    }
+  ],
+  "agreed": true
+}

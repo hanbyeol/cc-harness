@@ -61,3 +61,10 @@
 - firewall iac add-only: terraform destroy/apply -auto-approve/state rm·push/import/taint = ask (prod 강제는 Plan 게이트)
 - INVARIANTS INV-8: 프로파일은 검증 모델 교체일 뿐 제거 아님, sdlc 임계값·INV-1~7 불변, 프로파일 전환 우회 금지
 - 검증: bats 214/214(+13), shellcheck 클린. iac 주입 64줄(sdlc 114 대비), sdlc 회귀 0. 다음: evaluator → finish-branch
+
+[2026-06-14] Sprint 7 — ops 프로파일 (k8s 운영) (F21, v1.11.0, branch feat/v1.11.0-ops-profile)
+- 3번째 라이프사이클: profiles/ops.md(관측→진단→조치→검증, 63줄). F20 메커니즘 재사용(setup-claudemd iac|ops 분기 이미 존재 — 신규 코드 0)
+- /rollout 스킬: 라이브 변경 안전 루프(현상태 관측→Plan 게이트→롤백준비 적용→health 검증→실패 시 자동 롤백). deploy-operator 재사용
+- firewall ops add-only: kubectl delete / scale --replicas=0 / helm uninstall / rollout undo / drain = ask, namespace 통째 삭제 deny 유지, get/logs 통과
+- INV-8 ops 게이트(health+회귀, 자체 기준 미하향) 추가
+- 검증: bats 225/225(+11), shellcheck 클린. ops 주입 63줄, SDLC cascade 0. 다음: evaluator → finish-branch

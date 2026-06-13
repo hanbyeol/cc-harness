@@ -67,6 +67,8 @@ evaluator 종합 점수 = 5개 차원(기능·품질·보안·에러처리·테�
 - **sdlc**: 독립 evaluator(5차원, min-of-5) — INV-1~7 그대로 적용.
 - **iac**: plan-review 게이트(plan diff 일치 + tflint/trivy + smoke + 무drift). 이 게이트는 자체
   통과 기준을 **낮출 수 없다**(add-only). **plan 미확인 apply 금지**, **prod auto-approve 금지**.
+- **ops**: health+회귀 게이트(롤아웃 status 성공 + readiness/liveness 정상 + 회귀 없음). 자체 통과
+  기준을 낮출 수 없다(add-only). **라이브 prod 변경은 Plan 게이트 승인 + 롤백 준비 필수**.
 - **프로파일 전환으로 검증을 우회할 수 없다**: profile을 바꿔 더 약한 게이트로 도망가는 것은
   금지다. sdlc 프로파일의 pass_threshold·security_thresholds·evaluator 독립성은 프로파일과
   무관하게 불변이며, invariant-guard는 sdlc 임계값 하향을 계속 차단한다.

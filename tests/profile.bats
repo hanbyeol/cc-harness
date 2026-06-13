@@ -65,6 +65,23 @@ run_setup() { CLAUDE_PROJECT_DIR="$WORK" bash "$HOOK"; }
 
 # --- profiles/ 소스 파일 존재 ---
 
+@test "profile=ops → ops workflow section (observe/diagnose/remediate/verify), no SDLC cascade" {
+  echo '{"profile":"ops"}' > progress/harness-config.json
+  run_setup >/dev/null 2>&1
+  grep -qiE '관측|observe' CLAUDE.md
+  grep -qiE '조치|remediat|rollout' CLAUDE.md
+  ! grep -qF "$SENTINEL_SDLC" CLAUDE.md
+}
+
+@test "profiles/ops.md exists and describes the ops loop + reuse" {
+  [ -f "$PLUGIN_ROOT/profiles/ops.md" ]
+  grep -qiE '관측|진단|조치|검증' "$PLUGIN_ROOT/profiles/ops.md"
+  # ops 게이트는 5차원 evaluator 대신 health+회귀
+  grep -qiE 'health|회귀|desired state|readiness' "$PLUGIN_ROOT/profiles/ops.md"
+  # 재사용 명시
+  grep -qiE 'deploy-operator|/debug|k8s-infra' "$PLUGIN_ROOT/profiles/ops.md"
+}
+
 @test "profiles/iac.md exists and describes plan/apply lifecycle" {
   [ -f "$PLUGIN_ROOT/profiles/iac.md" ]
   grep -qiE 'plan|apply' "$PLUGIN_ROOT/profiles/iac.md"

@@ -1,0 +1,209 @@
+{
+  "timestamp": "2026-06-14T01:00:00Z",
+  "sprint": 7,
+  "iteration": 1,
+  "features_evaluated": [
+    "F21"
+  ],
+  "security_tier": "critical",
+  "evaluator": "evaluator",
+  "scope": "ops profile (k8s day-2 operations) — F20 profile mechanism reuse, 3rd lifecycle",
+  "evidence": {
+    "tests": {
+      "bats_total": 225,
+      "bats_pass": 225,
+      "bats_fail": 0,
+      "command": "bats tests/"
+    },
+    "shellcheck": {
+      "command": "shellcheck -x hooks/*.sh scripts/probes/*.sh init.sh",
+      "result": "clean (no output, exit 0)"
+    },
+    "profile_injection_smoke_ops": {
+      "method": "tmp git repo + CLAUDE_PROJECT_DIR + harness-config {\"profile\":\"ops\"} + setup-claudemd.sh",
+      "observed": {
+        "ops_markers_in_CLAUDE.md": 20,
+        "sdlc_cascade_present": 0,
+        "begin_end_marker_pair": 2,
+        "ops_loop_keywords": [
+          "관측",
+          "진단",
+          "조치",
+          "검증"
+        ]
+      }
+    },
+    "profile_injection_smoke_default_sdlc": {
+      "method": "tmp git repo, no profile",
+      "observed": {
+        "sdlc_cascade_present": 1,
+        "sprint_contract_mentions": 6,
+        "ops_section_present": 0,
+        "regression": "none"
+      }
+    },
+    "firewall_direct_smoke": {
+      "method": "execute hooks/pre-bash-firewall.sh with file-fed JSON payloads",
+      "cases": [
+        {
+          "cmd": "kubectl delete pod foo -n app",
+          "expected": "ask",
+          "actual": "ask (exit 0, permissionDecision: ask)"
+        },
+        {
+          "cmd": "kubectl delete namespace prod",
+          "expected": "deny",
+          "actual": "deny (exit 2) — INV-5 preserved"
+        },
+        {
+          "cmd": "kubectl delete -A pods",
+          "expected": "deny",
+          "actual": "deny (exit 2)"
+        },
+        {
+          "cmd": "rm -rf /",
+          "expected": "deny",
+          "actual": "deny (exit 2)"
+        },
+        {
+          "cmd": "git push --force origin main",
+          "expected": "deny",
+          "actual": "deny (exit 2)"
+        },
+        {
+          "cmd": "kubectl get pods -n app",
+          "expected": "pass",
+          "actual": "pass (exit 0)"
+        },
+        {
+          "cmd": "helm upgrade rel ./chart -n app",
+          "expected": "pass",
+          "actual": "pass (exit 0)"
+        },
+        {
+          "cmd": "helm uninstall rel -n app",
+          "expected": "ask",
+          "actual": "ask (exit 0)"
+        },
+        {
+          "cmd": "kubectl scale deploy/web --replicas=0 -n app",
+          "expected": "ask",
+          "actual": "ask (exit 0)"
+        },
+        {
+          "cmd": "kubectl rollout undo deploy/web -n app",
+          "expected": "ask",
+          "actual": "ask (exit 0)"
+        },
+        {
+          "cmd": "kubectl drain node-1 --ignore-daemonsets",
+          "expected": "ask",
+          "actual": "ask (exit 0)"
+        },
+        {
+          "cmd": "kubectl logs deploy/web -n app",
+          "expected": "pass",
+          "actual": "pass (exit 0)"
+        }
+      ]
+    },
+    "profile_switch_bypass_test": {
+      "method": "Write payload: harness-config with profile=ops AND pass_threshold lowered 7→5",
+      "result": "invariant-guard blocked with exit 2 — 'pass_threshold 하향 (7 → 5) — INV-3'",
+      "conclusion": "Profile switching cannot bypass sdlc evaluator thresholds (INV-3, INV-8 enforced)"
+    },
+    "diff_against_HEAD~1": {
+      "summary": "14 files changed, 212 insertions(+), 9 deletions(-)",
+      "no_deletion_to_security_files": true,
+      "additions_only": "pre-bash-firewall.sh +7 (ASK ops patterns), pre-bash-firewall.bats +55, profile.bats +17, INVARIANTS.md +2 (INV-8 ops gate), rollout SKILL.md +51, profiles/ops.md +59"
+    },
+    "version_consistency": {
+      "plugin.json": "1.11.0",
+      "marketplace.json": "1.11.0",
+      "package.json": "1.11.0"
+    },
+    "skill_count": {
+      "skills_dir": 11,
+      "README": "11 skills",
+      "CLAUDE.md.tmpl_rollout_routing": "present"
+    },
+    "invariant_guard_self_protection": {
+      "INVARIANTS.md_contains_INV-8_ops_gate": true,
+      "tests/invariant-guard.bats_count": 27,
+      "result": "INVARIANTS.md is in self-protection (>30% shrink → deny). INV-8 ops line is now part of the protected text"
+    }
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "profiles/ops.md exists — observe→diagnose→remediate→verify loop, no SDLC cascade, cc-harness markers wrap injection",
+      "ops profile validation gate (health + regression) explicitly replaces 5-dim evaluator",
+      "setup-claudemd injects profiles/ops.md when profile=ops (F20 mechanism reuse — no new wiring code)",
+      "skills/rollout/SKILL.md exists with TRIGGER, observe → Plan gate (prod) → rollback prep → health/regression → auto-rollback on failure",
+      "ops profile cites reuse of /debug · deploy-operator · rules/k8s-infra · Phase 6 observability",
+      "pre-bash-firewall add-only: kubectl delete (non-namespace) / scale --replicas=0 / helm uninstall / rollout undo / drain → ask; existing 'kubectl delete namespace/-A' deny preserved",
+      "INVARIANTS.md INV-8 includes ops gate (health+regression, no self-lowering)",
+      "Version 1.11.0 consistent across plugin/marketplace/package, 11 skills, 225 bats pass (was 214 ⇒ +11 new from sprint 6 iac & sprint 7 ops), shellcheck clean"
+    ],
+    "security": [
+      "ops profile does NOT weaken sdlc/iac verification — invariant-guard still enforces INV-1~7 regardless of profile field; verified by profile-switch bypass attempt blocked",
+      "firewall ops additions are add-only (INV-5): all prior BLOCKED patterns retained (rm -rf /, git push --force, kubectl delete namespace, etc.); destructive prod kubectl/helm now ask; read ops (get/describe/logs) pass through",
+      "/rollout requires Plan gate user approval for prod·critical; generator-reviewer separation explicit (작성 주체 self-pass 금지)",
+      "/rollout mandates rollback prep + auto-rollback on health/regression failure (deploy-operator pattern reuse)"
+    ],
+    "error_scenarios": [
+      "profile=ops with missing profiles/ops.md → would fall back to sdlc (F20 mechanism, validated by 'unknown profile → falls back to sdlc' bats test)",
+      "/rollout health failure → auto-rollback + /debug guidance documented",
+      "Independence judgment unavailable (observation failure) → halt change, request observation data (documented in process step 1 & constraints)",
+      "Non-prod kubectl delete is ask (not deny) — operational flexibility preserved (still gated)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "scores": {
+    "functionality": 9,
+    "code_quality": 9,
+    "security": 9,
+    "error_handling": 8,
+    "test_coverage": 9
+  },
+  "score": 8,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_threshold_critical": 7,
+  "verdict": "pass",
+  "fail_reasons": [],
+  "weakening_detected": false,
+  "weakening_analysis": {
+    "sdlc_evaluator_independence_INV-1": "intact — implementer cannot set passes=true; no profile-conditional bypass",
+    "sdlc_min_of_5_INV-2": "intact",
+    "sdlc_thresholds_INV-3": "intact — invariant-guard blocked profile-switch + threshold lowering attempt (verified)",
+    "critical_auto_fail_INV-4": "intact — no profile-conditional weakening",
+    "firewall_add_only_INV-5": "intact — ops adds 5 ASK patterns, no BLOCKED pattern removed; direct smoke confirms",
+    "tests_add_only_INV-6": "intact — bats count grew (214→225), no @test removed",
+    "self_protection_INV-7": "intact — invariant-guard.sh & INVARIANTS.md unchanged in size beyond +2 INV-8 ops lines",
+    "INV-8_ops_gate_added": "INVARIANTS.md L70-74 explicitly defines ops gate; INV-8 statement of profile-switch-cannot-bypass enforced by guard"
+  },
+  "issues": [
+    "minor (non-blocking): hooks/pre-bash-firewall.sh file mode is 644 (not executable). Runtime is unaffected because hooks.json invokes via 'bash \"...firewall.sh\"' explicitly — but a future hook registration that runs the script directly would silently no-op. Suggest follow-up: chmod +x in init.sh / setup-claudemd.sh or add a bats assertion. Not a sprint-7 regression; pre-existing across all hooks."
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "action_required": "none"
+  },
+  "criteria_issues": [],
+  "feature_list_update": {
+    "F21.passes": true,
+    "F21.status": "passed",
+    "scope_locked_F1_to_F20": "unchanged"
+  },
+  "notes": [
+    "F21 is critical-tier; security score 9/10 ≥ 7 (critical floor) — auto-fail rule cleared.",
+    "Profile-switch bypass attack (the highest-leverage threat ops introduces) was actively tested and blocked by invariant-guard. INV-8 codifies the rule and is now part of self-protected INVARIANTS.md.",
+    "All ops firewall additions are precisely in the ASK_PATTERNS array per add-only INV-5; the deny set (BLOCKED + INDIRECT_PATTERNS) is untouched. Direct smoke confirmed kubectl delete namespace/-A still deny."
+  ]
+}
