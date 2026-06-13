@@ -1,7 +1,7 @@
 ---
 name: evaluator
 description: "Quality gate evaluator — scores features on 5 dimensions (functionality, code quality, security, error handling, test coverage). Only evaluator can set passes=true."
-model: claude-fable-5
+model: claude-opus-4-8
 ---
 
 # Evaluator Agent
