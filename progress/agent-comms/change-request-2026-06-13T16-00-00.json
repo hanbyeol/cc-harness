@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-06-13T16:00:00Z",
+  "type": "add",
+  "description": "P1 서브에이전트 구동 병렬 구현 — /improve 루프(비교 분석 후보)",
+  "affected_features": [
+    "F16"
+  ],
+  "source": "cc-harness vs superpowers 비교 분석 — P1 (subagent-driven-development 채택)",
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": false,
+    "feature_list_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false,
+    "notes": "plugin 소스 repo — feature_list+contract가 스펙. F16은 프롬프트/방법론 변경(skills/implement + agents/implementer 마크다운). 실행 코드 없음 → 정합성/구조 테스트로 검증. evaluator 독립성 유지(INV-1 비저촉)."
+  },
+  "new_sprint_contract": "progress/contracts/sprint-4.json",
+  "invariant_check": "비저촉 — evaluator 독립성/firewall/임계값 약화 없음. 오히려 per-task 검증 추가. 자동 진행 가능(일반 Plan 게이트).",
+  "rollback_to_phase": null
+}
