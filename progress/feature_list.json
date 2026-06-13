@@ -235,6 +235,19 @@
         "F19"
       ],
       "assigned_sprint": 6
+    },
+    {
+      "id": "F21",
+      "name": "ops 프로파일 (k8s 운영)",
+      "description": "라이프사이클 프로파일 3번째: k8s day-2 운영. profiles/ops.md(관측→진단→조치→검증 루프, runbook, security_tier=네임스페이스/클러스터 criticality). 검증 게이트 = desired state 도달+health+회귀 없음(5차원 evaluator 대신). /rollout 스킬(라이브 변경: 현상태 관측→Plan 게이트 승인→롤백 준비 적용→health 검증). deploy-operator(canary·롤백)·rules/k8s-infra·Phase6 관측성 재사용. firewall ops add-only(prod kubectl delete/scale --replicas=0·helm uninstall·rollout undo = ask). INV-8에 ops 게이트 포함.",
+      "security_tier": "critical",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F20"
+      ],
+      "assigned_sprint": 7
     }
   ]
 }
