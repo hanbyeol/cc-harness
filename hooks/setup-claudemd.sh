@@ -230,26 +230,38 @@ if [[ "$NEEDS_V15_MIGRATION" == "1" ]]; then
 fi
 
 # ─── 3. CLAUDE.md 생성/갱신 (멱등 — 매 세션 self-heal, 내용 동일 시 재작성 없음) ───
-# 라이프사이클 프로파일: harness-config.json의 .profile에 따라 주입 소스를 고른다.
-# sdlc(기본)=플러그인 CLAUDE.md(회귀 0), iac=profiles/iac.md. 미지정·알수없음·파일부재는 sdlc 폴백.
-PROFILE="sdlc"
-if command -v cfg_get &>/dev/null; then
-  PROFILE=$(cfg_get progress/harness-config.json '.profile' 'sdlc')
-elif command -v jq &>/dev/null && [[ -f progress/harness-config.json ]]; then
-  PROFILE=$(jq -r 'if .profile then .profile else "sdlc" end' progress/harness-config.json 2>/dev/null || echo sdlc)
+# 라이프사이클 프로파일: harness-config.json의 .profiles(배열) 또는 .profile(단수)에 따라
+# 주입 소스를 고른다. 멀티 프로파일이면 각 섹션을 순서대로 연결한다.
+# sdlc(기본)=플러그인 CLAUDE.md(회귀 0), iac/ops=profiles/*.md. 미지정·알수없음·파일부재는 sdlc 폴백.
+PROFILES="sdlc"
+if command -v jq &>/dev/null && [[ -f progress/harness-config.json ]]; then
+  PROFILES=$(jq -r '
+    if (.profiles | type) == "array" and (.profiles | length > 0) then .profiles[]
+    elif .profile then .profile
+    else "sdlc" end' progress/harness-config.json 2>/dev/null || echo "sdlc")
 fi
-HARNESS_CLAUDE="$PLUGIN_ROOT/CLAUDE.md"
-case "$PROFILE" in
-  sdlc) : ;;  # 기본 — 플러그인 CLAUDE.md 그대로
-  iac|ops)
-    if [[ -f "$PLUGIN_ROOT/profiles/$PROFILE.md" ]]; then
-      HARNESS_CLAUDE="$PLUGIN_ROOT/profiles/$PROFILE.md"
-    else
-      echo "cc-harness: profile '$PROFILE' 섹션 파일이 없어 sdlc로 폴백합니다." >&2
-    fi
-    ;;
-  *) echo "cc-harness: 알 수 없는 profile '$PROFILE' — sdlc로 폴백합니다." >&2 ;;
-esac
+[[ -z "$PROFILES" ]] && PROFILES="sdlc"
+
+# 프로파일 → 소스 파일 목록 (dedup, 폴백). bash 3.2 호환 — 연관배열 미사용, 문자열 dedup.
+HARNESS_SRCS=()
+seen=" "
+for p in $PROFILES; do
+  case " $seen " in *" $p "*) continue ;; esac
+  seen="$seen$p "
+  case "$p" in
+    sdlc) HARNESS_SRCS+=("$PLUGIN_ROOT/CLAUDE.md") ;;
+    iac|ops)
+      if [[ -f "$PLUGIN_ROOT/profiles/$p.md" ]]; then
+        HARNESS_SRCS+=("$PLUGIN_ROOT/profiles/$p.md")
+      else
+        echo "cc-harness: profile '$p' 섹션 파일이 없어 건너뜁니다." >&2
+      fi
+      ;;
+    *) echo "cc-harness: 알 수 없는 profile '$p' — 건너뜁니다." >&2 ;;
+  esac
+done
+[[ ${#HARNESS_SRCS[@]} -eq 0 ]] && HARNESS_SRCS=("$PLUGIN_ROOT/CLAUDE.md")  # 전부 무효 → sdlc
+HARNESS_CLAUDE="${HARNESS_SRCS[0]}"  # 존재 체크용 대표 소스
 if [[ -f "$HARNESS_CLAUDE" ]]; then
   MARKER="<!-- cc-harness:begin -->"
   MARKER_END="<!-- cc-harness:end -->"
@@ -263,7 +275,18 @@ if [[ -f "$HARNESS_CLAUDE" ]]; then
 
   harness_section() {
     echo "$MARKER"
-    tail -n +2 "$HARNESS_CLAUDE"
+    if [[ ${#HARNESS_SRCS[@]} -eq 1 ]]; then
+      # 단일 프로파일: 기존과 동일하게 H1을 제거(회귀 0 — byte-identical)
+      tail -n +2 "${HARNESS_SRCS[0]}"
+    else
+      # 멀티 프로파일: 각 섹션 H1을 구분자로 유지하고 빈 줄로 구분
+      local i=0
+      for src in "${HARNESS_SRCS[@]}"; do
+        [[ $i -gt 0 ]] && echo ""
+        cat "$src"
+        i=$((i + 1))
+      done
+    fi
     echo ""
     echo "$MARKER_END"
   }

@@ -187,6 +187,8 @@ plugin 업데이트(`/plugin` → Installed) 후 **첫 세션에서 자동 마�
 - v1.4 이하에서 복사된 `.claude/agents|skills|hooks` 중복본은 자동 정리 (과거 릴리스 해시로 pristine 식별, 커스터마이징은 보존)
 - `{이전} → {새 버전}` 전환 내역을 세션 시작 시 출력
 
+> 한 repo가 여러 라이프사이클을 겸하면 `harness-config.json`의 `"profiles": ["iac","ops"]` 배열로 동시 적용할 수 있습니다(워크플로우 섹션이 연결 주입됨).
+
 상세: [ADR-002 (versioned upgrade)](docs/DECISIONS/ADR-002-versioned-upgrade.md), [ADR-001 (plugin-native loading)](docs/DECISIONS/ADR-001-plugin-native-loading.md)
 
 ## Plugin vs Bootstrapper

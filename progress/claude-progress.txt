@@ -68,3 +68,10 @@
 - firewall ops add-only: kubectl delete / scale --replicas=0 / helm uninstall / rollout undo / drain = ask, namespace 통째 삭제 deny 유지, get/logs 통과
 - INV-8 ops 게이트(health+회귀, 자체 기준 미하향) 추가
 - 검증: bats 225/225(+11), shellcheck 클린. ops 주입 63줄, SDLC cascade 0. 다음: evaluator → finish-branch
+
+[2026-06-14] Sprint 8 — 멀티 프로파일 (F22, v1.12.0, branch feat/v1.12.0-multi-profile)
+- harness-config .profiles 배열로 한 repo에 여러 라이프사이클 동시 적용. setup-claudemd가 섹션 연결 주입
+- .profile(단수) 하위호환, dedup, 무효 건너뜀+경고, 전부 무효→sdlc. 단일은 byte-identical(회귀 0), 멀티 멱등
+- [iac,ops] 검증: 두 워크플로우 모두 주입(plan-review+rollout), sdlc cascade 0, 125줄
+- bash 3.2 호환(연관배열 미사용). 검증 약화 없음(메커니즘만, INV-8 불변)
+- 검증: bats 232/232(+7), shellcheck 클린. 다음: evaluator → finish-branch → 인프라 repo 적용
