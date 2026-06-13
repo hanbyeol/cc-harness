@@ -14,3 +14,6 @@ progress/agent-comms/archive/
 
 # Quality gate cache (per-tree, transient)
 progress/.gate-cache
+
+# Self-improvement metrics history (per-project trend, regenerated)
+progress/metrics-history.json

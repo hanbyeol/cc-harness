@@ -143,9 +143,9 @@
       "name": "자동 발견 프로브",
       "description": "하네스가 자신을 진단해 개선 후보를 생성하는 4개 프로브: self-review(/code-review 결과 환원), 일관성(문서↔코드 drift·메타데이터 정합), 메트릭(테스트 수·shellcheck 경고·훅 실행시간 추세 — progress/metrics-history.json), completeness critic(미작성 ADR·테스트 없는 분기). 후보는 feature_list 형식으로 환원, backlog/기존 feature와 중복 제거.",
       "security_tier": "standard",
-      "status": "pending",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [
         "F12"
       ],
@@ -156,9 +156,9 @@
       "name": "/improve 스킬 — 자기개선 루프 오케스트레이션",
       "description": "루프 1회전을 묶는 스킬: 진단 프로브 실행 → 후보 우선순위화 → /change-request → Plan 게이트(사람) → TDD 구현 → 독립 evaluator → /code-review → finish-branch → 메트릭 기록 → 수렴 판정(backlog 비고 2회전 연속 신규 0이면 종료). 새 게이트를 만들지 않고 기존 워크플로우 재사용.",
       "security_tier": "standard",
-      "status": "pending",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [
         "F12",
         "F13"

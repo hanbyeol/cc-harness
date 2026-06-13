@@ -1,0 +1,91 @@
+{
+  "timestamp": "2026-06-13T13:00:00Z",
+  "sprint": 3,
+  "iteration": 1,
+  "features_evaluated": [
+    "F13",
+    "F14"
+  ],
+  "security_tier": "standard",
+  "scope_note": "F12와 F15는 main에서 이미 passed — 본 평가는 F13(자동 발견 프로브)·F14(/improve 스킬)에 한정.",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 8,
+    "security": 9,
+    "error_handling": 8,
+    "test_coverage": 8
+  },
+  "score": 8,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "pass",
+  "anchors": {
+    "functionality_9": "F13 4프로브 모두 정의된 JSON 스키마({name,description,security_tier,source})로 출력, run-all이 id 부여+중복 제거, metrics-history append+회귀 감지(181→171) 직접 실측 검증. F14 SKILL.md가 진단→change-request→Plan→evaluator→code-review→finish-branch 기존 게이트 재사용을 명문화하고 수렴 조건(2회전 신규 0) 명시.",
+    "code_quality_8": "set -euo pipefail, jq 부재 시 명시적 [] 출력으로 graceful. 한글-인접 변수 ${key} 중괄호 처리. metrics.sh가 tmp→mv로 atomic write. -1 사유: run-all dedup이 'grep -qiF \"$NAME\"' 단순 부분일치 — 짧은 NAME이면 무관 feature description에 우연히 매칭될 가능성(현 후보 명은 충분히 구체적이라 실측은 안전).",
+    "security_9": "프로브는 읽기 전용으로 검증됨(grep으로 write redirection 감사 → metrics-history.json append만 존재). 외부 네트워크/sudo/chmod 0건. firewall ask/deny 우회 명령 미사용. /improve SKILL.md가 harness-config·firewall·evaluator·INVARIANTS·invariant-guard 5개 검증 장치를 명시 보호 경계로 선언하고 약화 방향 변경에는 사람 승인을 강제(F12 가드와 연동). security_tier:standard ≥5 만족(9).",
+    "error_handling_8": "jq 부재(PATH 격리 실측) → 모든 프로브 [] 반환 exit 0. metrics 첫 실행 baseline-only 정확(후보 0). 빈 tests/ 디렉토리에서도 무에러. completeness가 INVARIANTS.md의 referenced hook 누락을 잡는 방어. run-all이 한 프로브 실패해도 나머지 수집(|| echo []).",
+    "test_coverage_8": "tests/probes.bats 10개 신규(consistency 클린/version mismatch/skill count mismatch, metrics baseline/regression, completeness hook/skill, self-review FIXME, run-all aggregate/dedup). 전체 bats 181/181 pass, shellcheck clean. skill-frontmatter.bats가 /improve의 TRIGGER+name+description을 자동 검증. 실측: 격리된 tmp에서 dedup 시드→0 후보 확인. -2: metrics shellcheck_warnings 회귀 시나리오는 bats에 없음(코드는 있음), /improve 흐름 전체의 end-to-end 시뮬레이션 bats 없음(스킬이라 본질적 한계)."
+  },
+  "passed_criteria": {
+    "acceptance_F13": [
+      "4 프로브 구현 — consistency/metrics/completeness/self-review 각각 {name,description,security_tier,source} JSON 배열 출력 (실측)",
+      "metrics가 progress/metrics-history.json append, 직전 대비 악화(테스트 감소·shellcheck 경고 증가)를 후보화 (실측: 181→171 감지)",
+      "후보 중복 제거 — feature_list/handoff backlog와 매칭되면 제외 (실측: candidate name 시드 → run-all 0)",
+      "run-all이 id(C1,C2…) 부여 (실측)"
+    ],
+    "acceptance_F14": [
+      "skills/improve/SKILL.md 존재, frontmatter 유효, TRIGGER 포함",
+      "진단→후보→/change-request→Plan→/implement→evaluator→/code-review→/finish-branch 단계 명시 — 새 게이트 없음 명시",
+      "불변식 저촉(harness-config/firewall/evaluator/INVARIANTS/invariant-guard) 변경은 자동 진행 금지+사람 승인 요구 명문화",
+      "수렴 조건 명시: backlog 비고 + 자동발견 2회전 연속 신규 0건 → 루프 수렴"
+    ],
+    "global": [
+      "기존 bats 회귀 없음 — 171 + 10 = 181 pass",
+      "shellcheck -x hooks/*.sh scripts/probes/*.sh init.sh clean",
+      "버전 1.7.0 통일 (package/plugin/marketplace)",
+      "CLAUDE.md·templates/CLAUDE.md.tmpl·README.md 모두 /improve 라우팅 포함",
+      "plugin.json '9 skills' == 실제 9 디렉토리, '8 agents' == 실제 8, '7 hooks' == consistency probe 카운트 정의(lib.sh 제외) 7"
+    ],
+    "security": [
+      "프로브 read-only 검증: 유일한 file write는 progress/metrics-history.json append (grep 감사)",
+      "외부 네트워크/sudo/chmod/firewall-bypass 명령 0건",
+      "/improve가 검증 장치 5종(harness-config·firewall·evaluator·INVARIANTS·invariant-guard) 약화 방향을 사람 승인 게이트로 격리",
+      "프로브 jq 부재 시 fail-closed 아닌 graceful []  — 실측 (PATH 격리)"
+    ],
+    "error_scenarios": [
+      "metrics: history 부재 시 baseline 기록, 후보 0 (실측)",
+      "consistency: 클린 repo에서 후보 0 (실측 — 이 repo 자기적용)",
+      "run-all: 모든 프로브 0건 + feature_list 매칭 → 빈 배열 (실측)",
+      "jq 부재 → 모든 프로브 [] 반환 (실측)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "soft_findings_non_blocking": [
+    "run-all dedup: 'grep -qiF \"$NAME\"' 부분일치 — 짧은 NAME(예: 'test')이면 무관 feature description에 우연 매칭 가능. 현재 프로브 후보명은 충분히 구체적이라 실측 안전하나, 향후 NAME 단어 경계 매칭(grep -w) 또는 jq 정확 비교로 강화 권고.",
+    "self-review.sh가 head -10으로 결과를 잘라냄 — 큰 repo에서는 결함이 가려질 수 있음. 현재 규모(0건)에서는 무관.",
+    "/improve가 후보 선택을 메인 루프에 위임하는 설계는 올바르나, 비대화형 환경에서의 동작이 SKILL.md에 명시되지 않음(노이즈 후보 skip 규칙은 있음)."
+  ],
+  "evidence": {
+    "bats": "bats tests/ — 181 pass, 0 fail (171 기존 + probes.bats 10) — 실측",
+    "shellcheck": "shellcheck -x hooks/*.sh scripts/probes/*.sh init.sh — clean (exit 0) — 실측",
+    "probe_self_apply": "bash scripts/probes/run-all.sh 2026-01-01T00:00:00Z → [] (메타데이터 일치·갭 없음의 정확한 신호) — 실측",
+    "metrics_baseline": "격리 tmp에서 첫 실행 → tests:181, shellcheck_warnings:0 기록, 후보 0 — 실측",
+    "metrics_regression": "tests/probes.bats 삭제 후 2회차 → 'test count regressed' 후보 생성 (181→171) — 실측",
+    "dedup": "consistency가 'version mismatch across manifests' 후보 → feature_list에 같은 name 시드 → run-all 0건 — 실측",
+    "jq_missing": "PATH=격리dir/(bash,sh,grep,find...) → run-all/consistency/metrics 모두 [] exit 0 — 실측",
+    "write_audit": "grep -nE '(>>|> )' scripts/probes/*.sh → metrics.sh의 HIST(.tmp) 외 write 없음 — 실측",
+    "external_cmds": "grep -nE 'curl|wget|nc |ssh |git push|sudo|chmod 777' → 0건 — 실측"
+  },
+  "criteria_gaps": {
+    "missing_criteria": [],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "action_required": "없음 — Sprint Contract의 F13/F14 기준이 충분히 검증 가능했음."
+  },
+  "criteria_issues": [],
+  "calibration_notes": "Generator의 evidence 블록이 실측과 일치(181 bats, shellcheck clean, run-all 0건). 자기적용 결과가 클린 신호인지(노이즈 0인지) 의심하여 격리 tmp에서 회귀·dedup 양방향 시나리오로 교차검증 — 모두 정상 동작. 보수적 회의주의 적용했으나 보안·기능·에러 경로 모두 결정적으로 통과."
+}
