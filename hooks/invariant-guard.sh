@@ -150,13 +150,33 @@ if [[ "$FILE" == *"/tests/"*.bats || "$BASENAME" == *.bats ]]; then
   exit 0
 fi
 
-# === 자기 보호: invariant-guard.sh / INVARIANTS.md 축소 차단 (INV-7) ===
+# === hooks.json: invariant-guard 등록 제거 차단 (INV-7) ===
+# 가드가 자기 등록을 보호하지 않으면 hooks.json 한 줄로 비활성화된다.
+if [[ "$BASENAME" == "hooks.json" ]]; then
+  if grep -q 'invariant-guard' "$FILE" 2>/dev/null && ! grep -q 'invariant-guard' <<<"$NEW_CONTENT"; then
+    deny "hooks.json에서 invariant-guard 등록 제거 — 안전장치 자기 보호 (INV-7)"
+  fi
+  exit 0
+fi
+
+# === 자기 보호: invariant-guard.sh / INVARIANTS.md (INV-7) ===
 if [[ "$BASENAME" == "invariant-guard.sh" || "$BASENAME" == "INVARIANTS.md" ]]; then
   OLD_LINES=$(wc -l < "$FILE" 2>/dev/null | tr -d ' ')
   NEW_LINES=$(printf '%s\n' "$NEW_CONTENT" | wc -l | tr -d ' ')
   # 30% 이상 축소를 약화로 간주 (소폭 편집은 허용)
   if [[ "$OLD_LINES" -gt 0 ]] && awk -v o="$OLD_LINES" -v n="$NEW_LINES" 'BEGIN{exit !(n+0 < o*0.7)}'; then
     deny "$BASENAME 대폭 축소 ($OLD_LINES → $NEW_LINES 줄) — 안전장치 자기 보호 (INV-7)"
+  fi
+  # semantic gutting 차단: deny 호출·exit 2 개수가 줄면 라인 수가 유지돼도 약화 (guard 한정)
+  if [[ "$BASENAME" == "invariant-guard.sh" ]]; then
+    count_tok() { grep -cE "$2" <<<"$1" 2>/dev/null || true; }
+    for tok in '^[[:space:]]*deny ' 'exit 2'; do
+      O=$(count_tok "$(cat "$FILE")" "$tok")
+      N=$(count_tok "$NEW_CONTENT" "$tok")
+      if [[ "$N" -lt "$O" ]]; then
+        deny "invariant-guard.sh의 차단 로직 감소 ('$tok' $O → $N) — semantic gutting 차단 (INV-7)"
+      fi
+    done
   fi
   exit 0
 fi

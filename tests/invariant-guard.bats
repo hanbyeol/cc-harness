@@ -176,6 +176,32 @@ exit 0'
   [ "$status" -eq 2 ]
 }
 
+@test "denies semantic gutting of guard (deny calls removed, line count kept)" {
+  cp "$HOOK" "$WORK/hooks/invariant-guard.sh"
+  # 라인 수는 유지하되 모든 deny 호출을 no-op(주석)로 — line-count 가드를 우회 시도
+  GUTTED=$(sed 's/  deny /  : deny_DISABLED /g' "$HOOK")
+  run run_write "$(mk_write_input "$WORK/hooks/invariant-guard.sh" "$GUTTED")"
+  [ "$status" -eq 2 ]
+}
+
+@test "denies removing invariant-guard registration from hooks.json" {
+  mkdir -p "$WORK/hooks"
+  cp "$PLUGIN_ROOT/hooks/hooks.json" "$WORK/hooks/hooks.json"
+  # invariant-guard 등록을 제거한 hooks.json
+  NEW=$(jq 'del(.hooks.PreToolUse[] | select(.hooks[].command | test("invariant-guard")))' "$WORK/hooks/hooks.json")
+  run run_write "$(mk_write_input "$WORK/hooks/hooks.json" "$NEW")"
+  [ "$status" -eq 2 ]
+}
+
+@test "allows editing hooks.json while keeping invariant-guard registration" {
+  mkdir -p "$WORK/hooks"
+  cp "$PLUGIN_ROOT/hooks/hooks.json" "$WORK/hooks/hooks.json"
+  # timeout만 바꾸고 invariant-guard 등록은 유지
+  NEW=$(jq '(.hooks.PreToolUse[].hooks[] | select(.command | test("invariant-guard")) | .timeout) = 8' "$WORK/hooks/hooks.json")
+  run run_write "$(mk_write_input "$WORK/hooks/hooks.json" "$NEW")"
+  [ "$status" -eq 0 ]
+}
+
 # --- unrelated files pass through ---
 
 @test "allows edits to unrelated files" {

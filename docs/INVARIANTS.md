@@ -52,8 +52,19 @@ evaluator 종합 점수 = 5개 차원(기능·품질·보안·에러처리·테�
 기준이 정말 틀렸다면 사람이 승인한다 (implementer/evaluator 규칙: criteria_backfill은 추가만).
 
 ### INV-7. 안전장치 자기 보호
-`docs/INVARIANTS.md`와 `hooks/invariant-guard.sh` 자체를 삭제하거나 그 검사 로직을 약화시키는
-변경도 가드 대상이다. **왜 불변**: 가드를 끌 수 있으면 다른 모든 불변식이 무력해진다.
+`docs/INVARIANTS.md`·`hooks/invariant-guard.sh` 자체의 축소, 검사 로직 약화, 그리고
+`hooks/hooks.json`에서의 invariant-guard **등록 제거**가 모두 가드 대상이다:
+- 두 파일의 30% 이상 축소를 차단
+- invariant-guard.sh의 `deny` 호출·`exit 2` 개수 감소를 차단 (라인 수를 유지한 채
+  deny를 no-op로 바꾸는 semantic gutting 방어)
+- hooks.json에서 invariant-guard 참조가 사라지면 차단 (한 줄로 가드를 끄는 우회 방어)
+
+**왜 불변**: 가드를 끌 수 있으면 다른 모든 불변식이 무력해진다.
+
+**알려진 한계** (backlog): @test **본문**에 `skip`/조기 return을 주입해 개수는 유지한 채
+테스트를 무력화하는 경우는 개수 기반 검사로 잡지 못한다(정상 `skip "도구 없음"`과 구분
+곤란). 이는 pre-commit-gate의 실제 테스트 실행이 2차 방어선이다 — 무력화된 테스트라도
+CI/게이트에서 실행되면 회귀가 드러난다.
 
 ## 집행 방식
 - `hooks/invariant-guard.sh` (PreToolUse: Edit|Write|MultiEdit)가 위 파일들에 대한 편집을

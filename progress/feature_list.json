@@ -132,9 +132,9 @@
       "name": "INVARIANTS.md + invariant-guard 훅",
       "description": "하네스의 약화 불가 성질(evaluator 독립성, min-of-5, pass_threshold·security_thresholds 하향 금지, firewall deny 목록 축소 금지, 테스트·기준 add-only)을 docs/INVARIANTS.md에 명문화하고, PreToolUse 훅 invariant-guard.sh가 harness-config.json 임계값 하향·firewall deny 패턴 삭제·테스트 삭제를 결정론적으로 감지해 차단(사람 승인 요구). 재귀 자기개선의 자기약화 방지 핵심.",
       "security_tier": "critical",
-      "status": "pending",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 2,
       "dependencies": [],
       "assigned_sprint": 3
     },
@@ -170,9 +170,9 @@
       "name": "backlog 소화 — 하네스 구조 개선 5건",
       "description": "session-handoff follow_ups_backlog 정착: (a) pre-commit-gate git diff 해시 캐시로 동일 상태 skip, (b) hooks 공용 lib.sh(jq config 관용구·cd 가드 통합) + bats 공용 test_helper, (c) 마이그레이션 version_lt 순서 비교, (d) Stop gate timeout vs go test 타임아웃 정합, (e) CLAUDE.md↔tmpl 단일 소스화 검토. 루프의 첫 먹이.",
       "security_tier": "standard",
-      "status": "pending",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [],
       "assigned_sprint": 3
     }
