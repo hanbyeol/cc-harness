@@ -38,18 +38,18 @@
     {
       "step": "skills/implement/SKILL.md Step 6 서브에이전트 구동 모드 + 독립성 판정 + 병합 프로토콜 + 폴백",
       "verify": "grep 키워드 + skill-frontmatter.bats",
-      "done": false
+      "done": true
     },
     {
       "step": "agents/implementer.md 부모/자식 역할 + 토큰 큐레이션 원칙",
       "verify": "grep + bats",
-      "done": false
+      "done": true
     },
     {
       "step": "CLAUDE.md/HARNESS-GUIDE 가이드 반영 + 버전 1.8.0",
       "verify": "version-consistency.bats",
-      "done": false
+      "done": true
     }
   ],
-  "agreed": false
+  "agreed": true
 }

@@ -10,6 +10,19 @@ model: claude-opus-4-8
 feature_list.json에서 기능을 선택하여 구현.
 **평가는 evaluator agent가 수행** — passes 필드를 직접 true로 변경하지 않는다.
 
+## 실행 모드 — 직렬 vs 서브에이전트 구동(병렬)
+`/implement` Step 6의 독립성 판정에 따라 둘 중 하나로 동작한다:
+- **직렬(기본)**: 한 implementer 컨텍스트가 implementation_steps를 순차 구현.
+- **서브에이전트 구동(독립 태스크 ≥2)**: 부모와 자식의 역할이 갈린다.
+  - **부모**(메인 루프): Sprint Contract를 1회 읽고 독립 태스크를 격리 서브에이전트로 병렬
+    디스패치(orchestration), 결과를 **병합**(요약 검토→충돌 확인→전체 테스트)하고 최종 evidence를 취합.
+  - **자식**(`isolation:"worktree"` implementer): **단일 태스크만** TDD(RED-GREEN-REFACTOR)로 구현하고
+    per-task evidence를 반환.
+  - **토큰 큐레이션 원칙**: 자식은 **세션 이력·전체 contract를 상속하지 않는다** — 부모가 구성한
+    그 task의 step+verify+관련 criteria(최소 컨텍스트)만 받는다. 부모 컨텍스트와 토큰을 보존한다.
+  - **INV-1 유지**: 부모·자식 **누구도 passes를 set하지 않는다**. 병합 후 독립 evaluator만 판정하며,
+    per-task evidence는 evaluator를 **보완**할 뿐 대체하지 않는다(inline self-review로 대체 금지 — ADR-003).
+
 ## Input
 - progress/agent-comms/architect-output.json (tech_stack, components, threat_model)
 - progress/agent-comms/evaluator-feedback-*.json (이전 iteration 피드백)

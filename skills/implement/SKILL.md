@@ -78,14 +78,37 @@ Sprint Contract 작성 직후, 구현을 시작하기 **전에** Claude Code의 
     - 재작성 후 Plan 게이트 재진입 → 사용자 재승인
 - **사용자 승인 없이 `agreed: true`로 변경하거나 구현을 시작하지 않는다.**
 
-### 6. 구현 실행
-implementer agent의 프로세스를 따라 구현:
+### 6. 구현 실행 — 직렬 또는 서브에이전트 구동(병렬) 모드
+
+먼저 implementation_steps의 **독립성을 판정**해 모드를 고른다:
+- **독립 판정**: 두 태스크가 (a)같은 파일을 수정하거나 (b)서로의 출력을 입력으로 받으면 **의존** → 직렬.
+  그 외는 **독립** → 병렬 후보.
+- 독립 태스크가 **2개 이상**이고 git worktree가 가능하면 → **서브에이전트 구동 모드**.
+  단일 태스크·의존성 있음·worktree 미지원이면 → **직렬 모드(폴백)**. (소규모 변경에 오버헤드 강요 금지)
+
+#### 6a. 직렬 모드 (기본 폴백)
+implementer agent 프로세스를 한 컨텍스트에서 따른다:
 1. 해당 디렉토리의 CLAUDE.md 읽기
-2. implementation_steps의 체크포인트 태스크 단위로 **TDD 사이클(RED-GREEN-REFACTOR)** 진행
-   — 태스크 완료마다 verify 명령 실행 + contract의 `done: true` 갱신
-3. **구현 중 기준 갭 발견 시 즉시 보완** (evals/acceptance-criteria.json + Sprint Contract 동시 갱신)
-4. 보안 self-check 실행
-5. 린트 + 테스트 실행 — 결과를 implementer-output.json의 `evidence`에 기록 (evidence over claims)
+2. implementation_steps 단위로 **TDD 사이클(RED-GREEN-REFACTOR)** — 태스크 완료마다 verify 실행 + `done:true`
+3. **구현 중 기준 갭 발견 시 즉시 보완** (acceptance-criteria.json + Sprint Contract 동시 갱신)
+4. 보안 self-check → 린트 + 테스트 → implementer-output.json의 `evidence` 기록
+
+#### 6b. 서브에이전트 구동 모드 (독립 태스크 병렬)
+부모(메인 루프)가 오케스트레이션하고, 독립 태스크를 격리 서브에이전트로 병렬 디스패치한다:
+1. **컨텍스트 큐레이션**: 부모가 Sprint Contract를 **1회만** 읽고, 각 서브에이전트에는 **그 task의
+   step+verify+관련 criteria만** 전달한다. **전체 contract·세션 이력을 상속시키지 않는다** —
+   각 자식은 자기 task만 아는 최소 컨텍스트(~task별 컨텍스트)로 동작해 부모 컨텍스트와 토큰을 보존한다.
+2. **병렬 디스패치**: 독립 태스크들을 **한 메시지에서 동시에** `isolation: "worktree"` implementer
+   서브에이전트로 디스패치(파일 충돌 방지). 각 자식은 자기 task를 TDD로 구현 + per-task evidence 반환.
+3. **병합 프로토콜** — evaluator로 넘기기 전에:
+   - (1) **각 서브에이전트 요약 검토** — 무엇을 바꿨는지 파악
+   - (2) **충돌 확인** — 두 자식이 같은 파일을 편집했는지 점검(독립성 오판 감지). 충돌 시 직렬 재실행
+   - (3) **전체 테스트 실행** — 통합 후 회귀 없음 확인. 실패 시 evaluator로 넘기지 않고 `/debug` 안내
+4. 병합 결과를 implementer-output.json의 `evidence`에 취합
+
+> **독립 evaluator 유지**: 두 모드 모두 **병합 후 독립 evaluator가 1회 판정**한다.
+> 서브에이전트(부모·자식)는 passes를 set하지 않는다(INV-1). per-task evidence는 evaluator를
+> 대체하지 않고 **보완**할 뿐이다 — superpowers의 inline self-review로 검증을 대체하지 않는다(ADR-003).
 
 ### 7. 구현 완료 처리
 - progress/agent-comms/implementer-output.json 작성 (criteria_backfill 포함)

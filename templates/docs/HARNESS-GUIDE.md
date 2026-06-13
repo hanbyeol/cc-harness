@@ -240,9 +240,19 @@ criteria와 구현 순서가 요약 제시됩니다. **사용자가 승인하면
 
 #### Step 3. 구현 + 테스트
 
-- 기능 코드 + 테스트 코드를 함께 작성
+- 기능 코드 + 테스트 코드를 함께 작성 (TDD: RED-GREEN-REFACTOR)
 - security_tier: critical → 보안 테스트 필수
 - **구현 중 기준 갭 발견 시 즉시 보완** (기준 역전파 원칙)
+
+**서브에이전트 구동 모드 (독립 태스크 병렬)**: Sprint Contract의 implementation_steps 중
+서로 **독립적인**(같은 파일을 수정하지 않고 상호 의존이 없는) 태스크가 2개 이상이면, 각각을
+`isolation: "worktree"` implementer 서브에이전트로 **병렬 디스패치**할 수 있습니다.
+- 부모(메인 루프)는 Sprint Contract를 **1회만** 읽고, 각 자식에는 그 task의 step·verify·관련
+  criteria만 전달합니다(전체 contract·세션 이력 미상속 — 토큰 보존).
+- 자식 결과는 **병합 프로토콜**(요약 검토 → 충돌 확인 → 전체 테스트)을 거친 뒤에만 evaluator로
+  넘깁니다. 충돌·테스트 실패 시 직렬 재실행 또는 `/debug`.
+- **독립 evaluator는 유지**됩니다 — 병합 후 1회 판정하며 서브에이전트는 passes를 set하지 않습니다.
+- 단일 태스크이거나 태스크 간 의존이 있으면 기존 단일 에이전트 직렬 구현으로 폴백합니다.
 
 #### Step 4. Evaluator 검증 요청
 

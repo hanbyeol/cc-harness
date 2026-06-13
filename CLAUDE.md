@@ -86,6 +86,8 @@ Correctness > Safety > Speed
 **verification 병렬 실행**: evaluator(게이트) 통과 후 test-writer·security-auditor·qa-reviewer는 서로 독립적이므로 **한 메시지에서 동시(병렬) 실행**한다 — 순차 실행하지 않는다.
 단, test-writer는 테스트 파일을 생성하므로 **`isolation: "worktree"`로 디스패치**해 다른 에이전트와의 파일 충돌을 방지한다.
 
+**구현 병렬 실행(서브에이전트 구동)**: Sprint Contract의 implementation_steps 중 **독립**(같은 파일 미수정·상호 의존 없음) 태스크가 2개 이상이면 각각 `isolation: "worktree"` implementer 서브에이전트로 병렬 디스패치한다. 부모는 contract를 1회 읽고 각 자식에 **task별 최소 컨텍스트만** 전달(토큰 보존), 결과를 병합(요약 검토→충돌 확인→전체 테스트)한 뒤 **독립 evaluator로 1회 판정**한다(서브에이전트는 passes를 set하지 않음). 단일/의존 태스크는 직렬 폴백.
+
 **서브에이전트 공통 제약**: 서브에이전트는 사용자에게 질문(AskUserQuestion)할 수 없다.
 사용자 입력이 필요한 결정은 메인 루프가 디스패치 전에 수집해 프롬프트로 전달한다.
 
