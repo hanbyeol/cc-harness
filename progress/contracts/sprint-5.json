@@ -1,0 +1,62 @@
+{
+  "sprint": 5,
+  "title": "프로세스 효율 — 토큰·병렬·검증 티어링 (P2~P4, v1.9.0)",
+  "features": [
+    "F17",
+    "F18",
+    "F19"
+  ],
+  "security_tier": "standard",
+  "source": "cc-harness vs superpowers 비교 분석 P2/P3/P4 — /improve 루프",
+  "acceptance_criteria": [
+    "F17(P2): skills/sync-docs/SKILL.md를 non-obvious 지침 손실 없이 압축 — 줄 수가 측정 가능하게 감소(>=15%). 동일 컨텍스트 내 진짜 중복만 제거하고, 에이전트 간 필수 재기술(서브에이전트 제약 등)은 보존",
+    "F17(P2): 압축 후에도 기존 라우팅/동작 키워드가 유지됨 — skill-frontmatter.bats 통과, sync-docs의 TRIGGER·--deep·핵심 절차 유지",
+    "F18(P3): skills/debug/SKILL.md에 '독립 실패 병렬 모드'가 추가됨 — 서로 독립적인(다른 파일·공유 상태 없음) 복수 실패를 worktree 서브에이전트로 병렬 진단, 격리 컨텍스트, 병합(요약 검토→충돌 확인→전체 테스트)",
+    "F18(P3): 연관 실패·시스템 전체 이해 필요·탐색적 디버깅은 단일(직렬) 폴백으로 명시. 새 스킬을 만들지 않고 /debug 확장(스킬 수 불변)",
+    "F19(P4): skills/implement/SKILL.md 또는 CLAUDE.md에 '검증 강도 = security_tier·변경 크기 매칭' 가이드 명문화 — low/문서는 경량(hotfix류), standard는 evaluator, critical은 full evaluator+security-auditor",
+    "F19(P4): per-checkpoint 검증 권고(기능 끝 한 번이 아니라 체크포인트마다 verify) 추가 — 조기 발견·재시도 비용↓",
+    "전역: 버전 1.9.0, 기존 190 bats 회귀 없음, shellcheck 클린, 라우팅/스킬 수 정합(skill-frontmatter)"
+  ],
+  "security_criteria": [
+    "F19는 critical-tier 검증을 절대 약화하지 않는다 — pass_threshold·security_thresholds 미변경(invariant-guard가 하향 차단), evaluator 독립성(INV-1)·min-of-5 불변. '경량 경로'는 low/standard에만 추가",
+    "F18 병렬 디버깅 서브에이전트는 worktree 격리로 파일 오염 방지, firewall ask/deny 정책 우회 미지시",
+    "F17 압축이 보안 관련 지침(시크릿·검증 절차)을 제거하지 않는다",
+    "전역: 이 스프린트의 어떤 변경도 INVARIANTS.md를 약화하지 않는다(가드 비저촉)"
+  ],
+  "error_scenarios": [
+    "F18: 독립 오판으로 두 디버그 서브에이전트가 같은 파일 수정 → 병합 충돌 확인에서 감지, 직렬 재실행",
+    "F18: worktree 미지원 → 단일 디버그로 폴백",
+    "F19: 변경 크기 모호 시 더 엄격한 티어 선택(보수적)",
+    "F17: 압축 중 non-obvious 지침 제거 위험 → 동작 키워드 grep으로 회귀 차단"
+  ],
+  "test_scenarios": [
+    "bats: sync-docs 압축 후 핵심 키워드(TRIGGER, --deep, drift) 유지 + 줄 수 감소",
+    "bats: /debug에 '병렬'·'독립'·'worktree'·'폴백' 키워드 존재",
+    "bats: 검증 티어링 가이드에 'critical'·'경량'·임계값 미하향 문구, per-checkpoint 존재",
+    "version-consistency 1.9.0, 기존 190 회귀 없음"
+  ],
+  "implementation_steps": [
+    {
+      "step": "F17 sync-docs 압축 + 토큰 측정",
+      "verify": "줄수 비교 + skill-frontmatter.bats",
+      "done": false
+    },
+    {
+      "step": "F18 /debug 독립 실패 병렬 모드",
+      "verify": "grep 키워드 + bats",
+      "done": false
+    },
+    {
+      "step": "F19 검증 티어링 가이드 (약화 없음)",
+      "verify": "grep + invariant 비저촉 확인",
+      "done": false
+    },
+    {
+      "step": "버전 1.9.0 + 문서 동기화",
+      "verify": "version-consistency.bats",
+      "done": false
+    }
+  ],
+  "independence_note": "F17(sync-docs)·F18(debug)·F19(implement/CLAUDE) 는 대체로 다른 파일이라 부분 독립 — F16 서브에이전트 구동 모드를 dogfooding할 수 있으나, F19가 implement/CLAUDE를 건드려 F18과 일부 겹칠 수 있어 직렬+신중 병합 권장",
+  "agreed": false
+}
