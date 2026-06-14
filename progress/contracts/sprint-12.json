@@ -1,0 +1,48 @@
+{
+  "sprint": 12,
+  "title": "invariant-guard 우회 회귀 테스트 강화 (F26, v1.12.5)",
+  "features": [
+    "F26"
+  ],
+  "security_tier": "low",
+  "source": "메타 게이트(invariant-guard.sh)는 27 테스트로 두텁지만 일부 tool×target 조합·값타입 엣지가 미커버. 메타 게이트의 신뢰도 = 테스트 커버리지이므로 우회 시나리오를 add-only로 보강.",
+  "acceptance_criteria": [
+    "F26: tests/invariant-guard.bats에 테스트만 추가(가드 로직 hooks/invariant-guard.sh·docs/INVARIANTS.md·임계값 미변경) — add-only 강화",
+    "F26-1: firewall 패턴 감소 via MultiEdit → deny(exit 2)",
+    "F26-2: @test 감소 via MultiEdit → deny(exit 2)",
+    "F26-3: pass_threshold 하향 via 문자열 값(7 → \"5\") via Edit → deny(exit 2)",
+    "F26-4: pass_threshold 하향 via 소수(7 → 6.5) via Edit → deny(exit 2)",
+    "F26-5: firewall 패턴 주석처리(라인이 quote로 시작 안 함 → 총수 감소) via Write → deny(exit 2)",
+    "F26-6: 가드 deny 호출 1개 제거 via Edit(라인수 유지, deny 카운트 감소 = semantic gutting) → deny(exit 2)",
+    "F26-7: 비대상 tool(예: Read)이 harness-config.json 대상이어도 passthrough(exit 0) — 음성 케이스",
+    "전역: 버전 1.12.5(3종 매니페스트), 기존 회귀 0, 새 케이스 전부 GREEN(가드 이미 구현됨), invariant-guard.bats @test 개수 증가(가드가 자기 테스트 추가 허용 확인)"
+  ],
+  "security_criteria": [
+    "테스트 추가는 강화(add-only) — invariant-guard.sh의 tests/*.bats @test 감소 차단 규칙에 의해 허용되며 차단되지 않음(@test 증가)",
+    "가드 로직·임계값·firewall·evaluator·INVARIANTS 미변경 — invariant-guard 대상 파일 무수정",
+    "새 테스트는 실제 가드 바이너리를 호출해 exit code만 단언 — 가드를 모킹하거나 약화하지 않음"
+  ],
+  "error_scenarios": [
+    "MultiEdit 재구성이 no-op이면(매치 실패) 가드는 통과해야 하나, 본 테스트는 실제 약화를 만들어 deny 확인",
+    "값타입 엣지(문자열/소수)에서 awk 수치 비교가 오판하지 않음(\"5\"+0=5, 6.5+0=6.5)",
+    "음성 케이스(Read 등)는 false deny가 없어야 함(과차단 회귀 방지)"
+  ],
+  "test_scenarios": [
+    "bats: 위 F26-1~F26-7 각각 1 케이스",
+    "bats: 전체 invariant-guard.bats GREEN, 다른 bats 회귀 0",
+    "version-consistency 1.12.5"
+  ],
+  "implementation_steps": [
+    {
+      "step": "tests/invariant-guard.bats에 7개 우회/음성 케이스 추가(기존 helper mk_edit_input/mk_multiedit_input/mk_write_input 재사용)",
+      "verify": "bats tests/invariant-guard.bats GREEN",
+      "done": true
+    },
+    {
+      "step": "버전 1.12.5(3종 매니페스트)",
+      "verify": "version-consistency, 전체 bats 회귀 0, shellcheck(테스트 외 변경 없음)",
+      "done": true
+    }
+  ],
+  "agreed": true
+}
