@@ -260,3 +260,62 @@ exit 0'
   run run_write 'not json'
   [ "$status" -eq 0 ]
 }
+
+# --- F26: 우회 회귀 보강 (미커버 tool×target · 값타입 엣지) ---
+# firewall fixture는 무해한 플레이스홀더 패턴(PAT_*) 사용 — 가드는 quote-시작 라인 수만 셈.
+
+@test "denies firewall pattern reduction via MultiEdit" {
+  cat > "$WORK/hooks/pre-bash-firewall.sh" <<'SH'
+BLOCKED=(
+  'PAT_A'
+  'PAT_B'
+  'PAT_C'
+)
+SH
+  # MultiEdit: 'PAT_C' 라인의 따옴표 제거 → quote-시작 라인 수 감소 → deny
+  run run_write "$(mk_multiedit_input "$WORK/hooks/pre-bash-firewall.sh" "  'PAT_C'" "  PAT_C")"
+  [ "$status" -eq 2 ]
+}
+
+@test "denies @test reduction via MultiEdit" {
+  T='@test'
+  printf '%s "a" { true; }\n%s "b" { true; }\n' "$T" "$T" > "$WORK/tests/sample.bats"
+  run run_write "$(mk_multiedit_input "$WORK/tests/sample.bats" '@test "b" { true; }' '# removed b')"
+  [ "$status" -eq 2 ]
+}
+
+@test "denies pass_threshold lowered via string value" {
+  run run_write "$(mk_edit_input "$WORK/progress/harness-config.json" '"pass_threshold": 7' '"pass_threshold": "5"')"
+  [ "$status" -eq 2 ]
+}
+
+@test "denies pass_threshold lowered via float" {
+  run run_write "$(mk_edit_input "$WORK/progress/harness-config.json" '"pass_threshold": 7' '"pass_threshold": 6.5')"
+  [ "$status" -eq 2 ]
+}
+
+@test "denies firewall pattern commented out (total count drops)" {
+  cat > "$WORK/hooks/pre-bash-firewall.sh" <<'SH'
+BLOCKED=(
+  'PAT_A'
+  'PAT_B'
+)
+SH
+  NEW=$'BLOCKED=(\n  \'PAT_A\'\n  # \'PAT_B\'\n)\n'
+  run run_write "$(mk_write_input "$WORK/hooks/pre-bash-firewall.sh" "$NEW")"
+  [ "$status" -eq 2 ]
+}
+
+@test "denies guard deny() call removed via Edit (line count kept)" {
+  cp "$HOOK" "$WORK/hooks/invariant-guard.sh"
+  LINE=$(grep -m1 -E '^[[:space:]]*deny ' "$WORK/hooks/invariant-guard.sh")
+  run run_write "$(mk_edit_input "$WORK/hooks/invariant-guard.sh" "$LINE" "  : neutralized")"
+  [ "$status" -eq 2 ]
+}
+
+@test "passes through non-edit tool (Read) on harness-config" {
+  IN=$(jq -n --arg fp "$WORK/progress/harness-config.json" \
+    '{tool_name:"Read", tool_input:{file_path:$fp}}')
+  run run_write "$IN"
+  [ "$status" -eq 0 ]
+}

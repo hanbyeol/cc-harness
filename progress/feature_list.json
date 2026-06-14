@@ -301,6 +301,19 @@
         "F13"
       ],
       "assigned_sprint": 11
+    },
+    {
+      "id": "F26",
+      "name": "invariant-guard 우회 회귀 테스트 강화",
+      "description": "메타 게이트(invariant-guard.sh)의 우회-차단 회귀 커버리지를 미커버 tool×target 조합·값타입 엣지로 확장(tests/invariant-guard.bats add-only). 가드 로직·INVARIANTS·임계값 미변경. 추가: firewall 패턴감소 via MultiEdit, @test 감소 via MultiEdit, pass_threshold 하향 via 문자열/소수 값, firewall 패턴 주석처리로 총수감소 deny, 가드 deny 제거 via Edit, 비대상 tool/file_path 부재 passthrough(음성).",
+      "security_tier": "low",
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
+      "dependencies": [
+        "F12"
+      ],
+      "assigned_sprint": 12
     }
   ]
 }

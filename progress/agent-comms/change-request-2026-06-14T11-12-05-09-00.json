@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-06-14T11:12:05+09:00",
+  "type": "add",
+  "description": "invariant-guard 우회 회귀 테스트 강화(F26) — 미커버 tool×target·값타입 엣지 7케이스 추가(테스트 only)",
+  "affected_features": ["F26"],
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": false,
+    "acceptance_criteria_updated": false,
+    "security_checklist_updated": false,
+    "feature_list_updated": true,
+    "phase_rollback": false
+  },
+  "new_sprint_contract": "progress/contracts/sprint-12.json",
+  "note": "tests/invariant-guard.bats add-only — 가드 로직/INVARIANTS/임계값 미변경",
+  "rollback_to_phase": null
+}
