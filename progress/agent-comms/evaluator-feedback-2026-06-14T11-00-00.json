@@ -1,0 +1,91 @@
+{
+  "timestamp": "2026-06-14T11:00:00+09:00",
+  "sprint": 10,
+  "iteration": 1,
+  "features_evaluated": [
+    "F24"
+  ],
+  "security_tier": "low",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 9,
+    "security": 9,
+    "error_handling": 9,
+    "test_coverage": 9
+  },
+  "score": 9,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "pass",
+  "evidence": {
+    "functionality": [
+      "bash scripts/cost-report.sh → 5 phases, verification(roles=4, in/1M=$14, out/1M=$70, total/1M=$84), most_expensive=verification",
+      "bash scripts/cost-report.sh --json → phases[0].phase=verification, .roles length=4, .input_per_1m=14, .output_per_1m=70",
+      "--tokens-in 1000 --tokens-out 4000 → implementation.est_usd_per_call=0.105 (1000/1e6*5+4000/1e6*25), verification.est_usd_per_call=0.294 (1000/1e6*14+4000/1e6*70) — 산식 일치"
+    ],
+    "single_source_no_impact": [
+      "bash scripts/probes/model-tiering.sh → [] (F23 0건 유지)",
+      "tests/cost-report.bats #12 ok"
+    ],
+    "error_paths": [
+      "config 부재 → 'cost-report: config not found' exit 0 (graceful)",
+      "malformed config → {error: 'config malformed'} exit 0 (graceful)",
+      "미가격 모델(qa-reviewer→claude-uncosted-1) → verification.has_uncosted=true, in/out=13/65 (qa-reviewer 1/5 제외, 0 위장 없음)",
+      "--tokens-in abc → 'must be a non-negative integer' + usage, exit 2"
+    ],
+    "security_invariants": [
+      "git diff HEAD: invariant-guard 대상 5종 모두 untouched (harness-config, pre-bash-firewall, evaluator.md, INVARIANTS.md, invariant-guard.sh)",
+      "config/models.json diff: +38 / -0 (순수 add-only — 기존 tiers/assignments/rules 보존)",
+      "텍스트·JSON 모두 'declared pricing ... NOT actual billing' 면책 표기",
+      "scripts/cost-report.sh: 읽기 전용 (jq -c, 파일 쓰기 없음)",
+      "shellcheck clean"
+    ],
+    "tests": [
+      "bats tests/cost-report.bats → 12/12 ok (1..12)",
+      "bats tests/*.bats → 257 ok (회귀 0)"
+    ],
+    "version_consistency": [
+      "package.json=1.12.3, plugin.json=1.12.3, marketplace.json plugins[0].version=1.12.3"
+    ]
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "pricing 4모델 포함 (fable-5 10/50, opus-4-8 5/25, sonnet-4-6 3/15, haiku-4-5 1/5)",
+      "phases 5개 (specification/architecture/implementation/verification/deployment)",
+      "phase별 roles·models·Σin·Σout 테이블, total 내림차순 정렬, 최고가 phase 표시",
+      "--tokens-in/--tokens-out 1회 호출 $ 추정 산식 일치",
+      "verification 4-role 구성 가시화 (티어링 효과)",
+      "model-tiering(F23) 무영향 — 0건 유지",
+      "버전 1.12.3 3종 매니페스트, bats 회귀 0, shellcheck clean"
+    ],
+    "security": [
+      "읽기 전용 — 파일 미수정",
+      "invariant-guard 대상 미변경, add-only",
+      "graceful degrade (config 부재/malformed/미가격 모델)",
+      "선언 데이터 면책 표기"
+    ],
+    "error_scenarios": [
+      "config 부재/malformed → graceful (exit 0 + 안내)",
+      "assignments의 model이 pricing에 없음 → has_uncosted=true (0 위장 금지)",
+      "--tokens-in/out 비숫자 → 사용법 + exit 2",
+      "phases 키 부재는 미테스트지만 jq `// {}` 폴백으로 graceful"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "action_required": "none"
+  },
+  "unverified": [],
+  "notes": [
+    "min-of-5 = 9, low tier 임계값(3) 충족, pass_threshold(7) 초과",
+    "config/models.json 다이프 +38/-0 (add-only) — F23 단일 출처 원칙 준수",
+    "verification phase 단가 84/1M로 implementation(30)의 2.8배 — 티어링 효과·비용 가시성 확보"
+  ]
+}
