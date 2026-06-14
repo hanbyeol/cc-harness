@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-06-14T10:32:49+09:00",
+  "type": "add",
+  "description": "Phase별 비용 관측성(F24) — config/models.json에 pricing+phases 추가, cost-report.sh 정적 비용-모델 리포트",
+  "affected_features": ["F24"],
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": false,
+    "acceptance_criteria_updated": false,
+    "security_checklist_updated": false,
+    "feature_list_updated": true,
+    "phase_rollback": false
+  },
+  "new_sprint_contract": "progress/contracts/sprint-10.json",
+  "depends_on": "F23 (config/models.json 단일 출처)",
+  "rollback_to_phase": null
+}

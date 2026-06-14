@@ -275,6 +275,19 @@
         "F13"
       ],
       "assigned_sprint": 9
+    },
+    {
+      "id": "F24",
+      "name": "Phase별 비용 관측성 — cost-report",
+      "description": "config/models.json에 pricing(model→{input,output} USD/1M)과 phases(phase→[roles]) 맵을 추가하고, 읽기 전용 scripts/cost-report.sh가 SDLC phase별 모델 가격 구성을 테이블로 출력. phase별 Σ(input)·Σ(output) 단가 합으로 정렬해 가장 비싼 phase와 verification 티어링 구성(evaluator+test-writer+security-auditor+qa-reviewer)을 가시화. 선택적 --tokens-in/--tokens-out로 1회 호출 $ 추정. F23과 동일 단일 출처(config/models.json) 사용, 미사용 키는 model-tiering이 무시(F23 무영향). 읽기 전용, invariant-guard 무관.",
+      "security_tier": "low",
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
+      "dependencies": [
+        "F23"
+      ],
+      "assigned_sprint": 10
     }
   ]
 }

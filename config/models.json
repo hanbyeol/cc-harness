@@ -54,5 +54,43 @@
       "security-auditor"
     ],
     "gate_reference_role": "implementer"
+  },
+  "pricing": {
+    "claude-fable-5": {
+      "input": 10,
+      "output": 50
+    },
+    "claude-opus-4-8": {
+      "input": 5,
+      "output": 25
+    },
+    "claude-sonnet-4-6": {
+      "input": 3,
+      "output": 15
+    },
+    "claude-haiku-4-5": {
+      "input": 1,
+      "output": 5
+    }
+  },
+  "phases": {
+    "specification": [
+      "spec-writer"
+    ],
+    "architecture": [
+      "architect"
+    ],
+    "implementation": [
+      "implementer"
+    ],
+    "verification": [
+      "evaluator",
+      "test-writer",
+      "security-auditor",
+      "qa-reviewer"
+    ],
+    "deployment": [
+      "deploy-operator"
+    ]
   }
 }

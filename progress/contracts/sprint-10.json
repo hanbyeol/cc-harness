@@ -1,0 +1,58 @@
+{
+  "sprint": 10,
+  "title": "Phase별 비용 관측성 — cost-report (F24, v1.12.3)",
+  "features": [
+    "F24"
+  ],
+  "security_tier": "low",
+  "source": "F23이 config/models.json을 단일 출처로 만들었으나 phase별 비용은 여전히 불투명. 검증 티어링(F19)이 실제로 비용을 낮추는지, 어느 phase가 비싼지 가시화 필요. 가격 데이터 + phase→roles 맵을 더해 정적 비용-모델 리포트를 생성.",
+  "acceptance_criteria": [
+    "F24: config/models.json에 pricing 추가 — model ID → {input,output} (USD per 1M 토큰). tiers의 4개 모델 모두 포함(fable-5 10/50, opus-4-8 5/25, sonnet-4-6 3/15, haiku-4-5 1/5)",
+    "F24: config/models.json에 phases 추가 — phase → [role,...] (specification/architecture/implementation/verification/deployment, CLAUDE.md phase 표와 일치)",
+    "F24: scripts/cost-report.sh 신규 — 읽기 전용. phase별로 roles·models·Σinput·Σoutput 단가 합을 테이블 출력, 총단가(Σinput+Σoutput) 내림차순 정렬, 최고가 phase 표시",
+    "F24: --tokens-in N --tokens-out M 옵션 — phase별 1회 호출 추정 $ = Σ((in/1e6)*price_in + (out/1e6)*price_out). 미지정 시 per-1M 단가 테이블만",
+    "F24: verification phase 구성(evaluator+test-writer+security-auditor+qa-reviewer 4개 role)이 리포트에 드러남 — 티어링 효과 가시화",
+    "F24: model-tiering(F23) 무영향 — config에 pricing/phases 키 추가 후에도 model-tiering 후보 0건 유지(F23은 tiers/assignments/rules만 읽음)",
+    "전역: 버전 1.12.3(3종 매니페스트), 기존 bats 회귀 0, shellcheck 클린, output JSON 또는 정렬된 텍스트 표 — 결정론적"
+  ],
+  "security_criteria": [
+    "cost-report.sh는 읽기 전용 — 파일 수정·firewall 우회 없음(프로브 규칙 동급)",
+    "검증 장치 아님 — invariant-guard 대상(harness-config/firewall/evaluator/INVARIANTS/invariant-guard) 미변경. 게이트 약화 없음(add-only)",
+    "jq/config 부재·malformed·가격 누락 모델 → graceful degrade(에러 메시지 또는 빈 출력, 비정상 종료 금지)",
+    "pricing은 선언 데이터 — 실제 청구가 아님을 리포트 헤더에 명시(오해 방지)"
+  ],
+  "error_scenarios": [
+    "config/models.json 부재/malformed → 비0 종료 없이 안내 메시지",
+    "phases의 role이 assignments에 없음 → 해당 role skip + 경고(크래시 금지)",
+    "assignments의 model이 pricing에 없음 → 해당 phase 비용 N/A 표기(0으로 위장 금지)",
+    "--tokens-in/out에 비숫자 입력 → 사용법 안내 후 비0 종료(잘못된 계산 금지)",
+    "phases 키 부재 → CLAUDE.md 기본 phase 맵으로 폴백 또는 안내"
+  ],
+  "test_scenarios": [
+    "bats: 정상 config → 5개 phase 테이블, verification이 4 role 포함, implementation(opus) > deployment(sonnet) > … 정렬 검증",
+    "bats: --tokens-in 1000 --tokens-out 4000 → 특정 phase $ 추정값 산식 일치",
+    "bats: pricing에 없는 모델 → 해당 phase N/A",
+    "bats: config 부재/malformed → graceful(비0 종료 없이 안내)",
+    "bats: 비숫자 --tokens-in → 사용법 + 비0 종료",
+    "bats: F23 model-tiering이 pricing/phases 추가 후에도 0건",
+    "version-consistency 1.12.3"
+  ],
+  "implementation_steps": [
+    {
+      "step": "config/models.json에 pricing(4개 모델) + phases(5개 phase→roles) 추가 — 기존 tiers/assignments/rules 보존",
+      "verify": "jq 유효성 + model-tiering 0건 재확인",
+      "done": true
+    },
+    {
+      "step": "scripts/cost-report.sh 구현 — 읽기 전용, phase 테이블·정렬·최고가 표시·옵션 $ 추정·graceful degrade",
+      "verify": "tests/cost-report.bats (RED→GREEN)",
+      "done": true
+    },
+    {
+      "step": "버전 1.12.3(3종 매니페스트) + README/CLAUDE에 cost-report 한 줄 언급(해당 시)",
+      "verify": "version-consistency, 전체 bats 회귀 0, shellcheck",
+      "done": true
+    }
+  ],
+  "agreed": true
+}
