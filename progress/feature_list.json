@@ -288,6 +288,19 @@
         "F23"
       ],
       "assigned_sprint": 10
+    },
+    {
+      "id": "F25",
+      "name": "Evidence 클로징 프로브 — evidence over claims 집행",
+      "description": "6번째 자동발견 프로브(evidence). progress/agent-comms의 가장 최근 evaluator-feedback 레코드(archive/ 제외)가 pass 판정이면서 non-empty evidence 객체(command/output/result 등 실행 근거)를 기록하지 않았으면 후보로 보고. 전방위 검사 — 최신 게이트 결정 1건만 보아 historical 노이즈 회피(현재 최신은 evidence 보유 → 0건). run-all.sh에 6번째 배선. 읽기 전용, jq/파일 부재·malformed graceful degrade. invariant-guard 무관(add-only 신호 생성기).",
+      "security_tier": "low",
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
+      "dependencies": [
+        "F13"
+      ],
+      "assigned_sprint": 11
     }
   ]
 }

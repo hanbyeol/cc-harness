@@ -265,3 +265,86 @@ JSON
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | jq '[.[]|select(.name|test("unregistered|미등록";"i"))]|length')" -eq 0 ]
 }
+
+# --- evidence probe (F25) ---
+
+# 최신 evaluator-feedback 레코드를 만든다 (archive/ 제외, lexical 정렬)
+seed_feedback() {
+  mkdir -p "$WORK/progress/agent-comms"
+}
+fb() { # fb <timestamp> <json-content>
+  printf '%s' "$2" > "$WORK/progress/agent-comms/evaluator-feedback-$1.json"
+}
+
+@test "evidence: latest pass with evidence yields no candidate" {
+  seed_feedback
+  fb 2026-01-01T00-00-00 '{"verdict":"pass"}'
+  fb 2026-02-01T00-00-00 '{"verdict":"pass","evidence":{"bats":{"command":"bats","result":"ok"}}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/evidence.sh'"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "evidence: latest pass missing evidence yields a candidate" {
+  seed_feedback
+  fb 2026-01-01T00-00-00 '{"verdict":"pass","evidence":{"x":1}}'
+  fb 2026-03-01T00-00-00 '{"verdict":"pass"}'
+  run bash -c "cd '$WORK' && bash '$PROBES/evidence.sh'"
+  [ "$(echo "$output" | jq 'length')" -ge 1 ]
+  echo "$output" | jq -e '.[] | select(.source=="evidence")'
+}
+
+@test "evidence: latest pass with empty evidence object yields a candidate" {
+  seed_feedback
+  fb 2026-03-01T00-00-00 '{"verdict":"pass","evidence":{}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/evidence.sh'"
+  [ "$(echo "$output" | jq 'length')" -ge 1 ]
+}
+
+@test "evidence: latest fail without evidence yields no candidate" {
+  seed_feedback
+  fb 2026-03-01T00-00-00 '{"verdict":"fail"}'
+  run bash -c "cd '$WORK' && bash '$PROBES/evidence.sh'"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "evidence: newer evidenced pass masks older evidence-less pass" {
+  seed_feedback
+  fb 2026-01-01T00-00-00 '{"verdict":"pass"}'
+  fb 2026-09-01T00-00-00 '{"verdict":"pass","evidence":{"bats":{"result":"257 ok"}}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/evidence.sh'"
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "evidence: no agent-comms degrades gracefully" {
+  run bash -c "cd '$WORK' && bash '$PROBES/evidence.sh'"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "evidence: malformed latest record degrades gracefully" {
+  seed_feedback
+  fb 2026-09-01T00-00-00 'not json {{{'
+  run bash -c "cd '$WORK' && bash '$PROBES/evidence.sh'"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "evidence: archive/ records are excluded" {
+  seed_feedback
+  mkdir -p "$WORK/progress/agent-comms/archive"
+  printf '%s' '{"verdict":"pass"}' > "$WORK/progress/agent-comms/archive/evaluator-feedback-2030-01-01T00-00-00.json"
+  fb 2026-02-01T00-00-00 '{"verdict":"pass","evidence":{"x":{"command":"y"}}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/evidence.sh'"
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "run-all: includes evidence source" {
+  seed_consistent
+  seed_feedback
+  fb 2026-09-01T00-00-00 '{"verdict":"pass"}'
+  run bash -c "cd '$WORK' && bash '$PROBES/run-all.sh' 2026-09-01T00:00:00Z"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.[] | select(.source=="evidence")'
+}
