@@ -20,8 +20,9 @@ CFG=$(jq -c . "$CONFIG" 2>/dev/null) || { echo "[]"; exit 0; }
 FM="{}"
 for f in agents/*.md; do
   [[ -f "$f" ]] || continue
-  name=$(awk -F':' '/^name:/{sub(/^[^:]*:/,"",$0); gsub(/[" ]/,"",$0); print; exit}' "$f")
-  model=$(awk -F':' '/^model:/{sub(/^[^:]*:/,"",$0); gsub(/[" ]/,"",$0); print; exit}' "$f")
+  # key 접두사 제거 → 후행 인라인 주석(# ...) 제거 → 따옴표/공백 정리
+  name=$(awk '/^name:/{sub(/^name:[[:space:]]*/,""); sub(/[[:space:]]*#.*/,""); gsub(/["[:space:]]/,""); print; exit}' "$f")
+  model=$(awk '/^model:/{sub(/^model:[[:space:]]*/,""); sub(/[[:space:]]*#.*/,""); gsub(/["[:space:]]/,""); print; exit}' "$f")
   [[ -n "$name" && -n "$model" ]] || continue
   FM=$(jq -c --arg n "$name" --arg m "$model" '.[$n]=$m' <<<"$FM")
 done
@@ -72,5 +73,21 @@ jq -n -c --argjson cfg "$CFG" --argjson fm "$FM" '
             then {name:"tier inversion: gate \($role) below \($refrole)",
                   description:"검증 게이트 \($role)=\($model)가 \($refrole)=\($refmodel)보다 저티어 — 게이트는 구현 동급 이상이어야 함",
                   security_tier:"standard", source:"model-tiering"}
+          else empty end ]
+    + # (5) 역방향 drift: config에 할당이 있으나 agent 파일이 없는 역할
+      #     특히 gate_reference_role 부재는 rule4(게이트 역전)를 조용히 무력화 → 무결성 손상
+      [ ($asg | keys[]) as $role
+        | if ($fm[$role] // null) == null
+            then ( if ($role == $refrole and ($gates | length) > 0)
+                     then {name:"gate enforcement weakened: \($refrole) (agent 파일 없음)",
+                           description:"gate_reference_role \($refrole)의 agents/\($refrole).md가 없어 게이트 역전(rule4) 검사가 조용히 무력화됨 — 검증 무결성 손상. config 또는 agent 복구 필요",
+                           security_tier:"standard", source:"model-tiering"}
+                   elif (($gates | index($role)) != null)
+                     then {name:"verification gate missing agent: \($role)",
+                           description:"검증 게이트 \($role)가 config에 있으나 agents/\($role).md 없음 — 게이트 미집행",
+                           security_tier:"standard", source:"model-tiering"}
+                   else {name:"model drift: \($role) (agent 파일 없음)",
+                         description:"config/models.json에 \($role) 할당이 있으나 agents/\($role).md 없음 — stale 항목 또는 누락 agent",
+                         security_tier:"low", source:"model-tiering"} end )
           else empty end ]
   )'

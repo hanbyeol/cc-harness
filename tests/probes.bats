@@ -231,3 +231,37 @@ JSON
   [ "$status" -eq 0 ]
   [ "$(echo "$output" | jq 'length')" -eq 0 ]
 }
+
+@test "model-tiering: reverse drift — config role without agent file" {
+  seed_models
+  # config에 agent 파일 없는 역할 추가
+  jq '.assignments["ghost"]={"model":"claude-sonnet-4-6","criticality":"standard"}' "$WORK/config/models.json" > "$WORK/config/m.json" && mv "$WORK/config/m.json" "$WORK/config/models.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  [ "$(echo "$output" | jq 'length')" -ge 1 ]
+  echo "$output" | jq -e '.[] | select(.name | test("agent 파일 없음|missing agent"; "i"))'
+}
+
+@test "model-tiering: missing gate_reference_role disables rule4 (flagged, not silent)" {
+  seed_models
+  # implementer(gate_reference_role) agent 파일 제거 — config에는 유지
+  rm -f "$WORK/agents/implementer.md"
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.[] | select(.name | test("gate enforcement weakened"; "i"))'
+}
+
+@test "model-tiering: verification gate missing agent file is flagged" {
+  seed_models
+  rm -f "$WORK/agents/security-auditor.md"
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  echo "$output" | jq -e '.[] | select(.name | test("verification gate missing agent"; "i"))'
+}
+
+@test "model-tiering: inline comment on model field is stripped (no false unregistered)" {
+  seed_models
+  # 정합 모델 + 인라인 주석 — 파싱이 주석을 떼어내야 오탐 없음
+  printf -- '---\nname: qa-reviewer\ndescription: "x"\nmodel: claude-haiku-4-5  # cheapest\n---\n' > "$WORK/agents/qa-reviewer.md"
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("unregistered|미등록";"i"))]|length')" -eq 0 ]
+}
