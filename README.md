@@ -16,7 +16,7 @@ Claude Code의 전체 개발 생명주기(설계 정제 → 기획 → 아키텍
 | **기준 역전파** | 구현 중 발견한 기준 갭은 코드가 아니라 상위 산출물(SPEC, acceptance criteria)부터 보완한다 |
 | **Security by design** | 기능마다 `security_tier` 태깅 — critical 기능은 보안 점수 7 미만 시 다른 점수와 무관하게 자동 fail |
 | **결정론적 강제** | 프롬프트 규율에만 의존하지 않는다 — 위험 명령 차단, 자동 포맷, 품질 게이트, 시크릿 스캔은 **훅**이 집행 |
-| **모델 라우팅** | 판단이 결과를 좌우하는 단계는 Fable 5, 에이전틱 코딩·보안 감사는 Opus, 체크리스트성 작업은 Haiku |
+| **모델 라우팅** | 설계·판정·코딩·보안처럼 추론이 결과를 좌우하는 단계는 Opus, 스펙·테스트·배포는 Sonnet, 체크리스트성 QA는 Haiku — 할당은 `config/models.json` 단일 출처로 관리하고 model-tiering 프로브가 역전을 탐지 |
 
 ## Quick Start
 
@@ -99,21 +99,24 @@ claude
 | Agent | Phase | 역할 | 모델 |
 |-------|-------|------|------|
 | `spec-writer` | 1. 기획 | 인터뷰 브리프 → SPEC.md + acceptance criteria (미해결 항목은 `open_questions` 반환) | Sonnet 4.6 |
-| `architect` | 2. 설계 | 아키텍처 + 위협 모델링(STRIDE) + SECURITY-CHECKLIST + ADR | **Fable 5** |
+| `architect` | 2. 설계 | 아키텍처 + 위협 모델링(STRIDE) + SECURITY-CHECKLIST + ADR | **Opus 4.8** |
 | `implementer` | 3. 구현 | TDD(RED-GREEN-REFACTOR) 구현 + 보안 셀프체크 + 실행 evidence | Opus 4.8 |
-| `evaluator` | 게이트 | 5차원 품질 평가 (min-of-5, 점수 앵커, unverified 상한) | **Fable 5** |
-| `test-writer` | 4. 검증 | 통합/E2E/보안 테스트 (worktree 격리로 병렬 실행) | Haiku 4.5 |
+| `evaluator` | 게이트 | 5차원 품질 평가 (min-of-5, 점수 앵커, unverified 상한) | **Opus 4.8** |
+| `test-writer` | 4. 검증 | 통합/E2E/보안 테스트 (worktree 격리로 병렬 실행) | Sonnet 4.6 |
 | `security-auditor` | 4. 검증 | 보안 감사 + supply chain + 위협 모델 대비 검증 | Opus 4.8 |
 | `qa-reviewer` | 4. 검증 | 크로스 기능 통합 QA (사용자 관점) | Haiku 4.5 |
-| `deploy-operator` | 5. 배포 | 배포 전 검증 → staging → canary → prod, 자동 롤백 | Haiku 4.5 |
+| `deploy-operator` | 5. 배포 | 배포 전 검증 → staging → canary → prod, 자동 롤백 | Sonnet 4.6 |
 
-> **모델 라우팅** — 추론 강도에 따라 차등 배치:
-> - **Fable 5** (`claude-fable-5`): 설계·품질 게이트처럼 판단 품질이 결과를 좌우하는 단계.
->   1M 컨텍스트 기본. 단, **30일 데이터 보존 정책 필수**(ZDR 조직 사용 불가), 단가 $10/$50 per MTok.
->   사용 불가 환경은 `agents/architect.md`, `agents/evaluator.md`의 `model:`을 `claude-opus-4-8`로 변경.
-> - **Opus 4.8**: 에이전틱 코딩(implementer)과 보안 감사. security-auditor는 Fable 5의 cyber
->   안전 분류기가 방어 목적 분석도 refusal할 수 있어 **의도적으로 Opus 사용**.
-> - **Haiku 4.5**: 체크리스트성 검증·배포 등 비용 효율이 중요한 단계.
+> **모델 라우팅** — 작업 난이도에 맞춰 차등 배치. 할당은 `config/models.json`을 단일 출처로 관리하며
+> `agents/*.md` frontmatter와 일치해야 한다(불일치·역전·미등록은 model-tiering 프로브가 정적 탐지):
+> - **Opus 4.8** (`claude-opus-4-8`): 추론 품질이 결과를 좌우하는 단계 — 설계(architect),
+>   품질 게이트(evaluator), 에이전틱 코딩(implementer), 보안 감사(security-auditor).
+>   security-auditor는 방어 목적 분석까지 refusal하지 않도록 **cyber-refusal이 없는 Opus를 고수**한다.
+> - **Sonnet 4.6** (`claude-sonnet-4-6`): 실코딩성·안전 마진이 필요한 단계 — 스펙(spec-writer),
+>   테스트 작성(test-writer, evaluator의 커버리지 차원에 직결), 배포(deploy-operator).
+> - **Haiku 4.5** (`claude-haiku-4-5`): 체크리스트성 크로스 기능 QA(qa-reviewer).
+>
+> phase별 선언 단가(per-1M)는 `scripts/cost-report.sh`로 확인할 수 있습니다 — 읽기 전용, 실제 청구가 아닌 config 선언값입니다.
 
 **서브에이전트 제약**: 서브에이전트는 사용자에게 질문할 수 없습니다 — 사용자 입력이 필요한 결정(인터뷰, 승인)은 메인 루프가 디스패치 전에 수집해 프롬프트로 전달하는 구조입니다.
 
@@ -322,7 +325,7 @@ harness 자체도 실패에서 배웁니다:
 - `jq` — **권장**. 없으면 bash firewall이 비활성화되고(경고 출력) 세션 컨텍스트 주입이 축소됩니다
 - `bash` 3.2+ (hooks), 4.0+ (bootstrapper)
 - 각 언어 도구 (선택 — 없으면 해당 hook이 graceful skip)
-- 개발 시: `bats`, `shellcheck` (테스트 129개, CI에서 강제)
+- 개발 시: `bats`, `shellcheck` (테스트 273개, CI에서 강제)
 
 ## License
 
