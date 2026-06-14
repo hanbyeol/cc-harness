@@ -1,0 +1,58 @@
+{
+  "sprint": 11,
+  "title": "Evidence 클로징 프로브 — evidence over claims 집행 (F25, v1.12.4)",
+  "features": [
+    "F25"
+  ],
+  "security_tier": "low",
+  "source": "'Evidence over claims'는 CLAUDE.md 원칙이나 evaluator 프롬프트로만 강제됨 — 정적 집행 부재. agent-comms에 evidence 없는 pass 레코드가 실제 존재. 최신 게이트 결정이 실행 근거를 기록했는지 자동 검사해 원칙을 게이트화.",
+  "acceptance_criteria": [
+    "F25: scripts/probes/evidence.sh 신규 — 다른 프로브와 동일 출력 계약 [{name,description,security_tier,source:\"evidence\"}], 읽기 전용",
+    "F25: progress/agent-comms에서 archive/ 제외, 파일명의 ISO 타임스탬프 기준 가장 최근 evaluator-feedback 레코드 1건 선택(결정론적 lexical 정렬)",
+    "F25: 선택 레코드의 verdict가 pass류(/pass/i 매치, 단 'fail'·'downgrade' 제외)이고 .evidence가 객체이며 non-empty가 아니면(또는 키 부재) 후보 1건 보고",
+    "F25: 최신 레코드가 evidence를 보유하거나 verdict가 pass류가 아니면 0건 — 현재 repo 상태에서 0건(최신 11-00은 evidence 보유)",
+    "F25: run-all.sh의 프로브 루프에 evidence 배선(6번째) — 집계·dedup",
+    "전역: 버전 1.12.4(3종 매니페스트), 기존 bats 회귀 0, shellcheck 클린"
+  ],
+  "security_criteria": [
+    "프로브는 읽기 전용 — 파일 수정·firewall 우회 없음(프로브 규칙 동급)",
+    "검증 장치가 아님 — invariant-guard 대상 미변경, 게이트·임계값·evaluator 미변경(add-only). evidence 원칙을 '강화'하는 방향(신호 추가)이므로 INVARIANTS 위반 아님",
+    "jq/agent-comms 부재·malformed JSON·evaluator-feedback 0건 → graceful degrade([])"
+  ],
+  "error_scenarios": [
+    "progress/agent-comms 디렉토리 부재 → []",
+    "evaluator-feedback 파일 0건 → []",
+    "최신 레코드 malformed JSON → 안전 skip(크래시 금지), 가능하면 다음 최신으로 폴백 또는 []",
+    "verdict 필드 부재 → pass류 아님으로 간주(false positive 금지)",
+    "evidence가 객체 아닌 타입(문자열 등) → non-empty 객체 아님으로 후보(근거 누락)",
+    "archive/ 하위 파일은 제외(과거 보관본 무시)"
+  ],
+  "test_scenarios": [
+    "bats: 최신 feedback이 verdict:pass + evidence:{...} → 0건",
+    "bats: 최신 feedback이 verdict:pass + evidence 키 부재 → 후보 1건(source=evidence)",
+    "bats: 최신 feedback이 verdict:pass + evidence:{} (빈 객체) → 후보 1건",
+    "bats: 최신 feedback이 verdict:fail + evidence 부재 → 0건(fail은 근거 불요)",
+    "bats: 타임스탬프 정렬 — 더 최근 파일이 evidence 보유면 과거 무근거 pass 무시 → 0건",
+    "bats: agent-comms 부재 / malformed 최신 → graceful([])",
+    "bats: run-all이 evidence 출력을 집계(6번째 소스)",
+    "version-consistency 1.12.4"
+  ],
+  "implementation_steps": [
+    {
+      "step": "scripts/probes/evidence.sh 구현 — 최신 evaluator-feedback 선택(archive 제외, lexical 정렬), pass+무evidence 판정, 출력 계약, graceful degrade",
+      "verify": "tests/probes.bats evidence 케이스(RED→GREEN)",
+      "done": true
+    },
+    {
+      "step": "run-all.sh 프로브 루프에 evidence 추가(6번째) + 기존 5종 회귀 없음",
+      "verify": "probes.bats run-all 집계",
+      "done": true
+    },
+    {
+      "step": "버전 1.12.4(3종 매니페스트)",
+      "verify": "consistency 프로브 version mismatch 0건, 전체 bats 회귀 0, shellcheck",
+      "done": true
+    }
+  ],
+  "agreed": true
+}
