@@ -11,7 +11,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # 1. 집계 (각 프로브는 독립 — 하나 실패해도 나머지 수집)
 ALL="[]"
-for p in consistency metrics completeness self-review; do
+for p in consistency metrics completeness self-review model-tiering; do
   OUT=$(bash "$DIR/$p.sh" "$TS" 2>/dev/null || echo "[]")
   echo "$OUT" | jq -e 'type=="array"' &>/dev/null || OUT="[]"
   ALL=$(jq -c --argjson a "$ALL" --argjson b "$OUT" '$a + $b' <<<"null")

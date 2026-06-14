@@ -262,6 +262,19 @@
         "F21"
       ],
       "assigned_sprint": 8
+    },
+    {
+      "id": "F23",
+      "name": "모델 티어링 프로브 — agent↔model 역전 탐지",
+      "description": "5번째 자동 발견 프로브(model-tiering). config/models.json(tiers 래티스 + assignments: role→{model,criticality,rationale})을 단일 출처로, 각 agent frontmatter의 model과 대조. (a) frontmatter↔config drift, (b) criticality:critical인 역할이 최저 티어, (c) 검증 게이트(evaluator/security-auditor)가 implementer보다 저티어, (d) 미등록 모델ID를 후보로 보고. 읽기 전용, run-all.sh에 배선. invariant-guard 무관(검증장치 아님, add-only).",
+      "security_tier": "low",
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
+      "dependencies": [
+        "F13"
+      ],
+      "assigned_sprint": 9
     }
   ]
 }

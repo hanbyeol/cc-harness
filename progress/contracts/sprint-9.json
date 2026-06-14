@@ -1,0 +1,62 @@
+{
+  "sprint": 9,
+  "title": "모델 티어링 프로브 — agent↔model 역전 탐지 (F23, v1.12.2)",
+  "features": [
+    "F23"
+  ],
+  "security_tier": "low",
+  "source": "agent↔model 오할당(능력·비용 역전)을 수동으로 발견 — 4개 프로브 어디에도 정적 신호 없음. 단일 출처(config/models.json) 부재로 8개 frontmatter가 drift 위험. 재발 방지를 위해 5번째 프로브 추가.",
+  "acceptance_criteria": [
+    "F23: config/models.json 신규 — tiers(최상위→최하위 model ID 순서 배열) + assignments(role→{model,criticality:critical|standard|low,rationale}). 현재 8개 agent의 실제 할당을 그대로 반영해 초기화",
+    "F23: scripts/probes/model-tiering.sh 신규 — 다른 프로브와 동일 출력 계약 [{name,description,security_tier,source:\"model-tiering\"}], 읽기 전용",
+    "F23: drift 탐지 — agent frontmatter의 model이 config assignments[role].model과 불일치하면 후보",
+    "F23: 역전 탐지 — (a) criticality:critical 역할이 tiers 최저 티어 모델 사용, (b) evaluator·security-auditor의 티어 순위가 implementer보다 낮음(저티어)이면 후보",
+    "F23: 미등록 모델 — agent frontmatter model이 tiers 배열에 없으면 후보",
+    "F23: run-all.sh의 프로브 루프에 model-tiering 배선(consistency/metrics/completeness/self-review에 추가) — 5번째로 집계·dedup",
+    "전역: 버전 1.12.2, 기존 bats 회귀 없음, shellcheck 클린, 현재 할당 상태에서 model-tiering 후보 0건(이미 정합)"
+  ],
+  "security_criteria": [
+    "프로브는 읽기 전용 — 파일 수정·firewall 우회 없음(기존 프로브 제약과 동일, INVARIANTS 프로브 규칙 준수)",
+    "config/models.json·model-tiering.sh는 검증 장치가 아니므로 invariant-guard 대상 아님 — 그러나 프로브는 add-only 신호 생성기로서 게이트를 약화하지 않는다(임계값·deny·evaluator 미변경)",
+    "jq/config 부재·malformed JSON 시 graceful degrade(빈 배열 출력) — 다른 프로브와 동일하게 진단을 망가뜨리지 않음"
+  ],
+  "error_scenarios": [
+    "config/models.json 부재 → 프로브가 [] 출력(신호 없음, 에러 아님)",
+    "config/models.json malformed JSON → [] 출력",
+    "agent frontmatter에 model 필드 없음 → 해당 agent skip(크래시 금지) 또는 '미선언' 후보 1건",
+    "assignments에 없는 신규 role(agent 추가) → drift 후보로 보고",
+    "tiers 배열이 비었거나 단일 모델 → 역전 규칙 무력(false positive 없이 통과)"
+  ],
+  "test_scenarios": [
+    "bats: 정상 정합(현재 할당) → model-tiering 후보 0건",
+    "bats: evaluator를 haiku로 바꾼 fixture → 역전 후보 1건(검증 게이트 < implementer)",
+    "bats: deploy-operator를 미등록 모델ID로 → 미등록 후보 1건",
+    "bats: frontmatter≠config drift fixture → drift 후보 1건",
+    "bats: config 부재/ malformed → [] (graceful)",
+    "bats: run-all.sh가 model-tiering 출력을 집계·dedup하는지(5번째 소스)",
+    "version-consistency 1.12.2(3종 매니페스트 일치)"
+  ],
+  "implementation_steps": [
+    {
+      "step": "config/models.json 작성 — 현재 8개 agent의 model/criticality/rationale + tiers 래티스(fable-5>opus-4-8>sonnet-4-6>haiku-4-5)",
+      "verify": "jq 유효성 + 수동 대조",
+      "done": true
+    },
+    {
+      "step": "scripts/probes/model-tiering.sh 구현 — drift/역전/미등록 규칙, 읽기 전용, 출력 계약 준수, graceful degrade",
+      "verify": "tests/probes.bats model-tiering 케이스(RED→GREEN)",
+      "done": true
+    },
+    {
+      "step": "run-all.sh 프로브 루프에 model-tiering 추가 + 기존 4종 회귀 없음",
+      "verify": "probes.bats run-all 집계 케이스",
+      "done": true
+    },
+    {
+      "step": "버전 1.12.2(3종 매니페스트) — 직전 v1.12.1의 package/marketplace 누락분도 함께 정렬(C1 동시 해소)",
+      "verify": "consistency 프로브 version mismatch 0건",
+      "done": true
+    }
+  ],
+  "agreed": true
+}

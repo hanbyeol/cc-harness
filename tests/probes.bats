@@ -122,3 +122,112 @@ seed_consistent() {
   # 그 후보는 빠져야 한다
   [ "$(echo "$output" | jq --arg n "$CAND" '[.[]|select(.name==$n)]|length')" -eq 0 ]
 }
+
+# --- model-tiering probe (F23) ---
+
+# 현재 할당과 정합하는 config + agents를 만든다 (역전/ drift 없음)
+seed_models() {
+  mkdir -p "$WORK/config" "$WORK/agents"
+  cat > "$WORK/config/models.json" <<'JSON'
+{
+  "tiers": ["claude-fable-5","claude-opus-4-8","claude-sonnet-4-6","claude-haiku-4-5"],
+  "assignments": {
+    "implementer":      {"model":"claude-opus-4-8","criticality":"critical"},
+    "evaluator":        {"model":"claude-opus-4-8","criticality":"critical"},
+    "security-auditor": {"model":"claude-opus-4-8","criticality":"critical"},
+    "qa-reviewer":      {"model":"claude-haiku-4-5","criticality":"low"}
+  },
+  "rules": {"verification_gates":["evaluator","security-auditor"],"gate_reference_role":"implementer"}
+}
+JSON
+  agent() { printf -- '---\nname: %s\ndescription: "x"\nmodel: %s\n---\n' "$1" "$2" > "$WORK/agents/$1.md"; }
+  agent implementer claude-opus-4-8
+  agent evaluator claude-opus-4-8
+  agent security-auditor claude-opus-4-8
+  agent qa-reviewer claude-haiku-4-5
+}
+
+@test "model-tiering: consistent assignment yields no candidates" {
+  seed_models
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "model-tiering: gate below implementer yields inversion candidate" {
+  seed_models
+  # evaluator를 최저 티어로 — 검증 게이트가 implementer(opus)보다 저티어
+  printf -- '---\nname: evaluator\ndescription: "x"\nmodel: claude-haiku-4-5\n---\n' > "$WORK/agents/evaluator.md"
+  jq '.assignments.evaluator.model="claude-haiku-4-5"' "$WORK/config/models.json" > "$WORK/config/m.json" && mv "$WORK/config/m.json" "$WORK/config/models.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  [ "$(echo "$output" | jq 'length')" -ge 1 ]
+  echo "$output" | jq -e '.[] | select(.name | test("inversion|역전|gate"; "i"))'
+}
+
+@test "model-tiering: critical role on lowest tier yields candidate" {
+  seed_models
+  # implementer(critical)를 최저 티어로
+  printf -- '---\nname: implementer\ndescription: "x"\nmodel: claude-haiku-4-5\n---\n' > "$WORK/agents/implementer.md"
+  jq '.assignments.implementer.model="claude-haiku-4-5"' "$WORK/config/models.json" > "$WORK/config/m.json" && mv "$WORK/config/m.json" "$WORK/config/models.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  [ "$(echo "$output" | jq 'length')" -ge 1 ]
+}
+
+@test "model-tiering: frontmatter-config drift yields candidate" {
+  seed_models
+  # frontmatter만 바꿔 config와 불일치
+  printf -- '---\nname: qa-reviewer\ndescription: "x"\nmodel: claude-sonnet-4-6\n---\n' > "$WORK/agents/qa-reviewer.md"
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  [ "$(echo "$output" | jq 'length')" -ge 1 ]
+  echo "$output" | jq -e '.[] | select(.name | test("drift"; "i"))'
+}
+
+@test "model-tiering: unregistered model id yields candidate" {
+  seed_models
+  printf -- '---\nname: qa-reviewer\ndescription: "x"\nmodel: claude-bogus-9\n---\n' > "$WORK/agents/qa-reviewer.md"
+  jq '.assignments."qa-reviewer".model="claude-bogus-9"' "$WORK/config/models.json" > "$WORK/config/m.json" && mv "$WORK/config/m.json" "$WORK/config/models.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  [ "$(echo "$output" | jq 'length')" -ge 1 ]
+  echo "$output" | jq -e '.[] | select(.name | test("unregistered|미등록"; "i"))'
+}
+
+@test "model-tiering: missing config degrades gracefully" {
+  mkdir -p "$WORK/agents"
+  printf -- '---\nname: implementer\nmodel: claude-opus-4-8\n---\n' > "$WORK/agents/implementer.md"
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "model-tiering: malformed config degrades gracefully" {
+  seed_models
+  printf 'not json {{{' > "$WORK/config/models.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "run-all: includes model-tiering source" {
+  seed_consistent
+  seed_models
+  # evaluator 역전으로 model-tiering 후보 1건 유발
+  printf -- '---\nname: evaluator\ndescription: "x"\nmodel: claude-haiku-4-5\n---\n' > "$WORK/agents/evaluator.md"
+  jq '.assignments.evaluator.model="claude-haiku-4-5"' "$WORK/config/models.json" > "$WORK/config/m.json" && mv "$WORK/config/m.json" "$WORK/config/models.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/run-all.sh' 2026-06-13T00:00:00Z"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.[] | select(.source=="model-tiering")'
+}
+
+@test "model-tiering: single-tier lattice disables inversion rules (no false positive)" {
+  seed_models
+  # tiers를 단일 모델로 축소 — 역전 규칙(critical-on-lowest, gate-below-ref)이 무력화돼야
+  jq '.tiers=["claude-opus-4-8"]' "$WORK/config/models.json" > "$WORK/config/m.json" && mv "$WORK/config/m.json" "$WORK/config/models.json"
+  # 모든 agent를 그 단일 모델로
+  for r in implementer evaluator security-auditor qa-reviewer; do
+    printf -- '---\nname: %s\ndescription: "x"\nmodel: claude-opus-4-8\n---\n' "$r" > "$WORK/agents/$r.md"
+    jq --arg r "$r" '.assignments[$r].model="claude-opus-4-8"' "$WORK/config/models.json" > "$WORK/config/m.json" && mv "$WORK/config/m.json" "$WORK/config/models.json"
+  done
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}

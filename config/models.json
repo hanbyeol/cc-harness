@@ -1,0 +1,58 @@
+{
+  "_comment": "단일 출처: 각 역할의 model 할당과 능력 티어 래티스. agents/*.md frontmatter의 model은 여기 assignments와 일치해야 하며, scripts/probes/model-tiering.sh가 drift·역전·미등록을 정적 탐지한다. 새 모델 라인업/재배치 시 이 파일과 frontmatter를 함께 갱신.",
+  "tiers": [
+    "claude-fable-5",
+    "claude-opus-4-8",
+    "claude-sonnet-4-6",
+    "claude-haiku-4-5"
+  ],
+  "assignments": {
+    "implementer": {
+      "model": "claude-opus-4-8",
+      "criticality": "critical",
+      "rationale": "long-horizon 에이전틱 코딩 — 가장 무거운 작업. 코딩 SOTA."
+    },
+    "evaluator": {
+      "model": "claude-opus-4-8",
+      "criticality": "critical",
+      "rationale": "유일한 통과 판정 게이트(min-of-5). 판단 정확성 핵심 — 구현과 동급 티어 이상."
+    },
+    "security-auditor": {
+      "model": "claude-opus-4-8",
+      "criticality": "critical",
+      "rationale": "critical 보안 감사. 강한 추론 필요 + Fable 5 cyber-refusal 회피로 Opus 적정."
+    },
+    "architect": {
+      "model": "claude-opus-4-8",
+      "criticality": "standard",
+      "rationale": "아키텍처 설계·위협모델링. 깊은 추론이나 경계 명확한 1회성 태스크."
+    },
+    "spec-writer": {
+      "model": "claude-sonnet-4-6",
+      "criticality": "standard",
+      "rationale": "인터뷰 브리프 → 스펙. 속도/지능 균형으로 충분."
+    },
+    "test-writer": {
+      "model": "claude-sonnet-4-6",
+      "criticality": "standard",
+      "rationale": "단위/통합/E2E + 보안 테스트 작성 = 실코딩. 커버리지 게이트 차원에 직결."
+    },
+    "deploy-operator": {
+      "model": "claude-sonnet-4-6",
+      "criticality": "standard",
+      "rationale": "프로덕션 배포 — 되돌리기 어려움. 절차적이나 안전 마진 확보."
+    },
+    "qa-reviewer": {
+      "model": "claude-haiku-4-5",
+      "criticality": "low",
+      "rationale": "사용자 관점 QA 검증. 상대적으로 가벼운 판정 — 최경량 적정."
+    }
+  },
+  "rules": {
+    "verification_gates": [
+      "evaluator",
+      "security-auditor"
+    ],
+    "gate_reference_role": "implementer"
+  }
+}
