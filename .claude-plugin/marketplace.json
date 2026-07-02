@@ -8,7 +8,7 @@
       "name": "cc-harness",
       "source": "./",
       "description": "Full-SDLC harness: 8 agents, 7 hooks, 11 skills, lifecycle profiles (sdlc/iac/ops), quality gates, security audit, self-improvement loop",
-      "version": "1.12.5"
+      "version": "1.12.6"
     }
   ]
 }

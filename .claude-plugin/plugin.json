@@ -1,6 +1,6 @@
 {
   "name": "cc-harness",
-  "version": "1.12.5",
+  "version": "1.12.6",
   "description": "Full-SDLC harness for Claude Code — 8 agents, 7 hooks, 11 skills, 11 rules with lifecycle profiles (sdlc/iac/ops) and a recursive self-improvement loop",
   "author": {
     "name": "Studio J"
