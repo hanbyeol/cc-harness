@@ -1,7 +1,7 @@
 ---
 name: spec-writer
 description: "Specification writer — turns an interview brief into SPEC.md, acceptance criteria and security requirements. Use for Phase 1 (planning). The main loop must interview the user first and pass the brief in the prompt."
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # Spec Writer Agent

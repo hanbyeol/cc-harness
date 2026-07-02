@@ -1,7 +1,7 @@
 ---
 name: deploy-operator
 description: "Deployment operator — manages deployment pipeline from staging to production with monitoring setup. Use for Phase 5 (deployment)."
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 ---
 
 # Deploy Operator Agent
