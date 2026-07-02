@@ -3,7 +3,7 @@
   "tiers": [
     "claude-fable-5",
     "claude-opus-4-8",
-    "claude-sonnet-4-6",
+    "claude-sonnet-5",
     "claude-haiku-4-5"
   ],
   "assignments": {
@@ -28,17 +28,17 @@
       "rationale": "아키텍처 설계·위협모델링. 깊은 추론이나 경계 명확한 1회성 태스크."
     },
     "spec-writer": {
-      "model": "claude-sonnet-4-6",
+      "model": "claude-sonnet-5",
       "criticality": "standard",
       "rationale": "인터뷰 브리프 → 스펙. 속도/지능 균형으로 충분."
     },
     "test-writer": {
-      "model": "claude-sonnet-4-6",
+      "model": "claude-sonnet-5",
       "criticality": "standard",
       "rationale": "단위/통합/E2E + 보안 테스트 작성 = 실코딩. 커버리지 게이트 차원에 직결."
     },
     "deploy-operator": {
-      "model": "claude-sonnet-4-6",
+      "model": "claude-sonnet-5",
       "criticality": "standard",
       "rationale": "프로덕션 배포 — 되돌리기 어려움. 절차적이나 안전 마진 확보."
     },
@@ -64,7 +64,7 @@
       "input": 5,
       "output": 25
     },
-    "claude-sonnet-4-6": {
+    "claude-sonnet-5": {
       "input": 3,
       "output": 15
     },

@@ -98,21 +98,21 @@ claude
 
 | Agent | Phase | 역할 | 모델 |
 |-------|-------|------|------|
-| `spec-writer` | 1. 기획 | 인터뷰 브리프 → SPEC.md + acceptance criteria (미해결 항목은 `open_questions` 반환) | Sonnet 4.6 |
+| `spec-writer` | 1. 기획 | 인터뷰 브리프 → SPEC.md + acceptance criteria (미해결 항목은 `open_questions` 반환) | Sonnet 5 |
 | `architect` | 2. 설계 | 아키텍처 + 위협 모델링(STRIDE) + SECURITY-CHECKLIST + ADR | **Opus 4.8** |
 | `implementer` | 3. 구현 | TDD(RED-GREEN-REFACTOR) 구현 + 보안 셀프체크 + 실행 evidence | Opus 4.8 |
 | `evaluator` | 게이트 | 5차원 품질 평가 (min-of-5, 점수 앵커, unverified 상한) | **Opus 4.8** |
-| `test-writer` | 4. 검증 | 통합/E2E/보안 테스트 (worktree 격리로 병렬 실행) | Sonnet 4.6 |
+| `test-writer` | 4. 검증 | 통합/E2E/보안 테스트 (worktree 격리로 병렬 실행) | Sonnet 5 |
 | `security-auditor` | 4. 검증 | 보안 감사 + supply chain + 위협 모델 대비 검증 | Opus 4.8 |
 | `qa-reviewer` | 4. 검증 | 크로스 기능 통합 QA (사용자 관점) | Haiku 4.5 |
-| `deploy-operator` | 5. 배포 | 배포 전 검증 → staging → canary → prod, 자동 롤백 | Sonnet 4.6 |
+| `deploy-operator` | 5. 배포 | 배포 전 검증 → staging → canary → prod, 자동 롤백 | Sonnet 5 |
 
 > **모델 라우팅** — 작업 난이도에 맞춰 차등 배치. 할당은 `config/models.json`을 단일 출처로 관리하며
 > `agents/*.md` frontmatter와 일치해야 한다(불일치·역전·미등록은 model-tiering 프로브가 정적 탐지):
 > - **Opus 4.8** (`claude-opus-4-8`): 추론 품질이 결과를 좌우하는 단계 — 설계(architect),
 >   품질 게이트(evaluator), 에이전틱 코딩(implementer), 보안 감사(security-auditor).
 >   security-auditor는 방어 목적 분석까지 refusal하지 않도록 **cyber-refusal이 없는 Opus를 고수**한다.
-> - **Sonnet 4.6** (`claude-sonnet-4-6`): 실코딩성·안전 마진이 필요한 단계 — 스펙(spec-writer),
+> - **Sonnet 5** (`claude-sonnet-5`): 실코딩성·안전 마진이 필요한 단계 — 스펙(spec-writer),
 >   테스트 작성(test-writer, evaluator의 커버리지 차원에 직결), 배포(deploy-operator).
 > - **Haiku 4.5** (`claude-haiku-4-5`): 체크리스트성 크로스 기능 QA(qa-reviewer).
 >
