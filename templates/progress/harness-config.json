@@ -18,5 +18,9 @@
   "agent_comms": {
     "max_files_per_type": 10,
     "archive_enabled": true
+  },
+  "firewall": {
+    "_comment": "auto_allow=true 이면 pre-bash-firewall.sh가 읽기 전용/저위험 명령을 무프롬프트로 자동 허용(permissionDecision:allow). deny/ask 위험 차단 계층은 이 값과 무관하게 항상 실행된다(false로 꺼도 가드 유지).",
+    "auto_allow": true
   }
 }

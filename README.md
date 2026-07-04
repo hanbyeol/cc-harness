@@ -151,7 +151,7 @@ plugin 설치 시 `hooks.json`으로 **네이티브 등록**됩니다 — settin
 |-------|------|------|
 | SessionStart | `setup-claudemd.sh` | rules 복사·갱신, CLAUDE.md 섹션 세팅(멱등), 버전 업그레이드 마이그레이션 |
 | SessionStart | `session-context.sh` | 브랜치·phase·미완료 기능·handoff 주입 + agent-comms 아카이빙 |
-| PreToolUse (Bash) | `pre-bash-firewall.sh` | 파괴적 명령 **deny** / 복구 가능한 위험 명령 **ask** |
+| PreToolUse (Bash) | `pre-bash-firewall.sh` | 파괴적 명령 **deny** / 위험 명령 **ask** / 읽기 전용·저위험 명령 **자동 허용(allow)** |
 | PreToolUse (Edit\|Write) | `invariant-guard.sh` | 검증 장치 약화(임계값 하향·deny 삭제·테스트 삭제) 차단 ([INVARIANTS.md](docs/INVARIANTS.md)) |
 | PostToolUse | `post-edit-format.sh` | 자동 포맷팅 (gofmt, prettier, swiftformat, ktlint, dart 등) |
 | Stop | `pre-commit-gate.sh` | 변경 언어별 테스트 + 커버리지 기록 + 시크릿 스캔 (동일 트리 재실행 skip 캐시) |
@@ -159,9 +159,10 @@ plugin 설치 시 `hooks.json`으로 **네이티브 등록**됩니다 — settin
 
 > `hooks/lib.sh`는 이벤트 훅이 아니라 위 훅들이 공유하는 라이브러리(cfg_get·version_lt·harness_cd)입니다.
 
-**Firewall 2-tier 정책**:
+**Firewall 정책** (우선순위: deny → ask → allow):
 - **deny**: 루트/홈/시스템 디렉토리 `rm`, `git push --force`(`--force-with-lease`는 허용), pipe-to-shell(중간 파이프 우회 포함), fork bomb, `DROP TABLE`, eval/명령치환 우회 등
 - **ask**: `git reset --hard`, `git clean -f` 등 정상 워크플로우에서 쓰이지만 uncommitted 변경을 잃을 수 있는 명령 — 차단 대신 사용자 확인
+- **allow**: 읽기 전용 조회(ls/cat/grep/git status·log·diff 등)·빌드/테스트(go test·bats·npm test)·저위험 로컬 쓰기(git add/commit, mkdir/touch/cp/mv)를 **무프롬프트 자동 허용** — deny/ask를 통과한 명령이 allowlist에만 매칭될 때. `$(...)`·백틱·파일 리다이렉트·미등록 명령이 섞이면 기본 프롬프트로 넘어간다. `git push`·`terraform`·`kubectl`·`npm install`·인터프리터는 제외. `harness-config.json`의 `firewall.auto_allow`(기본 true)로 allow만 on/off — deny/ask는 항상 유지
 
 ### Rules (11개)
 
@@ -177,7 +178,7 @@ Path-scoped 규칙 — 해당 파일 작업 시에만 로드:
 |--------|------|
 | 세션 시작 | 브랜치, phase, 미완료 기능, 이전 세션 handoff, 마지막 evaluator 피드백 주입 |
 | 코드 편집 | 언어별 포맷터 자동 실행 |
-| Bash 실행 | 파괴적 명령 deny / 위험 명령 ask |
+| Bash 실행 | 파괴적 명령 deny / 위험 명령 ask / 읽기 전용·저위험 명령 자동 허용(무프롬프트) |
 | 세션 종료 | 변경 파일 언어별 테스트 + 커버리지 기록(`progress/coverage-report.json`) + 시크릿 스캔, 상태 저장 |
 | plugin 업데이트 | 버전 감지 → 마이그레이션 + 미수정 rules 자동 갱신 (수정본 보존) |
 

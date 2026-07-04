@@ -81,6 +81,15 @@ evaluator 종합 점수 = 5개 차원(기능·품질·보안·에러처리·테�
 곤란). 이는 pre-commit-gate의 실제 테스트 실행이 2차 방어선이다 — 무력화된 테스트라도
 CI/게이트에서 실행되면 회귀가 드러난다.
 
+### INV-9. Firewall allow 계층은 deny/ask 이후에만 평가된다
+`hooks/pre-bash-firewall.sh`의 Layer 4(allow)는 **반드시 deny(L1/2)·ask(L3) 뒤에** 위치한다.
+위험 명령이 먼저 `exit 2`/ask로 걸러진 뒤에만 도달하므로, allowlist는 상태-파괴 명령을 포함하지
+않으며 설령 포함되더라도 우선순위상 allow가 발동하지 않는다. allow의 config 토글
+(`firewall.auto_allow`, 기본 true)은 **allow만** 켜고 끈다 — deny/ask는 이 값과 무관하게 항상 실행된다.
+**왜 불변**: allow를 deny/ask보다 앞에 두거나 토글로 가드를 끄면 안전 회귀다. allowlist 확장은
+사람이 검토(critical 티어)하고, 위험 명령이 allow로 새지 않음은 `tests/pre-bash-firewall.bats`의
+회귀 배터리(위험 명령 output에 `permissionDecision:"allow"` 미포함)가 고정한다. → [ADR-004](DECISIONS/ADR-004-firewall-auto-allow.md)
+
 ## 위협 모델 — 가드가 막는 것과 못 막는 것
 invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가능한 파일**이다. 따라서
 "파일에 임의 내용을 쓸 수 있는 행위자가 가드 소스 자체를 재작성하는 것"은 텍스트/구조 검사만으로
@@ -111,3 +120,4 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
 
 ## 변경 이력
 - 2026-06-13: 최초 작성 (재귀적 자기개선 루프 안전장치, sprint-3 F12)
+- 2026-07-04: INV-9 추가 (firewall allow 계층은 deny/ask 이후에만 평가, sprint-13 F27, v1.13.0)

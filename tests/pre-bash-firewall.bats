@@ -257,7 +257,7 @@ run_firewall() {
 @test "allows git status" {
   run run_firewall '{"tool_input":{"command":"git status"}}'
   [ "$status" -eq 0 ]
-  [ -z "$output" ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
 @test "allows git push (without --force)" {
@@ -468,4 +468,190 @@ run_firewall() {
 @test "passes through invalid JSON gracefully" {
   run run_firewall 'not json'
   [ "$status" -eq 0 ]
+}
+
+# --- Layer 4: Allow tier — 읽기 전용/저위험 명령 자동 허용 (무프롬프트) ---
+
+@test "allows git log" {
+  run run_firewall '{"tool_input":{"command":"git log --oneline -10"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "allows ls -la" {
+  run run_firewall '{"tool_input":{"command":"ls -la src"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "allows grep recursive" {
+  run run_firewall '{"tool_input":{"command":"grep -rn pattern ."}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "allows go test (emits allow)" {
+  run run_firewall '{"tool_input":{"command":"go test ./..."}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "allows bats test run" {
+  run run_firewall '{"tool_input":{"command":"bats tests/"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "allows git add (local write)" {
+  run run_firewall '{"tool_input":{"command":"git add -A"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "allows git commit (no substitution) emits allow" {
+  run run_firewall '{"tool_input":{"command":"git commit -m fix"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "allows mkdir/touch/cp/mv (local writes)" {
+  run run_firewall '{"tool_input":{"command":"mkdir -p build && touch build/x && cp a b && mv b c"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "allows all-safe pipeline" {
+  run run_firewall '{"tool_input":{"command":"git log --oneline | head -5 | wc -l"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "allows command with stderr discard (2>/dev/null)" {
+  run run_firewall '{"tool_input":{"command":"cat missing.txt 2>/dev/null"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "allows command with 2>&1 redirect" {
+  run run_firewall '{"tool_input":{"command":"go build ./... 2>&1"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "allows leading env var assignment" {
+  run run_firewall '{"tool_input":{"command":"GOFLAGS=-count=1 go test ./..."}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+# --- Layer 4: fall-through — allowlist 미매칭은 기본 프롬프트(자동 허용 안 함) ---
+
+@test "does NOT auto-allow unlisted command (docker build)" {
+  run run_firewall '{"tool_input":{"command":"docker build -t app ."}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow pipeline containing an unlisted command" {
+  run run_firewall '{"tool_input":{"command":"ls && docker build -t app ."}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow command substitution" {
+  run run_firewall '{"tool_input":{"command":"ls $(pwd)"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow file redirect (>)" {
+  run run_firewall '{"tool_input":{"command":"ls > out.txt"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow append redirect (>>)" {
+  run run_firewall '{"tool_input":{"command":"echo x >> ~/.bashrc"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow git push" {
+  run run_firewall '{"tool_input":{"command":"git push origin main"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow git checkout (can discard working tree)" {
+  run run_firewall '{"tool_input":{"command":"git checkout main"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow npm install (postinstall risk)" {
+  run run_firewall '{"tool_input":{"command":"npm install express"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow git branch -D (destructive flag)" {
+  run run_firewall '{"tool_input":{"command":"git branch -D feature"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow path-qualified command" {
+  run run_firewall '{"tool_input":{"command":"/tmp/evil/ls"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+# --- Layer 4: precedence — 위험 명령은 절대 allow로 방출되지 않는다 (deny/ask 우선) ---
+
+@test "dangerous rm never emits allow (deny wins)" {
+  run run_firewall '{"tool_input":{"command":"rm -rf /"}}'
+  [ "$status" -eq 2 ]
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "terraform destroy never emits allow (ask wins)" {
+  run run_firewall '{"tool_input":{"command":"terraform destroy"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "kubectl delete never emits allow (ask wins)" {
+  run run_firewall '{"tool_input":{"command":"kubectl delete pod x -n app"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "git reset --hard never emits allow (ask wins)" {
+  run run_firewall '{"tool_input":{"command":"git reset --hard HEAD~1"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+# --- Layer 4: config 토글 ---
+
+@test "auto_allow=false disables allow layer (git status no longer auto-allowed)" {
+  tmp="$(mktemp -d)"
+  mkdir -p "$tmp/progress"
+  printf '%s' '{"firewall":{"auto_allow":false}}' > "$tmp/progress/harness-config.json"
+  CLAUDE_PROJECT_DIR="$tmp" run run_firewall '{"tool_input":{"command":"git status"}}'
+  rm -rf "$tmp"
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "auto_allow=false still enforces deny layer" {
+  tmp="$(mktemp -d)"
+  mkdir -p "$tmp/progress"
+  printf '%s' '{"firewall":{"auto_allow":false}}' > "$tmp/progress/harness-config.json"
+  CLAUDE_PROJECT_DIR="$tmp" run run_firewall '{"tool_input":{"command":"rm -rf /"}}'
+  rm -rf "$tmp"
+  [ "$status" -eq 2 ]
 }

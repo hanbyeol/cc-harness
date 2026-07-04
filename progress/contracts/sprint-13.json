@@ -1,0 +1,57 @@
+{
+  "sprint": 13,
+  "title": "Firewall 자동 허용(allow) 계층 — 비위험 명령 무프롬프트 (F27, v1.13.0)",
+  "features": [
+    "F27"
+  ],
+  "security_tier": "critical",
+  "source": "cc-harness가 플러그인으로 설치되어 skill/agent가 실행될 때, deny/ask에 걸리지 않는 안전 명령(git status·go test·grep·git commit 등)마다 사용자 Y/n 프롬프트가 발생해 자동화 흐름이 끊긴다. firewall은 위험만 처리하고 안전은 판정 없이 exit 0 → 기본 프롬프트로 넘어간다. 플러그인 훅에 allow 계층을 내장해 이식성 있게 해소.",
+  "acceptance_criteria": [
+    "F27-1: 읽기 전용/승인된 로컬 쓰기 명령 → permissionDecision:allow 방출, exit 0 (git status/log, ls, grep, go test, bats, git add/commit, mkdir/touch/cp/mv)",
+    "F27-2: 파이프라인 전 세그먼트가 allowlist면 allow (git log | head | wc -l)",
+    "F27-3: 미등록 명령·혼합 파이프라인·$(...)·백틱·파일 리다이렉트(>,>>)·경로지정 명령은 allow 미방출(fall-through, 기존 동작 유지)",
+    "F27-4: config firewall.auto_allow=false → allow 계층만 비활성(deny/ask는 유지)",
+    "F27-5: 기존 deny/ask/iac·ops passthrough 테스트 전부 무회귀 (git status 1건만 allow로 갱신)",
+    "전역: 버전 1.13.0(3종 매니페스트), version-consistency GREEN, pre-bash-firewall.bats 전체 GREEN"
+  ],
+  "security_criteria": [
+    "SC1: deny(L1/2)·ask(L3)가 allow(L4)보다 먼저 평가·조기종료 — 위험 명령은 allow 계층에 도달 불가",
+    "SC2: 위험 명령 배터리(rm -rf /·sudo rm·dd of=/dev·git push --force·terraform destroy·kubectl delete·git reset --hard·fork bomb)가 절대 allow를 방출하지 않음 — bats 회귀로 고정",
+    "SC3: auto_allow 토글은 allow만 제어 — deny/ask는 config로 끌 수 없음(auto_allow=false에서도 rm -rf / deny 확인)",
+    "SC4: git push·checkout·terraform·kubectl·helm·npm install·인터프리터(python/perl/awk/sed) allowlist 제외",
+    "SC5: allowlist 확장은 코드 변경 → critical 티어 evaluator+security-auditor 리뷰 경유(INV-5 add-only가 deny/ask 우선순위 보존)"
+  ],
+  "error_scenarios": [
+    "jq 부재: firewall 상단에서 이미 경고 후 exit 0 — allow 계층 미도달(자동 허용 없이 기본 흐름)",
+    "harness-config.json 부재/malformed: cfg 읽기 실패 → AUTO_ALLOW 기본 true(사용자 의도)로 degrade, deny/ask는 무관",
+    "2>&1 / 2>/dev/null 처럼 흔한 stderr 리다이렉트가 파일 리다이렉트로 오판되어 allow를 놓치지 않음",
+    "백틱 든 안전 커밋 메시지는 보수적으로 프롬프트(자동 허용 안 함) — 안전 우선, 회귀 아님"
+  ],
+  "test_scenarios": [
+    "bats pre-bash-firewall.bats: allow 12케이스 + fall-through 10케이스 + precedence 4케이스 + 토글 2케이스 추가, 기존 85케이스 무회귀 (총 113 GREEN)",
+    "version-consistency: 1.13.0"
+  ],
+  "implementation_steps": [
+    {
+      "step": "hooks/pre-bash-firewall.sh에 Layer 4(allow) 추가 — config 토글 read(firewall.auto_allow) + subst/redirect 가드 + 세그먼트별 allowlist 매칭 + permissionDecision:allow 방출",
+      "verify": "bats tests/pre-bash-firewall.bats GREEN (113/113)",
+      "done": true
+    },
+    {
+      "step": "templates/progress/harness-config.json에 firewall.auto_allow:true 추가(_comment 포함)",
+      "verify": "jq 유효 + 토글 off 테스트 GREEN",
+      "done": true
+    },
+    {
+      "step": "tests/pre-bash-firewall.bats: allow/fall-through/precedence/toggle 케이스 추가, git status 테스트를 allow 방출로 갱신",
+      "verify": "grep -c '^ok' TAP == 113, not ok == 0",
+      "done": true
+    },
+    {
+      "step": "docs/DECISIONS/ADR-004 + INVARIANTS INV-9 + README firewall 서술 갱신 + 버전 1.13.0(3종)",
+      "verify": "version-consistency GREEN, 전체 bats 회귀 0",
+      "done": true
+    }
+  ],
+  "agreed": true
+}

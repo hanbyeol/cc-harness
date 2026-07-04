@@ -114,4 +114,80 @@ if echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; t
   done
 fi
 
+# === Layer 4: Allow tier — 읽기 전용/저위험 명령 자동 허용 (무프롬프트) ===
+# 여기 도달 = deny(L1/2)·ask(L3)를 모두 통과. allowlist에 "명시적으로" 매칭될 때만
+# permissionDecision:"allow" 를 방출한다. 조금이라도 불확실하면 fall-through(exit 0) →
+# Claude Code 기본 권한 흐름(사용자 프롬프트) 유지. 위험 명령은 절대 여기서 allow되지 않는다.
+
+# config 토글 (기본 on). deny/ask는 위에서 이미 실행됐으므로 여기서 꺼도 가드는 그대로다.
+AUTO_ALLOW="true"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+HARNESS_CFG="$PROJECT_DIR/progress/harness-config.json"
+if [[ -f "$HARNESS_CFG" ]] && jq -e '.firewall.auto_allow == false' "$HARNESS_CFG" &>/dev/null; then
+  AUTO_ALLOW="false"
+fi
+[[ "$AUTO_ALLOW" == "true" ]] || exit 0
+
+# command substitution/백틱/process substitution 은 내용이 allowlist로 검증되지 않으므로
+# 자동 허용하지 않는다(예: git commit -m "$(...)", `code`).
+if echo "$NORMALIZED_CMD" | grep -qE '\$\(|`|<\(|>\('; then
+  exit 0
+fi
+
+# 안전한 폐기 리다이렉트(2>/dev/null, 2>&1, >&2, &>/dev/null)만 제거한 뒤,
+# 파일로 향하는 리다이렉트(>, >>)가 남아 있으면 자동 허용하지 않는다(임의 경로 쓰기 방지).
+STRIPPED=$(echo "$NORMALIZED_CMD" | sed -E 's#[0-9]?>>?[ ]?/dev/null##g; s#[0-9]?>&[0-9]##g; s#&>[ ]?/dev/null##g')
+if echo "$STRIPPED" | grep -qE '>'; then
+  exit 0
+fi
+
+# 파이프라인/체인을 세그먼트로 분리 — 모든 세그먼트가 allowlist에 있어야 허용.
+ALL_SAFE=1
+SEGMENTS=$(echo "$STRIPPED" | tr ';|&' '\n\n\n')
+while IFS= read -r seg; do
+  # 앞뒤 공백 + 선행 환경변수 할당(FOO=bar) 제거
+  seg=$(echo "$seg" | sed -E 's/^ +//; s/ +$//; s/^([A-Za-z_][A-Za-z0-9_]*=[^ ]* +)+//')
+  [[ -z "$seg" ]] && continue
+  cmd=${seg%% *}
+  # 경로 지정 명령(./x, /usr/bin/x)은 자동 허용 대상에서 제외 — 동명 바이너리 치환 방지
+  if [[ "$cmd" == */* ]]; then ALL_SAFE=0; break; fi
+  case "$cmd" in
+    # 읽기 전용 + 저위험 로컬 쓰기(mkdir/touch/cp/mv)
+    ls|cat|head|tail|wc|grep|egrep|fgrep|rg|find|tree|file|stat|du|df|pwd|echo|printf|cut|sort|uniq|nl|column|fold|comm|paste|diff|cmp|jq|yq|date|cal|env|printenv|whoami|id|hostname|uname|uptime|which|type|basename|dirname|realpath|readlink|xxd|od|hexdump|strings|cksum|md5|md5sum|sha1sum|shasum|sha256sum|seq|true|false|test|mkdir|touch|cp|mv|bats|gofmt)
+      ;;
+    go)
+      case "$(echo "$seg" | awk '{print $2}')" in
+        build|test|vet|run|mod|list|doc|version|env|fmt|tool|work) ;;
+        *) ALL_SAFE=0 ;;
+      esac
+      ;;
+    npm|pnpm|yarn)
+      case "$(echo "$seg" | awk '{print $2}')" in
+        test|run|ls|list|view|audit|why|outdated|exec) ;;
+        *) ALL_SAFE=0 ;;
+      esac
+      ;;
+    git)
+      # push·reset·clean·rebase·merge·checkout·restore 등 상태 위험 서브커맨드는 제외(fall-through).
+      case "$(echo "$seg" | awk '{print $2}')" in
+        status|log|diff|show|rev-parse|rev-list|remote|blame|describe|ls-files|ls-tree|show-ref|reflog|cat-file|grep|shortlog|for-each-ref|symbolic-ref|var|count-objects|verify-commit|whatchanged|config|fetch|add|commit|stash|mv|switch)
+          ;;
+        branch|tag)
+          # 목록/생성만 허용 — 삭제·이동·강제 플래그가 있으면 제외
+          if echo "$seg" | grep -qE ' -(d|D|m|M|f)( |$)| --(delete|move|force)( |$)'; then ALL_SAFE=0; fi
+          ;;
+        *) ALL_SAFE=0 ;;
+      esac
+      ;;
+    *) ALL_SAFE=0 ;;
+  esac
+  [[ $ALL_SAFE -eq 0 ]] && break
+done <<< "$SEGMENTS"
+
+if [[ $ALL_SAFE -eq 1 ]]; then
+  jq -n --arg reason "읽기 전용/저위험 명령 — cc-harness firewall이 자동 허용했습니다." \
+    '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "allow", permissionDecisionReason: $reason}}'
+  exit 0
+fi
+
 exit 0
