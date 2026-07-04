@@ -141,6 +141,11 @@ if echo "$STRIPPED" | grep -qE '>'; then
   exit 0
 fi
 
+# 하네스 검증 파일·민감 파일을 겨냥한 쓰기는 auto-allow에서 제외한다.
+# invariant-guard는 Edit|Write|MultiEdit만 후킹하므로, Bash 경유(cp/mv/sed -i/tar)
+# 덮어쓰기로 임계값·가드·테스트를 무프롬프트 훼손하는 경로를 여기서 막는다.
+PROTECTED_RE='harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.(ssh|aws|gnupg)(/|$| )|(^| )/etc/|\.git/'
+
 # 파이프라인/체인을 세그먼트로 분리 — 모든 세그먼트가 allowlist에 있어야 허용.
 ALL_SAFE=1
 SEGMENTS=$(echo "$STRIPPED" | tr ';|&' '\n\n\n')
@@ -151,26 +156,98 @@ while IFS= read -r seg; do
   cmd=${seg%% *}
   # 경로 지정 명령(./x, /usr/bin/x)은 자동 허용 대상에서 제외 — 동명 바이너리 치환 방지
   if [[ "$cmd" == */* ]]; then ALL_SAFE=0; break; fi
+  # 서브커맨드(두 번째 토큰) — 서브커맨드 인지 검사에 재사용
+  sub=$(echo "$seg" | awk '{print $2}')
   case "$cmd" in
-    # 읽기 전용 + 저위험 로컬 쓰기(mkdir/touch/cp/mv)
-    ls|cat|head|tail|wc|grep|egrep|fgrep|rg|find|tree|file|stat|du|df|pwd|echo|printf|cut|sort|uniq|nl|column|fold|comm|paste|diff|cmp|jq|yq|date|cal|env|printenv|whoami|id|hostname|uname|uptime|which|type|basename|dirname|realpath|readlink|xxd|od|hexdump|strings|cksum|md5|md5sum|sha1sum|shasum|sha256sum|seq|true|false|test|mkdir|touch|cp|mv|bats|gofmt)
+    # 순수 읽기 전용/조회 — 인자와 무관하게 안전
+    ls|cat|head|tail|wc|grep|egrep|fgrep|rg|ag|tree|file|stat|du|df|pwd|echo|printf|cut|sort|uniq|nl|column|fold|comm|paste|diff|cmp|jq|yq|date|cal|env|printenv|whoami|id|hostname|uname|uptime|which|type|basename|dirname|realpath|readlink|xxd|od|hexdump|strings|cksum|md5|md5sum|sha1sum|shasum|sha256sum|seq|true|false|test|bats|gofmt|tr|less|more|tac|rev|expand|unexpand|look|tabs|nproc|arch|getconf|locale|tty|groups|sw_vers|ps|free|vmstat|iostat|lsof|netstat|ss|ping|ping6|dig|nslookup|host|whois)
+      ;;
+    # 파일 쓰기 가능 — 하네스 검증 파일·민감 경로를 겨냥하면 제외(프롬프트)
+    mkdir|touch|cp|mv|tar|ln|install|rsync|split)
+      if echo "$seg" | grep -qE "$PROTECTED_RE"; then ALL_SAFE=0; fi
+      ;;
+    # 텍스트 처리 — awk system() 코드실행, sed s///e 실행 플래그, 보호 경로 in-place 편집 시 제외
+    awk|sed)
+      if echo "$seg" | grep -qE 'system\(|s/[^/]*/[^/]*/[a-z]*e'; then ALL_SAFE=0
+      elif echo "$seg" | grep -qE "$PROTECTED_RE"; then ALL_SAFE=0; fi
+      ;;
+    # 탐색 find — 파괴/명령실행 액션 플래그가 있으면 제외(순수 탐색만 허용)
+    find)
+      if echo "$seg" | grep -qE ' -(delete|exec|execdir|ok|okdir|fprint|fprintf|fprint0|fls)( |$)'; then ALL_SAFE=0; fi
+      ;;
+    # 네트워크 조회 — 변형(POST/PUT/DELETE/PATCH)·데이터 전송 플래그가 있으면 제외
+    curl|wget)
+      if echo "$seg" | grep -qiE ' -X[= ]*(POST|PUT|DELETE|PATCH)| --request[= ]*(POST|PUT|DELETE|PATCH)| -(d|F|T)( |$)| --(data|data-binary|data-raw|form|upload-file)( |=)'; then ALL_SAFE=0; fi
       ;;
     go)
-      case "$(echo "$seg" | awk '{print $2}')" in
+      case "$sub" in
         build|test|vet|run|mod|list|doc|version|env|fmt|tool|work) ;;
         *) ALL_SAFE=0 ;;
       esac
       ;;
+    # 프로젝트 빌드/테스트 러너 — 개발 이너루프
+    make|gmake|mvn|gradle)
+      ;;
+    cargo)
+      case "$sub" in
+        build|b|test|t|check|c|clippy|fmt|doc|d|tree|metadata|version|--version|bench|nextest) ;;
+        *) ALL_SAFE=0 ;;
+      esac
+      ;;
     npm|pnpm|yarn)
-      case "$(echo "$seg" | awk '{print $2}')" in
-        test|run|ls|list|view|audit|why|outdated|exec) ;;
+      # exec 제외(임의 패키지 코드 실행), install 미포함(postinstall 위험)
+      case "$sub" in
+        test|run|ls|list|view|audit|why|outdated) ;;
+        *) ALL_SAFE=0 ;;
+      esac
+      ;;
+    pip|pip3)
+      case "$sub" in
+        list|show|freeze|check|config|--version|-V) ;;
+        *) ALL_SAFE=0 ;;
+      esac
+      ;;
+    # 컨테이너/오케스트레이션 — 읽기 전용 조회 서브커맨드만 (변형은 fall-through, 파괴는 L3 ask)
+    docker|podman)
+      case "$sub" in
+        ps|logs|images|image|inspect|version|info|top|stats|port|history|diff|events|context|system) ;;
+        *) ALL_SAFE=0 ;;
+      esac
+      ;;
+    kubectl|k)
+      case "$sub" in
+        get|describe|logs|top|explain|api-resources|api-versions|version|cluster-info|events|wait) ;;
+        *) ALL_SAFE=0 ;;
+      esac
+      ;;
+    helm)
+      case "$sub" in
+        list|ls|status|get|history|version|show|search|template|env|repo) ;;
+        *) ALL_SAFE=0 ;;
+      esac
+      ;;
+    brew)
+      case "$sub" in
+        list|info|search|outdated|deps|home|config|leaves|uses|desc|--version|tap-info) ;;
         *) ALL_SAFE=0 ;;
       esac
       ;;
     git)
       # push·reset·clean·rebase·merge·checkout·restore 등 상태 위험 서브커맨드는 제외(fall-through).
-      case "$(echo "$seg" | awk '{print $2}')" in
-        status|log|diff|show|rev-parse|rev-list|remote|blame|describe|ls-files|ls-tree|show-ref|reflog|cat-file|grep|shortlog|for-each-ref|symbolic-ref|var|count-objects|verify-commit|whatchanged|config|fetch|add|commit|stash|mv|switch)
+      case "$sub" in
+        status|log|diff|show|rev-parse|rev-list|remote|blame|describe|ls-files|ls-tree|show-ref|reflog|cat-file|grep|shortlog|for-each-ref|symbolic-ref|var|count-objects|verify-commit|whatchanged|fetch|add|commit|mv)
+          ;;
+        config)
+          # 읽기 형태(--get/--list/-l 등)만 허용 — 쓰기(git config k v, --add/--unset)는 제외
+          if echo "$seg" | grep -qE ' --(get|get-all|get-regexp|list|get-urlmatch)( |$)| -l( |$)'; then :; else ALL_SAFE=0; fi
+          ;;
+        stash)
+          # drop/clear는 비가역 파기 — 제외. push/list/show/save/apply/pop만 허용
+          if echo "$seg" | grep -qE ' (drop|clear)( |$)'; then ALL_SAFE=0; fi
+          ;;
+        switch)
+          # 변경 폐기(--discard-changes/-f/-C) 플래그가 있으면 제외
+          if echo "$seg" | grep -qE ' -(f|C)( |$)| --(discard-changes|force)( |$)'; then ALL_SAFE=0; fi
           ;;
         branch|tag)
           # 목록/생성만 허용 — 삭제·이동·강제 플래그가 있으면 제외

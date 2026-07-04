@@ -237,13 +237,13 @@ run_firewall() {
 @test "allows kubectl get/describe/logs (read-only)" {
   run run_firewall '{"tool_input":{"command":"kubectl get pods -n app"}}'
   [ "$status" -eq 0 ]
-  [ -z "$output" ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
 @test "allows kubectl logs" {
   run run_firewall '{"tool_input":{"command":"kubectl logs deploy/web -n app --tail=100"}}'
   [ "$status" -eq 0 ]
-  [ -z "$output" ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
 @test "allows helm upgrade (forward change, reviewed via /rollout)" {
@@ -633,6 +633,145 @@ run_firewall() {
   [ "$status" -eq 0 ]
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
   [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+# --- Layer 4: 인자 인지 — allowlist 명령이라도 위험 인자/서브커맨드면 allow 안 함 ---
+
+@test "does NOT auto-allow find -delete (destructive action flag)" {
+  run run_firewall '{"tool_input":{"command":"find . -delete"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow find -exec (arbitrary command execution)" {
+  run run_firewall '{"tool_input":{"command":"find . -exec rm -rf {} +"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow cp onto harness-config.json (guard tamper)" {
+  run run_firewall '{"tool_input":{"command":"cp /tmp/weak.json progress/harness-config.json"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow mv onto tests/*.bats (test tamper)" {
+  run run_firewall '{"tool_input":{"command":"mv /tmp/x.bats tests/invariant-guard.bats"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow cp onto a hook script (firewall tamper)" {
+  run run_firewall '{"tool_input":{"command":"cp /dev/null hooks/pre-bash-firewall.sh"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow sed -i onto harness-config.json (in-place tamper)" {
+  run run_firewall '{"tool_input":{"command":"sed -i s/7/1/ progress/harness-config.json"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow mv of ~/.ssh secrets" {
+  run run_firewall '{"tool_input":{"command":"mv ~/.ssh/id_rsa /tmp/x"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow awk system() (code execution)" {
+  run run_firewall '{"tool_input":{"command":"awk \"BEGIN{system(\\\"rm -rf x\\\")}\""}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow git config write (hooksPath escalation)" {
+  run run_firewall '{"tool_input":{"command":"git config core.hooksPath /tmp/evil"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow git stash drop (irreversible)" {
+  run run_firewall '{"tool_input":{"command":"git stash drop"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow git stash clear (irreversible)" {
+  run run_firewall '{"tool_input":{"command":"git stash clear"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow git switch --discard-changes (data loss)" {
+  run run_firewall '{"tool_input":{"command":"git switch --discard-changes main"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow npm exec (arbitrary package code)" {
+  run run_firewall '{"tool_input":{"command":"npm exec some-remote-pkg"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "does NOT auto-allow curl POST (remote mutation)" {
+  run run_firewall '{"tool_input":{"command":"curl -X POST https://api.example.com/pay"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+# --- Layer 4: 마찰 제거 — 안전한 개발 이너루프 명령은 무프롬프트 allow ---
+
+@test "auto-allows sed read (non-destructive)" {
+  run run_firewall '{"tool_input":{"command":"sed -n 1,50p file.go"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "auto-allows awk field extraction" {
+  run run_firewall '{"tool_input":{"command":"awk \"{print \\$1}\" access.log"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "auto-allows make build/test" {
+  run run_firewall '{"tool_input":{"command":"make test"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "auto-allows cargo build" {
+  run run_firewall '{"tool_input":{"command":"cargo build --release"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "auto-allows docker ps (read-only inspection)" {
+  run run_firewall '{"tool_input":{"command":"docker ps -a"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "auto-allows kubectl get with -n" {
+  run run_firewall '{"tool_input":{"command":"kubectl get pods -n default"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "auto-allows curl GET" {
+  run run_firewall '{"tool_input":{"command":"curl -s https://api.example.com"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "auto-allows ps aux" {
+  run run_firewall '{"tool_input":{"command":"ps aux"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "auto-allows brew list" {
+  run run_firewall '{"tool_input":{"command":"brew list"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "auto-allows tar list" {
+  run run_firewall '{"tool_input":{"command":"tar -tzf archive.tgz"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "auto-allows git config read (--get)" {
+  run run_firewall '{"tool_input":{"command":"git config --get user.name"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "auto-allows plain git switch (no discard flag)" {
+  run run_firewall '{"tool_input":{"command":"git switch main"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "auto-allows pure find search (no action flag)" {
+  run run_firewall '{"tool_input":{"command":"find . -name *.go -type f"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
 # --- Layer 4: config 토글 ---
