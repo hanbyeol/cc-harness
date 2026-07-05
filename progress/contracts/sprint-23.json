@@ -1,0 +1,54 @@
+{
+  "sprint": 23,
+  "title": "evaluator 보정 코퍼스 — golden set + calibration 프로브 + critical 2차 판정 (F37)",
+  "features": [
+    "F37"
+  ],
+  "security_tier": "standard",
+  "source": "베스트 프랙티스 비교 분석 P1-3. min-of-5는 결국 단일 evaluator 호출 1회이고, golden set·판정 회귀 스위트·2차 judge가 없어 게이트 신뢰도 전체가 무보정 단일 judge에 걸려 있다(LLM-judge 캐논 대비 가장 약한 고리). 20 스프린트의 판정 기록이 이미 존재하므로 이를 보정 자산으로 전환한다.",
+  "acceptance_criteria": [
+    "F37-1: evals/calibration/golden-set.json 생성 — progress/agent-comms/(archive 포함)의 evaluator-feedback 전량을 정규화(feature id·timestamp·scores 5차원·verdict·evidence 유무·iteration). 원본 무수정(읽기 전용 추출)",
+    "F37-2: scripts/probes/calibration.sh 신규(9번째 프로브) — 최신 판정에 대해 (a) min(scores)와 verdict 불일치(산술 오류), (b) evidence 없는 pass(F25와 상보 — 전 기록 대상), (c) golden set 대비 동일 tier 점수 분포 이탈(예: 전 차원 만점 등 anomaly)을 후보로 보고. run-all.sh 배선",
+    "F37-3: agents/evaluator.md에 critical 티어 2차 판정 절차 add-only — 독립 컨텍스트 second-judge 샘플링(다른 세션/에이전트 디스패치), 판정 불일치 시 사람 에스컬레이션. 기존 판정 규칙 무약화",
+    "F37-4: escaped-defect 환류 스키마 — 통과 후 발견된 결함을 progress/lessons.md에 기록하고 evals/calibration/false-positives.json에 구조화 반영하는 절차를 evaluator.md·improve SKILL에 명문화",
+    "F37-5: 프로브는 읽기 전용·graceful degrade(jq/파일 부재 시 빈 배열)·정상 상태에서 노이즈 0",
+    "전역: 전체 bats GREEN·무회귀(probes.bats add-only), shellcheck 0, consistency 0(프로브 수 문서 동기화 포함)"
+  ],
+  "security_criteria": [
+    "SC1: evaluator 판정 규칙 무약화 — 2차 판정은 추가 검증 계층(add-only), 기존 min-of-5·임계값·auto-fail 불변",
+    "SC2: golden set은 판정 근거 재검증용이며 evaluator를 대체하지 않음 — 프로브는 후보 보고만(passes 미변경, INV-1 준수)",
+    "SC3: 개인정보/시크릿 미포함 — golden set 추출 시 evidence의 명령 출력에서 시크릿 패턴 스캔 후 마스킹"
+  ],
+  "error_scenarios": [
+    "archive 파일 malformed: 해당 레코드 스킵 + 카운트 보고(전체 실패 금지)",
+    "판정 기록이 적은 신규 프로젝트: 분포 이탈 검사는 최소 N(기본 5)건 이상일 때만 활성",
+    "second-judge 디스패치 불가 환경(단일 세션): 사람 에스컬레이션으로 폴백 명시"
+  ],
+  "test_scenarios": [
+    "bats: golden set 추출 스키마 검증, 산술 불일치 fixture → 후보 보고, evidence 없는 pass fixture → 후보 보고, 정상 fixture → []",
+    "run-all.sh 9종 배선 + improve SKILL 프로브 목록 동기화"
+  ],
+  "implementation_steps": [
+    {
+      "step": "golden-set 추출 스크립트/절차 구현 + evals/calibration/golden-set.json 생성",
+      "verify": "레코드 수 = 원본 판정 수, 시크릿 마스킹 확인",
+      "done": false
+    },
+    {
+      "step": "probes/calibration.sh RED 테스트 → 구현 → run-all.sh 배선",
+      "verify": "bats GREEN, 이 repo 현행 기록에서 노이즈 0 또는 실제 발견만",
+      "done": false
+    },
+    {
+      "step": "evaluator.md 2차 판정·escaped-defect 환류 add-only + improve SKILL 동기화",
+      "verify": "skill-frontmatter/consistency GREEN",
+      "done": false
+    },
+    {
+      "step": "버전 bump → 독립 evaluator",
+      "verify": "전체 bats GREEN, consistency 0",
+      "done": false
+    }
+  ],
+  "agreed": false
+}

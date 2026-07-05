@@ -1,0 +1,55 @@
+{
+  "sprint": 22,
+  "title": "자기 저장소 dogfooding — runtime 상태 실체화 + 부재 탐지 (F36)",
+  "features": [
+    "F36"
+  ],
+  "security_tier": "standard",
+  "source": "베스트 프랙티스 비교 분석 P0-2. cc-harness repo 자신에 progress/harness-config.json·evals/*·progress/lessons.md가 없다(templates/에만 존재). 결과: (1) INV-3 임계값 가드가 보호할 파일이 없어 자기개선이라는 가장 위험한 맥락에서 비활성, (2) firewall auto_allow* 토글이 없는 파일을 읽고 조용히 기본값으로 동작, (3) evaluator 보정 루프(lessons·false-positives)가 백킹 파일 없이 선언에 그침. 하네스가 자기 원칙(dogfooding)을 자기 저장소에 적용하지 못한 상태를 해소한다.",
+  "acceptance_criteria": [
+    "F36-1: progress/harness-config.json을 템플릿 값 그대로 실체화 — pass_threshold 7·security_thresholds{7,5,3}·min_of_5 등 어떤 값도 하향 없음(신규 생성이므로 invariant-guard [[ ! -e ]] 통과 확인)",
+    "F36-2: evals/calibration/false-positives.json·progress/lessons.md 실체화(빈 스키마 + 사용법 헤더). evals/acceptance-criteria.json은 change-request에서 생성됨 — 스키마 정합 확인",
+    "F36-3: 실체화 후 INV-3 가드 활성 실증 — 이 repo에서 pass_threshold 7→6 Edit 시도 → exit 2 (evaluator evidence에 실행 출력 포함)",
+    "F36-4: 실체화 후 firewall 토글 실증 — cfg_get이 실제 파일에서 auto_allow 값을 읽음을 확인(false 설정 시 allow 미방출 bats 기존 테스트 재활용)",
+    "F36-5: scripts/probes/completeness.sh에 runtime 상태 파일 부재 탐지 추가 — 필수 목록(harness-config.json·feature_list.json·phase-gate.json·evals/acceptance-criteria.json) 대조, 부재 시 후보 보고",
+    "F36-6: 플러그인 모드 신규 설치 시 시드 경로 확인 — setup-claudemd.sh가 runtime 파일을 시드하지 않으면 시드 로직 add-only 보완(기존 파일은 절대 덮어쓰지 않음)",
+    "전역: 전체 bats GREEN·무회귀, shellcheck 0, consistency 0"
+  ],
+  "security_criteria": [
+    "SC1: 임계값 무하향 — 실체화되는 harness-config.json은 템플릿과 동일 값(diff로 실증). 실체화가 오히려 INV-3 보호를 활성화하는 강화 방향",
+    "SC2: 시드 로직은 기존 파일 무조건 보존(멱등) — 사용자가 수정한 config를 업그레이드가 덮어쓰지 않음(F6 hash-manifest 원칙과 정합)",
+    "SC3: firewall 토글 기본값 동작 무변경 — 파일 부재 시 기본값 폴백 로직은 유지(다른 대상 repo 호환성)"
+  ],
+  "error_scenarios": [
+    "이미 harness-config.json이 있는 대상 repo: 시드 스킵(멱등성)",
+    "completeness 프로브가 template-only 프로젝트(부트스트랩 직후)에서 과잉 보고: 프로젝트 루트에 progress/가 있을 때만 검사",
+    "jq 부재: cfg_get 폴백 기본값 동작 유지"
+  ],
+  "test_scenarios": [
+    "bats: 시드 멱등성(2회 실행 동일), 기존 config 보존, completeness 부재 탐지/완비 시 0건",
+    "INV-3 활성 실증: 임시 clone에서 pass_threshold 하향 Edit → invariant-guard exit 2"
+  ],
+  "implementation_steps": [
+    {
+      "step": "runtime 파일 실체화(progress/harness-config.json·evals/calibration/false-positives.json·progress/lessons.md) — 템플릿 값 그대로",
+      "verify": "diff 템플릿 대비 값 동일, invariant-guard 신규 파일 통과",
+      "done": false
+    },
+    {
+      "step": "completeness.sh runtime 부재 탐지 add-only + bats",
+      "verify": "이 repo에서 0건(실체화 후), 파일 제거 시뮬레이션에서 후보 보고",
+      "done": false
+    },
+    {
+      "step": "setup-claudemd.sh 시드 경로 확인·보완(add-only, 멱등) + bats",
+      "verify": "bats GREEN(시드·멱등·보존)",
+      "done": false
+    },
+    {
+      "step": "INV-3·토글 활성 실증 수집, 버전 bump → 독립 evaluator",
+      "verify": "전체 bats GREEN, consistency 0",
+      "done": false
+    }
+  ],
+  "agreed": false
+}

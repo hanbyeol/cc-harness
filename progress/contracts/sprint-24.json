@@ -1,0 +1,54 @@
+{
+  "sprint": 24,
+  "title": "하네스 KPI 텔레메트리 + F13 과잉 주장 정정 (F38)",
+  "features": [
+    "F38"
+  ],
+  "security_tier": "low",
+  "source": "베스트 프랙티스 비교 분석 P1-4. metrics-history는 테스트 수+shellcheck 경고만 기록해 캐논이 요구하는 하네스 효과 지표(first-pass 성공률·반복 횟수·게이트 차단·방화벽 결정 분포)가 없다. F13 기능 기록은 '훅 실행시간 추세'를 주장하나 실제 코드에 없음 — evidence over claims의 자기 위반. 측정 없는 개선 루프는 방향을 잃는다(Faros: 'treat the harness as a deliberate, measured practice').",
+  "acceptance_criteria": [
+    "F38-1: metrics.sh 확장 — evaluator-feedback(archive 포함) 스캔으로 first-pass 성공률(iteration≤1 통과 비율)·기능당 평균 iteration을 metrics-history.json에 add-only 기록",
+    "F38-2: pre-commit-gate.sh — Stop 게이트 차단(exit 2) 시 progress/.gate-stats에 1줄 append(timestamp·사유 태그). metrics.sh가 집계",
+    "F38-3: pre-bash-firewall.sh — 결정(deny/ask/allow/fallthrough)별 카운터를 progress/.firewall-stats에 1줄 append. 결정 로직 무변경(로깅만 add-only), 실패 시 무시(로깅이 방화벽을 깨지 않음). metrics.sh가 분포 집계",
+    "F38-4: metrics-history.json 스키마 add-only 확장(기존 필드 유지) — 기존 24개 엔트리 호환",
+    "F38-5: F13 과잉 주장 해소 — 기본: feature_list F13 description에서 '훅 실행시간 추세' 문구를 실제 구현 범위로 정정 + 변경 이력 기록. (Plan 게이트에서 타이밍 실측 구현으로 상향 가능)",
+    "전역: 전체 bats GREEN·무회귀, shellcheck 0, consistency 0"
+  ],
+  "security_criteria": [
+    "SC1: 방화벽 결정 로직 무변경 — 로깅 append만 추가, deny/ask/allow 판정 경로·순서 불변(bats 회귀 배터리 GREEN으로 실증)",
+    "SC2: stats 파일에 명령 원문 미기록(결정·타임스탬프만) — 명령 인자의 시크릿이 로그로 새지 않음",
+    "SC3: stats 파일 쓰기 실패가 훅 exit code에 영향 없음(|| true) — 가용성 보존"
+  ],
+  "error_scenarios": [
+    "stats 파일 없음/권한 오류: 조용히 스킵(카운터는 관측용, 게이트 아님)",
+    "동시 append 경합: 단순 1줄 append는 POSIX O_APPEND로 충분, flock 불요 근거 기록",
+    "기존 metrics-history 엔트리와 스키마 혼재: 신규 필드 부재를 null 허용으로 집계"
+  ],
+  "test_scenarios": [
+    "bats: 차단 시 .gate-stats append, 방화벽 3결정 각각 .firewall-stats append + exit/판정 무변경, metrics.sh 집계 산술, 스키마 하위호환",
+    "무회귀: pre-bash-firewall.bats 162개 전부 GREEN"
+  ],
+  "implementation_steps": [
+    {
+      "step": "metrics.sh first-pass·iteration 집계 + 스키마 확장(RED 테스트 먼저)",
+      "verify": "bats GREEN, 기존 엔트리 호환",
+      "done": false
+    },
+    {
+      "step": "pre-commit-gate .gate-stats append + bats",
+      "verify": "차단 fixture에서 append 확인",
+      "done": false
+    },
+    {
+      "step": "pre-bash-firewall .firewall-stats append(결정 무변경) + bats",
+      "verify": "162개 회귀 GREEN + append 검증",
+      "done": false
+    },
+    {
+      "step": "F13 description 정정 + 버전 bump → 독립 evaluator",
+      "verify": "전체 bats GREEN, consistency 0",
+      "done": false
+    }
+  ],
+  "agreed": false
+}

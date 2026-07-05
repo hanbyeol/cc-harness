@@ -1,0 +1,54 @@
+{
+  "sprint": 26,
+  "title": "consistency probe 확장 — 산문 숫자·의존성-passes 정합 + 스테일 정리 (F40)",
+  "features": [
+    "F40"
+  ],
+  "security_tier": "low",
+  "source": "베스트 프랙티스 비교 분석 P2-6. 'design for rot' 부분 위반 실증: README '테스트 273개'(실측 400)·'Hooks 8개/7개' 불일치, F27(passes:false·implementing)에 의존하는 F28/F32/F33이 통과 처리된 모순, settings.local.json의 부재 경로 참조, .tmp/regtest/의 스테일 훅 사본(198줄 구버전 guard). consistency probe가 특정 신호만 샘플링해 손으로 쓴 산문 숫자의 부패를 못 잡는다 — 산문 숫자는 실측과 대조해야 한다.",
+  "acceptance_criteria": [
+    "F40-1: consistency.sh 확장 — README(및 plugin.json description)의 숫자 주장(스킬·훅·에이전트·프로브 수, '테스트 N개')을 실측(파일 카운트·@test grep)과 대조, 불일치 시 후보 보고",
+    "F40-2: consistency.sh 확장 — feature_list 의존성-passes 정합 검사: passes:false인 기능에 의존하는 passes:true 기능 탐지(F27 케이스), 순환 의존 탐지",
+    "F40-3: README 현행 숫자 정정(273→실측 값, hooks 표 정합) — 이후는 probe가 부패 감시",
+    "F40-4: .tmp/·.tmp-eval/ 스테일 사본 제거 + .gitignore 보강(재발 방지)",
+    "F40-5: F27 판정 종결 — 독립 evaluator에 F27(방화벽 auto-allow, sprint-13 contract·bats 배터리 기존재)을 회부해 판정. 메인 루프·implementer는 passes 불변(INV-1). evaluator가 fail이면 후속 스프린트 후보로 환원",
+    "전역: 전체 bats GREEN·무회귀, shellcheck 0, consistency 0(자기 자신 포함)"
+  ],
+  "security_criteria": [
+    "SC1: 프로브는 읽기 전용·후보 보고만(INV-1 준수 — passes 미변경)",
+    "SC2: .tmp 제거는 untracked 파일만 대상, git 이력·현행 훅 무손상(제거 전 현행과 diff 확인)",
+    "SC3: settings.local.json은 사용자 로컬 파일 — 수정하지 않고 부재 경로를 후보로 보고만"
+  ],
+  "error_scenarios": [
+    "README 숫자 표기가 다양(한글 '개', 표 안 숫자): 패턴 매칭 범위를 명시하고 미매칭은 침묵(과잉 보고 방지)",
+    "의존성 그래프에 미존재 id 참조: 별도 후보로 보고",
+    "F27 evaluator가 fail 판정: passes:false 유지 + F28/32/33 의존 모순은 probe가 계속 보고(정직한 상태 유지)"
+  ],
+  "test_scenarios": [
+    "bats: 숫자 불일치 fixture → 후보, 정합 fixture → 0건, dependency-passes 모순 fixture → 후보, 순환 의존 fixture → 후보",
+    "이 repo 실행: F27 모순 1건 + README 불일치 검출(정정 전 RED 역할) → 정정 후 0건"
+  ],
+  "implementation_steps": [
+    {
+      "step": "consistency.sh 숫자 대조·의존성 정합 RED 테스트 → 구현",
+      "verify": "bats GREEN, 이 repo에서 기지 불일치 검출",
+      "done": false
+    },
+    {
+      "step": "README 숫자 정정 + .tmp/·.tmp-eval/ 정리 + .gitignore",
+      "verify": "probe 재실행 0건(F27 모순 제외)",
+      "done": false
+    },
+    {
+      "step": "F27을 독립 evaluator에 회부(sprint-13 criteria + 기존 bats 배터리 근거)",
+      "verify": "evaluator-feedback 기록 생성, 판정에 따라 passes 갱신(evaluator 전권)",
+      "done": false
+    },
+    {
+      "step": "버전 bump → 독립 evaluator(F40 자체)",
+      "verify": "전체 bats GREEN, consistency 0",
+      "done": false
+    }
+  ],
+  "agreed": false
+}

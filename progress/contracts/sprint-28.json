@@ -1,0 +1,55 @@
+{
+  "sprint": 28,
+  "title": "PreCompact 훅 — 컴팩션 전 핸드오프 상태 강제 스냅샷 (F42)",
+  "features": [
+    "F42"
+  ],
+  "security_tier": "standard",
+  "source": "베스트 프랙티스 비교 분석 P3-8. 결정·블로커 캡처가 session-handoff-draft.json 작성 관례에만 의존한다 — Stop 훅의 자동 스냅샷은 커밋/기능 상태뿐이고, 컨텍스트 컴팩션이 발생하면 미기록 결정·블로커가 유실될 수 있다. 컨텍스트 엔지니어링 캐논(컴팩션 전 핵심 상태 보호 — PreCompact)의 기계화.",
+  "acceptance_criteria": [
+    "F42-1: hooks/pre-compact.sh 신규(PreCompact 이벤트) — 컴팩션 직전 자동 상태 스냅샷 실행. session-handoff.sh의 스냅샷 로직을 공용 함수로 추출해 재사용(중복 구현 금지 — lib.sh 또는 공용 스크립트)",
+    "F42-2: session-handoff-draft.json 부재 시 additionalContext로 '컴팩션 임박 — 핵심 결정·블로커·다음 작업을 draft에 기록' 유도 신호 주입(메인 루프가 즉시 기록하도록)",
+    "F42-3: hooks/hooks.json에 PreCompact 등록 add-only(INV-7 hooks.json 등록 무결성 — command 목록 증가만). 부트스트래퍼 settings.json 미러 갱신",
+    "F42-4: Stop(session-handoff.sh) 기존 동작 무변경 — 공용화 리팩토링 후에도 bats 9개 GREEN",
+    "F42-5: templates/HARNESS-GUIDE.md·README에 훅 표 갱신(hooks 수 증가 — F40의 숫자 대조 probe와 정합)",
+    "전역: 전체 bats GREEN·무회귀, shellcheck 0, consistency 0"
+  ],
+  "security_criteria": [
+    "SC1: 훅 등록 add-only — 기존 8개 훅 등록 무손상(INV-7 jq 명령 목록 검사 통과, 증가 방향)",
+    "SC2: 스냅샷은 기존 session-handoff와 동일 데이터 범위(phase·기능·커밋) — 새로운 민감 정보 수집 없음",
+    "SC3: 훅 실패 시 컴팩션 차단 금지(exit 0 폴백) — 관측·유도 장치이지 게이트 아님"
+  ],
+  "error_scenarios": [
+    "PreCompact 이벤트 미지원 구버전 Claude Code: hooks.json에 등록되어도 미발화 — 동작 무영향(graceful)",
+    "draft가 이미 존재: 유도 신호 생략, 스냅샷만 수행(중복 잔소리 방지)",
+    "스냅샷 도중 jq 부재: session-handoff.sh 기존 degrade 정책 동일 적용"
+  ],
+  "test_scenarios": [
+    "bats: pre-compact 스냅샷 생성, draft 부재 시 유도 신호 JSON 방출, draft 존재 시 신호 생략, 실패 시 exit 0",
+    "공용화 무회귀: session-handoff.bats 9개 GREEN",
+    "hooks.json 등록 정합: invariant-guard hooks.json 검사 통과"
+  ],
+  "implementation_steps": [
+    {
+      "step": "session-handoff.sh 스냅샷 로직 공용 추출(무회귀 RED→GREEN)",
+      "verify": "session-handoff.bats 9개 GREEN",
+      "done": false
+    },
+    {
+      "step": "hooks/pre-compact.sh 구현 + bats",
+      "verify": "신규 bats GREEN, shellcheck 0",
+      "done": false
+    },
+    {
+      "step": "hooks.json·부트스트래퍼 등록 add-only + 문서 훅 표 갱신",
+      "verify": "invariant-guard 통과, consistency 0",
+      "done": false
+    },
+    {
+      "step": "버전 bump → 독립 evaluator",
+      "verify": "전체 bats GREEN",
+      "done": false
+    }
+  ],
+  "agreed": false
+}

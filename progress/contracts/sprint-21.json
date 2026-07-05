@@ -1,0 +1,62 @@
+{
+  "sprint": 21,
+  "title": "passes-transition guard — evaluator 판정의 기계 검증 (F35, INV-11)",
+  "features": [
+    "F35"
+  ],
+  "security_tier": "critical",
+  "source": "베스트 프랙티스 비교 분석 P0-1. INV-1(evaluator만 passes 변경)·INV-2(min-of-5)·INV-4(critical 자동 fail)는 프롬프트 관례로만 집행된다 — hooks/scripts 어디에도 passes를 검사하는 코드가 없어, 성급한 메인 루프나 implementer가 feature_list.json의 passes를 직접 뒤집어도 막는 것이 없다. invariant-guard가 메타(임계값·denylist·테스트 수)는 기계적으로 지키면서 코어 루프의 의미론은 지키지 않는 비대칭을 해소한다. '결정론적 도구 > 프롬프트'(OpenAI/Böckeler 캐논 제1원칙)의 코어 적용.",
+  "acceptance_criteria": [
+    "F35-1: hooks/invariant-guard.sh에 progress/feature_list.json 브랜치 add-only 추가 — 기존 재구성 로직(Write/Edit/MultiEdit 최종 콘텐츠)으로 현재 파일 대비 passes:false→true 전환된 feature id 집합을 감지",
+    "F35-2: 전환된 각 id에 대해 progress/agent-comms/evaluator-feedback-*.json(archive/ 제외, 최신 파일부터 역순)에서 해당 id의 판정 레코드를 탐색 — 레코드 부재 시 exit 2",
+    "F35-3: 레코드 검증 — verdict가 pass 계열이고, 5차원 scores가 모두 존재하며, min(5차원) ≥ pass_threshold(progress/harness-config.json, 부재 시 7). 불충족 시 exit 2 (INV-2 기계화)",
+    "F35-4: 해당 feature의 security_tier가 critical이면 scores.security ≥ security_thresholds.critical(부재 시 7)도 검증 — 불충족 시 exit 2 (INV-4 기계화)",
+    "F35-5: progress/contracts/sprint-*.json의 agreed:false→true 전환 시 구조 검증 — acceptance_criteria와 implementation_steps가 비어있지 않으면 통과, 비었으면 exit 2 (Plan 게이트 산출물 전제)",
+    "F35-6: 무오탐 — 완비된 evaluator-feedback이 있는 정상 passes 전환은 exit 0, passes를 건드리지 않는 feature_list 편집(설명·status 갱신 등)은 exit 0, true→false 리셋은 항상 exit 0(약화 아님)",
+    "F35-7: docs/INVARIANTS.md에 INV-11(passes 전환은 evaluator-feedback 근거 필수 — 기계 검증) 신설 + 변경이력",
+    "F35-8: tests/invariant-guard.bats add-only — (a) feedback 부재 전환 차단, (b) min<threshold 차단, (c) critical security<threshold 차단, (d) 완비 feedback 전환 통과, (e) 무관 편집 통과, (f) true→false 리셋 통과, (g) agreed 구조 검증",
+    "전역: 전체 bats GREEN·무회귀, shellcheck 0, consistency 0"
+  ],
+  "security_criteria": [
+    "SC1: add-only 강화 — invariant-guard에 deny/exit 2 분기 추가만. INV-7 자기보호(deny·exit2 수 감소·30% 축소 차단) 준수(증가 방향). 기존 브랜치 무손상",
+    "SC2: evaluator 독립성 강화 — 이 가드는 evaluator를 대체하지 않고 evaluator 판정의 존재·산술만 재검증한다. 판정 내용 생성은 여전히 evaluator 전권",
+    "SC3: 우회 경로 검토 — Bash(jq/python)로 feature_list.json 직접 쓰기는 pre-bash-firewall L3 자기보호(보호 경로 쓰기 ask)가 게이트하는지 확인, 갭이면 보호 경로에 feature_list.json add-only 추가",
+    "SC4: 위협모델 — 정교한 재구성 우회는 INVARIANTS speed-bump 규정과 동일하게 수용, behavioral 프로브·코드리뷰가 2차 방어"
+  ],
+  "error_scenarios": [
+    "evaluator-feedback가 복수일 때: 파일명 타임스탬프 역순으로 해당 id의 최신 레코드 선택 — 과거 fail 레코드가 최신 pass보다 우선하지 않도록 최신만 판정 기준",
+    "malformed feedback JSON: 이 브랜치는 fail-closed — passes 전환을 허용하는 근거가 파싱 불가면 exit 2(전환 차단이 안전 방향)",
+    "harness-config.json 부재(F36 전 과도기): pass_threshold 기본 7, critical threshold 기본 7로 동작",
+    "feature_list.json 신규 생성([[ ! -e ]]): 기존 규칙대로 통과(신규 프로젝트 부트스트랩)",
+    "jq 부재: 현행 fail-open 정책 유지(F41에서 fail-closed 전환) — 이 스프린트에서는 정책 변경 없음"
+  ],
+  "test_scenarios": [
+    "RED 먼저: feedback 부재 상태에서 passes false→true Write → exit 2 실패 테스트 작성 후 구현",
+    "min-of-5 산술: scores {9,9,9,9,6}·threshold 7 → 차단 / {7,7,7,7,7} → 통과",
+    "critical: security 6·기타 9 → 차단(min-of-5로도 잡히지만 security_thresholds 독립 검증 확인)",
+    "무회귀: 기존 invariant-guard.bats 전부 GREEN"
+  ],
+  "implementation_steps": [
+    {
+      "step": "tests/invariant-guard.bats에 F35 시나리오 RED 테스트 add-only 작성(fixture: 임시 feature_list + evaluator-feedback)",
+      "verify": "신규 테스트 RED(가드 미구현), 기존 GREEN",
+      "done": false
+    },
+    {
+      "step": "hooks/invariant-guard.sh에 feature_list.json passes-transition 브랜치 + contracts agreed 구조 검증 브랜치 추가",
+      "verify": "신규 테스트 GREEN, shellcheck clean",
+      "done": false
+    },
+    {
+      "step": "pre-bash-firewall 보호 경로에 feature_list.json 쓰기 게이트 확인, 갭이면 add-only 추가(SC3)",
+      "verify": "behavioral 코퍼스에 python3 -c feature_list 쓰기 변종 추가 후 프로브 clean",
+      "done": false
+    },
+    {
+      "step": "docs/INVARIANTS.md INV-11 + 변경이력, 버전 bump(3종) → 독립 evaluator",
+      "verify": "전체 bats GREEN, consistency 0, version-consistency GREEN",
+      "done": false
+    }
+  ],
+  "agreed": false
+}

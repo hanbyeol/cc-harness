@@ -1,0 +1,70 @@
+{
+  "current_phase": "implementation",
+  "phase_transition_rule": "all criteria == true AND user_approved → auto-advance to next phase",
+  "_comment": "F35~F42(베스트 프랙티스 갭 개선 배치) 기준. specification/architecture는 change-request 산출물(feature_list·contracts·acceptance-criteria·기존 ADR/INVARIANTS 위협모델)로 충족 — 신규 아키텍처 문서는 불요, F39만 ADR-006을 구현 중 작성.",
+  "phases": {
+    "specification": {
+      "status": "complete",
+      "criteria": {
+        "spec_written": true,
+        "feature_list_created": true,
+        "acceptance_criteria_defined": true,
+        "security_requirements_defined": true,
+        "quality_attributes_defined": true,
+        "user_approved": true
+      }
+    },
+    "architecture": {
+      "status": "complete",
+      "criteria": {
+        "architecture_doc": true,
+        "api_design": true,
+        "adr_written": true,
+        "threat_model_complete": true,
+        "security_checklist_created": true,
+        "error_handling_strategy": true
+      }
+    },
+    "implementation": {
+      "status": "in_progress",
+      "current_iteration": 0,
+      "max_iterations": 5,
+      "pass_threshold": 7,
+      "iterations": [],
+      "criteria": {
+        "all_features_passing": false,
+        "evaluator_approved": false,
+        "security_criteria_met": false,
+        "lint_clean": false
+      }
+    },
+    "verification": {
+      "status": "pending",
+      "criteria": {
+        "tests_pass": false,
+        "security_scan_clean": false,
+        "supply_chain_audit_clean": false,
+        "evaluator_final_pass": false,
+        "qa_review_complete": false
+      }
+    },
+    "deployment": {
+      "status": "pending",
+      "criteria": {
+        "staging_deployed": false,
+        "smoke_test_pass": false,
+        "monitoring_alerts_verified": false,
+        "rollback_plan_tested": false
+      }
+    },
+    "observability": {
+      "status": "pending",
+      "criteria": {
+        "metrics_instrumented": false,
+        "logging_structured": false,
+        "alerts_configured": false,
+        "runbooks_complete": false
+      }
+    }
+  }
+}

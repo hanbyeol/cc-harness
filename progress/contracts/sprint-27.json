@@ -1,0 +1,54 @@
+{
+  "sprint": 27,
+  "title": "invariant-guard fail-closed — jq 부재 시 보호 파일 편집 차단 + CI 프로브 린트 (F41)",
+  "features": [
+    "F41"
+  ],
+  "security_tier": "standard",
+  "source": "베스트 프랙티스 비교 분석 P2-7. invariant-guard는 jq 부재 시 경고만 하고 통과(fail-open)한다 — 가드가 가장 필요한 순간(의존성 결핍·비정상 환경)에 열려 있는 구조. jq를 지우면 모든 INV 기계 검증이 무력화되는 단일 실패점이기도 하다. 안전 장치는 결핍 시 fail-closed가 캐논. 동시에 CI가 scripts/probes/*.sh를 shellcheck하지 않는 갭을 닫는다.",
+  "acceptance_criteria": [
+    "F41-1: invariant-guard.sh — jq 부재 시 보호 대상 파일(harness-config.json·pre-bash-firewall.sh·pre-tool-firewall.sh·tests/*.bats·INVARIANTS.md·hooks.json·invariant-guard.sh·feature_list.json[F35 후 보호 대상]) 편집은 exit 2 + jq 설치 안내 메시지. 비보호 파일 편집은 기존대로 통과(가용성 유지)",
+    "F41-2: 보호 대상 목록은 기존 가드 브랜치의 대상과 단일 출처로 정합(하드코딩 중복 시 drift 위험 — 목록 함수화)",
+    "F41-3: .github/workflows/ci.yml — shellcheck 대상에 scripts/probes/*.sh·scripts/cost-report.sh 추가, jq 설치 검증 step 추가",
+    "F41-4: docs/INVARIANTS.md 위협모델의 'jq 부재=fail-open' 서술을 fail-closed로 갱신 + 변경이력",
+    "F41-5: pre-commit-gate 시크릿 스캔의 gitleaks 부재 폴백은 현행 유지(regex) — 결핍 상태를 세션 핸드오프에 기록만 추가(차단은 과격, 관측 우선)",
+    "전역: 전체 bats GREEN·무회귀, shellcheck 0(프로브 포함), consistency 0"
+  ],
+  "security_criteria": [
+    "SC1: 강화 방향 add-only — 가드의 차단 범위 확대(INV-7 정합, deny/exit2 증가). 기존 브랜치·jq 존재 시 동작 무변경",
+    "SC2: DoS 우려 검토 — jq 부재 환경에서 보호 파일 편집이 전면 차단되는 것은 의도된 동작(사람이 jq 설치 또는 수동 편집로 해소). 메시지에 해소 경로 명시",
+    "SC3: 프로브 shellcheck 신규 경고는 이 스프린트에서 해소(경고 0 상태로 CI 편입 — 깨진 채 편입 금지)"
+  ],
+  "error_scenarios": [
+    "jq 부재 + 비보호 파일 편집: 통과(현행 유지) — 개발 가용성 무손상",
+    "jq 부재 + 신규 파일 생성([[ ! -e ]]): 보호 경로 신규 생성은 통과(기존 규칙 유지 — 약화 아님) 단, 기존 보호 파일 덮어쓰기 Write는 차단",
+    "CI 러너에 jq 기본 탑재: 검증 step은 문서화 겸 회귀 방지용"
+  ],
+  "test_scenarios": [
+    "bats: PATH 조작으로 jq 부재 모킹 — 보호 파일 Edit → exit 2 + 안내 메시지, 비보호 파일 Edit → exit 0, jq 존재 시 기존 42+ 테스트 전부 GREEN",
+    "shellcheck: scripts/probes/*.sh 경고 0"
+  ],
+  "implementation_steps": [
+    {
+      "step": "jq 부재 fail-closed RED 테스트(bats, PATH 모킹) → invariant-guard.sh 구현(보호 목록 함수화)",
+      "verify": "신규 bats GREEN + 기존 무회귀",
+      "done": false
+    },
+    {
+      "step": "프로브 shellcheck 경고 해소 → ci.yml에 probes shellcheck·jq 검증 추가",
+      "verify": "로컬 shellcheck 0, CI GREEN",
+      "done": false
+    },
+    {
+      "step": "INVARIANTS.md 위협모델 갱신 + 변경이력",
+      "verify": "guard 자기보호 통과",
+      "done": false
+    },
+    {
+      "step": "버전 bump → 독립 evaluator",
+      "verify": "전체 bats GREEN, consistency 0",
+      "done": false
+    }
+  ],
+  "agreed": false
+}

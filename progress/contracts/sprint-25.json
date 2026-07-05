@@ -1,0 +1,58 @@
+{
+  "sprint": 25,
+  "title": "/improve --auto N — 배치 승인 무인 자기개선 루프 (F39, ADR-006)",
+  "features": [
+    "F39"
+  ],
+  "security_tier": "critical",
+  "source": "베스트 프랙티스 비교 분석 P2-5. /improve는 매 턴 사용자가 후보 1개를 골라야 진행되어 ralph/loop-engineering 캐논(백프레셔가 충분하면 루프를 무인으로 돌리고 인간은 루프를 관찰) 대비 자율성이 낮고, 사용자의 자율성 우선 선호와도 어긋난다. invariant-guard+bats 400+독립 evaluator라는 백프레셔가 이미 존재하므로 무인 루프의 전제는 갖춰졌다. 단, Plan 게이트 의미론 변경이므로 critical로 취급하고 ADR로 명문화한다. F35(passes 기계 검증) 선행 전제.",
+  "acceptance_criteria": [
+    "F39-1: skills/improve/SKILL.md에 --auto N 모드 add-only — 배치 Plan 게이트 1회(ExitPlanMode)에서 범위(후보 필터·N회전·중단 조건)를 승인받으면 N회전 무인 반복: probe→후보 자동 선정→change-request→구현→독립 evaluator→finish-branch",
+    "F39-2: 후보 자동 선정 규칙 명문화 — security_tier critical 후보, invariant/INVARIANTS/firewall/invariant-guard/hooks.json 대상 후보는 무인 실행 제외 → progress/approval-queue.json에 적립(스키마: 후보+제외 사유+적립 시각)",
+    "F39-3: 중단 조건 — evaluator fail 2연속, invariant-guard 차단 발생, 신규 후보 0, N 도달. 중단 시 세션 핸드오프에 사유·진행 요약 기록",
+    "F39-4: 각 회전은 기존 게이트 전부 통과 필수(무약화) — invariant-guard·bats 전체·evaluator min-of-5·Stop 게이트. 신규 게이트를 만들지 않고 기존 스킬 체인 재사용(F14 원칙 유지)",
+    "F39-5: docs/DECISIONS/ADR-006 작성 — 배치 승인 의미론: 1회 승인이 개별 Plan 게이트를 대체하는 범위(사전 승인된 필터 내 저위험 후보만)와 한계(critical·invariant 대상 불가), F35 선행 전제 근거",
+    "F39-6: docs/INVARIANTS.md에 'critical/invariant 대상 후보는 무인 실행 불가 — 항상 사람 승인' add-only 명문화 + 변경이력",
+    "전역: 전체 bats GREEN·무회귀(skill-frontmatter·efficiency 포함), shellcheck 0, consistency 0"
+  ],
+  "security_criteria": [
+    "SC1: 게이트 무약화 — auto 모드가 우회하는 것은 '후보 선택의 사람 개입'뿐, 검증 게이트(evaluator·guard·bats·Stop)는 전 회전 동일 강도 유지",
+    "SC2: 권한 상승 없음 — auto 모드가 방화벽 allow 범위·invariant-guard 규칙·임계값을 변경하지 않음. 이런 변경을 시도하는 후보는 F39-2 필터로 승인 큐 격리",
+    "SC3: 폭주 방지 — N 상한(기본 5, 최대 10 명문화), 중단 조건 4종, 각 회전 산출물이 git 커밋으로 추적 가능(롤백 용이)",
+    "SC4: security-auditor 검증 필수(critical 티어) — 배치 승인 의미론이 기존 위협모델과 정합하는지 감사"
+  ],
+  "error_scenarios": [
+    "회전 중 evaluator fail: iteration 재시도(기존 max_iterations 준수), 2연속 fail 시 루프 중단+핸드오프 기록",
+    "회전 중 invariant-guard 차단: 즉시 중단(자기약화 시도 신호), 해당 후보를 승인 큐로 이동",
+    "approval-queue.json 경합(무인 회전 중 수동 세션): append-only 스키마로 병합 안전",
+    "N회전 도중 사용자 개입(중단 요청): 현재 회전의 게이트 완료 후 종료(중간 상태 미방치)"
+  ],
+  "test_scenarios": [
+    "bats: SKILL 프론트매터·문서 구조(auto 모드 절·중단 조건·필터 규칙 존재), approval-queue 스키마 검증",
+    "시나리오 문서 검증: critical 후보 fixture가 자동 실행 아닌 큐 적립으로 라우팅되는 절차 기술 확인",
+    "efficiency 테스트: SKILL 줄수 상한 내 유지(재-비대 방지)"
+  ],
+  "implementation_steps": [
+    {
+      "step": "ADR-006 초안(배치 승인 의미론·한계·F35 전제) — architect 관점 검토",
+      "verify": "ADR 구조(Context/Decision/Consequences) 완비",
+      "done": false
+    },
+    {
+      "step": "skills/improve/SKILL.md --auto 절 add-only + approval-queue.json 스키마 정의",
+      "verify": "skill-frontmatter·efficiency bats GREEN",
+      "done": false
+    },
+    {
+      "step": "INVARIANTS.md 무인 실행 불가 조항 add-only + 변경이력",
+      "verify": "invariant-guard 자기보호 통과(증가 방향)",
+      "done": false
+    },
+    {
+      "step": "버전 bump → 독립 evaluator + security-auditor(critical)",
+      "verify": "전체 bats GREEN, consistency 0, 보안 점수 ≥7",
+      "done": false
+    }
+  ],
+  "agreed": false
+}

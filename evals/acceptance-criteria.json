@@ -1,0 +1,54 @@
+{
+  "project": "cc-harness",
+  "_comment": "기능별 인수 조건 집계. 상세 기준·보안 기준·에러 시나리오의 단일 출처는 progress/contracts/sprint-{n}.json — 이 파일은 evaluator가 스프린트 횡단으로 조회하는 인덱스다. F1~F34는 sprint-1~20 contract에 기록되어 있다(소급 미복제).",
+  "criteria": [
+    {
+      "feature_id": "F35",
+      "contract": "progress/contracts/sprint-21.json",
+      "security_tier": "critical",
+      "summary": "invariant-guard가 feature_list.json의 passes:false→true 전환을 evaluator-feedback(존재·verdict pass·min-of-5≥threshold·critical은 security≥7)으로 기계 검증, 불충족 시 exit 2. contracts agreed 전환은 구조 검증. INV-11 신설."
+    },
+    {
+      "feature_id": "F36",
+      "contract": "progress/contracts/sprint-22.json",
+      "security_tier": "standard",
+      "summary": "progress/harness-config.json·evals/calibration/·lessons.md를 자기 repo에 실체화(값 무하향), completeness probe에 runtime 부재 탐지 추가, INV-3 가드 활성 실증."
+    },
+    {
+      "feature_id": "F37",
+      "contract": "progress/contracts/sprint-23.json",
+      "security_tier": "standard",
+      "summary": "과거 판정을 golden-set.json으로 정규화, calibration.sh 프로브(산술 불일치·evidence 없는 pass·분포 이탈), evaluator critical 2차 판정 절차, escaped-defect 환류 스키마."
+    },
+    {
+      "feature_id": "F38",
+      "contract": "progress/contracts/sprint-24.json",
+      "security_tier": "low",
+      "summary": "metrics.sh에 first-pass 성공률·평균 iteration·Stop 게이트 차단·방화벽 결정 분포 기록(방화벽 결정 로직 무변경), F13 '훅 실행시간' 과잉 주장 정정."
+    },
+    {
+      "feature_id": "F39",
+      "contract": "progress/contracts/sprint-25.json",
+      "security_tier": "critical",
+      "summary": "/improve --auto N 무인 루프 — 배치 Plan 게이트 1회 승인, critical/invariant 후보는 approval-queue.json 격리, 중단 조건 4종, 기존 게이트 무약화, ADR-006."
+    },
+    {
+      "feature_id": "F40",
+      "contract": "progress/contracts/sprint-26.json",
+      "security_tier": "low",
+      "summary": "consistency.sh에 README 숫자 실측 대조·의존성-passes 정합·부재 경로 참조 검사, README 정정, .tmp 정리, F27 독립 evaluator 회부."
+    },
+    {
+      "feature_id": "F41",
+      "contract": "progress/contracts/sprint-27.json",
+      "security_tier": "standard",
+      "summary": "invariant-guard jq 부재 시 보호 파일 편집 fail-closed(exit 2), CI에 probes shellcheck·jq 검증, INVARIANTS 위협모델 갱신."
+    },
+    {
+      "feature_id": "F42",
+      "contract": "progress/contracts/sprint-28.json",
+      "security_tier": "standard",
+      "summary": "PreCompact 훅 신규 — 컴팩션 전 핸드오프 스냅샷(로직 공용화) + draft 부재 시 기록 유도 신호, hooks.json add-only 등록."
+    }
+  ]
+}

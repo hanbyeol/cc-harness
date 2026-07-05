@@ -419,6 +419,115 @@
         "F28"
       ],
       "assigned_sprint": 20
+    },
+    {
+      "id": "F35",
+      "name": "passes-transition guard — evaluator 판정의 기계 검증 (INV-11)",
+      "description": "베스트 프랙티스 비교 분석 P0-1: INV-1(evaluator만 passes 변경)·INV-2(min-of-5)·INV-4(critical 자동 fail)가 프롬프트 관례로만 집행되던 갭을 기계화. invariant-guard.sh에 progress/feature_list.json 브랜치 add-only 추가 — Edit/Write/MultiEdit 재구성 콘텐츠에서 passes:false→true 전환을 감지하면 progress/agent-comms/의 최신(비archive) evaluator-feedback에서 해당 feature id의 판정을 jq로 재검증: 레코드 존재·verdict pass·5차원 scores 존재·min(5)≥pass_threshold(config 부재 시 7)·critical 티어면 security≥critical threshold. 불충족 시 exit 2(사람 승인 요구). contracts/sprint-*.json의 agreed:false→true 전환도 구조 검증(acceptance_criteria·implementation_steps 비어있지 않음). INVARIANTS.md에 INV-11 신설. '결정론적 도구 > 프롬프트' 원칙을 코어 루프에 적용.",
+      "security_tier": "critical",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F12",
+        "F25"
+      ],
+      "assigned_sprint": 21
+    },
+    {
+      "id": "F36",
+      "name": "자기 저장소 dogfooding — runtime 상태 실체화 + 부재 탐지",
+      "description": "P0-2: cc-harness repo 자신에 progress/harness-config.json·evals/calibration/false-positives.json·progress/lessons.md가 없어(templates/에만 존재) INV-3 임계값 가드가 보호할 파일이 없고 firewall auto_allow* 토글이 조용히 기본값으로 동작하던 dogfooding 실패를 해소. runtime 파일을 템플릿 값 그대로(하향 없음) 실체화하고, completeness.sh에 'runtime 상태 파일 부재' 탐지(필수 파일 목록 대조)를 추가. 플러그인 모드 신규 설치 시 시드 경로(setup-claudemd.sh) 확인·보완. INV-3 가드 활성을 이 repo에서 실증(pass_threshold 하향 Edit → exit 2).",
+      "security_tier": "standard",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F12",
+        "F27"
+      ],
+      "assigned_sprint": 22
+    },
+    {
+      "id": "F37",
+      "name": "evaluator 보정 코퍼스 — golden set + 드리프트 프로브 + critical 2차 판정",
+      "description": "P1-3: 단일 judge 1회 호출에 게이트 신뢰도 전체가 걸린 갭 해소. 과거 evaluator-feedback(현행+archive)을 evals/calibration/golden-set.json으로 정규화(feature·scores·verdict·evidence 유무). 신규 프로브 calibration.sh — 최신 판정을 golden set과 대조해 (a) scores와 verdict 불일치(min-of-5 산술 오류), (b) evidence 없는 pass, (c) 점수 분포 이탈을 후보로 보고, run-all.sh 배선. evaluator.md에 critical 티어 2차 판정(독립 컨텍스트 second-judge 샘플링, 불일치 시 사람 에스컬레이션) add-only 명문화. escaped-defect 환류 스키마(lessons.md→false-positives.json). F35 가드(전환 시점)와 상보적인 사후 감사 계층.",
+      "security_tier": "standard",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F25",
+        "F36"
+      ],
+      "assigned_sprint": 23
+    },
+    {
+      "id": "F38",
+      "name": "하네스 KPI 텔레메트리 — first-pass rate·게이트 차단·방화벽 분포 + F13 과잉 주장 정정",
+      "description": "P1-4: metrics-history가 테스트 수+shellcheck만 기록해 하네스 효과를 측정하지 못하던 관측성 갭 해소. metrics.sh 확장 — (a) evaluator-feedback 스캔으로 first-pass 성공률·기능당 평균 iteration, (b) Stop 게이트 차단 카운터(pre-commit-gate가 progress/.gate-stats에 append), (c) 방화벽 결정 분포(pre-bash-firewall이 deny/ask/allow별 카운터 append — 결정 로직 무변경, 로깅만 add-only). metrics-history.json 스키마 add-only 확장. F13 기록의 '훅 실행시간 추세' 과잉 주장은 실측 구현 또는 기록 정정으로 evidence over claims 회복(Plan에서 확정, 기본=정정).",
+      "security_tier": "low",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F13",
+        "F24"
+      ],
+      "assigned_sprint": 24
+    },
+    {
+      "id": "F39",
+      "name": "/improve --auto N — 배치 승인 무인 자기개선 루프",
+      "description": "P2-5: /improve가 매 턴 사람 선택을 요구해 ralph식 루프 자율성이 낮던 갭 해소. --auto N 모드 — 사용자가 배치 Plan 게이트 1회에서 범위(후보 필터·N회전·중단 조건)를 승인하면 N회전 동안 probe→후보 자동 선정→change-request→구현→evaluator→finish-branch를 무인 반복. 백프레셔=기존 게이트 전부(invariant-guard·bats·evaluator min-of-5·Stop 게이트) 무약화. security_tier critical/invariant·firewall·guard 대상 후보는 무인 실행 제외 → progress/approval-queue.json에 사람 승인 큐로 적립. 중단 조건: evaluator fail 2연속·invariant-guard 차단 발생·신규 후보 0·N 도달. ADR-006(배치 승인 의미론 — 1회 승인이 개별 Plan 게이트를 대체하는 범위와 한계) 작성, INVARIANTS에 'critical 후보 무인 실행 불가' add-only 명문화. F35 선행 전제(passes 기계 검증 없이 무인 루프 금지).",
+      "security_tier": "critical",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F14",
+        "F35"
+      ],
+      "assigned_sprint": 25
+    },
+    {
+      "id": "F40",
+      "name": "consistency probe 확장 — 산문 숫자 실측 대조·의존성-passes 정합 + 스테일 정리",
+      "description": "P2-6: consistency probe가 특정 신호만 샘플링해 README '테스트 273개'(실측 400)·'hooks 7/8' 불일치, F27(passes:false)에 의존하는 F28/32/33 통과 모순을 놓치던 갭 해소. consistency.sh에 (a) README 숫자 주장(스킬·훅·에이전트·프로브·테스트 수) 실측 대조, (b) 의존성-passes 정합(passes:false 기능에 의존하는 passed 기능 탐지), (c) 로컬 설정의 부재 경로 참조 탐지 추가. README 현행 숫자 정정, .tmp/·.tmp-eval/ 스테일 사본 정리+.gitignore 보강. F27 판정은 독립 evaluator에 회부해 종결(메인 루프는 passes 불변 — INV-1 준수).",
+      "security_tier": "low",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F13"
+      ],
+      "assigned_sprint": 26
+    },
+    {
+      "id": "F41",
+      "name": "invariant-guard fail-closed — jq 부재 시 보호 파일 편집 차단 + CI 프로브 린트",
+      "description": "P2-7: 가드가 jq 부재 시 경고만 하고 통과(fail-open)해 가장 중요한 순간에 열려 있던 갭 해소. invariant-guard.sh — jq 부재 시 보호 대상 파일(harness-config·pre-bash-firewall·pre-tool-firewall·tests/*.bats·INVARIANTS.md·hooks.json·invariant-guard 자신) 편집에 한해 exit 2(fail-closed, 설치 안내 메시지). 비보호 파일은 기존대로 통과(가용성 유지). CI에 scripts/probes/*.sh shellcheck + jq 전제 검증 step 추가. INVARIANTS 위협모델의 'jq 부재=fail-open' 서술 갱신. 가드 강화 방향(add-only, INV-7 정합).",
+      "security_tier": "standard",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F12"
+      ],
+      "assigned_sprint": 27
+    },
+    {
+      "id": "F42",
+      "name": "PreCompact 훅 — 컴팩션 전 핸드오프 상태 강제 스냅샷",
+      "description": "P3-8: 결정·블로커 캡처가 session-handoff-draft.json 작성 관례에만 의존해 컴팩션 시 유실 위험이 있던 갭 기계화. hooks/pre-compact.sh 신규(PreCompact 이벤트) — 컴팩션 직전 session-handoff.sh 스냅샷 로직 재사용(공용화, 중복 구현 금지) + draft 부재 시 additionalContext로 '핵심 결정·블로커 기록' 유도 신호 주입. hooks.json add-only 등록(INV-7 등록 무결성 — command 목록 증가만). 컨텍스트 손실 방지를 관례에서 메커니즘으로.",
+      "security_tier": "standard",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F4"
+      ],
+      "assigned_sprint": 28
     }
   ]
 }
