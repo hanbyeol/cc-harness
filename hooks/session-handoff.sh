@@ -1,86 +1,23 @@
 #!/usr/bin/env bash
+#
+# session-handoff.sh — Stop 훅
+#
+# 세션 종료 시 자동 상태 스냅샷을 저장하고(공용 로직은 lib.sh),
+# 에이전트가 기록한 draft를 병합해 다음 세션에 넘긴다.
+#
 set -euo pipefail
-cd "${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}" 2>/dev/null || exit 0
 
-# Use PID-specific tmp to avoid race conditions when multiple Stop hooks run concurrently
-TMP="progress/session-handoff.json.tmp.$$"
-trap 'rm -f "$TMP"' EXIT
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh" 2>/dev/null || exit 0
 
-# Read current progress state (with validation)
-PHASE="unknown"
-PENDING="[]"
-DONE="[]"
-if [[ -f progress/phase-gate.json ]] && command -v jq &>/dev/null; then
-  PHASE=$(jq -r '.current_phase // "unknown"' progress/phase-gate.json 2>/dev/null || echo "unknown")
-fi
-if [[ -f progress/feature_list.json ]] && command -v jq &>/dev/null; then
-  PENDING=$(jq -c '[.features[] | select(.passes == false) | .id + ": " + .name]' progress/feature_list.json 2>/dev/null || echo "[]")
-  DONE=$(jq -c '[.features[] | select(.passes == true) | .id + ": " + .name]' progress/feature_list.json 2>/dev/null || echo "[]")
-fi
+harness_cd || exit 0
 
-# Recent commits this session (last 2 hours)
-RECENT_COMMITS="[]"
-if COMMITS_RAW=$(git log --oneline --since="2 hours ago" 2>/dev/null | head -10); then
-  if [[ -n "$COMMITS_RAW" ]]; then
-    RECENT_COMMITS=$(echo "$COMMITS_RAW" | jq -Rs 'split("\n") | map(select(length > 0))' 2>/dev/null || echo "[]")
-  fi
-fi
+# 1) 자동 상태 스냅샷 (phase·features·recent commits) — PreCompact 훅과 공유하는 로직.
+#    스냅샷 생성에 실패하면 draft 병합 대상이 없으므로 그대로 종료(원 동작 보존).
+harness_write_handoff_snapshot || exit 0
 
-TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-
-# Build handoff JSON safely using jq instead of heredoc interpolation
-jq -n \
-  --arg ts "$TIMESTAMP" \
-  --arg phase "$PHASE" \
-  --argjson completed "$DONE" \
-  --argjson pending "$PENDING" \
-  --argjson recent_commits "$RECENT_COMMITS" \
-  '{
-    timestamp: $ts,
-    phase: $phase,
-    completed: $completed,
-    pending: $pending,
-    recent_commits: $recent_commits,
-    in_progress: null,
-    blockers: [],
-    next_actions: [],
-    key_decisions: []
-  }' > "$TMP" 2>/dev/null
-
-# Validate and move
-if jq '.' "$TMP" &>/dev/null; then
-  mv "$TMP" progress/session-handoff.json
-else
-  exit 0
-fi
-
-# Merge in agent-written fields if draft exists (recursive deep merge)
-if [[ -f progress/session-handoff-draft.json ]]; then
-  if command -v jq &>/dev/null; then
-    if jq -s '
-      def deep_merge(a; b):
-        a as $a | b as $b |
-        if ($a | type) == "object" and ($b | type) == "object" then
-          ($a | keys) as $ak | ($b | keys) as $bk |
-          ([$ak[], $bk[]] | unique) | reduce .[] as $k (
-            {};
-            if ($a | has($k)) and ($b | has($k)) then
-              . + { ($k): deep_merge($a[$k]; $b[$k]) }
-            elif ($b | has($k)) then
-              . + { ($k): $b[$k] }
-            else
-              . + { ($k): $a[$k] }
-            end
-          )
-        elif ($b | type) == "null" then $a
-        else $b end;
-      deep_merge(.[0]; .[1])
-    ' progress/session-handoff.json progress/session-handoff-draft.json \
-        > "$TMP" 2>/dev/null; then
-      mv "$TMP" progress/session-handoff.json
-      rm -f progress/session-handoff-draft.json
-    fi
-  fi
-fi
+# 2) 에이전트가 남긴 draft를 병합하고 정리(세션 종료 시맨틱).
+harness_merge_handoff_draft
 
 exit 0
