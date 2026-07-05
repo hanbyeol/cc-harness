@@ -15,5 +15,9 @@ progress/agent-comms/archive/
 # Quality gate cache (per-tree, transient)
 progress/.gate-cache
 
+# F38 KPI telemetry counters (per-project runtime, append-only observability)
+progress/.gate-stats
+progress/.firewall-stats
+
 # Self-improvement metrics history (per-project trend, regenerated)
 progress/metrics-history.json

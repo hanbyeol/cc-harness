@@ -12,7 +12,17 @@ CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || echo "
 # Normalize all whitespace (tabs, newlines, multiple spaces) to single space
 NORMALIZED_CMD=$(echo "$CMD" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')
 
+# F38: 결정 분포 관측(로깅만 — 판정 로직·순서 무변경). 명령 원문은 기록하지 않고(SC2)
+# 결정 종류만 progress/.firewall-stats에 append. 실패는 무시(로깅이 방화벽을 깨지 않음).
+log_decision() {
+  local sf pd
+  pd="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+  sf="$pd/progress/.firewall-stats"
+  [[ -d "$pd/progress" ]] && printf '%s\n' "$1" >> "$sf" 2>/dev/null || true
+}
+
 deny() {
+  log_decision deny
   echo "BLOCKED: $1" >&2
   echo "  Pattern: $2" >&2
   echo "  Command: ${CMD:0:120}" >&2
@@ -141,6 +151,7 @@ ASK_PATTERNS=(
 if echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then
   for p in "${ASK_PATTERNS[@]}"; do
     if echo "$NORMALIZED_CMD" | grep -qiE "$p"; then
+      log_decision ask
       jq -n --arg reason "uncommitted 변경을 잃을 수 있는 명령입니다 (pattern: $p). 실행 전 확인이 필요합니다." \
         '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "ask", permissionDecisionReason: $reason}}'
       exit 0
@@ -167,6 +178,7 @@ fi
 # deny(L1/2)·ask(L3)를 통과한 명령은 위험 정의에 해당하지 않으므로 자동 허용한다.
 # command substitution/리다이렉트 안의 위험 명령은 Layer 2가, 시스템 파일 truncate는
 # Layer 1/2가, 하네스 검증파일·비밀키 쓰기는 Layer 3(ask)이 이미 선처리했다.
+log_decision allow
 jq -n --arg reason "위험 명령(deny/ask)에 해당하지 않는 명령 — cc-harness firewall이 자동 허용했습니다." \
   '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "allow", permissionDecisionReason: $reason}}'
 exit 0
