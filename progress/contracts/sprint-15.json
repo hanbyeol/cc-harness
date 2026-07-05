@@ -1,0 +1,58 @@
+{
+  "sprint": 15,
+  "title": "CLAUDE.md 다이어트 — 절차 중복 제거, 파일럿 체크리스트화 (F29, v1.14.1)",
+  "features": [
+    "F29"
+  ],
+  "security_tier": "standard",
+  "source": "repo CLAUDE.md(118줄)·templates/CLAUDE.md.tmpl(185줄)이 harness-engineering best practice(간결한 파일럿 체크리스트, ~60줄, 규칙마다 근거)의 2~3배. Step 1-5 워크플로 절차가 CLAUDE.md·template·스킬(change-request/implement)에 3중 중복되고, 하단 Skills 섹션은 라우팅 표와 중복이며, 임계값 나열·병렬실행 산문이 비대하다. always-loaded 파일이라 매 턴 토큰세·주의분산을 유발. progressive disclosure로 상세를 스킬에 두고 CLAUDE.md는 라우팅+원칙만 남긴다.",
+  "acceptance_criteria": [
+    "F29-1: repo CLAUDE.md ≤ 75줄(현재 118)로 축소. must-keep 전부 보존: 헤딩 '## 기준 역전파 원칙', 검증 티어링 문구('검증 강도' 또는 '검증 티어'), 11개 /skill 라우팅, /plan-review",
+    "F29-2: templates/CLAUDE.md.tmpl ≤ 120줄(현재 185)로 축소. cc-harness:begin/end 마커 쌍 각 1개 유지, 마커 밖 'Build & Test' 섹션 무손상, 같은 must-keep 보존",
+    "F29-3: Step 1-5 상세 절차를 워크플로 요약(코드 전 /change-request → Plan 게이트 → /implement → 독립 evaluator) + 스킬 포인터로 대체 — 스킬(change-request/implement)에 이미 있는 상세를 CLAUDE.md에서 중복 제거",
+    "F29-4: 하단 Skills(Slash Commands) 섹션 제거 — 라우팅 표가 11개 /skill을 모두 포함해 skill-frontmatter·consistency 요건 충족",
+    "F29-5: efficiency.bats에 브레비티 상한 테스트 추가(CLAUDE.md ≤ 75줄, tmpl ≤ 120줄) — 재-비대 방지, add-only",
+    "전역: setup-claudemd·skill-frontmatter·profile·efficiency·probes bats 전부 무회귀, consistency 프로브 0건, 전체 스위트 GREEN, version-consistency 1.14.1(3종)"
+  ],
+  "security_criteria": [
+    "SC1: SENTINEL '## 기준 역전파 원칙' 보존 → setup-claudemd 훅의 콘텐츠 감지·중복 제거·profile 전환 로직 무손상(hooks/setup-claudemd.sh:269, profile.bats SENTINEL_SDLC)",
+    "SC2: 검증 장치 서술 약화 금지 — min-of-5·evaluator 독립(passes)·security_tier critical 자동fail·임계값 하향불가·검증 티어링 원칙 문구가 CLAUDE.md에 잔존(문구 삭제는 게이트 약화 서술이 아니라 요약이어야 함)",
+    "SC3: 11개 skill 라우팅 전부 보존 → 자동 라우팅 누락 0(consistency 프로브가 CLAUDE.md·tmpl·README 3파일에서 각 /skill 확인)",
+    "SC4: cc-harness:begin/end 마커 쌍과 마커 밖 Build&Test 무손상 → 설치·업그레이드(setup-claudemd) 안전",
+    "SC5: 이 변경은 문서 슬림화이며 harness-config 임계값·firewall deny·테스트 개수를 낮추지 않는다(invariant-guard 무저촉)"
+  ],
+  "error_scenarios": [
+    "must-keep 문구 실수 삭제: 신규 브레비티 테스트 외에 기존 setup-claudemd/profile/efficiency 테스트가 SENTINEL·티어링·마커 부재를 즉시 실패로 검출(2차 방어)",
+    "라우팅 표에서 skill 누락: consistency 프로브 + skill-frontmatter 테스트가 검출",
+    "tmpl 마커 밖(Build&Test) 오편집: setup-claudemd 멱등성/유저 콘텐츠 보존 테스트가 검출",
+    "과도 축소로 원칙 소실: 독립 evaluator가 검증 장치 서술 약화 여부를 최종 확인"
+  ],
+  "test_scenarios": [
+    "efficiency.bats: 'CLAUDE.md ≤ 75줄', 'tmpl ≤ 120줄' 브레비티 테스트 2건 추가",
+    "무회귀: setup-claudemd(멱등·마커·SENTINEL), skill-frontmatter(11 skill 3파일), profile(SENTINEL_SDLC·plan-review), efficiency(F19 매핑), probes 전부 GREEN",
+    "consistency 프로브 0건, 전체 bats GREEN, version-consistency 1.14.1"
+  ],
+  "implementation_steps": [
+    {
+      "step": "repo CLAUDE.md 재작성 — Priority·워크플로 요약·원칙(GE/evidence/min-of-5/티어링/역전파/서브에이전트 제약)·라우팅 표·Phase+병렬(압축)·Session Handoff. Step 1-5 상세·Skills 섹션 제거. ≤75줄, must-keep 유지",
+      "verify": "wc -l ≤75, grep SENTINEL·검증티어링·11 skill·/plan-review 전부 존재",
+      "done": false
+    },
+    {
+      "step": "templates/CLAUDE.md.tmpl 재작성 — 마커 밖 Build&Test 보존, 마커 안 동일 다이어트 적용. ≤120줄, 마커 쌍·must-keep 유지",
+      "verify": "wc -l ≤120, 마커 begin/end 각 1개, Build&Test 무손상, must-keep 존재",
+      "done": false
+    },
+    {
+      "step": "tests/efficiency.bats에 브레비티 상한 테스트 2건 추가(CLAUDE.md·tmpl)",
+      "verify": "bats efficiency.bats GREEN",
+      "done": false
+    },
+    {
+      "step": "버전 1.14.1(3종 매니페스트) + 전체 무회귀 확인 → 독립 evaluator",
+      "verify": "version-consistency GREEN, 전체 bats GREEN, consistency 프로브 0",
+      "done": false
+    }
+  ],
+  "agreed": true
+}

@@ -8,6 +8,7 @@ SYNC="$PLUGIN_ROOT/skills/sync-docs/SKILL.md"
 DEBUG="$PLUGIN_ROOT/skills/debug/SKILL.md"
 IMPL="$PLUGIN_ROOT/skills/implement/SKILL.md"
 CLAUDEMD="$PLUGIN_ROOT/CLAUDE.md"
+TMPL="$PLUGIN_ROOT/templates/CLAUDE.md.tmpl"
 
 # --- F17: 토큰 다이어트 ---
 
@@ -66,4 +67,36 @@ CLAUDEMD="$PLUGIN_ROOT/CLAUDE.md"
 
 @test "F19: CLAUDE.md carries the tier->verification mapping" {
   grep -qiE '검증 (강도|티어)|security_tier.*검증|tier.*verification' "$CLAUDEMD"
+}
+
+# --- F29: CLAUDE.md 다이어트 (브레비티 상한 + must-keep 보존, 재-비대 방지) ---
+
+@test "F29: repo CLAUDE.md slimmed below 76 lines" {
+  [ "$(wc -l < "$CLAUDEMD")" -lt 76 ]
+}
+
+@test "F29: template CLAUDE.md.tmpl slimmed below 121 lines" {
+  [ "$(wc -l < "$TMPL")" -lt 121 ]
+}
+
+@test "F29: diet preserves SENTINEL + tiering + plan-review (repo & tmpl)" {
+  for f in "$CLAUDEMD" "$TMPL"; do
+    grep -qF '## 기준 역전파 원칙' "$f" || { echo "SENTINEL missing in $f"; return 1; }
+    grep -qiE '검증 (강도|티어)' "$f" || { echo "tiering phrase missing in $f"; return 1; }
+    grep -qF '/plan-review' "$f" || { echo "/plan-review missing in $f"; return 1; }
+  done
+}
+
+@test "F29: diet keeps all 11 skills routed (repo & tmpl)" {
+  for f in "$CLAUDEMD" "$TMPL"; do
+    for s in brainstorm change-request implement hotfix debug finish-branch improve plan-review rollout progress sync-docs; do
+      grep -q "/$s" "$f" || { echo "missing /$s in $f"; return 1; }
+    done
+  done
+}
+
+@test "F29: template keeps markers and Build & Test intact" {
+  [ "$(grep -cF '<!-- cc-harness:begin -->' "$TMPL")" -eq 1 ]
+  [ "$(grep -cF '<!-- cc-harness:end -->' "$TMPL")" -eq 1 ]
+  grep -qF '## Build & Test' "$TMPL"
 }
