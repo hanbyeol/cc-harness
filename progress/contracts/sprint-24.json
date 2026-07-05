@@ -7,7 +7,7 @@
   "security_tier": "low",
   "source": "베스트 프랙티스 비교 분석 P1-4. metrics-history는 테스트 수+shellcheck 경고만 기록해 캐논이 요구하는 하네스 효과 지표(first-pass 성공률·반복 횟수·게이트 차단·방화벽 결정 분포)가 없다. F13 기능 기록은 '훅 실행시간 추세'를 주장하나 실제 코드에 없음 — evidence over claims의 자기 위반. 측정 없는 개선 루프는 방향을 잃는다(Faros: 'treat the harness as a deliberate, measured practice').",
   "acceptance_criteria": [
-    "F38-1: metrics.sh 확장 — evaluator-feedback(archive 포함) 스캔으로 first-pass 성공률(iteration≤1 통과 비율)·기능당 평균 iteration을 metrics-history.json에 add-only 기록",
+    "F38-1: metrics.sh 확장 — progress/feature_list.json 스캔(.passes/.iteration)으로 first-pass 성공률(iteration≤1 통과 비율)·기능당 평균 iteration을 metrics-history.json에 add-only 기록. [정정 2026-07-06: 최초 문구는 'evaluator-feedback 스캔'이었으나 feature_list.json이 iteration의 정본이라 더 정확 — evaluator가 met-in-substance 확인, 기준 역전파]",
     "F38-2: pre-commit-gate.sh — Stop 게이트 차단(exit 2) 시 progress/.gate-stats에 1줄 append(timestamp·사유 태그). metrics.sh가 집계",
     "F38-3: pre-bash-firewall.sh — 결정(deny/ask/allow/fallthrough)별 카운터를 progress/.firewall-stats에 1줄 append. 결정 로직 무변경(로깅만 add-only), 실패 시 무시(로깅이 방화벽을 깨지 않음). metrics.sh가 분포 집계",
     "F38-4: metrics-history.json 스키마 add-only 확장(기존 필드 유지) — 기존 24개 엔트리 호환",
@@ -32,22 +32,22 @@
     {
       "step": "metrics.sh first-pass·iteration 집계 + 스키마 확장(RED 테스트 먼저)",
       "verify": "bats GREEN, 기존 엔트리 호환",
-      "done": false
+      "done": true
     },
     {
       "step": "pre-commit-gate .gate-stats append + bats",
       "verify": "차단 fixture에서 append 확인",
-      "done": false
+      "done": true
     },
     {
       "step": "pre-bash-firewall .firewall-stats append(결정 무변경) + bats",
       "verify": "162개 회귀 GREEN + append 검증",
-      "done": false
+      "done": true
     },
     {
       "step": "F13 description 정정 + 버전 bump → 독립 evaluator",
       "verify": "전체 bats GREEN, consistency 0",
-      "done": false
+      "done": true
     }
   ],
   "agreed": true

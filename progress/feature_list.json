@@ -141,7 +141,7 @@
     {
       "id": "F13",
       "name": "자동 발견 프로브",
-      "description": "하네스가 자신을 진단해 개선 후보를 생성하는 4개 프로브: self-review(/code-review 결과 환원), 일관성(문서↔코드 drift·메타데이터 정합), 메트릭(테스트 수·shellcheck 경고·훅 실행시간 추세 — progress/metrics-history.json), completeness critic(미작성 ADR·테스트 없는 분기). 후보는 feature_list 형식으로 환원, backlog/기존 feature와 중복 제거.",
+      "description": "하네스가 자신을 진단해 개선 후보를 생성하는 4개 프로브: self-review(/code-review 결과 환원), 일관성(문서↔코드 drift·메타데이터 정합), 메트릭(테스트 수·shellcheck 경고 추세 — progress/metrics-history.json; F38에서 first-pass rate·평균 iteration·게이트 차단·방화벽 결정 분포로 확장), completeness critic(미작성 ADR·테스트 없는 분기). 후보는 feature_list 형식으로 환원, backlog/기존 feature와 중복 제거. [정정 2026-07-06: 최초 기록의 '훅 실행시간 추세'는 실제 metrics.sh에 미구현이었음 — F38에서 실측 KPI로 대체, evidence over claims 회복.]",
       "security_tier": "standard",
       "status": "passed",
       "passes": true,
@@ -467,9 +467,9 @@
       "name": "하네스 KPI 텔레메트리 — first-pass rate·게이트 차단·방화벽 분포 + F13 과잉 주장 정정",
       "description": "P1-4: metrics-history가 테스트 수+shellcheck만 기록해 하네스 효과를 측정하지 못하던 관측성 갭 해소. metrics.sh 확장 — (a) evaluator-feedback 스캔으로 first-pass 성공률·기능당 평균 iteration, (b) Stop 게이트 차단 카운터(pre-commit-gate가 progress/.gate-stats에 append), (c) 방화벽 결정 분포(pre-bash-firewall이 deny/ask/allow별 카운터 append — 결정 로직 무변경, 로깅만 add-only). metrics-history.json 스키마 add-only 확장. F13 기록의 '훅 실행시간 추세' 과잉 주장은 실측 구현 또는 기록 정정으로 evidence over claims 회복(Plan에서 확정, 기본=정정).",
       "security_tier": "low",
-      "status": "pending",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [
         "F13",
         "F24"

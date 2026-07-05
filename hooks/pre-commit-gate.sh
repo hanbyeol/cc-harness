@@ -143,6 +143,9 @@ fi
 if [ ${#ERRS[@]} -gt 0 ]; then
   printf "Quality Gate FAILED:\n" >&2
   for e in "${ERRS[@]}"; do printf "  - %s\n" "$e" >&2; done
+  # F38: Stop 게이트 차단 관측(로깅만 — 판정 무변경). 명령/내용 원문 미기록, 카테고리만.
+  # metrics.sh가 progress/.gate-stats 줄 수를 차단 횟수로 집계한다.
+  { mkdir -p progress && printf 'block\n' >> progress/.gate-stats; } 2>/dev/null || true
   # 실패 상태는 캐시하지 않는다 (수정 후 재검증되어야 함)
   exit 2
 fi

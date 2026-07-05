@@ -76,6 +76,47 @@ seed_consistent() {
   echo "$output" | jq -e '.[] | select(.name | test("test"; "i"))'
 }
 
+# --- F38: 하네스 KPI 텔레메트리 ---
+
+@test "metrics: records first-pass rate and avg iterations from feature_list (F38)" {
+  seed_consistent
+  cat > "$WORK/progress/feature_list.json" <<'JSON'
+{"features":[
+{"id":"A","passes":true,"iteration":1},
+{"id":"B","passes":true,"iteration":1},
+{"id":"C","passes":true,"iteration":3},
+{"id":"D","passes":false,"iteration":0}
+]}
+JSON
+  bash -c "cd '$WORK' && bash '$PROBES/metrics.sh' 2026-06-13T00:00:00Z" >/dev/null
+  # passed=3, iteration<=1 인 것 2개 → 66%, 평균 iteration=(1+1+3)/3=1.66
+  run bash -c "jq '.[-1]' '$WORK/progress/metrics-history.json'"
+  [ "$(echo "$output" | jq '.first_pass_rate_pct')" -eq 66 ]
+  echo "$output" | jq -e '.avg_iterations == 1.66'
+}
+
+@test "metrics: aggregates gate blocks and firewall decisions (F38)" {
+  seed_consistent
+  printf 'block\nblock\n' > "$WORK/progress/.gate-stats"
+  printf 'deny\nallow\nallow\nask\n' > "$WORK/progress/.firewall-stats"
+  bash -c "cd '$WORK' && bash '$PROBES/metrics.sh' 2026-06-13T00:00:00Z" >/dev/null
+  run bash -c "jq '.[-1]' '$WORK/progress/metrics-history.json'"
+  [ "$(echo "$output" | jq '.gate_blocks')" -eq 2 ]
+  [ "$(echo "$output" | jq '.firewall_decisions.deny')" -eq 1 ]
+  [ "$(echo "$output" | jq '.firewall_decisions.allow')" -eq 2 ]
+  [ "$(echo "$output" | jq '.firewall_decisions.ask')" -eq 1 ]
+}
+
+@test "metrics: KPI fields null when sources absent (F38 backward-compat)" {
+  seed_consistent
+  rm -f "$WORK/progress/feature_list.json"
+  bash -c "cd '$WORK' && bash '$PROBES/metrics.sh' 2026-06-13T00:00:00Z" >/dev/null
+  run bash -c "jq '.[-1]' '$WORK/progress/metrics-history.json'"
+  echo "$output" | jq -e '.first_pass_rate_pct == null'
+  [ "$(echo "$output" | jq '.gate_blocks')" -eq 0 ]
+  [ "$(echo "$output" | jq '.firewall_decisions.deny')" -eq 0 ]
+}
+
 # --- completeness probe ---
 
 @test "completeness: hook without test yields a candidate" {

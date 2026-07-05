@@ -50,3 +50,12 @@ run_gate() { CLAUDE_PROJECT_DIR="$WORK" bash "$HOOK"; }
   run bash -c "echo '{}' | CLAUDE_PROJECT_DIR='$WORK' bash '$HOOK'"
   [ "$status" -eq 0 ]
 }
+
+@test "F38: a blocked gate appends 'block' to .gate-stats (observability)" {
+  # 시크릿 유입으로 게이트 차단 유발 → 차단 카운터 기록 확인
+  printf 'const k = "AKIAIOSFODNN7EXAMPLE1"\n' > leak.go
+  git add -A
+  run bash -c "echo '{}' | CLAUDE_PROJECT_DIR='$WORK' bash '$HOOK'"
+  [ "$status" -eq 2 ]
+  [ "$(grep -cx block "$WORK/progress/.gate-stats")" -ge 1 ]
+}
