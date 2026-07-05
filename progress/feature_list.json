@@ -405,6 +405,20 @@
         "F32"
       ],
       "assigned_sprint": 19
+    },
+    {
+      "id": "F34",
+      "name": "invariant-guard로 pre-tool-firewall 약화 차단 (INV-10, S-3) — 자기보호 대칭성",
+      "description": "Bash 방화벽(pre-bash-firewall)의 deny/ask는 invariant-guard가 add-only로 보호(INV-5)하지만, F28의 도구 방화벽(pre-tool-firewall)은 무보호 — read-verb 화이트리스트에 write-verb(create/delete/send/upload 등)를 넣거나 default를 emit_allow로 바꾸거나 빌트인 allow 목록에 Edit/Write/file_upload를 넣는 약화 편집이 결정론적으로 차단되지 않는 비대칭. invariant-guard.sh에 pre-tool-firewall.sh 브랜치를 add-only로 추가: (a) emit_allow 방출 지점 수 증가 차단(default-allow 플립·allow 브랜치 추가 방어), (b) read-verb 화이트리스트 라인에 write-verb 유입 차단, (c) 읽기전용 빌트인 라인에 변형 도구(Edit/Write/MultiEdit/NotebookEdit/Task/file_upload) 유입 차단. INVARIANTS.md에 INV-10 신설. Bash 방화벽과 도구 방화벽의 자기보호 대칭성을 회복한다. 순수 add-only(invariant-guard의 deny/exit2 증가 → INV-7 자기보호 준수), 기존 가드 브랜치 무손상.",
+      "security_tier": "standard",
+      "status": "implementing",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F12",
+        "F28"
+      ],
+      "assigned_sprint": 20
     }
   ]
 }

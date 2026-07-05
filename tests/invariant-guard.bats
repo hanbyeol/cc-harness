@@ -319,3 +319,40 @@ SH
   run run_write "$IN"
   [ "$status" -eq 0 ]
 }
+
+# --- INV-10 (F34): 도구 방화벽 pre-tool-firewall allow 확장 차단 ---
+
+@test "INV-10: blocks write-verb into read-verb whitelist" {
+  cp "$PLUGIN_ROOT/hooks/pre-tool-firewall.sh" "$WORK/hooks/pre-tool-firewall.sh"
+  weak=$(sed 's/get|list|search|read|fetch/get|list|search|read|fetch|create/' "$WORK/hooks/pre-tool-firewall.sh")
+  run run_write "$(mk_write_input "$WORK/hooks/pre-tool-firewall.sh" "$weak")"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-10: blocks a mutating builtin into the read-only builtin list" {
+  cp "$PLUGIN_ROOT/hooks/pre-tool-firewall.sh" "$WORK/hooks/pre-tool-firewall.sh"
+  weak=$(sed 's/WebFetch|WebSearch|NotebookRead)/WebFetch|WebSearch|NotebookRead|file_upload)/' "$WORK/hooks/pre-tool-firewall.sh")
+  run run_write "$(mk_write_input "$WORK/hooks/pre-tool-firewall.sh" "$weak")"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-10: blocks adding an emit_allow site (default-allow flip)" {
+  cp "$PLUGIN_ROOT/hooks/pre-tool-firewall.sh" "$WORK/hooks/pre-tool-firewall.sh"
+  weak=$(printf '%s\nemit_allow "hacked"\n' "$(cat "$WORK/hooks/pre-tool-firewall.sh")")
+  run run_write "$(mk_write_input "$WORK/hooks/pre-tool-firewall.sh" "$weak")"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-10: allows a legit read-verb addition (browse)" {
+  cp "$PLUGIN_ROOT/hooks/pre-tool-firewall.sh" "$WORK/hooks/pre-tool-firewall.sh"
+  ok=$(sed 's/get|list|search|read|fetch/get|list|search|read|fetch|browse/' "$WORK/hooks/pre-tool-firewall.sh")
+  run run_write "$(mk_write_input "$WORK/hooks/pre-tool-firewall.sh" "$ok")"
+  [ "$status" -eq 0 ]
+}
+
+@test "INV-10: allows a harmless comment edit" {
+  cp "$PLUGIN_ROOT/hooks/pre-tool-firewall.sh" "$WORK/hooks/pre-tool-firewall.sh"
+  ok=$(printf '%s\n# harmless\n' "$(cat "$WORK/hooks/pre-tool-firewall.sh")")
+  run run_write "$(mk_write_input "$WORK/hooks/pre-tool-firewall.sh" "$ok")"
+  [ "$status" -eq 0 ]
+}
