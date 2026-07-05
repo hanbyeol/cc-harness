@@ -16,15 +16,19 @@ description: "하네스 자기개선 루프 1회전. TRIGGER: 사용자가 '자�
 ## Process
 
 ### 1. 진단 — 자동 발견 프로브
-`scripts/probes/run-all.sh {ISO-timestamp}` 실행. 4개 프로브가 후보를 생성한다:
+`scripts/probes/run-all.sh {ISO-timestamp}` 실행. 7개 프로브가 후보를 생성한다:
 - **consistency**: 매니페스트 버전·구성요소 수·스킬 라우팅 불일치
 - **metrics**: 테스트 수 감소·shellcheck 경고 증가 (progress/metrics-history.json 추세)
 - **completeness**: 테스트 없는 훅, TRIGGER 없는 스킬, 참조되나 없는 파일
 - **self-review**: FIXME/TODO 주석, shellcheck 경고
+- **model-tiering**: agent↔model 난이도 역전 (config/models.json)
+- **evidence**: evidence 없이 완료 선언한 산출물 (evidence over claims 집행)
+- **behavioral**: 위험 명령/도구 코퍼스를 실제 firewall 훅에 주입해 allow 누출을 검사 —
+  정적 프로브가 못 보는 **행위 결함**을 잡는다("0건 = 확인함"이 되게)
 
 run-all은 이미 feature_list/backlog에 있는 항목을 **중복 제거**하고 임시 id(C1,C2…)를 붙인다.
-- 추가로 `/code-review high`를 실행해 정적 프로브가 못 잡는 논리 결함을 보강할 것을 권고한다
-  (프로브는 cheap 정적 신호만, 전체 리뷰는 별도).
+- **정적 프로브의 한계**: consistency·completeness·self-review 등은 grep/jq 신호만 본다 — 훅 행위
+  결함은 behavioral 프로브가, 논리 결함은 `/code-review high`가 보강한다(전체 리뷰는 별도).
 
 ### 2. 후보 우선순위화 + 제시
 - security_tier(critical>standard>low)와 심각도로 정렬
