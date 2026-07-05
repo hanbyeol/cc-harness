@@ -121,11 +121,15 @@ Edit|Write|MultiEdit 시점에 결정론적으로 재검증한다:
 **왜 불변**: INV-1/2/4는 이 불변식 이전까지 프롬프트 관례로만 집행됐다 — "결정론적 도구 >
 프롬프트" 원칙의 코어 루프 적용. 가드는 evaluator를 **대체하지 않는다** — 판정의 존재와
 산술만 재검증하며, 판정 내용의 생성은 여전히 독립 evaluator의 전권이다.
+delete-then-recreate(파일 삭제 후 `passes:true`로 재생성)로 primary 가드를 우회하는 경로는
+막는다 — feature_list.json은 파일 부재 시에도 신규 생성 면제에서 제외되어, 없는 파일에 대한
+`passes:true` Write도 근거를 요구한다. 문자열 타입 점수(`"3"`)로 min-of-5를 가리는 우회도
+타입 검사로 fail-closed한다.
 **알려진 한계**: 가짜 evaluator-feedback 파일을 Write로 위조한 뒤 passes를 뒤집는 경로는
 텍스트 검사로 막을 수 없다(훅은 호출 주체를 구별하지 못한다) — 위조에는 그럴듯한 5차원
 점수·verdict가 필요하므로 문턱은 높아지지만, 위협 모델상 speed-bump다. Bash로
-feature_list.json을 직접 쓰는 우회는 firewall ASK(보호경로)가 게이트하고, behavioral
-프로브 코퍼스가 이 부류의 누출을 감시한다.
+feature_list.json을 직접 쓰는 우회는 firewall ASK(basename 앵커 — `progress//`·`cd progress`
+등 경로정규화 변종 포함)가 게이트하고, behavioral 프로브 코퍼스가 이 부류의 누출을 감시한다.
 
 ## 위협 모델 — 가드가 막는 것과 못 막는 것
 invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가능한 파일**이다. 따라서

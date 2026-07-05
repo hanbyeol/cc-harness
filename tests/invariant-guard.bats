@@ -481,6 +481,27 @@ JSON
   [ "$status" -eq 0 ]
 }
 
+@test "INV-11: delete-then-recreate cannot smuggle passes:true (F-2, missing file not exempt)" {
+  # feature_list.json이 디스크에 없는 상태에서 passes:true Write → 근거 없으면 차단
+  rm -f "$WORK/progress/feature_list.json"
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-11: recreate WITH complete feedback is allowed (F-2 no false-positive)" {
+  rm -f "$WORK/progress/feature_list.json"
+  fb '{"functionality":8,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8}' pass
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 0 ]
+}
+
+@test "INV-11: string-typed score is fail-closed (F-4, min-of-5 masking)" {
+  flist false > "$WORK/progress/feature_list.json"
+  fb '{"functionality":8,"code_quality":8,"security":"3","error_handling":8,"test_coverage":8}' pass
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 2 ]
+}
+
 @test "INV-11: feedback under agent-comms/archive/ does not authorize flip" {
   flist false > "$WORK/progress/feature_list.json"
   mkdir -p "$WORK/progress/agent-comms/archive"
