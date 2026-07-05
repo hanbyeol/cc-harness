@@ -1,0 +1,58 @@
+{
+  "sprint": 20,
+  "title": "invariant-guard로 pre-tool-firewall 약화 차단 (F34, INV-10, v1.15.5)",
+  "features": [
+    "F34"
+  ],
+  "security_tier": "standard",
+  "source": "적대적 감사가 지적한 자기보호 비대칭: pre-bash-firewall의 deny/ask 배열은 invariant-guard가 add-only로 보호(INV-5)하나, F28의 pre-tool-firewall(도구 방화벽)은 invariant-guard 브랜치도 INV 절도 없다. read-verb 화이트리스트에 write-verb를 추가하거나 `*) exit 0` fall-through를 `emit_allow`로 바꾸거나 빌트인 allow 목록에 Edit/Write/file_upload를 넣는 약화 편집이 Edit|Write로 결정론적 차단되지 않는다. behavioral 프로브가 일부 잡지만 편집시점 blocking 게이트가 아님. Bash 방화벽과 동일한 add-only 자기보호를 도구 방화벽에도 부여해 대칭성을 회복한다.",
+  "acceptance_criteria": [
+    "F34-1: hooks/invariant-guard.sh에 pre-tool-firewall.sh 브랜치 추가 — emit_allow 방출 지점 수가 증가하면 deny(exit 2). 현재 3(정의+builtin+MCP read) 기준, default-allow 플립·allow 브랜치 추가 방어",
+    "F34-2: read-verb 화이트리스트 라인(get|list|search... )에 write-verb(create/update/delete/send/remove/upload/exec/run/install/deploy 등)가 유입되면 deny",
+    "F34-3: 읽기전용 빌트인 라인(WebFetch|WebSearch|NotebookRead)에 변형 도구(Edit/Write/MultiEdit/NotebookEdit/Task/file_upload)가 유입되면 deny",
+    "F34-4: 정상 편집은 통과(exit 0) — read-verb 추가·주석 변경·강화(verb 제거)는 오탐 없이 허용",
+    "F34-5: docs/INVARIANTS.md에 INV-10(도구 방화벽 allow 계층은 add-only — 확장 불가) 신설 + 변경이력",
+    "F34-6: tests/invariant-guard.bats에 (a) write-verb 유입 차단, (b) 변형 빌트인 유입 차단, (c) emit_allow 증가 차단, (d) 정상 편집(read-verb 추가) 통과 add-only",
+    "전역: 전체 bats GREEN·무회귀, consistency 0, shellcheck 0, version-consistency 1.15.5(3종)"
+  ],
+  "security_criteria": [
+    "SC1: add-only 강화 — invariant-guard에 deny/exit2 분기 추가만. 자기보호 INV-7(deny·exit2 수 감소·30% 축소 차단) 준수(수 증가 방향). 기존 브랜치(harness-config·pre-bash-firewall·tests·hooks.json·자기보호) 무손상",
+    "SC2: 가드가 실제로 약화를 차단함을 evaluator가 실증 — write-verb 유입/변형 빌트인 유입/emit_allow 증가 Write → exit 2. 정상 편집 Write → exit 0(vacuous 아님)",
+    "SC3: 자기보호 대칭성 회복 — Bash 방화벽(INV-5)처럼 도구 방화벽 allow 확장도 편집시점 결정론적 차단",
+    "SC4: harness-config 임계값·firewall deny·테스트 개수·evaluator 규칙 무약화(invariant-guard 무저촉, 테스트 add-only). 알려진 한계(정교한 재구성 우회)는 INVARIANTS 위협모델과 동일하게 speed-bump로 규정"
+  ],
+  "error_scenarios": [
+    "pre-tool-firewall.sh 신규 생성(디스크 부재): invariant-guard는 [[ ! -e FILE ]]로 신규를 통과(약화 아님) — 기존 동작 유지",
+    "read-verb 라인 다줄 분할 재구성: 단순 라인 grep이 놓칠 수 있음(정교한 우회) — INVARIANTS 위협모델상 speed-bump로 수용(behavioral 프로브·코드리뷰가 2차 방어)",
+    "jq 부재: invariant-guard 상단에서 이미 fail-open(가용성 우선) — 기존 동작 유지, 이 브랜치도 그 이후라 무관",
+    "write-verb가 read-verb의 부분문자열이라 오탐: 단어경계(\\b)로 매칭해 false-positive 방지 — 현재 read-verb 목록은 통과(테스트로 고정)"
+  ],
+  "test_scenarios": [
+    "invariant-guard.bats: pre-tool-firewall에 (a) read-verb 라인에 create 추가한 content Write → exit 2, (b) 빌트인 라인에 file_upload 추가 → exit 2, (c) 새 emit_allow 브랜치 추가 → exit 2, (d) read-verb에 정상 verb(list_all) 추가 → exit 0",
+    "무회귀: 기존 invariant-guard.bats(harness-config·firewall·tests·hooks.json·자기보호) 전부 GREEN",
+    "전체 bats GREEN, consistency 0, version 1.15.5"
+  ],
+  "implementation_steps": [
+    {
+      "step": "hooks/invariant-guard.sh 198행 exit 0 앞에 pre-tool-firewall.sh 브랜치 add-only 추가(emit_allow 수 증가·read-verb write 유입·빌트인 변형도구 유입 → deny)",
+      "verify": "약화 3종 Write → exit 2, 정상 편집 Write → exit 0, shellcheck clean",
+      "done": false
+    },
+    {
+      "step": "docs/INVARIANTS.md에 INV-10 + 변경이력 추가",
+      "verify": "grep INV-10, 30% 축소 아님(증가)",
+      "done": false
+    },
+    {
+      "step": "tests/invariant-guard.bats add-only(약화 차단 3종 + 정상 통과)",
+      "verify": "bats GREEN",
+      "done": false
+    },
+    {
+      "step": "버전 1.15.5(3종) + 전체 무회귀 → 독립 evaluator",
+      "verify": "version-consistency GREEN, 전체 bats GREEN, consistency 0",
+      "done": false
+    }
+  ],
+  "agreed": true
+}

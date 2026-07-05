@@ -94,6 +94,17 @@ invariant-guard의 Edit|Write 후킹을 우회하는 경로 차단)가 포함된
 회귀 배터리(rm·sudo·terraform destroy·kubectl delete·git reset --hard 등이 output에
 `permissionDecision:"allow"` 미포함, 하네스 검증파일 쓰기는 `ask`)가 고정한다. → [ADR-004](DECISIONS/ADR-004-firewall-auto-allow.md)
 
+### INV-10. 도구 방화벽 allow 계층은 add-only (확장 불가)
+`hooks/pre-tool-firewall.sh`(Bash 외 도구의 크로스도구 권한 계층, [ADR-005](DECISIONS/ADR-005-cross-tool-permission-tier.md))의
+**auto-allow를 넓히는 편집은 차단된다** — Bash 방화벽의 deny/ask add-only(INV-5)와 대칭이다.
+`invariant-guard.sh`가 Edit|Write|MultiEdit 시점에 결정론적으로 집행한다:
+- **`emit_allow` 방출 지점 수 증가** 차단 (기본 fall-through를 `emit_allow`로 바꾸는 default-allow 플립·allow 브랜치 추가 방어)
+- **read-verb 화이트리스트에 write-verb**(create·update·delete·send·upload·exec·run 등) **유입** 차단 (MCP write auto-allow 방어)
+- **읽기전용 빌트인 목록에 변형 도구**(Edit·Write·MultiEdit·NotebookEdit·Task·file_upload) **유입** 차단
+
+**왜 불변**: 도구(특히 MCP)는 한 번의 호출이 곧 액션(메일 전송·삭제·업로드)이라, allowlist를 넓히면 위험 도구가 무프롬프트로 실행된다. Bash 방화벽만 보호하고 도구 방화벽을 방치하면 자기보호가 비대칭이 된다. 축소(화이트리스트 verb 제거)는 강화이므로 자유.
+**알려진 한계**: read-verb 라인을 여러 줄로 분할하는 등 정교한 재구성 우회는 라인 기반 검사로 못 잡는다 — 위 위협 모델(speed-bump)과 동일하며 behavioral 프로브·코드 리뷰가 2차 방어선이다.
+
 ## 위협 모델 — 가드가 막는 것과 못 막는 것
 invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가능한 파일**이다. 따라서
 "파일에 임의 내용을 쓸 수 있는 행위자가 가드 소스 자체를 재작성하는 것"은 텍스트/구조 검사만으로
@@ -125,5 +136,6 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
 ## 변경 이력
 - 2026-06-13: 최초 작성 (재귀적 자기개선 루프 안전장치, sprint-3 F12)
 - 2026-07-04: INV-9 추가 (firewall allow 계층은 deny/ask 이후에만 평가, sprint-13 F27, v1.13.0)
+- 2026-07-05: INV-10 추가 (도구 방화벽 pre-tool-firewall.sh allow 계층 add-only — Bash 방화벽과 자기보호 대칭, sprint-20 F34, v1.15.5)
 - 2026-07-05: INV-9 갱신 (Layer 4 default-allow 전환 — 위험정의(deny+ask) 우선 모델. 하네스
   자기보호(검증파일·비밀키 Bash 쓰기 → ask)를 add-only로 편입, F27 후속 v1.13.1)
