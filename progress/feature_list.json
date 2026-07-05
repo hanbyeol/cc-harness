@@ -508,9 +508,9 @@
       "name": "invariant-guard fail-closed — jq 부재 시 보호 파일 편집 차단 + CI 프로브 린트",
       "description": "P2-7: 가드가 jq 부재 시 경고만 하고 통과(fail-open)해 가장 중요한 순간에 열려 있던 갭 해소. invariant-guard.sh — jq 부재 시 보호 대상 파일(harness-config·pre-bash-firewall·pre-tool-firewall·tests/*.bats·INVARIANTS.md·hooks.json·invariant-guard 자신) 편집에 한해 exit 2(fail-closed, 설치 안내 메시지). 비보호 파일은 기존대로 통과(가용성 유지). CI에 scripts/probes/*.sh shellcheck + jq 전제 검증 step 추가. INVARIANTS 위협모델의 'jq 부재=fail-open' 서술 갱신. 가드 강화 방향(add-only, INV-7 정합).",
       "security_tier": "standard",
-      "status": "review",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [
         "F12"
       ],

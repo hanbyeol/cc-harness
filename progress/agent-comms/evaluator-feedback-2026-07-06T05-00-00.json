@@ -1,0 +1,82 @@
+{
+  "timestamp": "2026-07-06T05:00:00Z",
+  "sprint": 27,
+  "iteration": 1,
+  "features_evaluated": [
+    "F41"
+  ],
+  "security_tier": "standard",
+  "scores": {
+    "functionality": 7,
+    "code_quality": 8,
+    "security": 8,
+    "error_handling": 8,
+    "test_coverage": 8
+  },
+  "score": 7,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "pass",
+  "fail_reasons": [],
+  "grounded_evidence": {
+    "full_suite": "bats tests/ — 1..469, 469 ok / 0 not ok, FULL_EXIT=0 (no regression)",
+    "f41_filter": "bats tests/invariant-guard.bats --filter F41 — 1..12, 12/12 ok",
+    "inv11_filter": "bats tests/invariant-guard.bats --filter INV-11 — 1..22, 22/22 ok (passes-transition guard intact after guard re-application)",
+    "shellcheck": "shellcheck -S warning hooks/invariant-guard.sh scripts/probes/*.sh scripts/cost-report.sh — exit 0 (clean; SC3 + F41-3 local satisfied)",
+    "consistency_probe": "scripts/probes/consistency.sh — [] (0 candidates)",
+    "nojq_manual_demo": "PATH-shim hiding jq, running hooks/invariant-guard.sh directly: (a) Edit harness-config.json -> exit 2; (b) Write feature_list.json -> exit 2; (c) Write hooks/post-edit-format.sh (non-protected) -> exit 0; (d) content-poison (non-protected file whose content names harness-config.json) -> exit 0 (no false-block); (e) Write contracts/sprint-99.json -> exit 0 (sprint-*.json NOT in is_protected -> fail-open drift)",
+    "inv7_self_application": "parent(80d5045) invariant-guard.sh on disk + Write of current (9f0d79c) content -> exit 0 (add-only); shrink-to-'echo hi' -> exit 2 (still self-protects)",
+    "add_only_counts": "anchored 'exit 2' statements 1->2 (increase); anchored 'deny ' calls 18->18 (unchanged) — self-protection add-only holds",
+    "new_protected_creation_nojq": "Write of a NON-existent tests/*.bats under jq-absent -> exit 2 (fail-closed blocks new protected-file creation too)",
+    "version_consistency": "plugin.json / package.json / marketplace.json all 1.19.0",
+    "ci_yml": "add-only (no removed lines); shellcheck scripts/probes/*.sh + scripts/cost-report.sh + 'Ensure jq is installed' step + 'jq --version' present; YAML parses"
+  },
+  "issues": [
+    "[functionality] F41-5 additive half unimplemented: gitleaks-absence is NOT recorded to session-handoff. The regex fallback (pre-commit-gate.sh:136-141) is correctly kept as-is ('현행 유지' met), but '결핍 상태를 세션 핸드오프에 기록만 추가' was never done and has no corresponding implementation_step. Low-stakes observability item, but a written acceptance criterion is partially unmet.",
+    "[code_quality/security] is_protected() single-source drift: it covers 8 of the 9 jq-present dispatch branches but OMITS contracts/sprint-*.json (INV-11 agreed-transition). Under jq-absent, flipping a sprint contract agreed:false->true PASSES (verified, demo e). This is exactly the drift F41-2 aimed to prevent. Severity LOW (secondary Plan-gate speed-bump; human ExitPlanMode is the real gate; requires abnormal jq-absent env) and NON-regressive (pre-F41 the whole guard was fail-open under jq-absent).",
+    "[criteria] error_scenario divergence: contract says 'jq 부재 + 신규 파일 생성: 보호 경로 신규 생성은 통과'. Actual behavior blocks new protected-file creation under jq-absent (exit 2, verified). Divergence is in the SAFE (more-blocking) direction and is an intentional fail-closed design choice (no content inspection possible without jq), but the error_scenario as written is contradicted and should be corrected."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "F41-1: jq-absent + protected file (harness-config.json, invariant-guard.sh, feature_list.json, pre-tool-firewall.sh, pre-bash-firewall.sh, hooks.json, INVARIANTS.md, tests/*.bats) Edit/Write -> exit 2 with install-or-approve message; non-protected file -> exit 0 (availability preserved) — verified by 12 bats + independent nojq demo",
+      "F41-2: protected set defined by one is_protected() function (no hardcoded-list duplication) — single-sourced for 8/9 guard branches (see sprint-*.json caveat in issues)",
+      "F41-3: ci.yml adds shellcheck scripts/probes/*.sh + cost-report.sh and a jq-install verification step, add-only, YAML valid; local shellcheck clean",
+      "F41-4: INVARIANTS.md threat model updated fail-open -> fail-closed + 2026-07-06 changelog entry",
+      "F41-5 (partial): regex fallback in pre-commit-gate kept as-is",
+      "전역: full bats GREEN 469/0 (no regression), shellcheck 0 incl. probes, consistency probe 0"
+    ],
+    "security": [
+      "SC1: strengthening is add-only — exit-2 sites 1->2, deny 18->18; guard self-application (parent->new) passes, shrink denies; net fail-closed coverage 0/9 -> 8/9 branches under jq-absent",
+      "SC2: DoS/availability reviewed — non-protected edits still pass; block message states resolution path (install jq / human edit)",
+      "SC3: probes shellcheck warnings 0 (clean before CI adoption)"
+    ],
+    "error_scenarios": [
+      "jq-absent + non-protected edit -> pass (availability intact)",
+      "jq-absent + missing file_path -> graceful pass (exit 0)",
+      "jq-absent + overwrite of existing protected file -> blocked (exit 2)",
+      "content-poison (protected path named inside non-protected file content) -> not blocked (first tool_input.file_path match only)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "F41-5 (additive half): gitleaks-absence not recorded to session-handoff — unimplemented"
+    ],
+    "security": [],
+    "error_scenarios": [
+      "'jq 부재 + 신규 보호파일 생성 -> 통과' contradicted by behavior (blocks; safe-direction divergence — criterion needs correction)"
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "No acceptance/error criterion or test for sprint-*.json contract behavior under jq-absent — the single-source promise (F41-2) implicitly covers it but implementation and tests omit it"
+    ],
+    "ambiguous_criteria": [
+      "error_scenario 'jq 부재 + 신규 파일 생성 -> 통과' applies jq-present semantics to the jq-absent path; the fail-closed design intentionally blocks new protected-file creation. Reword to state jq-absent fail-closed blocks protected edits regardless of file existence."
+    ],
+    "security_criteria_insufficient": [
+      "F41-2 single-source intent is not fully realized: is_protected() should either include contracts/sprint-*.json (to match the jq-present dispatch set and close the agreed-flip fail-open) or the acceptance criteria should explicitly scope sprint contracts out of the jq-absent fail-closed set. Currently the two are inconsistent."
+    ],
+    "action_required": "Follow-up (non-blocking for this pass, tracked debts): (1) implement or explicitly relax F41-5's session-handoff recording of gitleaks-absence; (2) add contracts/sprint-*.json to is_protected() (recommended) or scope it out in F41-1/F41-2 + add a test; (3) correct the 'new protected file creation passes' error_scenario to reflect fail-closed blocking. F41-5 and item 2 also reveal a planning gap: acceptance criteria without matching implementation_steps."
+  },
+  "notes": "implementer-output.json in agent-comms is STALE (sprint 3, F13/F14) — not F41's self-check; evaluation was performed fully independently from source + execution, not from any implementer claim. Core deliverable (fail-closed on missing jq) is delivered with strong rigor and fully verified; min-of-5 = 7 driven by the F41-5 partial. All gaps documented above are non-core / safe-direction and recorded as required follow-ups per criteria-backpropagation."
+}
