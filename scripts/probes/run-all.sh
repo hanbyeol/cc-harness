@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # run-all.sh <iso-timestamp> — 프로브 러너 (F13)
-# 7개 프로브(consistency·metrics·completeness·self-review·model-tiering·evidence·behavioral)
+# 8개 프로브(consistency·metrics·completeness·self-review·model-tiering·evidence·behavioral·calibration)
 # 출력을 합치고, 이미 feature_list.json 또는 session-handoff backlog에 있는 항목을 제거한 뒤,
 # 남은 후보에 임시 id(C1,C2…)를 부여해 JSON 배열로 출력한다.
 #
@@ -12,7 +12,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # 1. 집계 (각 프로브는 독립 — 하나 실패해도 나머지 수집)
 ALL="[]"
-for p in consistency metrics completeness self-review model-tiering evidence behavioral; do
+for p in consistency metrics completeness self-review model-tiering evidence behavioral calibration; do
   OUT=$(bash "$DIR/$p.sh" "$TS" 2>/dev/null || echo "[]")
   echo "$OUT" | jq -e 'type=="array"' &>/dev/null || OUT="[]"
   ALL=$(jq -c --argjson a "$ALL" --argjson b "$OUT" '$a + $b' <<<"null")
