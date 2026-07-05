@@ -397,9 +397,9 @@
       "name": "방화벽 egress 티어 — 시크릿 네트워크 유출 차단 (S-2) + 프로브 확장",
       "description": "default-allow에서 curl/wget/nc/scp가 민감 파일(~/.ssh/·~/.aws/·~/.gnupg/·.netrc·id_rsa 등·credentials·.env·.pem)을 외부로 전송하는 것이 무프롬프트 통과하던 시크릿 exfil 구멍을 닫는다(이번 세션 개인키 노출 경로). ASK에 (1) curl/wget이 데이터/업로드 플래그(-d @/--data/-F/-T/--upload-file)로 민감 파일 전송, (2) 민감 파일 read를 네트워크 전송기(nc/ncat/socat/curl/wget)로 파이프, (3) scp/rsync/sftp로 민감 파일 원격 전송 시 ask 추가(add-only). 자동/무인 exfil을 사람 확인으로 강등 — 하네스 위협모델(자동 루프·부주의)과 정합. 정상 curl(GET·비민감 데이터)은 무손상 allow. behavioral.sh 코퍼스에 exfil 변종 편입(S-5식 재귀 강화)해 프로브가 이 부류를 잡게 한다. 순수 add-only(INV-5), deny/ask 무약화.",
       "security_tier": "critical",
-      "status": "implementing",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [
         "F27",
         "F32"
