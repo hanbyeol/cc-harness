@@ -26,7 +26,8 @@ description: "하네스 자기개선 루프 1회전. TRIGGER: 사용자가 '자�
 - **behavioral**: 위험 명령/도구 코퍼스를 실제 firewall 훅에 주입해 allow 누출을 검사 —
   정적 프로브가 못 보는 **행위 결함**을 잡는다("0건 = 확인함"이 되게)
 - **calibration**: 최신 evaluator 판정을 감사 — score≠min-of-5(산술 오류)·verdict/score 모순·
-  evidence 없는 pass를 후보로. 단일 judge의 자기 결함을 잡는다(golden-set 기반, F37)
+  evidence 없는 pass, 그리고 golden-set의 동일 tier 과거 pass 분포를 벗어난 점수(grade drift)를
+  후보로. 단일 judge의 자기 결함을 잡는다(판정 코퍼스 evals/calibration/golden-set.json 소비, F37)
 
 run-all은 이미 feature_list/backlog에 있는 항목을 **중복 제거**하고 임시 id(C1,C2…)를 붙인다.
 - **정적 프로브의 한계**: consistency·completeness·self-review 등은 grep/jq 신호만 본다 — 훅 행위
