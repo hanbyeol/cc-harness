@@ -357,9 +357,9 @@
       "name": "행위(behavioral) 자기진단 프로브 — 정적 프로브 사각지대 해소",
       "description": "scripts/probes/behavioral.sh 신규: 위험 명령/도구 코퍼스를 실제 훅(pre-bash-firewall·pre-tool-firewall)에 주입해 permissionDecision:allow가 새는지 black-box 검사, 누출 시 critical 후보 방출. 기존 프로브 6종이 전부 정적 grep/jq라 훅 행위 결함을 원리적으로 못 잡던 사각지대를 닫는다(이번 세션이 실증: firewall에 critical 구멍이 있었는데 정적 프로브는 0건 반환 — 0건 != 건강). 정상 훅엔 [] 반환(노이즈 0), env로 leaky firewall 지정 시 누출 검출(false confidence 방지). 읽기 전용(훅 stdin 주입만, 파일 미수정). run-all.sh에 통합(프로브 7종)하고 skills/improve/SKILL.md 프로브 목록을 실제와 동기화. bats 게이트(고정 케이스)와 상보적 — 프로브는 넓은 danger 코퍼스로 allowlist 확장이 새 구멍을 열었는지 /improve 진단에서 발견한다.",
       "security_tier": "standard",
-      "status": "implementing",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [
         "F13"
       ],
