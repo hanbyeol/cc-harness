@@ -1,0 +1,72 @@
+{
+  "timestamp": "2026-07-05T16:00:00Z",
+  "sprint": 14,
+  "iteration": 1,
+  "features_evaluated": [
+    "F28"
+  ],
+  "security_tier": "critical",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 8,
+    "security": 9,
+    "error_handling": 9,
+    "test_coverage": 8
+  },
+  "score": 8,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "pass",
+  "fail_reasons": [],
+  "evidence": {
+    "pre_tool_firewall_bats": "23/23 GREEN",
+    "full_suite": "bats tests/ — 352/352 GREEN, 0 failures, exit 0 (zero regression)",
+    "injection_allow": "WebFetch, WebSearch, mcp__x__get_y/list_y/search_y/read_y → all permissionDecision:allow",
+    "injection_gate": "mcp__x__send_message/delete_event/create_file/upload_z, mcp__claude-in-chrome__file_upload, mcp__x__frobnicate(unknown verb), mcp__x__authenticate, mcp__x__execute_run, Edit, Bash, NotebookEdit → 0 leaks (11/11 gated)",
+    "shellcheck": "hooks/pre-tool-firewall.sh — CLEAN (exit 0)",
+    "versions": "package.json / plugin.json / marketplace.json all 1.14.0",
+    "plugin_hook_count": "plugin.json '8 hooks' == 8 event-hook scripts (excl lib.sh); bats test 336 validates",
+    "INV-7": "hooks.json retains Bash->pre-bash-firewall + Edit|Write|MultiEdit->invariant-guard; new WebFetch|WebSearch|NotebookRead|mcp__.*->pre-tool-firewall added without damage",
+    "fail_safe": "jq absent / malformed JSON / empty tool_name / toggle off / config absent → allow NOT emitted (verified by tests 20-23 + injection with no config file present)"
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "F28-1: WebFetch/WebSearch/NotebookRead → allow",
+      "F28-2: MCP read-verb (get/list/search/read/fetch/view...) → allow",
+      "F28-3: MCP write-verb (create/send/delete/upload...) → fall-through",
+      "F28-4: unknown MCP verb → no allow (safe default)",
+      "F28-5: file_upload/NotebookEdit → no allow",
+      "F28-6: auto_allow_tools=false → allow disabled",
+      "F28-7: hooks.json new matcher + Bash firewall/invariant-guard intact (INV-7)",
+      "global: pre-tool-firewall.bats GREEN, full suite 0 regression, versions 1.14.0"
+    ],
+    "security": [
+      "SC1: default fall-through; allow only on explicit read-only match (unknown tool/verb gated)",
+      "SC2: MCP write/external/upload never auto-allowed",
+      "SC3: Edit/Write/MultiEdit out of scope (invariant-guard), Bash out of scope (pre-bash-firewall)",
+      "SC4: whitelist verb model — no blacklist-miss over-allow",
+      "SC5: toggle controls allow only; hook emits no deny → safe degrade to native prompt"
+    ],
+    "error_scenarios": [
+      "jq absent → exit 0, no allow (fail-safe)",
+      "config absent/malformed → default true, allowlist match preserved",
+      "missing/empty tool_name → exit 0, no verdict",
+      "malformed MCP name (no __ verb) → unclassified → fall-through"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "issues": [
+    "[minor/code_quality] TodoWrite is in the script's builtin allow case but NOT in hooks.json matcher (WebFetch|WebSearch|NotebookRead|mcp__.*) → that branch is effectively dead in production. Harmless (TodoWrite is safe) but the script's case list and the matcher are slightly out of sync; align or document.",
+    "[note] progress/agent-comms/implementer-output.json is stale (sprint-3 F13/F14) — no F28-specific self-check was available; evaluation relied entirely on direct execution evidence, which is the intended posture."
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "action_required": "none — sprint-14 contract criteria are specific, testable, and fully covered by the bats battery"
+  }
+}
