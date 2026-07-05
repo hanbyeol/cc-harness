@@ -1,0 +1,4 @@
+{
+  "description": "evaluator가 통과시켰으나 실제로 버그였던 케이스. evaluator 프롬프트 보정에 사용.",
+  "entries": []
+}

@@ -439,7 +439,7 @@
       "name": "자기 저장소 dogfooding — runtime 상태 실체화 + 부재 탐지",
       "description": "P0-2: cc-harness repo 자신에 progress/harness-config.json·evals/calibration/false-positives.json·progress/lessons.md가 없어(templates/에만 존재) INV-3 임계값 가드가 보호할 파일이 없고 firewall auto_allow* 토글이 조용히 기본값으로 동작하던 dogfooding 실패를 해소. runtime 파일을 템플릿 값 그대로(하향 없음) 실체화하고, completeness.sh에 'runtime 상태 파일 부재' 탐지(필수 파일 목록 대조)를 추가. 플러그인 모드 신규 설치 시 시드 경로(setup-claudemd.sh) 확인·보완. INV-3 가드 활성을 이 repo에서 실증(pass_threshold 하향 Edit → exit 2).",
       "security_tier": "standard",
-      "status": "pending",
+      "status": "review",
       "passes": false,
       "iteration": 0,
       "dependencies": [

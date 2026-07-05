@@ -93,6 +93,28 @@ seed_consistent() {
   echo "$output" | jq -e '.[] | select(.description | test("notrig"))'
 }
 
+@test "completeness: missing runtime state file yields a candidate (F36)" {
+  seed_consistent   # progress/feature_list.json 존재, harness-config 등은 없음
+  run bash -c "cd '$WORK' && bash '$PROBES/completeness.sh'"
+  echo "$output" | jq -e '.[] | select(.description | test("harness-config.json"))'
+}
+
+@test "completeness: no runtime candidate when all present (F36 no false-positive)" {
+  seed_consistent
+  echo '{"scoring":{"pass_threshold":7}}' > "$WORK/progress/harness-config.json"
+  echo '{"current_phase":"specification"}' > "$WORK/progress/phase-gate.json"
+  mkdir -p "$WORK/evals"; echo '{"criteria":[]}' > "$WORK/evals/acceptance-criteria.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/completeness.sh'"
+  [ "$(echo "$output" | jq '[.[] | select(.description | test("runtime state missing"))] | length')" -eq 0 ]
+}
+
+@test "completeness: no runtime check when not a harness project (F36 scope guard)" {
+  # feature_list.json 부재 → runtime 검사 미발동(플러그인만 얹은 무관 프로젝트)
+  rm -rf "${WORK:?}"; mkdir -p "$WORK/hooks" "$WORK/skills"
+  run bash -c "cd '$WORK' && bash '$PROBES/completeness.sh'"
+  [ "$(echo "$output" | jq '[.[] | select(.description | test("runtime state missing"))] | length')" -eq 0 ]
+}
+
 # --- self-review probe ---
 
 @test "self-review: FIXME/TODO comment yields a candidate" {

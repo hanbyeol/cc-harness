@@ -39,4 +39,13 @@ if [[ -f docs/INVARIANTS.md ]]; then
   done < <(grep -oE 'hooks/[a-zA-Z0-9_-]+\.sh' docs/INVARIANTS.md 2>/dev/null | sort -u)
 fi
 
+# 4. runtime 상태 파일 부재 (F36) — SDLC 하네스 프로젝트(progress/feature_list.json 존재)인데
+#    동반 runtime 파일이 없으면 INV-3 임계값 가드·firewall 토글·evaluator 보정이 비활성이 된다.
+#    feature_list.json이 있을 때만 검사한다(플러그인만 얹은 무관 프로젝트 오탐 방지).
+if [[ -f progress/feature_list.json ]]; then
+  for rf in progress/harness-config.json progress/phase-gate.json evals/acceptance-criteria.json; do
+    [[ -f "$rf" ]] || add "runtime state missing: $rf" "SDLC 하네스 프로젝트인데 $rf 가 없음 — INV-3 임계값 가드/firewall 토글/evaluator 보정이 비활성. 부트스트래퍼(init.sh)나 템플릿에서 실체화 필요" "standard"
+  done
+fi
+
 echo "$CANDS"
