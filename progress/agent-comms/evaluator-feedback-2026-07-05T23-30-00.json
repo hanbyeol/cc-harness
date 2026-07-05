@@ -1,0 +1,89 @@
+{
+  "timestamp": "2026-07-05T23:30:00-09:00",
+  "sprint": 22,
+  "iteration": 1,
+  "features_evaluated": [
+    "F36"
+  ],
+  "security_tier": "standard",
+  "scores": {
+    "functionality": 8,
+    "code_quality": 8,
+    "security": 8,
+    "error_handling": 7,
+    "test_coverage": 6
+  },
+  "score": 6,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "test_coverage 6 < pass_threshold 7 (min-of-5 => overall 6)",
+    "2 of the 3 new probes.bats tests filter the wrong JSON field: `.description | test(\"runtime state missing\")` — that phrase only ever appears in `.name`, never `.description`. Proven tautological: a temp dir with 3 runtime-missing candidates present yields 0 under this filter, identical to the all-absent case, so tests 2 & 3 pass even against a regressed probe and cannot guard the contract's over-report error_scenario."
+  ],
+  "evidence": {
+    "bats_full": "bats tests/ — 432 ok, ends at 'ok 432', background exit code 0 (bats returns nonzero on any failure) => 432 ok / 0 fail, no regression.",
+    "bats_probes_f36": "bats tests/probes.bats --filter F36 — 3/3 ok (missing-detected, all-present-quiet, scope-guard). All pass, but see tautology finding below for tests 2 & 3.",
+    "shellcheck": "shellcheck -S warning scripts/probes/completeness.sh — exit 0, no findings.",
+    "config_diff_identical": "diff templates/progress/harness-config.json progress/harness-config.json => IDENTICAL (exit 0). jq .scoring.pass_threshold => 7. Zero lowering; instantiation is diff-identical to template (SC1 satisfied).",
+    "inv3_active_live": "Injected real PreToolUse Edit stdin to hooks/invariant-guard.sh against THIS repo's progress/harness-config.json: (a) pass_threshold 7->6 => exit 2 with 'INVARIANT 위반: .scoring.pass_threshold 하향 (7 → 6) — 임계값은 add-only (INV-3)'; (b) control raise 7->8 => exit 0 (allowed); (c) same edit against a NONEXISTENT harness-config path => exit 0 (guard inert). (c) is the pre-F36 state: because the file was absent, invariant-guard's `[[ ! -e ]]` branch exited 0 and INV-3 protected nothing. F36-1's instantiation is precisely what activates INV-3 here — headline value verified.",
+    "firewall_toggle_backed": "pre-bash-firewall.sh:161-162 reads `.firewall.auto_allow == false` from $PROJECT_DIR/progress/harness-config.json behind `[[ -f ]]`. File now exists (auto_allow=true), so the toggle is backed by a real file rather than silently defaulting; the `[[ -f ]]` fallback for other repos is preserved (SC3).",
+    "completeness_self_repo": "bash scripts/probes/completeness.sh in self-repo => 0 runtime-missing candidates (all three files now present). F36-5 negative path correct.",
+    "completeness_absence": "temp dir with only progress/feature_list.json => probe emits 3 runtime-missing candidates (progress/harness-config.json, progress/phase-gate.json, evals/acceptance-criteria.json), name-filter length 3. F36-5 positive path correct.",
+    "completeness_scope_guard": "temp dir WITHOUT progress/feature_list.json => 0 candidates (whole block skipped) — no false positive on plain plugin installs.",
+    "completeness_no_overreport": "temp dir with all 4 files present => 0 runtime-missing candidates (name-filter). Over-report error_scenario satisfied in actual behavior.",
+    "seed_path": "init.sh (bootstrapper) seeds these idempotently: false-positives.json at 421-423 behind `[[ ! -f ]]`, harness-config.json at 432-434 behind `[[ ! -f ]]`, phase-gate.json merge at 364-406 (preserves existing values). setup-claudemd.sh does NOT seed runtime files — it only READS harness-config.json for profile detection (line 237). Design judgment: correct — setup-claudemd is the plugin overlay that runs on every project; auto-seeding SDLC config into unrelated projects is exactly the false-positive the scope guard prevents. Absence is surfaced by the new completeness check + fixed by explicit `init.sh`, not by silent auto-seed. F36-6 satisfied as verify-only (no code change needed).",
+    "files_realized": "evals/calibration/false-positives.json: valid JSON, .entries present (empty). progress/lessons.md: present (10 lines, usage header + add-only note). F36-2 satisfied.",
+    "tautology_proof": "MUTATION-STYLE demo: in the temp dir where 3 runtime-missing candidates ARE emitted, `[.[] | select(.name | test(\"runtime state missing\"))] | length` = 3, but `[.[] | select(.description | test(\"runtime state missing\"))] | length` = 0 (the phrase is absent from every .description; grep -c on descriptions = 0). bats tests 2 & 3 assert the description-filtered length == 0, so they yield 0 whether 3 candidates are present or none are — they cannot detect a probe regression. Only test 1 (which filters `.description` for 'harness-config.json', a string that IS in the description via $rf) is a genuine positive test."
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "F36-1: progress/harness-config.json instantiated diff-identical to template; pass_threshold 7, no lowering (verified by diff + jq).",
+      "F36-2: evals/calibration/false-positives.json (valid, .entries) + progress/lessons.md realized with usage header (verified).",
+      "F36-3: INV-3 guard active in this repo — pass_threshold 7->6 Edit => exit 2; raise => exit 0; nonexistent-file control => exit 0 (proves the instantiation is what activates the guard).",
+      "F36-4: firewall auto_allow toggle now reads the real harness-config.json (pre-bash-firewall.sh:161-162); default `[[ -f ]]` fallback preserved for other repos.",
+      "F36-5 (probe functionality): completeness.sh runtime-absence detection behaves correctly — self-repo 0, absence 3, scope-guard 0, all-present 0 (all verified by direct execution).",
+      "F36-6: seed path confirmed in init.sh (idempotent, add-only); setup-claudemd correctly abstains from seeding (design judgment sound).",
+      "global: full bats 432 ok / 0 fail, shellcheck clean."
+    ],
+    "security": [
+      "SC1: harness-config.json is diff-identical to template (zero lowering); instantiation strengthens the harness by activating INV-3 — enhancement direction, verified.",
+      "SC2: seed logic in init.sh unconditionally preserves existing files (`[[ ! -f ]]` guards at 421/432, phase-gate value-preserving merge) — idempotent.",
+      "SC3: firewall toggle default behavior unchanged — `[[ -f ]]` fallback keeps behavior for repos without the config file."
+    ],
+    "error_scenarios": [
+      "Existing harness-config.json in target repo: init.sh skips (idempotent, `[[ ! -f ]]`).",
+      "completeness over-report on template-only/plugin-only projects: prevented — check gated on progress/feature_list.json (scope-guard verified 0).",
+      "jq absent: completeness.sh `command -v jq || { echo []; exit 0; }` fallback retained."
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": [],
+    "test_quality": [
+      "probes.bats test 'completeness: no runtime candidate when all present (F36 no false-positive)' asserts `[.[] | select(.description | test(\"runtime state missing\"))] | length == 0` — tautological (phrase only in .name). Fix: filter `.name` (or assert total array length / use the same convention as test 1 which correctly checks .description for the filename).",
+      "probes.bats test 'completeness: no runtime check when not a harness project (F36 scope guard)' has the same wrong-field assertion — would pass even if the scope guard broke and emitted candidates. Fix: filter `.name`."
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [],
+    "ambiguous_criteria": [
+      "sprint-22 test_scenarios list 'completeness 부재 탐지/완비 시 0건' but do not pin which JSON field the assertion targets; the implementation's `.name`/`.description` split (name carries the marker phrase, description carries the filename) is easy to get wrong — worth an explicit note in the contract that absence assertions must filter `.name` for the marker."
+    ],
+    "security_criteria_insufficient": [],
+    "process_notes": [
+      "progress/agent-comms/implementer-output.json is stale (sprint 3 / F13-F14, 2026-06-13) — not refreshed for F36/sprint 22. Verdict is grounded in direct execution of commit 8ada524, not implementer self-check claims, so this does not affect the outcome, but implementer-output should be regenerated per feature.",
+      "Task prompt described tests/probes.bats as +4; the actual F36 addition is 3 @test blocks (22 insertions). Non-material to the verdict."
+    ],
+    "action_required": "implementer next iteration: change tests 2 & 3 in probes.bats to filter `.name` (not `.description`) for 'runtime state missing' so the no-false-positive and scope-guard scenarios become genuine regression guards; then re-request evaluation. The probe implementation itself is correct — no code change to completeness.sh required."
+  },
+  "criteria_backfill_review": {
+    "count": 0,
+    "note": "sprint-22 contract shows no criteria_backfill; F36-6 was resolved as verify-only (no scope expansion, no requirement relaxation). Under the 3-item spec/architecture re-review threshold."
+  },
+  "lessons": [
+    "Dogfooding win: instantiating progress/harness-config.json in the self-repo is exactly what flips INV-3 from inert to active here — before F36 the guard's `[[ ! -e ]]` new-file branch meant the threshold guard protected nothing in the harness's own repo (the most self-modification-prone context). Absence of runtime state is now itself detected by completeness.sh.",
+    "Test-field mismatch pattern: when a probe splits a marker phrase into `.name` and the variable detail into `.description`, negative assertions must filter the field that carries the marker. Filtering the wrong field yields a tautological test that passes against a regressed probe — precisely the kind of false-evidence the harness's 'evidence over claims' thesis exists to reject. Flag any `select(.<field> | test(...))` assertion whose target phrase is not in that field."
+  ]
+}

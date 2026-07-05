@@ -105,14 +105,15 @@ seed_consistent() {
   echo '{"current_phase":"specification"}' > "$WORK/progress/phase-gate.json"
   mkdir -p "$WORK/evals"; echo '{"criteria":[]}' > "$WORK/evals/acceptance-criteria.json"
   run bash -c "cd '$WORK' && bash '$PROBES/completeness.sh'"
-  [ "$(echo "$output" | jq '[.[] | select(.description | test("runtime state missing"))] | length')" -eq 0 ]
+  # "runtime state missing"은 후보의 .name에 담긴다 — .name으로 필터해야 실제 회귀를 잡는다(비-tautological)
+  [ "$(echo "$output" | jq '[.[] | select(.name | test("runtime state missing"))] | length')" -eq 0 ]
 }
 
 @test "completeness: no runtime check when not a harness project (F36 scope guard)" {
   # feature_list.json 부재 → runtime 검사 미발동(플러그인만 얹은 무관 프로젝트)
   rm -rf "${WORK:?}"; mkdir -p "$WORK/hooks" "$WORK/skills"
   run bash -c "cd '$WORK' && bash '$PROBES/completeness.sh'"
-  [ "$(echo "$output" | jq '[.[] | select(.description | test("runtime state missing"))] | length')" -eq 0 ]
+  [ "$(echo "$output" | jq '[.[] | select(.name | test("runtime state missing"))] | length')" -eq 0 ]
 }
 
 # --- self-review probe ---
