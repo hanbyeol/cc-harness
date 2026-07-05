@@ -356,3 +356,184 @@ SH
   run run_write "$(mk_write_input "$WORK/hooks/pre-tool-firewall.sh" "$ok")"
   [ "$status" -eq 0 ]
 }
+
+# --- INV-11: passes-transition guard (F35) ---
+# passes:false→true 전환은 evaluator-feedback 근거(존재·verdict pass·min-of-5≥threshold·
+# critical은 security≥critical threshold)를 기계 검증. 근거 없으면 deny.
+
+flist() {
+  # $1=passes(bool), $2=security_tier(기본 standard)
+  jq -n --argjson p "$1" --arg tier "${2:-standard}" \
+    '{project:"t", features:[{id:"FT1", name:"n", description:"d", security_tier:$tier, status:"implementing", passes:$p, iteration:0, dependencies:[], assigned_sprint:1}]}'
+}
+
+fb() {
+  # $1=scores(json), $2=verdict, $3=feature id(기본 FT1)
+  mkdir -p "$WORK/progress/agent-comms"
+  jq -n --argjson s "$1" --arg v "$2" --arg id "${3:-FT1}" \
+    '{timestamp:"2026-07-05T00:00:00Z", features_evaluated:[$id], scores:$s, verdict:$v}' \
+    > "$WORK/progress/agent-comms/evaluator-feedback-2026-07-05T00-00-00.json"
+}
+
+@test "INV-11: denies passes false->true with no evaluator feedback" {
+  flist false > "$WORK/progress/feature_list.json"
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-11: denies passes flip when min-of-5 below threshold" {
+  flist false > "$WORK/progress/feature_list.json"
+  fb '{"functionality":9,"code_quality":9,"security":9,"error_handling":9,"test_coverage":6}' pass
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-11: denies passes flip when verdict is fail" {
+  flist false > "$WORK/progress/feature_list.json"
+  fb '{"functionality":8,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8}' fail
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-11: denies passes flip when a score dimension is missing" {
+  flist false > "$WORK/progress/feature_list.json"
+  fb '{"functionality":8,"code_quality":8,"security":8,"error_handling":8}' pass
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-11: denies critical feature flip when security below critical threshold" {
+  cat > "$WORK/progress/harness-config.json" <<'JSON'
+{ "scoring": { "pass_threshold": 5, "security_thresholds": { "critical": 7, "standard": 5, "low": 3 } } }
+JSON
+  flist false critical > "$WORK/progress/feature_list.json"
+  fb '{"functionality":8,"code_quality":8,"security":6,"error_handling":8,"test_coverage":8}' pass
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true critical)")"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-11: allows passes flip with complete passing feedback" {
+  flist false > "$WORK/progress/feature_list.json"
+  fb '{"functionality":8,"code_quality":8,"security":8,"error_handling":7,"test_coverage":7}' pass
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 0 ]
+}
+
+@test "INV-11: allows critical flip when security meets critical threshold" {
+  flist false critical > "$WORK/progress/feature_list.json"
+  fb '{"functionality":8,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8}' pass
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true critical)")"
+  [ "$status" -eq 0 ]
+}
+
+@test "INV-11: allows unrelated edit (passes untouched)" {
+  flist false > "$WORK/progress/feature_list.json"
+  NEW=$(flist false | jq '.features[0].description = "changed"')
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$NEW")"
+  [ "$status" -eq 0 ]
+}
+
+@test "INV-11: allows passes true->false reset (not a weakening)" {
+  flist true > "$WORK/progress/feature_list.json"
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist false)")"
+  [ "$status" -eq 0 ]
+}
+
+@test "INV-11: denies new feature inserted directly with passes:true (no feedback)" {
+  flist false > "$WORK/progress/feature_list.json"
+  NEW=$(flist false | jq '.features += [{id:"FT2", name:"x", security_tier:"low", passes:true}]')
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$NEW")"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-11: denies duplicate-id entry smuggling passes:true" {
+  flist false > "$WORK/progress/feature_list.json"
+  NEW=$(flist false | jq '.features += [{id:"FT1", name:"n", security_tier:"standard", passes:true}]')
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$NEW")"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-11: denies flip on malformed feedback JSON (fail-closed)" {
+  flist false > "$WORK/progress/feature_list.json"
+  mkdir -p "$WORK/progress/agent-comms"
+  echo '{broken' > "$WORK/progress/agent-comms/evaluator-feedback-2026-07-05T00-00-00.json"
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-11: feedback for a different feature id does not authorize flip" {
+  flist false > "$WORK/progress/feature_list.json"
+  fb '{"functionality":8,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8}' pass OTHER
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-11: denies invalid JSON feature_list write" {
+  flist false > "$WORK/progress/feature_list.json"
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" '{ not valid json ')"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-11: skips templates/ feature_list (bootstrap scaffolding unaffected)" {
+  mkdir -p "$WORK/templates/progress"
+  flist false > "$WORK/templates/progress/feature_list.json"
+  run run_write "$(mk_write_input "$WORK/templates/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 0 ]
+}
+
+@test "INV-11: delete-then-recreate cannot smuggle passes:true (F-2, missing file not exempt)" {
+  # feature_list.json이 디스크에 없는 상태에서 passes:true Write → 근거 없으면 차단
+  rm -f "$WORK/progress/feature_list.json"
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-11: recreate WITH complete feedback is allowed (F-2 no false-positive)" {
+  rm -f "$WORK/progress/feature_list.json"
+  fb '{"functionality":8,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8}' pass
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 0 ]
+}
+
+@test "INV-11: string-typed score is fail-closed (F-4, min-of-5 masking)" {
+  flist false > "$WORK/progress/feature_list.json"
+  fb '{"functionality":8,"code_quality":8,"security":"3","error_handling":8,"test_coverage":8}' pass
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-11: feedback under agent-comms/archive/ does not authorize flip" {
+  flist false > "$WORK/progress/feature_list.json"
+  mkdir -p "$WORK/progress/agent-comms/archive"
+  jq -n '{features_evaluated:["FT1"], scores:{functionality:8,code_quality:8,security:8,error_handling:8,test_coverage:8}, verdict:"pass"}' \
+    > "$WORK/progress/agent-comms/archive/evaluator-feedback-2026-07-05T00-00-00.json"
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-11: denies agreed false->true with empty acceptance_criteria" {
+  mkdir -p "$WORK/progress/contracts"
+  jq -n '{sprint:99, acceptance_criteria:[], implementation_steps:[], agreed:false}' \
+    > "$WORK/progress/contracts/sprint-99.json"
+  NEW=$(jq -n '{sprint:99, acceptance_criteria:[], implementation_steps:[], agreed:true}')
+  run run_write "$(mk_write_input "$WORK/progress/contracts/sprint-99.json" "$NEW")"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-11: allows agreed false->true with criteria and steps present" {
+  mkdir -p "$WORK/progress/contracts"
+  jq -n '{sprint:99, acceptance_criteria:["a1"], implementation_steps:[{step:"s1", done:false}], agreed:false}' \
+    > "$WORK/progress/contracts/sprint-99.json"
+  NEW=$(jq -n '{sprint:99, acceptance_criteria:["a1"], implementation_steps:[{step:"s1", done:false}], agreed:true}')
+  run run_write "$(mk_write_input "$WORK/progress/contracts/sprint-99.json" "$NEW")"
+  [ "$status" -eq 0 ]
+}
+
+@test "INV-11: allows contract update that keeps agreed true (post-approval step check-off)" {
+  mkdir -p "$WORK/progress/contracts"
+  jq -n '{sprint:99, acceptance_criteria:["a1"], implementation_steps:[{step:"s1", done:false}], agreed:true}' \
+    > "$WORK/progress/contracts/sprint-99.json"
+  NEW=$(jq -n '{sprint:99, acceptance_criteria:["a1"], implementation_steps:[{step:"s1", done:true}], agreed:true}')
+  run run_write "$(mk_write_input "$WORK/progress/contracts/sprint-99.json" "$NEW")"
+  [ "$status" -eq 0 ]
+}

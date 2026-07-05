@@ -40,22 +40,22 @@
     {
       "step": "tests/invariant-guard.bats에 F35 시나리오 RED 테스트 add-only 작성(fixture: 임시 feature_list + evaluator-feedback)",
       "verify": "신규 테스트 RED(가드 미구현), 기존 GREEN",
-      "done": false
+      "done": true
     },
     {
       "step": "hooks/invariant-guard.sh에 feature_list.json passes-transition 브랜치 + contracts agreed 구조 검증 브랜치 추가",
       "verify": "신규 테스트 GREEN, shellcheck clean",
-      "done": false
+      "done": true
     },
     {
       "step": "pre-bash-firewall 보호 경로에 feature_list.json 쓰기 게이트 확인, 갭이면 add-only 추가(SC3)",
       "verify": "behavioral 코퍼스에 python3 -c feature_list 쓰기 변종 추가 후 프로브 clean",
-      "done": false
+      "done": true
     },
     {
       "step": "docs/INVARIANTS.md INV-11 + 변경이력, 버전 bump(3종) → 독립 evaluator",
       "verify": "전체 bats GREEN, consistency 0, version-consistency GREEN",
-      "done": false
+      "done": true
     }
   ],
   "agreed": true

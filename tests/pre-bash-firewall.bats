@@ -161,6 +161,48 @@ run_firewall() {
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
 }
 
+@test "asks on redirect into progress/feature_list.json (INV-11 bash bypass)" {
+  run run_firewall '{"tool_input":{"command":"echo x > progress/feature_list.json"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "asks on double-slash path normalization of feature_list.json (F-1)" {
+  run run_firewall '{"tool_input":{"command":"echo x > progress//feature_list.json"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "asks on cd-then-write of bare feature_list.json (F-1)" {
+  run run_firewall '{"tool_input":{"command":"cd progress && echo x > feature_list.json"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "asks on tee into feature_list.json without progress prefix (F-1)" {
+  run run_firewall '{"tool_input":{"command":"tee feature_list.json"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "asks on python3 writing progress/feature_list.json (INV-11 bash bypass)" {
+  run run_firewall '{"tool_input":{"command":"python3 -c open_write progress/feature_list.json"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "asks on sed -i against progress/feature_list.json (INV-11 bash bypass)" {
+  run run_firewall '{"tool_input":{"command":"sed -i s/false/true/ progress/feature_list.json"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "allows read-only jq query on progress/feature_list.json (no over-gating)" {
+  run run_firewall '{"tool_input":{"command":"jq -r .features[].id progress/feature_list.json"}}'
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
 @test "asks on terraform destroy" {
   run run_firewall '{"tool_input":{"command":"terraform destroy"}}'
   [ "$status" -eq 0 ]

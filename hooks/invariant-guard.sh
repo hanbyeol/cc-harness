@@ -39,7 +39,15 @@ fi
 
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || echo "")
 [[ -z "$FILE" ]] && exit 0
-[[ ! -e "$FILE" ]] && exit 0   # 신규 생성은 약화가 아님 — 통과
+# 신규 생성은 대개 약화가 아니므로 통과 — 단, feature_list.json은 예외.
+# delete-then-recreate로 passes:true를 주입하면 primary 가드(INV-11)를 우회할 수 있으므로
+# 파일이 없어도 feature_list.json은 아래 브랜치로 내려보내 passes:true 근거를 검증한다 (F-2).
+if [[ ! -e "$FILE" ]]; then
+  case "$(basename "$FILE")" in
+    feature_list.json) [[ "$FILE" == *"/templates/"* ]] && exit 0 ;;  # templates 스캐폴딩만 면제
+    *) exit 0 ;;
+  esac
+fi
 
 # Edit/MultiEdit: new_string(들)을 old에 적용한 결과를 NEW로, Write: content가 곧 NEW.
 TOOL=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null || echo "")
@@ -213,6 +221,87 @@ if [[ "$BASENAME" == "pre-tool-firewall.sh" ]]; then
   # (c) 읽기전용 빌트인 라인에 변형 도구 유입 차단
   if grep -E 'WebFetch\|WebSearch' <<<"$NEW_CONTENT" | grep -qE '\b(Edit|Write|MultiEdit|NotebookEdit|Task|file_upload)\b'; then
     deny "pre-tool-firewall.sh의 읽기전용 빌트인 목록에 변형 도구 유입 — auto-allow 확장은 약화 (INV-10)"
+  fi
+  exit 0
+fi
+
+# === feature_list.json: passes 전환 근거 검증 (INV-11) ===
+# passes:false→true(신규·중복 id로 true 유입 포함)는 evaluator-feedback 근거가 있어야 한다:
+# 해당 id를 평가한 최신 레코드가 verdict pass, 5차원 완비, min-of-5 ≥ pass_threshold,
+# critical 티어는 scores.security ≥ security_thresholds.critical.
+# evaluator를 대체하지 않는다 — 판정의 존재와 산술만 재검증한다(speed-bump, INVARIANTS 위협모델).
+if [[ "$BASENAME" == "feature_list.json" && "$FILE" != *"/templates/"* ]]; then
+  if ! echo "$NEW_CONTENT" | jq -e '.' &>/dev/null; then
+    deny "feature_list.json이 유효한 JSON이 아닙니다 (INV-11)"
+  fi
+  PROG_DIR=$(dirname "$FILE")
+  COMMS_DIR="$PROG_DIR/agent-comms"
+  CFG="$PROG_DIR/harness-config.json"
+  PASS_T=7; CRIT_T=7
+  if [[ -f "$CFG" ]]; then
+    PASS_T=$(jq -r '.scoring.pass_threshold // 7' "$CFG" 2>/dev/null || echo 7)
+    CRIT_T=$(jq -r '.scoring.security_thresholds.critical // 7' "$CFG" 2>/dev/null || echo 7)
+  fi
+  NEW_TRUE_IDS=$(echo "$NEW_CONTENT" | jq -r '[.features[]? | select(.passes==true) | .id] | unique | .[]' 2>/dev/null || echo "")
+  while IFS= read -r fid; do
+    [[ -z "$fid" ]] && continue
+    # old에서 이미(모든 동일 id 항목이) true였으면 전환 아님 — 신규 id·false 항목은 검증 대상.
+    # 파일 부재(delete-then-recreate)면 prior true 없음 → 모든 passes:true가 검증 대상 (F-2).
+    if [[ -f "$FILE" ]]; then
+      OLD_TRUE=$(jq -r --arg id "$fid" '[.features[]? | select(.id==$id) | .passes == true] | (length > 0) and all' "$FILE" 2>/dev/null || echo "false")
+    else
+      OLD_TRUE="false"
+    fi
+    [[ "$OLD_TRUE" == "true" ]] && continue
+    AUTH=""
+    if [[ -d "$COMMS_DIR" ]]; then
+      while IFS= read -r fbf; do
+        if jq -e --arg id "$fid" '.features_evaluated // [] | index($id)' "$fbf" &>/dev/null; then
+          AUTH="$fbf"; break
+        fi
+      done < <(ls -1 "$COMMS_DIR"/evaluator-feedback-*.json 2>/dev/null | sort -r)
+    fi
+    [[ -z "$AUTH" ]] && deny "feature $fid passes:true 전환 근거 없음 — evaluator-feedback 레코드 부재. passes는 독립 evaluator 판정 후에만 (INV-1/INV-11)"
+    V=$(jq -r '.verdict // empty' "$AUTH" 2>/dev/null || echo "")
+    [[ "$V" == pass* ]] || deny "feature $fid 최신 판정 verdict='$V' — pass 판정 없이 passes:true 불가 (INV-1/INV-11)"
+    # 타입 검사 fail-closed: 문자열 점수("3")는 jq min에서 숫자보다 크게 정렬돼 최솟값을
+    # 가릴 수 있으므로 number가 아닌 차원이 하나라도 있으면 "missing"으로 취급해 차단 (F-4).
+    MIN=$(jq -r '[.scores.functionality, .scores.code_quality, .scores.security, .scores.error_handling, .scores.test_coverage] | if any(. == null or (type != "number")) then "missing" else min end' "$AUTH" 2>/dev/null || echo "missing")
+    if [[ "$MIN" == "missing" ]]; then
+      deny "feature $fid 판정의 5차원 점수 불완전/비수치 — min-of-5 재검증 불가 (INV-2/INV-11)"
+    fi
+    if awk -v m="$MIN" -v t="$PASS_T" 'BEGIN{exit !(m+0 < t+0)}'; then
+      deny "feature $fid min-of-5=$MIN < pass_threshold=$PASS_T — 통과 요건 미달 (INV-2/INV-11)"
+    fi
+    # tier는 NEW_CONTENT를 우선 신뢰(파일 부재 시에도 동작) — NEW에 없으면 디스크 폴백, 최종 기본 standard
+    TIER=$(echo "$NEW_CONTENT" | jq -r --arg id "$fid" '[.features[]? | select(.id==$id) | .security_tier] | first // empty' 2>/dev/null || echo "")
+    if [[ -z "$TIER" || "$TIER" == "null" ]] && [[ -f "$FILE" ]]; then
+      TIER=$(jq -r --arg id "$fid" '[.features[]? | select(.id==$id) | .security_tier] | first // empty' "$FILE" 2>/dev/null || echo "")
+    fi
+    [[ -z "$TIER" || "$TIER" == "null" ]] && TIER="standard"
+    if [[ "$TIER" == "critical" ]]; then
+      SEC=$(jq -r '.scores.security // empty' "$AUTH" 2>/dev/null || echo "")
+      if [[ -z "$SEC" ]] || awk -v s="$SEC" -v t="$CRIT_T" 'BEGIN{exit !(s+0 < t+0)}'; then
+        deny "feature $fid (critical) scores.security=$SEC < $CRIT_T — 보안 미달은 자동 fail (INV-4/INV-11)"
+      fi
+    fi
+  done <<< "$NEW_TRUE_IDS"
+  exit 0
+fi
+
+# === contracts/sprint-*.json: agreed 전환 구조 검증 (INV-11) ===
+# agreed:false→true는 Plan 게이트 산출물(비어있지 않은 acceptance_criteria·implementation_steps)을
+# 전제한다 — 빈 계약의 무단 합의를 차단. 내용 검증은 Plan 게이트(사람)의 몫.
+if [[ "$FILE" == *"/contracts/"* && "$BASENAME" == sprint-*.json && "$FILE" != *"/templates/"* ]]; then
+  # 주의: `.agreed // empty`는 false를 삼킨다(jq alternative) — tostring으로 false 보존
+  OLD_AG=$(jq -r '.agreed | if . == null then "" else tostring end' "$FILE" 2>/dev/null || echo "")
+  NEW_AG=$(echo "$NEW_CONTENT" | jq -r '.agreed | if . == null then "" else tostring end' 2>/dev/null || echo "")
+  if [[ "$OLD_AG" == "false" && "$NEW_AG" == "true" ]]; then
+    AC_N=$(echo "$NEW_CONTENT" | jq -r '.acceptance_criteria | length' 2>/dev/null || echo 0)
+    ST_N=$(echo "$NEW_CONTENT" | jq -r '.implementation_steps | length' 2>/dev/null || echo 0)
+    if [[ "$AC_N" -lt 1 || "$ST_N" -lt 1 ]]; then
+      deny "agreed:true 전환에 acceptance_criteria($AC_N)·implementation_steps($ST_N) 필요 — Plan 산출물 없는 합의 금지 (INV-11)"
+    fi
   fi
   exit 0
 fi

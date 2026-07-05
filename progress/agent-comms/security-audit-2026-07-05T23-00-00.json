@@ -1,0 +1,107 @@
+{
+  "timestamp": "2026-07-05T23:00:00-09:00",
+  "feature": "F35",
+  "invariant": "INV-11",
+  "security_tier": "critical",
+  "branch": "feat/f35-passes-transition-guard",
+  "commits": [
+    "515afb9",
+    "9ac7861"
+  ],
+  "auditor": "security-auditor (Opus 4.8), independent threat-perspective audit",
+  "scan_method": "static review + adversarial hook-stdin injection (behavioral.sh style — verdict parsing, no command execution)",
+  "checklist": {
+    "items": {
+      "SC1": "add-only 강화 — invariant-guard에 deny/exit2 분기 추가만. INV-7 자기보호 준수.",
+      "SC2": "evaluator 독립성 — 가드는 판정의 존재/산술만 재검증, 판정 생성은 evaluator 전권.",
+      "SC3": "우회 경로 — Bash로 feature_list.json 직접 쓰기를 pre-bash-firewall이 게이트.",
+      "SC4": "위협모델 — 정교한 재구성 우회는 speed-bump 수용, behavioral/코드리뷰 2차 방어."
+    },
+    "passed": [
+      "SC1",
+      "SC2",
+      "SC4"
+    ],
+    "failed": [
+      "SC3"
+    ],
+    "notes": {
+      "SC1": "PASS — diff는 순수 가법(71줄 추가, 삭제 0). 기존 브랜치 무손상. deny/exit2 카운트 증가 → INV-7 자기보호 통과. 기존 게이트/방화벽/테스트 약화 없음.",
+      "SC2": "PASS — 가드는 verdict 존재 + min-of-5 산술 + critical security만 재검증. 판정 내용 생성은 하지 않음. 정상 evaluator flip 무차단(실증 TEST C).",
+      "SC3": "FAIL(부분) — 캐노니컬 spelling(progress/feature_list.json)은 ask로 게이트되나, F35 패턴이 'progress/' 접두를 요구해 경로 정규화 변종이 누출됨(F-1). 보호경로에 추가는 했으나 게이트가 불완전.",
+      "SC4": "PASS(단서) — '정교한 재구성=speed-bump' 프레이밍 자체는 정직. 그러나 별도로 INV-11 문서가 'Bash 직접 쓰기는 firewall ASK가 게이트한다'고 완결적으로 주장하는 문장은 과대주장(F-3). bootstrap 우회는 미문서화(F-2)."
+    }
+  },
+  "supply_chain": {
+    "vulnerable_deps": 0,
+    "new_dependencies": 0,
+    "details": "의존성 무추가 — bash/jq/awk/grep/ls/sort/basename/dirname/wc/tr만 사용(전부 기존). 매니페스트 변경은 버전 bump(1.15.6→1.16.0)뿐. 방화벽 diff의 node/python3 문자열은 게이팅 정규식 리터럴이지 호출이 아님."
+  },
+  "findings": [
+    {
+      "id": "F-1",
+      "severity": "medium",
+      "confidence": "high",
+      "title": "Firewall ASK가 feature_list.json Bash 쓰기의 경로 정규화 변종을 놓침 (SC3 게이트 불완전)",
+      "description": "pre-bash-firewall.sh의 F35 ASK 패턴은 리터럴 'progress/feature_list\\.json' 접두를 요구한다. 동일 파일을 가리키는 변종은 ask가 아니라 auto-allow로 새어 무프롬프트 통과한다. invariant-guard는 Bash를 후킹하지 않으므로 이 firewall ASK가 Bash 쓰기의 유일한 2차 게이트인데, 그 게이트가 우회된다.",
+      "exploit_path": "실증(hook stdin 주입, 명령 미실행): 'echo x > progress//feature_list.json' => allow; 'cd progress && echo x > feature_list.json' => allow; 'cd progress; echo x > feature_list.json' => allow; 'cp /tmp/f.json progress//feature_list.json' => allow; 'tee progress//feature_list.json' => allow. 대조: 캐노니컬 'echo x > progress/feature_list.json' => ask. 동일 세 변종을 harness-config.json(F32 basename-앵커 패턴)에 넣으면 셋 다 ask로 게이트됨 — F35만 누출.",
+      "root_cause": "F32 보호경로 패턴은 basename(harness-config\\.json)만 앵커하여 경로 형태에 무관하게 매칭되나, F35 패턴은 'progress/' 디렉토리 접두까지 앵커해 // 이중슬래시·cd 후 bare 파일명 등에서 substring 매칭이 깨진다.",
+      "mitigation": "feature_list.json 패턴도 harness-config.json처럼 basename 앵커로 통일: 접두 'progress/'를 제거하고 '[^ ]*feature_list\\.json' 형태로 add-only 교체(또는 접두 패턴은 유지한 채 basename 패턴을 추가). basename 앵커는 templates/feature_list.json까지 ask로 잡지만 deny가 아닌 ask라 무해.",
+      "within_threat_model": false
+    },
+    {
+      "id": "F-2",
+      "severity": "medium",
+      "confidence": "high",
+      "title": "Bootstrap 예외([[ ! -e ]])를 통한 delete-then-recreate 우회 — 1차 가드(Write 경로)를 무프롬프트로 회피",
+      "description": "invariant-guard.sh L42 '[[ ! -e \"$FILE\" ]] && exit 0'는 전역 예외(신규 프로젝트 부트스트랩)다. feature_list.json이 존재하지 않는 순간 Write는 passes:true(critical 포함)를 evaluator-feedback 검증 없이 통과한다. 삭제 단계 'rm progress/feature_list.json'은 방화벽에서 게이트되지 않는다(상대경로 rm은 ADR-004 default-allow). 따라서 rm→Write 2단계가 모두 무프롬프트로 passes를 위조한다. INV-11이 방어하려는 바로 그 Write-tool 경로에서 성립.",
+      "exploit_path": "실증(hook stdin 주입): (A) 존재하지 않는 progress/feature_list.json에 passes:true(critical)+피드백 전무 Write => guard exit 0(허용). 대조(A2) 동일 파일이 passes:false로 존재 시 동일 Write => exit 2(차단). 삭제 단계: 'rm progress/feature_list.json' => firewall allow(미게이트), 'rm -f ...' => allow. (참고 TEST G: file_path 말미 '/'·'/.' 형태도 -e 실패로 exit 0을 유발하나, Write 도구가 해당 형태에서 캐노니컬 inode에 커밋하는지는 도구 의존이라 미확정 — 확정 경로는 rm→Write.)",
+      "root_cause": "L42 부트스트랩 예외가 파일 전역에 적용되어, feature_list.json에 대해서도 '파일 부재 시 passes:true 무검증 허용'이 된다. INV-11 '알려진 한계'는 forged-feedback와 Bash-직접쓰기만 열거하고 이 delete-recreate 벡터는 미문서화.",
+      "mitigation": "feature_list.json에 한해 부트스트랩 예외를 특례 처리: 파일이 신규(-e 실패)여도 NEW_CONTENT에 passes:true인 id가 있으면 해당 id의 evaluator-feedback 근거를 동일하게 요구(신규 생성=모든 true가 전환). add-only 분기로 구현 가능. 병행: firewall ASK에 'rm ... progress/feature_list.json' 게이트 추가 검토(단, rm default-allow 정책과의 조율 필요).",
+      "within_threat_model": false
+    },
+    {
+      "id": "F-3",
+      "severity": "low",
+      "confidence": "high",
+      "title": "INV-11 문서가 Bash 직접 쓰기 게이팅을 완결적으로 과대주장 (위협모델 정직성)",
+      "description": "docs/INVARIANTS.md INV-11 '알려진 한계'는 'Bash로 feature_list.json을 직접 쓰는 우회는 firewall ASK(보호경로)가 게이트하고, behavioral 프로브 코퍼스가 이 부류의 누출을 감시한다'고 서술한다. 그러나 (a) 게이팅은 캐노니컬 spelling에 한정되고 경로 변종은 누출되며(F-1), (b) behavioral 코퍼스 역시 캐노니컬 spelling 5종만 담아 // 이중슬래시·cd 변종을 감시하지 못한다. 즉 문서가 실제 잔여위험보다 게이트 커버리지를 넓게 기술.",
+      "exploit_path": "문서 대조 — INVARIANTS.md L124-128 및 behavioral.sh L76-82(코퍼스는 'python3 -c open(...)','sed -i ...','echo {} > ...','cp ...','jq ... > (자기리다이렉트)' 모두 progress/feature_list.json 캐노니컬 표기). F-1 실증 변종은 코퍼스·문서 어디에도 없음.",
+      "mitigation": "문서를 잔여위험에 맞게 정정: 'firewall ASK는 캐노니컬 경로 표기만 게이트하며 경로 정규화 변종은 speed-bump를 넘지 못한다' 수준으로 하향 서술하거나, F-1 수정 후 'basename 앵커로 변종 포함 게이트'로 갱신. behavioral 코퍼스에 // 및 cd 변종 add-only 추가로 감시 확장.",
+      "within_threat_model": false
+    },
+    {
+      "id": "F-4",
+      "severity": "low",
+      "confidence": "high",
+      "title": "min-of-5 재검증의 jq 타입 강제 불일치 — 문자열 점수가 낮은 차원을 은폐",
+      "description": "invariant-guard의 min-of-5는 jq '[...]|min'으로 계산한다. jq 정렬 순서상 number < string이므로, 어떤 차원이 문자열(예: security:\"3\")로 기록되면 min이 그 문자열을 '가장 큰 값'으로 취급해 실제 최저 차원을 무시한다. 반면 critical security 검증은 awk 's+0'로 문자열을 수치 강제해 정확히 잡는다 — 두 검사가 문자열 처리에서 비대칭. standard 티어 feature의 min-of-5가 문자열 저점을 통과시킬 수 있다.",
+      "exploit_path": "실증(TEST E): standard feature, 피드백 scores {func:8,cq:9,security:\"3\"(문자열),err:8,test:9}, verdict pass => guard exit 0(허용). security='3'<7이지만 standard라 min-of-5만 검사하며, jq min이 문자열 '3'을 무시하고 8을 최저로 계산 → 통과. (critical 티어라면 awk 검사가 차단하나 min-of-5 자체는 여전히 오산.)",
+      "root_cause": "mechanized INV-2 산술이 점수의 수치 타입을 신뢰. 문자열 점수는 정상 evaluator가 산출하지 않으므로 실 도달성은 forged/malformed 피드백에 한정(이미 speed-bump), 그러나 '산술 재검증' 통제 내부의 정확성 결함.",
+      "mitigation": "min 계산 전 각 차원을 tonumber로 강제(비수치는 'missing' 처리): '[.scores.functionality,...] | if any(type!=\"number\") then \"missing\" else min end' 형태로 fail-closed. add-only 강화.",
+      "within_threat_model": true
+    },
+    {
+      "id": "F-5",
+      "severity": "low",
+      "confidence": "high",
+      "title": "unquoted $NEW_TRUE_IDS 워드분할/글로빙 (코드 품질, fail-closed)",
+      "description": "hooks/invariant-guard.sh 'for fid in $NEW_TRUE_IDS'가 비인용 확장이라, feature id에 공백·글로브 문자가 있으면 워드분할/경로확장이 일어난다. 실증상 fail-closed(잘못 분할된 토큰은 피드백 부재로 deny)이나, id에 '*' 등이 있으면 cwd 파일명으로 확장되는 등 예측 불가 반복이 발생할 수 있는 robustness wart.",
+      "exploit_path": "실증(TEST D): id='FT1 FT2'(공백 포함), passes:true, 피드백 전무 => guard exit 2(fail-closed). 우회로는 성립하지 않음 — 분할된 각 토큰이 근거 부재로 차단됨.",
+      "root_cause": "비인용 변수 확장. mapfile/while-read로 라인 단위 순회하면 회피 가능.",
+      "mitigation": "'while IFS= read -r fid; do ... done <<< \"$NEW_TRUE_IDS\"' 또는 mapfile -t로 교체. 보안 영향은 없으나 shellcheck-급 품질 개선.",
+      "within_threat_model": true
+    }
+  ],
+  "verified_correct": [
+    "1차 가드 정상 동작: passes false->true 전환 시 피드백 부재/verdict fail/차원 결손/min<threshold/critical security<threshold를 각각 exit 2로 차단(diff 로직 + bats 40-57 + 직접 주입 재확인).",
+    "무오탐: 완비 피드백 flip(critical 포함) exit 0, passes 무관 편집 exit 0, true->false 리셋 exit 0(실증 TEST C 등).",
+    "archive/ 제외 보안경계 유지: agent-comms/archive/ 하위 pass 피드백은 flip을 승인하지 못함(실증 TEST F, exit 2) — stale-pass 우회 차단.",
+    "add-only(SC1): invariant-guard/firewall/behavioral/tests 모두 순수 가법. 기존 deny/ask/allow 계층·패턴·테스트 무손상. INV-7 자기보호(deny·exit2 카운트 증가) 준수.",
+    "Edit/MultiEdit 재구성 우회 불성립: replace_all/다중치환도 최소 1개 전환이 검출되어 편집 전체가 deny됨.",
+    "읽기 무과금: 'jq -r .features[].id progress/feature_list.json' 등 조회는 auto-allow(오탐/DoS 없음).",
+    "documented speed-bump 정직: forged evaluator-feedback를 Write로 위조 후 flip은 exit 0로 통과(실증 TEST B) — INV-11 '알려진 한계' 서술과 일치."
+  ],
+  "verdict": "conditional_pass",
+  "verdict_detail": "핵심 통제(Edit|Write|MultiEdit 경로의 passes 전환 기계 검증)는 정확하고 add-only이며 happy/deny/edge/archive 경계를 모두 실증 통과 — SC1·SC2는 견고. 그러나 2차 방어(Bash 쓰기)와 부트스트랩 예외에서 미문서화된 medium 우회 2건(F-1 firewall 경로변종 누출, F-2 delete-recreate)이 확인되어 SC3가 완전히 충족되지 않으며, INV-11 문서가 Bash 게이팅을 과대주장(F-3)한다. 이들 우회는 '정교한 재구성 speed-bump'로 이미 수용된 부류가 아니라 사소한 경로 표기/부트스트랩 벡터이므로 within_threat_model=false로 분류. 회귀는 없음(전량 가법)이라 기존 게이트를 깨지 않으나, 새 2차 방어가 불완전. 권고 fast-follow: (1) firewall feature_list.json 패턴을 harness-config.json식 basename 앵커로 통일, (2) feature_list.json 부트스트랩 예외를 특례화해 신규 생성 시에도 passes:true는 근거 요구, (3) INV-11 문서/behavioral 코퍼스를 실제 커버리지에 맞게 정정, (4) F-4 tonumber fail-closed·F-5 인용 정리. security_tier=critical 게이트·임계값은 하향 없음."
+}
