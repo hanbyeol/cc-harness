@@ -102,6 +102,16 @@ ASK_PATTERNS=(
   'helm[^;|&]* (uninstall|delete)'
   'kubectl[^;|&]* rollout undo'
   'kubectl[^;|&]* drain'
+  # 하네스 검증 파일 훼손 (invariant-guard는 Edit|Write만 후킹 → Bash cp/mv/sed -i/리다이렉트 우회 차단)
+  '>>? *[^ ]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
+  '\b(cp|mv|install|rsync|ln|tee|truncate)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
+  '\b(sed|perl)\b[^;|&]*-i[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
+  '\bof= *[^ ]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
+  # 민감 파일(비밀키·크리덴셜) 이동/복사/덮어쓰기
+  '\b(cp|mv|rsync|install|tee|scp)\b[^;|&]*(\.ssh/|\.aws/|\.gnupg/)'
+  '>>? *[^ ]*(\.ssh/|\.aws/|\.gnupg/)'
+  # git 실행 훅 경로 변경 — 이후 임의 git 명령이 임의 스크립트 실행(에스컬레이션)
+  'git config[^;|&]*core\.hooksPath'
 )
 
 if echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then
@@ -114,12 +124,14 @@ if echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; t
   done
 fi
 
-# === Layer 4: Allow tier — 읽기 전용/저위험 명령 자동 허용 (무프롬프트) ===
-# 여기 도달 = deny(L1/2)·ask(L3)를 모두 통과. allowlist에 "명시적으로" 매칭될 때만
-# permissionDecision:"allow" 를 방출한다. 조금이라도 불확실하면 fall-through(exit 0) →
-# Claude Code 기본 권한 흐름(사용자 프롬프트) 유지. 위험 명령은 절대 여기서 allow되지 않는다.
+# === Layer 4: Allow tier — 기본 허용(default-allow) ===
+# 여기 도달 = deny(L1/2)·ask(L3)를 모두 통과. 모델: "위험 명령 제외하고는 다 통과".
+# 파괴·비가역·권한상승·하네스 검증파일 훼손·비밀키 이동은 위 Layer가 이미 deny/ask로 걸렀고,
+# 그 외 모든 일반 개발 명령은 여기서 permissionDecision:"allow"를 방출한다(무프롬프트).
+# deny/ask 뒤에 위치하므로(INV-9) 위험 명령이 allow로 새지 않는다.
 
-# config 토글 (기본 on). deny/ask는 위에서 이미 실행됐으므로 여기서 꺼도 가드는 그대로다.
+# config 토글 (기본 on). off면 allow를 방출하지 않고 Claude Code 기본 프롬프트로 넘어간다.
+# deny/ask는 이 값과 무관하게 위에서 항상 실행됐다.
 AUTO_ALLOW="true"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 HARNESS_CFG="$PROJECT_DIR/progress/harness-config.json"
@@ -128,143 +140,11 @@ if [[ -f "$HARNESS_CFG" ]] && jq -e '.firewall.auto_allow == false' "$HARNESS_CF
 fi
 [[ "$AUTO_ALLOW" == "true" ]] || exit 0
 
-# command substitution/백틱/process substitution 은 내용이 allowlist로 검증되지 않으므로
-# 자동 허용하지 않는다(예: git commit -m "$(...)", `code`).
-if echo "$NORMALIZED_CMD" | grep -qE '\$\(|`|<\(|>\('; then
-  exit 0
-fi
-
-# 안전한 폐기 리다이렉트(2>/dev/null, 2>&1, >&2, &>/dev/null)만 제거한 뒤,
-# 파일로 향하는 리다이렉트(>, >>)가 남아 있으면 자동 허용하지 않는다(임의 경로 쓰기 방지).
-STRIPPED=$(echo "$NORMALIZED_CMD" | sed -E 's#[0-9]?>>?[ ]?/dev/null##g; s#[0-9]?>&[0-9]##g; s#&>[ ]?/dev/null##g')
-if echo "$STRIPPED" | grep -qE '>'; then
-  exit 0
-fi
-
-# 하네스 검증 파일·민감 파일을 겨냥한 쓰기는 auto-allow에서 제외한다.
-# invariant-guard는 Edit|Write|MultiEdit만 후킹하므로, Bash 경유(cp/mv/sed -i/tar)
-# 덮어쓰기로 임계값·가드·테스트를 무프롬프트 훼손하는 경로를 여기서 막는다.
-PROTECTED_RE='harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.(ssh|aws|gnupg)(/|$| )|(^| )/etc/|\.git/'
-
-# 파이프라인/체인을 세그먼트로 분리 — 모든 세그먼트가 allowlist에 있어야 허용.
-ALL_SAFE=1
-SEGMENTS=$(echo "$STRIPPED" | tr ';|&' '\n\n\n')
-while IFS= read -r seg; do
-  # 앞뒤 공백 + 선행 환경변수 할당(FOO=bar) 제거
-  seg=$(echo "$seg" | sed -E 's/^ +//; s/ +$//; s/^([A-Za-z_][A-Za-z0-9_]*=[^ ]* +)+//')
-  [[ -z "$seg" ]] && continue
-  cmd=${seg%% *}
-  # 경로 지정 명령(./x, /usr/bin/x)은 자동 허용 대상에서 제외 — 동명 바이너리 치환 방지
-  if [[ "$cmd" == */* ]]; then ALL_SAFE=0; break; fi
-  # 서브커맨드(두 번째 토큰) — 서브커맨드 인지 검사에 재사용
-  sub=$(echo "$seg" | awk '{print $2}')
-  case "$cmd" in
-    # 순수 읽기 전용/조회 — 인자와 무관하게 안전
-    ls|cat|head|tail|wc|grep|egrep|fgrep|rg|ag|tree|file|stat|du|df|pwd|echo|printf|cut|sort|uniq|nl|column|fold|comm|paste|diff|cmp|jq|yq|date|cal|env|printenv|whoami|id|hostname|uname|uptime|which|type|basename|dirname|realpath|readlink|xxd|od|hexdump|strings|cksum|md5|md5sum|sha1sum|shasum|sha256sum|seq|true|false|test|bats|gofmt|tr|less|more|tac|rev|expand|unexpand|look|tabs|nproc|arch|getconf|locale|tty|groups|sw_vers|ps|free|vmstat|iostat|lsof|netstat|ss|ping|ping6|dig|nslookup|host|whois)
-      ;;
-    # 파일 쓰기 가능 — 하네스 검증 파일·민감 경로를 겨냥하면 제외(프롬프트)
-    mkdir|touch|cp|mv|tar|ln|install|rsync|split)
-      if echo "$seg" | grep -qE "$PROTECTED_RE"; then ALL_SAFE=0; fi
-      ;;
-    # 텍스트 처리 — awk system() 코드실행, sed s///e 실행 플래그, 보호 경로 in-place 편집 시 제외
-    awk|sed)
-      if echo "$seg" | grep -qE 'system\(|s/[^/]*/[^/]*/[a-z]*e'; then ALL_SAFE=0
-      elif echo "$seg" | grep -qE "$PROTECTED_RE"; then ALL_SAFE=0; fi
-      ;;
-    # 탐색 find — 파괴/명령실행 액션 플래그가 있으면 제외(순수 탐색만 허용)
-    find)
-      if echo "$seg" | grep -qE ' -(delete|exec|execdir|ok|okdir|fprint|fprintf|fprint0|fls)( |$)'; then ALL_SAFE=0; fi
-      ;;
-    # 네트워크 조회 — 변형(POST/PUT/DELETE/PATCH)·데이터 전송 플래그가 있으면 제외
-    curl|wget)
-      if echo "$seg" | grep -qiE ' -X[= ]*(POST|PUT|DELETE|PATCH)| --request[= ]*(POST|PUT|DELETE|PATCH)| -(d|F|T)( |$)| --(data|data-binary|data-raw|form|upload-file)( |=)'; then ALL_SAFE=0; fi
-      ;;
-    go)
-      case "$sub" in
-        build|test|vet|run|mod|list|doc|version|env|fmt|tool|work) ;;
-        *) ALL_SAFE=0 ;;
-      esac
-      ;;
-    # 프로젝트 빌드/테스트 러너 — 개발 이너루프
-    make|gmake|mvn|gradle)
-      ;;
-    cargo)
-      case "$sub" in
-        build|b|test|t|check|c|clippy|fmt|doc|d|tree|metadata|version|--version|bench|nextest) ;;
-        *) ALL_SAFE=0 ;;
-      esac
-      ;;
-    npm|pnpm|yarn)
-      # exec 제외(임의 패키지 코드 실행), install 미포함(postinstall 위험)
-      case "$sub" in
-        test|run|ls|list|view|audit|why|outdated) ;;
-        *) ALL_SAFE=0 ;;
-      esac
-      ;;
-    pip|pip3)
-      case "$sub" in
-        list|show|freeze|check|config|--version|-V) ;;
-        *) ALL_SAFE=0 ;;
-      esac
-      ;;
-    # 컨테이너/오케스트레이션 — 읽기 전용 조회 서브커맨드만 (변형은 fall-through, 파괴는 L3 ask)
-    docker|podman)
-      case "$sub" in
-        ps|logs|images|image|inspect|version|info|top|stats|port|history|diff|events|context|system) ;;
-        *) ALL_SAFE=0 ;;
-      esac
-      ;;
-    kubectl|k)
-      case "$sub" in
-        get|describe|logs|top|explain|api-resources|api-versions|version|cluster-info|events|wait) ;;
-        *) ALL_SAFE=0 ;;
-      esac
-      ;;
-    helm)
-      case "$sub" in
-        list|ls|status|get|history|version|show|search|template|env|repo) ;;
-        *) ALL_SAFE=0 ;;
-      esac
-      ;;
-    brew)
-      case "$sub" in
-        list|info|search|outdated|deps|home|config|leaves|uses|desc|--version|tap-info) ;;
-        *) ALL_SAFE=0 ;;
-      esac
-      ;;
-    git)
-      # push·reset·clean·rebase·merge·checkout·restore 등 상태 위험 서브커맨드는 제외(fall-through).
-      case "$sub" in
-        status|log|diff|show|rev-parse|rev-list|remote|blame|describe|ls-files|ls-tree|show-ref|reflog|cat-file|grep|shortlog|for-each-ref|symbolic-ref|var|count-objects|verify-commit|whatchanged|fetch|add|commit|mv)
-          ;;
-        config)
-          # 읽기 형태(--get/--list/-l 등)만 허용 — 쓰기(git config k v, --add/--unset)는 제외
-          if echo "$seg" | grep -qE ' --(get|get-all|get-regexp|list|get-urlmatch)( |$)| -l( |$)'; then :; else ALL_SAFE=0; fi
-          ;;
-        stash)
-          # drop/clear는 비가역 파기 — 제외. push/list/show/save/apply/pop만 허용
-          if echo "$seg" | grep -qE ' (drop|clear)( |$)'; then ALL_SAFE=0; fi
-          ;;
-        switch)
-          # 변경 폐기(--discard-changes/-f/-C) 플래그가 있으면 제외
-          if echo "$seg" | grep -qE ' -(f|C)( |$)| --(discard-changes|force)( |$)'; then ALL_SAFE=0; fi
-          ;;
-        branch|tag)
-          # 목록/생성만 허용 — 삭제·이동·강제 플래그가 있으면 제외
-          if echo "$seg" | grep -qE ' -(d|D|m|M|f)( |$)| --(delete|move|force)( |$)'; then ALL_SAFE=0; fi
-          ;;
-        *) ALL_SAFE=0 ;;
-      esac
-      ;;
-    *) ALL_SAFE=0 ;;
-  esac
-  [[ $ALL_SAFE -eq 0 ]] && break
-done <<< "$SEGMENTS"
-
-if [[ $ALL_SAFE -eq 1 ]]; then
-  jq -n --arg reason "읽기 전용/저위험 명령 — cc-harness firewall이 자동 허용했습니다." \
-    '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "allow", permissionDecisionReason: $reason}}'
-  exit 0
-fi
+# deny(L1/2)·ask(L3)를 통과한 명령은 위험 정의에 해당하지 않으므로 자동 허용한다.
+# command substitution/리다이렉트 안의 위험 명령은 Layer 2가, 시스템 파일 truncate는
+# Layer 1/2가, 하네스 검증파일·비밀키 쓰기는 Layer 3(ask)이 이미 선처리했다.
+jq -n --arg reason "위험 명령(deny/ask)에 해당하지 않는 명령 — cc-harness firewall이 자동 허용했습니다." \
+  '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "allow", permissionDecisionReason: $reason}}'
+exit 0
 
 exit 0
