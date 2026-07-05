@@ -333,9 +333,9 @@
       "name": "크로스도구 권한 계층 — 읽기전용 도구 무프롬프트 (WebFetch/WebSearch/MCP read)",
       "description": "PreToolUse 훅(pre-tool-firewall.sh)을 Bash 외 도구(WebFetch·WebSearch·Read·Grep·Glob·NotebookRead·MCP)에 등록. 읽기전용 도구 allowlist(WebFetch·WebSearch·Read·Grep·Glob·NotebookRead·TodoWrite + MCP read-verb: get/list/search/read/fetch/view/describe/query 등)에 매칭되면 permissionDecision:allow 방출로 무프롬프트 자동 진행. 그 외(MCP write-verb: create/update/delete/send/apply/upload 등·file_upload·미분류 도구)는 fall-through(네이티브 프롬프트 유지). 자율성을 Bash 방화벽 밖 전 도구로 확장하되, 도구는 인자로 위험판별이 어렵고 MCP는 무엇이든 가능하므로 default-allow가 아닌 allowlist 모델(위험정의 동반 — S2). config firewall.auto_allow_tools(기본 true)로 on/off. WebFetch가 도메인단위로 매번 물어 리서치·문서수집 자율성이 끊기던 마찰 해소. Edit/Write auto-approve는 명시적 범위 제외(invariant-guard 관할).",
       "security_tier": "critical",
-      "status": "implementing",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [
         "F27"
       ],
