@@ -537,3 +537,82 @@ JSON
   run run_write "$(mk_write_input "$WORK/progress/contracts/sprint-99.json" "$NEW")"
   [ "$status" -eq 0 ]
 }
+
+# --- F41: jq 부재 시 fail-closed (보호 파일 편집 차단, 비보호 통과) ---
+
+# jq만 가린 PATH로 훅을 실행. 입력 JSON은 정상 PATH(jq 존재)에서 미리 생성한다.
+_nojq_run() {
+  local shim="$WORK/nojqbin"
+  mkdir -p "$shim"
+  local t p
+  for t in cat grep sed head basename tr wc awk dirname cut env printf; do
+    p=$(command -v "$t" 2>/dev/null || true)
+    [[ -n "$p" ]] && ln -sf "$p" "$shim/$t"
+  done
+  local bash_bin; bash_bin=$(command -v bash)
+  printf '%s' "$1" | PATH="$shim" "$bash_bin" "$HOOK"
+}
+
+@test "F41: jq absent — Edit to harness-config.json is blocked (fail-closed)" {
+  run _nojq_run "$(mk_edit_input "$WORK/progress/harness-config.json" 'x' 'y')"
+  [ "$status" -eq 2 ]
+}
+
+@test "F41: jq absent — Edit to invariant-guard.sh is blocked" {
+  cp "$HOOK" "$WORK/hooks/invariant-guard.sh"
+  run _nojq_run "$(mk_edit_input "$WORK/hooks/invariant-guard.sh" 'a' 'b')"
+  [ "$status" -eq 2 ]
+}
+
+@test "F41: jq absent — Write to a tests/*.bats file is blocked" {
+  run _nojq_run "$(mk_write_input "$WORK/tests/sample.bats" 'anything')"
+  [ "$status" -eq 2 ]
+}
+
+@test "F41: jq absent — Edit to feature_list.json is blocked" {
+  run _nojq_run "$(mk_edit_input "$WORK/progress/feature_list.json" 'a' 'b')"
+  [ "$status" -eq 2 ]
+}
+
+@test "F41: jq absent — Edit to pre-tool-firewall.sh is blocked" {
+  run _nojq_run "$(mk_edit_input "$WORK/hooks/pre-tool-firewall.sh" 'a' 'b')"
+  [ "$status" -eq 2 ]
+}
+
+@test "F41: jq absent — Edit to pre-bash-firewall.sh is blocked" {
+  run _nojq_run "$(mk_edit_input "$WORK/hooks/pre-bash-firewall.sh" 'a' 'b')"
+  [ "$status" -eq 2 ]
+}
+
+@test "F41: jq absent — Edit to hooks.json is blocked" {
+  run _nojq_run "$(mk_edit_input "$WORK/hooks/hooks.json" 'a' 'b')"
+  [ "$status" -eq 2 ]
+}
+
+@test "F41: jq absent — Edit to INVARIANTS.md is blocked" {
+  run _nojq_run "$(mk_edit_input "$WORK/docs/INVARIANTS.md" 'a' 'b')"
+  [ "$status" -eq 2 ]
+}
+
+@test "F41: jq absent — Edit to an unrelated file passes (availability preserved)" {
+  run _nojq_run "$(mk_write_input "$WORK/hooks/post-edit-format.sh" 'echo hi')"
+  [ "$status" -eq 0 ]
+}
+
+@test "F41: jq absent — content mentioning a protected path does not false-block unrelated file" {
+  # tool_input.file_path(비보호)가 첫 매치 — content 안의 가짜 file_path는 무시된다
+  poison='{"file_path": "progress/harness-config.json"}'
+  run _nojq_run "$(mk_write_input "$WORK/hooks/post-edit-format.sh" "$poison")"
+  [ "$status" -eq 0 ]
+}
+
+@test "F41: jq absent — missing file_path passes gracefully" {
+  run _nojq_run '{"tool_name":"Write","tool_input":{}}'
+  [ "$status" -eq 0 ]
+}
+
+@test "F41: jq present control — benign (non-lowering) harness-config edit still passes (jq-present path unchanged)" {
+  NEW='{ "scoring": { "pass_threshold": 7, "security_thresholds": { "critical": 7, "standard": 5, "low": 3 } } }'
+  run run_write "$(mk_write_input "$WORK/progress/harness-config.json" "$NEW")"
+  [ "$status" -eq 0 ]
+}

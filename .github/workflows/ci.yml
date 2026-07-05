@@ -16,6 +16,8 @@ jobs:
         run: |
           shellcheck hooks/*.sh
           shellcheck init.sh
+          shellcheck scripts/probes/*.sh
+          shellcheck scripts/cost-report.sh
 
   json-validate:
     name: JSON Validation
@@ -66,5 +68,14 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q bats
+      - name: Ensure jq is installed (invariant-guard machine-check dependency)
+        # jq 부재 시 invariant-guard는 fail-closed(보호 파일 편집 차단)한다.
+        # CI에서 jq 존재를 명시적으로 보증해 기계 검증(INV-1~10)이 항상 활성 상태가 되게 한다.
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            sudo apt-get update -q
+            sudo apt-get install -y -q jq
+          fi
+          jq --version
       - name: Run hook tests
         run: bats tests/

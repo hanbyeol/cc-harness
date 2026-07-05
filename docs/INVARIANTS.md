@@ -138,7 +138,8 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
 
 가드의 **실제 위협 모델**은 다음이다:
 - **막는 대상**: 자동화된 `/improve` 루프나 부주의한 편집이 검증 장치를 **우연히/손쉽게** 약화시키는 것
-  (임계값 하향·키 제거, deny 패턴 삭제, 테스트 삭제, 가드 등록 제거, 명백한 semantic gutting).
+  (임계값 하향·키 제거, deny 패턴 삭제, 테스트 삭제, 가드 등록 제거, 명백한 semantic gutting,
+  그리고 **jq 삭제로 가드 전체를 무력화**하는 것 — jq 부재 시 보호 파일 편집은 fail-closed로 차단된다).
   이런 "쉬운 약화"를 막아 자동 루프가 게이트를 스스로 낮추지 못하게 한다.
 - **막지 못하는 대상**: 가드의 검사 로직을 정확히 알고 우회하도록 **의도적으로 정교하게 조작된**
   가드 소스 재작성. 이에 대한 방어는 가드가 아니라 두 가지 외부 장치가 담당한다:
@@ -156,8 +157,14 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
   가로채 old(디스크) vs new(제안) 비교로 위반을 감지하면 `exit 2`로 차단.
 - 차단은 절대 금지가 아니라 **자동화 차단**이다 — 사람이 의도적으로 임계값을 조정하거나
   오래된 테스트를 정리해야 한다면, 가드 안내에 따라 직접 편집/승인할 수 있다.
-- 가드는 `jq` 부재 시 harness-config 수치 검사를 건너뛰고 경고만 출력한다(가용성 우선,
-  firewall과 달리 보조 게이트이므로 fail-open). 그 외 패턴 검사는 jq 없이도 동작.
+- 가드는 `jq` 부재 시 **fail-closed**로 동작한다(구 fail-open에서 강화, sprint-27 F41).
+  jq는 모든 기계 검증(INV-1~10)의 공통 의존이라 jq를 지우면 가드 전체가 무력화되는 **단일 실패점**이다 —
+  안전장치는 결핍 시 통과가 아니라 **차단**이 캐논이다. 따라서 편집 대상이 **보호 파일**
+  (`harness-config.json`·`pre-bash-firewall.sh`·`pre-tool-firewall.sh`·`invariant-guard.sh`·
+  `INVARIANTS.md`·`hooks.json`·`feature_list.json`·`tests/*.bats`)이면, jq 없이 내용을
+  검사할 수 없으므로 보수적으로 `exit 2`(차단)하고 jq 설치 또는 사람의 직접 편집/승인을 요구한다.
+  비보호 파일은 기존대로 통과(가용성 유지)한다. 보호 파일 판정은 `is_protected()` 함수 하나로 정의해
+  jq-존재 디스패치 브랜치와 **단일 출처**로 정합한다(하드코딩 중복 drift 방지). jq 존재 시 동작은 무변경.
 
 ## 변경 이력
 - 2026-06-13: 최초 작성 (재귀적 자기개선 루프 안전장치, sprint-3 F12)
@@ -168,3 +175,7 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
 - 2026-07-05: INV-11 추가 (passes:false→true 전환은 evaluator-feedback 근거 기계 검증 —
   INV-1/2/4의 프롬프트 관례를 결정론적 집행으로 상향. contracts agreed 전환 구조 검증,
   firewall ASK에 feature_list.json 보호경로 + behavioral 코퍼스 확장, sprint-21 F35, v1.16.0)
+- 2026-07-06: invariant-guard의 jq 부재 동작을 fail-open → **fail-closed**로 강화 (INV-7 자기보호
+  연장 — jq 삭제라는 단일 실패점으로 가드를 무력화하는 것을 차단: 보호 파일 편집은 `exit 2`, 비보호는
+  가용성 유지. 보호 목록은 `is_protected()` 단일 출처. CI에 probes/cost-report shellcheck + jq 설치
+  검증 step 추가. sprint-27 F41)

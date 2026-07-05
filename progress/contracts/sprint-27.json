@@ -32,22 +32,22 @@
     {
       "step": "jq 부재 fail-closed RED 테스트(bats, PATH 모킹) → invariant-guard.sh 구현(보호 목록 함수화)",
       "verify": "신규 bats GREEN + 기존 무회귀",
-      "done": false
+      "done": true
     },
     {
       "step": "프로브 shellcheck 경고 해소 → ci.yml에 probes shellcheck·jq 검증 추가",
       "verify": "로컬 shellcheck 0, CI GREEN",
-      "done": false
+      "done": true
     },
     {
       "step": "INVARIANTS.md 위협모델 갱신 + 변경이력",
       "verify": "guard 자기보호 통과",
-      "done": false
+      "done": true
     },
     {
       "step": "버전 bump → 독립 evaluator",
       "verify": "전체 bats GREEN, consistency 0",
-      "done": false
+      "done": true
     }
   ],
   "agreed": true

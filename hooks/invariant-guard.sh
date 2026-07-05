@@ -18,6 +18,30 @@ INPUT=$(cat 2>/dev/null || echo "")
 
 has_jq() { command -v jq &>/dev/null; }
 
+# is_protected: 편집 대상이 하네스 보호 파일인가? (단일 출처)
+# 아래 jq-존재 디스패치 브랜치들이 개별 검사하는 파일 집합과 동일하게 유지한다 —
+# 하드코딩 중복 drift를 막기 위해 보호 대상 목록을 이 함수 하나로 정의한다.
+# 주 사용처: jq 부재 시 fail-closed 판정(내용 검사 불가 시 보호 파일 편집을 보수적으로 차단).
+is_protected() {
+  local f="$1" b
+  b=$(basename "$f" 2>/dev/null || echo "")
+  case "$b" in
+    harness-config.json | \
+    pre-bash-firewall.sh | \
+    pre-tool-firewall.sh | \
+    invariant-guard.sh | \
+    INVARIANTS.md | \
+    hooks.json | \
+    feature_list.json | \
+    *.bats)
+      return 0 ;;
+  esac
+  case "$f" in
+    */tests/*.bats) return 0 ;;
+  esac
+  return 1
+}
+
 # old_string의 첫 출현을 new_string으로 치환한 전체 내용을 stdout으로.
 # 매치가 없으면 원본 그대로. (리터럴 치환 — 정규식 메타 영향 없음)
 apply_replace() {
@@ -32,8 +56,22 @@ apply_replace() {
 }
 
 if ! has_jq; then
-  # jq 없이는 입력 파싱 불가 — 보조 게이트이므로 경고 후 통과 (INV: fail-open)
-  echo "invariant-guard: jq not found — guard inactive (가용성 우선)" >&2
+  # jq 부재 = 기계 검증의 단일 실패점(모든 INV 검사가 jq에 의존). 안전장치는 결핍 시
+  # fail-closed가 캐논: 보호 파일 편집은 차단(사람 승인 요구), 비보호 파일은 가용성 유지(통과).
+  # jq 없이 file_path만 추출 — content 값 오염을 피해 tool_input.file_path의 첫 매치만 사용.
+  NOJQ_FILE=$(printf '%s' "$INPUT" \
+    | grep -oE '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' 2>/dev/null \
+    | head -n1 \
+    | sed -E 's/.*"file_path"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/' 2>/dev/null || true)
+  if [[ -n "$NOJQ_FILE" ]] && is_protected "$NOJQ_FILE"; then
+    echo "INVARIANT 위반: jq 부재 상태에서 보호 파일 편집을 차단합니다 (fail-closed)" >&2
+    echo "  파일: $NOJQ_FILE" >&2
+    echo "  jq가 없으면 invariant-guard의 기계 검증이 무력화됩니다 — 안전장치는 결핍 시 차단이 원칙(docs/INVARIANTS.md)." >&2
+    echo "  jq를 설치하거나(brew install jq / apt-get install jq), 사람이 직접 편집/승인하세요." >&2
+    exit 2
+  fi
+  # 비보호 파일: jq 없이도 가용성 우선 통과 (가드는 검증 파일에만 관여).
+  echo "invariant-guard: jq not found — 비보호 파일이므로 통과 (가용성 우선)" >&2
   exit 0
 fi
 
