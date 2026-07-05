@@ -2,7 +2,7 @@
 
 > A full-SDLC harness for Claude Code — quality gates, security by design, and a development methodology that enforces itself.
 
-Claude Code의 전체 개발 생명주기(설계 정제 → 기획 → 아키텍처 → 구현 → 검증 → 배포 → 관측)를 구조화하는 harness입니다. plugin 설치 한 번으로 8 agents · 11 skills · 8 hooks · 11 rules가 적용됩니다.
+Claude Code의 전체 개발 생명주기(설계 정제 → 기획 → 아키텍처 → 구현 → 검증 → 배포 → 관측)를 구조화하는 harness입니다. plugin 설치 한 번으로 8 agents · 11 skills · 9 hooks · 11 rules가 적용됩니다.
 
 > **Note:** 이 프로젝트는 [Harness.io](https://harness.io) (CI/CD 플랫폼)와 무관합니다. 여기서 "harness"는 [AI agent harness engineering](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) 개념 — 에이전트가 일관된 품질로 일하도록 둘러싸는 구조 — 을 의미합니다.
 
@@ -143,7 +143,7 @@ claude
 > 선택적으로 채택했습니다. inline self-review는 독립 evaluator를 유지하기 위해 의도적으로 채택하지
 > 않았습니다 — 근거는 [ADR-003](docs/DECISIONS/ADR-003-superpowers-adoption.md).
 
-### Hooks (8개)
+### Hooks (9개)
 
 plugin 설치 시 `hooks.json`으로 **네이티브 등록**됩니다 — settings.json 수정 불필요:
 
@@ -157,8 +157,9 @@ plugin 설치 시 `hooks.json`으로 **네이티브 등록**됩니다 — settin
 | PostToolUse | `post-edit-format.sh` | 자동 포맷팅 (gofmt, prettier, swiftformat, ktlint, dart 등) |
 | Stop | `pre-commit-gate.sh` | 변경 언어별 테스트 + 커버리지 기록 + 시크릿 스캔 (동일 트리 재실행 skip 캐시) |
 | Stop | `session-handoff.sh` | 세션 상태 저장 (draft 병합 → 다음 세션 주입) |
+| PreCompact | `pre-compact.sh` | 컨텍스트 컴팩션 직전 세션 상태 스냅샷(session-handoff와 로직 공유) + draft 부재 시 미기록 결정·블로커 기록 유도 (게이트 아님·컴팩션 미차단) |
 
-> `hooks/lib.sh`는 이벤트 훅이 아니라 위 훅들이 공유하는 라이브러리(cfg_get·version_lt·harness_cd)입니다.
+> `hooks/lib.sh`는 이벤트 훅이 아니라 위 훅들이 공유하는 라이브러리(cfg_get·version_lt·harness_cd·handoff snapshot)입니다.
 
 **Firewall 정책** — **default-allow(위험만 게이트, 나머지 무프롬프트)** (우선순위: deny → ask → default-allow):
 - **deny**: 루트/홈/시스템 디렉토리 `rm`, `git push --force`(`--force-with-lease`는 허용), pipe-to-shell(중간 파이프 우회 포함), fork bomb, `DROP TABLE`, eval/명령치환 우회 등 복구 불가·파괴
