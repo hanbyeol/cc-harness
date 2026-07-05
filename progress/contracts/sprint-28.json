@@ -33,22 +33,22 @@
     {
       "step": "session-handoff.sh 스냅샷 로직 공용 추출(무회귀 RED→GREEN)",
       "verify": "session-handoff.bats 9개 GREEN",
-      "done": false
+      "done": true
     },
     {
       "step": "hooks/pre-compact.sh 구현 + bats",
       "verify": "신규 bats GREEN, shellcheck 0",
-      "done": false
+      "done": true
     },
     {
       "step": "hooks.json·부트스트래퍼 등록 add-only + 문서 훅 표 갱신",
       "verify": "invariant-guard 통과, consistency 0",
-      "done": false
+      "done": true
     },
     {
       "step": "버전 bump → 독립 evaluator",
       "verify": "전체 bats GREEN",
-      "done": false
+      "done": true
     }
   ],
   "agreed": true

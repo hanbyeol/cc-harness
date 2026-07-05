@@ -521,7 +521,7 @@
       "name": "PreCompact 훅 — 컴팩션 전 핸드오프 상태 강제 스냅샷",
       "description": "P3-8: 결정·블로커 캡처가 session-handoff-draft.json 작성 관례에만 의존해 컴팩션 시 유실 위험이 있던 갭 기계화. hooks/pre-compact.sh 신규(PreCompact 이벤트) — 컴팩션 직전 session-handoff.sh 스냅샷 로직 재사용(공용화, 중복 구현 금지) + draft 부재 시 additionalContext로 '핵심 결정·블로커 기록' 유도 신호 주입. hooks.json add-only 등록(INV-7 등록 무결성 — command 목록 증가만). 컨텍스트 손실 방지를 관례에서 메커니즘으로.",
       "security_tier": "standard",
-      "status": "pending",
+      "status": "review",
       "passes": false,
       "iteration": 0,
       "dependencies": [
