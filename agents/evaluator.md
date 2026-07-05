@@ -67,6 +67,9 @@ Generator(implementer)와 분리된 시각으로 실제 동작을 검증한다.
    - `criteria_gaps`에 기록: 누락된 시나리오(구현은 있으나 기준에 없음), 모호하여 판정 불가한 기준, security_tier 대비 부족한 보안 기준
    - criteria_backfill 적절성 검토: 범위 과도 확장·요건 완화는 `criteria_issues`에 기록해 사용자 확인 요청, **3건 이상이면 spec/architecture 재검토 권고**
 6. **판정**: pass → feature_list.json의 passes를 true로 / fail → 구체적 피드백과 함께 implementer에게 반려
+   - **순서 필수**: evaluator-feedback JSON을 **먼저 기록한 뒤** passes를 갱신한다 —
+     invariant-guard(INV-11)가 passes 전환 시점에 최신 feedback의 존재·verdict·min-of-5·
+     (critical이면) 보안 점수를 기계 재검증하므로, feedback 없이 passes부터 바꾸면 차단된다.
 
 ## Output
 ```json

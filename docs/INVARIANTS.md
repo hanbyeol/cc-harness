@@ -105,6 +105,28 @@ invariant-guard의 Edit|Write 후킹을 우회하는 경로 차단)가 포함된
 **왜 불변**: 도구(특히 MCP)는 한 번의 호출이 곧 액션(메일 전송·삭제·업로드)이라, allowlist를 넓히면 위험 도구가 무프롬프트로 실행된다. Bash 방화벽만 보호하고 도구 방화벽을 방치하면 자기보호가 비대칭이 된다. 축소(화이트리스트 verb 제거)는 강화이므로 자유.
 **알려진 한계**: read-verb 라인을 여러 줄로 분할하는 등 정교한 재구성 우회는 라인 기반 검사로 못 잡는다 — 위 위협 모델(speed-bump)과 동일하며 behavioral 프로브·코드 리뷰가 2차 방어선이다.
 
+### INV-11. passes 전환은 evaluator-feedback 근거 필수 (기계 검증)
+`progress/feature_list.json`에서 어떤 feature의 `passes`를 `false→true`로 바꾸는 편집
+(신규·중복 id로 `passes:true`를 끼워 넣는 것 포함)은, 해당 id를 평가한 **최신
+evaluator-feedback 레코드**가 다음을 만족할 때만 통과한다 — `invariant-guard.sh`가
+Edit|Write|MultiEdit 시점에 결정론적으로 재검증한다:
+- 레코드가 존재하고(`progress/agent-comms/evaluator-feedback-*.json`, archive 제외) `verdict`가 pass
+- 5차원 점수(`functionality`·`code_quality`·`security`·`error_handling`·`test_coverage`)가 완비되고
+  **min-of-5 ≥ `pass_threshold`** (INV-2의 산술을 기계 재검증)
+- `security_tier: critical`이면 **`scores.security` ≥ `security_thresholds.critical`** (INV-4의 기계 재검증)
+
+`progress/contracts/sprint-*.json`의 `agreed:false→true` 전환도 비어있지 않은
+`acceptance_criteria`·`implementation_steps`를 전제한다(Plan 산출물 없는 합의 금지).
+`passes:true→false` 리셋은 약화가 아니므로 항상 허용. `templates/`는 스캐폴딩이므로 제외.
+**왜 불변**: INV-1/2/4는 이 불변식 이전까지 프롬프트 관례로만 집행됐다 — "결정론적 도구 >
+프롬프트" 원칙의 코어 루프 적용. 가드는 evaluator를 **대체하지 않는다** — 판정의 존재와
+산술만 재검증하며, 판정 내용의 생성은 여전히 독립 evaluator의 전권이다.
+**알려진 한계**: 가짜 evaluator-feedback 파일을 Write로 위조한 뒤 passes를 뒤집는 경로는
+텍스트 검사로 막을 수 없다(훅은 호출 주체를 구별하지 못한다) — 위조에는 그럴듯한 5차원
+점수·verdict가 필요하므로 문턱은 높아지지만, 위협 모델상 speed-bump다. Bash로
+feature_list.json을 직접 쓰는 우회는 firewall ASK(보호경로)가 게이트하고, behavioral
+프로브 코퍼스가 이 부류의 누출을 감시한다.
+
 ## 위협 모델 — 가드가 막는 것과 못 막는 것
 invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가능한 파일**이다. 따라서
 "파일에 임의 내용을 쓸 수 있는 행위자가 가드 소스 자체를 재작성하는 것"은 텍스트/구조 검사만으로
@@ -139,3 +161,6 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
 - 2026-07-05: INV-10 추가 (도구 방화벽 pre-tool-firewall.sh allow 계층 add-only — Bash 방화벽과 자기보호 대칭, sprint-20 F34, v1.15.5)
 - 2026-07-05: INV-9 갱신 (Layer 4 default-allow 전환 — 위험정의(deny+ask) 우선 모델. 하네스
   자기보호(검증파일·비밀키 Bash 쓰기 → ask)를 add-only로 편입, F27 후속 v1.13.1)
+- 2026-07-05: INV-11 추가 (passes:false→true 전환은 evaluator-feedback 근거 기계 검증 —
+  INV-1/2/4의 프롬프트 관례를 결정론적 집행으로 상향. contracts agreed 전환 구조 검증,
+  firewall ASK에 feature_list.json 보호경로 + behavioral 코퍼스 확장, sprint-21 F35, v1.16.0)

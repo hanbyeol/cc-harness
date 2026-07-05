@@ -126,6 +126,15 @@ ASK_PATTERNS=(
   '\b(curl|wget)\b[^;|&]*( -d ?@| --data[a-z-]*[= ]?@?| -F [^;|&]*@| -T | --upload-file )[^;|&]*(credentials|secret|\.env|\.pem|\.key|token)'
   '(\.ssh/|\.aws/|\.gnupg/|\.netrc|id_rsa|id_ed25519|credentials)[^;|&]*\| *[^;|&]*\b(nc|ncat|socat|curl|wget)\b'
   '\b(scp|sftp|rsync)\b[^;|&]*(\.ssh/|\.aws/|\.gnupg/|\.netrc|id_rsa|id_ed25519|credentials|\.pem)[^;|&]*(@|:)'
+  # F35(INV-11): passes 전환 근거 검증(invariant-guard는 Edit|Write만 후킹)의 Bash 우회 차단 —
+  # feature_list.json을 셸로 직접 쓰는 경로(리다이렉트·복사·in-place·인터프리터·에디터·dd) 게이팅.
+  # 읽기(jq/grep/cat 조회)는 미발동 — 쓰기 메커니즘 토큰과 결합할 때만 ask.
+  '>>? *[^ ]*progress/feature_list\.json'
+  '\b(cp|mv|install|rsync|ln|tee|truncate)\b[^;|&]*progress/feature_list\.json'
+  '\b(sed|perl)\b[^;|&]*-i[^;|&]*progress/feature_list\.json'
+  '\bof= *[^ ]*progress/feature_list\.json'
+  '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*progress/feature_list\.json'
+  '\b(ed|ex|vi|vim|nano|emacs|sed|awk|dd|patch)\b[^;|&]*progress/feature_list\.json'
 )
 
 if echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then
