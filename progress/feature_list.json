@@ -320,9 +320,9 @@
       "name": "Firewall 자동 허용(allow) 계층 — 비위험 명령 무프롬프트",
       "description": "pre-bash-firewall.sh에 Layer 4(allow)를 추가 — deny(L1/2)·ask(L3)를 모두 통과한 명령이 읽기 전용/저위험 allowlist(조회 명령·git 안전 서브커맨드·go/npm test·mkdir/touch/cp/mv 등)에만 매칭되면 permissionDecision:allow를 방출해 사용자 Y/n 프롬프트 없이 자동 진행. 플러그인 훅 내장이라 설치된 모든 프로젝트에 이식(전역 settings 무수정). command substitution/백틱/파일 리다이렉트(>,>>)·미등록 명령이 섞이면 fall-through(기존 프롬프트). config firewall.auto_allow(기본 true)로 allow만 on/off — deny/ask 가드는 이 값과 무관하게 항상 실행. git push·checkout·terraform·kubectl·helm·npm install·인터프리터(python/perl/awk/sed)는 allowlist 제외. security_tier critical(firewall) — 위험 명령은 deny/ask 우선순위로 절대 allow되지 않음(bats 회귀 배터리로 고정).",
       "security_tier": "critical",
-      "status": "implementing",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [
         "F2"
       ],
