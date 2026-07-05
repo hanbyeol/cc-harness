@@ -371,3 +371,119 @@ fb() { # fb <timestamp> <json-content>
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.[] | select(.source=="evidence")'
 }
+
+# --- calibration probe (F37) ---
+
+@test "calibration: score != min-of-5 yields a candidate" {
+  seed_feedback
+  fb 2026-09-02T00-00-00 '{"features_evaluated":["FX"],"verdict":"pass","score":9,"scores":{"functionality":9,"code_quality":9,"security":9,"error_handling":9,"test_coverage":6},"evidence":{"x":"y"}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/calibration.sh'"
+  echo "$output" | jq -e '.[] | select(.name | test("score mismatch"))'
+}
+
+@test "calibration: pass with min-of-5 below threshold yields a candidate" {
+  seed_feedback
+  echo '{"scoring":{"pass_threshold":7}}' > "$WORK/progress/harness-config.json"
+  fb 2026-09-02T00-00-00 '{"features_evaluated":["FX"],"verdict":"pass","score":6,"scores":{"functionality":6,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8},"evidence":{"x":"y"}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/calibration.sh'"
+  echo "$output" | jq -e '.[] | select(.name | test("verdict/score contradiction"))'
+}
+
+@test "calibration: healthy latest verdict yields no candidate" {
+  seed_feedback
+  fb 2026-09-02T00-00-00 '{"features_evaluated":["FX"],"verdict":"pass","score":7,"scores":{"functionality":8,"code_quality":8,"security":8,"error_handling":7,"test_coverage":7},"evidence":{"x":"y"}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/calibration.sh'"
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "calibration: only latest record is audited (historical noise avoided)" {
+  seed_feedback
+  fb 2026-01-01T00-00-00 '{"features_evaluated":["OLD"],"verdict":"pass","score":9,"scores":{"functionality":1,"code_quality":1,"security":1,"error_handling":1,"test_coverage":1},"evidence":{"x":"y"}}'
+  fb 2026-09-02T00-00-00 '{"features_evaluated":["FX"],"verdict":"pass","score":7,"scores":{"functionality":8,"code_quality":8,"security":8,"error_handling":7,"test_coverage":7},"evidence":{"x":"y"}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/calibration.sh'"
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "calibration: malformed latest feedback degrades to empty" {
+  seed_feedback
+  fb 2026-09-02T00-00-00 '{ broken json'
+  run bash -c "cd '$WORK' && bash '$PROBES/calibration.sh'"
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "calibration: evidence-less pass yields a candidate (branch d)" {
+  seed_feedback
+  fb 2026-09-02T00-00-00 '{"features_evaluated":["FX"],"verdict":"pass","score":7,"scores":{"functionality":8,"code_quality":8,"security":8,"error_handling":7,"test_coverage":7}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/calibration.sh'"
+  echo "$output" | jq -e '.[] | select(.name | test("without evidence"))'
+}
+
+@test "calibration: no feedback files degrades to [] exit 0 (F37-5)" {
+  mkdir -p "$WORK/progress/agent-comms"   # 디렉토리는 있으나 파일 0건
+  run bash -c "cd '$WORK' && bash '$PROBES/calibration.sh'"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "calibration: missing agent-comms dir degrades to [] exit 0 (F37-5)" {
+  run bash -c "cd '$WORK' && bash '$PROBES/calibration.sh'"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+# golden-set 분포 이탈(F37-2c) — 판정 코퍼스를 실제 소비
+seed_golden() {
+  mkdir -p "$WORK/evals/calibration"
+  cat > "$WORK/evals/calibration/golden-set.json" <<'JSON'
+{"records":[
+{"features":["A"],"tier":"standard","scores":{"functionality":8,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8},"verdict":"pass"},
+{"features":["B"],"tier":"standard","scores":{"functionality":8,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8},"verdict":"pass"},
+{"features":["C"],"tier":"standard","scores":{"functionality":9,"code_quality":9,"security":9,"error_handling":9,"test_coverage":9},"verdict":"pass"},
+{"features":["D"],"tier":"standard","scores":{"functionality":8,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8},"verdict":"pass"},
+{"features":["E"],"tier":"standard","scores":{"functionality":9,"code_quality":9,"security":9,"error_handling":9,"test_coverage":9},"verdict":"pass"}
+]}
+JSON
+}
+
+@test "calibration: score below same-tier golden range yields drift candidate (F37-2c)" {
+  seed_feedback
+  seed_golden
+  fb 2026-09-03T00-00-00 '{"features_evaluated":["Z"],"security_tier":"standard","verdict":"pass","score":3,"scores":{"functionality":3,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8},"evidence":{"x":"y"}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/calibration.sh'"
+  echo "$output" | jq -e '.[] | select(.name | test("distribution drift"))'
+}
+
+@test "calibration: drift skipped when baseline under 5 (N-gate)" {
+  seed_feedback
+  seed_golden
+  # golden을 4건으로 축소 → 표본 부족, drift 검사 skip
+  jq '.records |= .[0:4]' "$WORK/evals/calibration/golden-set.json" > "$WORK/g4" && mv "$WORK/g4" "$WORK/evals/calibration/golden-set.json"
+  fb 2026-09-03T00-00-00 '{"features_evaluated":["Z"],"security_tier":"standard","verdict":"pass","score":3,"scores":{"functionality":3,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8},"evidence":{"x":"y"}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/calibration.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("distribution drift"))]|length')" -eq 0 ]
+}
+
+@test "calibration: fail verdict is exempt from drift check (harsh fail is legitimate)" {
+  seed_feedback
+  seed_golden
+  fb 2026-09-03T00-00-00 '{"features_evaluated":["Z"],"security_tier":"standard","verdict":"fail","score":3,"scores":{"functionality":3,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8},"evidence":{"x":"y"}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/calibration.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("distribution drift"))]|length')" -eq 0 ]
+}
+
+@test "calibration: in-range pass score yields no drift (no false-positive)" {
+  seed_feedback
+  seed_golden
+  fb 2026-09-03T00-00-00 '{"features_evaluated":["Z"],"security_tier":"standard","verdict":"pass","score":8,"scores":{"functionality":8,"code_quality":8,"security":9,"error_handling":8,"test_coverage":8},"evidence":{"x":"y"}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/calibration.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("distribution drift"))]|length')" -eq 0 ]
+}
+
+@test "run-all: includes calibration source" {
+  seed_consistent
+  seed_feedback
+  fb 2026-09-02T00-00-00 '{"features_evaluated":["FX"],"verdict":"pass","score":9,"scores":{"functionality":9,"code_quality":9,"security":9,"error_handling":9,"test_coverage":6},"evidence":{"x":"y"}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/run-all.sh' 2026-09-02T00:00:00Z"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.[] | select(.source=="calibration")'
+}

@@ -126,6 +126,13 @@ Generator(implementer)와 분리된 시각으로 실제 동작을 검증한다.
 - evals/calibration/false-positives.json에 과거 오판 기록을 참조하여 판단 보정
 - 통과시켰는데 나중에 버그였던 경우를 기록해두면 유사 패턴 주의
 - 반복 관찰되는 구현 실수 패턴은 progress/lessons.md에 한 줄 요약과 함께 기록 — implementer가 다음 iteration에서 참조
+- **critical 티어 2차 판정** (F37): security_tier가 critical인 기능은 단일 judge 1회 호출에
+  게이트를 걸지 않는다 — 1차 판정 후 독립 컨텍스트의 2차 judge(별도 세션/에이전트 디스패치)로
+  재판정을 샘플링하고, 두 판정의 verdict가 불일치하면 사람 에스컬레이션(자동 pass 금지). 메인
+  루프가 critical 기능 검증 시 evaluator를 2회(독립 컨텍스트) 디스패치해 이 교차검증을 배선한다.
+- **escaped-defect 환류** (F37): 통과 후 발견된 결함은 (1) progress/lessons.md에 한 줄,
+  (2) evals/calibration/false-positives.json의 entries에 `{feature, missed, why, guard}` 구조로
+  append한다 — calibration 프로브가 이 코퍼스를 판정 분포·재발 감시에 사용한다.
 - **적절한 회의주의**: 낙관적 통과보다 보수적 반려가 낫다
 - 단, 사소한 스타일 이슈로 반려하지 않음 — 기능과 안전성 중심
 - **보안 이슈는 스타일 이슈가 아님** — 항상 반려 사유

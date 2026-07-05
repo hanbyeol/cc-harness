@@ -453,9 +453,9 @@
       "name": "evaluator 보정 코퍼스 — golden set + 드리프트 프로브 + critical 2차 판정",
       "description": "P1-3: 단일 judge 1회 호출에 게이트 신뢰도 전체가 걸린 갭 해소. 과거 evaluator-feedback(현행+archive)을 evals/calibration/golden-set.json으로 정규화(feature·scores·verdict·evidence 유무). 신규 프로브 calibration.sh — 최신 판정을 golden set과 대조해 (a) scores와 verdict 불일치(min-of-5 산술 오류), (b) evidence 없는 pass, (c) 점수 분포 이탈을 후보로 보고, run-all.sh 배선. evaluator.md에 critical 티어 2차 판정(독립 컨텍스트 second-judge 샘플링, 불일치 시 사람 에스컬레이션) add-only 명문화. escaped-defect 환류 스키마(lessons.md→false-positives.json). F35 가드(전환 시점)와 상보적인 사후 감사 계층.",
       "security_tier": "standard",
-      "status": "pending",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 2,
       "dependencies": [
         "F25",
         "F36"

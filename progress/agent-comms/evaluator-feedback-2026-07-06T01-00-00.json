@@ -1,0 +1,78 @@
+{
+  "timestamp": "2026-07-06T01:00:00Z",
+  "sprint": 23,
+  "iteration": 1,
+  "features_evaluated": [
+    "F37"
+  ],
+  "security_tier": "standard",
+  "scores": {
+    "functionality": 6,
+    "code_quality": 7,
+    "security": 8,
+    "error_handling": 7,
+    "test_coverage": 7
+  },
+  "score": 6,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "functionality 6 < threshold 7 (min-of-5 binding)",
+    "score 6 < pass_threshold 7",
+    "F37-2(c) golden-set 분포/드리프트 이탈 검사 미구현 — probe가 golden-set.json을 읽지 않음(feature 명칭 '드리프트 프로브'의 핵심 능력 부재, 헤드라인 코퍼스가 자동검사에 미배선)"
+  ],
+  "grounded_verdict": {
+    "note": "All 5 dimensions execution-grounded this session against commit 470874d. calibration probe branches independently reproduced in an isolated temp workspace (not relying on implementer bats); golden-set schema/secret-scan inspected directly; evaluator.md/improve-SKILL add-only status verified via git diff deletion count. No dimension is unverified.",
+    "unverified_dimensions": []
+  },
+  "evidence": {
+    "1_full_suite": "bats tests/ => 438 ok / 0 fail (carried per prior confirmation); calibration-filtered subset independently re-run this session: bats tests/probes.bats --filter calibration => 1..6 all ok (score-mismatch, verdict/score contradiction, healthy->[], latest-only, malformed->[], run-all wiring).",
+    "2_probe_branches_reproduced_independently": "Isolated temp repo, probe copied out, four branches exercised directly: (a) score=9 vs min-of-5=6 => emits 'evaluator score mismatch' (standard) + 'verdict/score contradiction' (critical); (b) verdict=pass, min=6 < threshold 7 => emits critical 'verdict/score contradiction'; (c) healthy latest (min=7,pass,evidence) => []; latest-only: OLD unhealthy(min=1) + NEW healthy => [] (historical noise ignored); (d) evidence-less pass => emits 'pass without evidence'. All match intended behavior.",
+    "3_golden_set_NOT_consumed": "grep 'golden' scripts/probes/calibration.sh => only a comment at line 6 ('golden-set은 사람 검토·향후 분포분석용'); no code path opens evals/calibration/golden-set.json. grep for distribut|drift|분포|이탈|tier|N>=5 in the probe => no matches. The 4 implemented add() branches (lines 35/40/45/51) are all self-contained arithmetic checks on the LATEST feedback record; none compares against the corpus. => F37-2(c) distribution/drift deviation unimplemented; F37-1 corpus is programmatically inert.",
+    "4_golden_set_schema_and_secrets": "jq '.records|length' => 21. Per-record keys = {computed_min, features, has_evidence, iteration, recorded_score, scores, tier, verdict}. has_evidence is boolean for every record (no raw evidence/command output stored) => SC3 satisfied. Secret-pattern scan (password|secret|token|bearer|api-key|BEGIN|AKIA|ghp_|xox) over golden-set.json => 0 matches.",
+    "5_add_only_docs": "git show 470874d -- agents/evaluator.md: real deletions = 0 (pure +7 add: critical 2nd-judge + escaped-defect flow) => SC1 / F37-3 / F37-4 add-only confirmed. skills/improve/SKILL.md single '-' line is the '7개 프로브'->'8개 프로브' count sync (not a rule removal). run-all.sh wraps every probe with '|| echo \"[]\"' (line 16).",
+    "6_read_only": "probe writes nothing (only echoes candidate JSON to stdout); passes untouched (INV-1) => SC2 satisfied.",
+    "7_graceful_degrade_gap": "Zero-feedback-files / missing agent-comms dir: probe emits NO output and exits 1 (set -euo pipefail + failing ls-glob aborts at the LATEST=$(...) assignment before the '[[ -z \"$LATEST\" ]] && echo \"[]\"' guard, making that guard unreachable for this path). Sibling evidence.sh handles the same case cleanly ('[]' exit 0) via find + '[[ -d \"$DIR\" ]]' guard. Mitigated end-to-end by run-all's '|| echo \"[]\"', and never hit in this repo (10 feedback files present), but F37-5 'graceful degrade (파일 부재 시 빈 배열)' is not met at the probe level."
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "F37-1: golden-set.json generated — 21 normalized records, correct schema (features/tier/scores/recorded_score/computed_min/verdict/has_evidence/iteration), original feedback unmodified",
+      "F37-2 (partial): probe branches (a) score!=min-of-5 arithmetic mismatch and (b) evidence-less pass implemented + working; bonus branches verdict/score contradiction + incomplete-scores; run-all.sh wired to 8 probes",
+      "F37-3: evaluator.md critical-tier 2nd-judge procedure add-only (0 deletions)",
+      "F37-4: escaped-defect feedback flow (lessons.md + false-positives.json entries) documented add-only in evaluator.md + improve SKILL",
+      "global: full bats GREEN 438/0, shellcheck clean, probe-count doc sync (consistency probe 0 issues)"
+    ],
+    "security": [
+      "SC1: evaluator judgment rules un-weakened — 2nd-judge is add-only, min-of-5/thresholds/auto-fail untouched (git diff: 0 deletions in evaluator.md)",
+      "SC2: probe reports candidates only, writes nothing, passes unchanged (INV-1)",
+      "SC3: no secrets/PII — golden-set stores has_evidence boolean only, secret-pattern scan clean"
+    ],
+    "error_scenarios": [
+      "malformed latest feedback => [] (jq -e guard, reproduced)",
+      "jq absent => [] (line 11 guard)",
+      "second-judge dispatch unavailable => human escalation fallback documented in evaluator.md"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "F37-2(c): 'golden set 대비 동일 tier 점수 분포 이탈' NOT implemented — probe never reads golden-set.json; no distribution/drift/tier logic. The feature's named capability ('드리프트 프로브') and the central premise (판정 기록을 보정 자산으로 활성화) are unrealized; the corpus is a passive artifact.",
+      "F37-5: graceful degrade for '파일 부재' (zero feedback files / missing dir) not met at probe level — emits nothing + exit 1 instead of []; the empty-case guard is unreachable under set -e + pipefail (sibling evidence.sh handles it correctly)."
+    ],
+    "security": [],
+    "error_scenarios": [
+      "error_scenario 2 ('분포 이탈 검사는 최소 N(기본 5)건 이상일 때만 활성') is vacuously unaddressed because the distribution-deviation check it guards does not exist."
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "criteria_issues": [
+      "REQUIREMENT-RELAXATION: probe comment (line 6) unilaterally re-scopes golden-set to '사람 검토·향후 분포분석용', silently dropping F37-2(c)'s automated 'golden set 대비 분포 이탈' report type in code without backpropagating the change to the Sprint Contract. Per 기준 역전파 원칙 this must be reconciled: either implement (c) with the N>=5 gate (error_scenario 2), or amend F37-2 + F37 feature scope to remove (c) and reclassify golden-set as human-review-only, then re-request. (1 of the 3-item re-review threshold — not yet triggering spec/architecture re-review.)"
+    ],
+    "criteria_backfill_review": "No criteria_backfill was performed by the implementer for this gap; the de-scope lives only in a code comment. Sprint Contract remains the single source of truth and still requires F37-2(c).",
+    "action_required": "implementer: in next iteration either (1) wire calibration.sh to read evals/calibration/golden-set.json and emit a same-tier score-distribution/drift-deviation candidate gated on N>=5 records (add bats: drift fixture -> candidate, N<5 -> [], golden-set schema validation), or (2) formally backpropagate the scope reduction to sprint-23.json F37-2 and feature_list F37 name. Also fix F37-5 zero-files graceful degrade (mirror evidence.sh: find + '[[ -d ]]' guard so [] exit 0). Add a bats test for the currently-untested evidence-less-pass branch (d)."
+  },
+  "lessons_note": "Corpus-without-consumer anti-pattern: a 'calibration corpus' sprint must wire the corpus into an automated check, not just generate it — here golden-set.json is created but no code reads it, so the headline 'drift probe' degrades to a self-contained arithmetic linter. A named deliverable that no code path consumes is an incomplete acceptance criterion, not a stylistic nit. Also: silently re-scoping a required report type in a code comment instead of backpropagating to the Sprint Contract violates 기준 역전파 원칙."
+}

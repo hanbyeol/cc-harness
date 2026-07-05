@@ -32,22 +32,22 @@
     {
       "step": "golden-set 추출 스크립트/절차 구현 + evals/calibration/golden-set.json 생성",
       "verify": "레코드 수 = 원본 판정 수, 시크릿 마스킹 확인",
-      "done": false
+      "done": true
     },
     {
       "step": "probes/calibration.sh RED 테스트 → 구현 → run-all.sh 배선",
       "verify": "bats GREEN, 이 repo 현행 기록에서 노이즈 0 또는 실제 발견만",
-      "done": false
+      "done": true
     },
     {
       "step": "evaluator.md 2차 판정·escaped-defect 환류 add-only + improve SKILL 동기화",
       "verify": "skill-frontmatter/consistency GREEN",
-      "done": false
+      "done": true
     },
     {
       "step": "버전 bump → 독립 evaluator",
       "verify": "전체 bats GREEN, consistency 0",
-      "done": false
+      "done": true
     }
   ],
   "agreed": true

@@ -1,0 +1,420 @@
+{
+  "description": "과거 evaluator 판정 정규화 코퍼스 (F37). calibration.sh가 판정 산술·분포 감사에 사용. evidence 원문은 시크릿 회피 위해 유무만 기록.",
+  "generated_from": "progress/agent-comms/evaluator-feedback-*.json (현행+archive)",
+  "records": [
+    {
+      "features": [
+        "F20"
+      ],
+      "tier": "critical",
+      "scores": {
+        "functionality": 8,
+        "code_quality": 8,
+        "security": 7,
+        "error_handling": 8,
+        "test_coverage": 7
+      },
+      "recorded_score": 7,
+      "computed_min": 7,
+      "verdict": "pass",
+      "has_evidence": true,
+      "iteration": 1
+    },
+    {
+      "features": [
+        "F21"
+      ],
+      "tier": "critical",
+      "scores": {
+        "functionality": 9,
+        "code_quality": 9,
+        "security": 9,
+        "error_handling": 8,
+        "test_coverage": 9
+      },
+      "recorded_score": 8,
+      "computed_min": 8,
+      "verdict": "pass",
+      "has_evidence": true,
+      "iteration": 1
+    },
+    {
+      "features": [
+        "F22"
+      ],
+      "tier": "standard",
+      "scores": {
+        "functionality": 9,
+        "code_quality": 9,
+        "security": 8,
+        "error_handling": 9,
+        "test_coverage": 8
+      },
+      "recorded_score": 8,
+      "computed_min": 8,
+      "verdict": "pass",
+      "has_evidence": false,
+      "iteration": 1
+    },
+    {
+      "features": [
+        "F23"
+      ],
+      "tier": "low",
+      "scores": {
+        "functionality": 9,
+        "code_quality": 9,
+        "security": 9,
+        "error_handling": 9,
+        "test_coverage": 9
+      },
+      "recorded_score": 9,
+      "computed_min": 9,
+      "verdict": "pass",
+      "has_evidence": true,
+      "iteration": 1
+    },
+    {
+      "features": [
+        "F24"
+      ],
+      "tier": "low",
+      "scores": {
+        "functionality": 9,
+        "code_quality": 9,
+        "security": 9,
+        "error_handling": 9,
+        "test_coverage": 9
+      },
+      "recorded_score": 9,
+      "computed_min": 9,
+      "verdict": "pass",
+      "has_evidence": true,
+      "iteration": 1
+    },
+    {
+      "features": [
+        "F25"
+      ],
+      "tier": "low",
+      "scores": {
+        "functionality": 9,
+        "code_quality": 9,
+        "security": 9,
+        "error_handling": 9,
+        "test_coverage": 8
+      },
+      "recorded_score": 8,
+      "computed_min": 8,
+      "verdict": "pass",
+      "has_evidence": true,
+      "iteration": 1
+    },
+    {
+      "features": [
+        "F32"
+      ],
+      "tier": "critical",
+      "scores": {
+        "functionality": 9,
+        "code_quality": 8,
+        "security": 9,
+        "error_handling": 8,
+        "test_coverage": 8
+      },
+      "recorded_score": 8,
+      "computed_min": 8,
+      "verdict": "pass",
+      "has_evidence": true,
+      "iteration": 1
+    },
+    {
+      "features": [
+        "F28"
+      ],
+      "tier": "critical",
+      "scores": {
+        "functionality": 9,
+        "code_quality": 8,
+        "security": 9,
+        "error_handling": 9,
+        "test_coverage": 8
+      },
+      "recorded_score": 8,
+      "computed_min": 8,
+      "verdict": "pass",
+      "has_evidence": true,
+      "iteration": 1
+    },
+    {
+      "features": [
+        "F33"
+      ],
+      "tier": "critical",
+      "scores": {
+        "functionality": 9,
+        "code_quality": 8,
+        "security": 8,
+        "error_handling": 8,
+        "test_coverage": 8
+      },
+      "recorded_score": 8,
+      "computed_min": 8,
+      "verdict": "pass",
+      "has_evidence": true,
+      "iteration": 1
+    },
+    {
+      "features": [
+        "F35"
+      ],
+      "tier": "critical",
+      "scores": {
+        "functionality": 9,
+        "code_quality": 9,
+        "security": 8,
+        "error_handling": 9,
+        "test_coverage": 9
+      },
+      "recorded_score": 8,
+      "computed_min": 8,
+      "verdict": "pass",
+      "has_evidence": true,
+      "iteration": 1
+    },
+    {
+      "features": [
+        "F36"
+      ],
+      "tier": "standard",
+      "scores": {
+        "functionality": 8,
+        "code_quality": 8,
+        "security": 8,
+        "error_handling": 7,
+        "test_coverage": 6
+      },
+      "recorded_score": 6,
+      "computed_min": 6,
+      "verdict": "fail",
+      "has_evidence": true,
+      "iteration": 1
+    },
+    {
+      "features": [
+        "F36"
+      ],
+      "tier": "standard",
+      "scores": {
+        "functionality": 8,
+        "code_quality": 8,
+        "security": 8,
+        "error_handling": 7,
+        "test_coverage": 8
+      },
+      "recorded_score": 7,
+      "computed_min": 7,
+      "verdict": "pass",
+      "has_evidence": true,
+      "iteration": 2
+    },
+    {
+      "features": [
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "F6"
+      ],
+      "tier": "critical",
+      "scores": {
+        "functionality": 9,
+        "code_quality": 8,
+        "security": 9,
+        "error_handling": 8,
+        "test_coverage": 9
+      },
+      "recorded_score": 8,
+      "computed_min": 8,
+      "verdict": "pass",
+      "has_evidence": false,
+      "iteration": 1
+    },
+    {
+      "features": [
+        "F7",
+        "F8",
+        "F9",
+        "F10",
+        "F11"
+      ],
+      "tier": "standard",
+      "scores": {
+        "functionality": 9,
+        "code_quality": 9,
+        "security": 8,
+        "error_handling": 9,
+        "test_coverage": 8
+      },
+      "recorded_score": 8,
+      "computed_min": 8,
+      "verdict": "pass",
+      "has_evidence": false,
+      "iteration": 1
+    },
+    {
+      "features": [
+        "F12",
+        "F15"
+      ],
+      "tier": "unknown",
+      "scores": {
+        "functionality": 7,
+        "code_quality": 8,
+        "security": 5,
+        "error_handling": 7,
+        "test_coverage": 7,
+        "rationale": {
+          "functionality": "Write/Edit 경로의 add-only 검증은 정확. F15 캐시·lib.sh·version_lt 모두 contract 충족. F12 MultiEdit 경로 미구현이 기능 차원 -1.",
+          "code_quality": "lib.sh의 cfg_get가 jq -e의 false-=exit-1 함정을 인식하고 명시적 != null 분기로 회피한 점은 양호. setup-claudemd가 lib.sh 부재 시 폴백을 정의해 가용성 보장. 가드 코드의 case 분기 default가 사실상 '모든 검사 skip'으로 동작하는 함정이 코드 품질 -2.",
+          "security": "critical 안전장치인데 (1) MultiEdit 우회 (2) 키 제거 우회 (3) BLOCKED/INDIRECT cross-swap 우회 3건이 직접 시연됨. INVARIANTS.md가 INV-3/5/6를 명시한 만큼 우회는 실질적 위반. critical tier 임계값 7 미만으로 자동 fail.",
+          "error_handling": "잘못된 JSON, 무관 파일, 입력 부재 등은 정확히 처리. jq 부재 fail-open은 보조 게이트라는 근거 충분. -3 = MultiEdit 입력에 대한 안내 부재(보수적 검사라 주장하지만 실효 검사 없음).",
+          "test_coverage": "16+10+5 = 31개 신규 bats가 add-only/false-preserve/캐시 등 주요 경로를 잘 짚음. 다만 위 3건의 우회 경로 회귀 테스트가 없음 → -3."
+        }
+      },
+      "recorded_score": 5,
+      "computed_min": 5,
+      "verdict": "fail",
+      "has_evidence": false,
+      "iteration": 1
+    },
+    {
+      "features": [
+        "F12",
+        "F15"
+      ],
+      "tier": "unknown",
+      "scores": {
+        "functionality": 9,
+        "code_quality": 8,
+        "security": 7,
+        "error_handling": 8,
+        "test_coverage": 8,
+        "rationale": {
+          "functionality": "iter 1에서 보고된 3건(MultiEdit·키 제거·cross-array swap)이 모두 닫힘. add-only 회귀 없음. F15 캐시·lib.sh·version_lt 모두 동작. -1 = RESIDUAL-1/2/3이 잔존(범위 밖이지만 안전장치이므로 완전 충족 표기는 보류).",
+          "code_quality": "apply_replace 헬퍼로 Edit/MultiEdit 로직 통일 (DRY). count_array의 awk 인-블록 상태 머신은 군더더기 없이 정확. lib.sh의 cfg_get가 jq -e false-는-exit-1을 회피하는 != null 분기를 유지. -2 = INV-7의 line-count 자기보호가 semantic gutting을 못 잡음(RESIDUAL-3).",
+          "security": "critical 안전장치 — iter 1의 3개 데모 우회가 모두 닫혔고 그 외 시도(rename/comment-out/Edit partial/MultiEdit chain) 모두 차단. 임계값 7 통과. 단 RESIDUAL-2(hooks.json self-registration 미보호)는 high 심각도라 이를 미해결 그대로 두면 critical tier에서 8 이상은 정직하지 않음 — 본 게이트 미션 한도에서 7로 anchor.",
+          "error_handling": "JSON 무효/무관 파일/신규 생성/stop_hook_active/clean tree 등 경계 케이스 모두 정확. -2 = jq 부재 fail-open의 보안 함의(가드 완전 비활성)가 critical tier 안전장치로서는 보수적 — 다만 INVARIANTS.md에 가용성 우선 명시함을 인정.",
+          "test_coverage": "+4 bats가 iter 1 우회 3건과 chained MultiEdit를 RED→GREEN으로 못박음. 164/164 통과, shellcheck clean. -2 = RESIDUAL-1/2/3 회귀 테스트 부재(현 iter 범위는 아니지만 다음 작업 도화선)."
+        }
+      },
+      "recorded_score": 7,
+      "computed_min": 7,
+      "verdict": "pass",
+      "has_evidence": false,
+      "iteration": 2
+    },
+    {
+      "features": [
+        "F12"
+      ],
+      "tier": "unknown",
+      "scores": {
+        "functionality": 9,
+        "code_quality": 8,
+        "security": 5,
+        "error_handling": 8,
+        "test_coverage": 7,
+        "rationale": {
+          "functionality": "RESIDUAL-2/-3 모두 구체적·결정론적으로 닫음. bats 23/23, regression 없음.",
+          "code_quality": "이전과 동일 — sed 기반 awk 헬퍼, count_tok 추가로 ~22줄 증가. shellcheck clean. 다만 grep 기반 hooks.json 검사가 의미 분석이 아닌 텍스트 매칭이라는 설계 약점 노출.",
+          "security": "5 — 이전 보고된 2건은 닫혔으나 동일 카테고리에서 3건의 신규 high가 드러남. 자기보호 강화 시 표면적이 같이 늘었음. critical tier 임계값 7 미달 → 자동 fail.",
+          "error_handling": "이전과 동일 — fail-open(jq 부재) 및 신규 생성/잘못된 입력 pass-through 정상.",
+          "test_coverage": "신규 bats 3건(#17/18/19)으로 RED→GREEN 입증되었으나, 신규 RESIDUAL-4/5/6 대응 테스트 부재. 카운트 기반 검사의 우회 surface가 테스트에 반영되지 않음."
+        },
+        "min_of_5": 5
+      },
+      "recorded_score": 5,
+      "computed_min": 5,
+      "verdict": "fail (downgrade)",
+      "has_evidence": false,
+      "iteration": 3
+    },
+    {
+      "features": [
+        "F12"
+      ],
+      "tier": "critical",
+      "scores": {
+        "functionality": 9,
+        "code_quality": 8,
+        "security": 8,
+        "error_handling": 8,
+        "test_coverage": 9
+      },
+      "recorded_score": 8,
+      "computed_min": 8,
+      "verdict": "pass",
+      "has_evidence": true,
+      "iteration": 4
+    },
+    {
+      "features": [
+        "F13",
+        "F14"
+      ],
+      "tier": "standard",
+      "scores": {
+        "functionality": 9,
+        "code_quality": 8,
+        "security": 9,
+        "error_handling": 8,
+        "test_coverage": 8
+      },
+      "recorded_score": 8,
+      "computed_min": 8,
+      "verdict": "pass",
+      "has_evidence": true,
+      "iteration": 1
+    },
+    {
+      "features": [
+        "F16"
+      ],
+      "tier": "standard",
+      "scores": {
+        "functionality": 9,
+        "code_quality": 9,
+        "security": 9,
+        "error_handling": 8,
+        "test_coverage": 8
+      },
+      "recorded_score": 8,
+      "computed_min": 8,
+      "verdict": "pass",
+      "has_evidence": false,
+      "iteration": 1
+    },
+    {
+      "features": [
+        "F17",
+        "F18",
+        "F19"
+      ],
+      "tier": "standard",
+      "scores": {
+        "functionality": 9,
+        "code_quality": 8,
+        "security": 9,
+        "error_handling": 7,
+        "test_coverage": 8
+      },
+      "recorded_score": 7,
+      "computed_min": 7,
+      "verdict": "pass",
+      "has_evidence": true,
+      "iteration": 1
+    }
+  ]
+}
