@@ -64,3 +64,15 @@ mk_leaky() {
   after="$(git status --porcelain 2>/dev/null | sort)"
   [ "$before" = "$after" ]
 }
+
+@test "F30: missing bash firewall → graceful array, no crash" {
+  PROBE_BASH_FIREWALL="/nonexistent/fw.sh" run bash "$PROBE"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e 'type == "array"'
+}
+
+@test "F30: both firewalls missing → [] exit 0 (no false leak)" {
+  PROBE_BASH_FIREWALL="/no/a.sh" PROBE_TOOL_FIREWALL="/no/b.sh" run bash "$PROBE"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}

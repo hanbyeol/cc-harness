@@ -307,6 +307,8 @@ harness 자체도 실패에서 배웁니다:
 | [ADR-001](docs/DECISIONS/ADR-001-plugin-native-loading.md) | agents/skills/hooks 복사 → plugin 네이티브 로딩 (이중 등록 제거, v1.5.0) |
 | [ADR-002](docs/DECISIONS/ADR-002-versioned-upgrade.md) | 버전 기록 + hash manifest 기반 업그레이드 프로세스 (v1.5.0) |
 | [ADR-003](docs/DECISIONS/ADR-003-superpowers-adoption.md) | superpowers 방법론 선택적 채택 — 독립 evaluator는 유지 (v1.6.0) |
+| [ADR-004](docs/DECISIONS/ADR-004-firewall-auto-allow.md) | Bash firewall default-allow — 위험만 게이트, 나머지 무프롬프트 (v1.13.0, 정밀화 v1.13.1) |
+| [ADR-005](docs/DECISIONS/ADR-005-cross-tool-permission-tier.md) | 크로스도구 권한 계층 — 읽기전용 도구 auto-allow, MCP write 게이트 (v1.14.0) |
 
 ## Background
 
