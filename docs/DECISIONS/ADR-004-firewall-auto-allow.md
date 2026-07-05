@@ -68,3 +68,11 @@
 **INV-9는 유지**: allow가 여전히 deny/ask **뒤에** 평가되고, 토글(`firewall.auto_allow`)은 allow만 끄며 deny/ask는 불변. 위험 배터리(rm/sudo/terraform destroy/kubectl delete/git reset --hard가 output에 allow 미포함)로 고정. 단 INV-9의 성질은 "allowlist 확장"이 아니라 "**deny/ask 위험정의가 allow보다 우선**"으로 재해석된다. → [INVARIANTS.md](../INVARIANTS.md) INV-9
 
 **집행**: bats에 (a) 하네스 자기보호 7종이 `ask` 방출, (b) default-allow 대상(docker build·git push·npm install/exec·find -delete·stash drop 등)이 `allow` 방출, (c) 위험 배터리가 여전히 deny/ask임을 고정.
+
+## Amendment 3 — 자기보호를 메커니즘 무관 경로 기반으로 강화 (v1.15.3, F32/S-1)
+
+**문제**: Amendment 2의 하네스 자기보호 ask는 *쓰기 메커니즘*(cp·mv·sed -i·tee·리다이렉트·of=)만 열거했다. 적대적 주입 감사가 우회를 실증 — `python3 -c "open('progress/harness-config.json','w')"`·`node -e writeFileSync`·`ruby/perl -pi`·에디터(`vim -es -c wq`·`ed`)·`git -c core.hooksPath=`·`GIT_CONFIG_*`·`echo > hooks/hooks.json`·`echo > .claude/settings.json`가 전부 무프롬프트 `allow`로 통과했다. 즉 INV-9가 약속한 "invariant-guard(Edit|Write 후킹)의 Bash 우회 차단"이 미완이었고, 자동 `/improve` 루프가 인터프리터로 pass_threshold를 무프롬프트 하향할 수 있었다(INV-3 speed bump 무력화).
+
+**결정(add-only 강화)**: ASK를 **메커니즘 무관 경로 기반**으로 확장한다 — 보호경로 토큰(`harness-config.json`·`hooks/*.{sh,json}`·`tests/*.bats`·`INVARIANTS.md`·`.claude/settings*.json`)이 인터프리터(`python/node/ruby/perl/php/lua`)·에디터(`ed/ex/vi/vim/nano/emacs/sed/awk/dd/patch`) 명령에 등장하면 `ask`; `git -c ...core.hooksPath`·`GIT_CONFIG_*`도 `ask`. **보호경로 토큰이 있을 때만** 발동하므로 정상 개발(`python3 script.py`·`sed -n file.go`·`vim foo.py`·`git -c color.ui`)은 무손상 allow. 순수 add-only(INV-5: ASK 20→26)라 어떤 deny/ask도 약화하지 않는다.
+
+**집행**: `tests/pre-bash-firewall.bats`에 우회 8종 `never allow` + 대조 3종 `allow` 회귀 추가. `scripts/probes/behavioral.sh` 코퍼스에 우회 변종을 add-only 편입(S-5) — 프로브가 자신의 사각지대를 잡는다(정상 훅 `[]`, leaky 검출). → INV-9의 서술↔실제 커버리지 정합 회복.

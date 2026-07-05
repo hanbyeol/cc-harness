@@ -377,6 +377,20 @@
         "F20"
       ],
       "assigned_sprint": 17
+    },
+    {
+      "id": "F32",
+      "name": "방화벽 자기보호 경로 기반 강화 + behavioral 코퍼스 확장 (S-1+S-5)",
+      "description": "적대적 감사가 실증한 방화벽 자기보호 우회를 닫는다. 현 ASK 자기보호는 *메커니즘*(cp/mv/sed -i/tee/리다이렉트/of=)만 열거해, 인터프리터(python3 -c/node -e/ruby/perl -pi)·에디터(ed/ex/vi/vim)·git -c core.hooksPath=·GIT_CONFIG_*·hooks/hooks.json·.claude/settings.json 쓰기가 우회해 검증파일을 무프롬프트로 변경할 수 있다(예: python3 -c로 harness-config.json pass_threshold 하향 → INV-3 무력화). ASK에 인터프리터/에디터+보호경로, git -c hooksPath, GIT_CONFIG_*, hooks.json/settings.json 패턴을 add-only로 추가해 메커니즘 무관 게이팅. 동시에 behavioral.sh 코퍼스에 이 우회 변종을 추가(S-5)해 프로브가 스스로의 사각지대를 잡게 한다(정적/기존 프로브가 clean이라 한 거짓 안심 해소). 강화(add-only, INV-5/9 정합) — deny/ask만 늘리고 어떤 것도 약화하지 않는다.",
+      "security_tier": "critical",
+      "status": "implementing",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F27",
+        "F30"
+      ],
+      "assigned_sprint": 18
     }
   ]
 }
