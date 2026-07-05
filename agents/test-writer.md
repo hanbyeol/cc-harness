@@ -61,3 +61,6 @@ model: claude-sonnet-5
 - Sprint Contract의 error_scenarios와 security_criteria 커버리지 확인 필수
 - uncovered_criteria가 있으면 output에 명시 → evaluator가 다음 iteration에서 기준 보완 판단
 - 테스트 데이터: factory/fixture 패턴 사용, 하드코딩된 테스트 데이터 최소화
+
+## 공통 제약
+- 서브에이전트는 사용자에게 질문(AskUserQuestion)할 수 없다 — 필요한 입력은 메인 루프가 디스패치 전에 수집해 프롬프트로 전달한다.

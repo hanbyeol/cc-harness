@@ -72,3 +72,6 @@ model: claude-haiku-4-5
 - high severity가 1개라도 있으면 verdict: fail
   - 단, architect-output.json의 `threat_model.accepted_risks`에 문서화된 리스크는 제외
 - **개별 기능에서 이미 검증된 항목은 재검증하지 않음** — 크로스 기능/통합 이슈에 집중
+
+## 공통 제약
+- 서브에이전트는 사용자에게 질문(AskUserQuestion)할 수 없다 — 필요한 입력은 메인 루프가 디스패치 전에 수집해 프롬프트로 전달한다.

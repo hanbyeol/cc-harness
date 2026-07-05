@@ -143,7 +143,7 @@ claude
 > 선택적으로 채택했습니다. inline self-review는 독립 evaluator를 유지하기 위해 의도적으로 채택하지
 > 않았습니다 — 근거는 [ADR-003](docs/DECISIONS/ADR-003-superpowers-adoption.md).
 
-### Hooks (7개)
+### Hooks (8개)
 
 plugin 설치 시 `hooks.json`으로 **네이티브 등록**됩니다 — settings.json 수정 불필요:
 
@@ -151,18 +151,21 @@ plugin 설치 시 `hooks.json`으로 **네이티브 등록**됩니다 — settin
 |-------|------|------|
 | SessionStart | `setup-claudemd.sh` | rules 복사·갱신, CLAUDE.md 섹션 세팅(멱등), 버전 업그레이드 마이그레이션 |
 | SessionStart | `session-context.sh` | 브랜치·phase·미완료 기능·handoff 주입 + agent-comms 아카이빙 |
-| PreToolUse (Bash) | `pre-bash-firewall.sh` | 파괴적 명령 **deny** / 위험 명령 **ask** / 읽기 전용·저위험 명령 **자동 허용(allow)** |
-| PreToolUse (Edit\|Write) | `invariant-guard.sh` | 검증 장치 약화(임계값 하향·deny 삭제·테스트 삭제) 차단 ([INVARIANTS.md](docs/INVARIANTS.md)) |
+| PreToolUse (Bash) | `pre-bash-firewall.sh` | 파괴적 명령 **deny** / 위험·시크릿유출·검증파일쓰기 **ask** / 그 외 **자동 통과(default-allow)** |
+| PreToolUse (WebFetch\|WebSearch\|MCP) | `pre-tool-firewall.sh` | 읽기 전용 도구(WebFetch·WebSearch·MCP read-verb) **자동 허용** / MCP write·업로드·미분류 도구 프롬프트 ([ADR-005](docs/DECISIONS/ADR-005-cross-tool-permission-tier.md)) |
+| PreToolUse (Edit\|Write) | `invariant-guard.sh` | 검증 장치 약화(임계값 하향·deny 삭제·테스트 삭제·방화벽 allow 확장) 차단 ([INVARIANTS.md](docs/INVARIANTS.md)) |
 | PostToolUse | `post-edit-format.sh` | 자동 포맷팅 (gofmt, prettier, swiftformat, ktlint, dart 등) |
 | Stop | `pre-commit-gate.sh` | 변경 언어별 테스트 + 커버리지 기록 + 시크릿 스캔 (동일 트리 재실행 skip 캐시) |
 | Stop | `session-handoff.sh` | 세션 상태 저장 (draft 병합 → 다음 세션 주입) |
 
 > `hooks/lib.sh`는 이벤트 훅이 아니라 위 훅들이 공유하는 라이브러리(cfg_get·version_lt·harness_cd)입니다.
 
-**Firewall 정책** (우선순위: deny → ask → allow):
-- **deny**: 루트/홈/시스템 디렉토리 `rm`, `git push --force`(`--force-with-lease`는 허용), pipe-to-shell(중간 파이프 우회 포함), fork bomb, `DROP TABLE`, eval/명령치환 우회 등
-- **ask**: `git reset --hard`, `git clean -f` 등 정상 워크플로우에서 쓰이지만 uncommitted 변경을 잃을 수 있는 명령 — 차단 대신 사용자 확인
-- **allow**: 읽기 전용 조회(ls/cat/grep/git status·log·diff 등)·빌드/테스트(go test·bats·npm test)·저위험 로컬 쓰기(git add/commit, mkdir/touch/cp/mv)를 **무프롬프트 자동 허용** — deny/ask를 통과한 명령이 allowlist에만 매칭될 때. `$(...)`·백틱·파일 리다이렉트·미등록 명령이 섞이면 기본 프롬프트로 넘어간다. `git push`·`terraform`·`kubectl`·`npm install`·인터프리터는 제외. `harness-config.json`의 `firewall.auto_allow`(기본 true)로 allow만 on/off — deny/ask는 항상 유지
+**Firewall 정책** — **default-allow(위험만 게이트, 나머지 무프롬프트)** (우선순위: deny → ask → default-allow):
+- **deny**: 루트/홈/시스템 디렉토리 `rm`, `git push --force`(`--force-with-lease`는 허용), pipe-to-shell(중간 파이프 우회 포함), fork bomb, `DROP TABLE`, eval/명령치환 우회 등 복구 불가·파괴
+- **ask**: uncommitted 손실 위험(`git reset --hard`·`git clean -f`) + **하네스 자기보호**(검증파일 `harness-config.json`·`hooks/*`·`tests/*`·`INVARIANTS.md` 쓰기 — cp/mv/리다이렉트뿐 아니라 인터프리터(`python3 -c`)·에디터(`vim`)·`git -c core.hooksPath`·`GIT_CONFIG_*` 경유 포함) + **시크릿 egress**(`curl/nc/scp`가 `~/.ssh`·`~/.aws`·개인키를 외부 전송) + `terraform destroy`·`kubectl delete`·`helm uninstall` 등
+- **default-allow**: deny/ask에 걸리지 않은 **나머지 모든 명령을 무프롬프트 통과** — `python`·`node`·`git push`·`npm install`·`docker build`·`find` 등 일반 개발은 확인 없이 실행된다(위험 명령만 게이트). `harness-config.json`의 `firewall.auto_allow`(기본 true)로 allow만 on/off — deny/ask는 항상 유지
+
+**크로스도구 권한** (`pre-tool-firewall.sh`, [ADR-005](docs/DECISIONS/ADR-005-cross-tool-permission-tier.md)): Bash 외 도구도 **읽기 전용은 무프롬프트** — WebFetch·WebSearch·MCP read-verb(`get`/`list`/`search`/`read` 등)는 자동 허용, MCP write(`create`/`delete`/`send`/`upload`)·`file_upload`·미분류 도구는 프롬프트. `firewall.auto_allow_tools`(기본 true)로 on/off.
 
 ### Rules (11개)
 
@@ -178,7 +181,8 @@ Path-scoped 규칙 — 해당 파일 작업 시에만 로드:
 |--------|------|
 | 세션 시작 | 브랜치, phase, 미완료 기능, 이전 세션 handoff, 마지막 evaluator 피드백 주입 |
 | 코드 편집 | 언어별 포맷터 자동 실행 |
-| Bash 실행 | 파괴적 명령 deny / 위험 명령 ask / 읽기 전용·저위험 명령 자동 허용(무프롬프트) |
+| Bash 실행 | 파괴적 명령 deny / 위험·시크릿유출·검증파일쓰기 ask / 그 외 자동 통과(default-allow, 무프롬프트) |
+| WebFetch·MCP 실행 | 읽기 전용 도구 자동 허용 / MCP write·업로드는 프롬프트 |
 | 세션 종료 | 변경 파일 언어별 테스트 + 커버리지 기록(`progress/coverage-report.json`) + 시크릿 스캔, 상태 저장 |
 | plugin 업데이트 | 버전 감지 → 마이그레이션 + 미수정 rules 자동 갱신 (수정본 보존) |
 
