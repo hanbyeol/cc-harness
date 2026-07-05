@@ -346,9 +346,9 @@
       "name": "CLAUDE.md 다이어트 — 절차 중복 제거, 파일럿 체크리스트화",
       "description": "harness-engineering best practice(간결한 파일럿 체크리스트, 규칙마다 근거)에 맞춰 CLAUDE.md·templates/CLAUDE.md.tmpl를 슬림화. Step 1-5 상세 절차는 이미 /change-request·/implement 스킬에 존재하므로 워크플로 요약+포인터로 대체(3중 중복 제거). 하단 Skills 섹션은 라우팅 표가 skill-frontmatter/consistency 요건을 충족하므로 제거. 임계값 나열·병렬실행 산문 압축. must-keep 보존: SENTINEL 헤딩 \"## 기준 역전파 원칙\"(setup-claudemd 훅·profile 감지), 검증 티어링 문구(efficiency F19), 11개 /skill 라우팅, cc-harness:begin/end 마커, Build&Test(마커 밖). 신규 브레비티 테스트로 재-비대 방지(add-only). progressive disclosure — 상세는 스킬에, always-loaded CLAUDE.md는 라우팅+원칙만 → 매 턴 토큰세·주의분산 감소.",
       "security_tier": "standard",
-      "status": "implementing",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [],
       "assigned_sprint": 15
     }
