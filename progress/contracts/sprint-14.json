@@ -1,0 +1,65 @@
+{
+  "sprint": 14,
+  "title": "크로스도구 권한 계층 — 읽기전용 도구 무프롬프트 (F28, v1.14.0)",
+  "features": [
+    "F28"
+  ],
+  "security_tier": "critical",
+  "source": "cc-harness의 자율성 정책이 Bash 방화벽(default-allow)에만 걸려 있어 WebFetch·WebSearch·MCP 등 나머지 도구는 매번 승인 프롬프트가 발생한다. 특히 WebFetch는 Claude Code 네이티브 권한이 도메인 단위로 승인해 리서치·문서수집마다 새 도메인이 나올 때 흐름이 끊긴다. 자율성을 전 도구로 확장하되, 도구는 shell처럼 인자로 위험을 판별하기 어렵고 MCP 도구는 이메일 전송·이벤트 삭제 등 무엇이든 가능하므로 Bash의 default-allow가 아닌 '읽기전용 allowlist → 허용, 나머지 게이트' 모델로 위험정의를 동반한다(자율성 확장 = 위험정의 확장, S2 원칙).",
+  "acceptance_criteria": [
+    "F28-1: 읽기전용 빌트인 도구(WebFetch·WebSearch·NotebookRead) → permissionDecision:allow 방출, exit 0. (Read/Grep/Glob는 Claude Code 네이티브 자동허용이라 훅 matcher 범위 밖 — 핫패스 오버헤드 회피, 기준 backprop)",
+    "F28-2: MCP read-verb 도구(mcp__*__{get,list,search,read,fetch,view,describe,query,find,show,inspect,count,download,suggest,resolve}_*) → allow 방출",
+    "F28-3: MCP write-verb 도구(create/update/delete/send/apply/remove/upload/add/set/put/patch/post/label/move/copy/draft/respond/authenticate/revoke/execute/run/install/deploy) → allow 미방출(fall-through, 네이티브 프롬프트)",
+    "F28-4: 미분류·미지의 MCP 도구(verb 불명) → allow 미방출(안전 기본값 = 프롬프트)",
+    "F28-5: file_upload·upload_image·NotebookEdit 등 쓰기/업로드 도구 → allow 미방출",
+    "F28-6: config firewall.auto_allow_tools=false → 이 훅의 allow 전면 비활성(전부 fall-through)",
+    "F28-7: hooks.json에 새 PreToolUse matcher 추가하되 기존 Bash firewall·invariant-guard 등록 무손상(INV-7)",
+    "전역: 새 pre-tool-firewall.bats GREEN, 전체 bats 무회귀, version-consistency GREEN(1.14.0 3종)"
+  ],
+  "security_criteria": [
+    "SC1: 기본값이 fall-through(게이트) — read-only allowlist에 '명시적으로' 매칭될 때만 allow. 미지 도구·미지 verb는 절대 자동 허용 안 함(자율성 확장이 새 구멍을 열지 않음, F27 방화벽 사건과 동형 실수 방지)",
+    "SC2: MCP write/외부반영/업로드 도구는 allow 미방출 — 이메일 전송·캘린더 삭제·파일 업로드 등은 사람 확인 유지",
+    "SC3: Edit/Write/MultiEdit은 이 훅 범위 밖 — invariant-guard가 계속 관할(검증파일 보호 무손상). Bash는 pre-bash-firewall 관할 유지",
+    "SC4: verb 분류는 화이트리스트 방식(read-verb 목록에 있을 때만 allow) — 블랙리스트 누락으로 인한 오허용 불가",
+    "SC5: config 토글은 allow만 제어 — 이 훅은 deny를 방출하지 않으므로 끄면 네이티브 프롬프트로 안전하게 degrade"
+  ],
+  "error_scenarios": [
+    "jq 부재: tool_name 파싱 불가 → 경고 후 exit 0(allow 미방출, 네이티브 흐름 유지) — fail-safe(자동 허용 안 함)",
+    "harness-config.json 부재/malformed: auto_allow_tools 기본 true로 degrade, 단 allowlist 매칭은 그대로",
+    "tool_name 필드 부재/빈 입력: exit 0(무판정)",
+    "MCP 도구명이 __ 구분자 없이 비정형: verb 추출 실패 → 미분류로 간주 → fall-through(안전측)"
+  ],
+  "test_scenarios": [
+    "pre-tool-firewall.bats: allow 케이스(WebFetch·WebSearch·Read·Grep·mcp get/list/search/read) + gate 케이스(mcp create/update/delete/send·file_upload·upload_image·미지 verb·미지 도구) + 토글 off 케이스",
+    "hooks.json: 새 matcher 추가 후 invariant-guard 등록 잔존 확인(INV-7 회귀)",
+    "전체 bats 무회귀 + version-consistency 1.14.0"
+  ],
+  "implementation_steps": [
+    {
+      "step": "hooks/pre-tool-firewall.sh 신규 — tool_name read, read-only 빌트인 allowlist + MCP verb 화이트리스트 매칭 → permissionDecision:allow, 그 외 exit 0(fall-through). config firewall.auto_allow_tools 토글.",
+      "verify": "명령 주입으로 WebFetch/mcp get→allow, mcp send/file_upload→fall-through 확인",
+      "done": false
+    },
+    {
+      "step": "hooks/hooks.json에 PreToolUse matcher 추가(WebFetch|WebSearch|Read|Grep|Glob|NotebookRead|TodoWrite|mcp__.*) → pre-tool-firewall.sh 등록",
+      "verify": "jq 유효 + invariant-guard 등록 잔존(guard_registered) + Bash firewall 잔존",
+      "done": false
+    },
+    {
+      "step": "templates/progress/harness-config.json firewall에 auto_allow_tools:true(+_comment) 추가",
+      "verify": "jq 유효 + 토글 off 테스트 GREEN",
+      "done": false
+    },
+    {
+      "step": "tests/pre-tool-firewall.bats 신규 — allow/gate/toggle 배터리",
+      "verify": "bats GREEN, 전체 스위트 무회귀",
+      "done": false
+    },
+    {
+      "step": "docs/DECISIONS/ADR-005 신규 + INVARIANTS(크로스도구 권한 모델 언급) + 버전 1.14.0(3종 매니페스트)",
+      "verify": "version-consistency GREEN",
+      "done": false
+    }
+  ],
+  "agreed": true
+}

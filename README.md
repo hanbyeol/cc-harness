@@ -2,7 +2,7 @@
 
 > A full-SDLC harness for Claude Code — quality gates, security by design, and a development methodology that enforces itself.
 
-Claude Code의 전체 개발 생명주기(설계 정제 → 기획 → 아키텍처 → 구현 → 검증 → 배포 → 관측)를 구조화하는 harness입니다. plugin 설치 한 번으로 8 agents · 11 skills · 7 hooks · 11 rules가 적용됩니다.
+Claude Code의 전체 개발 생명주기(설계 정제 → 기획 → 아키텍처 → 구현 → 검증 → 배포 → 관측)를 구조화하는 harness입니다. plugin 설치 한 번으로 8 agents · 11 skills · 8 hooks · 11 rules가 적용됩니다.
 
 > **Note:** 이 프로젝트는 [Harness.io](https://harness.io) (CI/CD 플랫폼)와 무관합니다. 여기서 "harness"는 [AI agent harness engineering](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) 개념 — 에이전트가 일관된 품질로 일하도록 둘러싸는 구조 — 을 의미합니다.
 
