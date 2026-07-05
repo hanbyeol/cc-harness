@@ -809,3 +809,62 @@ run_firewall() {
   rm -rf "$tmp"
   [ "$status" -eq 2 ]
 }
+
+# --- F32: 메커니즘 무관 보호경로 게이팅 (인터프리터·에디터·git -c 우회 차단, S-1) ---
+
+@test "F32: python3 -c writing harness-config → not allow" {
+  run run_firewall '{"tool_input":{"command":"python3 -c open(progress/harness-config.json)"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "F32: node -e writing a test file → not allow" {
+  run run_firewall '{"tool_input":{"command":"node -e writeFileSync(tests/invariant-guard.bats)"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "F32: perl -pi (combined flag) onto harness-config → not allow" {
+  run run_firewall '{"tool_input":{"command":"perl -pi -e s/7/1/ progress/harness-config.json"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "F32: vim -es scripted edit of harness-config → not allow" {
+  run run_firewall '{"tool_input":{"command":"vim -es -c wq progress/harness-config.json"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "F32: git -c core.hooksPath inline escalation → not allow" {
+  run run_firewall '{"tool_input":{"command":"git -c core.hooksPath=/tmp/evil commit -m x"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "F32: GIT_CONFIG_* env escalation → not allow" {
+  run run_firewall '{"tool_input":{"command":"GIT_CONFIG_COUNT=1 git status"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "F32: redirect onto hooks/hooks.json → not allow" {
+  run run_firewall '{"tool_input":{"command":"echo x > hooks/hooks.json"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+@test "F32: redirect onto .claude/settings.json → not allow" {
+  run run_firewall '{"tool_input":{"command":"echo {} > .claude/settings.json"}}'
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+# 대조군 — 보호경로 없는 정상 개발은 여전히 auto-allow (과잉 게이팅 회피, SC3)
+
+@test "F32: python3 running a normal script still auto-allows" {
+  run run_firewall '{"tool_input":{"command":"python3 script.py"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "F32: sed reading a normal file still auto-allows" {
+  run run_firewall '{"tool_input":{"command":"sed -n 1,50p file.go"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "F32: git -c with a benign key still auto-allows" {
+  run run_firewall '{"tool_input":{"command":"git -c color.ui=false status"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}

@@ -112,6 +112,14 @@ ASK_PATTERNS=(
   '>>? *[^ ]*(\.ssh/|\.aws/|\.gnupg/)'
   # git 실행 훅 경로 변경 — 이후 임의 git 명령이 임의 스크립트 실행(에스컬레이션)
   'git config[^;|&]*core\.hooksPath'
+  # S-1(F32): 메커니즘 무관 보호경로 게이팅 — 인터프리터·에디터·git -c·GIT_CONFIG 우회 차단.
+  # 보호경로 토큰이 있을 때만 발동(정상 개발 python3 script.py·sed -n file.go·vim foo.py는 미발동).
+  '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  '\b(ed|ex|vi|vim|nano|emacs|sed|awk|dd|patch)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  '>>? *[^ ]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
+  '\b(cp|mv|install|rsync|ln|tee|truncate)\b[^;|&]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
+  'git\b[^;|&]*-c[^;|&]*core\.hooksPath'
+  'GIT_CONFIG_(COUNT|KEY|VALUE|GLOBAL|SYSTEM)'
 )
 
 if echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then

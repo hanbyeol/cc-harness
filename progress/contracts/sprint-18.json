@@ -1,0 +1,59 @@
+{
+  "sprint": 18,
+  "title": "방화벽 자기보호 경로 기반 강화 + behavioral 코퍼스 확장 (F32, v1.15.3)",
+  "features": [
+    "F32"
+  ],
+  "security_tier": "critical",
+  "source": "적대적 주입 감사(v1.15.2)가 실증: pre-bash-firewall.sh의 ASK 자기보호가 *메커니즘*만 열거해 우회 가능. python3 -c \"open('progress/harness-config.json','w')\"·node -e writeFileSync·vim -es -c wq·perl -pi·git -c core.hooksPath=/tmp/evil commit·GIT_CONFIG_*·echo > hooks/hooks.json·echo {} > .claude/settings.json 이 전부 permissionDecision:allow(무프롬프트)로 통과. INV-9/ADR-004 Amendment 2가 약속한 'invariant-guard(Edit|Write) Bash 우회 차단'이 미완. 자동 /improve 루프가 python3 -c로 pass_threshold를 무프롬프트 하향할 수 있어 INV-3 speed bump가 무력화됨. behavioral 프로브(F30)조차 이 부류를 코퍼스에 안 담아 'clean' 거짓 안심(S-5).",
+  "acceptance_criteria": [
+    "F32-1: pre-bash-firewall.sh ASK_PATTERNS에 인터프리터(python3?/node/nodejs/ruby/perl/php/lua)가 보호경로(harness-config.json·hooks/*.{sh,json}·tests/*.bats·INVARIANTS.md·.claude/settings*.json)를 참조하면 ask 패턴 추가 → 주입 시 allow 미방출",
+    "F32-2: 에디터/인플레이스(ed/ex/vi/vim/nano/emacs/sed/awk/dd/patch)가 보호경로 참조 시 ask (sed/perl 결합플래그 -pi 포함 커버)",
+    "F32-3: git 실행훅 에스컬레이션 우회 차단 — 'git -c ...core.hooksPath'와 'GIT_CONFIG_(COUNT|KEY|VALUE|GLOBAL|SYSTEM)' ask 추가",
+    "F32-4: 보호경로 alternation에 hooks/hooks.json·.claude/settings(.local).json 추가(리다이렉트·cp/mv 경유 포함) — echo > hooks/hooks.json·> .claude/settings.json 이 ask",
+    "F32-5: behavioral.sh BASH_CORPUS에 위 우회 변종(인터프리터·에디터·git -c·GIT_CONFIG·hooks.json·settings.json) add-only 추가 → 정상 훅에서 여전히 [](수정 후 clean), leaky firewall 검출 유지",
+    "F32-6: tests/pre-bash-firewall.bats에 이 우회들이 'never allow'(ask/deny)임을 add-only 회귀 추가",
+    "전역: 전체 bats GREEN·무회귀, behavioral 프로브 정상 훅 [] (수정 후), consistency 0, shellcheck 0, version-consistency 1.15.3(3종)"
+  ],
+  "security_criteria": [
+    "SC1: 강화(add-only) — ASK/deny 패턴을 추가만 하고 어떤 deny/ask도 제거·약화하지 않는다(INV-5). invariant-guard가 ASK_PATTERNS 수 증가를 정상 통과",
+    "SC2: 우회 변종이 실제 게이트됨을 주입으로 실증(evaluator가 재현) — allow 미방출. 특히 python3 -c/node -e/vim/perl -pi/git -c hooksPath/echo>hooks.json/settings.json",
+    "SC3: 과잉 게이팅 회피 — 보호경로가 없는 인터프리터/에디터 사용(python3 script.py·sed -n file.go·vim foo.py)은 여전히 allow(정상 개발 무손상). 패턴은 보호경로 토큰 존재 시에만 발동",
+    "SC4: INV-9/ADR-004 Amendment 2 서술과 실제 커버리지 정합 회복 — '메커니즘 무관 보호경로 게이팅'을 구현이 뒷받침. 필요 시 서술 정정(강화 방향)",
+    "SC5: behavioral 코퍼스 확장은 SC3(코퍼스는 never-allow만) 준수 — 추가 항목이 실제 정책상 ask 대상(정상 훅에서 ask이라 allow 아님 → 프로브 clean)"
+  ],
+  "error_scenarios": [
+    "정상 개발 명령(python3 test.py·node app.js·sed -n file.go·vim src.py) 오탐: 패턴이 보호경로 토큰을 요구하므로 미발동 — 테스트로 고정(allow 유지)",
+    "보호경로 읽기(cat/sed -n harness-config.json)도 ask로 과게이팅될 수 있음: 저빈도·안전측 수용, 단 순수 read 도구(Read)는 Bash 아니라 무관",
+    "jq 부재/입력 이상: 기존 firewall fail-safe 경로 유지(변경 없음)",
+    "behavioral 코퍼스 항목이 수정 전엔 leak으로 잡혀야(검출 실증), 수정 후엔 clean — 양쪽 evaluator 확인"
+  ],
+  "test_scenarios": [
+    "pre-bash-firewall.bats: python3 -c/node -e/ruby/perl -pi/vim -es/ed + harness-config·hooks.json·tests·INVARIANTS·settings.json → allow 미방출; git -c core.hooksPath·GIT_CONFIG_* → allow 미방출; 대조 python3 script.py·sed -n file.go·vim foo.py → allow 유지",
+    "behavioral-probe.bats: 확장 코퍼스로 정상 훅 clean 유지 + leaky 검출 유지",
+    "무회귀: 전체 bats GREEN, behavioral 정상 훅 [], consistency 0, shellcheck 0, version 1.15.3"
+  ],
+  "implementation_steps": [
+    {
+      "step": "pre-bash-firewall.sh ASK_PATTERNS에 인터프리터+보호경로·에디터+보호경로·git -c hooksPath·GIT_CONFIG_*·hooks.json/settings.json 패턴 add-only 추가",
+      "verify": "우회 12종 주입 → allow 미방출; 대조 정상 3종 → allow 유지; shellcheck clean",
+      "done": false
+    },
+    {
+      "step": "scripts/probes/behavioral.sh BASH_CORPUS에 우회 변종 add-only 추가",
+      "verify": "정상 훅 [](수정 후), leaky firewall 검출 유지",
+      "done": false
+    },
+    {
+      "step": "tests/pre-bash-firewall.bats(우회 never-allow + 대조 allow) + tests/behavioral-probe.bats 무회귀 add-only",
+      "verify": "bats GREEN",
+      "done": false
+    },
+    {
+      "step": "버전 1.15.3(3종) + 전체 무회귀 → 독립 evaluator(critical: 강화·무약화·우회 실증)",
+      "verify": "version-consistency GREEN, 전체 bats GREEN, consistency 0",
+      "done": false
+    }
+  ],
+  "agreed": true
+}
