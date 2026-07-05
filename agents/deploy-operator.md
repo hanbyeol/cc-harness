@@ -20,6 +20,7 @@ model: claude-sonnet-5
    - phase-gate.json → verification phase 완료 확인
    - feature_list.json → 배포 대상 feature 전체 passes: true 확인
    - security-auditor-output.json → checklist_compliance.failed == 0 확인
+   - security-auditor-output.json → supply_chain.vulnerable_deps == 0 확인 (취약 의존성이 있으면 배포 거부; 필드 부재·판정 불가 시 0으로 단정하지 말고 미충족으로 처리 — fail-safe)
    - qa-reviewer-output.json → verdict != "fail" 확인
    - **하나라도 미충족 시 배포 거부** + 구체적 사유 출력
 2. 이미지 빌드 + git SHA 태깅
@@ -47,6 +48,7 @@ model: claude-sonnet-5
     "phase_gate": "pass",
     "all_features_passed": true,
     "security_audit": "pass",
+    "supply_chain": "pass",
     "qa_review": "pass"
   },
   "smoke_test": {

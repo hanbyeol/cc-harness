@@ -1,0 +1,52 @@
+{
+  "sprint": 17,
+  "title": "deploy-operator 공급망 게이트 배선 (F31, v1.15.1)",
+  "features": [
+    "F31"
+  ],
+  "security_tier": "standard",
+  "source": "templates/docs/HARNESS-GUIDE.md:402가 'deploy-operator가 배포 전 security-auditor → checklist_compliance.failed==0, supply_chain.vulnerable_deps==0을 확인한다'고 약속하고, agents/security-auditor.md는 이미 supply_chain.vulnerable_deps 필드를 output에 생산한다. 그러나 agents/deploy-operator.md의 배포 전 검증(Process 1)은 checklist_compliance.failed==0만 확인하고 supply_chain은 검사하지 않는다 — 약속된 취약 의존성 배포 게이트가 배선되지 않은 doc-agent drift. 취약 의존성이 있어도 배포가 통과할 수 있는 보안 갭. security-auditor가 이미 데이터를 생산하므로 deploy-operator가 소비만 배선하면 된다.",
+  "acceptance_criteria": [
+    "F31-1: agents/deploy-operator.md 배포 전 검증(Process 1)에 'security-auditor-output.json → supply_chain.vulnerable_deps == 0 확인'을 추가(기존 checklist_compliance.failed==0 옆) — 미충족 시 배포 거부",
+    "F31-2: deploy-operator output 스키마 pre_checks에 supply_chain 상태 필드 추가(배포 판정 기록)",
+    "F31-3: HARNESS-GUIDE.md:402 약속과 deploy-operator.md 실제 게이트가 일치(drift 해소) — 둘 다 supply_chain.vulnerable_deps==0을 배포 전 조건으로 명시",
+    "F31-4: security-auditor.md는 무변경 — 이미 supply_chain.vulnerable_deps를 생산(deploy-operator가 소비만 배선). 필드명 정합 확인",
+    "F31-5: 신규 tests/deploy-gate.bats — deploy-operator.md가 supply_chain 게이트를 담고 HARNESS-GUIDE 약속과 일치하며 기존 게이트(checklist_compliance·passes·qa)도 잔존함을 grep 고정",
+    "전역: 전체 bats GREEN(cost-report·profile 무회귀), consistency 프로브 0건, version-consistency 1.15.1(3종)"
+  ],
+  "security_criteria": [
+    "SC1: 게이트 강화(add-only) — 배포 차단 조건 추가이며 기존 조건(passes==true·checklist_compliance.failed==0·qa verdict!=fail) 무손상. 약화 아님",
+    "SC2: '하나라도 미충족 시 배포 거부' 원칙에 supply_chain 편입 — 취약 의존성(vulnerable_deps>0) 있으면 배포 불가. deploy-operator Constraints의 '검증 미통과 시 배포 거부(예외 없음)'와 정합",
+    "SC3: security-auditor의 supply_chain 스키마(vulnerable_deps·outdated_critical·details) 무변경 — 소비만 배선, 생산부 미변경",
+    "SC4: 문서/에이전트 프롬프트 변경이며 harness-config 임계값·firewall deny·테스트 개수·evaluator 규칙을 낮추지 않는다(invariant-guard 무저촉, 테스트 add-only)"
+  ],
+  "error_scenarios": [
+    "security-auditor-output.json 부재/malformed: deploy-operator는 '보안 감사 통과 확인' 불가 → 기존대로 배포 거부(미충족)에 supply_chain도 편입 — fail-safe(취약 판정 불가 시 통과시키지 않음)",
+    "supply_chain.vulnerable_deps 필드 부재(구버전 output): 0으로 단정하지 말고 미확인으로 간주해 배포 거부 — silent pass 금지",
+    "vulnerable_deps>0인데 배포 강행 유혹: Constraints '예외 없음'이 차단, 테스트가 게이트 문구 잔존 고정",
+    "guide만 고치고 agent 미배선(또는 반대): 신규 deploy-gate.bats가 양쪽 일치를 검사해 재-drift 방지"
+  ],
+  "test_scenarios": [
+    "deploy-gate.bats: deploy-operator.md grep 'supply_chain.vulnerable_deps' + '== 0', HARNESS-GUIDE.md 동일 약속 존재, 기존 게이트(checklist_compliance·passes·qa) 잔존, output 스키마 supply_chain 필드",
+    "무회귀: cost-report(모델·criticality), profile(마커), 전체 스위트 GREEN",
+    "consistency 0, version-consistency 1.15.1"
+  ],
+  "implementation_steps": [
+    {
+      "step": "agents/deploy-operator.md Process 1에 supply_chain.vulnerable_deps==0 확인 추가 + output pre_checks에 supply_chain 필드 + (해당 시) Input/Constraints 보강",
+      "verify": "grep supply_chain.vulnerable_deps + == 0, 기존 게이트 문구 잔존",
+      "done": false
+    },
+    {
+      "step": "tests/deploy-gate.bats 신규 — deploy-operator 게이트 + HARNESS-GUIDE 일치 + 기존 게이트 잔존 grep",
+      "verify": "bats deploy-gate.bats GREEN",
+      "done": false
+    },
+    {
+      "step": "버전 1.15.1(3종) + 전체 무회귀 → 독립 evaluator",
+      "verify": "version-consistency GREEN, 전체 bats GREEN, consistency 0",
+      "done": false
+    }
+  ],
+  "agreed": true
+}
