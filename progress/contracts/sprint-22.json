@@ -33,22 +33,22 @@
     {
       "step": "runtime 파일 실체화(progress/harness-config.json·evals/calibration/false-positives.json·progress/lessons.md) — 템플릿 값 그대로",
       "verify": "diff 템플릿 대비 값 동일, invariant-guard 신규 파일 통과",
-      "done": false
+      "done": true
     },
     {
       "step": "completeness.sh runtime 부재 탐지 add-only + bats",
       "verify": "이 repo에서 0건(실체화 후), 파일 제거 시뮬레이션에서 후보 보고",
-      "done": false
+      "done": true
     },
     {
       "step": "setup-claudemd.sh 시드 경로 확인·보완(add-only, 멱등) + bats",
       "verify": "bats GREEN(시드·멱등·보존)",
-      "done": false
+      "done": true
     },
     {
       "step": "INV-3·토글 활성 실증 수집, 버전 bump → 독립 evaluator",
       "verify": "전체 bats GREEN, consistency 0",
-      "done": false
+      "done": true
     }
   ],
   "agreed": true
