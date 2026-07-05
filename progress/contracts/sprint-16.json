@@ -1,0 +1,59 @@
+{
+  "sprint": 16,
+  "title": "행위(behavioral) 자기진단 프로브 (F30, v1.15.0)",
+  "features": [
+    "F30"
+  ],
+  "security_tier": "standard",
+  "source": "자동 발견 프로브 6종(consistency·metrics·completeness·self-review·model-tiering·evidence)이 전부 정적 grep/jq라 훅의 '행위' 결함(위험 명령이 auto-allow로 새는 것 등)을 원리적으로 탐지하지 못한다. 이번 세션이 실증: pre-bash-firewall에 critical 구멍(cp가 harness-config 덮어쓰기·find -delete 등)이 있었는데 run-all은 '후보 0건'을 반환했다. '0건 = 확인함'이 아니라 '0건 = 안 봤음'. 실제 훅을 danger 코퍼스로 주입 실행해 allow 누출을 발견하는 behavioral 프로브를 추가한다.",
+  "acceptance_criteria": [
+    "F30-1: scripts/probes/behavioral.sh 신규 — 위험 명령 코퍼스를 pre-bash-firewall.sh에, 위험 도구명 코퍼스를 pre-tool-firewall.sh에 stdin 주입. permissionDecision:allow가 방출되는 항목이 있으면 {name:'firewall behavioral leak', description, security_tier:'critical', source:'behavioral'} 후보 방출. 다른 프로브처럼 JSON 배열 출력",
+    "F30-2: 현재(정상) 훅에 대해 실행하면 [] 반환 — /improve 노이즈 0(정상 상태에서 오탐 없음)",
+    "F30-3: 훅에 구멍이 있으면 검출 — env PROBE_BASH_FIREWALL로 leaky firewall 경로 주입 시 누출 항목을 후보로 방출(false confidence 방지, 검출 경로 실증)",
+    "F30-4: scripts/probes/run-all.sh에 behavioral 통합(프로브 목록 7종) + 헤더의 낡은 '4개 프로브' 주석을 실제 개수로 갱신",
+    "F30-5: skills/improve/SKILL.md의 프로브 목록을 실제 7종(consistency·metrics·completeness·self-review·model-tiering·evidence·behavioral)으로 갱신 — 낡은 '4개 프로브' 서술 교정(기준 backprop)",
+    "F30-6: tests/behavioral-probe.bats 신규 — (a) 정상 훅에 대해 clean(누출 0), (b) leaky firewall 주입 시 검출, (c) known-safe 명령을 오탐하지 않음",
+    "전역: 전체 bats GREEN, consistency 프로브 0건, shellcheck(hooks+probes) 0, version-consistency 1.15.0(3종)"
+  ],
+  "security_criteria": [
+    "SC1: 프로브는 읽기 전용 — 훅을 stdin 주입으로 실행만 하고 파일/git 상태를 변경하지 않는다(metrics-history append 외 수정 없음, /improve 프로브 규약 준수)",
+    "SC2: 프로브가 firewall의 deny/ask 계층을 우회·비활성화하지 않는다 — 순수 관찰(주입→판정 파싱)",
+    "SC3: danger 코퍼스는 실제 위험을 대표하며 add-only로 확장 가능 — 항목 축소는 검증 약화이므로 지양(코퍼스는 rm 파괴·권한상승·검증파일 쓰기·MCP write/upload를 포함)",
+    "SC4: 검출 경로가 실제 작동함을 evaluator가 seeded-leak으로 확인 — 프로브가 항상 []만 뱉는 no-op가 아님(false confidence 금지)",
+    "SC5: 이 변경은 새 게이트가 아니라 진단 도구 추가 — harness-config 임계값·firewall deny·테스트 개수를 낮추지 않는다(invariant-guard 무저촉, 테스트 add-only)"
+  ],
+  "error_scenarios": [
+    "jq 부재: 다른 프로브와 동일하게 [] 반환 후 종료(진단 불가 시 안전 무출력)",
+    "훅 파일 부재(경로 오류): 해당 코퍼스 스킵, 나머지 진행 — run-all의 프로브 격리(하나 실패해도 나머지 수집)와 정합",
+    "훅이 ask/deny(exit 2)를 반환: allow가 아니므로 누출 아님 — 정상(위험이 걸러진 것)",
+    "코퍼스 명령이 로컬에서 부수효과? 실제 실행이 아니라 훅에 stdin으로 명령 '문자열'만 전달(훅은 판정만) — 명령 자체는 실행되지 않음"
+  ],
+  "test_scenarios": [
+    "behavioral-probe.bats: 정상 훅 clean([] 또는 leak 후보 0), leaky firewall(임시 스크립트: 위험 명령을 allow) 주입 시 leak 후보 ≥1, known-safe(ls·git status·WebFetch·mcp get) 미탐지",
+    "run-all.sh: behavioral 포함 실행 시 정상 상태에서 behavioral 기여 0(전체 여전히 dedup 동작)",
+    "무회귀: probes.bats·전체 스위트 GREEN, consistency 0, version-consistency 1.15.0"
+  ],
+  "implementation_steps": [
+    {
+      "step": "scripts/probes/behavioral.sh 신규 — danger 코퍼스(bash·tool) 정의, FW=${PROBE_BASH_FIREWALL:-hooks/pre-bash-firewall.sh}·TFW=${PROBE_TOOL_FIREWALL:-hooks/pre-tool-firewall.sh} 주입, allow 방출 항목을 add()로 critical 후보화, JSON 배열 출력",
+      "verify": "정상 훅→[], leaky 임시 firewall→누출 후보, known-safe 미탐지 (주입 실행 확인)",
+      "done": false
+    },
+    {
+      "step": "run-all.sh에 behavioral 추가(프로브 루프) + '4개 프로브' 주석 갱신",
+      "verify": "run-all 정상 실행, behavioral 기여 정상상태 0",
+      "done": false
+    },
+    {
+      "step": "skills/improve/SKILL.md 프로브 목록 7종으로 갱신",
+      "verify": "grep behavioral SKILL.md, 프로브 수 정합",
+      "done": false
+    },
+    {
+      "step": "tests/behavioral-probe.bats 신규(clean·detect·no-false-positive) + 버전 1.15.0(3종) + 전체 무회귀",
+      "verify": "bats GREEN, consistency 0, shellcheck 0, version-consistency GREEN",
+      "done": false
+    }
+  ],
+  "agreed": true
+}
