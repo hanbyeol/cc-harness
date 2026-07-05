@@ -204,7 +204,7 @@ plugin 업데이트(`/plugin` → Installed) 후 **첫 세션에서 자동 마�
 
 | | Plugin (`/plugin install`) | Bootstrapper (`npx cc-harness`) |
 |---|---|---|
-| **agents** (8) / **skills** (11) / **hooks** (7) | O — 네이티브 로딩 (업데이트 즉시 반영) | O — `.claude/` 복사 |
+| **agents** (8) / **skills** (11) / **hooks** (9) | O — 네이티브 로딩 (업데이트 즉시 반영) | O — `.claude/` 복사 |
 | **rules** (11) | O — `.claude/rules/` 복사 | O — 프리셋 기반 선택 |
 | settings.json | 불필요 (hooks.json 네이티브) | O |
 | progress/ · docs/ · evals/ · Makefile · CLAUDE.md 스캐폴딩 | CLAUDE.md 섹션만 | O |
@@ -333,7 +333,7 @@ harness 자체도 실패에서 배웁니다:
 - `jq` — **권장**. 없으면 bash firewall이 비활성화되고(경고 출력) 세션 컨텍스트 주입이 축소됩니다
 - `bash` 3.2+ (hooks), 4.0+ (bootstrapper)
 - 각 언어 도구 (선택 — 없으면 해당 hook이 graceful skip)
-- 개발 시: `bats`, `shellcheck` (테스트 273개, CI에서 강제)
+- 개발 시: `bats`, `shellcheck` (테스트 470개, CI에서 강제)
 
 ## License
 

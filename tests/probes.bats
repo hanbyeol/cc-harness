@@ -54,6 +54,56 @@ seed_consistent() {
   [ "$(echo "$output" | jq 'length')" -ge 1 ]
 }
 
+# --- F40: README 숫자 실측 대조 + 의존성-passes 정합 ---
+
+@test "consistency: README stale test count yields a candidate (F40)" {
+  seed_consistent
+  mkdir -p "$WORK/tests"; printf '@test "a" { true; }\n' > "$WORK/tests/x.bats"  # 실측 @test=1
+  printf '/foo\n테스트 999개, CI에서 강제\n' > "$WORK/README.md"                  # 주장 999
+  run bash -c "cd '$WORK' && bash '$PROBES/consistency.sh'"
+  echo "$output" | jq -e '.[] | select(.name | test("test count stale"))'
+}
+
+@test "consistency: README stale hooks count yields a candidate (F40)" {
+  seed_consistent   # 실측 hooks=1 (h.sh)
+  printf '/foo\n5 hooks 적용\n' > "$WORK/README.md"
+  run bash -c "cd '$WORK' && bash '$PROBES/consistency.sh'"
+  echo "$output" | jq -e '.[] | select(.name | test("hooks count stale"))'
+}
+
+@test "consistency: README '테스트 N개 점수'(min-of-5) is not a false test-count match (F40)" {
+  seed_consistent
+  mkdir -p "$WORK/tests"; printf '@test "a" { true; }\n' > "$WORK/tests/x.bats"
+  # "테스트 5개 점수"는 5차원 표현 — 뒤에 쉼표/괄호가 없어 테스트 수 주장으로 오탐되면 안 된다
+  printf '/foo\n기능·품질·보안·에러처리·테스트 5개 점수의 최솟값\n' > "$WORK/README.md"
+  run bash -c "cd '$WORK' && bash '$PROBES/consistency.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("test count stale"))]|length')" -eq 0 ]
+}
+
+@test "consistency: dependency on an unpassed feature yields inconsistency (F40)" {
+  seed_consistent
+  cat > "$WORK/progress/feature_list.json" <<'JSON'
+{"features":[
+{"id":"A","passes":true,"dependencies":["B"]},
+{"id":"B","passes":false,"dependencies":[]}
+]}
+JSON
+  run bash -c "cd '$WORK' && bash '$PROBES/consistency.sh'"
+  echo "$output" | jq -e '.[] | select(.name | test("dependency-passes"))'
+}
+
+@test "consistency: all-passed dependency graph yields no inconsistency (F40 no false-positive)" {
+  seed_consistent
+  cat > "$WORK/progress/feature_list.json" <<'JSON'
+{"features":[
+{"id":"A","passes":true,"dependencies":["B"]},
+{"id":"B","passes":true,"dependencies":[]}
+]}
+JSON
+  run bash -c "cd '$WORK' && bash '$PROBES/consistency.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("dependency-passes"))]|length')" -eq 0 ]
+}
+
 # --- metrics probe ---
 
 @test "metrics: first run records baseline, no candidates" {

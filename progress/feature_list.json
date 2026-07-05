@@ -495,7 +495,7 @@
       "name": "consistency probe 확장 — 산문 숫자 실측 대조·의존성-passes 정합 + 스테일 정리",
       "description": "P2-6: consistency probe가 특정 신호만 샘플링해 README '테스트 273개'(실측 400)·'hooks 7/8' 불일치, F27(passes:false)에 의존하는 F28/32/33 통과 모순을 놓치던 갭 해소. consistency.sh에 (a) README 숫자 주장(스킬·훅·에이전트·프로브·테스트 수) 실측 대조, (b) 의존성-passes 정합(passes:false 기능에 의존하는 passed 기능 탐지), (c) 로컬 설정의 부재 경로 참조 탐지 추가. README 현행 숫자 정정, .tmp/·.tmp-eval/ 스테일 사본 정리+.gitignore 보강. F27 판정은 독립 evaluator에 회부해 종결(메인 루프는 passes 불변 — INV-1 준수).",
       "security_tier": "low",
-      "status": "pending",
+      "status": "review",
       "passes": false,
       "iteration": 0,
       "dependencies": [

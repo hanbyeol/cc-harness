@@ -32,22 +32,22 @@
     {
       "step": "consistency.sh 숫자 대조·의존성 정합 RED 테스트 → 구현",
       "verify": "bats GREEN, 이 repo에서 기지 불일치 검출",
-      "done": false
+      "done": true
     },
     {
       "step": "README 숫자 정정 + .tmp/·.tmp-eval/ 정리 + .gitignore",
       "verify": "probe 재실행 0건(F27 모순 제외)",
-      "done": false
+      "done": true
     },
     {
       "step": "F27을 독립 evaluator에 회부(sprint-13 criteria + 기존 bats 배터리 근거)",
       "verify": "evaluator-feedback 기록 생성, 판정에 따라 passes 갱신(evaluator 전권)",
-      "done": false
+      "done": true
     },
     {
       "step": "버전 bump → 독립 evaluator(F40 자체)",
       "verify": "전체 bats GREEN, consistency 0",
-      "done": false
+      "done": true
     }
   ],
   "agreed": true

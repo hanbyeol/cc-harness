@@ -1,5 +1,7 @@
 *.bak
 *.tmp
+.tmp/
+.tmp-eval/
 .DS_Store
 node_modules/
 

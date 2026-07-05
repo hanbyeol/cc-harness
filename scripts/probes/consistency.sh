@@ -45,4 +45,41 @@ if [[ -d skills ]]; then
   done
 fi
 
+# 4. README 산문 숫자 주장 vs 실측 (F40-1) — 손으로 쓴 숫자는 조용히 부패하므로 실측과 대조.
+#    각 컴포넌트의 모든 숫자 언급("N hooks", "hooks (N)")을 순회해 실측과 다른 것만 보고.
+#    표기가 다양하므로 명시 패턴만 검사하고 미매칭은 침묵(과잉 보고 방지, F40 error_scenario).
+if [[ -f README.md ]]; then
+  T_ACT=$(grep -rhcE '^@test ' tests/*.bats 2>/dev/null | paste -sd+ - 2>/dev/null | bc 2>/dev/null || echo 0)
+  # 컴포넌트별: "N <word>" 와 "<word> (N)" / "<Word> (N개" 형태 모두 순회.
+  # while이 EOF read로 1을 반환하면 set -e가 스크립트를 죽이므로 함수 끝에 return 0 필수.
+  check_readme_num() {
+    local word="$1" actual="$2" n
+    while read -r n; do
+      [[ -n "$n" && "$n" != "$actual" ]] && add "README ${word} count stale (${n} vs ${actual})" "README가 ${word} ${n}을 주장하나 실측은 ${actual} — 산문 숫자 부패, 정정 필요" "low"
+    done < <(grep -oiE "[0-9]+ ${word}|${word} \([0-9]+" README.md 2>/dev/null | grep -oE '[0-9]+')
+    return 0
+  }
+  check_readme_num agents "$A_ACT"
+  check_readme_num hooks  "$H_ACT"
+  check_readme_num skills "$S_ACT"
+  # 테스트 수: "테스트 N개," 또는 "테스트 N개)" — 뒤에 쉼표/괄호가 오는 경우만(테스트 수 주장).
+  # "테스트 5개 점수"(min-of-5 5차원) 같은 다른 맥락은 제외해 오탐 방지(F40 error_scenario).
+  while read -r n; do
+    [[ -n "$n" && "$n" != "$T_ACT" ]] && add "README test count stale (${n} vs ${T_ACT})" "README '테스트 ${n}개'가 실측 @test ${T_ACT}과 불일치 — 정정 필요" "low"
+  done < <(grep -oE '테스트 [0-9]+개[,)]' README.md 2>/dev/null | grep -oE '[0-9]+')
+fi
+
+# 5. feature_list 의존성-passes 정합 (F40-2): passes:true인데 passes:false 기능에 의존하면 모순.
+if [[ -f progress/feature_list.json ]]; then
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && add "dependency-passes inconsistency" "$line — passed 기능이 미통과 기능에 의존(모순). 의존 기능 판정 또는 의존성 정정 필요" "low"
+  done < <(jq -r '
+    (.features // []) as $all
+    | $all[] | select(.passes == true) as $f
+    | ($f.dependencies // [])[] as $dep
+    | ($all[] | select(.id == $dep) | select((.passes // false) != true))
+    | "\($f.id) (passed) → \($dep) (not passed)"
+  ' progress/feature_list.json 2>/dev/null || true)
+fi
+
 echo "$CANDS"
