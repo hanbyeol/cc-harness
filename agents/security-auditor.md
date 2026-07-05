@@ -73,3 +73,6 @@ model: claude-opus-4-8
 ## Constraints
 - 보안 이슈 발견 시 즉시 보고
 - checklist_compliance.failed > 0 이면 verification phase 통과 불가
+
+## 공통 제약
+- 서브에이전트는 사용자에게 질문(AskUserQuestion)할 수 없다 — 필요한 입력은 메인 루프가 디스패치 전에 수집해 프롬프트로 전달한다.
