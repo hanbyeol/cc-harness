@@ -38,6 +38,7 @@ is_protected() {
   esac
   case "$f" in
     */tests/*.bats) return 0 ;;
+    */contracts/sprint-*.json) return 0 ;;  # agreed 전환 보호(INV-11) — jq-존재 브랜치 9번째와 정합
   esac
   return 1
 }

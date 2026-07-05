@@ -594,6 +594,11 @@ _nojq_run() {
   [ "$status" -eq 2 ]
 }
 
+@test "F41: jq absent — Edit to contracts/sprint-*.json is blocked (9th branch, no drift)" {
+  run _nojq_run "$(mk_edit_input "$WORK/progress/contracts/sprint-99.json" 'a' 'b')"
+  [ "$status" -eq 2 ]
+}
+
 @test "F41: jq absent — Edit to an unrelated file passes (availability preserved)" {
   run _nojq_run "$(mk_write_input "$WORK/hooks/post-edit-format.sh" 'echo hi')"
   [ "$status" -eq 0 ]
