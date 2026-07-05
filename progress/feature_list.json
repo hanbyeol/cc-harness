@@ -364,6 +364,19 @@
         "F13"
       ],
       "assigned_sprint": 16
+    },
+    {
+      "id": "F31",
+      "name": "deploy-operator 공급망 게이트 배선 — supply_chain.vulnerable_deps==0",
+      "description": "HARNESS-GUIDE.md:402가 deploy-operator가 배포 전 supply_chain.vulnerable_deps==0을 확인한다고 약속하고 security-auditor.md는 이미 그 필드를 생산(supply_chain.vulnerable_deps)하는데, agents/deploy-operator.md는 checklist_compliance.failed==0만 확인하고 supply_chain은 검사하지 않는다 — 약속된 취약 의존성 배포 게이트가 배선되지 않은 drift. deploy-operator 배포 전 검증에 security-auditor-output.json → supply_chain.vulnerable_deps==0을 추가(강화, add-only)해 취약 의존성이 있으면 배포를 거부하도록 한다. output 스키마 pre_checks에 supply_chain 기록 필드 추가. security-auditor는 무변경(생산 유지), deploy-operator가 소비만 배선. 새 테스트로 guide 약속과 agent 동작 일치를 고정.",
+      "security_tier": "standard",
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
+      "dependencies": [
+        "F20"
+      ],
+      "assigned_sprint": 17
     }
   ]
 }
