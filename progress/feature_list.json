@@ -425,9 +425,9 @@
       "name": "passes-transition guard — evaluator 판정의 기계 검증 (INV-11)",
       "description": "베스트 프랙티스 비교 분석 P0-1: INV-1(evaluator만 passes 변경)·INV-2(min-of-5)·INV-4(critical 자동 fail)가 프롬프트 관례로만 집행되던 갭을 기계화. invariant-guard.sh에 progress/feature_list.json 브랜치 add-only 추가 — Edit/Write/MultiEdit 재구성 콘텐츠에서 passes:false→true 전환을 감지하면 progress/agent-comms/의 최신(비archive) evaluator-feedback에서 해당 feature id의 판정을 jq로 재검증: 레코드 존재·verdict pass·5차원 scores 존재·min(5)≥pass_threshold(config 부재 시 7)·critical 티어면 security≥critical threshold. 불충족 시 exit 2(사람 승인 요구). contracts/sprint-*.json의 agreed:false→true 전환도 구조 검증(acceptance_criteria·implementation_steps 비어있지 않음). INVARIANTS.md에 INV-11 신설. '결정론적 도구 > 프롬프트' 원칙을 코어 루프에 적용.",
       "security_tier": "critical",
-      "status": "review",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [
         "F12",
         "F25"

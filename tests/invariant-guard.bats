@@ -481,6 +481,15 @@ JSON
   [ "$status" -eq 0 ]
 }
 
+@test "INV-11: feedback under agent-comms/archive/ does not authorize flip" {
+  flist false > "$WORK/progress/feature_list.json"
+  mkdir -p "$WORK/progress/agent-comms/archive"
+  jq -n '{features_evaluated:["FT1"], scores:{functionality:8,code_quality:8,security:8,error_handling:8,test_coverage:8}, verdict:"pass"}' \
+    > "$WORK/progress/agent-comms/archive/evaluator-feedback-2026-07-05T00-00-00.json"
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 2 ]
+}
+
 @test "INV-11: denies agreed false->true with empty acceptance_criteria" {
   mkdir -p "$WORK/progress/contracts"
   jq -n '{sprint:99, acceptance_criteria:[], implementation_steps:[], agreed:false}' \
