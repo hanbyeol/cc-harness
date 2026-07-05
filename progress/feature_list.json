@@ -493,11 +493,11 @@
     {
       "id": "F40",
       "name": "consistency probe 확장 — 산문 숫자 실측 대조·의존성-passes 정합 + 스테일 정리",
-      "description": "P2-6: consistency probe가 특정 신호만 샘플링해 README '테스트 273개'(실측 400)·'hooks 7/8' 불일치, F27(passes:false)에 의존하는 F28/32/33 통과 모순을 놓치던 갭 해소. consistency.sh에 (a) README 숫자 주장(스킬·훅·에이전트·프로브·테스트 수) 실측 대조, (b) 의존성-passes 정합(passes:false 기능에 의존하는 passed 기능 탐지), (c) 로컬 설정의 부재 경로 참조 탐지 추가. README 현행 숫자 정정, .tmp/·.tmp-eval/ 스테일 사본 정리+.gitignore 보강. F27 판정은 독립 evaluator에 회부해 종결(메인 루프는 passes 불변 — INV-1 준수).",
+      "description": "P2-6: consistency probe가 특정 신호만 샘플링해 README '테스트 273개'(실측 475)·'hooks 7/9' 불일치, F27(passes:false)에 의존하는 F28/32/33 통과 모순을 놓치던 갭 해소. consistency.sh에 (a) README 숫자 주장(스킬·훅·에이전트·테스트 수) 실측 대조, (b) 의존성 정합 — passes 모순(passes:false 기능에 의존하는 passed)·순환 의존(자기참조·상호참조)·미존재 id 참조 탐지 추가. README 현행 숫자 정정, .tmp/·.tmp-eval/ 스테일 사본 정리+.gitignore 보강. F27 판정은 독립 evaluator에 회부해 종결(메인 루프는 passes 불변 — INV-1 준수). [정정 2026-07-06: 최초 (c) '로컬 설정 부재 경로 탐지'는 미구현 descope — sprint-26 F40-2가 요구한 순환 의존·미존재 id 탐지로 대체(evaluator iter1 반려 반영). settings.local.json은 사용자 로컬 파일이라 probe 대상 제외.]",
       "security_tier": "low",
       "status": "review",
       "passes": false,
-      "iteration": 0,
+      "iteration": 1,
       "dependencies": [
         "F13"
       ],

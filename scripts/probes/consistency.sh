@@ -69,8 +69,9 @@ if [[ -f README.md ]]; then
   done < <(grep -oE '테스트 [0-9]+개[,)]' README.md 2>/dev/null | grep -oE '[0-9]+')
 fi
 
-# 5. feature_list 의존성-passes 정합 (F40-2): passes:true인데 passes:false 기능에 의존하면 모순.
+# 5. feature_list 의존성 정합 (F40-2): passes 모순 + 순환 의존 + 미존재 id 참조.
 if [[ -f progress/feature_list.json ]]; then
+  # (a) passes 모순: passes:true인데 passes:false 기능에 의존
   while IFS= read -r line; do
     [[ -n "$line" ]] && add "dependency-passes inconsistency" "$line — passed 기능이 미통과 기능에 의존(모순). 의존 기능 판정 또는 의존성 정정 필요" "low"
   done < <(jq -r '
@@ -79,6 +80,26 @@ if [[ -f progress/feature_list.json ]]; then
     | ($f.dependencies // [])[] as $dep
     | ($all[] | select(.id == $dep) | select((.passes // false) != true))
     | "\($f.id) (passed) → \($dep) (not passed)"
+  ' progress/feature_list.json 2>/dev/null || true)
+  # (b) 순환 의존: 자기참조(A→A) 또는 직접 상호참조(A→B & B→A)
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && add "dependency cycle" "$line — 순환 의존은 구현 순서를 정할 수 없음. 의존성 그래프 정정 필요" "low"
+  done < <(jq -r '
+    (.features // []) as $all
+    | ($all | map({key: .id, value: (.dependencies // [])}) | from_entries) as $deps
+    | $all[] | .id as $a | (.dependencies // [])[] as $b
+    | select(($b == $a) or ((($deps[$b] // []) | index($a)) != null))
+    | if $b == $a then "\($a) → 자기 자신(self-cycle)" else "\($a) ↔ \($b) (상호 순환)" end
+  ' progress/feature_list.json 2>/dev/null | sort -u || true)
+  # (c) 미존재 id 참조: 의존 대상이 feature 목록에 없음(데이터 부패 신호)
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && add "dependency references unknown id" "$line — 존재하지 않는 feature id에 의존(데이터 부패). id 오타 또는 삭제된 기능 참조 확인" "low"
+  done < <(jq -r '
+    (.features // []) as $all
+    | ($all | map(.id)) as $ids
+    | $all[] | .id as $fid | (.dependencies // [])[] as $dep
+    | select(($ids | index($dep)) == null)
+    | "\($fid) → \($dep) (미존재 id)"
   ' progress/feature_list.json 2>/dev/null || true)
 fi
 

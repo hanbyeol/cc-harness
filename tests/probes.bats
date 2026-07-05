@@ -104,6 +104,49 @@ JSON
   [ "$(echo "$output" | jq '[.[]|select(.name|test("dependency-passes"))]|length')" -eq 0 ]
 }
 
+@test "consistency: cyclic dependency (A<->B) yields a candidate (F40-2)" {
+  seed_consistent
+  cat > "$WORK/progress/feature_list.json" <<'JSON'
+{"features":[
+{"id":"A","passes":true,"dependencies":["B"]},
+{"id":"B","passes":true,"dependencies":["A"]}
+]}
+JSON
+  run bash -c "cd '$WORK' && bash '$PROBES/consistency.sh'"
+  echo "$output" | jq -e '.[] | select(.name | test("cycle"))'
+}
+
+@test "consistency: self-cycle (A->A) yields a candidate (F40-2)" {
+  seed_consistent
+  cat > "$WORK/progress/feature_list.json" <<'JSON'
+{"features":[{"id":"A","passes":true,"dependencies":["A"]}]}
+JSON
+  run bash -c "cd '$WORK' && bash '$PROBES/consistency.sh'"
+  echo "$output" | jq -e '.[] | select(.name | test("cycle"))'
+}
+
+@test "consistency: dependency on unknown id yields a candidate (F40 error_scenario)" {
+  seed_consistent
+  cat > "$WORK/progress/feature_list.json" <<'JSON'
+{"features":[{"id":"A","passes":true,"dependencies":["GHOST"]}]}
+JSON
+  run bash -c "cd '$WORK' && bash '$PROBES/consistency.sh'"
+  echo "$output" | jq -e '.[] | select(.name | test("unknown id"))'
+}
+
+@test "consistency: acyclic all-known deps yield no cycle/unknown candidate (F40 no false-positive)" {
+  seed_consistent
+  cat > "$WORK/progress/feature_list.json" <<'JSON'
+{"features":[
+{"id":"A","passes":true,"dependencies":["B"]},
+{"id":"B","passes":true,"dependencies":["C"]},
+{"id":"C","passes":true,"dependencies":[]}
+]}
+JSON
+  run bash -c "cd '$WORK' && bash '$PROBES/consistency.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("cycle|unknown id"))]|length')" -eq 0 ]
+}
+
 # --- metrics probe ---
 
 @test "metrics: first run records baseline, no candidates" {
