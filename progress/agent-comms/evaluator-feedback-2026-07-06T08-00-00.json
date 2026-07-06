@@ -1,0 +1,85 @@
+{
+  "timestamp": "2026-07-06T08:00:00Z",
+  "sprint": 26,
+  "iteration": 2,
+  "features_evaluated": [
+    "F40"
+  ],
+  "security_tier": "low",
+  "commit_evaluated": "47fe635 (fix(F40): implement cycle + unknown-id dependency checks, iter2)",
+  "prior_iteration": "iter1 (07-00-00) FAIL score 6 — F40-2 순환 의존 탐지 미구현 + error_scenario 2 미존재-id 미보고, backpropagation 없이 조용히 축소",
+  "scores": {
+    "functionality": 8,
+    "code_quality": 7,
+    "security": 8,
+    "error_handling": 8,
+    "test_coverage": 8
+  },
+  "score": 7,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_threshold_low": 3,
+  "verdict": "pass",
+  "pass_reasons": [
+    "functionality 6→8 — F40-2 '순환 의존 탐지' 구현(consistency.sh §5b: 자기참조 A→A + 직접 상호참조 A↔B). 독립 재현으로 후보 방출 확인",
+    "error_handling 6→8 — error_scenario 2 '미존재 id 참조 별도 후보 보고' 구현(§5c). A→GHOST → 'dependency references unknown id' 후보 독립 재현 확인",
+    "test_coverage 6→8 — probes.bats +4(A↔B cycle, A→A self-cycle, unknown-id, acyclic no-false-positive) 전부 GREEN",
+    "종합 min-of-5 = 7 >= pass_threshold 7",
+    "security 8 >= low threshold 3 (읽기 전용 프로브, passes 미변경, 시크릿/인젝션 표면 없음)"
+  ],
+  "evidence": {
+    "full_bats": "bats tests/ → background exit 0; 마지막 테스트 'ok 479', 'not ok' 0건 → 479 ok / 0 fail (bats는 전체 통과 시에만 exit 0)",
+    "consistency_filtered": "bats tests/probes.bats --filter consistency → 1..12 전부 ok. 신규 #9 A↔B cycle, #10 A→A self-cycle, #11 unknown-id, #12 acyclic no-false-positive 모두 GREEN",
+    "shellcheck": "shellcheck -S warning scripts/probes/consistency.sh → exit 0 (clean)",
+    "repo_consistency": "bash scripts/probes/consistency.sh → [] , exit 0 (순환·미존재·passes 모순·README 숫자 전부 정합; README '테스트 479개' == 실측 @test 479)",
+    "INDEPENDENT_REPRO": "seed_consistent 구조를 미러링한 임시 워크스페이스에서 feature_list.json만 교체해 §5 직접 재현 — bats 신뢰 아닌 독립 실행: (1) A↔B(둘 다 passed) → 'dependency cycle' 후보; (2) A→A → 'dependency cycle' 후보; (3) A→GHOST → 'dependency references unknown id' 후보; (4) A→B→C(acyclic·all-known) → [] (무오탐); (5) A(passed)→B(not passed) → 'dependency-passes inconsistency' (iter1 통과분 무회귀)",
+    "iter1_gaps_closed": "iter1 CYCLE_ABSENT / MISSING_ID_IGNORED 두 갭이 §5b·§5c로 해소됨을 git show 47fe635 -- scripts/probes/consistency.sh로 확인 + 실행 재현",
+    "description_drift_fixed": "feature_list F40 description: 최초 미구현이던 '(c) 로컬 설정 부재 경로 탐지' 주장을 [정정 2026-07-06] 주석으로 descope 명시하고 sprint-26 F40-2가 실제 요구한 순환 의존·미존재 id 탐지로 대체 — iter1 criteria_issues(description drift) 해소",
+    "readme_number": "README 테스트 수 475→479 정정, 실측 @test 카운트 479와 일치(프로브가 자기 드리프트 검출)",
+    "sc2_cleanup": "ls -d .tmp .tmp-eval → none present; git 이력·추적 훅 무손상",
+    "no_regression": "iter1 통과 항목(F40-1 README 숫자 대조·오탐 방지, passes 모순, .tmp 정리, F27 종결) 전부 유지 — filtered bats #1-8 GREEN"
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "F40-1: README 산문 숫자(agents/hooks/skills/'테스트 N개') 실측 대조 + 오탐 방지 — 유지",
+      "F40-2: passes 모순 + 순환 의존(자기참조·상호참조) 탐지 — iter2에서 순환 탐지 구현·독립 재현",
+      "F40-3: README 현행 숫자 정정(테스트 479, hooks) — 실측 일치",
+      "F40-4: .tmp/·.tmp-eval/ 제거 + .gitignore 보강 — 확인",
+      "F40-5: F27 독립 evaluator 판정 종결(passes:true) — 확인",
+      "전역: 전체 bats GREEN(479/0), shellcheck 0, 이 repo consistency 0 — 확인"
+    ],
+    "security": [
+      "SC1: 프로브 읽기 전용·후보 보고만, passes 미변경(INV-1) — §5는 jq/echo만, 쓰기 없음 확인",
+      "SC2: .tmp 제거는 untracked만, 추적 훅/이력 무손상 — 확인",
+      "SC3: settings.local.json 미수정 — 확인(그리고 부재-경로 탐지는 descope로 명시)"
+    ],
+    "error_scenarios": [
+      "README 숫자 표기 다양·미매칭은 침묵(과잉 보고 방지) — filtered #6 min-of-5 오탐 방지 GREEN",
+      "의존성 그래프에 미존재 id 참조 → 별도 후보로 보고 — iter2 구현·독립 재현 확인"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "순환 탐지가 자기참조(A→A)·직접 상호참조(A↔B)만 커버 — 3노드 이상 전이 순환(A→B→C→A)은 미탐지. sprint-26 F40-2는 '순환 의존 탐지'를 깊이 명시 없이 요구했고 contract test_scenarios/예시도 self+mutual 범위. low-tier 데이터 부패 프로브의 현실적 케이스(수기 feature_list의 직접 순환)에는 충분하나, 전이 순환까지 요구하면 방문 기반 DFS로 확장 필요 — 범위 명확화 권고(판정 영향 없음)"
+    ],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "criteria_issues": [],
+    "resolved_from_iter1": [
+      "description drift(‘(c) 로컬 설정 부재 경로 탐지’ 허위 주장) — descope 주석으로 정정 완료",
+      "Criteria Backpropagation 위반(순환·미존재-id 조용한 축소) — 두 요건 구현으로 해소, 축소분은 description에 명시 정정"
+    ],
+    "action_required": "필수 조치 없음. 선택: (1) 전이 순환(길이≥3) 탐지가 필요하면 후속 스프린트에서 DFS 확장, (2) A↔B 상호 순환이 양방향 2건으로 중복 보고되는 코스메틱 이슈(쌍 정규화로 1건化 가능) 정리"
+  },
+  "minor_issues": [
+    "[code_quality] A↔B 상호 순환이 'dependency cycle' 후보 2건(A↔B, B↔A)으로 중복 방출 — sort -u가 문자열 상이로 dedupe 못함. 동일 순환의 이중 표시, 조치 가능하나 후보는 여전히 정확·실행가능(코스메틱)",
+    "[doc] feature_list F40 description 서사에 '실측 475' 잔존 — 현행 README/실측은 479. 프로브 감시 대상(README 산문)이 아닌 description 내부 서사라 프로브 미검출. 사소",
+    "[design/preexisting] consistency.sh는 repo 루트 밖 빈 워크스페이스에서 §1 'find agents'(부재 dir, exit 1)+set -e+pipefail로 exit 1 — F13 기존 동작이며 F40 §5 밖. 프로브는 repo 루트 실행 전제라 실사용 무영향(참고)"
+  ],
+  "notes": "security_tier low·pass_threshold 7·min-of-5. iter1이 반려한 3개 미충족(functionality/error_handling/test_coverage=6)이 순환 의존 탐지·미존재-id 보고·해당 테스트 구현으로 회복(각 8). 모든 pass 판정은 이 세션 직접 실행 근거(전체 bats 479/0, consistency 12/12, shellcheck 0, 그리고 bats를 신뢰하지 않은 독립 워크스페이스 재현)에 고정. implementer-output.json은 이번 스프린트 산출이 아닌 스테일(sprint-3 F13/F14) — self-check를 근거로 쓰지 않고 커밋 47fe635를 직접 검증함. 구현 수정 없음(evaluator 제약). passes:false→true 전환 및 iteration 2 기록은 INV-11 순서(피드백 기록 후 flip) 준수."
+}
