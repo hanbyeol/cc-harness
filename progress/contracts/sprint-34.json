@@ -1,0 +1,65 @@
+{
+  "sprint": 34,
+  "title": "사전 티어 게이트 + /improve --auto 배치화 + 자기보호 대칭 확장 (F48)",
+  "features": [
+    "F48"
+  ],
+  "security_tier": "critical",
+  "brainstorm": "docs/brainstorms/2026-07-06-sdlc-ceremony-diet.md",
+  "source": "하네스가 정밀해지는 대가로 느려지고 토큰 소모가 커졌다는 사용자 진단(47기능→182커밋, 평균 3.9커밋/기능; /hotfix 경량 경로가 있음에도 /change-request·/improve가 크기 무관 항상 풀 사이클을 탐). /brainstorm으로 정제한 3부 변경: (1) 자동 티어 라우팅 (2) --auto N 배치 커밋/버전 통합 (3) (1)이 새로 만드는 자기약화 사각지대를 evaluator.md(F45) 선례와 동일하게 봉합하는 자기보호 대칭 확장.",
+  "acceptance_criteria": [
+    "F48-1: skills/change-request/SKILL.md Step 1(변경 영향 분석) 끝에 티어 분류 스텝 추가 — 분석 결과가 skills/hotfix/SKILL.md의 기존 '적용 조건'(≤3파일 · 버그수정/사소한 개선 · security_tier:critical의 보안 관련 변경 아님)을 모두 충족하면 Step 2~9를 생략하고 /hotfix로 전환. 조건 문구는 hotfix SKILL.md를 참조만 하고 중복 인용하지 않는다(단일 출처, drift 방지). 미충족(신규 기능·아키텍처 변경·critical 보안 로직)이면 기존 Step 2부터 정상 진행 — 변경 없음",
+    "F48-2: skills/improve/SKILL.md §4(처리) 도입부에 동일 분류를 /change-request 호출 전 적용한다고 명시 — 조건 충족 후보는 evaluator(4단계)가 생략되고 hotfix 자체 안전장치가 적용됨을 문서화. security_tier:critical 후보는 이 분류와 무관하게 항상 §4의 1~6 전체(evaluator+security-auditor 포함)를 거친다 — 예외 없음을 명문화",
+    "F48-3: skills/improve/SKILL.md §6(--auto N)에 배치 커밋 로직 추가 — 배치 내 각 회전은 §4의 독립 evaluator 게이트(min-of-5, 무약화)를 그대로 통과해야 하되, 회전마다 만들던 별도 'chore: record evaluator pass' 커밋 + 버전 bump 대신 (a) feat 커밋에 판정 요약 트레일러(예: `Evaluator: pass (min-of-5=N)`)만 남기고 (b) 개별 evaluator-feedback 레코드 파일(progress/agent-comms/)은 기존과 동일하게 회전마다 생성(감사 추적·INV-11 근거 무손실) (c) 버전 bump + 통합 판정 요약 커밋은 배치가 끝나는 시점에 정확히 1회만 수행. '배치가 끝나는 시점'은 N회전 정상 완료·4종 중단 조건 조기 종료 **모두 동일 규칙**(특례 없음)임을 명시. 요약 커밋 메시지 형식 예시 문서화: `chore: record F{first}-F{last} evaluator pass batch (min-of-5: s1,s2,...) — /improve --auto batch of {n}` (조기 종료 시 `— stopped: {reason}` 접미)",
+    "F48-4: hooks/invariant-guard.sh의 is_protected() 두 번째 case 블록(전체 경로 매칭, 기존 `*/tests/*.bats`·`*/contracts/sprint-*.json`과 동일 스타일)에 `*/skills/change-request/SKILL.md`·`*/skills/improve/SKILL.md`·`*/skills/hotfix/SKILL.md` 3개 경로 패턴 추가 — **반드시 전체 경로 패턴이어야 하며 basename(SKILL.md)만으로 매칭하지 않는다**(다른 스킬의 SKILL.md까지 과잉보호되는 회귀 방지). is_protected(\"skills/brainstorm/SKILL.md\") 등 무관 스킬 파일은 여전히 false",
+    "F48-5: docs/INVARIANTS.md INV-12 '검증 장치 파일:' bullet에 동일 3개 경로를 백틱 토큰으로 추가 + 문서 하단 change-log에 F48 날짜 항목 추가(추가 사유: change-request/improve의 조건 문구가 이번 변경으로 처음 evaluator 생략 여부를 결정하게 되어 새로 생긴 자기약화 사각지대 — evaluator.md(F45)와 동일한 fail-closed 전용 보호, 내용 diff 기반 능동 약화 탐지는 없음)",
+    "F48-6: tests/invariant-guard.bats에 F45 패턴과 동일한 jq-부재 fail-closed 테스트를 3개 파일 각각(또는 대표 케이스+나머지 묶음)에 대해 add-only로 추가. 기존 F45/F46 대칭(a)/(b) 제네릭 테스트는 코드 변경 없이 INVARIANTS.md·is_protected() 갱신만으로 3개 파일을 자동 포함해 재검증됨(신규 대칭 테스트 불요) — 실제로 통과하는지 실행 확인",
+    "F48-7: tests/invariant-guard.bats에 무관 스킬(예: skills/brainstorm/SKILL.md)은 is_protected()가 여전히 false를 반환하는 회귀 방지 assertion 1개 추가",
+    "전역: 기존 bats 전체 회귀 없음, shellcheck 0, consistency probe 0, 버전 통일"
+  ],
+  "security_criteria": [
+    "SC1: security_tier:critical 기능은 티어 분류 결과와 무관하게 항상 evaluator+security-auditor 풀 사이클 — 어떤 조건 조합도 이를 우회할 수 없는 하드 예외로 skills/change-request·improve 양쪽에 명문화",
+    "SC2: --auto N 배치화는 evaluator 게이트 자체(min-of-5 산식, pass_threshold, security_thresholds)를 전혀 손대지 않는다 — 오직 '기록 방식'(커밋 개수·버전 bump 시점)만 배치화. 배치가 어느 시점에 중단되어도 이미 통과한 회전들의 evaluator-feedback 레코드 파일은 손실되지 않아야 한다(INV-11 근거 보존)",
+    "SC3: is_protected() 확장은 전체 경로 패턴(`*/skills/{name}/SKILL.md`) 매칭이어야 하며, basename만 매칭해 무관한 스킬 파일까지 보호 목록에 편입되는 과잉보호 회귀, 또는 반대로 패턴 오류로 대상 3개 파일이 보호되지 않는 과소보호 회귀 둘 다 테스트로 방지",
+    "SC4 (알려진 한계, fail 아님): tests/invariant-guard.bats의 대칭(b) 파서는 정규식이 경로 구분자(`/`)를 인식하지 못해 3개 파일이 모두 'SKILL.md' 토큰 하나로 축약 매칭된다 — (b) 방향은 'SKILL.md라는 이름의 무언가가 INV-12에 문서화됐는지'만 약하게 검증하며, 3개 전부가 개별적으로 문서화됐는지는 보장하지 않는다. 보안적으로 중요한 방향인 (a)(문서화된 파일이 실제로 보호되는지)는 백틱 토큰 단위로 3개를 정밀 개별 검증하므로 온전하다. 이 (b) 한계는 이번 스코프에서 파서를 확장하지 않고 문서화만 한다(F45/F46 인프라 재사용 원칙 — 파서 확장은 별도 후속 후보로 backlog)",
+    "SC5: 프로브는 읽기 전용 유지, firewall 정책 우회 없음 — 기존 원칙 무변경"
+  ],
+  "error_scenarios": [
+    "hotfix 조건 오분류로 실제 범위가 3파일을 넘어서게 되면 → 기존 hotfix 안전장치(범위 확대 감지 시 /implement 자동 전환)가 그대로 처리, 신규 로직 불필요",
+    "--auto N 배치 도중 프로세스 중단(크래시·타임아웃)이 발생하면 → 이미 완료된 회전들의 evaluator-feedback 파일은 개별로 이미 기록돼 있어 데이터 손실 없이 사후 배치 요약 커밋으로 통합 가능",
+    "jq 부재 상태에서 skills/change-request/SKILL.md·skills/improve/SKILL.md·skills/hotfix/SKILL.md 편집 시도 → fail-closed 차단(F45 evaluator.md와 동일 동작)",
+    "is_protected() 패턴 오기로 다른 스킬 파일(예: skills/debug/SKILL.md)까지 매칭되면 → F48-7 회귀 테스트가 실패로 잡아야 함"
+  ],
+  "test_scenarios": [
+    "bats: jq 부재 + skills/change-request/SKILL.md(또는 improve/hotfix) Edit → 차단(F45 패턴 재사용)",
+    "bats: 기존 F45 symmetry (a) — every INV-12 device file is is_protected → 3개 신규 파일 포함 자동 재검증, 통과",
+    "bats: 기존 F45 symmetry (b) — every is_protected arm is documented in INV-12 → 통과(SC4 한계 인지 하에)",
+    "bats: F48-7 신규 — is_protected(\"skills/brainstorm/SKILL.md\") 등 무관 스킬은 false",
+    "bats: 기존 F46 파서 음성(meta) 테스트 무회귀",
+    "전체 bats 회귀 없음, shellcheck 0, consistency probe 0",
+    "프로세스 리뷰(비-bats, prose): evaluator가 change-request/improve 스킬 문서를 직접 읽고 3개 예시 시나리오 — (1) 1파일 정규식 버그 수정 → hotfix 전환 (2) 신규 기능 추가(1파일이어도) → 풀 경로 유지 (3) security_tier:critical 보안 로직 수정 → 풀 경로+security-auditor 유지 — 에서 문서화된 라우팅 판단이 그대로 재현되는지 확인"
+  ],
+  "implementation_steps": [
+    {
+      "step": "hooks/invariant-guard.sh is_protected() 확장(전체경로 3패턴) + docs/INVARIANTS.md INV-12 bullet·change-log 갱신 — 안전장치를 먼저 박는다(F12 선례 순서)",
+      "verify": "tests/invariant-guard.bats RED(신규 fail-closed·회귀 assertion) 작성 후 위 변경으로 GREEN, 기존 symmetry(a)/(b) 자동 재검증 통과",
+      "done": false
+    },
+    {
+      "step": "skills/change-request/SKILL.md Step1에 티어 분류 스텝 추가",
+      "verify": "consistency probe 0, shellcheck 0",
+      "done": false
+    },
+    {
+      "step": "skills/improve/SKILL.md §4 동일 분류 적용 명시 + §6 배치 커밋 로직 추가(요약 커밋 포맷 포함)",
+      "verify": "consistency probe 0, 버전 통일",
+      "done": false
+    },
+    {
+      "step": "전체 bats/shellcheck/consistency 회귀 확인 → 독립 evaluator + security-auditor(critical)",
+      "verify": "bats 전체 GREEN, shellcheck 0, evaluator min-of-5≥7·security≥7",
+      "done": false
+    }
+  ],
+  "agreed": false
+}

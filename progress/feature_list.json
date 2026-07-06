@@ -597,6 +597,20 @@
         "F43"
       ],
       "assigned_sprint": 33
+    },
+    {
+      "id": "F48",
+      "name": "사전 티어 게이트 + /improve --auto 배치화 + 자기보호 대칭 확장",
+      "description": "SDLC 의례(ceremony) 다이어트(docs/brainstorms/2026-07-06-sdlc-ceremony-diet.md): 크기 무관 균일한 풀 사이클과 기능당 절차 오버헤드(47기능→182커밋)를 겨냥한 3부 변경. (1) /change-request Step 1과 /improve §4에 /hotfix의 기존 적용 조건(≤3파일·버그수정/사소한 개선·non-critical)을 재사용하는 자동 티어 분류 삽입 — 충족 시 /hotfix로 자동 전환(evaluator 생략, hotfix 안전장치 그대로), 미충족 시 기존 풀 경로 유지. security_tier:critical은 분류 결과와 무관하게 항상 풀 사이클(evaluator+security-auditor) — 예외 없음. (2) /improve --auto N 배치 모드에 한정해 회전마다 만들던 별도 evaluator-pass 기록 커밋+버전 bump를 배치(N회전 또는 중단조건 도달) 종료 시 1회 요약 커밋으로 통합 — 배치 내 각 회전의 독립 evaluator 게이트(min-of-5, 무약화)는 그대로. 수동 /improve·일반 워크플로우는 변경 없음. (3) 자기보호 대칭 확장: (1)이 처음으로 skills/change-request/SKILL.md·skills/improve/SKILL.md·skills/hotfix/SKILL.md의 조건 문구가 evaluator 생략 여부를 결정하게 만들어, 이 파일들의 완화 편집이 invariant-guard 사각지대가 되는 것을 방지 — evaluator.md(F45)와 동일한 fail-closed 방식으로 is_protected()·INV-12·INVARIANTS.md에 3개 파일 추가.",
+      "security_tier": "critical",
+      "status": "in_progress",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F39",
+        "F45"
+      ],
+      "assigned_sprint": 34
     }
   ]
 }
