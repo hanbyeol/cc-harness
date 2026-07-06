@@ -43,7 +43,7 @@ run-all은 이미 feature_list/backlog에 있는 항목을 **중복 제거**하�
 ### 3. 불변식 가드 체크 (자동 진행 금지 경계)
 선택된 후보가 다음 파일을 건드리면 **자동 진행하지 않고 명시적 사람 승인을 요구**한다:
 - `progress/harness-config.json`(임계값), `hooks/pre-bash-firewall.sh`(deny 목록),
-  `agents/evaluator.md`, `docs/INVARIANTS.md`, `hooks/invariant-guard.sh`
+  `agents/evaluator.md`, `docs/INVARIANTS.md`, `hooks/invariant-guard.sh`, `tests/*.bats`(테스트 약화 방지)
 - 이들은 검증 장치다 — 약화 방향 변경은 INVARIANTS.md 위반이며 F12 가드가 편집 시점에도 차단한다
 - 강화(임계값 상향·deny 추가·테스트 추가)는 정상 진행 가능하나, 변경 의도를 사용자에게 명확히 고지
 
@@ -71,7 +71,9 @@ run-all은 이미 feature_list/backlog에 있는 항목을 **중복 제거**하�
 - **후보 자동 선정**: security_tier·심각도 순. 단 **무인 실행 제외 대상**은 자동 진행하지 않고
   `progress/approval-queue.json`에 사람 승인 큐로 적립한다(§3의 불변식 가드 대상 + critical 티어):
   `harness-config.json`·`hooks/*firewall*.sh`·`invariant-guard.sh`·`INVARIANTS.md`·`hooks.json`·
-  `agents/evaluator.md`·`feature_list.json` 및 security_tier=critical 후보. **이것들은 무인으로 절대 처리하지 않는다.**
+  `agents/evaluator.md`·`feature_list.json`·`tests/*.bats` 및 security_tier=critical 후보. **이것들은 무인으로
+  절대 처리하지 않는다.** (목록은 invariant-guard의 `is_protected()`와 정합 — `tests/*.bats`는 count 검사로
+  못 잡는 `skip` 주입 약화를 막기 위해 포함. INV-12 참조.)
 - **각 회전**: §4의 기존 게이트 체인(change-request→구현→독립 evaluator→finish-branch)을 그대로 실행.
 - **중단 조건 4종**(하나라도 충족 시 루프 종료 + 세션 핸드오프에 사유·진행 기록):
   ① evaluator fail 2회 연속 · ② invariant-guard 차단 발생(자기약화 시도 신호) · ③ 신규 후보 0 · ④ N 회전 도달.

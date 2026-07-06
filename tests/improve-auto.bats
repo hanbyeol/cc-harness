@@ -44,6 +44,13 @@ QUEUE="$PLUGIN_ROOT/progress/approval-queue.json"
   grep -q 'invariant-guard.sh' "$INV"
 }
 
+@test "F39: INV-12 and SKILL exclude tests/*.bats from unattended runs (security-auditor gap)" {
+  # is_protected(F41)가 보호하는 tests/*.bats가 무인 제외 목록에도 있어야 대칭 —
+  # count 검사로 못 잡는 @test 본문 skip 주입 약화를 무인 루프가 하지 못하게.
+  grep -q 'tests/\*.bats' "$INV"
+  grep -q 'tests/\*.bats' "$SKILL"
+}
+
 @test "F39: approval-queue.json is valid JSON with a queued array" {
   command -v jq >/dev/null || skip "jq not installed"
   jq -e '.queued | type == "array"' "$QUEUE"

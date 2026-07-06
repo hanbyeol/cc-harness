@@ -136,8 +136,15 @@ feature_list.json을 직접 쓰는 우회는 firewall ASK(basename 앵커 — `p
 저위험 후보만 무인 처리한다. 다음 대상 후보는 **무인으로 절대 처리하지 않고** 반드시 사람 승인을
 거친다(`progress/approval-queue.json`에 적립):
 - 검증 장치 파일: `harness-config.json`·`hooks/pre-bash-firewall.sh`·`hooks/pre-tool-firewall.sh`·
-  `hooks/invariant-guard.sh`·`docs/INVARIANTS.md`·`hooks/hooks.json`·`agents/evaluator.md`·`feature_list.json`
+  `hooks/invariant-guard.sh`·`docs/INVARIANTS.md`·`hooks/hooks.json`·`agents/evaluator.md`·`feature_list.json`·
+  `tests/*.bats`
 - `security_tier: critical`인 모든 후보
+
+이 목록은 `invariant-guard.sh`의 `is_protected()`(F41) 집합과 정합해야 한다 — 어느 한쪽에만 있는 파일은
+무인 루프가 게이트를 약화시킬 비대칭 경로가 된다. 특히 `tests/*.bats`는 test_coverage 채점 근거이자
+INV-6(add-only) 대상인데, count 기반 검사만으로는 `@test` 본문에 `skip`을 주입하는 약화를 못 잡으므로
+무인 처리에서 반드시 제외한다. (`contracts/sprint-*.json`은 예외 — 루프가 매 회전 계약을 작성·합의해야 하고
+INV-11이 빈 계약 합의를 막으므로 무인 대상이다.)
 
 **왜 불변**: 무인 루프의 근본 위험은 자동화가 검증 장치 자체를 약화시키는 것이다(F12/INVARIANTS 위협 모델의
 핵심). 자율성은 게이트·임계값·denylist를 **건드리지 않는** 개선에만 부여되고, 그 경계를 넘는 변경은 언제나

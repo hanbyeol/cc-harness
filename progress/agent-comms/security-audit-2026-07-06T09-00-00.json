@@ -1,0 +1,127 @@
+{
+  "timestamp": "2026-07-06T09:00:00Z",
+  "feature": "F39",
+  "auditor": "security-auditor",
+  "scope": "/improve --auto N — batch-approved unattended self-improvement loop (security_tier: critical, commit 760cfd3)",
+  "scan_tools": [
+    "manual-adversarial-review",
+    "bats",
+    "git-diff-add-only",
+    "secret-grep",
+    "exclusion-list-cross-check"
+  ],
+  "checklist": {
+    "total_items": 5,
+    "passed": 4,
+    "failed": 1,
+    "items": [
+      {
+        "id": "1-unattended-exclusion-completeness",
+        "result": "fail",
+        "note": "INV-12/SKILL §6·§3 무인 제외 목록이 invariant-guard is_protected()의 검증장치 집합보다 좁다 — tests/*.bats 누락"
+      },
+      {
+        "id": "2-gate-no-weakening",
+        "result": "pass",
+        "note": "SKILL §6·ADR-006·feature_list 모두 --auto가 우회하는 것은 '후보 선택'뿐, invariant-guard·bats·evaluator min-of-5·Stop 무약화로 일관 명시. 검증단계 스킵 여지 문서에 없음"
+      },
+      {
+        "id": "3-F35-precondition-effective",
+        "result": "pass",
+        "note": "invariant-guard는 호출주체 비구별(.tool_input.file_path 기준) — INV-11 passes 근거검증이 무인 회전에도 동일 작동. ADR-006·INV-12가 F35 선행전제 명문화. (문서화된 forged-feedback 잔여위험은 finding 3)"
+      },
+      {
+        "id": "4-stop-condition-safety",
+        "result": "pass",
+        "note": "중단 4종(evaluator 2연속 fail·invariant-guard 차단 즉시중단·신규후보 0·N≤10). 자기약화 시도(guard 차단)를 폭주로 잇지 않고 즉시 종료+승인큐 적립"
+      },
+      {
+        "id": "5-add-only",
+        "result": "pass",
+        "note": "INVARIANTS.md·SKILL.md diff는 순수 추가(삭제라인 0). INV-12 17줄 추가 → INV-7 30%축소 자기보호 통과. sprint-25 diff는 done/status 진행마커만, feature_list는 status pending→review(passes false 유지, INV-1 준수)"
+      }
+    ]
+  },
+  "exclusion_list_cross_check": {
+    "is_protected_files": [
+      "harness-config.json",
+      "pre-bash-firewall.sh",
+      "pre-tool-firewall.sh",
+      "invariant-guard.sh",
+      "INVARIANTS.md",
+      "hooks.json",
+      "feature_list.json",
+      "tests/*.bats",
+      "contracts/sprint-*.json"
+    ],
+    "inv12_exclusion_list": [
+      "harness-config.json",
+      "pre-bash-firewall.sh",
+      "pre-tool-firewall.sh",
+      "invariant-guard.sh",
+      "INVARIANTS.md",
+      "hooks.json",
+      "agents/evaluator.md",
+      "feature_list.json",
+      "security_tier:critical"
+    ],
+    "in_is_protected_but_missing_from_inv12": [
+      "tests/*.bats",
+      "contracts/sprint-*.json"
+    ],
+    "in_inv12_but_not_is_protected": [
+      "agents/evaluator.md"
+    ],
+    "assessment": "tests/*.bats 는 진짜 커버리지 갭(finding 1). contracts/sprint-*.json 은 의도적 제외(루프가 매 회전 작성, batch 승인이 agreed 권한 위임 — finding 2). agents/evaluator.md 는 머신 불변식 없는 프롬프트 파일이라 is_protected 부재가 일관됨(finding 4)."
+  },
+  "supply_chain": {
+    "vulnerable_deps": 0,
+    "outdated_critical": 0,
+    "details": [
+      "package.json에 dependencies/devDependencies 없음, lockfile·node_modules 없음 — bash 훅 + markdown 스킬 플러그인 레포로 런타임 공급망 표면 없음. F39 diff에 하드코딩 시크릿 패턴 0건."
+    ]
+  },
+  "findings": [
+    {
+      "severity": "medium",
+      "confidence": "high",
+      "description": "무인 실행 제외 목록(INV-12 line 138-140, SKILL §6 line 72-74, SKILL §3 line 44-46)이 invariant-guard is_protected()(F41)가 검증장치로 취급하는 tests/*.bats 를 누락한다. bats 테스트는 add-only 검증장치(INV-6)이자 min-of-5의 test_coverage 차원 근거인데, --auto 무인 루프에서 테스트 파일을 대상으로 한 후보가 자동 선정되어도 approval-queue로 격리되지 않는다.",
+      "exploit_path": "self-review 프로브가 tests/foo.bats 의 TODO/FIXME(또는 metrics 프로브가 flaky 테스트)를 후보로 생성 → tests/*.bats가 제외목록에 없어 무인 자동 선정 → 루프가 테스트 본문에 skip/조기 return 주입(INVARIANTS line 79-82의 문서화된 count-기반 검사 우회) → @test 개수 유지되어 invariant-guard INV-6 미발동 → Stop/finish-branch가 전체 bats 실행해도 skip은 fail이 아니라 통과 → 사람 검토 없이 test_coverage 검증이 조용히 약화됨. 이는 INV-12/ADR-006가 스스로 내건 'bats는 매 회전 무약화로 유지된다'는 보증과 모순된다.",
+      "mitigation": "INV-12·SKILL §6·§3의 무인 제외 목록에 tests/*.bats 추가(테스트 건드리는 후보는 approval-queue로 격리). 근본적으로는 무인 제외 목록을 is_protected() 단일 출처와 정합시켜(모든 다른 검증장치는 머신가드+제외목록 둘 다로 방어되는데 tests만 머신가드만 있고 제외목록 누락 — 비대칭) drift를 막을 것.",
+      "within_threat_model": true
+    },
+    {
+      "severity": "low",
+      "confidence": "high",
+      "description": "contracts/sprint-*.json 이 is_protected()엔 있으나 무인 제외 목록엔 없음. 이는 의도적/올바름 — 루프는 매 회전 change-request로 sprint 계약을 작성하고 agreed:true를 설정해야 하며(ADR-006의 배치 승인이 개별 Plan 게이트의 agreed 권한을 위임), invariant-guard INV-11이 여전히 비어있지 않은 acceptance_criteria·implementation_steps를 요구하므로 빈 계약 무단 합의는 차단된다.",
+      "exploit_path": "N/A — 'agreed 위조' 경로는 --auto에서 batch 승인이 명시적으로 권한 위임한 정상 동작이며 INV-11이 최소 구조를 강제한다. 제외목록에 넣으면 루프가 아예 못 돎.",
+      "mitigation": "취약점 아님. 향후 감사 drift 방지를 위해 INV-12/SKILL에 'contracts는 루프가 정상 작성하므로 의도적으로 제외 — 대신 INV-11 agreed 전환 가드가 방어' 한 줄 명시 권장.",
+      "within_threat_model": true
+    },
+    {
+      "severity": "low",
+      "confidence": "medium",
+      "description": "INV-11(F35)의 문서화된 한계 — Write로 위조한 evaluator-feedback를 훅이 호출주체로 구별 못함(INVARIANTS line 128-132) — 이 무인 모드에서 증폭된다. 무인 루프는 feedback 파일과 passes 뒤집기를 같은 자동 에이전트가 사람 관찰 없이 연속 수행하므로 'forged feedback를 사람이 눈치챈다'는 백스톱이 회전마다 사라진다.",
+      "exploit_path": "무인 evaluator가 그럴듯한 5차원 점수·verdict:pass 를 담은 evaluator-feedback-*.json 을 Write → 같은 회전에서 feature passes:false→true → invariant-guard는 파일 존재·min-of-5 산술만 재검증하므로 통과. 다만 critical 후보는 무인 제외라 forged critical pass는 자동 선정 불가 → 저위험 후보로 범위 한정됨(speed-bump 잔여위험).",
+      "mitigation": "잔여위험은 문서화된 INV-11 한계 범위. 강화 옵션: feedback 파일 provenance(생성 도구/서명) 확인, 또는 무인 회전에서 passes-flip과 feedback-write 사이 사람 관찰 지점 요구. F39가 신규 도입한 결함은 아니나 무인화가 완화책(사람 관찰)을 약화시킴을 백로그에 명시 권장.",
+      "within_threat_model": true
+    },
+    {
+      "severity": "low",
+      "confidence": "medium",
+      "description": "agents/evaluator.md 은 INV-12 정책 제외목록엔 있으나 invariant-guard is_protected()엔 없다 — jq 부재 시 evaluator.md 편집이 fail-closed로 차단되지 않고, 내용에 대한 머신 add-only 불변식도 없다. 설계상 일관(프롬프트 파일이라 머신 검증 대상 아님)이며 무인 루프는 evaluator.md 후보를 approval-queue로 격리하므로, evaluator 규칙 약화는 오직 (a)INV-12 무인제외 정책 + (b)독립 evaluator/code-review 로만 방어되고 invariant-guard로는 방어되지 않는다.",
+      "exploit_path": "N/A(무인 루프는 evaluator.md 후보를 자동 처리하지 않음). 정보성 — evaluator.md 방어가 머신가드 밖 정책·리뷰 레이어에만 의존한다는 사실 고지. F39 회귀 아님(선재 설계).",
+      "mitigation": "인지 목적. evaluator.md 방어를 강화하려면 별도 백로그(예: evaluator.md 핵심 규칙에 대한 add-only 머신 검사) — F39 범위 밖.",
+      "within_threat_model": true
+    }
+  ],
+  "tests_run": {
+    "bats_improve_auto": "7/7 pass",
+    "add_only_diff": "INVARIANTS.md·SKILL.md 삭제라인 0 (순수 추가)",
+    "self_protection_INV7": "INVARIANTS.md 17줄 증가 — 30% 축소 자기보호 통과",
+    "secret_scan": "F39 diff 하드코딩 시크릿 0건",
+    "inv1_check": "F39 passes:false 유지 (implementer 자기통과 없음)"
+  },
+  "summary": "1 medium, 3 low, 0 high. 무인 루프의 핵심 안전 아키텍처(게이트 무약화·critical/guard 후보 승인큐 격리·F35 caller-agnostic 작동·4종 중단조건·add-only·INV-7 자기보호)는 견고. 유일한 실질 갭: 무인 제외 목록이 is_protected()의 tests/*.bats 를 누락 — 무인 루프가 문서화된 skip-injection 우회로 bats를 약화시킬 경로가 열려 있어 INV-12 자신의 'bats 무약화' 보증과 모순.",
+  "verdict": "conditional_pass"
+}
