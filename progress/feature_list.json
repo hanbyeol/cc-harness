@@ -569,6 +569,19 @@
         "F41"
       ],
       "assigned_sprint": 31
+    },
+    {
+      "id": "F46",
+      "name": "대칭 파서 음성 테스트 + (b) scope 정밀화 (F45 후속)",
+      "description": "F45 evaluator가 남긴 실질 잔여 해소: is_protected↔INV-12 대칭 파서(a/b)가 실제로 drift를 감지하는지 검증하는 커밋된 음성 테스트가 없어, 파서가 빈 목록을 무언 통과하는 tautology 퇴화(예: sed 범위가 깨져 빈 목록 반환)를 저장소 내 테스트로 못 잡던 갭. (1) tests/invariant-guard.bats에 음성 테스트 2개 add-only — (a) INV-12 device bullet에 가짜 파일 주입한 fixture에서 대칭(a) 파서가 미보호를 보고하는지, (b) is_protected에 가짜 arm 주입 시 대칭(b) 파서가 미기재를 보고하는지 assert. (2) 대칭(b) 파서 sed 범위를 INV-12 섹션 전체→'검증 장치 파일:' bullet로 정밀화((a)와 대칭 — arm이 위협모델 산문에 우연 등장해도 통과하는 느슨함 제거). 검증 장치의 자기검증 강화(약화 없음).",
+      "security_tier": "standard",
+      "status": "review",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F45"
+      ],
+      "assigned_sprint": 32
     }
   ]
 }

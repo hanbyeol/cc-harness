@@ -1,0 +1,48 @@
+{
+  "sprint": 32,
+  "title": "대칭 파서 음성 테스트 + (b) scope 정밀화 (F46, F45 후속)",
+  "features": [
+    "F46"
+  ],
+  "security_tier": "standard",
+  "source": "F45 evaluator 판정의 criteria_gaps.action_required가 completeness 프로브(F43)에 의해 다음 회전 후보로 잡힌 재귀 산물. 실질 잔여: 대칭 파서(a/b)가 실제로 drift를 감지하는지 검증하는 커밋된 mutation/negative 테스트 부재 — 파서 자체가 tautology로 퇴화(빈 목록 무언 통과)해도 저장소 내 테스트가 못 잡는다. F45 auditor F3도 (b) 파서의 문서구조 의존을 지적. 검증 장치가 스스로를 검증하도록 강화.",
+  "acceptance_criteria": [
+    "F46-1: tests/invariant-guard.bats에 음성 테스트 (a) add-only — INV-12 '검증 장치 파일:' bullet에 가짜 device 파일 토큰을 주입한 fixture 복제본에서 대칭(a) 파서 로직이 그 파일을 '미보호'로 보고하는지 assert(파서가 drift를 실제로 감지함을 실증)",
+    "F46-2: tests/invariant-guard.bats에 음성 테스트 (b) add-only — is_protected 목록에 가짜 미문서화 arm을 넣은 상태에서 대칭(b) 파서 로직이 '미기재'로 보고하는지 assert",
+    "F46-3: 대칭(b) 파서의 sed 범위를 INV-12 섹션 전체(`/### INV-12/,/^## /`)→'검증 장치 파일:' bullet(`/검증 장치 파일:/,/security_tier/`)로 정밀화 — (a)와 동일 범위. arm이 위협모델 산문에 우연 등장해도 통과하는 느슨함 제거. 정밀화 후에도 기존 F45 (b) GREEN(모든 실제 arm이 device bullet에 등장)",
+    "F46-4: 음성 테스트는 실제 소스를 훼손하지 않고 WORK 하위 fixture 복제본에만 가짜 토큰을 주입(read-only 원칙 — 저장소 파일 미변경)",
+    "전역: 전체 bats GREEN·무회귀(F45 3개 포함), shellcheck 0, consistency 0"
+  ],
+  "security_criteria": [
+    "SC1: 순수 add-only 검증 강화 — 음성 테스트 추가(INV-6)·(b) 범위 정밀화(더 엄격). 어떤 게이트·기존 테스트도 약화하지 않음",
+    "SC2: (b) scope 정밀화는 대칭 검증을 더 엄격하게(느슨한 통과 제거) — 약화 반대 방향",
+    "SC3: 음성 테스트가 fixture 복제본에만 작용 — 실제 INVARIANTS.md/invariant-guard.sh 미변경(테스트 격리)"
+  ],
+  "error_scenarios": [
+    "대칭 파서가 미래에 tautology 퇴화(sed 범위 깨져 빈 목록): 음성 테스트가 '가짜 토큰이 missing으로 안 잡힘'으로 실패 → 퇴화 검출",
+    "(b) 범위 정밀화로 기존 arm이 device bullet 밖이면 F45 (b) 실패: 실제로는 모든 arm이 bullet에 있어 GREEN 유지(검증 필수)",
+    "fixture 복제본 생성 실패: 테스트 setup 오류로 드러남(조용한 통과 없음)"
+  ],
+  "test_scenarios": [
+    "bats(invariant-guard.bats): 음성 (a) 가짜 device→missing 보고, 음성 (b) 가짜 arm→미기재 보고, (b) 정밀화 후 F45 3개 무회귀",
+    "무회귀: F45 대칭 a/b + fail-closed, F41, F35 전부 GREEN"
+  ],
+  "implementation_steps": [
+    {
+      "step": "대칭(b) 파서 sed 범위를 device-file bullet로 정밀화(F45 테스트 수정) — 기존 F45 (b) GREEN 유지 확인",
+      "verify": "F45 (b) GREEN, arms 전부 device bullet 등장",
+      "done": true
+    },
+    {
+      "step": "음성 테스트 (a)(b) add-only — fixture 복제본에 가짜 토큰 주입→파서가 drift 보고 assert",
+      "verify": "음성 2개 GREEN(가짜 토큰이 missing으로 잡힘), 실제 파일 미변경",
+      "done": true
+    },
+    {
+      "step": "전체 무회귀 + shellcheck + consistency → 독립 evaluator",
+      "verify": "전체 bats GREEN, consistency 0",
+      "done": true
+    }
+  ],
+  "agreed": true
+}

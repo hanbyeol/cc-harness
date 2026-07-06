@@ -655,7 +655,9 @@ _nojq_run() {
 # 가드엔 있으나 INV-12에 문서화 안 된 파일이면 실패 — 반대 방향 drift를 잡는다.
 @test "F45: symmetry (b) — every is_protected arm is documented in INV-12" {
   local inv="$PLUGIN_ROOT/docs/INVARIANTS.md"
-  local sec; sec=$(sed -n '/### INV-12/,/^## /p' "$inv")
+  # (a)와 동일하게 '검증 장치 파일:' bullet만 파싱한다(F46) — arm이 위협모델 산문 등
+  # 섹션 내 다른 문맥에 우연 등장해도 통과하던 느슨함을 제거해 대칭 검증을 엄격히 한다.
+  local sec; sec=$(sed -n '/검증 장치 파일:/,/security_tier/p' "$inv")
   local arms
   arms=$(sed -n '/^is_protected()/,/^}/p' "$HOOK" | grep -oE '[a-zA-Z0-9_*-]+\.(json|sh|md|bats)' | sort -u)
   local missing="" a
@@ -665,4 +667,41 @@ _nojq_run() {
     grep -qF "$a" <<< "$sec" || missing="$missing $a"
   done <<< "$arms"
   [[ -z "$missing" ]] || { echo "is_protected엔 있으나 INV-12 미기재:$missing"; false; }
+}
+
+# --- F46: 대칭 파서 음성(meta) 테스트 — 파서가 실제로 drift를 감지하는지 자기검증 ---
+# F45 대칭 테스트가 tautology로 퇴화(sed 범위가 깨져 빈 목록을 무언 통과)하면 놓칠
+# drift를, 가짜 토큰을 주입한 fixture로 실증한다. 실제 소스는 건드리지 않는다(read-only).
+
+@test "F46: symmetry (a) parser reports drift on an injected unprotected device file (meta)" {
+  # shellcheck disable=SC1090
+  source <(sed -n '/^is_protected()/,/^}/p' "$HOOK")
+  # INV-12 device bullet에 보호되지 않는 가짜 파일을 주입한 fixture 복제본(실제 파일 불변)
+  local invfix="$WORK/INVARIANTS-fixture.md"
+  sed 's|검증 장치 파일:|검증 장치 파일: `foo-bogus-device.json`·|' \
+    "$PLUGIN_ROOT/docs/INVARIANTS.md" > "$invfix"
+  local files missing="" f
+  files=$(sed -n '/검증 장치 파일:/,/security_tier/p' "$invfix" | grep -oE '`[^`]+\.(json|sh|md|bats)`' | tr -d '`' | sort -u)
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    [[ "$f" == *contracts/sprint-* ]] && continue
+    [[ "$f" == *"*.bats" ]] && f="tests/x.bats"
+    is_protected "$f" || missing="$missing $f"
+  done <<< "$files"
+  # 가짜 파일이 missing으로 잡혀야 파서가 drift를 실제로 감지하는 것 — 안 잡히면 파서 tautology
+  [[ "$missing" == *"foo-bogus-device.json"* ]] || { echo "파서가 주입된 미보호 device를 놓침:[$missing]"; false; }
+}
+
+@test "F46: symmetry (b) parser reports drift on an injected undocumented arm (meta)" {
+  local inv="$PLUGIN_ROOT/docs/INVARIANTS.md"
+  local sec; sec=$(sed -n '/검증 장치 파일:/,/security_tier/p' "$inv")
+  # is_protected에 가짜 미문서화 arm(bogus-undocumented.json)이 있다고 가정
+  local arms="bogus-undocumented.json harness-config.json" missing="" a
+  for a in $arms; do
+    [[ "$a" == sprint-*.json ]] && continue
+    grep -qF "$a" <<< "$sec" || missing="$missing $a"
+  done
+  # 가짜 arm이 미기재로 잡혀야 — 실제 arm(harness-config.json)은 안 잡혀야(대조)
+  [[ "$missing" == *"bogus-undocumented.json"* ]] || { echo "파서가 주입된 미문서화 arm을 놓침:[$missing]"; false; }
+  [[ "$missing" != *"harness-config.json"* ]] || { echo "파서가 문서화된 arm을 오탐:[$missing]"; false; }
 }
