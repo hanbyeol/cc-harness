@@ -1,0 +1,4 @@
+{
+  "_comment": "무인 자기개선 루프(/improve --auto, F39/ADR-006)가 무인 처리 제외 후보를 사람 승인 대기로 적립하는 큐. critical 티어·검증 장치(harness-config/firewall/invariant-guard/INVARIANTS/hooks.json/evaluator/feature_list) 대상 후보는 절대 무인 실행되지 않고 여기에 쌓인다. append-only(무인 회전과 수동 세션 동시 접근 안전). 사람이 검토 후 /improve로 개별 처리하고 항목을 제거한다.",
+  "queued": []
+}

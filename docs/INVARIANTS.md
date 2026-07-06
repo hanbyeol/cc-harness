@@ -131,6 +131,20 @@ delete-then-recreate(파일 삭제 후 `passes:true`로 재생성)로 primary �
 feature_list.json을 직접 쓰는 우회는 firewall ASK(basename 앵커 — `progress//`·`cd progress`
 등 경로정규화 변종 포함)가 게이트하고, behavioral 프로브 코퍼스가 이 부류의 누출을 감시한다.
 
+### INV-12. 검증 장치·critical 후보는 무인 실행 불가
+`/improve --auto`(무인 배치 자기개선 루프, [ADR-006](DECISIONS/ADR-006-batch-approval-autonomy.md))는
+저위험 후보만 무인 처리한다. 다음 대상 후보는 **무인으로 절대 처리하지 않고** 반드시 사람 승인을
+거친다(`progress/approval-queue.json`에 적립):
+- 검증 장치 파일: `harness-config.json`·`hooks/pre-bash-firewall.sh`·`hooks/pre-tool-firewall.sh`·
+  `hooks/invariant-guard.sh`·`docs/INVARIANTS.md`·`hooks/hooks.json`·`agents/evaluator.md`·`feature_list.json`
+- `security_tier: critical`인 모든 후보
+
+**왜 불변**: 무인 루프의 근본 위험은 자동화가 검증 장치 자체를 약화시키는 것이다(F12/INVARIANTS 위협 모델의
+핵심). 자율성은 게이트·임계값·denylist를 **건드리지 않는** 개선에만 부여되고, 그 경계를 넘는 변경은 언제나
+사람을 거친다. 무인 모드가 우회하는 것은 "후보 선택의 사람 개입"뿐이며, 검증 게이트(invariant-guard·bats·
+evaluator min-of-5·Stop)는 매 회전 무약화로 유지된다. F35(INV-11)가 선행 전제다 — passes 전환이 기계
+검증되지 않으면 무인 루프는 금지된다.
+
 ## 위협 모델 — 가드가 막는 것과 못 막는 것
 invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가능한 파일**이다. 따라서
 "파일에 임의 내용을 쓸 수 있는 행위자가 가드 소스 자체를 재작성하는 것"은 텍스트/구조 검사만으로
@@ -179,3 +193,6 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
   연장 — jq 삭제라는 단일 실패점으로 가드를 무력화하는 것을 차단: 보호 파일 편집은 `exit 2`, 비보호는
   가용성 유지. 보호 목록은 `is_protected()` 단일 출처. CI에 probes/cost-report shellcheck + jq 설치
   검증 step 추가. sprint-27 F41)
+- 2026-07-06: INV-12 추가 (무인 자기개선 루프 `/improve --auto`에서 검증 장치 파일·critical 후보는
+  무인 실행 불가 — approval-queue.json 사람 승인 큐로 격리. 자율성은 게이트·임계값·denylist를 건드리지
+  않는 저위험 개선에만. ADR-006, sprint-25 F39, v1.21.0)

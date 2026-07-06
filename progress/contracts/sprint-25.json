@@ -36,22 +36,22 @@
     {
       "step": "ADR-006 초안(배치 승인 의미론·한계·F35 전제) — architect 관점 검토",
       "verify": "ADR 구조(Context/Decision/Consequences) 완비",
-      "done": false
+      "done": true
     },
     {
       "step": "skills/improve/SKILL.md --auto 절 add-only + approval-queue.json 스키마 정의",
       "verify": "skill-frontmatter·efficiency bats GREEN",
-      "done": false
+      "done": true
     },
     {
       "step": "INVARIANTS.md 무인 실행 불가 조항 add-only + 변경이력",
       "verify": "invariant-guard 자기보호 통과(증가 방향)",
-      "done": false
+      "done": true
     },
     {
       "step": "버전 bump → 독립 evaluator + security-auditor(critical)",
       "verify": "전체 bats GREEN, consistency 0, 보안 점수 ≥7",
-      "done": false
+      "done": true
     }
   ],
   "agreed": true

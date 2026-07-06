@@ -9,8 +9,9 @@ description: "하네스 자기개선 루프 1회전. TRIGGER: 사용자가 '자�
 
 ## 사용법
 ```
-/improve              # 진단 → 후보 제시 → 1회전 처리
+/improve              # 진단 → 후보 제시 → 1회전 처리 (매 회전 사람 선택)
 /improve --diagnose   # 진단만 (후보 목록 출력, 처리 안 함)
+/improve --auto N     # 배치 승인 1회 → N회전 무인 반복 (아래 §6, ADR-006)
 ```
 
 ## Process
@@ -60,6 +61,21 @@ run-all은 이미 feature_list/backlog에 있는 항목을 **중복 제거**하�
 - **수렴**: backlog가 비고 자동 발견이 **2회전 연속 신규 후보 0건**이면 "루프 수렴" 안내 후 종료
 - 그 외: 다음 회전을 이어갈지 사용자에게 확인
 
+### 6. 무인 배치 모드 (`--auto N`) — ralph식 루프 (ADR-006, F39)
+매 회전 사람 선택을 요구하는 대신, **배치 Plan 게이트 1회**로 범위를 승인받고 N회전을 무인 반복한다.
+백프레셔는 기존 게이트 전부(invariant-guard·bats 전체·독립 evaluator min-of-5·Stop 게이트)이며 **무약화**다 —
+무인 모드가 우회하는 것은 오직 "후보 선택의 사람 개입"뿐, 검증 강도는 매 회전 동일하다.
+
+- **배치 Plan 게이트**: ExitPlanMode로 (a) 후보 필터, (b) N(기본 5, 최대 10), (c) 중단 조건을 1회 승인받는다.
+  이 승인이 개별 회전의 Plan 게이트를 대체하는 범위와 한계는 [ADR-006](../../docs/DECISIONS/ADR-006-batch-approval-autonomy.md)에 명문화한다.
+- **후보 자동 선정**: security_tier·심각도 순. 단 **무인 실행 제외 대상**은 자동 진행하지 않고
+  `progress/approval-queue.json`에 사람 승인 큐로 적립한다(§3의 불변식 가드 대상 + critical 티어):
+  `harness-config.json`·`hooks/*firewall*.sh`·`invariant-guard.sh`·`INVARIANTS.md`·`hooks.json`·
+  `agents/evaluator.md`·`feature_list.json` 및 security_tier=critical 후보. **이것들은 무인으로 절대 처리하지 않는다.**
+- **각 회전**: §4의 기존 게이트 체인(change-request→구현→독립 evaluator→finish-branch)을 그대로 실행.
+- **중단 조건 4종**(하나라도 충족 시 루프 종료 + 세션 핸드오프에 사유·진행 기록):
+  ① evaluator fail 2회 연속 · ② invariant-guard 차단 발생(자기약화 시도 신호) · ③ 신규 후보 0 · ④ N 회전 도달.
+
 ## 재귀성
 루프가 만든 개선이 **다음 회전의 진단 품질을 높인다** — 예: completeness 프로브를 개선하면
 다음 회전에서 더 많은 갭을 발견한다. 프로브 자체도 /improve의 개선 대상이 될 수 있다
@@ -69,5 +85,7 @@ run-all은 이미 feature_list/backlog에 있는 항목을 **중복 제거**하�
 - 한 회전에 1개 개선만 (집중도 — implementer 제약과 동일)
 - 새 게이트·새 평가 기준을 만들지 않는다 — 기존 워크플로우 오케스트레이션만
 - 불변식(검증 장치 약화)에 저촉되는 후보는 자동 진행 금지 — 사람 승인 필수
+- **무인 모드(`--auto`)라도 critical 티어·불변식/firewall/guard 대상 후보는 절대 무인 처리하지 않는다** —
+  approval-queue.json으로 격리(INVARIANTS 명문화). 무인은 저위험 후보에만, 게이트는 무약화.
 - 프로브는 읽기 전용(metrics-history append 외 파일 수정 없음), firewall 정책 우회 금지
 - 후보가 노이즈면 처리하지 말고 skip — 무리하게 개선 항목을 만들지 않는다
