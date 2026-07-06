@@ -1,0 +1,51 @@
+{
+  "sprint": 31,
+  "title": "is_protected↔INV-12 완전 대칭 기계 검증 + evaluator.md fail-closed 갭 수정 (F45)",
+  "features": [
+    "F45"
+  ],
+  "security_tier": "critical",
+  "source": "F39 evaluator가 남긴 후속(is_protected↔INV-12 완전 대칭을 검증하는 기계 테스트 부재)을 처리하던 중 실제 비대칭을 실증 발견: agents/evaluator.md가 INV-12 무인 제외 목록엔 있으나 is_protected()엔 없어(UNPROTECTED 확인됨) jq 부재 시 F41 fail-closed가 evaluator.md 편집을 차단하지 못한다. evaluator.md는 min-of-5 채점 기준이므로 이 비보호는 무인 루프가 채점 기준을 우회 편집할 speed-bump 누락이다. 대칭 테스트가 있었으면 진작 잡혔을 갭 — 근본 해소(수정 + 회귀 방지 기계 검증).",
+  "acceptance_criteria": [
+    "F45-1: is_protected()(invariant-guard.sh)에 evaluator.md 추가(basename 또는 path arm, add-only) — `agents/evaluator.md` 입력에 return 0. 기존 arm 무삭제·무변경",
+    "F45-2: jq 부재 시 fail-closed 실증 — jq를 PATH에서 제거한 환경에서 agents/evaluator.md Write가 exit 2로 차단(F41 fail-closed가 evaluator.md도 커버)",
+    "F45-3: tests/invariant-guard.bats에 양방향 대칭 기계 테스트 add-only: (a) INV-12 섹션의 각 검증장치 파일 토큰이 is_protected()에서 return 0, (b) is_protected()의 각 case arm(문서화된 contracts/sprint-*.json 예외 제외)이 INVARIANTS.md INV-12 섹션에 등장. 어느 한쪽에만 있으면 실패",
+    "F45-4: contracts/sprint-*.json은 대칭 대상에서 제외(INV-12에 '예외 — 무인 대상'으로 명문화된 documented exception) — 테스트가 이 예외를 명시적으로 화이트리스트",
+    "전역: 전체 bats GREEN·무회귀, shellcheck 0(invariant-guard.sh), consistency 0, 대칭 테스트가 현재 상태에서 GREEN(수정 후 대칭 성립)"
+  ],
+  "security_criteria": [
+    "SC1: is_protected 확장은 순수 add-only(보호 확대) — 어떤 arm도 제거/약화 없음. invariant-guard 자기검증(INV-10 대칭성) 통과가 실증",
+    "SC2: 대칭 기계 테스트는 검증 장치 강화(tests add-only, INV-6) — 향후 어느 목록에 파일 추가 시 비대칭이면 CI 실패로 drift 차단",
+    "SC3: evaluator.md fail-closed 보호로 jq-삭제 우회 경로 축소 — 무인 루프가 채점 기준(evaluator.md)을 jq 부재 상황에서 무프롬프트 편집할 수 없음(INV-12↔F41 정합 회복)",
+    "SC4: 이 변경 자체가 invariant-guard.sh 편집 — 가드가 자기 편집 시 add-only(보호 확대)를 통과시키는지 확인(강화 방향 정상 진행)"
+  ],
+  "error_scenarios": [
+    "INV-12에 새 파일 추가하고 is_protected 미추가: 대칭 테스트 (a) 실패 — 비대칭 검출",
+    "is_protected에 새 basename 추가하고 INV-12 미기재: 대칭 테스트 (b) 실패 — 비대칭 검출",
+    "contracts/sprint-*.json: 예외 화이트리스트로 (b)에서 실패하지 않음",
+    "jq 부재 + evaluator.md 편집: fail-closed exit 2(F45-2)"
+  ],
+  "test_scenarios": [
+    "bats(invariant-guard.bats): (a) 각 INV-12 파일 → is_protected true 포함 evaluator.md, (b) is_protected arm → INV-12 등장(contracts 예외), (c) jq 부재 시 evaluator.md Write 차단, (d) 대칭 파서가 evaluator.md 누락 시 실패함을 음성 테스트로 확인",
+    "실측: jq 제거 환경에서 evaluator.md fail-closed",
+    "무회귀: 기존 invariant-guard/F41 fail-closed/F35 passes-transition 테스트 전부 GREEN"
+  ],
+  "implementation_steps": [
+    {
+      "step": "invariant-guard.bats에 F45 RED 대칭 테스트 + evaluator.md fail-closed 테스트 add-only",
+      "verify": "대칭 (a) RED(evaluator.md 미보호), fail-closed 테스트 RED, 기존 GREEN",
+      "done": true
+    },
+    {
+      "step": "is_protected()에 evaluator.md 추가(add-only)",
+      "verify": "대칭 (a)(b) GREEN, jq 부재 evaluator.md 차단 GREEN, shellcheck 0",
+      "done": true
+    },
+    {
+      "step": "INVARIANTS.md에 대칭이 기계 검증됨을 명시(선택) + 전체 무회귀 → 독립 evaluator + security-auditor",
+      "verify": "전체 bats GREEN, consistency 0",
+      "done": true
+    }
+  ],
+  "agreed": true
+}

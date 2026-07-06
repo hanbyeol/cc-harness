@@ -555,6 +555,20 @@
         "F43"
       ],
       "assigned_sprint": 30
+    },
+    {
+      "id": "F45",
+      "name": "is_protected↔INV-12 완전 대칭 기계 검증 + evaluator.md fail-closed 갭 수정",
+      "description": "F39 evaluator가 지적한 '대칭 기계 테스트 부재' 처리 중 실제 비대칭을 발견: agents/evaluator.md가 INV-12 무인 제외 목록엔 있으나 invariant-guard의 is_protected()엔 없어, jq 부재 시(F41 fail-closed) evaluator.md(min-of-5 채점 기준) 편집이 차단되지 않는 보안 갭. (1) is_protected()에 evaluator.md 추가(add-only 보호 확대) — jq 부재 시 fail-closed 보호. (2) tests/invariant-guard.bats에 양방향 대칭 기계 테스트: is_protected() case arms ↔ INV-12 검증장치 파일 목록을 파싱 대조해 어느 한쪽에만 있는 파일이면 실패(contracts/sprint-*.json은 문서화된 예외로 제외). 향후 어느 목록에 파일을 추가해도 drift를 CI가 잡는다 — F39 evaluator 후속의 근본 해소.",
+      "security_tier": "critical",
+      "status": "review",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F39",
+        "F41"
+      ],
+      "assigned_sprint": 31
     }
   ]
 }

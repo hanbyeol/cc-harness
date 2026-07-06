@@ -621,3 +621,48 @@ _nojq_run() {
   run run_write "$(mk_write_input "$WORK/progress/harness-config.json" "$NEW")"
   [ "$status" -eq 0 ]
 }
+
+# --- F45: is_protected ↔ INV-12 완전 대칭 + evaluator.md fail-closed 갭 수정 ---
+
+# evaluator.md는 min-of-5 채점 기준이자 INV-12 무인 제외 대상이다. jq 부재 시
+# fail-closed가 이를 차단해야 한다(F41이 커버 못 하던 비대칭 — is_protected에 없었음).
+@test "F45: jq absent — Edit to agents/evaluator.md is blocked (fail-closed gap fix)" {
+  run _nojq_run "$(mk_edit_input "$WORK/agents/evaluator.md" 'a' 'b')"
+  [ "$status" -eq 2 ]
+}
+
+# 대칭 (a): INV-12 섹션이 열거하는 모든 검증장치 파일은 is_protected()에서 return 0.
+# 어느 하나라도 미보호면 실패 — INV-12엔 있으나 가드가 못 막는 비대칭을 잡는다.
+@test "F45: symmetry (a) — every INV-12 device file is is_protected" {
+  # shellcheck disable=SC1090
+  source <(sed -n '/^is_protected()/,/^}/p' "$HOOK")
+  local inv="$PLUGIN_ROOT/docs/INVARIANTS.md"
+  # '검증 장치 파일:' bullet만 파싱한다 — approval-queue.json(무인 루프가 적립하는 데이터
+  # 파일, 보호 대상 아님)·ADR 링크 등 섹션 내 다른 백틱 토큰을 배제한다.
+  local files
+  files=$(sed -n '/검증 장치 파일:/,/security_tier/p' "$inv" | grep -oE '`[^`]+\.(json|sh|md|bats)`' | tr -d '`' | sort -u)
+  local missing="" f
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    [[ "$f" == *contracts/sprint-* ]] && continue   # 문서화된 예외(무인 대상, INV-11이 보호)
+    [[ "$f" == *"*.bats" ]] && f="tests/x.bats"       # glob 토큰 → 실제 경로 대표값
+    is_protected "$f" || missing="$missing $f"
+  done <<< "$files"
+  [[ -z "$missing" ]] || { echo "INV-12엔 있으나 is_protected 미보호:$missing"; false; }
+}
+
+# 대칭 (b): is_protected()의 모든 case arm은 INV-12 섹션에 등장해야 한다(contracts 예외 제외).
+# 가드엔 있으나 INV-12에 문서화 안 된 파일이면 실패 — 반대 방향 drift를 잡는다.
+@test "F45: symmetry (b) — every is_protected arm is documented in INV-12" {
+  local inv="$PLUGIN_ROOT/docs/INVARIANTS.md"
+  local sec; sec=$(sed -n '/### INV-12/,/^## /p' "$inv")
+  local arms
+  arms=$(sed -n '/^is_protected()/,/^}/p' "$HOOK" | grep -oE '[a-zA-Z0-9_*-]+\.(json|sh|md|bats)' | sort -u)
+  local missing="" a
+  while IFS= read -r a; do
+    [[ -z "$a" ]] && continue
+    [[ "$a" == sprint-*.json ]] && continue           # 문서화된 예외
+    grep -qF "$a" <<< "$sec" || missing="$missing $a"
+  done <<< "$arms"
+  [[ -z "$missing" ]] || { echo "is_protected엔 있으나 INV-12 미기재:$missing"; false; }
+}

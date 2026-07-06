@@ -33,6 +33,7 @@ is_protected() {
     INVARIANTS.md | \
     hooks.json | \
     feature_list.json | \
+    evaluator.md | \
     *.bats)
       return 0 ;;
   esac

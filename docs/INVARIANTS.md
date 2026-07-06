@@ -141,7 +141,11 @@ feature_list.json을 직접 쓰는 우회는 firewall ASK(basename 앵커 — `p
 - `security_tier: critical`인 모든 후보
 
 이 목록은 `invariant-guard.sh`의 `is_protected()`(F41) 집합과 정합해야 한다 — 어느 한쪽에만 있는 파일은
-무인 루프가 게이트를 약화시킬 비대칭 경로가 된다. 특히 `tests/*.bats`는 test_coverage 채점 근거이자
+무인 루프가 게이트를 약화시킬 비대칭 경로가 된다. 이 정합은 프롬프트 관례가 아니라 **기계 검증된다**:
+`tests/invariant-guard.bats`의 양방향 대칭 테스트(F45)가 (a) 이 bullet의 각 검증장치 파일이 `is_protected()`에서
+차단되는지, (b) `is_protected()`의 각 arm이 여기 문서화됐는지를 파싱 대조해 — 어느 목록에 파일을 추가하든
+비대칭이면 CI가 실패한다. (F45가 실제로 잡은 사례: `agents/evaluator.md`가 이 목록엔 있으나 `is_protected()`엔
+없어 jq 부재 시 채점 기준 편집이 fail-closed로 차단되지 않던 갭 — 수정되어 대칭 성립.) 특히 `tests/*.bats`는 test_coverage 채점 근거이자
 INV-6(add-only) 대상인데, count 기반 검사만으로는 `@test` 본문에 `skip`을 주입하는 약화를 못 잡으므로
 무인 처리에서 반드시 제외한다. (`contracts/sprint-*.json`은 예외 — 루프가 매 회전 계약을 작성·합의해야 하고
 INV-11이 빈 계약 합의를 막으므로 무인 대상이다.)
