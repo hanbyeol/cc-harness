@@ -1,0 +1,82 @@
+{
+  "timestamp": "2026-07-06T13:00:00Z",
+  "sprint": 31,
+  "iteration": 1,
+  "features_evaluated": [
+    "F45"
+  ],
+  "security_tier": "critical",
+  "commit": "b9cfffb32e439c59cf5b277e9816f3547e064f51",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 8,
+    "security": 8,
+    "error_handling": 8,
+    "test_coverage": 7
+  },
+  "score": 7,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_threshold_critical": 7,
+  "verdict": "pass",
+  "grounded": true,
+  "second_judge_note": "critical tier — 1차 독립 judgment. F37 교차검증(2차 독립 judge/에스컬레이션)은 메인 루프 배선의 몫이며 security-auditor가 이 커밋을 병렬 감사 중. 본 판정은 독립적으로 실행 근거에 고정.",
+  "grade_drift_check": {
+    "golden_set_critical_pass_min_range": "7..8 (avg 7.875, n=8)",
+    "golden_set_critical_pass_security_range": "7..9",
+    "this_score": 7,
+    "this_security": 8,
+    "assessment": "min-of-5=7은 golden-set critical pass 분포의 하한(F20: min=7,sec=7 pass)과 정합. security=8은 임계값 7 위. 인플레이션/다운그레이드 아님 — test_coverage=7이 min을 하한으로 당김."
+  },
+  "evidence": {
+    "full_suite": "bats tests/ → 498 ok / 0 fail (exit 0). README 498 정합.",
+    "invariant_guard_bats": "bats tests/invariant-guard.bats → 77/77 (F45 = ok 75~77). F41 family=13, F45=3, INV-11 passes-transition GREEN.",
+    "f45_filter": "bats tests/invariant-guard.bats --filter F45 → 3/3 ok (fail-closed + symmetry a + symmetry b).",
+    "shellcheck": "shellcheck -S warning hooks/invariant-guard.sh → exit 0 (clean).",
+    "consistency": "scripts/probes/consistency.sh → [] (0 candidates).",
+    "version": "1.24.0 정합 — plugin.json / marketplace.json / package.json / README(498).",
+    "F45_2_fail_closed_before_after": "독립 재현(bash-context _nojq_run 미러, jq-absent shim). agents/evaluator.md Edit: BEFORE(HEAD~1 b9cfffb~1) exit=0 '비보호 파일이므로 통과' (갭 실재) → AFTER(b9cfffb) exit=2 'jq 부재 상태에서 보호 파일 편집 차단(fail-closed)' (갭 폐쇄). CONTROL(비보호 파일) AFTER exit=0 (가용성 보존, 과차단 없음).",
+    "SC1_add_only": "git: is_protected() arm diff = 순수 add ('+ evaluator.md | \\'), invariant-guard.sh 전체 +1 -0, 제거/약화 arm 0.",
+    "SC4_self_edit": "before→after 변환을 현행 guard(jq-present)로 재생(Write): add-only widening → exit 0(허용). 대조: exit 2 라인 1개 제거한 weakened 변형 → INV-7 deny('차단 로직 감소 2→1'). 가드가 자기 강화는 통과·자기 약화는 차단.",
+    "symmetry_a_negative": "INV-12 검증장치 bullet에 가짜 'foo-device.json' 주입 → (a) 파서가 drift 검출·실패(음성 확인, 비-tautology). approval-queue.json은 검증장치 bullet 범위(/검증 장치 파일:/,/security_tier/) 밖 → 오탐 0 (loop-owned 데이터 제외 정당).",
+    "symmetry_b_negative": "is_protected에 가짜 'bogus-arm.json' arm 주입 → (b) 파서가 검출·실패(음성 확인). contracts/sprint-*.json arm은 'sprint-*.json' 토큰으로 화이트리스트 정상 동작.",
+    "symmetry_baseline": "현행 저장소: (a) 9개 검증장치 토큰 전부 is_protected, (b) 10개 arm 전부 INV-12 문서화(sprint-*.json 예외) — 양방향 대칭 성립."
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "F45-1: is_protected()에 evaluator.md add-only 추가 — agents/evaluator.md → return 0 (git diff +1 -0, arm 무삭제)",
+      "F45-2: jq 부재 시 evaluator.md 편집 fail-closed exit 2 (BEFORE exit0 → AFTER exit2 실증)",
+      "F45-3: invariant-guard.bats 양방향 대칭 기계 테스트 add-only (a/b GREEN, 음성 테스트로 drift 검출 확인)",
+      "F45-4: contracts/sprint-*.json 대칭 대상 제외(화이트리스트) — (b)에서 미차단 확인",
+      "전역: 498 bats GREEN·무회귀, shellcheck 0, consistency 0, 대칭 GREEN"
+    ],
+    "security": [
+      "SC1: add-only 보호 확대 — arm 제거/약화 0 (git 검증)",
+      "SC2: 대칭 기계 테스트로 향후 drift를 CI가 차단 (음성 테스트가 tautology 아님 실증)",
+      "SC3: evaluator.md(min-of-5 채점 기준) fail-closed 보호로 jq-삭제 우회 축소 — INV-12↔F41 정합 회복 실증",
+      "SC4: 가드 자기 편집 시 add-only 통과·약화 차단 (INV-7 정상)"
+    ],
+    "error_scenarios": [
+      "INV-12 추가 w/o is_protected → (a) 실패",
+      "is_protected 추가 w/o INV-12 → (b) 실패",
+      "contracts/sprint-*.json 화이트리스트로 (b) 미차단",
+      "jq 부재 + evaluator.md → fail-closed exit 2",
+      "비보호 파일 jq 부재 → 통과(가용성 보존, 과차단 없음)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "issues": [
+    "[test] test_scenario (d)('대칭 파서가 evaluator.md 누락 시 실패함을 음성 테스트로 확인')가 커밋된 테스트로 영속화되지 않음 — 본 평가에서 외부 재현으로 음성 동작을 확인했으나, 저장소 내 mutation/negative 테스트가 없으면 파서 자체가 tautology로 퇴화(예: sed 범위 파손 시 빈 목록을 무언 통과)해도 CI가 못 잡는다. (판정 비차단 — 강화 후속)",
+    "[quality][minor] 대칭 (b)는 INV-12 섹션 전체에 grep -qF substring 매칭 — (a)처럼 '검증 장치 파일:' bullet 범위로 스코프하면 arm 토큰이 무관 산문의 substring과 우연히 매칭돼 false-symmetry가 될 여지를 더 줄일 수 있다. 현 토큰셋에선 무해."
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "action_required": "F45 core는 F39 후속(is_protected↔INV-12 대칭 기계 검증 부재)을 근본 해소하고 실재 fail-closed 갭을 폐쇄함 — 완료. 실질 잔여 1건: 대칭 파서(a/b)의 회귀 방지용 커밋된 mutation/negative 테스트 부재(test_scenario (d)가 기술했으나 미영속화). 파서가 빈 목록을 무언 통과하는 tautology 퇴화를 저장소 내 테스트로는 못 잡음 — 다음 /improve 회전에서 fixture 복제본에 가짜 토큰 주입→(a)/(b)가 drift 보고하는지 assert하는 add-only 음성 테스트 1~2개를 tests/invariant-guard.bats에 추가 권고(저위험·add-only, 단 tests/*.bats는 INV-12 critical 대상이므로 무인 처리 금지·사람 승인). 부차: (b) 파서를 검증장치 bullet 범위로 스코프 정밀화."
+  }
+}
