@@ -1,45 +1,41 @@
 {
-  "timestamp": "2026-06-13T12:30:00Z",
-  "sprint": 3,
-  "scope": "F13, F14 (part 2)",
+  "timestamp": "2026-07-06T14:40:00Z",
+  "sprint": 34,
+  "scope": "F48",
   "features_implemented": [
-    "F13",
-    "F14"
+    "F48"
   ],
   "files_changed": [
-    "scripts/probes/consistency.sh (new)",
-    "scripts/probes/metrics.sh (new)",
-    "scripts/probes/completeness.sh (new)",
-    "scripts/probes/self-review.sh (new)",
-    "scripts/probes/run-all.sh (new)",
-    "skills/improve/SKILL.md (new)",
-    "tests/probes.bats (new, 10)",
-    "CLAUDE.md / templates/CLAUDE.md.tmpl (routing + skills list)",
-    "README.md (9 skills, 7 hooks, lib.sh note)",
-    ".claude-plugin/plugin.json / marketplace.json (9 skills)",
-    ".gitignore (progress/metrics-history.json)"
+    "hooks/invariant-guard.sh (is_protected() 확장 — 3개 스킬 파일 전체경로 매칭, 접두 유무 모두)",
+    "docs/INVARIANTS.md (INV-12 검증 장치 파일 목록 갱신 + change-log F48 항목 + (b) 파서 한계 문서화)",
+    "tests/invariant-guard.bats (F48 신규 6개: 대칭 positive/negative, jq-부재 fail-closed x3, 무관 스킬 통과)",
+    "skills/change-request/SKILL.md (Step1에 티어 분류 스텝 추가 — /hotfix 조건 재사용 참조)",
+    "skills/improve/SKILL.md (§3 불변식 가드 목록 갱신, §4 티어분류 적용 명시, §6 배치 커밋/버전 통합 로직)",
+    "README.md (테스트 수 505→511 정정, consistency probe 드리프트 해소)"
   ],
   "iteration": 1,
-  "tdd": "probes.bats RED(exit 127) → 4 probes + run-all GREEN. consistency.sh의 한글-인접 변수($key라고) unbound 버그를 ${key} 중괄호로 수정.",
+  "tdd": "tests/invariant-guard.bats에 F48 6개 테스트 add-only 작성 → RED 4건 확인(symmetry(a), jq-absent x3) → hooks/invariant-guard.sh is_protected() 확장 + docs/INVARIANTS.md INV-12 갱신 → GREEN. 이후 skills/change-request·improve/SKILL.md는 프로세스 문서라 실행 테스트 대상이 아님(F14 선례와 동일 — skill-frontmatter.bats·consistency probe로 회귀 확인).",
+  "known_issue_discovered": "hooks/invariant-guard.sh의 apply_replace()(Edit 재구성용 awk)가 macOS 번들 'one true awk'(20200816) + UTF-8 로케일 조합에서, 여러 멀티바이트(한글/em-dash) 문자가 앞서는 위치의 substring 치환을 간헐적으로 오계산함(index()/substr() 단위 불일치 추정) — 이번 세션에서 실제로 재현(is_protected() 확장 편집 1건이 잘못된 NEW_CONTENT로 인해 허위 deny). 워크어라운드로 해당 편집은 Write 툴(문제 경로인 apply_replace를 아예 안 타는 경로)로 우회 완료. F48 스코프 밖이라 이번엔 수정하지 않음 — 향후 /improve 후보로 backlog 권장(자기보호 장치 자체의 잠재 결함이라 발견 즉시 기록).",
   "security_self_check": {
-    "checklist_items": 4,
-    "checklist_passed": 4,
-    "notes": "프로브는 읽기 전용(metrics-history append만), firewall ask/deny 명령 미사용, 결정론적. /improve는 불변식 저촉 후보를 자동 진행하지 않고 사람 승인 요구(F12 가드와 연동). 새 게이트 미신설 — 기존 워크플로우 재사용."
+    "checklist_items": 5,
+    "checklist_passed": 5,
+    "notes": "critical tier 전체 통과: (1) is_protected() 확장은 전체경로 매칭이라 무관 스킬 과잉보호 없음(F48-7 회귀 테스트로 실증) (2) evaluator 게이트·min-of-5·security_thresholds 수치 자체는 무변경 (3) --auto N 배치화는 기록 방식만 바꾸고 evaluator 게이트는 매 회전 그대로 (4) critical tier는 티어분류와 무관하게 항상 풀사이클 — 스킬 문서에 명문화 (5) 프로브는 읽기전용 유지, firewall 우회 없음."
   },
   "error_scenarios_tested": [
-    "metrics: history 부재 시 baseline만 기록(후보 0)",
-    "consistency: 클린 repo는 후보 0",
-    "run-all: feature_list에 있는 항목 중복 제거",
-    "프로브 jq 부재 시 빈 배열 출력(graceful)"
+    "jq 부재 + 3개 스킬 파일 Edit → 차단(fail-closed) 확인",
+    "jq 부재 + 무관 스킬 파일 Edit → 통과(가용성 유지) 확인",
+    "is_protected()가 무관 스킬(brainstorm/debug)까지 과잉보호하지 않는지 회귀 테스트로 확인",
+    "기존 F45 symmetry(a)/(b), F46 파서 음성 테스트 무회귀(신규 코드 없이 자동 재검증 통과)"
   ],
   "evidence": {
-    "tests": "bats tests/ — 181 passed, 0 failed (171 기존 + probes 10)",
-    "lint": "shellcheck -x hooks/*.sh scripts/probes/*.sh init.sh — clean",
-    "self_apply": "run-all.sh를 이 repo에 실행 → 후보 0건(메타데이터 일치·갭 없음 정확 반영), metrics baseline {tests:181, warnings:0} 기록"
+    "tests": "bats tests/*.bats — 511 passed, 0 failed (505 기존 + F48 신규 6)",
+    "lint": "shellcheck hooks/*.sh scripts/probes/*.sh — HEAD 대비 출력 동일(34줄, 전부 기존 info-level, 신규 경고 0)",
+    "consistency_probe": "scripts/probes/consistency.sh 실행 → [] (0건, README 테스트 수 드리프트 해소 후)",
+    "self_apply": "tests/invariant-guard.bats symmetry(a)/(b) 실제 실행으로 is_protected()↔INV-12 대칭 성립 재검증(추가 코드 없이 기존 제네릭 테스트가 3개 신규 파일을 자동 포함)"
   },
   "criteria_backfill": {
-    "reason": "backfill 없음 — sprint-3 contract의 F13/F14 기준으로 충분"
+    "reason": "change-request 단계에서 이미 발견·반영 완료(is_protected()/INV-12 자기보호 확장을 F48 스코프에 포함하기로 사용자 승인) — 구현 중 추가 갭 없음. 구현 중 발견한 apply_replace() 잠재 결함은 위 known_issue_discovered에 별도 기록(criteria 갭 아님, 별개 기존 하네스 결함)."
   },
-  "self_notes": "metrics-history.json은 gitignore(per-project 추세). /improve의 라우팅 동기화·skill 수는 기존 skill-frontmatter.bats가 자동 검사(별도 메타 테스트 불필요).",
+  "self_notes": "skills/change-request·improve/SKILL.md는 프로세스 markdown이라 실행형 dry-run 불가 — evaluator가 문서를 직접 읽고 3개 예시 시나리오(1파일 버그수정→hotfix / 신규기능→풀경로 / critical 보안수정→풀경로+security-auditor) 재현성을 확인하는 것이 핵심 검증 수단(Plan 파일 '검증 범위' 절 참조).",
   "ready_for": "evaluation"
 }

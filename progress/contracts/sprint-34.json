@@ -43,23 +43,23 @@
     {
       "step": "hooks/invariant-guard.sh is_protected() 확장(전체경로 3패턴) + docs/INVARIANTS.md INV-12 bullet·change-log 갱신 — 안전장치를 먼저 박는다(F12 선례 순서)",
       "verify": "tests/invariant-guard.bats RED(신규 fail-closed·회귀 assertion) 작성 후 위 변경으로 GREEN, 기존 symmetry(a)/(b) 자동 재검증 통과",
-      "done": false
+      "done": true
     },
     {
       "step": "skills/change-request/SKILL.md Step1에 티어 분류 스텝 추가",
       "verify": "consistency probe 0, shellcheck 0",
-      "done": false
+      "done": true
     },
     {
       "step": "skills/improve/SKILL.md §4 동일 분류 적용 명시 + §6 배치 커밋 로직 추가(요약 커밋 포맷 포함)",
       "verify": "consistency probe 0, 버전 통일",
-      "done": false
+      "done": true
     },
     {
       "step": "전체 bats/shellcheck/consistency 회귀 확인 → 독립 evaluator + security-auditor(critical)",
       "verify": "bats 전체 GREEN, shellcheck 0, evaluator min-of-5≥7·security≥7",
-      "done": false
+      "done": true
     }
   ],
-  "agreed": false
+  "agreed": true
 }

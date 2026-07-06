@@ -40,6 +40,9 @@ is_protected() {
   case "$f" in
     */tests/*.bats) return 0 ;;
     */contracts/sprint-*.json) return 0 ;;  # agreed 전환 보호(INV-11) — jq-존재 브랜치 9번째와 정합
+    */skills/change-request/SKILL.md | skills/change-request/SKILL.md | \
+    */skills/improve/SKILL.md | skills/improve/SKILL.md | \
+    */skills/hotfix/SKILL.md | skills/hotfix/SKILL.md) return 0 ;;  # F48: 티어 라우팅/배치 조건 정의 파일 자기보호(evaluator.md/F45와 동일한 fail-closed 방식)
   esac
   return 1
 }

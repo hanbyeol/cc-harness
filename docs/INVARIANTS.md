@@ -137,7 +137,7 @@ feature_list.json을 직접 쓰는 우회는 firewall ASK(basename 앵커 — `p
 거친다(`progress/approval-queue.json`에 적립):
 - 검증 장치 파일: `harness-config.json`·`hooks/pre-bash-firewall.sh`·`hooks/pre-tool-firewall.sh`·
   `hooks/invariant-guard.sh`·`docs/INVARIANTS.md`·`hooks/hooks.json`·`agents/evaluator.md`·`feature_list.json`·
-  `tests/*.bats`
+  `tests/*.bats`·`skills/change-request/SKILL.md`·`skills/improve/SKILL.md`·`skills/hotfix/SKILL.md`
 - `security_tier: critical`인 모든 후보
 
 이 목록은 `invariant-guard.sh`의 `is_protected()`(F41) 집합과 정합해야 한다 — 어느 한쪽에만 있는 파일은
@@ -149,6 +149,15 @@ feature_list.json을 직접 쓰는 우회는 firewall ASK(basename 앵커 — `p
 INV-6(add-only) 대상인데, count 기반 검사만으로는 `@test` 본문에 `skip`을 주입하는 약화를 못 잡으므로
 무인 처리에서 반드시 제외한다. (`contracts/sprint-*.json`은 예외 — 루프가 매 회전 계약을 작성·합의해야 하고
 INV-11이 빈 계약 합의를 막으므로 무인 대상이다.)
+
+(F48이 추가한 사례: `skills/change-request/SKILL.md`·`skills/improve/SKILL.md`·`skills/hotfix/SKILL.md`의
+'적용 조건' 문구가 F48 이전에는 evaluator 실행 여부에 영향을 주지 않았으나, F48의 자동 티어 라우팅부터는
+이 문구가 evaluator 생략 여부를 직접 결정한다 — `agents/evaluator.md`와 동일한 성격의 자기약화 사각지대라
+같은 방식(fail-closed 전용, 내용 diff 기반 능동 약화 탐지는 없음)으로 편입했다. **알려진 한계**: 대칭(b)
+테스트의 arm 추출 정규식은 경로 구분자(`/`)를 인식하지 못해 이 3개 파일이 모두 `SKILL.md`라는 동일 토큰으로
+축약 매칭된다 — (b) 방향은 "SKILL.md라는 이름의 무언가가 여기 문서화됐는지"만 약하게 검증하며 3개 전부가
+개별 문서화됐는지는 보장하지 않는다. 보안상 중요한 (a) 방향(문서화된 파일이 실제로 `is_protected()`에서
+차단되는지)은 백틱 토큰 단위로 3개를 정밀 개별 검증하므로 온전하다.)
 
 **왜 불변**: 무인 루프의 근본 위험은 자동화가 검증 장치 자체를 약화시키는 것이다(F12/INVARIANTS 위협 모델의
 핵심). 자율성은 게이트·임계값·denylist를 **건드리지 않는** 개선에만 부여되고, 그 경계를 넘는 변경은 언제나
@@ -207,3 +216,9 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
 - 2026-07-06: INV-12 추가 (무인 자기개선 루프 `/improve --auto`에서 검증 장치 파일·critical 후보는
   무인 실행 불가 — approval-queue.json 사람 승인 큐로 격리. 자율성은 게이트·임계값·denylist를 건드리지
   않는 저위험 개선에만. ADR-006, sprint-25 F39, v1.21.0)
+- 2026-07-06: INV-12 갱신 (검증 장치 파일 목록에 `skills/change-request/SKILL.md`·
+  `skills/improve/SKILL.md`·`skills/hotfix/SKILL.md` 추가 — 자동 티어 라우팅이 이 파일들의 조건
+  문구를 evaluator 생략 여부의 결정 요인으로 만들어 생긴 사각지대를 `agents/evaluator.md`(F45)와
+  동일한 fail-closed 전용 방식으로 봉합. `is_protected()`는 전체경로 매칭(basename 아님)이라 다른
+  스킬의 SKILL.md는 비보호 유지. 대칭(b) 파서는 경로 구분자 미인식으로 3개 파일이 `SKILL.md` 토큰
+  하나로 축약 매칭되는 알려진 한계 있음(문서화만, 파서 확장은 backlog). sprint-34 F48)

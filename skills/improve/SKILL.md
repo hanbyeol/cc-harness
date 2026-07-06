@@ -43,12 +43,19 @@ run-all은 이미 feature_list/backlog에 있는 항목을 **중복 제거**하�
 ### 3. 불변식 가드 체크 (자동 진행 금지 경계)
 선택된 후보가 다음 파일을 건드리면 **자동 진행하지 않고 명시적 사람 승인을 요구**한다:
 - `progress/harness-config.json`(임계값), `hooks/pre-bash-firewall.sh`(deny 목록),
-  `agents/evaluator.md`, `docs/INVARIANTS.md`, `hooks/invariant-guard.sh`, `tests/*.bats`(테스트 약화 방지)
+  `agents/evaluator.md`, `docs/INVARIANTS.md`, `hooks/invariant-guard.sh`, `tests/*.bats`(테스트 약화 방지),
+  `skills/change-request/SKILL.md`·`skills/improve/SKILL.md`·`skills/hotfix/SKILL.md`
+  (티어 라우팅/배치 조건 정의 — evaluator 생략 여부를 결정하는 문구라 F48부터 검증 장치로 편입, INV-12)
 - 이들은 검증 장치다 — 약화 방향 변경은 INVARIANTS.md 위반이며 F12 가드가 편집 시점에도 차단한다
 - 강화(임계값 상향·deny 추가·테스트 추가)는 정상 진행 가능하나, 변경 의도를 사용자에게 명확히 고지
 
 ### 4. 처리 — 기존 게이트 재사용
-선택된 후보를 다음 순서로 끝까지 처리한다 (각 단계는 해당 스킬/에이전트의 기존 절차):
+선택된 후보가 `/change-request`의 티어 분류(1단계 참조, `/hotfix` 조건 재사용)를 충족하면
+1의 `/change-request` 호출 시 자동으로 `/hotfix`로 처리되어 evaluator(4단계)가 생략되고
+hotfix 자체 안전장치가 적용된다 — 이 경우 처리는 hotfix 완료로 끝난다. `security_tier: critical`
+후보는 이 분류와 무관하게 항상 아래 1~6 전체(evaluator+security-auditor 포함)를 거친다 — 예외 없음(F48).
+
+미충족(또는 critical) 후보는 다음 순서로 끝까지 처리한다 (각 단계는 해당 스킬/에이전트의 기존 절차):
 1. `/change-request {후보 설명}` — 산출물(feature_list, Sprint Contract) 갱신
 2. **Plan 게이트** — ExitPlanMode로 사용자 승인 (승인 없이 구현 안 함)
 3. `/implement` — TDD(RED-GREEN-REFACTOR) 구현 + evidence
@@ -71,12 +78,28 @@ run-all은 이미 feature_list/backlog에 있는 항목을 **중복 제거**하�
 - **후보 자동 선정**: security_tier·심각도 순. 단 **무인 실행 제외 대상**은 자동 진행하지 않고
   `progress/approval-queue.json`에 사람 승인 큐로 적립한다(§3의 불변식 가드 대상 + critical 티어):
   `harness-config.json`·`hooks/*firewall*.sh`·`invariant-guard.sh`·`INVARIANTS.md`·`hooks.json`·
-  `agents/evaluator.md`·`feature_list.json`·`tests/*.bats` 및 security_tier=critical 후보. **이것들은 무인으로
+  `agents/evaluator.md`·`feature_list.json`·`tests/*.bats`·`skills/change-request/SKILL.md`·
+  `skills/improve/SKILL.md`·`skills/hotfix/SKILL.md` 및 security_tier=critical 후보. **이것들은 무인으로
   절대 처리하지 않는다.** (목록은 invariant-guard의 `is_protected()`와 정합 — `tests/*.bats`는 count 검사로
   못 잡는 `skip` 주입 약화를 막기 위해 포함. INV-12 참조.)
-- **각 회전**: §4의 기존 게이트 체인(change-request→구현→독립 evaluator→finish-branch)을 그대로 실행.
+- **각 회전**: §4의 기존 게이트 체인(change-request→구현→독립 evaluator→finish-branch)을 그대로 실행 —
+  단, §4의 티어 분류로 후보가 `/hotfix`로 처리되면 evaluator·finish-branch 대신 hotfix 자체 완료
+  절차를 따른다.
 - **중단 조건 4종**(하나라도 충족 시 루프 종료 + 세션 핸드오프에 사유·진행 기록):
   ① evaluator fail 2회 연속 · ② invariant-guard 차단 발생(자기약화 시도 신호) · ③ 신규 후보 0 · ④ N 회전 도달.
+- **배치 커밋/버전 통합(F48)**: 배치 내 각 회전이 evaluator를 거치는 경우(hotfix로 빠지지 않은 경우)
+  evaluator 게이트 자체(min-of-5, 무약화)는 회전마다 그대로 통과해야 한다 — 달라지는 것은 **기록
+  방식**뿐이다. 회전마다 만들던 별도 `chore: record evaluator pass` 커밋과 버전 bump 대신:
+  - feat 커밋에 판정 요약을 트레일러로 남긴다: `Evaluator: pass (min-of-5=N)`
+  - 개별 evaluator-feedback 레코드 파일(`progress/agent-comms/`)은 기존과 동일하게 회전마다
+    생성한다(감사 추적·INV-11 근거 무손실 — 배치화는 커밋 개수만 줄이지 판정 기록 자체를
+    줄이지 않는다)
+  - 버전 bump + 통합 판정 요약 커밋은 **배치가 끝나는 시점에 정확히 1회**만 수행한다.
+    "배치가 끝나는 시점"은 N회전 정상 완료·4종 중단 조건 조기 종료 **모두 동일 규칙**(특례 없음).
+    요약 커밋 메시지 형식: `chore: record F{first}-F{last} evaluator pass batch (min-of-5:
+    s1,s2,...) — /improve --auto batch of {n}` (조기 종료 시 `— stopped: {reason}` 접미)
+  - 수동 `/improve`(사람이 매 회전 후보 선택)는 이 배치화 대상이 아니다 — 회전마다 정상적으로
+    커밋·버전 bump한다(변경 없음)
 
 ## 재귀성
 루프가 만든 개선이 **다음 회전의 진단 품질을 높인다** — 예: completeness 프로브를 개선하면

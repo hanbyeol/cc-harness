@@ -23,6 +23,13 @@ description: "기능을 추가, 변경, 삭제할 때 사용. TRIGGER: 사용자
   - 변경 대상 기능에 의존하는 다른 기능 식별 → passes 리셋 대상에 포함
   - 순환 의존 여부 확인
 - 영향받는 산출물 목록 도출
+- **티어 분류(자동)**: 위 분석 결과가 `skills/hotfix/SKILL.md`의 기존 '적용 조건'(≤3파일 ·
+  버그수정/사소한 개선 · `security_tier: critical`의 보안 관련 변경 아님)을 **모두** 충족하면
+  이후 Step 2~9를 생략하고 `/hotfix`로 전환한다 — 조건 문구는 hotfix SKILL.md를 참조만 하고
+  재인용하지 않는다(단일 출처, drift 방지). 하나라도 미충족(신규 기능 추가 · 아키텍처 변경 ·
+  critical 보안 로직 수정)이면 Step 2부터 정상 진행한다. `security_tier: critical` 판단은 이
+  분류와 무관하게 항상 최우선이다 — critical의 보안 관련 변경은 어떤 경우에도 hotfix로
+  전환하지 않는다(F48).
 
 ### 2. 스펙 업데이트 — docs/SPEC.md
 - 변경 사항을 SPEC.md에 반영

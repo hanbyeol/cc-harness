@@ -705,3 +705,48 @@ _nojq_run() {
   [[ "$missing" == *"bogus-undocumented.json"* ]] || { echo "파서가 주입된 미문서화 arm을 놓침:[$missing]"; false; }
   [[ "$missing" != *"harness-config.json"* ]] || { echo "파서가 문서화된 arm을 오탐:[$missing]"; false; }
 }
+
+# --- F48: 티어 라우팅 스킬 3개 자기보호 (evaluator.md/F45와 동일한 fail-closed 패턴) ---
+# change-request/improve/hotfix의 조건 문구가 evaluator 생략 여부를 결정하게 되면서 생긴
+# 자기약화 사각지대 — 전체경로 패턴으로만 보호해 다른 스킬의 SKILL.md까지 과잉보호되지
+# 않아야 한다(basename만 매칭하면 회귀).
+
+@test "F48: is_protected protects the 3 tier-routing skill files (full-path match)" {
+  # shellcheck disable=SC1090
+  source <(sed -n '/^is_protected()/,/^}/p' "$HOOK")
+  run is_protected "$WORK/skills/change-request/SKILL.md"
+  [ "$status" -eq 0 ]
+  run is_protected "$WORK/skills/improve/SKILL.md"
+  [ "$status" -eq 0 ]
+  run is_protected "$WORK/skills/hotfix/SKILL.md"
+  [ "$status" -eq 0 ]
+}
+
+@test "F48: is_protected does not over-protect unrelated skill files (basename-only regression guard)" {
+  # shellcheck disable=SC1090
+  source <(sed -n '/^is_protected()/,/^}/p' "$HOOK")
+  run is_protected "$WORK/skills/brainstorm/SKILL.md"
+  [ "$status" -ne 0 ]
+  run is_protected "$WORK/skills/debug/SKILL.md"
+  [ "$status" -ne 0 ]
+}
+
+@test "F48: jq absent — Edit to skills/change-request/SKILL.md is blocked (fail-closed)" {
+  run _nojq_run "$(mk_edit_input "$WORK/skills/change-request/SKILL.md" 'a' 'b')"
+  [ "$status" -eq 2 ]
+}
+
+@test "F48: jq absent — Edit to skills/improve/SKILL.md is blocked (fail-closed)" {
+  run _nojq_run "$(mk_edit_input "$WORK/skills/improve/SKILL.md" 'a' 'b')"
+  [ "$status" -eq 2 ]
+}
+
+@test "F48: jq absent — Edit to skills/hotfix/SKILL.md is blocked (fail-closed)" {
+  run _nojq_run "$(mk_edit_input "$WORK/skills/hotfix/SKILL.md" 'a' 'b')"
+  [ "$status" -eq 2 ]
+}
+
+@test "F48: jq absent — Edit to an unrelated skill file still passes (availability preserved)" {
+  run _nojq_run "$(mk_edit_input "$WORK/skills/brainstorm/SKILL.md" 'a' 'b')"
+  [ "$status" -eq 0 ]
+}
