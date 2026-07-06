@@ -57,9 +57,12 @@ if [[ -d "$COMMS" ]]; then
   if [[ -n "$LATEST_FB" && -f "$LATEST_FB" ]] && jq -e '.' "$LATEST_FB" &>/dev/null; then
     AR=$(jq -r '.criteria_gaps.action_required // ""' "$LATEST_FB" 2>/dev/null || echo "")
     # 상투구 제거 후 실질 후속(alnum·한글)이 남으면 후보. 'none for pass'·'없음'류는 skip.
+    # 단어 경계 기반(F44): 비 alnum·한글을 구분자로 단어 분리 후, 상투구 단어와 '정확히
+    # 일치'하는 것만 제거한다 — sed 부분매칭('password'의 'pass')이 아니라 단어 단위 정밀 매칭.
     STRIPPED=$(printf '%s' "$AR" | tr '[:upper:]' '[:lower:]' \
-      | sed -E 's/none|없음|n\/a|blocking|for pass|pass//g' \
-      | tr -cd '[:alnum:]가-힣')
+      | tr -c '[:alnum:]가-힣' '\n' \
+      | grep -vxE 'none|없음|n|a|blocking|for|pass' \
+      | tr -d '[:space:]' || true)
     if [[ -n "$AR" && -n "$STRIPPED" ]]; then
       add "evaluator follow-up: $(basename "$LATEST_FB")" "최신 판정이 남긴 미해결 후속(action_required): $AR — 백로그로 편입해 다음 회전에서 처리" "low"
     fi

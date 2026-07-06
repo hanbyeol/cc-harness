@@ -1,0 +1,48 @@
+{
+  "sprint": 30,
+  "title": "completeness 상투구 매칭 word-boundary 정밀화 + 테스트 잠금 (F44, F43 후속)",
+  "features": [
+    "F44"
+  ],
+  "security_tier": "standard",
+  "source": "/improve 회전에서 F43 판정 후속(C1 completeness)과 calibration drift(C2 — F43 test_coverage 7이 standard tier 과거 pass 분포 min 8 이탈)가 같은 근본을 가리켰다: F43 상투구 제거의 부분매칭 부정확성 + Korean '없음'·F43-3 description의 CI 미잠금. F43 evaluator가 action_required로 명시한 후속이 F43 프로브 자신에 의해 다음 회전 진단에 잡힌 재귀 산물 — 이를 처리해 갭을 닫는다.",
+  "acceptance_criteria": [
+    "F44-1: completeness.sh §5의 상투구 제거를 단어 경계 기반으로 정밀화 — action_required를 단어 단위로 분리(비 alnum·한글을 구분자로)해 상투구 단어(none·없음·n·a·blocking·for·pass)와 정확히 일치하는 것만 제거. 'password'의 'pass' 부분매칭 제거 회피(word-boundary)",
+    "F44-2: 기능 무회귀 — 'none for pass'→skip, '없음'→skip, 실질 후속('None blocking. Optional: X')→후보, 이 repo 최신 판정→후보 1건. F43의 기존 5개 bats 전부 GREEN",
+    "F44-3: Korean '없음' 상투구 skip을 bats로 잠금(F43은 세션 fixture만이었음)",
+    "F44-4: F43-3(후보 description에 action_required 원문 포함) + word-boundary('password reset' 같은 부분매칭 단어가 상투구로 오제거되지 않아 후보 방출) bats 잠금",
+    "전역: 전체 bats GREEN·무회귀, shellcheck 0, consistency 0"
+  ],
+  "security_criteria": [
+    "SC1: 프로브 읽기 전용 유지 — 후보 방출만, feedback/passes 미변경(INV-1)",
+    "SC2: 상투구 정밀화는 신호 정확도 향상 add-only — 어떤 게이트도 약화하지 않음(completeness는 신호 생성기, invariant-guard 무관)",
+    "SC3: bats 추가는 add-only(INV-6) — 기존 테스트 무삭제·무약화"
+  ],
+  "error_scenarios": [
+    "action_required가 상투구 단어만(공백 구분): 전부 제거 → skip",
+    "상투구가 다른 단어의 부분문자열('password'·'nonetheless'): 단어 단위 정확 일치가 아니므로 미제거 → 실질 후속으로 후보(정당)",
+    "빈 action_required·필드 부재·malformed: F43 degrade 유지"
+  ],
+  "test_scenarios": [
+    "bats(probes.bats): (a) '없음' Korean 상투구 → 0, (b) 'password reset needed'(word-boundary — pass 부분매칭 안 됨) → 후보, (c) 후보 description에 action_required 원문 포함 확인, (d) 기존 F43 5개 무회귀",
+    "이 repo: 최신 판정에서 후보 1건 유지"
+  ],
+  "implementation_steps": [
+    {
+      "step": "probes.bats에 F44 RED 테스트 add-only(Korean 없음·word-boundary·description 포함)",
+      "verify": "신규 RED(word-boundary 미구현 시 password 오제거), 기존 GREEN",
+      "done": true
+    },
+    {
+      "step": "completeness.sh §5 상투구 제거를 단어 단위(tr 분리 + grep -vx)로 정밀화",
+      "verify": "신규 bats GREEN, 이 repo 후보 1건 유지, shellcheck 0",
+      "done": true
+    },
+    {
+      "step": "전체 무회귀 + consistency 0 → 독립 evaluator",
+      "verify": "전체 bats GREEN, consistency 0",
+      "done": true
+    }
+  ],
+  "agreed": true
+}

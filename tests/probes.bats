@@ -298,6 +298,34 @@ JSON
   [ "$status" -eq 0 ]
 }
 
+@test "completeness: Korean '없음' cliche yields no candidate (F44)" {
+  seed_consistent
+  mkdir -p "$WORK/progress/agent-comms"
+  echo '{"criteria_gaps":{"action_required":"없음"}}' \
+    > "$WORK/progress/agent-comms/evaluator-feedback-2026-09-01T00-00-00.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/completeness.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("evaluator follow-up"))]|length')" -eq 0 ]
+}
+
+@test "completeness: word-boundary — 'password' is not stripped as 'pass' cliche (F44)" {
+  seed_consistent
+  mkdir -p "$WORK/progress/agent-comms"
+  # 'password'/'reset'은 상투구 단어가 아니므로 실질 후속으로 후보가 나와야 한다
+  echo '{"criteria_gaps":{"action_required":"password reset needed"}}' \
+    > "$WORK/progress/agent-comms/evaluator-feedback-2026-09-01T00-00-00.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/completeness.sh'"
+  echo "$output" | jq -e '.[] | select(.name | test("evaluator follow-up"))'
+}
+
+@test "completeness: follow-up candidate description carries the action_required text (F43-3/F44)" {
+  seed_consistent
+  mkdir -p "$WORK/progress/agent-comms"
+  echo '{"criteria_gaps":{"action_required":"None blocking. Optional: add UNIQUEMARKER hardening"}}' \
+    > "$WORK/progress/agent-comms/evaluator-feedback-2026-09-01T00-00-00.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/completeness.sh'"
+  echo "$output" | jq -e '.[] | select(.source=="completeness") | select(.description | test("UNIQUEMARKER"))'
+}
+
 # --- self-review probe ---
 
 @test "self-review: FIXME/TODO comment yields a candidate" {
