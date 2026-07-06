@@ -36,18 +36,18 @@
     {
       "step": "apply_replace()가 old_string/new_string 백슬래시 포함 시 손상되는 것을 재현하는 RED 테스트 작성(F49-2, F49-3 시나리오)",
       "verify": "RED 확인 — 현재 코드로 실패",
-      "done": false
+      "done": true
     },
     {
       "step": "apply_replace()를 awk -v → 환경변수(ENVIRON[]) 경유로 수정",
       "verify": "위 RED 테스트 GREEN 전환",
-      "done": false
+      "done": true
     },
     {
       "step": "전체 bats/shellcheck/consistency 회귀 확인 → 독립 evaluator + security-auditor(critical, F37 2차 판정 포함)",
       "verify": "bats 전체 GREEN, shellcheck 0, evaluator min-of-5≥7·security≥7 (1차+2차 일치)",
-      "done": false
+      "done": true
     }
   ],
-  "agreed": false
+  "agreed": true
 }

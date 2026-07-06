@@ -49,9 +49,14 @@ is_protected() {
 
 # old_string의 첫 출현을 new_string으로 치환한 전체 내용을 stdout으로.
 # 매치가 없으면 원본 그대로. (리터럴 치환 — 정규식 메타 영향 없음)
+# 주의(F49): o/n은 awk -v가 아니라 환경변수(ENVIRON[])로 전달한다 — POSIX awk의 -v 할당은
+# 문자열 리터럴처럼 백슬래시 이스케이프를 처리해, o/n에 백슬래시(이 코드베이스의 멀티라인
+# case문 line-continuation처럼 흔한 패턴)가 있으면 손상된다(로케일/멀티바이트 무관, 전
+# awk 구현 공통). 환경변수 값은 이스케이프 처리 없이 그대로 전달된다.
 apply_replace() {
-  awk -v o="$2" -v n="$3" '
-    BEGIN { RS="\0" }
+  local __IG_OLD__="$2" __IG_NEW__="$3"
+  __IG_OLD__="$__IG_OLD__" __IG_NEW__="$__IG_NEW__" awk '
+    BEGIN { RS="\0"; o=ENVIRON["__IG_OLD__"]; n=ENVIRON["__IG_NEW__"] }
     {
       idx=index($0,o);
       if (idx>0) { printf "%s", substr($0,1,idx-1) n substr($0,idx+length(o)) }

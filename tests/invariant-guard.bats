@@ -750,3 +750,59 @@ _nojq_run() {
   run _nojq_run "$(mk_edit_input "$WORK/skills/brainstorm/SKILL.md" 'a' 'b')"
   [ "$status" -eq 0 ]
 }
+
+# --- F49: apply_replace() escape-corruption fix (false-allow prevention) ---
+# 근본원인: POSIX awk의 `-v var=value` 할당은 문자열 리터럴과 동일하게 백슬래시 이스케이프를
+# 처리한다 — old_string/new_string에 백슬래시(이 코드베이스의 멀티라인 case문
+# line-continuation처럼 흔한 패턴)가 있으면 손상된다. 로케일/멀티바이트와 무관 — 순수 ASCII로
+# 재현된다(이전 known_issue의 'macOS awk+UTF-8' 진단은 부정확했음). 수정: 환경변수(ENVIRON[])
+# 경유로 리터럴 바이트를 보존.
+
+_source_apply_replace() {
+  # shellcheck disable=SC1090
+  source <(sed -n '/^apply_replace()/,/^}/p' "$HOOK")
+}
+
+@test "F49: apply_replace substitutes correctly when old_string contains backslash-newline continuation" {
+  _source_apply_replace
+  local content old new result
+  content=$(printf '  case "$f" in\n    */tests/*.bats) return 0 ;;\n    */skills/change-request/SKILL.md | \\\n    */skills/improve/SKILL.md | \\\n    */skills/hotfix/SKILL.md) return 0 ;;\n  esac\n')
+  old=$(printf '    */skills/change-request/SKILL.md | \\\n    */skills/improve/SKILL.md | \\\n    */skills/hotfix/SKILL.md) return 0 ;;\n')
+  new="MARKER_REPLACED_CORRECTLY"
+  result=$(apply_replace "$content" "$old" "$new")
+  [[ "$result" == *"MARKER_REPLACED_CORRECTLY"* ]] || { echo "치환 실패(버그 재현):[$result]"; false; }
+}
+
+@test "F49: apply_replace reflects deny()/exit-2 removal instead of silently returning unchanged content (false-allow prevention)" {
+  _source_apply_replace
+  local content old new result
+  content=$(printf 'deny() {\n  echo "msg" >&2\n  exit 2\n}\n')
+  old=$(printf 'deny() {\n  echo "msg" >&2\n  exit 2\n}\n')
+  new=$(printf 'deny() {\n  echo "msg" >&2\n}\n')
+  result=$(apply_replace "$content" "$old" "$new")
+  # 버그 상태에서는 old_string 매치가 깨져 NEW_CONTENT=OLD와 동일해지고, exit 2가 그대로
+  # 남아 훅의 약화검사가 "변경 없음"으로 오판(false-allow)한다 — 수정 후엔 실제로 제거돼야 한다.
+  [[ "$result" != *"exit 2"* ]] || { echo "exit 2가 제거되지 않음(false-allow 버그 재현):[$result]"; false; }
+}
+
+@test "F49: apply_replace handles backslash-quote in old_string without truncation (escape type generalization)" {
+  _source_apply_replace
+  local content old new result
+  content=$(printf 'echo "A\\"B" # literal backslash-quote\nnext line\n')
+  old=$(printf 'echo "A\\"B" # literal backslash-quote\n')
+  new="MARKER2"
+  result=$(apply_replace "$content" "$old" "$new")
+  [[ "$result" == *"MARKER2"* ]] || { echo "백슬래시-따옴표 치환 실패:[$result]"; false; }
+}
+
+@test "F49: MultiEdit-style sequential apply_replace calls (one containing backslash-newline) produce correct final content" {
+  _source_apply_replace
+  local content step1 step2 old1 new1
+  content=$(printf 'first | \\\nsecond) return 0 ;;\nanother line here\n')
+  old1=$(printf 'first | \\\nsecond) return 0 ;;\n')
+  new1="REPLACED_STEP1"
+  step1=$(apply_replace "$content" "$old1" "$new1")
+  step2=$(apply_replace "$step1" "another line here" "REPLACED_STEP2")
+  [[ "$step2" == *"REPLACED_STEP1"* && "$step2" == *"REPLACED_STEP2"* ]] \
+    || { echo "순차 치환 실패:[$step2]"; false; }
+}
