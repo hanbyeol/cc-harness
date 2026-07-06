@@ -4,6 +4,13 @@
   "features": [
     "F27"
   ],
+  "_drift_correction": {
+    "date": "2026-07-06",
+    "reason": "이 계약(v1.13.0)의 F27-1/2/3·SC4·SC5는 **allowlist 모델**(등록된 명령만 allow, 미등록·git push·npm install·인터프리터는 fall-through/프롬프트)을 기술한다. 그러나 ADR-004 Amendment 2(v1.13.1, 사용자 지시)가 Layer 4를 **default-allow**(위험 정의=deny/ask를 통과하면 무조건 allow)로 전환했다 — 이후 미등록 명령·git push(non-force)·npm install·python script.py는 이제 allow를 방출한다($()·백틱·파일 리다이렉트·경로 위험은 여전히 deny/ask). 따라서 위 기준의 'allowlist' 문구는 실제 구현과 불일치한다(F27 evaluator 지적, 2026-07-06).",
+    "current_model": "default-allow (denylist) — deny(L1/2)·ask(L3)를 통과하면 allow. 안전성은 deny+ask 목록의 완전성에 실린다. Amendment 3/4가 인터프리터/에디터 보호경로·시크릿 egress를 ask로 add-only 강화.",
+    "authoritative_source": "docs/DECISIONS/ADR-004-firewall-auto-allow.md (Amendment 2~4)",
+    "note": "원문 acceptance_criteria/security_criteria는 합의 당시(v1.13.0) 스냅샷으로 보존한다 — 계약을 사후 재작성하지 않고 drift를 명시해 감사 추적성을 유지한다. F27 자체는 default-allow 모델로 재판정되어 passed(min-of-5=8, 2026-07-06)."
+  },
   "security_tier": "critical",
   "source": "cc-harness가 플러그인으로 설치되어 skill/agent가 실행될 때, deny/ask에 걸리지 않는 안전 명령(git status·go test·grep·git commit 등)마다 사용자 Y/n 프롬프트가 발생해 자동화 흐름이 끊긴다. firewall은 위험만 처리하고 안전은 판정 없이 exit 0 → 기본 프롬프트로 넘어간다. 플러그인 훅에 allow 계층을 내장해 이식성 있게 해소.",
   "acceptance_criteria": [
