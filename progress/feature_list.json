@@ -481,9 +481,9 @@
       "name": "/improve --auto N — 배치 승인 무인 자기개선 루프",
       "description": "P2-5: /improve가 매 턴 사람 선택을 요구해 ralph식 루프 자율성이 낮던 갭 해소. --auto N 모드 — 사용자가 배치 Plan 게이트 1회에서 범위(후보 필터·N회전·중단 조건)를 승인하면 N회전 동안 probe→후보 자동 선정→change-request→구현→evaluator→finish-branch를 무인 반복. 백프레셔=기존 게이트 전부(invariant-guard·bats·evaluator min-of-5·Stop 게이트) 무약화. security_tier critical/invariant·firewall·guard 대상 후보는 무인 실행 제외 → progress/approval-queue.json에 사람 승인 큐로 적립. 중단 조건: evaluator fail 2연속·invariant-guard 차단 발생·신규 후보 0·N 도달. ADR-006(배치 승인 의미론 — 1회 승인이 개별 Plan 게이트를 대체하는 범위와 한계) 작성, INVARIANTS에 'critical 후보 무인 실행 불가' add-only 명문화. F35 선행 전제(passes 기계 검증 없이 무인 루프 금지).",
       "security_tier": "critical",
-      "status": "review",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [
         "F14",
         "F35"

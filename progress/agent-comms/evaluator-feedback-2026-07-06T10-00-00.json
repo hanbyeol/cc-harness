@@ -1,0 +1,78 @@
+{
+  "timestamp": "2026-07-06T10:00:00Z",
+  "sprint": 25,
+  "iteration": 1,
+  "features_evaluated": [
+    "F39"
+  ],
+  "security_tier": "critical",
+  "commit_evaluated": "25c17d6",
+  "scores": {
+    "functionality": 8,
+    "code_quality": 8,
+    "security": 8,
+    "error_handling": 8,
+    "test_coverage": 7
+  },
+  "score": 7,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "pass",
+  "verification_method": "grounded — all dimensions verified by direct execution this session (bats 487/487 twice, improve-auto.bats 8/8, invariant-guard simulations A/B/C, git numstat add-only, JSON schema checks). No dimension is code-reading-only; no 'unverified' cap applied.",
+  "fail_reasons": [],
+  "evidence": {
+    "full_suite": "bats tests/ → 487 ok / 0 fail, exit 0 (two independent runs, both terminate at 'ok 487')",
+    "f39_tests": "bats tests/improve-auto.bats → 8/8 pass, incl. test 7 'INV-12 and SKILL exclude tests/*.bats' (regression guard for the security-auditor gap)",
+    "inv12_completeness": "INVARIANTS.md INV-12 exclusion list (line 138-141) now includes tests/*.bats; alignment note (line 143-147) requires the list stay in sync with is_protected() and documents contracts/sprint-*.json as the intentional exception (loop authors/agrees contracts each round; INV-11 blocks empty-contract agreement). SKILL §3 (line 46) and §6 (line 74) both list tests/*.bats.",
+    "is_protected_symmetry": "hooks/invariant-guard.sh is_protected() protects *.bats (line 36), */tests/*.bats (line 40), */contracts/sprint-*.json (line 41). tests/*.bats asymmetry (auditor finding 1) is CLOSED. Remaining deltas are benign: contracts (in is_protected, intentionally NOT in INV-12 — documented) and agents/evaluator.md (in INV-12, not is_protected — asymmetric in the SAFE direction: INV-12 is MORE protective, isolating it to approval-queue; a prompt file has no machine invariant to guard).",
+    "gate_no_weakening_SC1": "SKILL §6 line 66-67, ADR-006 line 19-21, INV-12 line 151-152 consistently state --auto bypasses ONLY the human candidate pick; invariant-guard/bats/evaluator min-of-5/Stop remain identical every round. No documented path skips a verification stage. INVARIANTS/SKILL/ADR diffs are add-only (numstat: 760cfd3 INV +17/-0, SKILL +19/-1[usage-comment extended to add --auto variant], ADR +39/-0; 25c17d6 INV +8/-1, SKILL +4/-2 — all deletions are list-line extensions adding tests/*.bats, zero protections removed).",
+    "f35_precondition": "invariant-guard.sh reads .tool_input.file_path only (line 79) — caller-agnostic, so INV-11 passes-transition re-verification (feedback existence + min-of-5 + critical security) operates identically on unattended rounds. ADR-006 line 30-31 and INV-12 line 152-153 document F35(INV-11) as the stated precondition ('passes 전환이 기계 검증되지 않으면 무인 루프는 금지').",
+    "stop_conditions": "4 conditions present in ADR-006 line 23-28, SKILL §6 line 78-79, contract, feature_list: (1) 2 consecutive evaluator fails, (2) invariant-guard block → immediate stop + candidate to queue, (3) zero new candidates, (4) N reached (N≤10). Termination writes reason+progress to session handoff.",
+    "approval_queue_schema": "progress/approval-queue.json is valid JSON with queued:[] array; _comment documents append-only concurrency safety and the isolation set (critical + verification devices).",
+    "add_only_self_protection": "Grounded guard sims — TEST A: add-only extension of INVARIANTS.md → exit 0 (guard permits strengthening; F39 edits legitimately pass). TEST B: 30% shrink → exit 2 deny (INV-7 self-protection live: '205 → 2 줄 대폭 축소'). Confirms the F39 INVARIANTS edits (net additions) pass while gutting is blocked.",
+    "skip_injection_defense_is_load_bearing": "Grounded TEST C: injecting `skip` into a @test body WITHOUT changing @test count → invariant-guard exit 0 (INV-6 is count-based, cannot catch it). This EMPIRICALLY confirms the auditor's exploit path is real, so the fast-follow's exclusion-list defense (routing tests/*.bats candidates to approval-queue) is genuinely necessary, not redundant. tests/*.bats now has DUAL defense: machine guard (deletion) + exclusion list (skip-injection weakening).",
+    "consistency_probe": "scripts/probes/consistency.sh → 0 candidates.",
+    "supply_chain": "No runtime deps (bash hooks + markdown skills); no hardcoded secrets in F39 diff (auditor secret-grep 0)."
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "F39-1: --auto N add-only in SKILL §6 — batch Plan gate 1x → N unattended rounds of change-request→implement→independent-evaluator→finish",
+      "F39-2: candidate auto-selection rules documented; critical/verification-device candidates isolated to approval-queue.json (valid schema)",
+      "F39-3: 4 stop conditions + session-handoff on termination",
+      "F39-4: all existing gates un-weakened, no new gate (F14 principle preserved)",
+      "F39-5: ADR-006 Accepted — batch-approval semantics (replaces/doesn't-replace), limits, F35 precondition, alternatives rejected",
+      "F39-6: INV-12 add-only 'critical/verification-device candidates cannot run unattended' + changelog",
+      "global: full bats GREEN (487/487), consistency 0, no shell files changed (shellcheck N/A)"
+    ],
+    "security": [
+      "SC1 gate non-weakening — verified via TEST A (guard allows only strengthening) + doc consistency",
+      "SC2 no privilege escalation — auto mode does not alter firewall/guard/thresholds; such candidates isolated to queue",
+      "SC3 runaway prevention — N≤10, 4 stop conditions, git-tracked rounds",
+      "SC4 security-auditor performed (critical tier) — conditional_pass, sole medium finding closed by fast-follow 25c17d6 + regression test"
+    ],
+    "error_scenarios": [
+      "evaluator fail retry then 2-consecutive stop",
+      "invariant-guard block → immediate stop + candidate to approval-queue",
+      "approval-queue append-only concurrency safety",
+      "user interruption mid-N → finish current round's gates (no dangling state)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "The improve-auto.bats symmetry test (test 7) locks the SPECIFIC tests/*.bats case in both INV-12 and SKILL, but there is no MACHINE test asserting FULL set-symmetry between is_protected() and the INV-12 exclusion list. A future addition to is_protected() could again drift from INV-12 without a test catching it — same class of gap the auditor just found. The alignment note (INV-12 line 143) documents the requirement in prose; consider a bats test that parses is_protected()'s case arms and asserts each (minus the documented contracts exception) appears in INV-12. Non-blocking hardening for future drift."
+    ],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "residual_risks_within_threat_model": [
+      "Forged-feedback residual (auditor finding 3, low/medium): unattended mode amplifies the documented INV-11 limitation (hook cannot distinguish caller, so a plausible forged evaluator-feedback + passes-flip by the same agent is a speed-bump, not blocked). Bounded because critical candidates cannot be auto-selected (queue-isolated), so a forged critical pass cannot be auto-generated — residual limited to low-risk candidates. Within threat model; NOT an F39 regression. Recommend a backlog item noting unattended mode weakens the 'human notices forged feedback' backstop (auditor mitigation)."
+    ],
+    "criteria_backfill_assessment": "No F39 criteria_backfill present (implementer-output.json is stale — sprint 3 F13/F14, not F39). Contract sprint-25 implementation_steps all done:true; acceptance/security/error criteria are self-consistent. 0 backfill entries — well under the 3-entry re-review threshold.",
+    "action_required": "None blocking. Optional next-iteration hardening: (1) machine test for is_protected()↔INV-12 full symmetry; (2) backlog item for forged-feedback backstop weakening under unattended mode."
+  },
+  "notes": "Policy/documentation/skill feature (unattended-loop safety convention), not runtime code. The load-bearing machine defenses it relies on (is_protected, INV-6/7/11) are separately machine-enforced and were grounded-tested this session (A/B/C). The one real gap the security-auditor found — tests/*.bats missing from the unattended-exclusion list, letting an unattended round weaken a test via skip-injection undetected — is closed by 25c17d6 and locked by a regression test. min-of-5 = min(8,8,8,8,7) = 7 ≥ threshold 7; critical security 8 ≥ 7. PASS."
+}
