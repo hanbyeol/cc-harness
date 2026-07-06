@@ -48,4 +48,22 @@ if [[ -f progress/feature_list.json ]]; then
   done
 fi
 
+# 5. evaluator 후속 작업 자동 편입 (F43) — 정적 프로브가 못 보는 '판정 기록의 미해결 후속'을
+#    진단에 올린다. 최신(비archive) evaluator-feedback 1건의 criteria_gaps.action_required에서
+#    상투구(none/없음 등)를 제거한 뒤 실질 후속이 남으면 후보로. 최신 1건만(evidence/calibration 패턴).
+COMMS="progress/agent-comms"
+if [[ -d "$COMMS" ]]; then
+  LATEST_FB=$(ls -1 "$COMMS"/evaluator-feedback-*.json 2>/dev/null | sort -r | head -1 || true)
+  if [[ -n "$LATEST_FB" && -f "$LATEST_FB" ]] && jq -e '.' "$LATEST_FB" &>/dev/null; then
+    AR=$(jq -r '.criteria_gaps.action_required // ""' "$LATEST_FB" 2>/dev/null || echo "")
+    # 상투구 제거 후 실질 후속(alnum·한글)이 남으면 후보. 'none for pass'·'없음'류는 skip.
+    STRIPPED=$(printf '%s' "$AR" | tr '[:upper:]' '[:lower:]' \
+      | sed -E 's/none|없음|n\/a|blocking|for pass|pass//g' \
+      | tr -cd '[:alnum:]가-힣')
+    if [[ -n "$AR" && -n "$STRIPPED" ]]; then
+      add "evaluator follow-up: $(basename "$LATEST_FB")" "최신 판정이 남긴 미해결 후속(action_required): $AR — 백로그로 편입해 다음 회전에서 처리" "low"
+    fi
+  fi
+fi
+
 echo "$CANDS"

@@ -1,0 +1,51 @@
+{
+  "sprint": 29,
+  "title": "completeness 프로브 확장 — evaluator 후속 작업 자동 편입 (F43)",
+  "features": [
+    "F43"
+  ],
+  "security_tier": "standard",
+  "source": "/improve 1회전(2026-07-06)에서 8개 프로브 전부 0건인데 evaluator/security-auditor가 criteria_gaps.action_required에 남긴 후속 작업(is_protected↔INV-12 대칭 테스트·transitive 순환·forged-feedback 백스톱)이 진단에 안 잡히는 사각지대 실증. 정적 프로브가 '판정 기록의 미해결 후속'을 못 봐 사람이 evaluator feedback을 직접 읽어야만 백로그를 알 수 있었다. 이 백로그를 프로브가 자동 환원하게 해 루프가 스스로 먹이를 찾도록 재귀 개선.",
+  "acceptance_criteria": [
+    "F43-1: scripts/probes/completeness.sh에 항목 추가 — 최신(비archive) progress/agent-comms/evaluator-feedback-*.json 1건의 criteria_gaps.action_required를 읽는다(evidence.sh/calibration.sh와 동일한 최신-1건 패턴, historical 노이즈 회피)",
+    "F43-2: action_required에서 상투구('none'·'없음'·'n/a'·'blocking'·'for pass'·'pass')를 제거한 뒤 실질 후속 텍스트(alnum·한글)가 남으면 후보로 방출. 상투구만이면(예: 'none for pass'·'없음') skip",
+    "F43-3: 후보 방출 시 name은 판정 파일 식별, description은 action_required 원문 포함(사람이 무엇을 할지 바로 파악)",
+    "F43-4: 읽기 전용 — 파일/디렉토리 부재·malformed JSON·action_required 부재(구 스키마)에 graceful degrade(빈 결과, 프로브 중단 없음)",
+    "F43-5: 이 repo 실행 실증 — 최신 판정(F39 iter2, 'None blocking. Optional: (1) is_protected↔INV-12 symmetry (2) forged-feedback backlog')에서 후보 1건 방출(재귀 실증). 상투구만 남긴 판정 fixture에서는 0건",
+    "전역: 전체 bats GREEN·무회귀, shellcheck 0, consistency 0, run-all에 자연 편입(completeness는 이미 배선됨)"
+  ],
+  "security_criteria": [
+    "SC1: 프로브는 읽기 전용(후보 방출만) — feedback/passes 미변경, INV-1 준수",
+    "SC2: action_required 원문을 후보 description에 넣을 때 시크릿 패턴 노출 없음(evaluator feedback은 판정 요약이라 시크릿 미포함, 그래도 원문 그대로 전달만)",
+    "SC3: 프로브 확장은 신호 생성기 add-only — invariant-guard 무관(검증 장치 아님), 어떤 게이트도 약화하지 않음"
+  ],
+  "error_scenarios": [
+    "evaluator-feedback 0건(신규 프로젝트): 후보 0, 프로브 정상 종료",
+    "action_required 필드 부재(구 스키마 판정이 최신): skip, degrade",
+    "action_required가 'none for pass' 상투구만: 후보 0(오탐 방지)",
+    "malformed 최신 feedback JSON: 조용히 skip(빈 결과)"
+  ],
+  "test_scenarios": [
+    "bats(probes.bats): (a) action_required에 실질 후속 있는 fixture → 후보, (b) 'none for pass' 상투구 fixture → 0, (c) action_required 부재 fixture → 0, (d) feedback 부재 → 0, (e) malformed → 0",
+    "이 repo 실행: 최신 F39 판정에서 후보 1건",
+    "무회귀: 기존 completeness 테스트(hook without test·skill without TRIGGER·runtime absence) 전부 GREEN"
+  ],
+  "implementation_steps": [
+    {
+      "step": "probes.bats에 F43 RED 테스트 add-only(상투구 제거 로직·최신 1건·degrade)",
+      "verify": "신규 테스트 RED(미구현), 기존 GREEN",
+      "done": true
+    },
+    {
+      "step": "completeness.sh에 evaluator 후속 편입 항목 추가(최신 1건·상투구 제거·graceful)",
+      "verify": "신규 bats GREEN, 이 repo에서 F39 후속 1건 방출, shellcheck 0",
+      "done": true
+    },
+    {
+      "step": "전체 무회귀 + consistency 0 → 독립 evaluator",
+      "verify": "전체 bats GREEN, consistency 0",
+      "done": true
+    }
+  ],
+  "agreed": true
+}

@@ -250,6 +250,54 @@ JSON
   [ "$(echo "$output" | jq '[.[] | select(.name | test("runtime state missing"))] | length')" -eq 0 ]
 }
 
+# --- F43: evaluator 후속 작업(action_required) 자동 편입 ---
+
+@test "completeness: evaluator action_required with real follow-up yields a candidate (F43)" {
+  seed_consistent
+  mkdir -p "$WORK/progress/agent-comms"
+  echo '{"criteria_gaps":{"action_required":"None blocking. Optional next-iteration: add a symmetry test for is_protected."}}' \
+    > "$WORK/progress/agent-comms/evaluator-feedback-2026-09-01T00-00-00.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/completeness.sh'"
+  echo "$output" | jq -e '.[] | select(.name | test("evaluator follow-up"))'
+}
+
+@test "completeness: action_required 'none for pass' yields no candidate (F43 no false-positive)" {
+  seed_consistent
+  mkdir -p "$WORK/progress/agent-comms"
+  echo '{"criteria_gaps":{"action_required":"none for pass"}}' \
+    > "$WORK/progress/agent-comms/evaluator-feedback-2026-09-01T00-00-00.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/completeness.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("evaluator follow-up"))]|length')" -eq 0 ]
+}
+
+@test "completeness: missing action_required field yields no candidate (F43)" {
+  seed_consistent
+  mkdir -p "$WORK/progress/agent-comms"
+  echo '{"verdict":"pass"}' > "$WORK/progress/agent-comms/evaluator-feedback-2026-09-01T00-00-00.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/completeness.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("evaluator follow-up"))]|length')" -eq 0 ]
+}
+
+@test "completeness: only latest feedback is read for action_required (F43)" {
+  seed_consistent
+  mkdir -p "$WORK/progress/agent-comms"
+  # 과거엔 실질 후속, 최신엔 상투구 — 최신 1건만 보므로 0
+  echo '{"criteria_gaps":{"action_required":"Optional: old follow-up hardening"}}' \
+    > "$WORK/progress/agent-comms/evaluator-feedback-2026-01-01T00-00-00.json"
+  echo '{"criteria_gaps":{"action_required":"none for pass"}}' \
+    > "$WORK/progress/agent-comms/evaluator-feedback-2026-09-01T00-00-00.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/completeness.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("evaluator follow-up"))]|length')" -eq 0 ]
+}
+
+@test "completeness: malformed latest feedback degrades gracefully (F43)" {
+  seed_consistent
+  mkdir -p "$WORK/progress/agent-comms"
+  echo '{broken json' > "$WORK/progress/agent-comms/evaluator-feedback-2026-09-01T00-00-00.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/completeness.sh'"
+  [ "$status" -eq 0 ]
+}
+
 # --- self-review probe ---
 
 @test "self-review: FIXME/TODO comment yields a candidate" {
