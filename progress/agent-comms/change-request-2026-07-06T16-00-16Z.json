@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-07-06T16:00:16Z",
+  "type": "modify",
+  "description": "invariant-guard.sh apply_replace()의 awk -v 이스케이프 손상 버그 수정 (F48 후속, /improve 회전, completeness 후보 C1)",
+  "affected_features": [
+    "F49"
+  ],
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": false,
+    "acceptance_criteria_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false
+  },
+  "new_sprint_contract": "progress/contracts/sprint-35.json",
+  "rollback_to_phase": null,
+  "note": "/improve 진단(completeness 프로브 C1)이 F48의 known_issue_discovered를 후속 후보로 편입. 메인 루프가 순수 ASCII 재현으로 근본원인을 재규명(POSIX awk -v 이스케이프 처리 — 로케일/멀티바이트 무관, 기존 'macOS awk+UTF-8' 진단 정정). security_tier critical(hooks/invariant-guard.sh 자기보호 훅 수정) — F48의 티어 분류 로직상으로도 hotfix 대상 아님(critical은 항상 풀사이클)."
+}
