@@ -548,9 +548,9 @@
       "name": "completeness 상투구 매칭 word-boundary 정밀화 + 테스트 잠금 (F43 후속)",
       "description": "F43 evaluator/calibration이 지적한 test_coverage 갭 해소(C1=C2 근본원인). (1) completeness.sh의 action_required 상투구 제거를 단어 경계 기반으로 정밀화 — 현재 sed 부분매칭은 'password'의 'pass'를 제거(무해하나 부정확)하므로, 단어 단위로 분리해 상투구 단어(none·없음·n·a·blocking·for·pass)와 정확히 일치하는 것만 제거. (2) Korean '없음' 상투구 skip과 F43-3(후보 description에 action_required 원문 포함)을 bats로 잠금(세션 fixture만이던 것을 CI 고정). F43 후속이 프로브로 잡혀 처리되는 재귀 루프의 첫 산물.",
       "security_tier": "standard",
-      "status": "review",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [
         "F43"
       ],
