@@ -534,9 +534,9 @@
       "name": "completeness 프로브 확장 — evaluator 후속 작업 자동 편입 (진단 사각지대 해소)",
       "description": "/improve 진단이 8개 프로브 전부 0건인데 evaluator/security-auditor가 criteria_gaps.action_required에 남긴 후속 작업(is_protected↔INV-12 대칭 테스트, transitive 순환 탐지, forged-feedback 백스톱 등)은 정적 프로브가 못 봐 진단에 안 잡히던 사각지대 해소. completeness.sh에 최신(비archive) evaluator-feedback의 criteria_gaps.action_required를 읽어 'none/없음' 상투구 제거 후 실질 후속이 남으면 후보로 방출하는 항목 추가. 최신 1건만(evidence.sh/calibration.sh 패턴, historical 노이즈 회피). 읽기 전용, jq/파일 부재·malformed graceful degrade. 재귀적 개선 — 다음 회전부터 판정 백로그가 자동으로 진단에 편입돼 루프가 스스로 먹이를 찾는다.",
       "security_tier": "standard",
-      "status": "review",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [
         "F13",
         "F25"
