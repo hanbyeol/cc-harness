@@ -51,7 +51,8 @@ if [[ "$VERDICT" == pass* && "$MIN" != "null" ]] && awk -v m="$MIN" -v t="$PASS_
 fi
 
 # (d) evidence 없는 pass (evidence.sh와 상보 — calibration 관점 재확인)
-HAS_EV=$(jq -r '(.evidence // {}) | (type=="object" and length>0)' "$LATEST" 2>/dev/null || echo "false")
+# evidence 또는 grounded_evidence 중 하나라도 non-empty면 근거 있음(F47 — 필드명 변형 폴백).
+HAS_EV=$(jq -r '((.evidence | type=="object" and length>0) or (.grounded_evidence | type=="object" and length>0))' "$LATEST" 2>/dev/null || echo "false")
 if [[ "$VERDICT" == pass* && "$HAS_EV" != "true" ]]; then
   add "evaluator pass without evidence ($FEAT)" "verdict=pass인데 evidence 객체가 비어있음 — evidence over claims 위반. $LATEST" "standard"
 fi

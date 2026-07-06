@@ -298,6 +298,25 @@ JSON
   [ "$status" -eq 0 ]
 }
 
+@test "completeness: convergence declaration in action_required yields no candidate (F47)" {
+  seed_consistent
+  mkdir -p "$WORK/progress/agent-comms"
+  # evaluator가 명시적으로 수렴 선언 — 미해결 후속이 아니므로 후보 아님
+  echo '{"criteria_gaps":{"action_required":"None blocking. F46 closes the residual — recursion converges here."}}' \
+    > "$WORK/progress/agent-comms/evaluator-feedback-2026-09-01T00-00-00.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/completeness.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("evaluator follow-up"))]|length')" -eq 0 ]
+}
+
+@test "completeness: substantial follow-up without convergence marker still a candidate (F47 no over-suppress)" {
+  seed_consistent
+  mkdir -p "$WORK/progress/agent-comms"
+  echo '{"criteria_gaps":{"action_required":"None blocking. Optional: add a dedup test for the parser."}}' \
+    > "$WORK/progress/agent-comms/evaluator-feedback-2026-09-01T00-00-00.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/completeness.sh'"
+  echo "$output" | jq -e '.[] | select(.name | test("evaluator follow-up"))'
+}
+
 @test "completeness: Korean '없음' cliche yields no candidate (F44)" {
   seed_consistent
   mkdir -p "$WORK/progress/agent-comms"
@@ -573,6 +592,21 @@ fb() { # fb <timestamp> <json-content>
   [ "$(echo "$output" | jq 'length')" -eq 0 ]
 }
 
+@test "evidence: grounded_evidence field alias yields no candidate (F47 field fallback)" {
+  seed_feedback
+  fb 2026-02-01T00-00-00 '{"verdict":"pass","grounded_evidence":{"bats":"500 ok / 0 fail"}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/evidence.sh'"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "evidence: pass with neither evidence nor grounded_evidence still a candidate (F47 detection preserved)" {
+  seed_feedback
+  fb 2026-02-01T00-00-00 '{"verdict":"pass","scores":{"functionality":8}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/evidence.sh'"
+  [ "$(echo "$output" | jq 'length')" -eq 1 ]
+}
+
 @test "run-all: includes evidence source" {
   seed_consistent
   seed_feedback
@@ -626,6 +660,13 @@ fb() { # fb <timestamp> <json-content>
   fb 2026-09-02T00-00-00 '{"features_evaluated":["FX"],"verdict":"pass","score":7,"scores":{"functionality":8,"code_quality":8,"security":8,"error_handling":7,"test_coverage":7}}'
   run bash -c "cd '$WORK' && bash '$PROBES/calibration.sh'"
   echo "$output" | jq -e '.[] | select(.name | test("without evidence"))'
+}
+
+@test "calibration: grounded_evidence field alias is not flagged evidence-less (F47)" {
+  seed_feedback
+  fb 2026-09-02T00-00-00 '{"features_evaluated":["FX"],"verdict":"pass","score":8,"scores":{"functionality":8,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8},"grounded_evidence":{"bats":"500 ok"}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/calibration.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("without evidence"))]|length')" -eq 0 ]
 }
 
 @test "calibration: no feedback files degrades to [] exit 0 (F37-5)" {

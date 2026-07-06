@@ -1,0 +1,51 @@
+{
+  "sprint": 33,
+  "title": "프로브의 evaluator-feedback 해석 정합 (F47)",
+  "features": [
+    "F47"
+  ],
+  "security_tier": "standard",
+  "source": "F46 판정 후 /improve 진단이 수렴 대신 3건을 냈고, 셋 다 프로브가 evaluator feedback을 정확히 못 읽어 발생한 오탐이었다: F46 evaluator가 evidence를 grounded_evidence로 필드명 오기(과거 5건은 evidence) → evidence/calibration이 '증거 없는 pass' 오검출(C2/C3), completeness가 수렴 선언을 후속으로 오인(C1). 프로브↔evaluator 산출물 스키마를 정합해 오탐을 없애고 재발을 막는다.",
+  "acceptance_criteria": [
+    "F47-1: evidence.sh가 evidence 부재 시 grounded_evidence 필드도 확인 — .evidence 또는 .grounded_evidence 중 하나라도 non-empty 객체면 후보 아님(둘 다 없어야 후보). 이 repo의 F46 판정(grounded_evidence 보유)이 더는 후보로 안 나옴",
+    "F47-2: calibration.sh의 (d) evidence 검사도 동일 폴백(.evidence // .grounded_evidence) — F46 판정이 calibration 후보에서 제거",
+    "F47-3: 검출력 무약화 — evidence·grounded_evidence 둘 다 없거나 빈 pass 판정은 여전히 후보(오탐만 제거, 진짜 증거없음은 계속 검출)",
+    "F47-4: completeness §5가 수렴 마커(converge·수렴·no forced follow·no further follow)를 담은 action_required는 후속 아님으로 skip — F46의 'None blocking. ... recursion converges here'가 더는 후보로 안 나옴. 단 실질 후속('Optional: add X')은 수렴 마커 없으면 후보 유지(F43/F44 무회귀)",
+    "F47-5: evaluator.md에 판정 근거 필드명을 canonical `evidence`로 명문화(재발 방지) — add-only 문서 강화",
+    "전역: 이 repo run-all 후보 0건(수렴), 전체 bats GREEN·무회귀, shellcheck 0, consistency 0"
+  ],
+  "security_criteria": [
+    "SC1: 프로브 폴백은 오탐 제거이지 검출 약화 아님 — grounded_evidence도 실제 실행 근거이므로 인정이 정확. 증거 완전 부재는 계속 후보(F47-3 실증)",
+    "SC2: completeness 수렴 마커 skip은 evaluator가 명시적으로 수렴 선언한 경우만 — 실질 후속은 계속 편입(과탐 방지이지 검출 약화 아님)",
+    "SC3: evaluator.md 수정은 evidence 필드명 명문화 add-only(검증 기준 명확화) — 어떤 게이트·기준도 약화하지 않음. jq 존재 시 invariant-guard에 evaluator.md 전용 약화검사 브랜치 없음(통과), jq 부재 시 fail-closed 보호(F45)",
+    "SC4: 프로브는 읽기 전용 유지"
+  ],
+  "error_scenarios": [
+    "evidence·grounded_evidence 둘 다 부재/빈 객체: 여전히 후보(진짜 증거없음 검출 유지)",
+    "action_required에 수렴 마커 + 실질 후속 동시: 수렴 마커 우선 skip은 evaluator 판단 존중(수렴 선언 시 후속 없음이 정상)",
+    "grounded_evidence가 빈 객체: evidence 폴백도 빈 → 후보(증거없음)"
+  ],
+  "test_scenarios": [
+    "bats(probes.bats): evidence — (a) evidence 있음→0, (b) grounded_evidence만 있음→0(폴백), (c) 둘 다 없음→후보. calibration 동일. completeness — 수렴 마커 action_required→0, 실질 후속(수렴마커 없음)→후보",
+    "이 repo: run-all 후보 0건(C1/C2/C3 전부 해소, 수렴)",
+    "무회귀: F25 evidence·F37 calibration·F43/F44 completeness 기존 테스트 GREEN"
+  ],
+  "implementation_steps": [
+    {
+      "step": "probes.bats에 F47 RED 테스트 add-only(grounded_evidence 폴백·수렴 마커 skip·검출력 유지)",
+      "verify": "신규 RED, 기존 GREEN",
+      "done": true
+    },
+    {
+      "step": "evidence.sh·calibration.sh에 .evidence // .grounded_evidence 폴백 + completeness §5 수렴 마커 skip",
+      "verify": "신규 GREEN, 이 repo run-all 0건, shellcheck 0",
+      "done": true
+    },
+    {
+      "step": "evaluator.md에 canonical evidence 필드명 명문화(add-only) + 전체 무회귀 → 독립 evaluator",
+      "verify": "전체 bats GREEN, consistency 0, run-all 0",
+      "done": true
+    }
+  ],
+  "agreed": true
+}

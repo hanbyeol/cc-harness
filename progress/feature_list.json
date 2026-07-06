@@ -582,6 +582,21 @@
         "F45"
       ],
       "assigned_sprint": 32
+    },
+    {
+      "id": "F47",
+      "name": "프로브의 evaluator-feedback 해석 정합 (evidence 필드 폴백 + 수렴 선언 인식 + evaluator.md 명문화)",
+      "description": "재귀 루프가 F46 판정에서 3건 오탐을 검출 — 프로브가 evaluator feedback을 정확히 해석하지 못하던 정합 갭. (C2/C3) F46 evaluator가 evidence를 grounded_evidence 필드명으로 오기(과거 5건은 모두 evidence)해 evidence.sh·calibration.sh가 '증거 없는 pass'로 검출. (C1) completeness §5가 evaluator의 수렴 선언('None blocking. F46 closes... recursion converges here')을 미해결 후속으로 오인. 해결: (1) evidence.sh·calibration.sh가 .evidence // .grounded_evidence 폴백을 인정(둘 다 없어야 후보 — 오탐 제거, 검출력 무약화), (2) completeness §5가 수렴 마커(converge/수렴/no forced follow/no further)를 담은 action_required는 후속 아님으로 skip, (3) evaluator.md에 canonical evidence 필드명을 명문화해 재발 방지. 프로브↔evaluator 산출물 스키마 정합.",
+      "security_tier": "standard",
+      "status": "review",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F25",
+        "F37",
+        "F43"
+      ],
+      "assigned_sprint": 33
     }
   ]
 }

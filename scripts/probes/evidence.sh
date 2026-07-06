@@ -29,7 +29,7 @@ jq -c -n --argjson rec "$REC" --arg file "$BASE" '
   ($rec.verdict // "") as $v
   | (($v | ascii_downcase) | test("pass")) as $is_pass_word
   | (($v | ascii_downcase) | test("fail|downgrade")) as $is_fail
-  | (($rec.evidence | type) == "object" and (($rec.evidence | length) > 0)) as $has_evidence
+  | (( ($rec.evidence | type=="object" and length>0) or ($rec.grounded_evidence | type=="object" and length>0) )) as $has_evidence
   | if ($is_pass_word and ($is_fail | not) and ($has_evidence | not))
       then [ { name: "evaluator pass without recorded evidence",
                description: "최신 게이트 결정 \($file)이 verdict=\($v)이나 non-empty evidence 객체가 없음 — Evidence over claims 위반. 실행 명령·출력을 evidence에 기록할 것",

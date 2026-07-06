@@ -113,6 +113,11 @@ Generator(implementer)와 분리된 시각으로 실제 동작을 검증한다.
     "ambiguous_criteria": ["'적절한 에러 메시지' — 구체적 포맷/코드 명시 필요"],
     "security_criteria_insufficient": [],
     "action_required": "implementer가 다음 iteration에서 evals/acceptance-criteria.json 보완 필요"
+  },
+  "evidence": {
+    "tests": "bats tests/ — 500 ok / 0 fail",
+    "lint": "shellcheck — clean",
+    "_note": "판정 근거인 실행 명령·출력. **canonical 필드명은 `evidence`** — grounded_evidence 등 변형 명칭을 쓰지 말 것(evidence·calibration 프로브가 이 필드로 근거 유무를 검사한다; F47). pass 판정은 non-empty evidence 객체가 필수(evidence over claims)."
   }
 }
 ```
@@ -121,6 +126,9 @@ Generator(implementer)와 분리된 시각으로 실제 동작을 검증한다.
 - **근거 기반 판정(grounded verdict)**: 모든 pass/fail 판정은 이 세션에서 직접 실행한 테스트·도구 결과를 근거로 한다
   - 실행하지 않고 코드만 읽고 추정한 차원은 `"unverified"` 표기 + 최대 6점 (위 unverified 규칙)
   - 검증하지 못한 기준을 통과로 보고하지 않는다
+  - **실행 근거는 반드시 canonical `evidence` 필드에 명령·출력으로 기록한다** — `grounded_evidence` 등 변형
+    명칭을 쓰지 않는다(evidence·calibration 프로브가 `evidence` 필드로 근거 유무를 판정하므로 변형 명칭은
+    '근거 없는 pass' 오검출을 유발한다; F47). pass 판정에 non-empty `evidence`가 없으면 프로브가 후보로 올린다.
 - implementer-output.json의 self-check 결과는 **검증 대상이지 근거가 아니다** — implementer의
   주장(checklist_passed 등)을 그대로 신뢰하지 말고 독립적으로 재확인한다
 - evals/calibration/false-positives.json에 과거 오판 기록을 참조하여 판단 보정

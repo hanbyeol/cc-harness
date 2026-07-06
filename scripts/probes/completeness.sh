@@ -63,7 +63,11 @@ if [[ -d "$COMMS" ]]; then
       | tr -c '[:alnum:]가-힣' '\n' \
       | grep -vxE 'none|없음|n|a|blocking|for|pass' \
       | tr -d '[:space:]' || true)
-    if [[ -n "$AR" && -n "$STRIPPED" ]]; then
+    # 수렴 선언(evaluator가 명시적으로 후속 없음+수렴을 선언)은 미해결 후속이 아니므로 skip (F47).
+    # 'None blocking. ... recursion converges here' 같은 수렴 서술이 후속으로 오인되던 것 방지.
+    CONVERGED=""
+    printf '%s' "$AR" | grep -qiE 'converge|수렴|no forced follow|no further follow|no follow-up' && CONVERGED=1
+    if [[ -n "$AR" && -n "$STRIPPED" && -z "$CONVERGED" ]]; then
       add "evaluator follow-up: $(basename "$LATEST_FB")" "최신 판정이 남긴 미해결 후속(action_required): $AR — 백로그로 편입해 다음 회전에서 처리" "low"
     fi
   fi
