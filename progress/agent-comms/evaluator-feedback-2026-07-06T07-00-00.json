@@ -1,0 +1,84 @@
+{
+  "timestamp": "2026-07-06T07:00:00Z",
+  "sprint": 26,
+  "iteration": 1,
+  "features_evaluated": [
+    "F40"
+  ],
+  "security_tier": "low",
+  "commit_evaluated": "54a73b5 (+ 6d2e507 README 470→475 정정)",
+  "scores": {
+    "functionality": 6,
+    "code_quality": 8,
+    "security": 8,
+    "error_handling": 6,
+    "test_coverage": 6
+  },
+  "score": 6,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_threshold_low": 3,
+  "verdict": "fail",
+  "fail_reasons": [
+    "functionality 6 < 7 — F40-2 acceptance criterion의 '순환 의존 탐지'가 미구현 (A↔B 둘 다 passed → 후보 0건; consistency.sh에 cycle-detection 코드 없음)",
+    "error_handling 6 < 7 — error_scenario '의존성 그래프에 미존재 id 참조: 별도 후보로 보고' 미구현 (A→GHOST → 후보 0건, 조용히 무시)",
+    "test_coverage 6 < 7 — contract test_scenarios가 명시한 '순환 의존 fixture → 후보' 및 미존재-id 경로 테스트 부재",
+    "종합 min-of-5 = 6 < pass_threshold 7"
+  ],
+  "security_gate": "pass (security 8 >= low threshold 3; read-only probe, no passes mutation, no secret/injection surface)",
+  "evidence": {
+    "full_bats": "bats tests/ → ok 1..475, 0 failures (background task exit 0, 'not ok' count = 0)",
+    "f40_filtered": "bats tests/probes.bats --filter F40 → 5/5 ok (test count stale, hooks stale, min-of-5 no-false-positive, dep-on-unpassed, all-passed no-fp)",
+    "shellcheck": "shellcheck -S warning scripts/probes/consistency.sh → clean (exit 0)",
+    "repo_consistency": "bash scripts/probes/consistency.sh → [] , exit 0 (README 숫자 실측 일치: @test=475, hooks; F27 passes:true로 dependency-passes 모순 해소)",
+    "f40_1_stale_detected": "임시 repo: '테스트 999개,' + 실측 @test=2 → 'README test count stale (999 vs 2)' 후보 방출; '테스트 5개 점수'(쉼표/괄호 없음) → 후보 0건 (오탐 없음)",
+    "f40_1_current_readme": "현행 README '테스트 475개' == 실측 @test 475; hooks 표 (9) 정정됨",
+    "f40_2_core_detected": "A(passed)→B(not passed) → 'dependency-passes inconsistency' 후보; B(passed)→C(not passed) [cycle 포함 그래프] 정확 탐지",
+    "f40_2_all_passed_clean": "A(passed)→B(passed) → dependency-passes 후보 0건 (오탐 없음)",
+    "f40_2_CYCLE_ABSENT": "A(passed)↔B(passed) 상호 의존 → [] (순환 미탐지). grep cycle|circular|순환 scripts/ hooks/ → none. consistency.sh에 방문/사이클 로직 없음",
+    "error_scenario2_MISSING_ID_IGNORED": "A(passed)→GHOST(미존재 id) → [] (별도 후보 미보고, 조용히 무시). jq 내부조인 select(.id==$dep)이 매치 없으면 무방출",
+    "error_scenario1_silence_verified": "유니코드 '≠' + '테스트 abc개' + 숫자 없는 README → [], exit 0 (과잉 보고/크래시 없음)",
+    "f40_4_cleanup": "ls -d .tmp .tmp-eval → No such file or directory; .gitignore에 '.tmp/' '.tmp-eval/' 존재",
+    "f40_5_f27": "feature_list F27 passes:true status:passed (독립 evaluator 226f937 pass 판정, min-of-5=8 critical)",
+    "robustness_f40_sections": "malformed feature_list.json(비-JSON) → [] exit 0; empty tests dir → 'test count stale (5 vs 0)' 정확; F40 sections 4-5는 set -euo pipefail에서 graceful (|| echo 0, || true, return 0 방어)",
+    "robustness_preexisting_note": "빈 디렉토리/매니페스트 부재 시 exit 1 (無출력) — 원인은 F13 기존 코드(line25 'find agents' on missing dir; line24/30 claim() grep on empty DESC)이며 set -e+pipefail로 죽음. F40 sections(4-5)가 아님. 프로브는 repo 루트에서만 실행되므로 실사용 무영향 — F40 범위 밖 사전존재 취약이나 참고 기록"
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "F40-1: README 산문 숫자(agents/hooks/skills/'테스트 N개') 실측 대조 + 오탐 방지('5개 점수' 제외) — 실증됨",
+      "F40-2(core): passes:false 의존 → passed 기능 탐지(F27 케이스) — 실증됨",
+      "F40-3: README 현행 숫자 정정(테스트 475, hooks 9) — 실측 일치 확인",
+      "F40-4: .tmp/·.tmp-eval/ 제거 + .gitignore 보강 — 확인",
+      "F40-5: F27 독립 evaluator 판정 종결(passes:true) — 확인",
+      "전역: 전체 bats GREEN(475/0), shellcheck 0, 이 repo consistency 0 — 확인"
+    ],
+    "security": [
+      "SC1: 프로브 읽기 전용·후보 보고만, passes 미변경(INV-1) — 확인",
+      "SC2: .tmp 제거는 untracked만, 추적 훅/이력 무손상(diff stat: .gitignore +2, 추적 파일 삭제 없음) — 확인",
+      "SC3: settings.local.json 미수정(diff 부재) — 확인"
+    ],
+    "error_scenarios": [
+      "README 숫자 표기 다양·미매칭은 침묵(과잉 보고 방지) — 유니코드/숫자없음 README → [] 실증"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "F40-2: '순환 의존 탐지' 미구현 — A↔B(둘 다 passed) 상호 의존 시 후보 0건. cycle-detection 코드/테스트 전무"
+    ],
+    "security": [],
+    "error_scenarios": [
+      "'의존성 그래프에 미존재 id 참조: 별도 후보로 보고' 미구현 — A→GHOST(미존재 id) 시 후보 0건(조용히 무시). 미존재 id는 feature_list 데이터 무결성 부패 신호이므로 'design for rot' 취지상 보고 필요"
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "criteria_issues": [
+      "feature_list F40 description은 '(c) 로컬 설정의 부재 경로 참조 탐지 추가'를 구현했다고 기술하나 consistency.sh에 settings.local.json 부재-경로 탐지 코드 없음 — description drift. 구현하거나 description을 정정할 것 (SC3는 '수정하지 않고 보고만'이므로 보고 로직 추가는 안전)",
+      "구현이 agreed F40-2(순환 의존 탐지) 및 error_scenario 2(미존재 id 보고)보다 조용히 좁게 출하됨 — Criteria Backpropagation 위반: 축소했다면 acceptance_criteria/error_scenarios를 정정하고 criteria_gaps에 명시했어야 함. (criteria_issues 2건 < 3건이므로 spec/architecture 재검토 강제는 아님)"
+    ],
+    "action_required": "다음 iteration: (1) consistency.sh section 5에 순환 의존 탐지 + 미존재 id 후보 보고 추가, (2) probes.bats에 순환 fixture·미존재-id fixture 테스트 추가, 또는 (3) 이 두 요건을 의도적으로 descope한다면 sprint-26 acceptance_criteria(F40-2)와 error_scenarios에서 제거 + 사유 기록. 이후 재검증 요청."
+  },
+  "notes": "security_tier low·pass_threshold 7·min-of-5. 헤드라인 산출물(산문 숫자 감시·F27 모순 탐지·스테일 정리·F27 종결)은 모두 실행 근거로 검증 통과. 그러나 agreed contract가 명시한 순환 의존 탐지(F40-2)와 미존재-id 보고(error_scenario 2)가 미구현이며 backpropagation 없이 조용히 축소됨 — grounded 재현으로 미충족 확정. 티어링은 검증 강도에 대한 것이지 acceptance 바 하향이 아니므로 명시 기준 미충족은 보수적 반려. passes:false 유지. 구현 수정은 하지 않음(evaluator 제약)."
+}
