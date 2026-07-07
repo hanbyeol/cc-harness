@@ -614,17 +614,32 @@
     },
     {
       "id": "F49",
+      "_passes_evidence": "evaluator-feedback-2026-07-07T02-00-00.json — verdict pass, min-of-5=7 (func9/quality8/security9/error8/test7), critical security=9≥7. RED→GREEN mutation-proven, false-allow 독립 재현 실증.",
       "name": "invariant-guard apply_replace() 이스케이프 손상 버그 수정 (false-allow 방지)",
       "description": "F48 구현 중 발견된 known_issue를 completeness 프로브가 후속 후보화(C1) → 근본원인 재규명: hooks/invariant-guard.sh의 apply_replace()가 Edit/MultiEdit 재구성을 위해 old_string/new_string을 `awk -v o=\"$2\" -v n=\"$3\"`로 전달하는데, POSIX awk의 -v 할당은 문자열 리터럴과 동일하게 백슬래시 이스케이프를 처리한다 — old_string/new_string에 백슬래시(이 코드베이스의 멀티라인 case문 line-continuation처럼 흔한 패턴)가 포함되면 그 바이트가 소거/변형돼 index()/substr() 재구성이 깨진다. 순수 ASCII 재현으로 실증(로케일·멀티바이트 무관, 모든 awk 구현 공통 — 기존에 'macOS awk+UTF-8 멀티바이트' 로 오진단됐던 것을 정정). 실패 모드는 두 가지: (a) 매치 실패 시 NEW_CONTENT가 원본과 동일해져 훅의 약화검사가 '변경 없음'으로 오판하고 실제 위험한 edit을 못 잡는 false-allow, (b) 매치는 되지만 길이 불일치로 내용이 부분 손상되는 false-corrupt. 수정: o/n을 awk -v 대신 환경변수 경유(ENVIRON[])로 전달해 리터럴 바이트를 보존 — 환경변수는 이스케이프 처리 없이 그대로 전달됨을 실증 검증.",
+      "security_tier": "critical",
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
+      "dependencies": [
+        "F41",
+        "F48"
+      ],
+      "assigned_sprint": 35
+    },
+    {
+      "id": "F50",
+      "name": "apply_replace() awk 부재/실패 시 fail-closed (has_jq 대칭)",
+      "description": "F49의 2차 evaluator·security-auditor가 공통 지적한 backlog를 completeness 프로브가 후속 후보화(C1). apply_replace()의 폴백(`awk '...' 2>/dev/null || printf '%s' \"$1\"`)이 awk 자체가 실패(부재·런타임 오류 등)하면 NEW_CONTENT를 원본과 동일하게 반환 — 훅의 모든 약화검사(deny_has_exit·count_array·임계값 비교 등)가 awk에 의존하는데, awk 없는/실패하는 호스트에서는 이 전부가 '변경 없음'으로 통과(fail-open)한다. has_jq()가 F41에서 이미 확립한 'jq 부재 시 보호 파일은 fail-closed, 비보호는 가용성 우선'과 동일한 원칙을 awk에도 적용: (1) apply_replace()의 `|| printf '%s' \"$1\"` 폴백 제거 — 실패 시 함수 자체의 종료 상태(awk 종료 코드)가 그대로 전파되게 한다. (2) Edit·MultiEdit 호출부에서 `if ! NEW_CONTENT=$(apply_replace ...); then`으로 실패를 명시적으로 감지해, 보호 파일이면 deny(exit 2), 비보호 파일이면 exit 0(가용성 우선) — set -e의 암묵적 스크립트 종료에 기대지 않고 명시적으로 판단한다.",
       "security_tier": "critical",
       "status": "in_progress",
       "passes": false,
       "iteration": 0,
       "dependencies": [
         "F41",
-        "F48"
+        "F49"
       ],
-      "assigned_sprint": 35
+      "assigned_sprint": 36
     }
   ]
 }

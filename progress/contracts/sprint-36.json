@@ -1,0 +1,57 @@
+{
+  "sprint": 36,
+  "title": "apply_replace() awk 부재/실패 시 fail-closed — has_jq 대칭 (F50)",
+  "features": [
+    "F50"
+  ],
+  "security_tier": "critical",
+  "source": "/improve 회전 — completeness 프로브가 F49의 2차 evaluator·security-auditor 공통 backlog 지적(apply_replace 폴백 fail-open)을 후속 후보(C1)로 편입.",
+  "acceptance_criteria": [
+    "F50-1: hooks/invariant-guard.sh의 apply_replace()에서 `|| printf '%s' \"$1\"` 폴백 제거 — awk 실패 시 함수의 종료 상태가 awk의 실제 종료 코드로 전파됨",
+    "F50-2: Edit 디스패치(TOOL==Edit, OLD_S 비어있지 않은 경우)에서 apply_replace 호출을 `if ! NEW_CONTENT=$(apply_replace ...); then ... fi`로 감싸 실패를 명시적으로 감지 — 보호 파일이면 deny(exit 2, 메시지에 'awk 오류/부재' 명시), 비보호 파일이면 exit 0(가용성 우선)",
+    "F50-3: MultiEdit 디스패치의 edits 배열 순회 루프에서도 동일하게 apply_replace 실패를 감지 — 배열 내 어느 한 edit에서라도 실패하면 즉시 F50-2와 동일 판정(부분 성공으로 넘어가지 않음)",
+    "F50-4: 중복 방지 — 위 두 호출부의 '실패 시 판정' 로직을 공용 헬퍼 함수(예: fail_closed_on_apply_failure)로 추출해 재사용",
+    "F50-5: set -e 환경에서 `if ! VAR=$(cmd); then`이 스크립트를 조기 종료시키지 않고 의도대로 조건 분기로 처리됨을 테스트로 실증(자동 abort에 기대지 않고 명시적 판정이 실제로 동작하는지)",
+    "F50-6: awk 부재 시뮬레이션(has_jq의 _nojq_run과 대칭되는 _noawk_run 헬퍼) — 보호 파일 Edit/MultiEdit → deny(exit 2), 비보호 파일 → exit 0(가용성 유지) 각각 테스트",
+    "F50-7: awk 정상 존재 시(현행 정상 경로) 회귀 없음 — 기존 515개 전체 테스트 그대로 통과",
+    "전역: bats 전체 회귀 없음, shellcheck 0, consistency probe 0"
+  ],
+  "security_criteria": [
+    "SC1: has_jq()가 F41에서 확립한 원칙(보호 파일은 fail-closed, 비보호는 가용성 우선)과 완전히 대칭 — 새로운 원칙을 만들지 않고 기존 원칙을 awk에도 동일 적용",
+    "SC2: 이 수정은 '실패 감지·판정'만 추가하며 기존 weakening-check 로직(index/substr 재구성, 각 파일별 임계값·카운트 비교) 자체는 무변경",
+    "SC3: awk가 정상 동작하는 절대다수 케이스(현행 경로)에서 동작·성능 변화 없음 — 실패 시에만 다른 경로를 탄다",
+    "SC4: deny() 메시지가 실패 원인(awk 오류/부재)을 명확히 알려 사람이 조치 가능하게 함(jq 부재 메시지와 동일한 안내 스타일)"
+  ],
+  "error_scenarios": [
+    "awk 명령 자체가 PATH에 없음(command not found) — apply_replace 호출이 즉시 실패 → 보호 파일은 deny, 비보호는 통과",
+    "awk는 있으나 특정 입력에서 런타임 오류 발생 — 동일하게 실패로 감지·처리(원인 불문, 실패 자체만 판단)",
+    "MultiEdit 배열의 첫 edit은 성공하고 두 번째 edit에서 실패 — 부분 결과를 채택하지 않고 전체를 실패로 간주해 판정",
+    "awk 정상 + old_string 매치 실패(기존 F49 케이스, 별개) — 이건 실패가 아니라 정상 동작(idx<=0 분기, else 반환) — F50과 혼동하지 않음(회귀 테스트로 구분 확인)"
+  ],
+  "test_scenarios": [
+    "bats: _noawk_run(PATH에서 awk 제외한 shim) + 보호 파일 Edit(old_string 비어있지 않음) → exit 2",
+    "bats: _noawk_run + 보호 파일 MultiEdit → exit 2",
+    "bats: _noawk_run + 비보호 파일 Edit → exit 0(가용성 유지)",
+    "bats: set -e 하에서 apply_replace 실패가 스크립트를 즉시 abort시키지 않고 if 분기로 정상 처리되는지(예: awk 부재 시뮬레이션 자체가 이미 이를 실증)",
+    "bats: awk 정상 존재 + 기존 케이스 전체(F45/F46/F48/F49 관련 테스트 포함) 무회귀",
+    "전체 bats 회귀, shellcheck 0, consistency probe 0"
+  ],
+  "implementation_steps": [
+    {
+      "step": "RED: _noawk_run 헬퍼 + 보호/비보호 파일 Edit·MultiEdit 시나리오 테스트 추가 — 현재(수정 전) 코드로 실행해 실패 확인(보호 파일도 exit 0으로 통과하는 버그 재현)",
+      "verify": "RED 확인",
+      "done": false
+    },
+    {
+      "step": "apply_replace()에서 폴백 제거 + fail_closed_on_apply_failure 헬퍼 추가 + Edit/MultiEdit 호출부에 실패 감지 적용",
+      "verify": "위 RED 테스트 GREEN 전환",
+      "done": false
+    },
+    {
+      "step": "전체 bats/shellcheck/consistency 회귀 확인 → 독립 evaluator + F37 2차 판정 + security-auditor(critical)",
+      "verify": "bats 전체 GREEN, shellcheck 0, evaluator min-of-5≥7·security≥7 (1차+2차 일치)",
+      "done": false
+    }
+  ],
+  "agreed": false
+}

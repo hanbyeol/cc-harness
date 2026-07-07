@@ -61,6 +61,12 @@
       "contract": "progress/contracts/sprint-35.json",
       "security_tier": "critical",
       "summary": "invariant-guard.sh apply_replace()의 awk -v 이스케이프 손상 버그(백슬래시 포함 old_string/new_string이 손상 — 로케일 무관, 전 awk 공통) 수정. 환경변수(ENVIRON[]) 경유로 리터럴 보존, false-allow 시나리오 실증 테스트 추가."
+    },
+    {
+      "feature_id": "F50",
+      "contract": "progress/contracts/sprint-36.json",
+      "security_tier": "critical",
+      "summary": "apply_replace()의 awk 실패 폴백(fail-open) 제거 — has_jq()의 fail-closed 원칙을 awk에도 대칭 적용. Edit/MultiEdit 호출부가 실패를 명시 감지해 보호 파일은 deny, 비보호는 가용성 우선."
     }
   ]
 }

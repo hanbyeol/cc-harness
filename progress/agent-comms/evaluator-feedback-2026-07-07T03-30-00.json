@@ -1,0 +1,77 @@
+{
+  "timestamp": "2026-07-07T03:30:00Z",
+  "sprint": 35,
+  "iteration": 1,
+  "features_evaluated": [
+    "F49"
+  ],
+  "security_tier": "critical",
+  "judge_role": "second_independent (F37 cross-check)",
+  "note_on_independence": "1차 판정 파일(evaluator-feedback-2026-07-07T02-00-00.json)은 열지 않았다. 모든 점수는 이 세션에서 직접 실행한 diff·repro·mutation·bats 결과만으로 산정했다. feature_list.json의 _passes_evidence(정규 입력)에 1차 요약 한 줄이 포함돼 있었으나 채점 후 concordance 비교에만 사용.",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 8,
+    "security": 9,
+    "error_handling": 8,
+    "test_coverage": 8
+  },
+  "score": 8,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "pass",
+  "verdict_reason": "5차원 모두 이 세션 실행으로 검증(unverified 0). min-of-5=8≥7. critical tier security=9≥7. 근본원인·false-allow 시나리오·mutation(RED→GREEN)을 1차 판정과 독립적으로 직접 재현 성공.",
+  "passed_criteria": {
+    "acceptance": [
+      "F49-1: apply_replace()가 o/n을 awk -v 대신 ENVIRON[__IG_OLD__/__IG_NEW__]로 전달 — diff에서 index/substr 로직은 바이트 동일, 전달 메커니즘만 교체 확인",
+      "F49-2: 백슬래시-개행 line-continuation 치환 정확 — mutant(pre-fix) RED / current(post-fix) GREEN 실증",
+      "F49-3: false-allow 시나리오(deny/exit-2 제거) — pre-fix는 원본 그대로 반환(exit 2 잔존=false-allow), post-fix는 제거 반영 — 독립 repro + bats mutation 양쪽에서 실증",
+      "F49-4: escape-type 일반화(백슬래시-따옴표 비절단) — test 3 RED→GREEN",
+      "F49-5: MultiEdit 순차 적용 정확 — test 4 RED→GREEN",
+      "F49-6: 기존 self-protection(deny_has_exit·count_array·임계값 검사·dogfooding self-Edit) 무회귀 — 전체 515 bats GREEN",
+      "전역: bats 515/515, shellcheck SC2012 info 1건(line 310, F49 무관·pre-existing), consistency probe []"
+    ],
+    "security": [
+      "SC1: weakening-check 판단 기준 무변경 — diff상 index/substr 로직 바이트 동일 + 자기보호 테스트 전량 통과로 실증",
+      "SC2: __IG_OLD__/__IG_NEW__ 고유 접두사 + local 스코프 — env-clobber 시험에서 인라인 할당이 상속 env를 덮어써 결과 정확(abc___def)",
+      "SC3: false-allow가 이론이 아니라 pre-fix 실패/post-fix 통과로 실증 — 본 판정이 독립 세션에서 재현 확인",
+      "SC4: ENVIRON[] 데이터 전용 — old_string/new_string에 심은 system() 페이로드가 실행되지 않고 리터럴로 취급됨을 양방향 실증(no /tmp/PWNED* 생성). awk 프로그램은 고정 single-quote 텍스트, system()/pipe/getline 부재"
+    ],
+    "error_scenarios": [
+      "백슬래시 없는 old_string — 무회귀(515 전량 + 평문 치환 XYZ→___ 정상)",
+      "old_string 빈 문자열(Write 경로) — apply_replace 미사용 분기(hooks/invariant-guard.sh L110-114) 확인, 무영향"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "observations_out_of_scope": [
+      "잔존 latent false-allow(F49 스코프 밖): apply_replace()의 `... awk '...' <<<\"$1\" 2>/dev/null || printf '%s' \"$1\"` 폴백은 awk 프로세스가 어떤 이유로든 실패하면 NEW_CONTENT=원본이 되어 weakening-check가 '변경 없음'으로 오판하는 동일 계열 false-allow 경로를 남긴다. F49는 escape-corruption 트리거를 닫았고 이 폴백은 pre-existing·별개라 F49 판정에 영향 없음. 보호 파일 편집에 한해 awk 실패 시 fail-closed(deny)로 강화하는 후속 /improve 후보 권장.",
+      "NUL 바이트 error_scenario(contract error_scenarios[2])는 전용 테스트 없음 — 셸 변수가 NUL을 담을 수 없어 old/new에 NUL 유입 불가하고 RS=\"\\0\"는 pre-fix와 동일하므로 F49가 도입한 회귀 아님. 실질 무영향이나 명시 테스트는 부재."
+    ],
+    "action_required": "none for F49 pass. 위 observations_out_of_scope 1항목(awk-fail fallback fail-closed)은 별도 후속 후보로 백로그 권장 — F49 게이트를 막지 않음."
+  },
+  "concordance_with_first_judge": {
+    "verdict_match": true,
+    "first_judge_summary_seen": "feature_list.json _passes_evidence: verdict pass, min-of-5=7 (func9/quality8/security9/error8/test7), critical security=9≥7",
+    "second_judge": "verdict pass, min-of-5=8 (func9/quality8/security9/error8/test8), critical security=9≥7",
+    "delta": "verdict 일치(both pass). min-of-5는 1차 7 vs 2차 8 — 유일한 차이는 test_coverage(7 vs 8), 둘 다 '모든 기준 통과, 경미한 이슈만' 7-8 밴드 내에 있어 물질적 불일치 아님. 두 판정 모두 threshold 7 이상, critical security=9로 동일.",
+    "escalation_required": false,
+    "escalation_reason": "F37 2차 판정 목적은 verdict 불일치 탐지 — verdict가 일치(pass=pass)하고 점수 차이가 인접 밴드 내 1점(test_coverage)에 그치므로 사람 에스컬레이션 불요. passes:true 유지(되돌리지 않음)."
+  },
+  "evidence": {
+    "diff": "git show 9a09d80 — apply_replace()에서 `awk -v o=\"$2\" -v n=\"$3\"` → `local __IG_OLD__/__IG_NEW__` + 인라인 env 할당 후 `ENVIRON[...]`. index/substr 재구성 로직 라인은 바이트 동일(pre/post 함수 본문 추출 대조). 호출부는 Edit(L111)·MultiEdit(L124) 2곳뿐 — 둘 다 NEW_CONTENT 재구성=모든 weakening-check의 입력.",
+    "root_cause_repro": "VAL=$(printf 'A\\\\\\nB') 4바이트 → `awk -v x=\"$VAL\" length(x)`=3(백슬래시 소실), `ENVIRON[\"TESTVAR\"]` length=4(보존). awk version 20200816. 로케일·멀티바이트 무관 순수 ASCII로 재현 — implementer의 근본원인 재규명 정확.",
+    "false_allow_repro": "deny/exit-2 제거 edit(old_string에 백슬래시-개행 포함)을 pre-fix apply_replace로 적용 → 결과가 원본과 동일(silent fallback), 'exit 2' 잔존 → weakening-check '변경 없음' 오판=false-allow. post-fix → 'exit 2' 제거 반영 → guard deny 가능. 양 버전 함수 직접 소싱 비교로 실증.",
+    "mutation": "pre-fix mutant(현재 hook의 apply_replace만 awk -v로 되돌림)에 F49 4개 bats 실행 → 4/4 RED(0 green). post-fix(현재 repo) → 4/4 GREEN. mutation-proof 성립(테스트가 실제 수정을 실증, tautology 아님).",
+    "tests": "bats tests/*.bats — 515 passed / 0 failed (exit 0, 'not ok' 0건). invariant-guard.bats 89 tests 포함.",
+    "lint": "shellcheck hooks/invariant-guard.sh — SC2012 info 1건(line 310 ls, pre-existing·F49 무관), 신규 경고 0.",
+    "consistency_probe": "scripts/probes/consistency.sh → [] (0건).",
+    "injection_test": "old_string 및 new_string에 `\"; system(\"touch /tmp/PWNED\"); ...` 페이로드 주입 → 실행 안 됨(no file), 리터럴 데이터로 취급. env-clobber(__IG_OLD__ 사전 export) → 인라인 할당이 승리, 결과 정확. 신규 인젝션 벡터 없음."
+  }
+}

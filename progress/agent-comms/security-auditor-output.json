@@ -1,0 +1,72 @@
+{
+  "timestamp": "2026-07-07T01:40:00+09:00",
+  "feature": "F49",
+  "commit": "9a09d8003f0041cc011486ca44ea44e5f7dabffe",
+  "security_tier": "critical",
+  "scope": "independent security re-audit of F49 apply_replace() escape-corruption fix (diff-only: hooks/invariant-guard.sh); evaluator 1st/2nd pass NOT trusted as substitute",
+  "scan_tools": [
+    "git-diff-review",
+    "empirical-repro (pre-fix vs post-fix apply_replace)",
+    "manual-injection-probe",
+    "env-scope-probe",
+    "ARG_MAX/awk-dependency analysis",
+    "grep secret/privilege scan"
+  ],
+  "supply_chain": {
+    "vulnerable_deps": 0,
+    "outdated_critical": 0,
+    "details": [
+      "diff introduces no new dependencies, no network calls, no external binaries — pure local awk string-handling refactor"
+    ]
+  },
+  "checklist_compliance": {
+    "total_items": 4,
+    "passed": 4,
+    "failed": 0,
+    "failed_items": [],
+    "notes": "Checklist derived from the change's own security intent (INVARIANTS.md self-protection threat model): (1) fix closes the false-allow — VERIFIED empirically; (2) no code injection via env path — VERIFIED; (3) env var names do not leak/collide — VERIFIED; (4) no secrets/privilege surface in diff — VERIFIED."
+  },
+  "threat_model_coverage": {
+    "threats_identified": 3,
+    "mitigations_verified": 3,
+    "gaps": [],
+    "detail": [
+      "T1 false-allow of guard weakening (removal of deny()/exit 2 masked by corrupted NEW_CONTENT) — MITIGATED by F49 (ENVIRON[] preserves literal bytes; verified pre-fix=ALLOW, post-fix=DENY)",
+      "T2 awk-program code injection via attacker-controlled old_string/new_string — NOT PRESENT (values read via ENVIRON[] at runtime, never interpolated into program text; system() payload proven inert)",
+      "T3 environment-variable leakage/collision (__IG_OLD__/__IG_NEW__) — NOT PRESENT (local + command-prefix scoping; proven unset in caller after return; inherited env of same name is overridden)"
+    ]
+  },
+  "findings": [
+    {
+      "severity": "low",
+      "confidence": "high",
+      "file": "hooks/invariant-guard.sh",
+      "line": 65,
+      "issue": "Residual fail-OPEN in apply_replace() awk-failure fallback: `2>/dev/null || printf '%s' \"$1\"` returns the ORIGINAL content on any non-zero awk exit, so downstream weakening checks compare file-vs-file and detect no change (ALLOW). F49 removes the dominant trigger (multi-line/backslash old_strings no longer fatal awk errors via ENVIRON), leaving only awk-absent / E2BIG / OOM. E2BIG is unreachable for protected files (max 18.9KB vs ARG_MAX 1,048,576). Recommend making the fallback fail-CLOSED (emit sentinel forcing deny) to match the hook's documented jq-absence fail-closed canon (lines 68-85). Pre-existing; not introduced by F49.",
+      "introduced_by_f49": false,
+      "reachable_for_protected_files": "only on awk binary absence/crash"
+    },
+    {
+      "severity": "low",
+      "confidence": "high",
+      "file": "hooks/invariant-guard.sh",
+      "line": 68,
+      "issue": "No has_awk presence guard mirroring has_jq. The guard relies on awk in ~10 places (apply_replace, deny_has_exit, count_array, INV-3 numeric compare, INV-7 line-shrink), each with `2>/dev/null || echo 0 / || true` fallbacks. On a host without awk, ALL awk-based weakening checks degrade to 'no weakening' = systemic fail-OPEN, inconsistent with the jq-absence path which fails closed for protected files. Recommend a has_awk fail-closed gate. Pre-existing; not introduced by F49.",
+      "introduced_by_f49": false
+    },
+    {
+      "severity": "info",
+      "confidence": "high",
+      "file": "hooks/invariant-guard.sh",
+      "line": 52,
+      "issue": "Root-cause note is slightly incomplete: for the codebase's dominant case (multi-line old_strings with embedded newlines), onetrueawk `-v` fails with a FATAL 'awk: newline in string' error (non-zero exit) routed through the `|| printf` fallback — not merely silent backslash-dropping. The ENVIRON fix correctly covers BOTH failure modes, so there is no code defect; documentation-accuracy nit only.",
+      "introduced_by_f49": false
+    }
+  ],
+  "fix_verification": {
+    "false_allow_closed": true,
+    "evidence": "Sourced pre-fix (`-v o=/n=`) and post-fix (ENVIRON[]) apply_replace with a backslash-newline old_string that removes an `exit 2` line, then ran the guard's real count (`grep -cE '^[[:space:]]*exit 2[[:space:]]*$'`). PRE-FIX: exit-2 count preserved (1) -> guard verdict ALLOW (false-allow). POST-FIX: exit-2 count -> 0 -> guard verdict DENY. ENVIRON length(old_string)=44 (correct) vs `-v` fatal 'newline in string'. Injection payload inserted as literal bytes (no system() exec). Caller-scope __IG_OLD__/__IG_NEW__ = unset after return.",
+    "regression_tests": "tests/invariant-guard.bats +4 tests including 'apply_replace reflects deny()/exit-2 removal instead of silently returning unchanged content (false-allow prevention)'; asserted red-before/green-after by commit; bats 515/515."
+  },
+  "summary": "0 high, 0 medium, 2 low, 1 info. No security findings in the F49 diff itself; the fix is correct and introduces no injection, env-leak, secret, or privilege surface. The two low findings and the info note are pre-existing fail-open/documentation matters surfaced for coverage. F49 APPROVED from a security standpoint; verification gate PASS (checklist_compliance.failed == 0)."
+}
