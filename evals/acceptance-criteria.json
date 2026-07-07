@@ -67,6 +67,12 @@
       "contract": "progress/contracts/sprint-36.json",
       "security_tier": "critical",
       "summary": "apply_replace()의 awk 실패 폴백(fail-open) 제거 — has_jq()의 fail-closed 원칙을 awk에도 대칭 적용. Edit/MultiEdit 호출부가 실패를 명시 감지해 보호 파일은 deny, 비보호는 가용성 우선."
+    },
+    {
+      "feature_id": "F51",
+      "contract": "progress/contracts/sprint-37.json",
+      "security_tier": "critical",
+      "summary": "has_awk() 전역 블랭킷 게이트 신설 — has_jq()와 완전 대칭, Write 경로 포함 모든 TOOL에서 awk 부재 시 보호 파일 fail-closed. F50이 Edit/MultiEdit만 커버하고 남긴 갭(Write로 임계값 하향·passes 부정 전환이 awk 부재 시 통과되던 문제)을 닫음."
     }
   ]
 }

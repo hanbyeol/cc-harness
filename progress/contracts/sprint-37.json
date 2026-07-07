@@ -1,0 +1,55 @@
+{
+  "sprint": 37,
+  "title": "has_awk() 전역 fail-closed 게이트 — has_jq() 완전 대칭, Write 경로 포함 (F51)",
+  "features": [
+    "F51"
+  ],
+  "security_tier": "critical",
+  "source": "F50의 security-auditor가 medium 심각도로 지적: apply_replace() 호출부(Edit/MultiEdit)만 fail-closed로 고쳐졌고 Write 경로의 awk 의존 검사(INV-3·INV-7·INV-11)는 여전히 fail-open. 사용자가 다음 회전에서 처리 지시.",
+  "acceptance_criteria": [
+    "F51-1: hooks/invariant-guard.sh에 has_awk() 함수 신설(has_jq()와 동일 스타일: `command -v awk &>/dev/null`)",
+    "F51-2: FILE 확정(`FILE=$(...)`) 및 '파일 부재 시 exit 0' 처리 직후, TOOL 디스패치(Write/Edit/MultiEdit case) 직전에 has_awk() 블랭킷 게이트 추가 — awk 부재 + is_protected(FILE) → deny(exit 2, 사유 명시), awk 부재 + 비보호 → exit 0(가용성 우선). has_jq() 블록(L68-86)과 완전히 동일한 원칙·메시지 스타일",
+    "F51-3: 이 게이트는 TOOL 값(Write/Edit/MultiEdit)과 무관하게 적용 — Write로 harness-config.json pass_threshold를 낮추거나 feature_list.json passes를 부당하게 true로 뒤집는 시도가 awk 부재 시에도 차단되는지 확인",
+    "F51-4: F50의 apply_replace 개별 실패 감지(fail_closed_on_apply_failure)는 그대로 유지 — has_awk()는 'awk 완전 부재'를, F50 메커니즘은 'awk는 있으나 특정 호출이 런타임에 실패'를 각각 커버(상호 보완, 중복 아님)",
+    "F51-5: awk 정상 존재 시(절대다수 케이스) 이 게이트를 그냥 통과하고 기존 로직이 그대로 실행됨 — 동작·성능 변화 없음",
+    "F51-6: security-auditor가 재현한 두 시나리오(C1: harness-config.json Write로 pass_threshold 하향, D: feature_list.json Write로 미달 점수 passes:true 주입)가 이 수정 후 awk 부재에서도 정확히 차단되는지 bats로 고정",
+    "전역: 기존 bats 전체 회귀 없음, shellcheck 0, consistency probe 0"
+  ],
+  "security_criteria": [
+    "SC1: has_jq()와 완전 대칭 — 새 원칙 도입 없이 기존 'jq/awk 같은 단일 실패점은 안전장치에서 fail-closed가 캐논' 원칙을 동일 적용",
+    "SC2: Write/Edit/MultiEdit 전체 TOOL 경로에 균일 적용 — F50이 남긴 'Edit/MultiEdit만 커버' 갭을 완전히 닫음",
+    "SC3: 기존 weakening-check 로직(임계값·카운트 비교, deny_has_exit 등) 자체는 무변경 — 게이트 추가만",
+    "SC4: F50의 fail_closed_on_apply_failure()와 역할 중복이 아니라 상호 보완임을 명확히 — 완전 부재(has_awk) vs 존재하되 실패(F50) 구분"
+  ],
+  "error_scenarios": [
+    "awk PATH에 완전 부재 + Write로 harness-config.json pass_threshold 하향 시도 → deny(exit 2)",
+    "awk PATH에 완전 부재 + Write로 feature_list.json의 미달 점수 feature passes:true 주입 시도 → deny(exit 2)",
+    "awk PATH에 완전 부재 + 비보호 파일 Write/Edit → exit 0(가용성 유지)",
+    "awk는 있으나 apply_replace 호출 중 런타임 실패(F50 케이스) → has_awk()는 통과시키고 F50의 fail_closed_on_apply_failure가 처리(회귀 없음, 기존 F50 테스트로 확인)"
+  ],
+  "test_scenarios": [
+    "bats: awk 부재(jq는 존재) + Write harness-config.json 임계값 하향 → exit 2 (신규, security-auditor C1 재현 고정)",
+    "bats: awk 부재 + Write feature_list.json 미달 점수 passes:true → exit 2 (신규, security-auditor D 재현 고정)",
+    "bats: awk 부재 + 비보호 파일 Write/Edit → exit 0 (신규)",
+    "bats: awk 정상 + 기존 F45/F46/F48/F49/F50 전체 무회귀",
+    "bats: awk 부재이나 F50 케이스(Edit/MultiEdit apply_replace 실패)는 has_awk() 블랭킷 게이트에서 먼저 잡히므로 F50 자체 테스트 결과 불변(중복 차단 경로이나 결과 동일 — exit 2)"
+  ],
+  "implementation_steps": [
+    {
+      "step": "RED: has_awk 부재 시뮬레이션(jq는 포함한 shim) + Write 경로(harness-config.json·feature_list.json) 시나리오 테스트 추가 — 현재 코드로 실행해 실패(fail-open) 확인",
+      "verify": "RED 확인",
+      "done": false
+    },
+    {
+      "step": "has_awk() 함수 추가 + FILE 확정 직후·TOOL 디스패치 직전에 블랭킷 게이트 삽입",
+      "verify": "위 RED 테스트 GREEN 전환",
+      "done": false
+    },
+    {
+      "step": "전체 bats/shellcheck/consistency 회귀 확인 → 독립 evaluator + F37 2차 판정 + security-auditor(critical)",
+      "verify": "bats 전체 GREEN, shellcheck 0, evaluator min-of-5≥7·security≥7 (1차+2차 일치)",
+      "done": false
+    }
+  ],
+  "agreed": false
+}

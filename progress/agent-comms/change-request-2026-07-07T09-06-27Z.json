@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-07-07T09:06:27Z",
+  "type": "modify",
+  "description": "has_awk() 전역 fail-closed 게이트 신설 — has_jq() 완전 대칭, Write 경로 포함 (F50 후속, /improve 회전, security-auditor medium 지적)",
+  "affected_features": [
+    "F51"
+  ],
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": false,
+    "acceptance_criteria_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false
+  },
+  "new_sprint_contract": "progress/contracts/sprint-37.json",
+  "rollback_to_phase": null,
+  "note": "F50의 security-auditor가 medium 심각도로 지적(apply_replace만 커버, Write 경로는 여전히 fail-open)한 것을 사용자가 직접 처리 지시. security_tier critical(hooks/invariant-guard.sh 자기보호 훅 수정) — F48/F49/F50 선례와 동일."
+}

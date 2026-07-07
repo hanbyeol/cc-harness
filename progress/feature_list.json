@@ -629,17 +629,32 @@
     },
     {
       "id": "F50",
+      "_passes_evidence": "evaluator-feedback-2026-07-07T05-30-00.json — verdict pass, min-of-5=8 (func9/quality9/security9/error8/test8), critical security=9≥7. fail-open→fail-closed mutation-proven(pre-fix exit0→post-fix exit2), stateful awk shim으로 MultiEdit 부분실패 즉시판정 실증, set -e 상호작용 실증.",
       "name": "apply_replace() awk 부재/실패 시 fail-closed (has_jq 대칭)",
       "description": "F49의 2차 evaluator·security-auditor가 공통 지적한 backlog를 completeness 프로브가 후속 후보화(C1). apply_replace()의 폴백(`awk '...' 2>/dev/null || printf '%s' \"$1\"`)이 awk 자체가 실패(부재·런타임 오류 등)하면 NEW_CONTENT를 원본과 동일하게 반환 — 훅의 모든 약화검사(deny_has_exit·count_array·임계값 비교 등)가 awk에 의존하는데, awk 없는/실패하는 호스트에서는 이 전부가 '변경 없음'으로 통과(fail-open)한다. has_jq()가 F41에서 이미 확립한 'jq 부재 시 보호 파일은 fail-closed, 비보호는 가용성 우선'과 동일한 원칙을 awk에도 적용: (1) apply_replace()의 `|| printf '%s' \"$1\"` 폴백 제거 — 실패 시 함수 자체의 종료 상태(awk 종료 코드)가 그대로 전파되게 한다. (2) Edit·MultiEdit 호출부에서 `if ! NEW_CONTENT=$(apply_replace ...); then`으로 실패를 명시적으로 감지해, 보호 파일이면 deny(exit 2), 비보호 파일이면 exit 0(가용성 우선) — set -e의 암묵적 스크립트 종료에 기대지 않고 명시적으로 판단한다.",
+      "security_tier": "critical",
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
+      "dependencies": [
+        "F41",
+        "F49"
+      ],
+      "assigned_sprint": 36
+    },
+    {
+      "id": "F51",
+      "name": "has_awk() 전역 fail-closed 게이트 — has_jq()와 완전 대칭(Write 경로 포함)",
+      "description": "F50의 security-auditor가 발견한 medium 잔여 이슈: F50은 apply_replace() 호출부(Edit·MultiEdit)만 awk 실패 시 fail-closed로 고쳤는데, Write 툴 경로는 apply_replace를 아예 타지 않아 harness-config.json 임계값 비교(INV-3)·invariant-guard.sh 30%축소 검사(INV-7)·feature_list.json min-of-5/security 임계값 비교(INV-11) 등 awk 의존 검사들이 여전히 awk 부재/실패 시 fail-open — 실제로 Write로 pass_threshold를 7→4로 낮추거나 evaluator 점수 미달인 feature의 passes를 true로 뒤집어도 awk 없으면 통과됨을 security-auditor가 직접 재현. has_jq()가 이미 확립한 전역 블랭킷 gate 패턴(스크립트 최상단, TOOL 무관하게 FILE 하나로 판정)을 awk에도 동일하게 적용: has_awk() 함수 신설 + FILE 확정 직후·TOOL 디스패치 직전에 awk 부재 시 보호 파일은 즉시 deny, 비보호는 exit 0인 블랭킷 게이트 추가. F50의 apply_replace 개별 실패 감지(fail_closed_on_apply_failure)는 'awk가 있지만 특정 호출이 런타임에 실패'하는 별개 경우를 위해 그대로 유지(상호 보완 — 완전 부재는 has_awk()가, 존재하되 실패는 F50 메커니즘이 커버).",
       "security_tier": "critical",
       "status": "in_progress",
       "passes": false,
       "iteration": 0,
       "dependencies": [
         "F41",
-        "F49"
+        "F50"
       ],
-      "assigned_sprint": 36
+      "assigned_sprint": 37
     }
   ]
 }
