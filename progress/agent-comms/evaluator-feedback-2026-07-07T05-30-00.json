@@ -1,0 +1,79 @@
+{
+  "timestamp": "2026-07-07T05:30:00Z",
+  "sprint": 36,
+  "iteration": 1,
+  "features_evaluated": [
+    "F50"
+  ],
+  "security_tier": "critical",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 9,
+    "security": 9,
+    "error_handling": 8,
+    "test_coverage": 8
+  },
+  "score": 8,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "pass",
+  "fail_reasons": [],
+  "issues": [
+    "[test] MultiEdit 배열 중간(첫 edit 성공, 이후 edit 실패)·awk 런타임오류(부재와 구분) 시나리오는 dedicated bats 테스트가 없다 — evaluator가 stateful awk shim(exit 3)으로 런타임에 직접 실증했고 루프 구조가 fail-fast를 보장하나, 회귀 방어를 위해 다음 회전에서 bats로 승격 권장(F49 lesson의 '라이브-훅 end-to-end' 후보 연장선). 판정에 영향 없는 개선 여지."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "F50-1: apply_replace() `|| printf '%s' \"$1\"` 폴백 제거 — awk 실패 시 함수 종료 상태가 awk 종료 코드로 전파 (diff 확인 + 독립 재현: awk 부재 시 보호 파일 Edit pre-fix exit 0 → post-fix exit 2)",
+      "F50-2: Edit 호출부가 `if ! NEW_CONTENT=$(apply_replace ...); then fail_closed_on_apply_failure; fi`로 래핑 — 보호 파일 deny(exit 2), 비보호 exit 0 (독립 재현 확인)",
+      "F50-3: MultiEdit 루프도 동일 실패 감지 — 배열 중간 실패 시 부분 결과 미채택하고 즉시 deny (stateful awk shim으로 실증: 2번째 awk 호출 실패 시 exit 2, awk 호출 정확히 2회에서 중단)",
+      "F50-4: 공용 헬퍼 fail_closed_on_apply_failure()로 실패 판정 로직 추출 (diff 확인)",
+      "F50-5: set -e 환경에서 `if ! VAR=$(cmd)` 패턴이 조기 abort 없이 조건 분기로 처리 — 비보호 파일 awk 부재 케이스가 127/abort가 아니라 정확히 exit 0으로 착지함을 실증",
+      "F50-6: _noawk_run(awk만 가린 PATH shim) 신규 4개 테스트 — 보호 Edit/MultiEdit→exit2, 비보호→exit0, awk정상 컨트롤→exit0, 4/4 GREEN (bats ok 143-146)",
+      "F50-7: 회귀 없음 — F45/F48/F49 자기보호 포함 기존 테스트 전부 통과(bats ok 129-142 등), awk 정상 경로 무변화(임계값 하향 Edit→exit2, no-op Edit→exit0 재현)"
+    ],
+    "security": [
+      "SC1: has_jq()(F41)의 원칙(보호 파일 fail-closed, 비보호 가용성 우선)과 완전 대칭 — 새 원칙 도입 없음 (diff 확인)",
+      "SC2: weakening-check 로직(임계값·카운트·deny_has_exit 등) 무변경 — 실패 감지·판정만 추가 (diff: 약화검사 블록 diff 없음)",
+      "SC3: awk 정상 다수 케이스 동작·경로 무변화 (컨트롤 테스트 + 정상 PATH 재현으로 확인)",
+      "SC4: deny 메시지가 원인('apply_replace 실패(awk 오류/부재)') 명시 — jq 부재 안내 스타일과 일관 (diff line 80)",
+      "자기보호 무결성: deny() 재배치 후에도 deny_has_exit 통과(deny() 본문에 bare 'exit 2' 잔존), 'deny ' 호출 18=18·bare 'exit 2' 2=2 (pre/post 동일) — semantic-gutting 자기검사 불변"
+    ],
+    "error_scenarios": [
+      "awk PATH 완전 부재 + 보호 파일 Edit → deny(exit 2) (재현)",
+      "awk 부재 + 보호 파일 MultiEdit → deny(exit 2) (재현)",
+      "awk 있으나 런타임 오류(exit 3) — 원인 불문 실패로 감지·처리 (stateful shim 재현)",
+      "MultiEdit 첫 edit 성공·둘째 edit 실패 → 부분 결과 미채택, 즉시 판정 (재현: awk 호출 2회에서 중단, exit 2)",
+      "awk 정상 + old_string 매치 실패 → 실패 아님(idx<=0 정상 반환, exit 0) — F49 케이스와 구분, F50과 혼동 없음 (bats ok 139-142 통과)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "test_hardening_candidates": [
+      "MultiEdit 배열 중간 실패(첫 edit 성공, 이후 실패) 및 awk 런타임오류(부재와 구분)에 대한 dedicated bats 테스트 — 현재 evaluator가 런타임 실증(stateful awk shim)했고 코드 구조가 보장하나, 회귀 방어용 bats 승격을 다음 /improve 회전 후보로 권장(F49 lesson '라이브-훅 end-to-end' 후보의 연장)"
+    ],
+    "action_required": "없음 — 상위 산출물(acceptance/security criteria) 갱신 불요. 위 test_hardening_candidates는 backlog 후보(판정 무관)."
+  },
+  "criteria_backfill_review": {
+    "count": 0,
+    "verdict": "적정 — 구현 중 발견한 유일한 갭은 deny()/fail_closed_on_apply_failure() 함수 정의 순서 버그(implementer가 스크립트 앞쪽 재배치로 즉시 수정, 로직 무변경)로, 상위 criteria 변경이 필요 없는 순수 내부 수정. 범위 확장·요건 완화 없음."
+  },
+  "f37_critical_second_judgment": "이 기능은 security_tier critical이므로 F37 교차검증 대상 — 본 레코드는 implementer와 독립 컨텍스트의 1차 판정이다. 근거가 mutation-proven(pre-fix exit 0 → post-fix exit 2, 독립 재현)으로 강하나, 프로토콜상 메인 루프가 독립 컨텍스트의 2차 judge를 샘플링해 verdict 일치를 확인하고 불일치 시 사람 에스컬레이션할 것을 권고한다(자동 pass 금지 원칙).",
+  "evidence": {
+    "diff": "git show 8e3f63c -- hooks/invariant-guard.sh — 폴백 `|| printf '%s' \"$1\"` 제거, deny()/fail_closed_on_apply_failure() 헬퍼를 apply_replace 직후(has_jq 이전)로 재배치, Edit(line 126-132)·MultiEdit(line 138-145) 호출부 `if ! ...; then fail_closed_on_apply_failure; fi` 래핑",
+    "independent_repro_transition": "scratchpad/f50_repro.sh — awk만 가린 PATH shim으로 현행 훅과 pre-fix(8e3f63c^) 훅을 직접 구동: [awk-absent 보호 Edit] pre-fix=0 / post-fix=2, [awk-absent 보호 MultiEdit] pre-fix=0 / post-fix=2, [awk-absent 비보호 Edit] 0/0, [awk-present] no-op Edit=0·임계값하향 Edit=2 — fail-open→fail-closed 전환 mutation-proven",
+    "independent_repro_partial": "scratchpad/f50_partial.sh — stateful awk shim(1회 성공, 2회차 exit 3) + 보호 파일 MultiEdit(2 edits): exit 2, awk 호출 정확히 2회에서 중단(부분 결과 미채택 실증)",
+    "set_e_interaction": "위 f50_repro의 awk-absent 비보호 케이스가 127/errexit-abort가 아닌 정확히 exit 0으로 착지 → `if ! VAR=$(cmd)` + `is_protected && deny; exit 0` 패턴이 set -e 하에서 조기종료 없이 조건분기로 동작함을 실증",
+    "self_protection_integrity": "deny_has_exit awk 검사 통과(deny() 본문 bare 'exit 2' 잔존); 토큰 카운트 pre/post 동일 — `^\\s*deny ` 18=18, `^\\s*exit 2$` 2=2 (deny() 재배치가 자기보호 지표 불변)",
+    "tests": "bats tests/*.bats — 519 tests, 0 failures (F50 신규 4/4 GREEN: ok 143-146; F45/F48/F49 자기보호 GREEN: ok 129-142). F50 테스트는 live-hook end-to-end($HOOK 직접 구동)이며 pre-fix 코드에 대해 RED(보호 케이스 exit 0)로 mutation-proof 확인",
+    "lint": "shellcheck hooks/invariant-guard.sh — SC2012(info) 1건은 line 322 `ls -1`로 F50과 무관·pre-fix에도 존재(git show 8e3f63c^ 확인). 신규 경고 0",
+    "probes": "scripts/probes/consistency.sh → [], scripts/probes/evidence.sh → []",
+    "_note": "모든 pass/fail 판정은 본 세션에서 직접 실행·재현한 결과가 근거. implementer의 security_self_check(checklist_passed 4/4)는 검증 대상으로만 취급하고 독립 재현으로 재확인함. unverified 차원 없음(5차원 전부 실행 근거 보유)."
+  }
+}

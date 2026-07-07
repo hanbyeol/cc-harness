@@ -1,0 +1,78 @@
+{
+  "timestamp": "2026-07-07T07:00:00Z",
+  "sprint": 36,
+  "iteration": 1,
+  "features_evaluated": [
+    "F50"
+  ],
+  "security_tier": "critical",
+  "judge_role": "second_independent_judge (F37 cross-verification)",
+  "independence_note": "1차 판정 파일(evaluator-feedback-2026-07-07T05-30-00.json)을 읽지 않고, git diff(8e3f63c)와 이 세션에서 직접 실행한 재현/회귀 결과만으로 처음부터 재채점. 1차 점수와의 비교는 feature_list.json의 _passes_evidence 필드에 요약된 값(불가피하게 노출됨)에 한함.",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 9,
+    "security": 9,
+    "error_handling": 9,
+    "test_coverage": 8
+  },
+  "score": 8,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "pass",
+  "critical_security_gate": "scores.security=9 >= security_thresholds.critical=7 — 통과",
+  "consistency_with_first_judge": {
+    "result": "consistent (match) — 사람 에스컬레이션 불필요",
+    "detail": "1차: verdict pass, min-of-5=8 (func9/quality9/security9/error8/test8), security=9. 2차(본 판정): verdict pass, min-of-5=8 (func9/quality9/security9/error9/test8), security=9. 두 판정 모두 pass·min-of-5=8·critical security=9로 verdict 및 게이트 산술이 일치. 유일한 차이는 error_handling 9 vs 8인데 min-of-5=8을 바꾸지 않아 판정에 영향 없음. F37 교차검증 요건(두 독립 컨텍스트 verdict 일치) 충족 → passes:true 유지가 타당, 되돌림/에스컬레이션 없음."
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "F50-1: apply_replace()에서 `|| printf '%s' \"$1\"` 폴백 제거 — 함수 종료 상태가 awk 실제 종료 코드로 전파 (diff 확인 + 재현)",
+      "F50-2: Edit 호출부 `if ! NEW_CONTENT=$(apply_replace ...); then fail_closed_on_apply_failure; fi` — 보호 파일 deny(exit2)/비보호 exit0 (재현: 보호 exit2, 비보호 exit0)",
+      "F50-3: MultiEdit 루프 동일 감싸기 — 어느 edit이든 실패 시 즉시 동일 판정, 부분 성공 미채택 (stateful shim: edit1 성공/edit2 실패 → exit2, 부분 미채택)",
+      "F50-4: 공용 헬퍼 fail_closed_on_apply_failure()로 추출해 두 호출부 재사용 (diff 확인)",
+      "F50-5: set -e 하에서 `if ! VAR=$(cmd)` 조기 abort 없음 — 비보호+awk부재가 정확히 exit0 착지 (직접 실행 확인)",
+      "F50-6: _noawk_run(_nojq_run 대칭) 신규 테스트 4건 존재·통과 (bats 143~146)",
+      "F50-7: awk 정상 시 회귀 없음 — 전체 통과 (bats 519/519)",
+      "전역: bats 회귀 0, shellcheck 신규 0, consistency probe []"
+    ],
+    "security": [
+      "SC1: has_jq()의 F41 원칙(보호 파일 fail-closed / 비보호 가용성 우선)을 awk에 완전 대칭 적용 — 새 원칙 없음 (재현 매트릭스로 확인)",
+      "SC2: weakening-check 로직 무변경 — 실패 감지만 추가. 토큰 앵커 불변(deny 호출 18=18, `exit 2` 2=2, deny_has_exit YES)",
+      "SC3: awk 정상 경로 동작 불변 — 컨트롤 Edit(7→9 pass, 7→4 deny) 및 519/519로 확인",
+      "SC4: deny 메시지가 원인('awk 오류/부재') 명시 — 소스 확인"
+    ],
+    "error_scenarios": [
+      "awk PATH 부재(command not found) → 보호 deny(exit2)/비보호 exit0 (재현)",
+      "awk 런타임 오류(exit 1) → 부재와 동일하게 실패 감지·처리 (stateful shim exit1로 재현)",
+      "MultiEdit 첫 edit 성공/둘째 실패 → 전체를 실패로 간주, 부분 결과 미채택 (stateful shim: awk_calls=2, 보호 exit2)",
+      "awk 정상 + old_string 매치 실패(F49 별개 케이스) → 정상 동작으로 유지, F50과 미혼동 (bats F49 139~142 통과)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "issues": [
+    "[test] error_scenarios에 열거된 'MultiEdit 첫 edit 성공/둘째 실패(순서 의존)'와 'awk 런타임 오류(부재와 구별)'가 각각 전용 커밋 테스트로 고정되지 않고 tests 143~146(주로 awk 완전 부재)을 프록시로 공유함. 2차 판정에서 stateful awk shim으로 독립 재현해 두 경로 모두 정상 확인했으나, 회귀 고정을 위해 향후 전용 bats 케이스 추가 권장(판정에 영향 없는 개선 여지)."
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "action_required": "없음 — Sprint Contract가 acceptance/security/error 3범주를 명확·완결하게 정의. criteria_backfill 0건."
+  },
+  "evidence": {
+    "diff": "git show 8e3f63c — hooks/invariant-guard.sh: `|| printf '%s' \"$1\"` 폴백 제거, deny()/fail_closed_on_apply_failure()를 apply_replace 직후(has_jq 이전)로 재배치, Edit(라인127-129)·MultiEdit(라인142-144) 호출부를 `if ! NEW_CONTENT=$(apply_replace ...); then fail_closed_on_apply_failure; fi`로 감쌈. weakening-check 로직 무변경 재확인.",
+    "fail_open_to_closed_repro": "독립 awk-제외 PATH shim(scratchpad/j2_repro.sh). awk 부재 매트릭스 — Edit 보호 harness-config: PRE=0(fail-open 버그) POST=2(fail-closed); MultiEdit 보호: PRE=0 POST=2; Edit 비보호: PRE=0 POST=0(가용성 유지). 컨트롤(awk 존재): 7→9 exit0, 7→4 exit2.",
+    "set_e_landing": "POST 비보호+awk부재 정확히 exit=0 (조기 abort 없음).",
+    "multiedit_partial_failure": "stateful awk shim(1차 호출 실제 awk 위임 성공, 2차 exit1) — 보호 MultiEdit → exit2(부분 미채택, awk_calls=2), 비보호 → exit0, 양측 성공 컨트롤 → exit0(awk_calls=6).",
+    "self_protection_neutrality": "재배치 영향 점검 — 라인수 pre357→post369(증가, 30% 축소 가드 무영향), deny 호출수 18=18, `^ *exit 2$` 2=2, deny_has_exit=YES. 상세보호(30% 축소·semantic gutting) 앵커 전부 불변.",
+    "tests": "bats tests/*.bats — 1..519, ok=519, not_ok=0 (overall exit 0). F50 143~146 pass. 자기보호 회귀 F45(128~130)/F46(131~132)/F48(133~138)/F49(139~142) 전부 pass.",
+    "lint": "shellcheck hooks/invariant-guard.sh — SC2012(info) 1건(라인322, feature_list 브랜치의 `ls|sort`, F50 무관)만; pre-fix에도 동일 존재 → 신규 findings 0.",
+    "consistency_probe": "bash scripts/probes/consistency.sh → [] (exit 0)",
+    "_note": "모든 pass 판정은 본 세션에서 직접 실행한 명령·출력을 근거로 함(grounded). implementer self-check는 독립 재확인 대상으로 취급하고 재현으로 교차검증함."
+  },
+  "escaped_defects": [],
+  "calibration_note": "통과 후 결함 없음 — false-positives.json entries append 불요. lessons.md 추가 불요(재발형 실수 없음)."
+}
