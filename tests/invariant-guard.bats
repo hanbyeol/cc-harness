@@ -806,3 +806,40 @@ _source_apply_replace() {
   [[ "$step2" == *"REPLACED_STEP1"* && "$step2" == *"REPLACED_STEP2"* ]] \
     || { echo "순차 치환 실패:[$step2]"; false; }
 }
+
+# --- F50: apply_replace 실패(awk 부재/오류) 시 fail-closed — has_jq() 대칭 ---
+# _nojq_run과 대칭되는 _noawk_run: awk만 가린 PATH로 훅을 실행(jq는 포함) — awk 부재 시
+# apply_replace()가 실패해도 예전엔 폴백이 삼켜 "변경 없음"으로 통과(fail-open)했다.
+
+_noawk_run() {
+  local shim="$WORK/noawkbin"
+  mkdir -p "$shim"
+  local t p
+  for t in cat grep sed head basename tr wc dirname cut env printf jq; do
+    p=$(command -v "$t" 2>/dev/null || true)
+    [[ -n "$p" ]] && ln -sf "$p" "$shim/$t"
+  done
+  local bash_bin; bash_bin=$(command -v bash)
+  printf '%s' "$1" | PATH="$shim" "$bash_bin" "$HOOK"
+}
+
+@test "F50: awk absent — Edit to a protected file (non-empty old_string) is denied (fail-closed)" {
+  run _noawk_run "$(mk_edit_input "$WORK/progress/harness-config.json" 'pass_threshold' 'pass_threshold')"
+  [ "$status" -eq 2 ]
+}
+
+@test "F50: awk absent — MultiEdit to a protected file is denied (fail-closed)" {
+  run _noawk_run "$(mk_multiedit_input "$WORK/progress/harness-config.json" 'pass_threshold' 'pass_threshold')"
+  [ "$status" -eq 2 ]
+}
+
+@test "F50: awk absent — Edit to an unrelated (unprotected) file still passes (availability preserved)" {
+  run _noawk_run "$(mk_edit_input "$WORK/hooks/post-edit-format.sh" 'a' 'b')"
+  [ "$status" -eq 0 ]
+}
+
+@test "F50: awk present control — benign Edit to a protected file still passes (normal path unchanged)" {
+  NEW='{ "scoring": { "pass_threshold": 8, "security_thresholds": { "critical": 7, "standard": 5, "low": 3 } } }'
+  run run_write "$(mk_write_input "$WORK/progress/harness-config.json" "$NEW")"
+  [ "$status" -eq 0 ]
+}

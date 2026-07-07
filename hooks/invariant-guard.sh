@@ -62,7 +62,23 @@ apply_replace() {
       if (idx>0) { printf "%s", substr($0,1,idx-1) n substr($0,idx+length(o)) }
       else { printf "%s", $0 }
     }
-  ' <<<"$1" 2>/dev/null || printf '%s' "$1"
+  ' <<<"$1" 2>/dev/null
+  # 폴백 없음(F50): awk 실패 시 원본을 반환해 실패를 숨기지 않는다 — 함수의 종료 상태가
+  # awk의 실제 종료 코드로 전파되어, 호출부가 fail_closed_on_apply_failure()로 명시 판정한다.
+}
+
+deny() {
+  echo "INVARIANT 위반: $1" >&2
+  echo "  파일: $FILE" >&2
+  echo "  검증 장치 약화는 자동 차단됩니다 — docs/INVARIANTS.md 참조." >&2
+  echo "  의도적 변경이라면 사용자가 직접 편집/승인하세요." >&2
+  exit 2
+}
+
+# apply_replace 실패(awk 부재/오류) 시 보호 파일은 deny, 비보호는 가용성 우선 (F50, has_jq 대칭)
+fail_closed_on_apply_failure() {
+  is_protected "$FILE" && deny "apply_replace 실패(awk 오류/부재) — 편집 시뮬레이션 불가, fail-closed (INV-7)"
+  exit 0
 }
 
 if ! has_jq; then
@@ -108,7 +124,9 @@ case "$TOOL" in
     OLD_S=$(echo "$INPUT" | jq -r '.tool_input.old_string // empty' 2>/dev/null || echo "")
     NEW_S=$(echo "$INPUT" | jq -r '.tool_input.new_string // empty' 2>/dev/null || echo "")
     if [[ -n "$OLD_S" ]]; then
-      NEW_CONTENT=$(apply_replace "$(cat "$FILE")" "$OLD_S" "$NEW_S")
+      if ! NEW_CONTENT=$(apply_replace "$(cat "$FILE")" "$OLD_S" "$NEW_S"); then
+        fail_closed_on_apply_failure
+      fi
     else
       NEW_CONTENT=$(cat "$FILE")
     fi
@@ -121,7 +139,9 @@ case "$TOOL" in
       EO=$(echo "$INPUT" | jq -r ".tool_input.edits[$ei].old_string // empty" 2>/dev/null || echo "")
       EN=$(echo "$INPUT" | jq -r ".tool_input.edits[$ei].new_string // empty" 2>/dev/null || echo "")
       [[ -z "$EO" ]] && continue
-      NEW_CONTENT=$(apply_replace "$NEW_CONTENT" "$EO" "$EN")
+      if ! NEW_CONTENT=$(apply_replace "$NEW_CONTENT" "$EO" "$EN"); then
+        fail_closed_on_apply_failure
+      fi
     done
     ;;
   *)
@@ -129,14 +149,6 @@ case "$TOOL" in
     ;;
 esac
 [[ -z "$NEW_CONTENT" ]] && exit 0
-
-deny() {
-  echo "INVARIANT 위반: $1" >&2
-  echo "  파일: $FILE" >&2
-  echo "  검증 장치 약화는 자동 차단됩니다 — docs/INVARIANTS.md 참조." >&2
-  echo "  의도적 변경이라면 사용자가 직접 편집/승인하세요." >&2
-  exit 2
-}
 
 BASENAME=$(basename "$FILE")
 

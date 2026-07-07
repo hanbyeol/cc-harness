@@ -1,38 +1,36 @@
 {
-  "timestamp": "2026-07-06T16:20:00Z",
-  "sprint": 35,
-  "scope": "F49",
+  "timestamp": "2026-07-07T04:30:00Z",
+  "sprint": 36,
+  "scope": "F50",
   "features_implemented": [
-    "F49"
+    "F50"
   ],
   "files_changed": [
-    "hooks/invariant-guard.sh (apply_replace(): awk -v → ENVIRON[] 경유로 o/n 전달 방식 변경, 로직 무변경)",
-    "tests/invariant-guard.bats (F49 신규 4개: 백슬래시-개행 치환, deny/exit-2 false-allow 방지, 백슬래시-따옴표 일반화, MultiEdit 순차 적용)",
-    "README.md (테스트 수 511→515 정정)"
+    "hooks/invariant-guard.sh (apply_replace() 폴백 제거, deny()/fail_closed_on_apply_failure() 헬퍼를 스크립트 앞쪽으로 재배치, Edit/MultiEdit 호출부에 실패 감지 적용)",
+    "tests/invariant-guard.bats (F50 신규 4개: _noawk_run 헬퍼, 보호파일 Edit/MultiEdit awk부재→deny, 비보호→통과, awk정상 컨트롤)",
+    "README.md (테스트 수 515→519 정정)"
   ],
   "iteration": 1,
-  "tdd": "4개 신규 테스트를 현재(수정 전) 코드로 실행 → RED 4건 확인(버그 실증, 특히 'deny/exit-2 removal' 테스트가 실제 false-allow 메커니즘을 재현). apply_replace()를 환경변수 경유로 교체 → 4건 GREEN. 전체 511개 기존 테스트도 무회귀 확인(이 함수가 모든 Edit/MultiEdit 시뮬레이션의 핵심 경로이므로 특히 중요).",
-  "root_cause_correction": "F48 known_issue_discovered에서 'macOS one-true-awk + UTF-8 로케일에서 멀티바이트 선행 시 오계산'으로 진단됐던 것을, 이번 회전에서 순수 ASCII 재현으로 정확히 재규명: 실제 원인은 POSIX awk의 `-v var=value` 할당이 문자열 리터럴과 동일하게 백슬래시 이스케이프를 처리하는 것 — 로케일/멀티바이트/OS 무관, gawk/mawk/BSD awk 등 POSIX -v를 구현하는 모든 awk에서 재현되는 근본적 동작. `VAL=$(printf 'A\\\\\\nB')`(4바이트) → `awk -v x=\"$VAL\"`은 length(x)=3(백슬래시 소실) vs `ENVIRON[\"VAR\"]`는 length=4(보존)로 직접 실증. old_string/new_string에 백슬래시가 있으면(이 코드베이스의 멀티라인 case문 line-continuation처럼 흔함) 이스케이프 손상으로 index()가 못 찾거나(→ NEW_CONTENT=OLD와 동일, 훅이 '변경 없음'으로 오판 = false-allow) 잘못된 위치에서 매치(→ 내용 손상, F48 구현 중 실제로 겪음)된다.",
+  "tdd": "4개 신규 테스트를 현재(수정 전) 코드로 실행 → RED 2건(보호 파일 케이스가 awk 부재에도 exit 0으로 통과 — fail-open 버그 재현), GREEN 2건(비보호 파일·awk정상 컨트롤은 이미 통과). apply_replace() 폴백 제거 + fail_closed_on_apply_failure 헬퍼 추가 → 1차 시도에서 'deny: command not found'(exit 127) 발생 — deny()가 스크립트상 Edit/MultiEdit 디스패치보다 뒤(라인 145)에 정의되어 있어 새 호출부(라인 115~126)에서 아직 정의 안 된 함수를 호출한 것이 원인. deny()와 fail_closed_on_apply_failure() 정의를 스크립트 앞쪽(apply_replace 직후, has_jq 블록 이전)으로 재배치해 해결 → 4개 전부 GREEN.",
   "security_self_check": {
     "checklist_items": 4,
     "checklist_passed": 4,
-    "notes": "(1) 수정은 전달 메커니즘만 교체 — index/substr 기반 첫 매치 치환 로직·모든 weakening-check(임계값 비교·카운트 비교·deny_has_exit 등) 자체는 무변경. (2) 환경변수명 __IG_OLD__/__IG_NEW__는 고유 접두사로 충돌 회피, local 변수로 스코프 격리. (3) ENVIRON[]은 데이터로만 읽히고 awk 프로그램 텍스트에 삽입되지 않으므로 신규 인젝션 벡터 없음. (4) false-allow 시나리오(F49-3)가 수정 전 실패·수정 후 통과로 실제 실증됨(이론이 아니라 실행 근거)."
+    "notes": "(1) has_jq()가 F41에서 확립한 원칙(보호 파일 fail-closed, 비보호 가용성 우선)과 완전 대칭 재확인. (2) 실패 감지 로직만 추가 — 기존 weakening-check(임계값 비교·카운트 비교 등) 자체는 무변경. (3) awk 정상 동작 시(절대다수 케이스) 동작 변화 없음(컨트롤 테스트로 확인). (4) deny()/fail_closed_on_apply_failure() 함수 재배치는 순서 문제 해결일 뿐 로직 변경 아님 — 전체 회귀로 검증."
   },
   "error_scenarios_tested": [
-    "old_string/new_string에 백슬래시 없는 기존 케이스 — 회귀 없음(전체 511개 무변경 통과)",
-    "old_string 생략(Write 경로) — 영향 없음(apply_replace 미사용 분기)",
-    "deny()/exit 2 제거를 시도하는 edit이 old_string에 백슬래시-개행을 포함한 경우 — 수정 전엔 제거가 반영 안 됨(false-allow 버그), 수정 후 정확히 반영",
-    "MultiEdit 배열 순차 적용 — 백슬래시 포함 edit과 일반 edit 혼합 시 둘 다 정확히 반영"
+    "awk PATH에서 완전 부재 + 보호 파일 Edit(비어있지 않은 old_string) → deny(exit 2)",
+    "awk 부재 + 보호 파일 MultiEdit → deny(exit 2)",
+    "awk 부재 + 비보호 파일 Edit → exit 0(가용성 유지)",
+    "awk 정상 존재 + 보호 파일 정상 편집(임계값 상향) → 기존과 동일하게 통과(회귀 없음)"
   ],
   "evidence": {
-    "tests": "bats tests/*.bats — 515 passed, 0 failed (511 기존 + F49 신규 4)",
+    "tests": "bats tests/*.bats — 519 passed, 0 failed (515 기존 + F50 신규 4)",
     "lint": "shellcheck hooks/invariant-guard.sh — 기존과 동일(SC2012 info 1건, 신규 경고 0)",
-    "consistency_probe": "scripts/probes/consistency.sh 실행 → [] (README 테스트 수 드리프트 해소 후)",
-    "root_cause_repro": "격리 환경에서 `awk -v x=\"$VAL\"` vs `ENVIRON[\"VAR\"]` 직접 비교로 이스케이프 손상/보존 차이를 재현 — 실제 코드 수정 전 기록"
+    "consistency_probe": "scripts/probes/consistency.sh 실행 → [] (README 테스트 수 드리프트 해소 후)"
   },
   "criteria_backfill": {
-    "reason": "change-request 단계에서 근본원인을 이미 정확히 재규명하고 반영 완료 — 구현 중 추가 criteria 갭 없음."
+    "reason": "change-request/Plan 단계에서 이미 정확히 설계 완료 — 구현 중 발견한 유일한 갭은 함수 정의 순서 버그였고 즉시 수정, 상위 산출물(acceptance criteria) 변경 불요."
   },
-  "self_notes": "이 수정으로 F45/F46/F48이 검증하는 자기보호 대칭(is_protected 등)의 '시뮬레이션 정확성' 전제가 실제로 보장됨 — 이전까지는 이론상 그 대칭 테스트들도 백슬래시 포함 Edit에 대해서는 잘못된 NEW_CONTENT로 판정했을 위험이 있었음(이번에 닫힘).",
+  "self_notes": "이 수정으로 has_jq()/has_awk 대칭이 완성됨 — 두 개의 단일 실패점(jq, awk) 모두 보호 파일에 한해 fail-closed 원칙이 적용됨. F49(escape-corruption)와 F50(fail-open fallback)이 함께 apply_replace()의 정확성·안전성을 완결.",
   "ready_for": "evaluation"
 }

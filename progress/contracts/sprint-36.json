@@ -40,18 +40,18 @@
     {
       "step": "RED: _noawk_run 헬퍼 + 보호/비보호 파일 Edit·MultiEdit 시나리오 테스트 추가 — 현재(수정 전) 코드로 실행해 실패 확인(보호 파일도 exit 0으로 통과하는 버그 재현)",
       "verify": "RED 확인",
-      "done": false
+      "done": true
     },
     {
       "step": "apply_replace()에서 폴백 제거 + fail_closed_on_apply_failure 헬퍼 추가 + Edit/MultiEdit 호출부에 실패 감지 적용",
       "verify": "위 RED 테스트 GREEN 전환",
-      "done": false
+      "done": true
     },
     {
       "step": "전체 bats/shellcheck/consistency 회귀 확인 → 독립 evaluator + F37 2차 판정 + security-auditor(critical)",
       "verify": "bats 전체 GREEN, shellcheck 0, evaluator min-of-5≥7·security≥7 (1차+2차 일치)",
-      "done": false
+      "done": true
     }
   ],
-  "agreed": false
+  "agreed": true
 }
