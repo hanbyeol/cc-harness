@@ -17,6 +17,7 @@ INPUT=$(cat 2>/dev/null || echo "")
 [[ -z "$INPUT" ]] && exit 0
 
 has_jq() { command -v jq &>/dev/null; }
+has_awk() { command -v awk &>/dev/null; }
 
 # is_protected: 편집 대상이 하네스 보호 파일인가? (단일 출처)
 # 아래 jq-존재 디스패치 브랜치들이 개별 검사하는 파일 집합과 동일하게 유지한다 —
@@ -111,6 +112,20 @@ if [[ ! -e "$FILE" ]]; then
     feature_list.json) [[ "$FILE" == *"/templates/"* ]] && exit 0 ;;  # templates 스캐폴딩만 면제
     *) exit 0 ;;
   esac
+fi
+
+# awk 부재 = 이 스크립트 대부분의 기계 검증(임계값·카운트 비교, apply_replace 등)의 단일
+# 실패점(F51, has_jq와 대칭) — TOOL 종류(Write 포함) 무관하게 보호 파일은 fail-closed.
+if ! has_awk && is_protected "$FILE"; then
+  echo "INVARIANT 위반: awk 부재 상태에서 보호 파일 편집을 차단합니다 (fail-closed)" >&2
+  echo "  파일: $FILE" >&2
+  echo "  awk가 없으면 대부분의 기계 검증(임계값·카운트 비교·apply_replace)이 무력화됩니다 — 안전장치는 결핍 시 차단이 원칙(docs/INVARIANTS.md)." >&2
+  echo "  awk를 설치하거나, 사람이 직접 편집/승인하세요." >&2
+  exit 2
+elif ! has_awk; then
+  # 비보호 파일: awk 없이도 가용성 우선 통과 (가드는 검증 파일에만 관여).
+  echo "invariant-guard: awk not found — 비보호 파일이므로 통과 (가용성 우선)" >&2
+  exit 0
 fi
 
 # Edit/MultiEdit: new_string(들)을 old에 적용한 결과를 NEW로, Write: content가 곧 NEW.

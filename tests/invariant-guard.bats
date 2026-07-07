@@ -815,7 +815,7 @@ _noawk_run() {
   local shim="$WORK/noawkbin"
   mkdir -p "$shim"
   local t p
-  for t in cat grep sed head basename tr wc dirname cut env printf jq; do
+  for t in cat grep sed head basename tr wc dirname cut env printf jq ls sort; do
     p=$(command -v "$t" 2>/dev/null || true)
     [[ -n "$p" ]] && ln -sf "$p" "$shim/$t"
   done
@@ -839,6 +839,35 @@ _noawk_run() {
 }
 
 @test "F50: awk present control — benign Edit to a protected file still passes (normal path unchanged)" {
+  NEW='{ "scoring": { "pass_threshold": 8, "security_thresholds": { "critical": 7, "standard": 5, "low": 3 } } }'
+  run run_write "$(mk_write_input "$WORK/progress/harness-config.json" "$NEW")"
+  [ "$status" -eq 0 ]
+}
+
+# --- F51: has_awk() 전역 fail-closed 게이트 — has_jq() 완전 대칭(Write 경로 포함) ---
+# F50은 apply_replace() 호출부(Edit/MultiEdit)만 awk 실패 시 fail-closed였다 — Write 경로는
+# harness-config.json 임계값 비교(INV-3)·feature_list.json min-of-5 비교(INV-11) 등 awk 의존
+# 검사가 awk 부재 시 여전히 fail-open이었다(security-auditor 재현: C1/D).
+
+@test "F51: awk absent — Write lowering harness-config.json pass_threshold is denied (fail-closed, security-auditor C1)" {
+  NEW='{ "scoring": { "pass_threshold": 4, "security_thresholds": { "critical": 7, "standard": 5, "low": 3 } } }'
+  run _noawk_run "$(mk_write_input "$WORK/progress/harness-config.json" "$NEW")"
+  [ "$status" -eq 2 ]
+}
+
+@test "F51: awk absent — Write flipping feature_list.json passes:true for a below-threshold feature is denied (fail-closed, security-auditor D)" {
+  flist false > "$WORK/progress/feature_list.json"
+  fb '{"functionality":9,"code_quality":9,"security":9,"error_handling":9,"test_coverage":3}' pass
+  run _noawk_run "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 2 ]
+}
+
+@test "F51: awk absent — Write to an unrelated (unprotected) file still passes (availability preserved)" {
+  run _noawk_run "$(mk_write_input "$WORK/hooks/post-edit-format.sh" "echo hi")"
+  [ "$status" -eq 0 ]
+}
+
+@test "F51: awk present control — benign Write to protected files still passes (normal path unchanged)" {
   NEW='{ "scoring": { "pass_threshold": 8, "security_thresholds": { "critical": 7, "standard": 5, "low": 3 } } }'
   run run_write "$(mk_write_input "$WORK/progress/harness-config.json" "$NEW")"
   [ "$status" -eq 0 ]

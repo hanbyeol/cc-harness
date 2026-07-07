@@ -38,18 +38,18 @@
     {
       "step": "RED: has_awk 부재 시뮬레이션(jq는 포함한 shim) + Write 경로(harness-config.json·feature_list.json) 시나리오 테스트 추가 — 현재 코드로 실행해 실패(fail-open) 확인",
       "verify": "RED 확인",
-      "done": false
+      "done": true
     },
     {
       "step": "has_awk() 함수 추가 + FILE 확정 직후·TOOL 디스패치 직전에 블랭킷 게이트 삽입",
       "verify": "위 RED 테스트 GREEN 전환",
-      "done": false
+      "done": true
     },
     {
       "step": "전체 bats/shellcheck/consistency 회귀 확인 → 독립 evaluator + F37 2차 판정 + security-auditor(critical)",
       "verify": "bats 전체 GREEN, shellcheck 0, evaluator min-of-5≥7·security≥7 (1차+2차 일치)",
-      "done": false
+      "done": true
     }
   ],
-  "agreed": false
+  "agreed": true
 }

@@ -1,36 +1,36 @@
 {
-  "timestamp": "2026-07-07T04:30:00Z",
-  "sprint": 36,
-  "scope": "F50",
+  "timestamp": "2026-07-07T09:45:00Z",
+  "sprint": 37,
+  "scope": "F51",
   "features_implemented": [
-    "F50"
+    "F51"
   ],
   "files_changed": [
-    "hooks/invariant-guard.sh (apply_replace() 폴백 제거, deny()/fail_closed_on_apply_failure() 헬퍼를 스크립트 앞쪽으로 재배치, Edit/MultiEdit 호출부에 실패 감지 적용)",
-    "tests/invariant-guard.bats (F50 신규 4개: _noawk_run 헬퍼, 보호파일 Edit/MultiEdit awk부재→deny, 비보호→통과, awk정상 컨트롤)",
-    "README.md (테스트 수 515→519 정정)"
+    "hooks/invariant-guard.sh (has_awk() 함수 추가, FILE 확정 직후·TOOL 디스패치 직전에 블랭킷 fail-closed 게이트 삽입)",
+    "tests/invariant-guard.bats (_noawk_run 셰임에 ls·sort 추가 — F51-4 검증을 위해 awk만 정확히 격리, F51 신규 4개 테스트: harness-config.json/feature_list.json Write 경로 awk부재→deny, 비보호→통과, awk정상 컨트롤)",
+    "README.md (테스트 수 519→523 정정)"
   ],
   "iteration": 1,
-  "tdd": "4개 신규 테스트를 현재(수정 전) 코드로 실행 → RED 2건(보호 파일 케이스가 awk 부재에도 exit 0으로 통과 — fail-open 버그 재현), GREEN 2건(비보호 파일·awk정상 컨트롤은 이미 통과). apply_replace() 폴백 제거 + fail_closed_on_apply_failure 헬퍼 추가 → 1차 시도에서 'deny: command not found'(exit 127) 발생 — deny()가 스크립트상 Edit/MultiEdit 디스패치보다 뒤(라인 145)에 정의되어 있어 새 호출부(라인 115~126)에서 아직 정의 안 된 함수를 호출한 것이 원인. deny()와 fail_closed_on_apply_failure() 정의를 스크립트 앞쪽(apply_replace 직후, has_jq 블록 이전)으로 재배치해 해결 → 4개 전부 GREEN.",
+  "tdd": "3개 신규 테스트 작성 후 실행 → RED 1건만 확인(harness-config.json 케이스), feature_list.json 케이스는 예상과 다르게 이미 GREEN — 원인 조사 결과 기존 _noawk_run 셰임에 `sort`가 빠져 있어 INV-11의 evaluator-feedback 파일 탐색(`ls | sort -r`) 자체가 실패해 '근거 없음'으로 deny된 것(내가 테스트하려던 awk 비교 버그와 다른 경로로 우연히 deny됨) — 셰임에 ls·sort 추가해 awk만 정확히 격리되도록 수정 후 재실행하니 진짜 RED(2건) 확인. has_awk() + 블랭킷 게이트 추가 → 4개 전부 GREEN.",
   "security_self_check": {
     "checklist_items": 4,
     "checklist_passed": 4,
-    "notes": "(1) has_jq()가 F41에서 확립한 원칙(보호 파일 fail-closed, 비보호 가용성 우선)과 완전 대칭 재확인. (2) 실패 감지 로직만 추가 — 기존 weakening-check(임계값 비교·카운트 비교 등) 자체는 무변경. (3) awk 정상 동작 시(절대다수 케이스) 동작 변화 없음(컨트롤 테스트로 확인). (4) deny()/fail_closed_on_apply_failure() 함수 재배치는 순서 문제 해결일 뿐 로직 변경 아님 — 전체 회귀로 검증."
+    "notes": "(1) has_jq() 블록과 완전 동일한 스타일·판정 기준(보호 파일 fail-closed, 비보호 가용성 우선). (2) TOOL 종류(Write 포함) 무관하게 FILE 하나로 판정 — F50이 남긴 Edit/MultiEdit 전용 갭을 닫음. (3) 기존 weakening-check 로직 자체는 무변경, 게이트 추가만. (4) F50의 fail_closed_on_apply_failure()와 중복 아님 — has_awk()는 완전부재, F50 메커니즘은 존재하되 런타임 실패를 각각 커버, 순서상 has_awk() 게이트가 먼저 걸리므로 실질적으로는 F50 케이스도 이 게이트에서 먼저 잡히지만 결과(exit 2)는 동일해 회귀 없음."
   },
   "error_scenarios_tested": [
-    "awk PATH에서 완전 부재 + 보호 파일 Edit(비어있지 않은 old_string) → deny(exit 2)",
-    "awk 부재 + 보호 파일 MultiEdit → deny(exit 2)",
-    "awk 부재 + 비보호 파일 Edit → exit 0(가용성 유지)",
-    "awk 정상 존재 + 보호 파일 정상 편집(임계값 상향) → 기존과 동일하게 통과(회귀 없음)"
+    "awk 부재 + Write로 harness-config.json pass_threshold 하향 → deny(exit 2, security-auditor C1 재현 고정)",
+    "awk 부재 + Write로 feature_list.json 미달점수(min-of-5=3) feature passes:true 주입 → deny(exit 2, security-auditor D 재현 고정)",
+    "awk 부재 + 비보호 파일 Write → exit 0(가용성 유지)",
+    "awk 정상 + 기존 정상 편집 → 회귀 없음"
   ],
   "evidence": {
-    "tests": "bats tests/*.bats — 519 passed, 0 failed (515 기존 + F50 신규 4)",
+    "tests": "bats tests/*.bats — 523 passed, 0 failed (519 기존 + F51 신규 4)",
     "lint": "shellcheck hooks/invariant-guard.sh — 기존과 동일(SC2012 info 1건, 신규 경고 0)",
     "consistency_probe": "scripts/probes/consistency.sh 실행 → [] (README 테스트 수 드리프트 해소 후)"
   },
   "criteria_backfill": {
-    "reason": "change-request/Plan 단계에서 이미 정확히 설계 완료 — 구현 중 발견한 유일한 갭은 함수 정의 순서 버그였고 즉시 수정, 상위 산출물(acceptance criteria) 변경 불요."
+    "reason": "테스트 셰임의 sort 누락 발견은 criteria 자체의 갭이 아니라 내 테스트 구현의 버그였음 — 즉시 수정, 상위 산출물 변경 불요."
   },
-  "self_notes": "이 수정으로 has_jq()/has_awk 대칭이 완성됨 — 두 개의 단일 실패점(jq, awk) 모두 보호 파일에 한해 fail-closed 원칙이 적용됨. F49(escape-corruption)와 F50(fail-open fallback)이 함께 apply_replace()의 정확성·안전성을 완결.",
+  "self_notes": "이로써 has_jq()/has_awk() 두 블랭킷 게이트가 완전 대칭 — F49(이스케이프 손상)·F50(apply_replace 실패 감지)·F51(전역 awk 부재 게이트)이 함께 invariant-guard.sh의 단일 실패점 방어를 완결. F50의 apply_replace 개별 실패 감지는 has_awk() 게이트 뒤에서 'awk는 있으나 특정 호출만 런타임 실패'하는 잔여 경우를 계속 커버(중복 아닌 계층화).",
   "ready_for": "evaluation"
 }
