@@ -1,69 +1,73 @@
 {
-  "timestamp": "2026-07-07T14:30:00+09:00",
-  "feature": "F50",
-  "commit": "8e3f63ce2347857c995c20ea050fd721acfffbd0",
+  "timestamp": "2026-07-08T00:00:00+09:00",
+  "feature": "F51",
+  "commit": "ea525ea14f3efc77b7e318e50cd67d3c9d78facb",
   "security_tier": "critical",
-  "scope": "Independent security audit of F50 apply_replace() fail-closed-on-awk-failure fix (diff-only: hooks/invariant-guard.sh 8e3f63c^..8e3f63c). Evaluator 1st/2nd pass (min-of-5 8/8, security 9/9) NOT trusted as substitute — all pass/fail judgments grounded in commands executed this session.",
+  "scope": "Independent security audit of F51 has_awk() global fail-closed gate (diff-only: hooks/invariant-guard.sh ea525ea^..ea525ea, +15 lines; tests +4 @test). Evaluator 1st/2nd pass (min-of-5 8/8, security 9/9) NOT trusted as substitute — all pass/fail judgments grounded in commands executed this session. F51 is the follow-up to the medium finding this auditor raised in the F50 audit (Write-path awk-absent fail-open on INV-3/INV-11); this run re-verifies that finding is closed.",
   "scan_tools": [
-    "git-diff-review (8e3f63c^..8e3f63c)",
-    "empirical-repro: awk-excluded PATH shim, pre-fix vs post-fix (Edit/MultiEdit)",
-    "empirical-repro: stateful awk shim (MultiEdit partial-failure fail-fast)",
-    "empirical-repro: Write-path awk-absent (residual fail-open on INV-3/INV-11)",
-    "self-protection metric diff (deny/exit2/deny_has_exit/line-count)",
-    "shellcheck + bats regression",
-    "secret/injection grep scan of diff"
+    "git-diff-review (ea525ea^..ea525ea)",
+    "empirical-repro: awk-excluded PATH shim (jq/ls/sort present), pre-fix vs post-fix, Write+Edit",
+    "empirical-repro: C1 (harness-config Write threshold downgrade) + D (feature_list Write unearned passes)",
+    "empirical-repro: D-nosort control (proves sort must be in shim or D denies for the wrong reason)",
+    "empirical-repro: layering boundary — awk present-but-fails-at-runtime (Edit=F50 handler vs Write=residual)",
+    "edge cases: MultiEdit empty edits[], Write no-content, unknown tool, feature_list delete-then-recreate, unprotected file",
+    "shellcheck + full bats suite (tests/invariant-guard.bats 97/97)",
+    "secret/injection grep scan of diff additions"
   ],
   "supply_chain": {
     "vulnerable_deps": 0,
     "outdated_critical": 0,
     "details": [
-      "Diff introduces no new dependencies, no network calls, no new external binaries. package.json/plugin.json/marketplace.json changes are version-field bumps (1.28.0->1.29.0) only; README is a test-count doc update. No go.mod/npm lockfile changes."
+      "Diff introduces no new dependencies, no network calls, no new external binaries. package.json/plugin.json/marketplace.json are version bumps (1.29.0->1.30.0); README is a test-count doc update. No go.mod/npm lockfile changes; govulncheck/npm audit not applicable to this bash-hook diff. progress/*.json + contracts/sprint-37.json are harness bookkeeping."
     ]
   },
   "checklist_compliance": {
-    "total_items": 7,
-    "passed": 7,
+    "total_items": 8,
+    "passed": 8,
     "failed": 0,
     "failed_items": [],
-    "notes": "Checklist derived from F50's own security intent (has_jq fail-closed symmetry for awk). (1) fallback removal -> awk exit propagates: VERIFIED. (2) Edit call-site fail-closed: VERIFIED (pre exit0 -> post exit2). (3) MultiEdit fail-fast, partial results not adopted: VERIFIED (stateful shim, awk_calls=2). (4) set -e no early-abort: VERIFIED (unprotected+awk-absent lands exit0). (5) self-protection metrics invariant after deny() relocation: VERIFIED. (6) no new secret/injection surface: VERIFIED. (7) awk-present control unchanged: VERIFIED (raise=0, lower=2, no-op=0, bats 93/93 in suite)."
+    "notes": "Checklist derived from F51's stated scope (close the awk-ABSENT Write fail-open = auditor's F50 medium finding). (1) has_awk() added, mirrors has_jq(): VERIFIED. (2) C1 Write harness-config 7->4 closed: pre-fix exit0 -> post-fix exit2. (3) D Write feature_list passes:true min-of-5=3 closed: pre-fix exit0 -> post-fix exit2. (4) gate placed after FILE-resolution & non-existent-file branch, BEFORE TOOL dispatch — applies to Write/Edit/MultiEdit uniformly: VERIFIED (edge cases all exit2). (5) availability-first for unprotected files with awk absent: VERIFIED (exit0). (6) awk-present control path unchanged: raise 7->9 exit0, lower 7->3 exit2. (7) INV-6 add-only: @test 93->97, no test removed (only _noawk_run shim tool-list modified to add ls/sort). (8) no new secret/injection/supply-chain surface: VERIFIED."
   },
   "threat_model_coverage": {
-    "threats_identified": 4,
-    "mitigations_verified": 3,
+    "threats_identified": 5,
+    "mitigations_verified": 4,
     "gaps": [
-      "T4 (partial): awk single-point-of-failure fail-closed is applied ONLY at the apply_replace (Edit/MultiEdit) call sites. The Write path (which never calls apply_replace) and the downstream numeric-comparison / self-protection awk calls (lines 172, 240, 257, 333, 344) remain fail-OPEN when awk is absent/failing while jq is present. F50's 'has_jq/has_awk symmetry complete' narrative is therefore overstated. Same class previously recorded as F49-audit low finding #2 (has_awk gate); F50 closed finding #1 (apply_replace fallback) but not #2. Recommend a has_awk() top-level fail-closed gate mirroring has_jq (line 84)."
+      "T5 (narrow residual, NOT in F51 scope): the Write path's direct numeric awk comparisons (INV-3 harness-config line 187; INV-11 feature_list lines 348 & 359) run as `if awk ...; then deny` with NO runtime-failure detection. F50's fail_closed_on_apply_failure only wraps apply_replace (Edit/MultiEdit). has_awk() closes 'awk entirely absent'. What remains open: 'awk present at command -v but that specific numeric invocation fails at runtime' + tool=Write -> the if reads false -> deny never fires -> fail-OPEN on the two most important invariants. Empirically reproduced (C1'/D' exit0). Precondition is contrived (corrupt/non-zero-exit awk that command -v still finds, or fork/OOM/ulimit hitting exactly that awk call) -> LOW severity. The commit narrative's claim that \"F50's mechanism still covers awk present but a specific invocation fails at runtime\" is INACCURATE for the Write path (F50 covers only apply_replace)."
     ],
     "detail": [
-      "T1 fail-open on awk failure in apply_replace (Edit/MultiEdit) masking guard weakening as 'no change' — MITIGATED by F50 (mutation-proven: pre-fix protected Edit/MultiEdit exit0 -> post-fix exit2).",
-      "T2 awk-program code injection via old_string/new_string — NOT PRESENT (F49 ENVIRON[] mechanism unchanged by F50; values read as data, never interpolated into program text).",
-      "T3 deny()/fail_closed_on_apply_failure() relocation weakening self-protection metrics — NOT PRESENT (line-count 357->369 increase; deny=18=18; bare 'exit 2'=2=2; deny_has_exit=YES; gutting still actively denied via grep count_tok backstop).",
-      "T4 awk single-point-of-failure fully fail-closed for protected files — PARTIALLY mitigated (Edit/MultiEdit only; Write path + numeric awk comparisons still fail-open — see gaps)."
+      "T1 auditor's F50 medium (Write+awk-ABSENT fail-open on INV-3/INV-11) — MITIGATED by F51 (mutation-proven: C1 pre exit0->post exit2; D pre exit0->post exit2).",
+      "T2 gate-placement bypass (a TOOL path reaching an awk-dependent check without passing the gate) — NOT PRESENT for existing files: gate sits after FILE resolution and before TOOL dispatch, so Write/Edit/MultiEdit/unknown-tool all hit it (edge cases exit2). Only non-existent NON-feature_list protected files skip it via the [[ ! -e FILE ]] new-file exemption — but that path has no OLD value to downgrade and behaves identically with awk present (pre-existing new-file design, orthogonal to awk).",
+      "T3 F50/F51 double-handling or conflict — NOT PRESENT: layering is clean and non-overlapping. awk absent -> has_awk gate (exit2 before any awk call). awk present-but-fails at apply_replace -> F50 handler (Edit/MultiEdit exit2, proven). The two mechanisms partition the failure space; no path triggers both incorrectly.",
+      "T4 awk-program code injection via file/old/new content — NOT PRESENT (F49 ENVIRON[] mechanism unchanged; new code has no input interpolation — only command -v awk and echo-to-stderr of $FILE).",
+      "T5 Write-path numeric-compare runtime-failure fail-open — PARTIALLY open (see gaps): narrow residual, LOW."
     ]
   },
   "findings": [
     {
-      "severity": "medium",
+      "severity": "low",
       "confidence": "high",
       "file": "hooks/invariant-guard.sh",
-      "line": 172,
-      "issue": "Residual systemic fail-OPEN: when jq is present but awk is absent/failing, the Write tool path (never calls apply_replace, so F50's fail-closed wrapper does not apply) reaches the branch numeric-comparison awk calls, each used as `if awk ...; then deny` or `&& awk`. A non-zero awk exit is read as 'no violation', so the deny never fires. Mutation-proven: (C1) Write harness-config.json lowering pass_threshold 7->4 with awk absent -> exit 0 (INV-3 threshold-downgrade guard bypassed); (D) Write feature_list.json flipping passes:true for a feature whose evaluator min-of-5=3 (< 7) with awk absent -> exit 0 (INV-11 unearned-pass guard bypassed). Same construct at lines 240 (INV-7 30% shrink), 257 (INV-7 deny_has_exit), 333 & 344 (INV-11 min-of-5 / critical-security). Impact is HIGH-if-triggered (defeats the two most important invariants) but precondition (awk absent/failing while jq present) is unusual, so severity=medium. NOTE: previously recorded analytically as F49-audit low finding #2; F50 did not close it and its commit narrative ('has_jq/has_awk symmetry complete') contradicts it. PRE-EXISTING — not introduced or regressed by F50 (pre-fix Write path behaves identically; C1 PRE awk-absent also exit 0). Recommend backlog: has_awk() top-level fail-closed gate mirroring has_jq (line 84) that denies protected-file edits — including Write — on awk absence.",
-      "introduced_by_f50": false,
-      "in_f50_scope": false,
-      "reachable": "Write tool to a protected file while awk is absent or fails at runtime (jq present). Edit/MultiEdit paths are now covered by F50 and are NOT affected.",
+      "line": 187,
+      "issue": "Write-path INV-3/INV-11 numeric awk comparisons fail-OPEN when awk is present at `command -v` but the specific `if awk ...; then deny` invocation fails at runtime. has_awk() (F51) closes the dominant 'awk entirely absent' case; F50's fail_closed_on_apply_failure closes runtime awk failures ONLY on the Edit/MultiEdit apply_replace path. The Write path never calls apply_replace, and its direct numeric compares (line 187 harness-config threshold-downgrade INV-3; lines 348 & 359 feature_list min-of-5 / critical-security INV-11) have no runtime-failure guard: a non-zero awk exit is read as 'no violation' so deny never fires. Empirically reproduced with a present-but-exit1 awk shim: C1' Write harness-config pass_threshold 7->4 -> exit 0 (INV-3 bypass); D' Write feature_list passes:true with evaluator min-of-5=3 -> exit 0 (INV-11 bypass). The identical broken awk on an Edit path is correctly denied (exit 2) by F50, confirming the hole is Write-path-specific. Precondition (awk found by command -v yet failing on a trivial BEGIN comparison — corrupt binary, PATH-poisoned non-zero-exit shim, or fork/OOM/ulimit exhaustion at that call) is contrived, hence LOW; impact-if-triggered is HIGH (defeats the two most important invariants). This is a strict-subset residual of the auditor's F50 medium: F51 narrowed it from 'awk absent OR failing' to 'awk present but that invocation fails'. NOT introduced or regressed by F51 (strict improvement) and OUT OF F51's stated scope, but the commit message's 'F50's mechanism still covers awk present but a specific invocation fails at runtime' overstates coverage for the Write path. Recommended fix (backlog): make the Write-path numeric compares distinguish 'awk ran, result=false' from 'awk failed to run' — e.g., awk prints an explicit LT/GE sentinel to stdout and the shell treats empty/unexpected output as failure -> deny for protected files (symmetric to F50).",
+      "introduced_by_f51": false,
+      "in_f51_scope": false,
+      "reachable": "Write tool to harness-config.json or feature_list.json while awk is present (command -v awk succeeds) but the numeric BEGIN-comparison invocation fails at runtime. Edit/MultiEdit paths are covered by F50; awk-entirely-absent is covered by F51.",
       "backlog": true
     }
   ],
   "fix_verification": {
-    "fail_open_to_closed": true,
+    "auditor_f50_finding_closed": true,
     "evidence": {
-      "transition_matrix_awk_absent": "PRE protected Edit=0 / POST=2; PRE protected MultiEdit=0 / POST=2; PRE/POST unprotected Edit=0/0 (availability preserved). Extracted pre-fix via `git show 8e3f63c^:hooks/invariant-guard.sh`; PATH shim excludes only awk (jq present).",
-      "awk_present_control": "POST raise 7->9 exit0; POST lower 7->4 exit2; POST no-op (old_string absent) exit0.",
-      "multiedit_partial_failure": "Stateful awk shim (call1 delegates to real awk = success, call2 exit1). Protected MultiEdit -> exit2, awk_calls=2 (loop halts at failing call, partial NEW_CONTENT never consumed because fail_closed_on_apply_failure exits the script). Unprotected -> exit0, awk_calls=2. Both-succeed control -> exit0. First-call failure on protected -> exit2.",
-      "set_e_safety": "Unprotected + awk-absent lands exactly exit0 (no 127/errexit-abort, no infinite loop, no zombie). `if ! VAR=$(cmd)` is errexit-exempt as an if-condition; MultiEdit for-loop is bounded by EDIT_COUNT; awk runs synchronously inside command substitution.",
-      "self_protection_integrity": "deny()/fail_closed_on_apply_failure() relocation is metric-neutral: line-count 357->369 (increase, 30%-shrink guard unaffected), grep-anchored 'deny ' 18=18, bare 'exit 2' 2=2, deny_has_exit YES=YES (deny() body still bounded correctly; the new second function does not perturb the scanner). Gutting invariant-guard.sh to a 3-line stub with awk absent still DENIED (exit2) via the grep-based count_tok backstop, even though the awk 30%-shrink check itself fail-opens.",
-      "no_new_injection_or_secret": "apply_replace awk program text unchanged (only the `|| printf` fallback removed); old/new still passed via ENVIRON[] (data, not code). Secret grep of diff additions: none.",
-      "regression": "shellcheck hooks/invariant-guard.sh -> only pre-existing SC2012 info at line 322 (feature_list branch, unrelated to F50, present in pre-fix). bats tests/invariant-guard.bats -> all pass incl. F50 ok 90-93 and F45/F46/F48/F49 self-protection tests."
+      "C1_write_harness_config": "awk-excluded PATH shim (jq/ls/sort present): pre-fix (ea525ea^) Write pass_threshold 7->4 -> exit 0 (fail-open confirmed); post-fix -> exit 2 (has_awk gate). CLOSED.",
+      "D_write_feature_list": "same shim: pre-fix Write passes:true with evaluator feedback min-of-5=3 -> exit 0 (fail-open confirmed); post-fix -> exit 2. CLOSED.",
+      "D_nosort_control": "dropping sort from the shim makes pre-fix deny for the WRONG reason (feedback-file glob/sort breaks -> 'no evidence' deny, exit 2) instead of via the awk compare — confirms sort must be present for a valid D repro; the F51 commit correctly fixed the same ls/sort gap in the bats _noawk_run shim.",
+      "gate_placement": "gate is after FILE resolution and the [[ ! -e FILE ]] new-file branch, before TOOL dispatch. Edge cases (awk absent, protected): MultiEdit empty edits[] -> 2; Write no-content -> 2; unknown tool NotebookEdit -> 2; feature_list delete-then-recreate (file absent) min-of-5=3 -> 2. Unprotected Write -> 0. No TOOL path reaches an awk check without passing the gate for existing files.",
+      "layering_f50_vs_f51": "awk present-but-exit1 shim: Edit harness-config 7->4 -> exit 2 via F50 fail_closed_on_apply_failure ('apply_replace 실패' message); awk-absent -> exit 2 via F51 gate ('awk 부재' message). Non-overlapping partition confirmed. Residual (Write path + present-but-failing) is neither, see finding.",
+      "availability": "awk absent + unprotected file -> exit 0 (pre and post). Availability preserved; guard confined to validation files.",
+      "awk_present_control": "post-fix, awk present: Write raise 7->9 exit 0; Write lower 7->3 exit 2; normal path unchanged.",
+      "regression": "shellcheck hooks/invariant-guard.sh -> only pre-existing SC2012 info at line 337 (feature_list ls|sort, unrelated to F51, present since before F50). bats tests/invariant-guard.bats -> 97/97 pass incl. new F51 ok 94-97 and F50 ok 90-93. @test count 93->97 (add-only, INV-6 satisfied).",
+      "no_new_injection_or_secret": "added code (has_awk + gate) has no untrusted-input interpolation (command -v awk; echo $FILE to stderr; is_protected basename/case). Secret grep of diff additions: none."
     }
   },
-  "summary": "0 high, 1 medium, 0 low. F50's actual scoped fix is CORRECT and mutation-proven: the fail-open->fail-closed transition for apply_replace (Edit/MultiEdit) is verified (pre exit0 -> post exit2 on protected files), MultiEdit fail-fast does not adopt partial results, set -e is safe, the deny() relocation leaves all self-protection metrics invariant, and there is no new injection/secret/supply-chain surface. The single medium finding is a PRE-EXISTING systemic residual (F49-audit low #2, still open): the has_awk fail-closed symmetry is incomplete — the Write path and downstream numeric/self-protection awk comparisons (lines 172/240/257/333/344) still fail-open when awk is absent, empirically bypassing INV-3 (threshold downgrade) and INV-11 (unearned passes:true). It is out of F50's literal scope and not a regression, but it contradicts F50's 'symmetry complete' narrative; recommended for backlog (has_awk() top-level gate). F50 itself is APPROVED from a security standpoint; verification gate PASS for F50 (checklist_compliance.failed == 0). The residual is flagged for a follow-up ticket, not a block on F50."
+  "summary": "0 high, 0 medium, 1 low. F51's scoped fix is CORRECT and mutation-proven: the auditor's own F50 medium finding (Write-path awk-ABSENT fail-open on INV-3 threshold-downgrade and INV-11 unearned passes:true) is CLOSED — C1 and D both flip pre-fix exit0 -> post-fix exit2 under an awk-excluded PATH shim. The has_awk() gate mirrors has_jq(), is placed correctly (after FILE resolution, before TOOL dispatch, so Write/Edit/MultiEdit/unknown-tool and feature_list delete-then-recreate all hit it), preserves availability for unprotected files, and layers cleanly with F50 (awk absent -> F51 gate; awk present-but-fails at apply_replace -> F50 handler; verified non-overlapping). Tests are add-only (93->97), all green; no new injection/secret/supply-chain surface. The single LOW finding is a strict-subset residual F51 does not claim to fix: the Write path's DIRECT numeric awk compares (INV-3 line 187, INV-11 lines 348/359) still fail-open in the contrived case where awk is present at command -v but that specific invocation fails at runtime (F50's runtime-failure guard covers only apply_replace/Edit/MultiEdit). Empirically reproduced (C1'/D' exit0), impact-if-triggered HIGH but precondition unusual -> LOW; out of F51 scope, not a regression (strict improvement), flagged for backlog. F51 verification gate: PASS (checklist_compliance.failed == 0). Approved from a security standpoint; the LOW residual is a follow-up ticket, not a block."
 }

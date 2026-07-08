@@ -1,0 +1,78 @@
+{
+  "timestamp": "2026-07-08T02:00:00Z",
+  "sprint": 37,
+  "iteration": 1,
+  "features_evaluated": [
+    "F51"
+  ],
+  "security_tier": "critical",
+  "judge_role": "first_independent_judge (F37 1차)",
+  "independence_note": "implementer-output.json의 self-check(checklist_passed:4/4 등)를 근거가 아닌 검증 대상으로 취급. 판정은 이 세션에서 직접 실행한 git diff(ea525ea)·awk-제외 PATH shim 재현(pre-fix vs post-fix 라이브 훅 구동)·전체 bats·shellcheck·consistency probe 결과에만 근거함(grounded). F49 lessons.md의 판정 습관(근본원인 주장을 pre/post 코드 양쪽 직접 실행으로 mutation-proven RED→GREEN 재확인)을 그대로 적용.",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 9,
+    "security": 9,
+    "error_handling": 9,
+    "test_coverage": 8
+  },
+  "score": 8,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "pass",
+  "critical_security_gate": "scores.security=9 >= security_thresholds.critical=7 — 통과 (자동 fail 조건 미해당)",
+  "f37_second_judge_required": "critical 티어이므로 F37 교차검증 필요 — 본 판정은 1차(독립). 메인 루프는 독립 컨텍스트의 2차 judge를 샘플링해 verdict 일치를 확인해야 함(불일치 시 사람 에스컬레이션, 자동 pass 금지). 본 판정의 산술: verdict pass, min-of-5=8, critical security=9.",
+  "passed_criteria": {
+    "acceptance": [
+      "F51-1: has_awk() 함수 신설 — L20 `has_awk() { command -v awk &>/dev/null; }`, has_jq()(L19)와 동일 스타일 (diff 확인)",
+      "F51-2: FILE 확정(L105)·파일부재 브랜치(L110-115) 직후·TOOL 디스패치(L131) 직전에 블랭킷 게이트(L117-129) 삽입 — awk 부재+is_protected→exit2, awk 부재+비보호→exit0. has_jq 블록과 원칙·메시지 스타일 대칭 (diff + 나란히 비교 확인)",
+      "F51-3: TOOL 무관 적용 — 라이브 재현: awk 부재 Write로 harness-config pass_threshold 7→4 (post-fix exit2), Write로 feature_list 미달점수 passes:true (post-fix exit2)",
+      "F51-4: F50의 fail_closed_on_apply_failure()(L80-83) 무변경 유지 — F50 bats 143~146 전부 통과, awk 존재 시 has_awk() 게이트 통과 후 F50 메커니즘 잔여 커버 (코드+테스트 확인)",
+      "F51-5: awk 정상 시 동작 불변 — 재현 매트릭스에서 pre-fix와 post-fix가 모든 케이스(harness 7→4 deny, feature passes deny, 비보호 pass)에서 동일 exit code (라이브 실행 확인)",
+      "F51-6: security-auditor C1(harness-config Write 임계값 하향)·D(feature_list Write 미달 passes:true) 시나리오가 bats 147·148로 고정, 통과",
+      "전역: bats 523/523(0 fail), shellcheck 신규 findings 0, consistency probe []"
+    ],
+    "security": [
+      "SC1: has_jq()/has_awk() 완전 대칭 — 둘 다 is_protected() 단일 판정, 동일 메시지 골격('INVARIANT 위반: X 부재 상태에서 보호 파일 편집을 차단합니다 (fail-closed)'+파일+원리설명+조치안내), 보호→exit2/비보호→exit0. 새 원칙 도입 없음 (나란히 비교 확인)",
+      "SC2: Write/Edit/MultiEdit 전 경로 균일 — Write(A/B) 및 Edit/MultiEdit 상호작용 재현으로 확인. F50이 남긴 'Edit/MultiEdit 전용' 갭을 Write 경로까지 닫음",
+      "SC3: 기존 weakening-check 로직 무변경 — diff는 함수 정의 1줄 + 게이트 15줄의 add-only. awk 존재 시 pre==post 동일 동작으로 실증",
+      "SC4: F50과 상호 보완(중복 아님) — has_awk()는 완전 부재, F50 fail_closed_on_apply_failure는 존재하되 런타임 실패. awk 존재 시 has_awk() 통과로 F50 경로 잔여 도달 가능"
+    ],
+    "error_scenarios": [
+      "awk 부재 + Write harness-config pass_threshold 하향 → exit2 (재현: pre-fix exit0 fail-open → post-fix exit2)",
+      "awk 부재 + Write feature_list 미달점수(min-of-5=3) passes:true 주입 → exit2 (재현: pre-fix exit0 → post-fix exit2)",
+      "awk 부재 + 비보호 파일 Write/Edit → exit0 가용성 유지 (재현: pre/post 모두 exit0)",
+      "awk 존재하나 apply_replace 런타임 실패(F50 케이스) → has_awk() 통과, F50이 처리 (F50 bats 143~146 무회귀)",
+      "[criteria 밖 추가검증] awk 부재 + delete-then-recreate(비존재) feature_list.json Write passes:true → post-fix exit2 (F-2×F51 교집합도 fail-open(pre exit0)→fail-closed(post exit2)로 닫힘)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "issues": [
+    "[test] delete-then-recreate feature_list.json(비존재) awk 부재 경로와, Edit/MultiEdit 보호 파일이 F51 블랭킷 게이트에서 먼저 잡히는(vs F50) 경로가 전용 bats로 고정되지 않음 — 본 판정에서 라이브 훅으로 직접 재현·확인했으나 회귀 고정을 위해 향후 전용 케이스 추가 권장(판정에 영향 없는 개선 여지).",
+    "[design/minor] awk 게이트가 파일부재 브랜치(L110-115) 이후에 위치 — has_jq 게이트(FILE 확정 전)와 위치가 다름. 비존재 비보호/일반 신규 파일은 게이트 전에 exit0되나, awk 의존 약화 벡터가 있는 비존재 파일은 feature_list.json뿐이고 그것은 예외로 fall-through해 게이트에 도달함(재현으로 확인) — 실질 갭 없음. 코멘트로 남길 가치는 있음."
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "action_required": "없음 — Sprint Contract가 acceptance/security/error 3범주를 명확·완결하게 정의. criteria_backfill 0건(implementer의 shim sort 누락 발견은 criteria 갭이 아닌 테스트 구현 버그로 정당히 처리)."
+  },
+  "evidence": {
+    "diff": "git show ea525ea — hooks/invariant-guard.sh: +has_awk()(L20), +블랭킷 게이트(L117-129, FILE확정·파일부재브랜치 직후·TOOL 디스패치 직전). tests/invariant-guard.bats: _noawk_run 셰임에 ls·sort 추가(L818) + F51 신규 4테스트. weakening-check 로직 무변경 확인.",
+    "fail_open_to_closed_repro": "독립 awk-제외 PATH shim(jq/ls/sort 포함, awk만 제외; scratchpad/repro/shim). 매트릭스 — A(Write harness pass_threshold 7→4): PRE=0(fail-open, awk not found @L172) POST=2(blanket gate); B(Write feature_list min5=3 passes:true): PRE=0(fail-open, awk not found @L333) POST=2; 비보호 Write/Edit: PRE=0 POST=0(가용성 유지).",
+    "shim_masking_independently_reproduced": "초기 셰임에서 ls를 alias('ls -G')로 잘못 심볼릭해 AUTH 조회(ls|sort)가 깨지자 시나리오 B가 '근거 없음'(feedback record absent)이라는 엉뚱한 이유로 exit2 — implementer가 서술한 shim sort/ls 누락 마스킹 현상을 독립 재현. ls/sort를 실경로로 고친 뒤에야 진짜 awk-비교 fail-open(pre exit0)이 격리됨 — implementer의 셰임 수정 진단이 정확함을 실증.",
+    "f50_interaction": "awk 부재 + Edit/MultiEdit 보호 harness-config → PRE=2(F50 fail_closed_on_apply_failure)·POST=2(F51 블랭킷 게이트가 먼저)로 결과 동일. F51의 신규 커버리지는 Write 경로(A/B)이며 F50은 이를 미커버. awk 존재 시 has_awk() true→게이트 skip→F50 메커니즘 잔여 도달.",
+    "delete_then_recreate": "비존재 feature_list.json(work2, harness-config+feedback만 존재) Write passes:true(min5=3) → PRE=0(fail-open) POST=2(awk 블랭킷 게이트). F-2×F51 교집합도 닫힘.",
+    "awk_present_unchanged": "full PATH(awk 존재)에서 pre-fix와 post-fix가 A(2/2)·B(2/2)·비보호 Write(0/0)·비보호 Edit(0/0) 전부 동일 — post-fix 도입에 의한 정상경로 행동 변화 0.",
+    "tests": "bats tests/*.bats — 1..523, ok=523, not ok=0 (exit 0). F51 신규 147~150 pass, F50 143~146 pass(셰임 ls·sort 추가에 의한 회귀 없음), 자기보호 회귀군 정상.",
+    "lint": "shellcheck hooks/invariant-guard.sh — SC2012(info) 1건(L337 feature_list 브랜치 `ls|sort`, F51 무관)만; pre-fix에도 동일 존재 → 신규 findings 0.",
+    "consistency_probe": "bash scripts/probes/consistency.sh → [] (exit 0)",
+    "symmetry": "has_jq 블록(L85-103) vs has_awk 블록(L117-129) 나란히 비교 — is_protected() 단일 판정·동일 메시지 골격·보호exit2/비보호exit0 대칭. 정당한 차이 1: has_jq는 FILE의 jq 해석 전이라 grep/sed로 NOJQ_FILE 추출, has_awk는 jq 해석 후라 $FILE 재사용.",
+    "_note": "모든 pass 판정은 본 세션에서 직접 실행한 명령·출력을 근거로 함(grounded). implementer self-check는 독립 재확인 대상으로 취급, 라이브 훅 pre/post 재현으로 교차검증함."
+  },
+  "escaped_defects": [],
+  "calibration_note": "통과 후 결함 없음 — false-positives.json entries append 불요. lessons.md 추가 불요(재발형 실수 없음; F49의 '근본원인 pre/post 라이브 재현' 판정 습관을 그대로 적용해 성공)."
+}
