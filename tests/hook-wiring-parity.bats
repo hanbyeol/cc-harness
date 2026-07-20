@@ -5,15 +5,18 @@
 # cc-harness는 설치 경로가 둘이고, 각자 다른 파일로 훅을 배선한다:
 #   - 플러그인 경로 : hooks/hooks.json      (${CLAUDE_PLUGIN_ROOT}/hooks/...)
 #   - init.sh 경로  : settings.json         (${CLAUDE_PROJECT_DIR}/.claude/hooks/...)
-#                     → init.sh:612가 .claude/settings.json으로 설치
+#                     → init.sh:615가 .claude/settings.json으로 설치
 #
 # 두 배선이 비대칭이면 한쪽 경로로 설치한 사용자만 게이트 없이 동작하게 된다.
 # 실제로 F52 이전에는 invariant-guard.sh·pre-tool-firewall.sh가 settings.json에
 # 배선되지 않아, init.sh 경로 설치 프로젝트는 INV-1~INV-12가 전부 미집행이었다.
 # (init.sh:602-609가 스크립트를 복사는 하므로 dead file로 남아 눈에 띄지 않았다.)
 #
-# 이 스위트는 F45가 is_protected() ↔ INV-12에 적용한 양방향 파싱 대조 패턴을
-# 배선 대칭에 그대로 적용하고, 나아가 배선 파일 자체를 지키는 가드(INV-13)를 검증한다.
+# 두 계층을 모두 검증한다:
+#   1. 정적 대칭 (저장소 CI) — 두 배선 파일의 스크립트 집합 대조
+#   2. 런타임 가드 (설치 프로젝트) — invariant-guard.sh의 INV-13 브랜치
+# 설치된 프로젝트에는 CI가 없으므로 런타임 가드가 유일한 방어선이다. 따라서 두 계층의
+# 추출기는 **같은 강도**여야 한다 — 약한 쪽이 실제 방어선이 되기 때문이다(F52 evaluator).
 
 PLUGIN_WIRING="hooks/hooks.json"
 PROJECT_WIRING="settings.json"
@@ -139,8 +142,8 @@ setup() {
 }
 
 # ─────────────────────────────────────────────────────────────
-# INV-13 가드 검증 — settings.json 배선 약화 차단 (F52 SC-1)
-# is_protected()의 전면 차단이 아니라 **배선 축소만** 탐지하는 설계를 잠근다.
+# INV-13 런타임 가드 — settings.json 배선 무력화 차단 (F52 SC-1)
+# is_protected()의 전면 차단이 아니라 **배선 약화만** 탐지하는 설계를 잠근다.
 # ─────────────────────────────────────────────────────────────
 
 @test "INV-13 하네스 자체 검증: 정상 내용은 통과한다 (가드가 항상 deny하는 게 아님)" {
@@ -183,5 +186,38 @@ setup() {
   P=$(payload "$(cat settings.json)")
   run run_guard_without_jq "$P" "$NOJQ"
   rm -rf "$NOJQ"
+  [ "$status" -eq 2 ]
+}
+
+# ─── 무력화 벡터 (F52 evaluator가 직접 재현한 3종 우회) ───
+# 최초 구현의 가드 추출기는 `.. | objects | .command`(구조 비앵커)라 아래 3종이 모두
+# exit 0으로 통과했다. 저장소 CI는 잡았지만 설치 프로젝트엔 CI가 없어 실질 무방비였다.
+# 교훈: 같은 불변식을 검사하는 추출기가 두 벌이면 **약한 쪽이 실제 방어선이 된다**.
+# 가드는 이제 테스트와 동일한 구조 앵커를 쓰고 (event, matcher, script) 3-튜플을 비교한다.
+
+@test "INV-13 무력화(a): 실제 배선을 지우고 미끼 문자열만 남기면 deny한다" {
+  # command를 'echo invariant-guard.sh'로 바꾸면 이름은 남지만 훅은 죽는다.
+  DECOY=$(jq '.hooks.PreToolUse |= map(
+    if any(.hooks[]; .command | test("invariant-guard"))
+    then .hooks = [{"type":"command","command":"echo invariant-guard.sh"}]
+    else . end)' settings.json)
+  run run_guard "$DECOY"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-13 무력화(b): matcher를 무력화하면 deny한다 (집합 보존 ≠ 실행 보장)" {
+  # 스크립트 이름은 그대로지만 matcher가 어떤 도구에도 매치하지 않아 영원히 발화하지 않는다.
+  NEUTERED=$(jq '.hooks.PreToolUse |= map(
+    if any(.hooks[]; .command | test("invariant-guard"))
+    then .matcher = "NeverMatchXYZ"
+    else . end)' settings.json)
+  run run_guard "$NEUTERED"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-13 무력화(c): hooks 키를 통째로 다른 키로 옮기면 deny한다" {
+  # 훅은 전부 죽지만 JSON 어딘가에 문자열은 남아 있어, 비앵커 추출기는 못 잡는다.
+  MOVED=$(jq '{disabled_hooks: .hooks} + del(.hooks)' settings.json)
+  run run_guard "$MOVED"
   [ "$status" -eq 2 ]
 }

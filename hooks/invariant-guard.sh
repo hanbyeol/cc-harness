@@ -56,7 +56,7 @@ is_protected() {
 # settings.json을 is_protected()에 넣지 않는 이유: 이 파일은 훅 배선 외에 env·permissions·
 # enabledPlugins 등 사용자의 정당한 설정도 담는다. 전면 차단하면 설치된 프로젝트에서 무관한
 # 설정을 고칠 때마다 게이트가 걸려 마찰이 과도하다. 대신 아래 settings.json 브랜치가
-# **배선 축소만** 탐지한다(내용 기반). 다만 그 내용 검사는 jq/awk에 의존하므로, 도구가 없으면
+# **배선 약화만** 탐지한다(내용 기반). 다만 그 내용 검사는 jq/awk에 의존하므로, 도구가 없으면
 # 검사 자체가 무력화된다 — 그 경우까지 통과시키면 F41이 닫은 fail-open이 되살아난다.
 # 따라서 아래 fail-closed 게이트(has_jq/has_awk)에는 포함시킨다.
 is_wiring_file() {
@@ -184,31 +184,58 @@ esac
 
 BASENAME=$(basename "$FILE")
 
-# === settings.json: 훅 배선 제거 차단 (INV-13) ===
+# === settings.json: 훅 배선 무력화 차단 (INV-13) ===
 # cc-harness는 설치 경로가 둘이고 각자 다른 파일로 훅을 배선한다 — 플러그인은 hooks/hooks.json,
 # init.sh는 settings.json(→ .claude/settings.json). 한쪽에서 게이트가 빠지면 그 경로로 설치한
 # 프로젝트만 무방비가 된다(F52가 실제로 그 상태를 발견: invariant-guard·pre-tool-firewall 미배선).
-# is_protected()의 전면 차단이 아니라 **배선 축소만** 탐지한다 — 이 파일은 env·permissions·
+# is_protected()의 전면 차단이 아니라 **배선 약화만** 탐지한다 — 이 파일은 env·permissions·
 # enabledPlugins 등 사용자의 정당한 설정도 담으므로 전면 차단은 마찰이 과도하다.
-# hooks 키가 없는 settings.json(예: .claude/settings.json)은 OLD 집합이 공집합이라 항상 통과한다.
+# 주의: init.sh가 배선된 settings.json을 그대로 .claude/settings.json으로 복사하므로 설치본도
+# hooks 키를 갖는다 — 설치본은 면제 대상이 **아니다**. 면제되는 것은 애초에 훅을 배선하지 않는
+# settings 파일(예: enabledPlugins만 담은 것)뿐이며, 그 경우 OLD 집합이 공집합이라 통과한다.
 if [[ "$BASENAME" == "settings.json" ]]; then
   if ! echo "$NEW_CONTENT" | jq -e '.' &>/dev/null; then
     deny "settings.json이 유효한 JSON이 아닙니다 (INV-13)"
   fi
-  # 배선된 훅 스크립트 basename 집합 — hooks.json 검사(INV-7)와 동일한 jq 추출 방식.
+  # 배선을 (event, matcher, script) 3-튜플로 추출한다.
+  #
+  # 구조 앵커(.hooks 하위만 순회)를 쓰는 이유 — `.. | objects | .command`처럼 임의 위치를
+  # 훑으면 다음이 통과한다(F52 evaluator가 실증):
+  #   (a) 실제 배선을 지우고 "echo invariant-guard.sh" 같은 미끼 문자열만 남기기
+  #   (c) hooks 키를 disabled_hooks 등으로 통째 이동 — 훅은 죽지만 문자열은 남음
+  # matcher를 튜플에 포함하는 이유:
+  #   (b) matcher를 NeverMatchXYZ로 바꾸면 스크립트 이름이 그대로여도 훅이 영원히 발화하지
+  #       않는다 — **집합 보존이 곧 실행 보장은 아니다**.
+  # 즉 이 검사가 지키는 것은 '이름의 존재'가 아니라 '실행 도달성'이다.
+  #
+  # 저장소 CI(tests/hook-wiring-parity.bats)와 동일한 앵커 경로를 의도적으로 재사용한다 —
+  # 같은 불변식을 검사하는 추출기가 두 벌이고 강도가 다르면 약한 쪽이 실제 방어선이 된다.
   wired_set() {
-    jq -r '[.. | objects | .command? // empty] | .[]' <<<"$1" 2>/dev/null \
-      | grep -oE '[A-Za-z0-9_-]+\.sh' | sort -u || true
+    jq -r '
+      (.hooks // {}) | to_entries[] as $e
+      | ($e.value // [])[] as $grp
+      | ($grp.matcher // "") as $m
+      | (($grp.hooks // [])[] | .command // empty)
+      | [$e.key, $m, .] | @tsv
+    ' <<<"$1" 2>/dev/null \
+      | awk -F'\t' '{
+          n=$3
+          sub(/.*\//, "", n)          # 경로 제거 → 파일명만
+          sub(/["'"'"' ].*$/, "", n)  # 뒤따르는 따옴표·인자 제거
+          if (n ~ /\.sh$/) print $1 "\t" $2 "\t" n
+        }' \
+      | sort -u || true
   }
   OLD_W=$(wired_set "$(cat "$FILE")")
   NEW_W=$(wired_set "$NEW_CONTENT")
   MISSING=""
   while IFS= read -r s; do
     [[ -z "$s" ]] && continue
-    grep -qx "$s" <<<"$NEW_W" || MISSING="$MISSING $s"
+    # -F: basename의 `.`이 정규식 any-char로 해석되지 않도록 리터럴 비교
+    grep -qxF "$s" <<<"$NEW_W" || MISSING="$MISSING [${s//$'\t'/ | }]"
   done <<< "$OLD_W"
   if [[ -n "$MISSING" ]]; then
-    deny "settings.json에서 훅 배선 제거:$MISSING — 배선 축소는 게이트 약화 (INV-13)"
+    deny "settings.json 배선 무력화 (event | matcher | script):$MISSING — 배선의 실행 도달성 축소는 게이트 약화 (INV-13)"
   fi
   exit 0
 fi
