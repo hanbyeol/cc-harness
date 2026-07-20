@@ -1,0 +1,99 @@
+{
+  "timestamp": "2026-07-20T06:30:00Z",
+  "sprint": 38,
+  "iteration": 1,
+  "features_evaluated": [
+    "F52"
+  ],
+  "security_tier": "critical",
+  "commit": "18599eb",
+  "judge_round": 1,
+  "_judge_note": "F37: security_tier critical이므로 독립 컨텍스트의 2차 judge 재판정이 필요하다. 이 파일은 1차 판정이며, 2차와 verdict가 일치할 때까지 passes를 전환하지 않았다.",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 7,
+    "security": 7,
+    "error_handling": 8,
+    "test_coverage": 8
+  },
+  "score": 7,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_threshold_applied": 7,
+  "verdict": "pass",
+  "passes_transition": "보류 — 1차 pass. INV-11 순서상 이 feedback 기록이 선행되었고, F37 교차검증(2차 judge) 일치 확인 후 메인 루프가 F52.passes를 true로 전환할 것을 권고한다.",
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1: settings.json이 invariant-guard.sh를 PreToolUse 'Edit|Write|MultiEdit'/timeout 5로 배선 — hooks.json과 동일. 직접 확인",
+      "AC-2: pre-tool-firewall.sh가 'WebFetch|WebSearch|NotebookRead|mcp__.*'/timeout 5로 배선 — hooks.json과 동일. 직접 확인",
+      "AC-3: tests/hook-wiring-parity.bats 양방향 대칭 테스트 존재. 배선을 다시 제거해 mutation-proven RED 재현 — 'not ok 3 hooks.json에 배선된 스크립트는 settings.json에도 배선된다' + 'not ok 9 INV-13 ... deny한다' 2건 실패",
+      "AC-4: INTENTIONAL_EXCLUSIONS='setup-claudemd.sh' + 사유 주석(self-wipe, init.sh:278,604) + stale-allowlist 역검증 테스트 존재. setup-claudemd.sh는 위반으로 보고되지 않음",
+      "AC-5: init.sh 하드코딩 '(5 hooks)' → 루프 실측 HOOK_COUNT. 실측 대상 파일 수 9와 일치(카운터 방식이므로 구조적으로 무드리프트)"
+    ],
+    "security": [
+      "SC-1: 배선 제거 편집 → exit 2 재현(P2). 무관 env 추가 → exit 0(P8). 깨진 JSON → exit 2(P7). 내용 기반 약화 탐지 동작 확인",
+      "SC-2: is_protected() 무변경 확인(diff 및 구버전 grep 대조) — INV-12 목록 불변이므로 F45 양방향 대칭 테스트 성립 유지. 전체 스위트 535/0로 실증",
+      "SC-3: add-only 확인 — 게이트 2줄 치환 외 순수 추가. deny 18→20, exit 2 statement 3→3. 임계값·deny 목록·테스트 수 축소 없음(README 523→535는 증가)",
+      "SC-4: INVARIANTS.md INV-13 신설 + 변경 이력 기록 확인"
+    ],
+    "error_scenarios": [
+      "ES-1: jq 부재 + settings.json → exit 2 (fail-closed). 대조군 — jq 부재 + 비보호 파일 → exit 0, jq 부재 + feature_list.json → exit 2 (F41 무퇴행)",
+      "ES-2: 깨진 JSON → exit 2, 명시 메시지 'settings.json이 유효한 JSON이 아닙니다 (INV-13)'",
+      "ES-3: hooks.json↔settings.json 누락 시 회귀 테스트 실패로 차단 — T1 재현으로 실증",
+      "ES-4: env 키 추가 등 무관 편집 → exit 0. 과잉 차단 없음"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "issues": [
+    "[security][follow-up 필수] 런타임 가드의 배선 추출기 wired_set()이 구조 비앵커(`.. | objects | .command`)라, 설치 프로젝트의 .claude/settings.json에서 다음 3가지 배선 무력화를 통과시킨다 — 직접 재현: (a) P3 실제 배선 제거 + 'echo invariant-guard.sh' 같은 미끼 문자열 잔존 → exit 0, (b) P4 matcher를 'NeverMatchXYZ'로 무력화 → exit 0, (c) P5 hooks 키를 disabled_hooks로 통째 이동 → exit 0. 저장소 CI는 이 3가지를 모두 잡지만(T2/T3 재현: 'not ok 7 matcher 불일치', 'not ok 2/3/9'), 설치된 프로젝트에는 CI가 없어 런타임 가드가 유일한 층이다 — F52가 닫으려던 '게이트가 조용히 실행되지 않는' 실패 클래스가 그 경로에 잔존",
+    "[code_quality] 같은 저장소 안에 배선 추출기가 두 벌이고 강도가 다르다 — 테스트는 구조 앵커(`.hooks | .[] | .[] | .hooks[] | .command`), 가드는 비앵커. 위 (a)(c)가 통과하는 직접 원인. 가드가 테스트와 동일한 앵커 경로를 재사용하고 matcher 동등성까지 비교하면 3건 모두 닫힌다(수정 난이도 낮음)",
+    "[code_quality] `grep -qx \"$s\"`가 basename을 정규식으로 해석한다(`.`가 any-char). 추출 정규식이 리터럴 `.sh` 접미사를 강제해 현재 악용 불가하나 `grep -qxF`가 정확. 위생 이슈",
+    "[docs][drift] INVARIANTS.md INV-13과 invariant-guard.sh:193이 동일하게 '`hooks` 키가 없는 settings.json(예: `.claude/settings.json`)은 OLD 집합이 공집합이라 항상 통과' 라고 기술하지만 사실과 반대다 — init.sh:615가 배선된 settings.json을 그대로 .claude/settings.json으로 복사하므로 그 파일은 hooks 키를 갖는다. 메커니즘 서술은 옳고 예시만 틀렸으나(아마 settings.local.json 의도), 유지보수자가 '설치본은 면제'로 오독할 수 있는 방향의 오류",
+    "[security][문서화된 한계] 경로만 교체(basename 유지)한 배선 무력화(P6)는 exit 0 — 계약 SC-1 implementation_constraints가 '경로·timeout 변경은 약화로 보지 않는다'로 명시 제외했으므로 계약 위반은 아니나, 잔존 구멍으로 기록",
+    "[process] bats tests/ 2회 실행 — '테스트 게이트 1회 실행 후 출력 파싱' 원칙 위반. 구현자가 계약 step 6 process_note에 자진 기록(1회차에서 tail만 보고 실패 수를 파싱하지 않은 것이 원인, 이후 재실행 없이 마감). 투명 공개이고 산출물 정합성에 영향 없어 감점하지 않음"
+  ],
+  "deviation_assessment": {
+    "deviation": "계약 step 3의 음성 케이스를 tests/invariant-guard.bats가 아닌 신설 tests/hook-wiring-parity.bats에 배치",
+    "verdict": "수용 — 검증 강도를 낮추지 않았다",
+    "evidence": "계약이 요구한 4개 음성 케이스(배선 제거 deny / 무관 키 allow / 깨진 JSON deny / jq 부재 deny)가 모두 존재하고 실제로 동작함을 독립 재현(P2·P7·P8 + no-jq exit 2). 여기에 계약에 없던 '정상 내용은 통과한다(가드가 항상 deny하는 게 아님)' 자체 검증 테스트와 추출기 자체 검증 테스트가 추가되어 vacuous-pass 방어가 계약 요구보다 강하다. 배치 사유(F53 apply_replace RS 버그로 38K .bats의 Edit 불가, 전량 Write 재작성은 전사 오류 위험)도 타당하며, 배선 주제 응집도 측면에서 오히려 낫다"
+  },
+  "write_path_assessment": {
+    "question": "invariant-guard.sh를 Edit이 아닌 Write로 변경한 것이 가드 검증을 우회했는가",
+    "verdict": "우회 아님 — 구현자 주장 독립 확인",
+    "evidence": "Write 페이로드로 harness-config.json의 pass_threshold를 7→3으로 낮춰 가드에 투입 → exit 2 (deny). Write 경로는 apply_replace를 타지 않고 content가 곧 NEW_CONTENT이므로 가드가 진짜 최종 내용을 검사한다. F51이 Write 경로를 has_awk 게이트에 포함시킨 것도 재확인(no-awk + settings.json → exit 2)"
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "배선 '제거' 외의 무력화 벡터(matcher 무력화·hooks 키 구조 이동·미끼 문자열)에 대한 acceptance/security criteria가 없다 — SC-1이 'basename 부분집합'으로만 정의되어 기준 자체가 이 벡터들을 요구하지 않았고, 그 결과 런타임 층에 구멍이 남았다. 후속 기능의 SC에 '배선의 실효성(실행 도달성) 보존'을 명시할 것",
+      "설치된 프로젝트(.claude/settings.json)를 대상으로 한 end-to-end 검증 기준이 없다 — 현재 테스트는 모두 저장소 루트 settings.json 대상"
+    ],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [
+      "SC-1의 'basename 부분집합' 정의가 critical 티어 기준으로는 약하다 — 집합 보존이 곧 게이트 실행 보장이 아니다(P4·P5 실증)"
+    ],
+    "action_required": "F54 후보로 등록 권고: (1) 가드 wired_set()을 테스트와 동일한 구조 앵커 경로로 교체 + matcher 동등성 비교 추가, (2) INV-13/가드 주석의 '.claude/settings.json' 예시 정정. 둘 다 저난도이며 (1)은 재현된 3개 우회를 닫는다"
+  },
+  "criteria_backfill_review": {
+    "count": 2,
+    "items": [
+      "README 테스트 수 523→535",
+      "계약 ES-4 문구 확정형 갱신"
+    ],
+    "verdict": "적절 — 범위 확장·요건 완화 없음. 3건 미만이므로 spec/architecture 재검토 불요"
+  },
+  "evidence": {
+    "test_suite": "bats tests/ (구현자 1회 실행분 /tmp/bats-out.txt 파싱, 재실행 없음) — ok 535 / not ok 0",
+    "guard_probes_live": "hooks/invariant-guard.sh를 Write 페이로드로 직접 구동(9 케이스): P1 무변경→0, P2 배선제거→2, P3 미끼문자열→0(우회), P4 matcher무력화→0(우회), P5 hooks키이동→0(우회), P6 경로교체→0(계약상 제외), P7 깨진JSON→2, P8 env추가→0, P9 신규파일→0",
+    "mutation_testing_ci": "저장소 사본에서 settings.json 변조 후 bats tests/hook-wiring-parity.bats 재실행 — T0 pristine 0 fail / T1 배선제거 2 fail / T2 matcher무력화 1 fail('not ok 7 matcher 불일치') / T3 hooks키이동 3 fail. 새 테스트가 실제로 결함을 잡음을 직접 확인",
+    "regression_f41_f51": "PATH 조작 격리 실행 — no-jq: feature_list.json→2, settings.json→2, 비보호 random.json→0 / no-awk: feature_list.json→2, settings.json→2, 비보호 random.json→0. 기존 fail-closed 동작 무퇴행, 과잉 차단 무발생",
+    "write_path": "Write로 harness-config.json pass_threshold 7→3 투입 → exit 2 (가드가 실제 내용 검사)",
+    "wiring_diff": "settings.json PreToolUse 3항목(Bash/Edit|Write|MultiEdit/WebFetch|WebSearch|NotebookRead|mcp__.*) 확인, hooks.json과 matcher·timeout 동일",
+    "docs": "docs/INVARIANTS.md INV-13 신설 + 2026-07-20 변경 이력 확인. is_protected() 무변경 확인(git show 49707d8 대조: 구버전에 settings 참조 0건)"
+  },
+  "unverified_dimensions": [],
+  "_unverified_note": "5개 차원 모두 이 세션에서 실행 근거로 판정했다 — 코드 리딩만으로 평가한 차원 없음"
+}
