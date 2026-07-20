@@ -9,7 +9,7 @@
 #  - progress/harness-config.json  : pass_threshold·security_thresholds 하향
 #  - hooks/pre-bash-firewall.sh     : BLOCKED·INDIRECT_PATTERNS 패턴 수 감소
 #  - tests/*.bats                   : @test 개수 감소
-#  - settings.json                  : 훅 배선(스크립트) 제거 — 설치 경로 간 대칭 (INV-13)
+#  - settings.json                  : 훅 배선 무력화 — 설치 경로 간 대칭 (INV-13)
 #  - hooks/invariant-guard.sh, docs/INVARIANTS.md : 자기 축소(자기 보호)
 #
 set -euo pipefail
@@ -114,6 +114,12 @@ if ! has_jq; then
     echo "  jq를 설치하거나(brew install jq / apt-get install jq), 사람이 직접 편집/승인하세요." >&2
     exit 2
   fi
+  # grep/sed/head 등 추출 파이프라인 도구까지 결핍이면 NOJQ_FILE이 비어 보호 판정 자체가
+  # 불가능하다 — 그 경우도 fail-closed로 차단한다(F52 2차 evaluator가 지적한 low 이슈).
+  if [[ -z "$NOJQ_FILE" ]] && grep -q '"file_path"' <<<"$INPUT" 2>/dev/null; then
+    echo "INVARIANT 위반: jq 부재 + file_path 추출 실패 — 보호 대상 판정 불가, fail-closed" >&2
+    exit 2
+  fi
   # 비보호 파일: jq 없이도 가용성 우선 통과 (가드는 검증 파일에만 관여).
   echo "invariant-guard: jq not found — 비보호 파일이므로 통과 (가용성 우선)" >&2
   exit 0
@@ -197,45 +203,58 @@ if [[ "$BASENAME" == "settings.json" ]]; then
   if ! echo "$NEW_CONTENT" | jq -e '.' &>/dev/null; then
     deny "settings.json이 유효한 JSON이 아닙니다 (INV-13)"
   fi
-  # 배선을 (event, matcher, script) 3-튜플로 추출한다.
+  # 배선을 (event, matcher, command) 행으로 추출한다 — command는 basename이 아니라 **전문**이다.
   #
-  # 구조 앵커(.hooks 하위만 순회)를 쓰는 이유 — `.. | objects | .command`처럼 임의 위치를
-  # 훑으면 다음이 통과한다(F52 evaluator가 실증):
-  #   (a) 실제 배선을 지우고 "echo invariant-guard.sh" 같은 미끼 문자열만 남기기
-  #   (c) hooks 키를 disabled_hooks 등으로 통째 이동 — 훅은 죽지만 문자열은 남음
-  # matcher를 튜플에 포함하는 이유:
-  #   (b) matcher를 NeverMatchXYZ로 바꾸면 스크립트 이름이 그대로여도 훅이 영원히 발화하지
-  #       않는다 — **집합 보존이 곧 실행 보장은 아니다**.
-  # 즉 이 검사가 지키는 것은 '이름의 존재'가 아니라 '실행 도달성'이다.
+  # 왜 전문인가: basename만 비교하면 command 본문을 변조해 훅을 죽이면서 추출값은 동일하게
+  # 유지할 수 있다. F52 2차 evaluator가 실증 —
+  #     "true # bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/invariant-guard.sh\""
+  # 은 basename 추출이 마지막 슬래시 앞을 버리므로 원본과 바이트 동일한 튜플을 낸다.
+  # 1차가 찾은 미끼 문자열과 같은 클래스이며, 인스턴스를 하나씩 닫는 방식으로는 끝나지 않는다.
+  # 따라서 command 전문의 바이트 동일성을 요구해 **클래스 자체**를 닫는다.
   #
-  # 저장소 CI(tests/hook-wiring-parity.bats)와 동일한 앵커 경로를 의도적으로 재사용한다 —
-  # 같은 불변식을 검사하는 추출기가 두 벌이고 강도가 다르면 약한 쪽이 실제 방어선이 된다.
-  wired_set() {
+  # 왜 구조 앵커(.hooks 하위만)인가: `.. | objects | .command`처럼 임의 위치를 훑으면 hooks
+  # 키를 disabled_hooks로 통째 옮겨도(훅은 죽고 문자열만 남음) 통과한다.
+  #
+  # 왜 matcher는 동일성이 아니라 포함관계인가: matcher 확대(예: `|NotebookEdit` 추가)는 보호를
+  # **넓히는** 정당한 강화다. 동일성을 요구하면 이런 편집까지 막는 과잉 차단이 된다(2차 지적).
+  # 축소·무력화(NeverMatchXYZ 등)는 포함관계 위반으로 잡힌다.
+  #
+  # 종합: 이 검사가 지키는 것은 이름의 존재가 아니라 **실행 도달성**이다.
+  wired_rows() {
     jq -r '
       (.hooks // {}) | to_entries[] as $e
       | ($e.value // [])[] as $grp
-      | ($grp.matcher // "") as $m
-      | (($grp.hooks // [])[] | .command // empty)
-      | [$e.key, $m, .] | @tsv
-    ' <<<"$1" 2>/dev/null \
-      | awk -F'\t' '{
-          n=$3
-          sub(/.*\//, "", n)          # 경로 제거 → 파일명만
-          sub(/["'"'"' ].*$/, "", n)  # 뒤따르는 따옴표·인자 제거
-          if (n ~ /\.sh$/) print $1 "\t" $2 "\t" n
-        }' \
-      | sort -u || true
+      | (($grp.hooks // [])[] | .command // empty) as $c
+      | select($c | test("\\.sh"))
+      | [$e.key, ($grp.matcher // ""), $c] | @tsv
+    ' <<<"$1" 2>/dev/null | sort -u || true
   }
-  OLD_W=$(wired_set "$(cat "$FILE")")
-  NEW_W=$(wired_set "$NEW_CONTENT")
+  # NEW matcher가 OLD matcher를 포함하는가 (OLD의 대안 집합 ⊆ NEW의 대안 집합).
+  # OLD가 빈 문자열(=전체 매치)이면 NEW도 비어 있어야 한다 — 어떤 구체 matcher도 더 좁다.
+  matcher_covers() {
+    local om="$1" nm="$2" a
+    [[ "$om" == "$nm" ]] && return 0
+    [[ -z "$om" ]] && return 1
+    while IFS= read -r a; do
+      [[ -z "$a" ]] && continue
+      tr '|' '\n' <<<"$nm" | grep -qxF "$a" || return 1
+    done < <(tr '|' '\n' <<<"$om")
+    return 0
+  }
+  OLD_R=$(wired_rows "$(cat "$FILE")")
+  NEW_R=$(wired_rows "$NEW_CONTENT")
   MISSING=""
-  while IFS= read -r s; do
-    [[ -z "$s" ]] && continue
-    # -F: basename의 `.`이 정규식 any-char로 해석되지 않도록 리터럴 비교
-    grep -qxF "$s" <<<"$NEW_W" || MISSING="$MISSING [${s//$'\t'/ | }]"
-  done <<< "$OLD_W"
+  while IFS=$'\t' read -r ev om cmd; do
+    [[ -z "$ev" ]] && continue
+    FOUND=0
+    while IFS=$'\t' read -r nev nm ncmd; do
+      [[ "$nev" == "$ev" && "$ncmd" == "$cmd" ]] || continue
+      if matcher_covers "$om" "$nm"; then FOUND=1; break; fi
+    done <<< "$NEW_R"
+    [[ "$FOUND" -eq 1 ]] || MISSING="$MISSING [$ev | ${om:-<all>} | $cmd]"
+  done <<< "$OLD_R"
   if [[ -n "$MISSING" ]]; then
-    deny "settings.json 배선 무력화 (event | matcher | script):$MISSING — 배선의 실행 도달성 축소는 게이트 약화 (INV-13)"
+    deny "settings.json 배선 무력화 (event | matcher | command):$MISSING — 배선의 실행 도달성 축소는 게이트 약화 (INV-13)"
   fi
   exit 0
 fi

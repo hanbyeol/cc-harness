@@ -57,6 +57,11 @@ run_guard_without_jq() {
   printf '%s' "$1" | env PATH="$2" /bin/bash "$GUARD"
 }
 
+# settings.json의 invariant-guard 배선을 변형한 JSON을 만든다.
+mutate_guard_entry() {
+  jq "$1" settings.json
+}
+
 setup() {
   # jq 부재 시 조용히 skip하지 않는다 — 검증 장치가 결핍으로 무력화되는 것을
   # 통과로 보고하면 F41이 닫은 fail-open을 테스트 계층에서 되살리는 셈이다.
@@ -153,8 +158,8 @@ setup() {
 }
 
 @test "INV-13: settings.json에서 훅 배선을 제거하면 deny한다" {
-  STRIPPED=$(jq '.hooks.PreToolUse |= map(select(
-    any(.hooks[]; .command | test("invariant-guard")) | not))' settings.json)
+  STRIPPED=$(mutate_guard_entry '.hooks.PreToolUse |= map(select(
+    any(.hooks[]; .command | test("invariant-guard")) | not))')
   run run_guard "$STRIPPED"
   [ "$status" -eq 2 ]
 }
@@ -162,8 +167,7 @@ setup() {
 @test "INV-13: 배선과 무관한 키 추가는 통과시킨다 (과잉 차단 방지)" {
   # 설치된 프로젝트에서 사용자가 env·permissions를 고치는 정당한 편집까지
   # 막으면 마찰이 과도하다 — 내용 기반 설계를 채택한 이유(계약 SC-1).
-  WITH_ENV=$(jq '.env = {"FOO":"bar"}' settings.json)
-  run run_guard "$WITH_ENV"
+  run run_guard "$(mutate_guard_entry '.env = {"FOO":"bar"}')"
   [ "$status" -eq 0 ]
 }
 
@@ -189,35 +193,98 @@ setup() {
   [ "$status" -eq 2 ]
 }
 
-# ─── 무력화 벡터 (F52 evaluator가 직접 재현한 3종 우회) ───
-# 최초 구현의 가드 추출기는 `.. | objects | .command`(구조 비앵커)라 아래 3종이 모두
-# exit 0으로 통과했다. 저장소 CI는 잡았지만 설치 프로젝트엔 CI가 없어 실질 무방비였다.
-# 교훈: 같은 불변식을 검사하는 추출기가 두 벌이면 **약한 쪽이 실제 방어선이 된다**.
-# 가드는 이제 테스트와 동일한 구조 앵커를 쓰고 (event, matcher, script) 3-튜플을 비교한다.
+@test "INV-13: jq와 추출 도구(head)가 함께 없으면 fail-closed로 차단된다" {
+  # jq 부재 경로는 grep/sed/head 파이프라인으로 file_path를 추출한다. 그 도구까지
+  # 없으면 보호 대상 판정 자체가 불가능하므로 통과시켜선 안 된다(F52 2차 evaluator).
+  NOJQ=$(mktemp -d)
+  for b in cat grep sed basename awk wc tr ls sort dirname; do   # head 제외
+    for d in /bin /usr/bin /usr/local/bin /opt/homebrew/bin; do
+      [ -x "$d/$b" ] && { ln -sf "$d/$b" "$NOJQ/$b"; break; }
+    done
+  done
+  P=$(payload "$(cat settings.json)")
+  run run_guard_without_jq "$P" "$NOJQ"
+  rm -rf "$NOJQ"
+  [ "$status" -eq 2 ]
+}
+
+# ─── 무력화 벡터 회귀 ───
+#
+# 이 섹션은 두 차례의 evaluator 판정이 실증한 우회들을 잠근다. 중요한 것은 개별
+# 인스턴스가 아니라 **클래스**다 — 1차가 (a)(b)(c)를 찾았고, 그것들만 닫은 수정을
+# 2차가 `true # ` 접두 하나로 다시 뚫었다. 교훈: 실증된 인스턴스를 하나씩 닫는
+# 수정은 클래스를 닫지 못한다.
+#
+# 현재 가드는 (event, matcher, **command 전문**)을 비교한다:
+#   - command 바이트 동일성 → 접두·주석·래퍼로 실행을 죽이는 모든 변형을 차단
+#   - matcher는 동일성이 아니라 포함관계 → 확대(강화)는 허용, 축소·무력화는 차단
 
 @test "INV-13 무력화(a): 실제 배선을 지우고 미끼 문자열만 남기면 deny한다" {
-  # command를 'echo invariant-guard.sh'로 바꾸면 이름은 남지만 훅은 죽는다.
-  DECOY=$(jq '.hooks.PreToolUse |= map(
+  run run_guard "$(mutate_guard_entry '.hooks.PreToolUse |= map(
     if any(.hooks[]; .command | test("invariant-guard"))
     then .hooks = [{"type":"command","command":"echo invariant-guard.sh"}]
-    else . end)' settings.json)
-  run run_guard "$DECOY"
+    else . end)')"
   [ "$status" -eq 2 ]
 }
 
 @test "INV-13 무력화(b): matcher를 무력화하면 deny한다 (집합 보존 ≠ 실행 보장)" {
-  # 스크립트 이름은 그대로지만 matcher가 어떤 도구에도 매치하지 않아 영원히 발화하지 않는다.
-  NEUTERED=$(jq '.hooks.PreToolUse |= map(
+  run run_guard "$(mutate_guard_entry '.hooks.PreToolUse |= map(
     if any(.hooks[]; .command | test("invariant-guard"))
     then .matcher = "NeverMatchXYZ"
-    else . end)' settings.json)
-  run run_guard "$NEUTERED"
+    else . end)')"
   [ "$status" -eq 2 ]
 }
 
 @test "INV-13 무력화(c): hooks 키를 통째로 다른 키로 옮기면 deny한다" {
-  # 훅은 전부 죽지만 JSON 어딘가에 문자열은 남아 있어, 비앵커 추출기는 못 잡는다.
-  MOVED=$(jq '{disabled_hooks: .hooks} + del(.hooks)' settings.json)
-  run run_guard "$MOVED"
+  run run_guard "$(mutate_guard_entry '{disabled_hooks: .hooks} + del(.hooks)')"
   [ "$status" -eq 2 ]
+}
+
+@test "INV-13 무력화(N1): 'true # ' 접두로 command를 주석 처리하면 deny한다" {
+  # basename만 비교하던 구현은 마지막 슬래시 앞을 버려 원본과 동일한 튜플을 냈다.
+  run run_guard "$(mutate_guard_entry '.hooks.PreToolUse |= map(
+    if any(.hooks[]; .command | test("invariant-guard"))
+    then .hooks = [{"type":"command","command":("true # " + (.hooks[0].command))}]
+    else . end)')"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-13 무력화(N1): 공백 없는 'true#' 접두도 deny한다" {
+  run run_guard "$(mutate_guard_entry '.hooks.PreToolUse |= map(
+    if any(.hooks[]; .command | test("invariant-guard"))
+    then .hooks = [{"type":"command","command":("true#" + (.hooks[0].command))}]
+    else . end)')"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-13 무력화(N1): 슬래시를 포함한 위장 경로 주석도 deny한다" {
+  run run_guard "$(mutate_guard_entry '.hooks.PreToolUse |= map(
+    if any(.hooks[]; .command | test("invariant-guard"))
+    then .hooks = [{"type":"command","command":"bash -c : # /x/invariant-guard.sh"}]
+    else . end)')"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-13 과잉차단 방지: matcher 확대(|NotebookEdit)는 통과시킨다" {
+  # 보호를 넓히는 정당한 강화 편집이다. matcher 동일성을 요구하면 이것까지 막힌다.
+  run run_guard "$(mutate_guard_entry '.hooks.PreToolUse |= map(
+    if any(.hooks[]; .command | test("invariant-guard"))
+    then .matcher = (.matcher + "|NotebookEdit")
+    else . end)')"
+  [ "$status" -eq 0 ]
+}
+
+@test "INV-13: matcher 축소는 deny한다 (확대와 대칭)" {
+  run run_guard "$(mutate_guard_entry '.hooks.PreToolUse |= map(
+    if any(.hooks[]; .command | test("invariant-guard"))
+    then .matcher = "Edit"
+    else . end)')"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-13 과잉차단 방지: 기존 배선을 유지한 채 훅을 추가하면 통과시킨다" {
+  run run_guard "$(mutate_guard_entry '.hooks.PreToolUse += [{
+    "matcher":"Bash",
+    "hooks":[{"type":"command","command":"bash \"x/new-hook.sh\""}]}]')"
+  [ "$status" -eq 0 ]
 }
