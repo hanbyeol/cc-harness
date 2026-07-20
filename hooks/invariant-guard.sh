@@ -9,6 +9,7 @@
 #  - progress/harness-config.json  : pass_threshold·security_thresholds 하향
 #  - hooks/pre-bash-firewall.sh     : BLOCKED·INDIRECT_PATTERNS 패턴 수 감소
 #  - tests/*.bats                   : @test 개수 감소
+#  - settings.json                  : 훅 배선(스크립트) 제거 — 설치 경로 간 대칭 (INV-13)
 #  - hooks/invariant-guard.sh, docs/INVARIANTS.md : 자기 축소(자기 보호)
 #
 set -euo pipefail
@@ -46,6 +47,22 @@ is_protected() {
     */skills/hotfix/SKILL.md | skills/hotfix/SKILL.md) return 0 ;;  # F48: 티어 라우팅/배치 조건 정의 파일 자기보호(evaluator.md/F45와 동일한 fail-closed 방식)
   esac
   return 1
+}
+
+# is_wiring_file: 훅 배선을 정의하는 파일인가? (F52 / INV-13)
+# is_protected()와 의도적으로 분리한다 — 두 함수는 서로 다른 질문에 답한다:
+#   is_protected()   "편집 자체를 보수적으로 막아야 하는가?"  → 전면 차단
+#   is_wiring_file() "도구 결핍 시 fail-closed여야 하는가?"   → 결핍 시에만 차단
+# settings.json을 is_protected()에 넣지 않는 이유: 이 파일은 훅 배선 외에 env·permissions·
+# enabledPlugins 등 사용자의 정당한 설정도 담는다. 전면 차단하면 설치된 프로젝트에서 무관한
+# 설정을 고칠 때마다 게이트가 걸려 마찰이 과도하다. 대신 아래 settings.json 브랜치가
+# **배선 축소만** 탐지한다(내용 기반). 다만 그 내용 검사는 jq/awk에 의존하므로, 도구가 없으면
+# 검사 자체가 무력화된다 — 그 경우까지 통과시키면 F41이 닫은 fail-open이 되살아난다.
+# 따라서 아래 fail-closed 게이트(has_jq/has_awk)에는 포함시킨다.
+is_wiring_file() {
+  local b
+  b=$(basename "$1" 2>/dev/null || echo "")
+  [[ "$b" == "settings.json" ]]
 }
 
 # old_string의 첫 출현을 new_string으로 치환한 전체 내용을 stdout으로.
@@ -90,7 +107,7 @@ if ! has_jq; then
     | grep -oE '"file_path"[[:space:]]*:[[:space:]]*"[^"]*"' 2>/dev/null \
     | head -n1 \
     | sed -E 's/.*"file_path"[[:space:]]*:[[:space:]]*"([^"]*)".*/\1/' 2>/dev/null || true)
-  if [[ -n "$NOJQ_FILE" ]] && is_protected "$NOJQ_FILE"; then
+  if [[ -n "$NOJQ_FILE" ]] && { is_protected "$NOJQ_FILE" || is_wiring_file "$NOJQ_FILE"; }; then
     echo "INVARIANT 위반: jq 부재 상태에서 보호 파일 편집을 차단합니다 (fail-closed)" >&2
     echo "  파일: $NOJQ_FILE" >&2
     echo "  jq가 없으면 invariant-guard의 기계 검증이 무력화됩니다 — 안전장치는 결핍 시 차단이 원칙(docs/INVARIANTS.md)." >&2
@@ -116,7 +133,7 @@ fi
 
 # awk 부재 = 이 스크립트 대부분의 기계 검증(임계값·카운트 비교, apply_replace 등)의 단일
 # 실패점(F51, has_jq와 대칭) — TOOL 종류(Write 포함) 무관하게 보호 파일은 fail-closed.
-if ! has_awk && is_protected "$FILE"; then
+if ! has_awk && { is_protected "$FILE" || is_wiring_file "$FILE"; }; then
   echo "INVARIANT 위반: awk 부재 상태에서 보호 파일 편집을 차단합니다 (fail-closed)" >&2
   echo "  파일: $FILE" >&2
   echo "  awk가 없으면 대부분의 기계 검증(임계값·카운트 비교·apply_replace)이 무력화됩니다 — 안전장치는 결핍 시 차단이 원칙(docs/INVARIANTS.md)." >&2
@@ -166,6 +183,35 @@ esac
 [[ -z "$NEW_CONTENT" ]] && exit 0
 
 BASENAME=$(basename "$FILE")
+
+# === settings.json: 훅 배선 제거 차단 (INV-13) ===
+# cc-harness는 설치 경로가 둘이고 각자 다른 파일로 훅을 배선한다 — 플러그인은 hooks/hooks.json,
+# init.sh는 settings.json(→ .claude/settings.json). 한쪽에서 게이트가 빠지면 그 경로로 설치한
+# 프로젝트만 무방비가 된다(F52가 실제로 그 상태를 발견: invariant-guard·pre-tool-firewall 미배선).
+# is_protected()의 전면 차단이 아니라 **배선 축소만** 탐지한다 — 이 파일은 env·permissions·
+# enabledPlugins 등 사용자의 정당한 설정도 담으므로 전면 차단은 마찰이 과도하다.
+# hooks 키가 없는 settings.json(예: .claude/settings.json)은 OLD 집합이 공집합이라 항상 통과한다.
+if [[ "$BASENAME" == "settings.json" ]]; then
+  if ! echo "$NEW_CONTENT" | jq -e '.' &>/dev/null; then
+    deny "settings.json이 유효한 JSON이 아닙니다 (INV-13)"
+  fi
+  # 배선된 훅 스크립트 basename 집합 — hooks.json 검사(INV-7)와 동일한 jq 추출 방식.
+  wired_set() {
+    jq -r '[.. | objects | .command? // empty] | .[]' <<<"$1" 2>/dev/null \
+      | grep -oE '[A-Za-z0-9_-]+\.sh' | sort -u || true
+  }
+  OLD_W=$(wired_set "$(cat "$FILE")")
+  NEW_W=$(wired_set "$NEW_CONTENT")
+  MISSING=""
+  while IFS= read -r s; do
+    [[ -z "$s" ]] && continue
+    grep -qx "$s" <<<"$NEW_W" || MISSING="$MISSING $s"
+  done <<< "$OLD_W"
+  if [[ -n "$MISSING" ]]; then
+    deny "settings.json에서 훅 배선 제거:$MISSING — 배선 축소는 게이트 약화 (INV-13)"
+  fi
+  exit 0
+fi
 
 # === harness-config.json: 임계값 하향 차단 (INV-3) ===
 if [[ "$BASENAME" == "harness-config.json" ]]; then

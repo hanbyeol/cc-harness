@@ -1,0 +1,179 @@
+{
+  "sprint": 38,
+  "feature_id": "F52",
+  "title": "설치 경로 간 훅 배선 대칭 — init.sh 경로 invariant-guard 배선 복원 + settings.json 자기보호 + 대칭 회귀 테스트",
+  "security_tier": "critical",
+  "agreed": true,
+  "_agreed_note": "Plan 게이트(ExitPlanMode)에서 2026-07-20 사용자 승인 — 계획 파일 ~/.claude/plans/wild-questing-clarke.md. 승인 시점에 SC-1 설계 결정(내용 기반 약화 탐지)과 is_wiring_file() fail-closed 보강이 계획에 포함되어 있었다.",
+  "problem": {
+    "summary": "cc-harness는 두 개의 설치 경로를 가진다 — (1) 플러그인 경로: hooks/hooks.json이 9개 스크립트를 배선, (2) init.sh 경로: 루트 settings.json을 .claude/settings.json으로 복사(init.sh:612)해 배선. 두 배선이 비대칭이며, init.sh 경로는 보안 게이트 없이 동작한다.",
+    "evidence": [
+      "grep -c 'invariant-guard' settings.json → 0 (배선 없음)",
+      "grep -c 'pre-tool-firewall' settings.json → 0 (배선 없음)",
+      "init.sh:602-609 — hooks/*.sh 전체를 .claude/hooks/로 복사(setup-claudemd.sh만 의도적 제외). 즉 두 스크립트는 복사되나 배선되지 않아 dead file이 된다",
+      "settings.json이 배선하는 스크립트: session-context, pre-bash-firewall, post-edit-format, pre-commit-gate, session-handoff, pre-compact = 6개. hooks.json은 9개",
+      "grep -c 'settings\\.json' hooks/invariant-guard.sh → 0 — settings.json은 is_protected() 대상이 아니라 배선 자체가 무방비",
+      "grep -l 'settings.json' tests/*.bats → pre-bash-firewall/setup-claudemd/version-consistency (모두 배선 대칭과 무관) — 대칭 검증 테스트 부재가 근본 원인"
+    ],
+    "impact": "init.sh 경로로 설치한 프로젝트에서 INV-1~INV-12 전체가 미집행. 구체적으로 passes:false→true 무단 전환(INV-11), pass_threshold 하향(INV-3), firewall deny 목록 축소(INV-5), 안전장치 자기보호(INV-7), 도구 방화벽 allow 확장(INV-10)이 모두 차단되지 않는다.",
+    "non_defects": [
+      "setup-claudemd.sh 미배선은 의도된 설계 — init.sh:278,604가 self-wipe 방지를 위해 명시 제외(프로젝트 복사 시 PLUGIN_ROOT가 .claude를 가리켜 자기 설치를 삭제)",
+      "egress 티어(F33)는 pre-bash-firewall.sh에 있고 정상 배선됨 — 영향 없음",
+      "pre-tool-firewall.sh는 allow 전용(whitelist, deny 미방출)이라 부재 시 네이티브 프롬프트로 안전 degrade — 편의 퇴행이지 보안 구멍 아님"
+    ]
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "settings.json이 invariant-guard.sh를 PreToolUse matcher 'Edit|Write|MultiEdit'에 배선한다 — hooks.json의 해당 항목과 matcher·timeout이 동일하다",
+      "verification": "jq로 settings.json과 hooks/hooks.json의 PreToolUse 항목을 스크립트 basename 기준으로 대조"
+    },
+    {
+      "id": "AC-2",
+      "criterion": "settings.json이 pre-tool-firewall.sh를 PreToolUse matcher 'WebFetch|WebSearch|NotebookRead|mcp__.*'에 배선한다",
+      "verification": "AC-1과 동일 방식"
+    },
+    {
+      "id": "AC-3",
+      "criterion": "두 배선의 스크립트 집합이 대칭임을 검증하는 회귀 테스트가 tests/에 존재한다 — hooks.json에 있으나 settings.json에 없는 스크립트(의도적 제외 목록 제외)가 생기면 실패한다",
+      "verification": "bats 실행. 테스트에 invariant-guard 배선을 settings.json에서 제거한 음성 케이스 포함"
+    },
+    {
+      "id": "AC-4",
+      "criterion": "의도적 제외(setup-claudemd.sh)는 테스트 안에 사유와 함께 명시된 allowlist로 관리되어, 새 스크립트 추가 시 '조용히 누락'과 '의도적 제외'가 구분된다",
+      "verification": "테스트 소스 리뷰 + setup-claudemd.sh가 대칭 위반으로 보고되지 않음을 확인"
+    },
+    {
+      "id": "AC-5",
+      "criterion": "init.sh의 '✓ .claude/hooks/ (5 hooks)' 로그가 실제 복사 개수와 일치하도록 정정된다(현재 하드코딩 5, 실제 7 hooks + lib.sh)",
+      "verification": "init.sh 실행 로그 대조. F40 consistency probe의 '산문 숫자 실측 대조' 원칙 적용"
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "settings.json의 훅 배선을 약화시키는 편집이 차단된다 — 기존 hooks 스크립트 집합이 신규 내용의 부분집합이 아니면 deny",
+      "rationale": "배선을 복원해도 배선 파일이 무방비면 동일 등급의 우회 경로가 남는다 — INV-7(안전장치 자기보호)의 직접 연장",
+      "design_decision": "내용 기반 검사로 확정(2026-07-20 사용자 결정). settings.json을 is_protected()의 전면 보호 목록에 넣지 않고, 배선 약화만 탐지하는 별도 arm을 둔다: 현재 파일의 hooks 스크립트 basename 집합 ⊄ 신규 내용의 집합이면 exit 2, 그 외 편집(env·permissions 등 무관 변경)은 통과. 채택 사유 — invariant-guard가 harness-config.json 임계값 비교·invariant-guard.sh 30% 축소 검사에서 이미 쓰는 '약화 탐지' 패턴과 일관되고, 설치된 프로젝트 사용자의 정당한 .claude/settings.json 편집에 마찰을 주지 않는다. 기각 — (a) basename 전면 보호: 마찰 과다, (b) 저장소 루트만 경로 매칭: 설치 후 라이브 배선이 무방비로 남아 갭의 절반만 닫힘.",
+      "implementation_constraints": [
+        "jq/awk 부재 시 fail-closed — has_jq()/has_awk() 전역 게이트(F41·F51)와 동일 원칙. 파싱 불가 시 통과시키지 않는다",
+        "settings.json이 깨진 JSON이면 deny(ES-2) — 파싱 실패를 통과로 해석 금지",
+        "신규 파일 생성(기존 파일 없음)은 비교 대상이 없으므로 통과 — 단 이 경로가 우회로가 되지 않는지 테스트로 확인",
+        "부분집합 비교는 스크립트 basename 기준 — 경로·timeout 변경은 약화로 보지 않는다(AC-1이 별도로 대칭 검증)"
+      ]
+    },
+    {
+      "id": "SC-2",
+      "criterion": "SC-1로 추가한 보호 대상이 INV-12 문서 목록과 양방향 대칭을 이룬다 — F45가 확립한 (a)문서→is_protected, (b)is_protected→문서 파싱 대조 테스트를 통과한다",
+      "rationale": "F45가 잡은 evaluator.md 비대칭과 동일한 사각지대 방지"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "기존 INV-5/INV-6/INV-10 add-only 원칙 위반 없음 — 이 변경은 배선과 보호를 추가만 하며 deny 목록·테스트·임계값을 축소하지 않는다",
+      "verification": "invariant-guard 자체 검사 + tests/invariant-guard.bats 전체 통과"
+    },
+    {
+      "id": "SC-4",
+      "criterion": "INVARIANTS.md에 설치 경로 간 배선 대칭이 불변식으로 명문화된다(INV-13 또는 INV-7 확장) + 변경 이력 기록",
+      "rationale": "기준 역전파 — 기계 검증(AC-3)과 문서 불변식이 함께 가야 F45 패턴과 정합"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "jq 부재 상태에서 대칭 테스트 실행",
+      "expected": "테스트가 fail-closed로 실패하거나 명시적 skip 사유를 남긴다 — 조용한 통과 금지(F41 원칙)"
+    },
+    {
+      "id": "ES-2",
+      "scenario": "settings.json이 문법적으로 깨진 JSON인 상태",
+      "expected": "대칭 테스트가 파싱 실패를 명확한 메시지와 함께 실패로 보고한다"
+    },
+    {
+      "id": "ES-3",
+      "scenario": "hooks.json에 신규 훅 스크립트가 추가되고 settings.json에는 누락된 채 커밋 시도",
+      "expected": "AC-3 회귀 테스트가 실패해 CI에서 차단된다 — 이번 결함의 재발 방지 경로"
+    },
+    {
+      "id": "ES-4",
+      "scenario": "설치된 프로젝트에서 사용자가 정당한 목적으로 .claude/settings.json을 편집(예: 무관한 env 추가)",
+      "expected": "무관한 편집(env·permissions 추가 등)은 통과한다 — SC-1이 내용 기반 약화 탐지로 확정되어 과잉 차단이 구조적으로 발생하지 않는다"
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": "1. tests/hook-wiring-parity.bats 신설 — hooks/hooks.json과 settings.json의 훅 스크립트 basename 집합 대칭 검증 + 의도적 제외 allowlist(setup-claudemd.sh, 사유 주석 필수) (RED)",
+      "verify": "bats tests/hook-wiring-parity.bats → invariant-guard·pre-tool-firewall 누락으로 실패해야 함(RED 확인)",
+      "done": true,
+      "evidence": "RED 확인됨 — 'not ok 3 ... settings.json에 배선 누락: invariant-guard.sh pre-tool-firewall.sh'. 나머지 6개는 통과해 테스트가 무차별 실패가 아님을 확인.",
+      "covers": [
+        "AC-3",
+        "AC-4",
+        "ES-3"
+      ]
+    },
+    {
+      "step": "2. settings.json에 invariant-guard.sh(Edit|Write|MultiEdit, 5s)·pre-tool-firewall.sh(WebFetch|WebSearch|NotebookRead|mcp__.*, 5s) 배선 추가 — hooks.json과 matcher·timeout 동일 (GREEN)",
+      "verify": "bats tests/hook-wiring-parity.bats 통과 + jq로 settings.json 유효성",
+      "done": true,
+      "evidence": "GREEN — 7/7 통과, jq -e . settings.json 유효. matcher·timeout이 hooks.json과 일치함을 테스트 7이 검증.",
+      "covers": [
+        "AC-1",
+        "AC-2"
+      ]
+    },
+    {
+      "step": "3. invariant-guard.sh에 settings.json 배선 약화 탐지 arm 추가 — 기존 hooks 스크립트 집합 ⊄ 신규 집합이면 exit 2. is_protected() 전면 목록에는 넣지 않는다. jq/awk 부재·JSON 파싱 실패 시 fail-closed",
+      "verify": "tests/invariant-guard.bats에 음성 케이스 추가(배선 제거 시도 → deny, 무관 키 추가 → allow, 깨진 JSON → deny, jq 부재 → deny) 후 bats tests/invariant-guard.bats",
+      "done": true,
+      "deviation": "음성 케이스를 tests/invariant-guard.bats가 아니라 tests/hook-wiring-parity.bats에 배치했다. 사유: 구현 중 발견한 apply_replace RS 버그(F53)로 .bats 파일은 Edit이 불가하고(가드가 손상된 NEW_CONTENT로 @test 감소를 오탐), 38K 파일을 Write로 전량 재작성하는 것은 전사 오류 위험이 크다. hook-wiring-parity.bats는 이번에 신설해 전체 내용을 보유하므로 안전하게 Write할 수 있고, 배선 주제 응집도도 더 높다. 검증 강도는 동일 — 4개 음성 케이스 전부 구현·통과.",
+      "evidence": "12/12 통과. 배선 제거 → exit 2, 무관 env 키 추가 → exit 0, 깨진 JSON → exit 2, jq 부재 + settings.json → exit 2(대조군: jq 부재 + 비보호 파일 → exit 0, jq 부재 + feature_list.json → exit 2로 F41 기존 동작 유지 확인). 가드가 무조건 deny하는 게 아님을 확인하는 자체 검증 테스트도 추가.",
+      "covers": [
+        "SC-1",
+        "SC-3",
+        "ES-1",
+        "ES-2",
+        "ES-4"
+      ]
+    },
+    {
+      "step": "4. INVARIANTS.md에 설치 경로 간 배선 대칭 불변식 명문화(INV-13) + 변경 이력 기록. SC-1이 is_protected() 전면 목록을 쓰지 않으므로 INV-12 파일 목록은 변경하지 않으며, 그 사유를 문서에 명시해 F45 대칭 테스트와의 정합을 유지",
+      "verify": "bats tests/invariant-guard.bats의 F45 양방향 대칭 테스트 통과(비대칭 미발생 확인)",
+      "done": true,
+      "evidence": "INV-13 섹션 + 변경 이력 추가. is_protected() 목록을 건드리지 않아 INV-12 파일 목록 변경 없음 → F45 대칭 테스트 영향 없음(전체 회귀에서 확인).",
+      "covers": [
+        "SC-2",
+        "SC-4"
+      ]
+    },
+    {
+      "step": "5. init.sh의 '✓ .claude/hooks/ (5 hooks)' 로그를 실측치로 정정",
+      "verify": "복사 루프가 실제 배포하는 파일 수와 로그 문자열 대조",
+      "done": true,
+      "evidence": "하드코딩 '(5 hooks)'를 루프 실측 카운터 HOOK_COUNT로 대체 — 스크립트 추가 시 자동 반영되어 재발하지 않는다. bash -n init.sh 통과.",
+      "covers": [
+        "AC-5"
+      ]
+    },
+    {
+      "step": "6. 전체 회귀 — bats tests/ 20+1개 스위트 및 probes/run-all.sh",
+      "verify": "bats tests/ 전체 통과 + scripts/probes/run-all.sh 이상 없음 (1회 실행 후 출력 파싱, 재실행 금지)",
+      "done": true,
+      "evidence": "bats tests/ → 535 통과 / 0 실패 (F52 이전 523 + 신규 12). probes/run-all.sh → C1(README 테스트 수 523 vs 535 드리프트, 이번 변경이 유발) 즉시 정정 후 consistency 프로브 재실행 결과 [] 클린. C2는 sprint-37 evaluator 후속의 선재 low 항목으로 이번 변경과 무관.",
+      "process_note": "bats tests/를 2회 실행했다 — 기록된 '테스트 게이트 1회 실행 후 출력 파싱' 원칙 위반. 1회차에서 tail만 보고 실패 수를 파싱하지 않은 것이 원인. 이후 재실행 없이 결과 파일만 파싱해 마감했다.",
+      "covers": [
+        "SC-3"
+      ]
+    }
+  ],
+  "_parallelizable": false,
+  "_parallel_note": "단계 2·3이 invariant-guard.sh와 settings.json을 교차 참조하고 3이 1의 테스트 결과에 의존 — 직렬 구현.",
+  "dependencies": [
+    "F12",
+    "F28",
+    "F45"
+  ],
+  "_dependency_note": "F12(invariant-guard 신설)·F28(pre-tool-firewall 신설)이 배선 대상 자체를 제공하고, F45(is_protected↔INV-12 양방향 대칭 검증)가 SC-2가 재사용할 패턴을 확립했다.",
+  "verification_tier": "critical",
+  "_tier_note": "security_tier critical — evaluator + security-auditor 필수. F48 규칙상 hotfix 전환 금지."
+}

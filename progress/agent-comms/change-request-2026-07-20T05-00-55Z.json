@@ -1,0 +1,58 @@
+{
+  "timestamp": "2026-07-20T05:00:55Z",
+  "type": "modify",
+  "description": "F52: 설치 경로 간 훅 배선 대칭 — init.sh(settings.json) 경로에 invariant-guard.sh·pre-tool-firewall.sh 배선 복원, settings.json 자기보호 편입, 배선 대칭 회귀 테스트 신설",
+  "trigger": "Claude Code 2.1.x 신기능 검토 중 하네스 구조 조사에서 발견 — 신기능과 무관한 기존 결함",
+  "affected_features": [
+    "F12",
+    "F28",
+    "F34",
+    "F45"
+  ],
+  "_affected_note": "이 기능들의 보호·배선 효과가 플러그인 경로에서만 유효했다는 의미. 다만 각 기능의 acceptance는 플러그인 경로 기준으로 충족되었고 F52가 갭을 닫으므로 passes 리셋은 하지 않는다 — 리셋 대신 F52를 신규 항목으로 추가해 추적한다.",
+  "passes_reset": [],
+  "impact": {
+    "spec_updated": false,
+    "_spec_note": "이 저장소에는 docs/SPEC.md가 없다. progress/phase-gate.json의 _comment가 명시하듯 specification은 feature_list·contracts·acceptance-criteria·기존 ADR/INVARIANTS 위협모델로 충족한다.",
+    "architecture_updated": false,
+    "_architecture_note": "신규 컴포넌트·API·데이터모델 변경 없음. 단 INVARIANTS.md에 설치 경로 간 배선 대칭 불변식 명문화가 필요하며(SC-4), 이는 구현 단계 산출물로 계약에 포함했다 — change-request 단계에서 보호 파일을 선편집하지 않는다.",
+    "acceptance_criteria_updated": true,
+    "security_checklist_updated": false,
+    "_security_note": "신규 위협 아님 — 기존 위협(보호 파일 무단 수정, 게이트 약화)이 특정 설치 경로에서 미차단이었음을 발견한 것. 위협 시나리오는 INV-7/INV-10에 이미 존재한다.",
+    "phase_rollback": false,
+    "_phase_note": "소규모(기존 기능 내 수정) — implementation phase 유지, F52만 신규 구현."
+  },
+  "tier_classification": {
+    "hotfix_eligible": false,
+    "reason": "security_tier: critical의 보안 관련 변경 — F48 규칙상 critical은 어떤 경우에도 hotfix로 전환하지 않는다. skills/hotfix/SKILL.md의 적용 조건 미충족.",
+    "verification_tier": "critical",
+    "required_verification": [
+      "evaluator",
+      "security-auditor"
+    ]
+  },
+  "new_sprint_contract": "progress/contracts/sprint-38.json",
+  "rollback_to_phase": null,
+  "open_design_questions": [
+    {
+      "id": "SC-1 매칭 방식",
+      "question": "settings.json을 is_protected()에 어떤 방식으로 편입할 것인가",
+      "options": [
+        "(a) basename 'settings.json' 전면 보호 — 설치된 프로젝트의 .claude/settings.json까지 게이트, 보안 최대·마찰 최대",
+        "(b) 하네스 저장소 루트 settings.json만 경로 매칭 — 마찰 없음, 그러나 설치 후 라이브 배선 파일은 미보호",
+        "(c) hooks 키 축소만 탐지하는 내용 기반 검사 — 무관한 편집은 통과, 배선 약화만 차단"
+      ],
+      "resolution": "Plan 게이트(ExitPlanMode)에서 사용자 결정"
+    }
+  ],
+  "evidence": [
+    "grep -c 'invariant-guard' settings.json → 0",
+    "grep -c 'pre-tool-firewall' settings.json → 0",
+    "grep -c 'settings\\.json' hooks/invariant-guard.sh → 0",
+    "init.sh:602-609 훅 복사 루프 / init.sh:612 settings.json 설치",
+    "init.sh:278,604 setup-claudemd.sh 의도적 제외 주석(self-wipe 방지) — 결함 아님으로 확인",
+    "hooks/pre-bash-firewall.sh가 egress 티어(F33) 보유 + 정상 배선 — 영향 없음으로 확인",
+    "hooks/pre-tool-firewall.sh는 emit_allow만 존재, deny 미방출 — 부재 시 안전 degrade로 확인"
+  ],
+  "next_step": "/implement F52 — Plan 게이트에서 SC-1 매칭 방식 결정 후 contract agreed:true 전환"
+}

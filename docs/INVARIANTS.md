@@ -165,6 +165,41 @@ INV-11이 빈 계약 합의를 막으므로 무인 대상이다.)
 evaluator min-of-5·Stop)는 매 회전 무약화로 유지된다. F35(INV-11)가 선행 전제다 — passes 전환이 기계
 검증되지 않으면 무인 루프는 금지된다.
 
+### INV-13. 설치 경로 간 훅 배선은 대칭이다
+cc-harness는 설치 경로가 둘이고 각자 다른 파일로 훅을 배선한다 — 플러그인 경로는 `hooks/hooks.json`,
+`init.sh` 경로는 루트 `settings.json`(→ `.claude/settings.json`으로 설치, `init.sh:612`). **두 배선의
+훅 스크립트 집합은 대칭이어야 하며**, 어느 한쪽에서 스크립트를 제거하는 편집은 차단된다.
+
+비대칭은 곧 "한쪽 경로로 설치한 사용자만 게이트 없이 동작"을 뜻한다. F52가 발견한 실제 상태가 그랬다:
+`invariant-guard.sh`와 `pre-tool-firewall.sh`가 `settings.json`에 배선되지 않아, `init.sh` 경로로 설치한
+프로젝트는 **INV-1~INV-12가 전부 미집행**이었다. `init.sh:602-609`가 스크립트를 복사는 하므로 파일은
+존재했고, 그래서 dead file로 오래 눈에 띄지 않았다.
+
+**집행**: `tests/hook-wiring-parity.bats`가 두 배선 파일에서 스크립트 basename 집합을 추출해 양방향
+대조한다(F45가 `is_protected()`↔INV-12에 쓴 파싱 대조 패턴과 동형). 의도적 제외는 **사유가 달린
+allowlist**로만 허용해 '조용한 누락'과 구분한다 — 현재 유일한 항목은 `setup-claudemd.sh`(플러그인
+SessionStart 전용, 프로젝트로 복사하면 `CLAUDE_PLUGIN_ROOT`가 `.claude`를 가리켜 자기 설치를 지우는
+self-wipe 위험, `init.sh:278,604`). 더해 `invariant-guard.sh`의 `settings.json` 브랜치가 배선 축소를
+런타임에 차단한다.
+
+**설계 — 전면 차단이 아니라 약화 탐지**: `settings.json`은 `is_protected()`에 넣지 **않는다**. 이 파일은
+훅 배선 외에 `env`·`permissions`·`enabledPlugins` 등 사용자의 정당한 설정도 담으므로, 전면 차단은
+설치된 프로젝트에서 마찰이 과도하다. 대신 기존 배선 집합이 신규 내용의 부분집합이 아닐 때만 deny한다
+(`harness-config.json` 임계값 비교·`invariant-guard.sh` 30% 축소 검사가 쓰는 '약화 탐지' 패턴과 동일).
+부수 효과로 `hooks` 키가 없는 `settings.json`(예: `.claude/settings.json`)은 OLD 집합이 공집합이라
+항상 통과한다 — 배선하지 않는 설정 파일은 자동 면제된다.
+
+이 때문에 `is_protected()`와 별개로 `is_wiring_file()`을 둔다. 두 술어는 서로 다른 질문에 답한다 —
+전자는 "편집 자체를 막아야 하는가"(전면 차단), 후자는 "도구 결핍 시 fail-closed여야 하는가". 내용 기반
+검사는 jq/awk에 의존하므로 `is_wiring_file()`은 `has_jq`/`has_awk` 게이트에 **포함되어야** 한다.
+포함하지 않으면 jq만 지워서 배선 검사를 통째로 우회할 수 있다(F41이 닫은 fail-open과 동형).
+`is_protected()` 목록에는 넣지 않으므로 INV-12의 검증 장치 파일 목록도 변경하지 않으며, 따라서
+F45의 양방향 대칭 테스트는 그대로 성립한다.
+
+**왜 불변**: 게이트의 가치는 "실제로 실행되는가"에 달려 있다. 배선이 빠진 게이트는 코드가 온전해도
+존재하지 않는 것과 같다 — INV-7(안전장치 자기 보호)이 스크립트 *내용*을 지킨다면, INV-13은 그 스크립트가
+*실행되도록 등록되어 있음*을 지킨다. 두 축이 함께여야 자기보호가 닫힌다.
+
 ## 위협 모델 — 가드가 막는 것과 못 막는 것
 invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가능한 파일**이다. 따라서
 "파일에 임의 내용을 쓸 수 있는 행위자가 가드 소스 자체를 재작성하는 것"은 텍스트/구조 검사만으로
@@ -222,3 +257,8 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
   동일한 fail-closed 전용 방식으로 봉합. `is_protected()`는 전체경로 매칭(basename 아님)이라 다른
   스킬의 SKILL.md는 비보호 유지. 대칭(b) 파서는 경로 구분자 미인식으로 3개 파일이 `SKILL.md` 토큰
   하나로 축약 매칭되는 알려진 한계 있음(문서화만, 파서 확장은 backlog). sprint-34 F48)
+- 2026-07-20: INV-13 추가 (설치 경로 간 훅 배선 대칭 — `init.sh` 경로 `settings.json`에
+  `invariant-guard.sh`·`pre-tool-firewall.sh`가 미배선이어서 그 경로로 설치한 프로젝트는 INV-1~INV-12가
+  전부 미집행이었다. 배선 복원 + `is_wiring_file()` 신설(`is_protected()`와 분리 — 전면 차단이 아니라
+  배선 축소만 탐지, `has_jq`/`has_awk` fail-closed 게이트에는 포함) + `tests/hook-wiring-parity.bats`
+  양방향 대칭 회귀 테스트. sprint-38 F52)

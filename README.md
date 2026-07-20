@@ -333,7 +333,7 @@ harness 자체도 실패에서 배웁니다:
 - `jq` — **권장**. 없으면 bash firewall이 비활성화되고(경고 출력) 세션 컨텍스트 주입이 축소됩니다
 - `bash` 3.2+ (hooks), 4.0+ (bootstrapper)
 - 각 언어 도구 (선택 — 없으면 해당 hook이 graceful skip)
-- 개발 시: `bats`, `shellcheck` (테스트 523개, CI에서 강제)
+- 개발 시: `bats`, `shellcheck` (테스트 535개, CI에서 강제)
 
 ## License
 

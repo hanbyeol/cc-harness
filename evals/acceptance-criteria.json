@@ -73,6 +73,12 @@
       "contract": "progress/contracts/sprint-37.json",
       "security_tier": "critical",
       "summary": "has_awk() 전역 블랭킷 게이트 신설 — has_jq()와 완전 대칭, Write 경로 포함 모든 TOOL에서 awk 부재 시 보호 파일 fail-closed. F50이 Edit/MultiEdit만 커버하고 남긴 갭(Write로 임계값 하향·passes 부정 전환이 awk 부재 시 통과되던 문제)을 닫음."
+    },
+    {
+      "feature_id": "F52",
+      "contract": "progress/contracts/sprint-38.json",
+      "security_tier": "critical",
+      "summary": "두 설치 경로(플러그인 hooks.json / init.sh settings.json)의 훅 배선 비대칭 해소 — init.sh 경로에 invariant-guard.sh·pre-tool-firewall.sh 배선을 복원하고, 배선 파일인 settings.json 자체를 is_protected()에 편입해 배선 약화 경로를 닫으며, F45의 양방향 파싱 대조 패턴을 배선 대칭에 적용한 회귀 테스트로 재발을 차단한다. 이전까지 INV-1~INV-12는 플러그인 경로에서만 집행되고 있었다."
     }
   ]
 }

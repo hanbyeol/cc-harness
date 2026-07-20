@@ -1,0 +1,77 @@
+{
+  "feature_id": "F52",
+  "sprint": 38,
+  "timestamp": "2026-07-20T05:40:00Z",
+  "security_tier": "critical",
+  "mode": "serial",
+  "_mode_note": "계약의 _parallelizable:false대로 직렬. 단계 2·3이 settings.json↔invariant-guard.sh를 교차 참조하고 3이 1의 RED 결과에 의존.",
+  "files_changed": [
+    {
+      "path": "tests/hook-wiring-parity.bats",
+      "change": "신규 — 배선 대칭 7 + INV-13 가드 음성 케이스 5 = 12 테스트"
+    },
+    {
+      "path": "settings.json",
+      "change": "invariant-guard.sh·pre-tool-firewall.sh PreToolUse 배선 추가 (hooks.json과 matcher·timeout 동일)"
+    },
+    {
+      "path": "hooks/invariant-guard.sh",
+      "change": "is_wiring_file() 신설 + has_jq/has_awk 게이트 조건 확장 + settings.json 배선 약화 탐지 arm (48줄 추가, 삭제는 게이트 2줄 치환뿐)"
+    },
+    {
+      "path": "docs/INVARIANTS.md",
+      "change": "INV-13 명문화 + 변경 이력"
+    },
+    {
+      "path": "init.sh",
+      "change": "훅 개수 로그를 하드코딩 5 → 루프 실측 HOOK_COUNT"
+    },
+    {
+      "path": "README.md",
+      "change": "테스트 수 523 → 535 (이번 변경이 유발한 드리프트, consistency 프로브가 탐지)"
+    }
+  ],
+  "evidence": {
+    "red_confirmed": "bats tests/hook-wiring-parity.bats (수정 전) → 'not ok 3 ... settings.json에 배선 누락: invariant-guard.sh pre-tool-firewall.sh'. 나머지 6개 통과로 무차별 실패가 아님을 확인.",
+    "green": "동일 스위트 12/12 통과",
+    "full_regression": "bats tests/ → 535 통과 / 0 실패",
+    "probes": "scripts/probes/run-all.sh → C1(README 드리프트) 정정 후 consistency 프로브 [] 클린. C2는 선재 low 항목.",
+    "syntax": "bash -n hooks/invariant-guard.sh, bash -n init.sh 통과",
+    "guard_selfcheck": "invariant-guard.sh 편집 전후 deny 호출 18→20, 'exit 2' statement 3→3, 줄수 384→430 — 감소 없음(INV-7 자기보호 충족). git diff -U0 상 삭제된 줄은 게이트 조건 2줄뿐임을 확인.",
+    "inv13_behavior": [
+      "배선 제거 → exit 2 (deny)",
+      "무관한 env 키 추가 → exit 0 (allow, 과잉 차단 없음)",
+      "깨진 JSON → exit 2 (deny)",
+      "jq 부재 + settings.json → exit 2 (fail-closed)",
+      "대조군 jq 부재 + 비보호 파일 → exit 0 (가용성 우선 유지)",
+      "대조군 jq 부재 + feature_list.json → exit 2 (F41 기존 동작 무변경)"
+    ]
+  },
+  "criteria_backfill": [
+    {
+      "item": "README 테스트 수",
+      "detail": "523 → 535. 이번 변경이 12개를 추가해 발생한 드리프트를 consistency 프로브가 탐지 → 즉시 정정."
+    },
+    {
+      "item": "계약 ES-4 문구",
+      "detail": "SC-1이 내용 기반으로 확정되면서 '매칭 방식 결정에 따라'라는 조건부 표현이 무의미해져 확정형으로 갱신."
+    }
+  ],
+  "deviations": [
+    {
+      "from": "계약 step 3의 'tests/invariant-guard.bats에 음성 케이스 추가'",
+      "to": "tests/hook-wiring-parity.bats에 배치",
+      "reason": "구현 중 발견한 apply_replace RS 버그(→F53)로 .bats 파일은 Edit 경로가 막혀 있고(가드가 손상된 NEW_CONTENT에서 @test 감소를 오탐), 38K 파일을 Write로 전량 재작성하는 것은 전사 오류 위험이 크다. 신설 파일은 전체 내용을 보유해 안전하게 Write 가능하며 주제 응집도도 높다. 검증 강도 동일 — 음성 케이스 4종 전부 구현·통과."
+    }
+  ],
+  "blocking_discovery": {
+    "id": "→ F53 후보",
+    "severity": "critical",
+    "summary": "apply_replace()가 RS=\"\\0\"를 쓰는데 macOS 기본 awk(BSD 20200816)는 이를 RS=\"\"(문단 모드)로 해석한다. 결과: 파일이 문단 단위로 쪼개져 레코드 간 빈 줄이 소실되고(실측 384→343줄), 빈 줄을 걸친 old_string은 매칭 자체가 실패해 NEW_CONTENT에 편집이 반영되지 않는다.",
+    "impact": "가드가 '변경이 없는 내용'을 검사하고 통과시키는데 Claude Code는 실제 편집을 적용한다. 증가를 탐지하는 검사(INV-10 emit_allow)에서 fail-open 실증 — pre-tool-firewall.sh에 emit_allow 백도어를 추가하는 페이로드가 exit 0으로 승인됐다. 감소를 탐지하는 검사(INV-5/6/7)는 손상이 카운트를 낮추는 방향이라 우연히 fail-closed지만, 오탐으로 정당한 편집을 막는다(invariant-guard.sh는 Edit 자체가 불가능해짐).",
+    "lineage": "F49(이스케이프)·F50(awk 실패)·F51(awk 부재)이 연달아 고친 apply_replace의 네 번째 결함이며, 앞선 셋이 모두 놓친 축(RS 시맨틱). 세 기능 모두 리눅스 CI(gawk)에서 검증돼 macOS 분기를 못 잡은 것으로 보인다.",
+    "fix_direction": "RS=\"\\0\" 대신 라인 버퍼 축적 `{buf = buf $0 ORS} END {...}`. 빈 줄을 걸친 치환이 정확히 동작함을 검증 완료. 이식성 있고 awk 구현에 무관.",
+    "note": "이 결함 때문에 F52의 invariant-guard.sh 변경은 Edit이 아니라 Write 경로로 적용했다(Write는 apply_replace를 타지 않아 가드가 진짜 내용을 검사한다)."
+  },
+  "passes_note": "implementer는 passes를 설정하지 않는다 (INV-1). 독립 evaluator 판정 필요 — security_tier critical이므로 evaluator + security-auditor 필수."
+}

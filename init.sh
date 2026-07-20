@@ -600,13 +600,16 @@ cp "$PLUGIN_DIR"/agents/*.md .claude/agents/
 log "✓ .claude/agents/ (8 agents)"
 
 # ─── Hooks ───
+HOOK_COUNT=0
 for f in "$PLUGIN_DIR"/hooks/*.sh; do
   # setup-claudemd.sh는 plugin 전용 (self-wipe 방지) — 복사 제외
   [[ "$(basename "$f")" == "setup-claudemd.sh" ]] && continue
   cp "$f" .claude/hooks/
+  HOOK_COUNT=$((HOOK_COUNT + 1))
 done
 chmod +x .claude/hooks/*.sh
-log "✓ .claude/hooks/ (5 hooks)"
+# 실측 카운트 — 하드코딩하면 스크립트 추가 시 조용히 어긋난다 (F40: 산문 숫자 실측 대조)
+log "✓ .claude/hooks/ ($HOOK_COUNT files, lib.sh 포함)"
 
 # ─── Settings ───
 cp "$PLUGIN_DIR"/settings.json .claude/settings.json
