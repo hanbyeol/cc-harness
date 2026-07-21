@@ -67,6 +67,15 @@ if [[ -f README.md ]]; then
   while read -r n; do
     [[ -n "$n" && "$n" != "$T_ACT" ]] && add "README test count stale (${n} vs ${T_ACT})" "README '테스트 ${n}개'가 실측 @test ${T_ACT}과 불일치 — 정정 필요" "low"
   done < <(grep -oE '테스트 [0-9]+개[,)]' README.md 2>/dev/null | grep -oE '[0-9]+')
+  # min-of-5 설명문 무결성: "테스트 5개 점수"의 '5'는 5차원 불변(측정값 아님). 위 검사는
+  # [,)] suffix로 이 문장을 의도적으로 제외하므로(F40 오탐 회피), 이 문장이 "545개 점수" 등으로
+  # 손상돼도 아무도 못 잡는다 — F52 구현 중 sed가 실제로 이 손상을 냈고 프로브가 놓친 사각지대.
+  # min-of-5 문장이 존재할 때만(‘테스트 N개 점수’ 형태) 그 N이 5인지 검사한다 — 최소 README를
+  # 쓰는 fixture는 이 문장이 없어 무관(F52 3차 evaluator).
+  if grep -qE '테스트 [0-9]+개 점수' README.md; then
+    grep -qF '테스트 5개 점수' README.md \
+      || add "README min-of-5 문장 손상" "README의 min-of-5 설명 '테스트 5개 점수'의 숫자가 5가 아님 — 5차원 불변 문구 훼손(sed 등 앵커 없는 치환 의심)" "low"
+  fi
 fi
 
 # 5. feature_list 의존성 정합 (F40-2): passes 모순 + 순환 의존 + 미존재 id 참조.

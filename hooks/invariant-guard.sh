@@ -203,37 +203,48 @@ if [[ "$BASENAME" == "settings.json" ]]; then
   if ! echo "$NEW_CONTENT" | jq -e '.' &>/dev/null; then
     deny "settings.json이 유효한 JSON이 아닙니다 (INV-13)"
   fi
-  # 배선을 (event, matcher, command) 행으로 추출한다 — command는 basename이 아니라 **전문**이다.
+  # 배선을 (event, matcher, **훅 오브젝트 전문**)으로 추출한다 — default-deny 설계.
   #
-  # 왜 전문인가: basename만 비교하면 command 본문을 변조해 훅을 죽이면서 추출값은 동일하게
-  # 유지할 수 있다. F52 2차 evaluator가 실증 —
-  #     "true # bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/invariant-guard.sh\""
-  # 은 basename 추출이 마지막 슬래시 앞을 버리므로 원본과 바이트 동일한 튜플을 낸다.
-  # 1차가 찾은 미끼 문자열과 같은 클래스이며, 인스턴스를 하나씩 닫는 방식으로는 끝나지 않는다.
-  # 따라서 command 전문의 바이트 동일성을 요구해 **클래스 자체**를 닫는다.
+  # 왜 오브젝트 전문(정규화 JSON)인가: 훅 오브젝트에는 command 외에 실행을 좌우하는 필드가
+  # 많다(공식 스키마: type·if·once·async·asyncRewake·shell·args·timeout 등 24개). 그중 일부만
+  # 비교하면, 비교되지 않는 형제 필드를 변조해 훅을 죽이면서 추출값은 동일하게 유지할 수 있다.
+  # F52는 이 함정을 세 번 반복했다 —
+  #   1차: basename만 비교 → 미끼 문자열·matcher 무력화·hooks 키 이동으로 우회
+  #   2차: command 전문 추가 → `true # …` 접두(주석 처리)로 우회
+  #   3차: (event,matcher,command) 튜플 → `if`·`once`·`async`·`type` 등 형제 필드로 우회
+  # 인스턴스를 하나씩 닫는 방식으로는 끝나지 않는다. 그래서 접근을 뒤집는다: **오브젝트 전체를
+  # 정규화(jq -S)해 비교**하고, OLD의 각 훅이 NEW에 정규화 동일하게 보존될 때만 통과시킨다.
+  # 어떤 필드를 추가·변조·삭제하든 정규화 문자열이 달라져 deny된다 — 스키마에 아직 없는 미래
+  # 벤더 필드까지 자동으로 default-deny다. allowlist(차이 허용 필드 나열)는 의도적으로 두지
+  # 않는다 — 그 자체가 "허용 목록에서 빠뜨린 필드"라는 새 우회 표면이 되기 때문이다. timeout
+  # 증가처럼 무해한 편집이 막히면 사람이 직접 승인하면 된다(안전장치는 보수적이 원칙).
   #
-  # 왜 구조 앵커(.hooks 하위만)인가: `.. | objects | .command`처럼 임의 위치를 훑으면 hooks
-  # 키를 disabled_hooks로 통째 옮겨도(훅은 죽고 문자열만 남음) 통과한다.
+  # 왜 구조 앵커(.hooks 하위만)인가: `.. | objects`처럼 임의 위치를 훑으면 hooks 키를
+  # disabled_hooks로 통째 옮겨도(훅은 죽고 오브젝트만 남음) 통과한다.
   #
-  # 왜 matcher는 동일성이 아니라 포함관계인가: matcher 확대(예: `|NotebookEdit` 추가)는 보호를
-  # **넓히는** 정당한 강화다. 동일성을 요구하면 이런 편집까지 막는 과잉 차단이 된다(2차 지적).
-  # 축소·무력화(NeverMatchXYZ 등)는 포함관계 위반으로 잡힌다.
+  # 왜 matcher만 예외(동일성 아니라 포함관계)인가: matcher 확대(예: `|NotebookEdit` 추가,
+  # matcher 삭제=전체매치)는 보호를 **넓히는** 정당한 강화다. 동일성을 요구하면 이런 편집까지
+  # 막는 과잉 차단이 된다(2·3차 지적). 축소·무력화(NeverMatchXYZ 등)는 포함관계 위반으로 잡힌다.
   #
   # 종합: 이 검사가 지키는 것은 이름의 존재가 아니라 **실행 도달성**이다.
+  SEP=$(printf '\001')  # SOH — 탭은 read의 whitespace라 빈 matcher에서 필드가 밀린다(비-whitespace 구분자 필요)
   wired_rows() {
-    jq -r '
+    jq -S -r '
       (.hooks // {}) | to_entries[] as $e
       | ($e.value // [])[] as $grp
-      | (($grp.hooks // [])[] | .command // empty) as $c
-      | select($c | test("\\.sh"))
-      | [$e.key, ($grp.matcher // ""), $c] | @tsv
+      | ($grp.hooks // [])[] as $h
+      | select($h | (.command // "") | test("\\.sh"))
+      | [$e.key, ($grp.matcher // ""), ($h | tojson)] | join("")
     ' <<<"$1" 2>/dev/null | sort -u || true
   }
-  # NEW matcher가 OLD matcher를 포함하는가 (OLD의 대안 집합 ⊆ NEW의 대안 집합).
-  # OLD가 빈 문자열(=전체 매치)이면 NEW도 비어 있어야 한다 — 어떤 구체 matcher도 더 좁다.
+  # NEW matcher(nm)가 OLD matcher(om)를 커버하는가 (nm의 매치 집합 ⊇ om의 매치 집합).
+  #   - nm 빈 문자열/부재 = 전체 매치 → 모든 om을 커버(widening) → 통과
+  #   - om 전체 매치인데 nm 구체적 → narrowing → 차단
+  #   - 둘 다 alternation → om의 각 대안이 nm에 문자열로 존재해야 커버(보수적 근사)
   matcher_covers() {
     local om="$1" nm="$2" a
     [[ "$om" == "$nm" ]] && return 0
+    [[ -z "$nm" ]] && return 0
     [[ -z "$om" ]] && return 1
     while IFS= read -r a; do
       [[ -z "$a" ]] && continue
@@ -244,17 +255,18 @@ if [[ "$BASENAME" == "settings.json" ]]; then
   OLD_R=$(wired_rows "$(cat "$FILE")")
   NEW_R=$(wired_rows "$NEW_CONTENT")
   MISSING=""
-  while IFS=$'\t' read -r ev om cmd; do
+  while IFS="$SEP" read -r ev om hj; do
     [[ -z "$ev" ]] && continue
     FOUND=0
-    while IFS=$'\t' read -r nev nm ncmd; do
-      [[ "$nev" == "$ev" && "$ncmd" == "$cmd" ]] || continue
+    while IFS="$SEP" read -r nev nm nhj; do
+      # 훅 오브젝트 전문(정규화 JSON)이 바이트 동일하고 event가 같아야 후보
+      [[ "$nev" == "$ev" && "$nhj" == "$hj" ]] || continue
       if matcher_covers "$om" "$nm"; then FOUND=1; break; fi
     done <<< "$NEW_R"
-    [[ "$FOUND" -eq 1 ]] || MISSING="$MISSING [$ev | ${om:-<all>} | $cmd]"
+    [[ "$FOUND" -eq 1 ]] || MISSING="$MISSING [$ev | ${om:-<all>}]"
   done <<< "$OLD_R"
   if [[ -n "$MISSING" ]]; then
-    deny "settings.json 배선 무력화 (event | matcher | command):$MISSING — 배선의 실행 도달성 축소는 게이트 약화 (INV-13)"
+    deny "settings.json 배선 무력화 (event | matcher):$MISSING — 훅 오브젝트의 실행 도달성 축소는 게이트 약화 (INV-13)"
   fi
   exit 0
 fi

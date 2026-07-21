@@ -52,15 +52,18 @@
   "security_criteria": [
     {
       "id": "SC-1",
-      "criterion": "settings.json의 훅 배선을 약화시키는 편집이 차단된다 — 기존 hooks 스크립트 집합이 신규 내용의 부분집합이 아니면 deny",
-      "rationale": "배선을 복원해도 배선 파일이 무방비면 동일 등급의 우회 경로가 남는다 — INV-7(안전장치 자기보호)의 직접 연장",
-      "design_decision": "내용 기반 검사로 확정(2026-07-20 사용자 결정). settings.json을 is_protected()의 전면 보호 목록에 넣지 않고, 배선 약화만 탐지하는 별도 arm을 둔다: 현재 파일의 hooks 스크립트 basename 집합 ⊄ 신규 내용의 집합이면 exit 2, 그 외 편집(env·permissions 등 무관 변경)은 통과. 채택 사유 — invariant-guard가 harness-config.json 임계값 비교·invariant-guard.sh 30% 축소 검사에서 이미 쓰는 '약화 탐지' 패턴과 일관되고, 설치된 프로젝트 사용자의 정당한 .claude/settings.json 편집에 마찰을 주지 않는다. 기각 — (a) basename 전면 보호: 마찰 과다, (b) 저장소 루트만 경로 매칭: 설치 후 라이브 배선이 무방비로 남아 갭의 절반만 닫힘.",
+      "criterion": "settings.json의 훅 배선의 **실행 도달성**을 축소하는 편집이 차단된다 — OLD의 각 훅 오브젝트(정규화 JSON)가 NEW에 보존되지 않으면 deny(default-deny). matcher는 포함관계 예외(확대 허용).",
+      "rationale": "배선을 복원해도 배선 파일이 무방비면 동일 등급의 우회 경로가 남는다 — INV-7(안전장치 자기보호)의 직접 연장. 나아가 '이름의 존재'가 아니라 '실행 도달성'을 지켜야 한다 — 집합 보존은 실행 보장이 아니다.",
+      "design_decision": "3회 evaluator 판정을 거쳐 default-deny 오브젝트 전문 비교로 확정. 초기 설계(basename 부분집합)를 사용자 확인 후 채택했으나, 세 판정이 연속으로 같은 실패 클래스를 실증했다: 1차 basename→미끼/matcher/hooks키이동, 2차 command전문→'true # ' 접두, 3차 (event,matcher,command)튜플→형제 필드(if·once·async·type). 인스턴스를 하나씩 닫는 방식이 세 번 실패한 뒤 접근을 뒤집었다 — 훅 오브젝트를 필드별로 비교하지 않고 **정규화 JSON 전체**를 비교한다. OLD의 각 (event, matcher, tojson(hook)) 행이 NEW에 event·오브젝트 동일하게 존재하고 matcher가 커버(⊇)하면 통과, 아니면 deny. 어떤 필드를 추가·변조·삭제하든 — 스키마에 없는 미래 벤더 필드까지 — 정규화가 달라져 default-deny. allowlist는 두지 않는다(빠뜨린 필드가 새 우회 표면). matcher만 포함관계 예외로 확대(|NotebookEdit 추가·삭제=전체매치)를 허용해 과잉 차단을 막는다.",
       "implementation_constraints": [
-        "jq/awk 부재 시 fail-closed — has_jq()/has_awk() 전역 게이트(F41·F51)와 동일 원칙. 파싱 불가 시 통과시키지 않는다",
-        "settings.json이 깨진 JSON이면 deny(ES-2) — 파싱 실패를 통과로 해석 금지",
-        "신규 파일 생성(기존 파일 없음)은 비교 대상이 없으므로 통과 — 단 이 경로가 우회로가 되지 않는지 테스트로 확인",
-        "부분집합 비교는 스크립트 basename 기준 — 경로·timeout 변경은 약화로 보지 않는다(AC-1이 별도로 대칭 검증)"
-      ]
+        "jq/awk 부재 시 fail-closed — has_jq()/has_awk() 전역 게이트(F41·F51)와 동일. jq+추출도구(head) 동시 부재도 fail-closed(2차 후속)",
+        "settings.json이 깨진 JSON이면 deny(ES-2)",
+        "신규 파일 생성(기존 파일 없음)은 비교 대상 없어 통과",
+        "구분자는 SOH(\\001) — 탭은 read의 whitespace라 빈 matcher에서 필드 병합으로 오탐(과잉 차단)을 낸다",
+        "저장소 CI 테스트(hook-wiring-parity.bats)와 런타임 가드는 같은 구조 앵커(.hooks 하위)를 재사용 — 설치 프로젝트엔 CI가 없어 약한 층이 실제 방어선이 된다",
+        "검증은 인스턴스 재현이 아니라 속성(스키마 전 필드 table-driven)으로 — N2 테스트가 command 유지 시 임의 형제 필드 추가를 전부 deny 확인"
+      ],
+      "iteration_note": "1차 pass(min 7)·2차 fail(min 6)·3차 fail(min 5). 3차가 열어둔 N2 형제 필드 클래스를 이 커밋(default-deny)이 닫았고, 3차 action_required 4항목(오브젝트 전체 비교·matcher 클래스 처리·SC-1 격상·프로브 assertion)을 모두 반영."
     },
     {
       "id": "SC-2",

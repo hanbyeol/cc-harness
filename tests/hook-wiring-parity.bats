@@ -118,7 +118,7 @@ setup() {
     wired_scripts "$PLUGIN_WIRING" | grep -qx "$s" \
       || { echo "allowlist가 오래됨: $s 는 $PLUGIN_WIRING 에 더는 배선되지 않습니다" >&2; return 1; }
     wired_scripts "$PROJECT_WIRING" | grep -qx "$s" \
-      && { echo "allowlist 모순: $s 가 $PROJECT_WIRING 에 배선되어 있으므로 제외 대상이 아닙니다" >&2; return 1; }
+      && { echo "allowlist 모순: $s 가 $PROJECT_WIRING 에 배선되어 있으므로 제외 대상이 아니다" >&2; return 1; }
   done
   return 0
 }
@@ -210,13 +210,13 @@ setup() {
 
 # ─── 무력화 벡터 회귀 ───
 #
-# 이 섹션은 두 차례의 evaluator 판정이 실증한 우회들을 잠근다. 중요한 것은 개별
+# 이 섹션은 세 차례의 evaluator 판정이 실증한 우회들을 잠근다. 중요한 것은 개별
 # 인스턴스가 아니라 **클래스**다 — 1차가 (a)(b)(c)를 찾았고, 그것들만 닫은 수정을
-# 2차가 `true # ` 접두 하나로 다시 뚫었다. 교훈: 실증된 인스턴스를 하나씩 닫는
-# 수정은 클래스를 닫지 못한다.
+# 2차가 `true # ` 접두로, 그마저 닫자 3차가 형제 필드로 다시 뚫었다. 교훈: 실증된
+# 인스턴스를 하나씩 닫는 수정은 클래스를 닫지 못한다.
 #
-# 현재 가드는 (event, matcher, **command 전문**)을 비교한다:
-#   - command 바이트 동일성 → 접두·주석·래퍼로 실행을 죽이는 모든 변형을 차단
+# 현재 가드는 (event, matcher, **훅 오브젝트 전문(정규화 JSON)**)을 비교한다:
+#   - 오브젝트 전문 바이트 동일성 → command 변조·형제 필드 추가/변조/삭제를 전부 차단
 #   - matcher는 동일성이 아니라 포함관계 → 확대(강화)는 허용, 축소·무력화는 차단
 
 @test "INV-13 무력화(a): 실제 배선을 지우고 미끼 문자열만 남기면 deny한다" {
@@ -286,5 +286,70 @@ setup() {
   run run_guard "$(mutate_guard_entry '.hooks.PreToolUse += [{
     "matcher":"Bash",
     "hooks":[{"type":"command","command":"bash \"x/new-hook.sh\""}]}]')"
+  [ "$status" -eq 0 ]
+}
+
+# ─── N2 클래스: 형제 필드 무력화 (F52 3차 evaluator) ───
+#
+# 2차를 통과한 (event, matcher, command) 튜플 비교를, 3차가 command를 그대로 둔 채
+# `if`·`once`·`async`·`type` 등 훅 오브젝트의 **형제 필드**를 변조해 다시 뚫었다.
+# 세 번째 같은 클래스 재발이다. 그래서 비교를 오브젝트 전문(정규화 JSON)으로 뒤집었다 —
+# command만이 아니라 훅 오브젝트 전체가 정규화 동일해야 통과한다.
+#
+# 아래는 인스턴스 열거가 아니라 **속성 검증**이다: command를 바이트 동일하게 유지한 채
+# 어떤 필드를 추가·변조하든 deny되어야 한다. 개별 필드는 공식 스키마
+# (claude-code-settings.schema.json)의 훅 오브젝트 필드에서 뽑았고, 스키마에 없는 필드까지
+# 포함해 '미래 벤더 필드도 default-deny'를 잠근다.
+
+# command를 유지한 채 첫 invariant-guard 훅 오브젝트에 필드 하나를 얹는 헬퍼
+add_sibling_field() {
+  mutate_guard_entry ".hooks.PreToolUse |= map(
+    if any(.hooks[]; .command | test(\"invariant-guard\"))
+    then .hooks[0] += $1
+    else . end)"
+}
+
+@test "INV-13 N2: command를 유지한 채 형제 필드를 얹으면 (스키마 전 필드) deny한다" {
+  # 실행을 좌우하는 스키마 필드 + 미래 벤더 필드. 하나라도 통과하면 클래스가 안 닫힌 것.
+  for f in '{"if":"Bash(zzz-never)"}' '{"once":true}' '{"async":true}' \
+           '{"asyncRewake":true}' '{"shell":"powershell"}' '{"args":[]}' \
+           '{"timeout":1}' '{"statusMessage":"x"}' '{"allowedEnvVars":[]}' \
+           '{"continueOnBlock":true}' '{"xYzFutureVendorField":"neuter"}'; do
+    run run_guard "$(add_sibling_field "$f")"
+    [ "$status" -eq 2 ] || { echo "형제 필드 $f 가 통과됨(클래스 미봉쇄)" >&2; return 1; }
+  done
+}
+
+@test "INV-13 N2: type을 prompt로 바꾸면 (command는 죽은 잔재) deny한다" {
+  run run_guard "$(mutate_guard_entry '.hooks.PreToolUse |= map(
+    if any(.hooks[]; .command | test("invariant-guard"))
+    then .hooks[0] = {"type":"prompt","prompt":"noop","command":.hooks[0].command}
+    else . end)')"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-13 N2: type 필드를 삭제하면 deny한다" {
+  run run_guard "$(mutate_guard_entry '.hooks.PreToolUse |= map(
+    if any(.hooks[]; .command | test("invariant-guard"))
+    then .hooks[0] |= del(.type)
+    else . end)')"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-13 과잉차단 방지: matcher 삭제(=전체매치)는 통과시킨다" {
+  # matcher 부재 = 모든 도구 매치 = widening. SOH 구분자 이전에는 빈 필드가
+  # 탭 병합으로 밀려 오탐 deny였다(회귀 잠금).
+  run run_guard "$(mutate_guard_entry '.hooks.PreToolUse |= map(
+    if any(.hooks[]; .command | test("invariant-guard"))
+    then del(.matcher)
+    else . end)')"
+  [ "$status" -eq 0 ]
+}
+
+@test "INV-13 과잉차단 방지: matcher 빈 문자열(=전체매치)도 통과시킨다" {
+  run run_guard "$(mutate_guard_entry '.hooks.PreToolUse |= map(
+    if any(.hooks[]; .command | test("invariant-guard"))
+    then .matcher = ""
+    else . end)')"
   [ "$status" -eq 0 ]
 }
