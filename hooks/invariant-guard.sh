@@ -227,20 +227,24 @@ if [[ "$BASENAME" == "settings.json" ]]; then
   # 막는 과잉 차단이 된다(2·3차 지적). 축소·무력화(NeverMatchXYZ 등)는 포함관계 위반으로 잡힌다.
   #
   # 종합: 이 검사가 지키는 것은 이름의 존재가 아니라 **실행 도달성**이다.
-  SEP=$(printf '\001')  # SOH — 탭은 read의 whitespace라 빈 matcher에서 필드가 밀린다(비-whitespace 구분자 필요)
-  # 훅 실행을 문서 레벨에서 죽이는 최상위 스위치. 훅 오브젝트를 아무리 정밀 비교해도
-  # 이건 오브젝트 **바깥**이라 안 걸린다 — F52 4차 evaluator가 disableAllHooks:true 하나로
+  #
+  # 훅 실행을 문서 레벨에서 죽이는 최상위 스위치. 훅 오브젝트를 아무리 정밀 비교해도 이건
+  # 오브젝트 **바깥**이라 안 걸린다 — F52 4차 evaluator가 disableAllHooks:true 하나로
   # invariant-guard 자신을 포함한 전 훅을 죽이며 우회했다. 배선(오브젝트)뿐 아니라 그 배선의
   # 문서 레벨 실행 도달성까지 봐야 한다. 이 목록의 완전성은 hook-wiring-parity.bats가 공식
   # 스키마의 hook 관련 boolean과 대조해 강제한다(새 스위치 추가 시 테스트 실패 → 등록 강제).
   HOOK_KILL_SWITCHES="disableAllHooks allowManagedHooksOnly"
+  # 각 배선을 [event, matcher, tojson(hook)] JSON 배열 한 줄로 추출한다 — 구분자·제어문자
+  # 불필요(jq -c가 개행 없는 한 줄을 보장하고, 필드는 아래에서 다시 jq로 뽑는다). 이전엔 탭·SOH
+  # 구분자를 썼으나 탭은 read의 whitespace라 빈 matcher에서 필드가 밀렸고 제어문자는 파일에
+  # 리터럴로 새는 문제가 있었다 — JSON 배열 라인이 둘 다 없앤다.
   wired_rows() {
-    jq -S -r '
+    jq -S -c '
       (.hooks // {}) | to_entries[] as $e
       | ($e.value // [])[] as $grp
       | ($grp.hooks // [])[] as $h
       | select($h | (.command // "") | test("\\.sh"))
-      | [$e.key, ($grp.matcher // ""), ($h | tojson)] | join("")
+      | [$e.key, ($grp.matcher // ""), ($h | tojson)]
     ' <<<"$1" 2>/dev/null | sort -u || true
   }
   # NEW matcher(nm)가 OLD matcher(om)를 커버하는가 (nm의 매치 집합 ⊇ om의 매치 집합).
@@ -262,19 +266,29 @@ if [[ "$BASENAME" == "settings.json" ]]; then
   NEW_R=$(wired_rows "$NEW_CONTENT")
   # (문서 레벨) OLD에 배선이 하나라도 있었으면, 그 배선을 통째로 죽이는 최상위 스위치를
   # off/부재 → on 으로 켜는 편집을 차단한다. OLD에 배선이 없으면 죽일 것도 없으므로 스킵.
+  # 값 강건화(F52 5차 evaluator, A3): jq -c로 타입을 보존하고 **false/부재만 off**로 본다 —
+  # disableAllHooks:1(숫자)·"true"(문자열) 같은 스펙 위반 truthy 값도 on으로 잡아 fail-closed.
+  # (문자열 "false"처럼 애매한 스펙 위반값도 보수적으로 on 취급해 차단한다.)
   if [[ -n "$OLD_R" ]]; then
     for __sw in $HOOK_KILL_SWITCHES; do
-      __o=$(jq -r --arg k "$__sw" '.[$k] // false' <<<"$(cat "$FILE")" 2>/dev/null || echo false)
-      __n=$(echo "$NEW_CONTENT" | jq -r --arg k "$__sw" '.[$k] // false' 2>/dev/null || echo false)
-      [[ "$__o" != "true" && "$__n" == "true" ]] \
-        && deny "settings.json 최상위 $__sw=true — 배선된 훅을 문서 레벨에서 전부 무력화 (INV-13)"
+      __o=$(jq -c --arg k "$__sw" '.[$k] // false' <<<"$(cat "$FILE")" 2>/dev/null || echo false)
+      __n=$(echo "$NEW_CONTENT" | jq -c --arg k "$__sw" '.[$k] // false' 2>/dev/null || echo false)
+      [[ "$__o" == "false" && "$__n" != "false" ]] \
+        && deny "settings.json 최상위 $__sw 켜짐(off→$__n) — 배선된 훅을 문서 레벨에서 전부 무력화 (INV-13)"
     done
   fi
   MISSING=""
-  while IFS="$SEP" read -r ev om hj; do
-    [[ -z "$ev" ]] && continue
+  while IFS= read -r __row; do
+    [[ -z "$__row" ]] && continue
+    ev=$(jq -r '.[0]' <<<"$__row" 2>/dev/null || echo "")
+    om=$(jq -r '.[1]' <<<"$__row" 2>/dev/null || echo "")
+    hj=$(jq -c '.[2]' <<<"$__row" 2>/dev/null || echo "")
     FOUND=0
-    while IFS="$SEP" read -r nev nm nhj; do
+    while IFS= read -r __nrow; do
+      [[ -z "$__nrow" ]] && continue
+      nev=$(jq -r '.[0]' <<<"$__nrow" 2>/dev/null || echo "")
+      nm=$(jq -r '.[1]' <<<"$__nrow" 2>/dev/null || echo "")
+      nhj=$(jq -c '.[2]' <<<"$__nrow" 2>/dev/null || echo "")
       # 훅 오브젝트 전문(정규화 JSON)이 바이트 동일하고 event가 같아야 후보
       [[ "$nev" == "$ev" && "$nhj" == "$hj" ]] || continue
       if matcher_covers "$om" "$nm"; then FOUND=1; break; fi
