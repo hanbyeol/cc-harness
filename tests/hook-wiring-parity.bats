@@ -353,3 +353,61 @@ add_sibling_field() {
     else . end)')"
   [ "$status" -eq 0 ]
 }
+
+# ─── 문서 레벨 도달성: 최상위 hook-kill 스위치 (F52 4차 evaluator) ───
+#
+# 오브젝트 default-deny(N2)를 통과한 뒤, 4차가 disableAllHooks:true 하나로 다시 뚫었다 —
+# 훅 오브젝트는 바이트 동일한데 최상위 boolean이 전 훅을 죽인다. "실행 도달성"은 훅 오브젝트가
+# 아니라 settings **문서 전체**의 속성이다(훅이 발화 = 배선됨 AND 최상위 스위치가 안 죽임).
+# 네 번째 같은 클래스 재발이라, 검증도 문서 레벨 속성으로 재구성한다.
+
+@test "INV-13 문서레벨: disableAllHooks:true를 켜면 deny한다" {
+  run run_guard "$(mutate_guard_entry '. + {disableAllHooks:true}')"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-13 문서레벨: allowManagedHooksOnly:true를 켜면 deny한다" {
+  run run_guard "$(mutate_guard_entry '. + {allowManagedHooksOnly:true}')"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-13 과잉차단 방지: 훅과 무관한 disable 스위치는 통과시킨다" {
+  # disableWorkflows/disableArtifact 등은 훅 실행과 무관 — 막으면 과잉 차단.
+  run run_guard "$(mutate_guard_entry '. + {disableWorkflows:true, disableArtifact:true}')"
+  [ "$status" -eq 0 ]
+}
+
+@test "INV-13 과잉차단 방지: disableAllHooks:false 명시는 통과시킨다 (off→off)" {
+  run run_guard "$(mutate_guard_entry '. + {disableAllHooks:false}')"
+  [ "$status" -eq 0 ]
+}
+
+@test "INV-13 완전성: HOOK_KILL_SWITCHES가 스키마의 hook-affecting boolean을 전부 덮는다" {
+  # 인스턴스 열거가 아니라 클래스 봉쇄의 핵심 — 가드의 하드코딩 목록이 공식 스키마의
+  # 'hook 실행에 영향을 주는 최상위 boolean' 전체와 일치해야 한다. 새 스위치가 스키마에
+  # 추가되면 이 테스트가 실패해 등록을 강제한다(F52 4차 evaluator). 스키마 파일이 없는
+  # 환경(CI 등)에서는 skip — 단, 조용한 통과가 아니라 명시적 skip.
+  SCHEMA=$(ls /Users/*/.vscode*/extensions/anthropic.claude-code-*/claude-code-settings.schema.json 2>/dev/null | sort -V | tail -1)
+  [ -n "$SCHEMA" ] && [ -f "$SCHEMA" ] || skip "claude-code settings 스키마 없음 — 완전성 검사 skip"
+
+  # 스키마에서 description에 'hook'을 언급하는 최상위 boolean = hook 실행 영향 스위치
+  SCHEMA_SET=$(jq -r '.properties | to_entries[]
+    | select(.value.type=="boolean")
+    | select((.value.description // "") | test("hook"; "i"))
+    | .key' "$SCHEMA" 2>/dev/null | sort)
+
+  # 가드의 하드코딩 목록
+  GUARD_SET=$(grep -oE 'HOOK_KILL_SWITCHES="[^"]*"' "$GUARD" | sed -E 's/.*="([^"]*)"/\1/' | tr ' ' '\n' | sort)
+
+  # 스키마의 각 스위치가 가드 목록에 있어야 한다 (가드가 스키마를 덮는가)
+  MISSING=""
+  while read -r sw; do
+    [ -z "$sw" ] && continue
+    grep -qxF "$sw" <<<"$GUARD_SET" || MISSING="$MISSING $sw"
+  done <<< "$SCHEMA_SET"
+  if [ -n "$MISSING" ]; then
+    echo "스키마에 hook-affecting boolean이 추가됐으나 HOOK_KILL_SWITCHES에 미등록:$MISSING" >&2
+    echo "invariant-guard.sh의 HOOK_KILL_SWITCHES에 추가하고 문서레벨 deny 테스트를 더하세요." >&2
+    return 1
+  fi
+}

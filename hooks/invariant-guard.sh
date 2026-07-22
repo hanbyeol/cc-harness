@@ -228,6 +228,12 @@ if [[ "$BASENAME" == "settings.json" ]]; then
   #
   # 종합: 이 검사가 지키는 것은 이름의 존재가 아니라 **실행 도달성**이다.
   SEP=$(printf '\001')  # SOH — 탭은 read의 whitespace라 빈 matcher에서 필드가 밀린다(비-whitespace 구분자 필요)
+  # 훅 실행을 문서 레벨에서 죽이는 최상위 스위치. 훅 오브젝트를 아무리 정밀 비교해도
+  # 이건 오브젝트 **바깥**이라 안 걸린다 — F52 4차 evaluator가 disableAllHooks:true 하나로
+  # invariant-guard 자신을 포함한 전 훅을 죽이며 우회했다. 배선(오브젝트)뿐 아니라 그 배선의
+  # 문서 레벨 실행 도달성까지 봐야 한다. 이 목록의 완전성은 hook-wiring-parity.bats가 공식
+  # 스키마의 hook 관련 boolean과 대조해 강제한다(새 스위치 추가 시 테스트 실패 → 등록 강제).
+  HOOK_KILL_SWITCHES="disableAllHooks allowManagedHooksOnly"
   wired_rows() {
     jq -S -r '
       (.hooks // {}) | to_entries[] as $e
@@ -254,6 +260,16 @@ if [[ "$BASENAME" == "settings.json" ]]; then
   }
   OLD_R=$(wired_rows "$(cat "$FILE")")
   NEW_R=$(wired_rows "$NEW_CONTENT")
+  # (문서 레벨) OLD에 배선이 하나라도 있었으면, 그 배선을 통째로 죽이는 최상위 스위치를
+  # off/부재 → on 으로 켜는 편집을 차단한다. OLD에 배선이 없으면 죽일 것도 없으므로 스킵.
+  if [[ -n "$OLD_R" ]]; then
+    for __sw in $HOOK_KILL_SWITCHES; do
+      __o=$(jq -r --arg k "$__sw" '.[$k] // false' <<<"$(cat "$FILE")" 2>/dev/null || echo false)
+      __n=$(echo "$NEW_CONTENT" | jq -r --arg k "$__sw" '.[$k] // false' 2>/dev/null || echo false)
+      [[ "$__o" != "true" && "$__n" == "true" ]] \
+        && deny "settings.json 최상위 $__sw=true — 배선된 훅을 문서 레벨에서 전부 무력화 (INV-13)"
+    done
+  fi
   MISSING=""
   while IFS="$SEP" read -r ev om hj; do
     [[ -z "$ev" ]] && continue
