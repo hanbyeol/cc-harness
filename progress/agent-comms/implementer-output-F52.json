@@ -1,77 +1,78 @@
 {
   "feature_id": "F52",
   "sprint": 38,
-  "timestamp": "2026-07-20T05:40:00Z",
+  "timestamp": "2026-07-22T14:30:00Z",
   "security_tier": "critical",
-  "mode": "serial",
-  "_mode_note": "계약의 _parallelizable:false대로 직렬. 단계 2·3이 settings.json↔invariant-guard.sh를 교차 참조하고 3이 1의 RED 결과에 의존.",
+  "title": "설치 경로 간 훅 배선 대칭 + INV-13 (5회 iteration)",
+  "final_commit": "7134e6a",
+  "summary": "cc-harness의 두 설치 경로(플러그인 hooks.json / init.sh settings.json) 훅 배선 비대칭을 해소하고, settings.json의 배선 무력화를 차단하는 INV-13을 신설했다. INV-13은 5회 iteration에 걸쳐 basename→command→오브젝트 전체→문서 레벨로 강화됐다 — 매 회전 독립 evaluator가 실제 우회를 재현했고 그에 맞춰 접근을 재구성했다.",
+  "commits": [
+    {
+      "sha": "18599eb",
+      "desc": "init.sh 경로 invariant-guard·pre-tool-firewall 배선 복원 (v1.31.0)"
+    },
+    {
+      "sha": "f3801d0",
+      "desc": "1차 후속 — 미끼/matcher무력화/hooks키이동 3종 봉쇄"
+    },
+    {
+      "sha": "3a8217d",
+      "desc": "2차 — command 변조 클래스(true# 접두)"
+    },
+    {
+      "sha": "3cb10c9",
+      "desc": "3차 — 오브젝트 전체 default-deny(형제 필드 클래스)"
+    },
+    {
+      "sha": "08561a4",
+      "desc": "4차 — 문서 레벨 도달성(disableAllHooks 최상위 스위치) + 스키마 완전성 대조"
+    },
+    {
+      "sha": "7134e6a",
+      "desc": "5차 후속 — A3 값 강건화(jq -c) + 제어문자 없는 JSON 배열 파싱"
+    }
+  ],
+  "final_design": {
+    "layers": [
+      "훅 오브젝트 전체 정규화(jq -S) default-deny — OLD의 각 훅이 NEW에 정규화 동일하게 보존돼야 통과. 어떤 필드 변조·미래 벤더 필드도 deny",
+      "matcher 포함관계 — 확대(|NotebookEdit·삭제=전체매치)는 강화로 허용, 축소·무력화는 deny",
+      "문서 레벨 kill-switch — OLD 배선 존재 시 disableAllHooks·allowManagedHooksOnly를 off→on으로 켜면 deny. 값 강건화(false/부재만 off)로 숫자 1·문자열 truthy도 차단",
+      "완전성 self-extension — HOOK_KILL_SWITCHES를 공식 스키마의 hook-affecting boolean과 대조하는 테스트로, 새 스위치 추가 시 CI 실패로 등록 강제",
+      "제어문자 없는 JSON 배열 라인 파싱 — 구분자 불필요"
+    ],
+    "core_lesson": "실증된 인스턴스를 하나씩 닫는 수정은 클래스를 닫지 못한다. 안전장치는 인스턴스가 아니라 클래스를 겨냥하고, 검증도 인스턴스 재현이 아니라 속성(스키마 구동 table-driven)으로 한다."
+  },
   "files_changed": [
-    {
-      "path": "tests/hook-wiring-parity.bats",
-      "change": "신규 — 배선 대칭 7 + INV-13 가드 음성 케이스 5 = 12 테스트"
-    },
-    {
-      "path": "settings.json",
-      "change": "invariant-guard.sh·pre-tool-firewall.sh PreToolUse 배선 추가 (hooks.json과 matcher·timeout 동일)"
-    },
-    {
-      "path": "hooks/invariant-guard.sh",
-      "change": "is_wiring_file() 신설 + has_jq/has_awk 게이트 조건 확장 + settings.json 배선 약화 탐지 arm (48줄 추가, 삭제는 게이트 2줄 치환뿐)"
-    },
-    {
-      "path": "docs/INVARIANTS.md",
-      "change": "INV-13 명문화 + 변경 이력"
-    },
-    {
-      "path": "init.sh",
-      "change": "훅 개수 로그를 하드코딩 5 → 루프 실측 HOOK_COUNT"
-    },
-    {
-      "path": "README.md",
-      "change": "테스트 수 523 → 535 (이번 변경이 유발한 드리프트, consistency 프로브가 탐지)"
-    }
+    "settings.json — invariant-guard·pre-tool-firewall 배선 복원",
+    "hooks/invariant-guard.sh — INV-13 settings.json 브랜치(오브젝트 default-deny + 문서레벨 kill-switch + 값 강건화)",
+    "tests/hook-wiring-parity.bats — 배선 대칭 7 + INV-13 런타임 가드 25(N1/N2/문서레벨/과잉차단/완전성)",
+    "docs/INVARIANTS.md — INV-13 명문화(오브젝트·문서 레벨 도달성) + 5-iteration 이력",
+    "scripts/probes/consistency.sh — min-of-5 문장 무결성 assertion(F52 중 sed 손상 사각지대)",
+    "init.sh — 훅 개수 로그 실측화",
+    "README.md — 테스트 수 555"
   ],
+  "security_self_check": {
+    "vectors_tested": 27,
+    "result": "실가드 직접 구동 27/27 정확 — 모든 실행-도달성 축소 편집 deny, 정당한 편집 allow",
+    "tool_deprivation": "jq 부재·awk 부재·jq+head 부재 모두 fail-closed (F41/F51 대칭, is_wiring_file 게이트)",
+    "control_chars": "0 (제어문자 없는 JSON 배열 라인 파싱)"
+  },
   "evidence": {
-    "red_confirmed": "bats tests/hook-wiring-parity.bats (수정 전) → 'not ok 3 ... settings.json에 배선 누락: invariant-guard.sh pre-tool-firewall.sh'. 나머지 6개 통과로 무차별 실패가 아님을 확인.",
-    "green": "동일 스위트 12/12 통과",
-    "full_regression": "bats tests/ → 535 통과 / 0 실패",
-    "probes": "scripts/probes/run-all.sh → C1(README 드리프트) 정정 후 consistency 프로브 [] 클린. C2는 선재 low 항목.",
-    "syntax": "bash -n hooks/invariant-guard.sh, bash -n init.sh 통과",
-    "guard_selfcheck": "invariant-guard.sh 편집 전후 deny 호출 18→20, 'exit 2' statement 3→3, 줄수 384→430 — 감소 없음(INV-7 자기보호 충족). git diff -U0 상 삭제된 줄은 게이트 조건 2줄뿐임을 확인.",
-    "inv13_behavior": [
-      "배선 제거 → exit 2 (deny)",
-      "무관한 env 키 추가 → exit 0 (allow, 과잉 차단 없음)",
-      "깨진 JSON → exit 2 (deny)",
-      "jq 부재 + settings.json → exit 2 (fail-closed)",
-      "대조군 jq 부재 + 비보호 파일 → exit 0 (가용성 우선 유지)",
-      "대조군 jq 부재 + feature_list.json → exit 2 (F41 기존 동작 무변경)"
-    ]
+    "final_regression": "bats tests/ 555 통과 / 0 실패 / 1 skip(무관한 v1.4.0 마이그레이션)",
+    "probes": "consistency 프로브 클린",
+    "1st_judge": "evaluator-feedback-2026-07-22T12-00-00.json — pass, min 7, security 7 (부모 08561a4 평가)",
+    "2nd_judge": "evaluator-feedback-2026-07-22T14-00-00.json — pass, min 8, security 8 (자식 7134e6a 평가, 42회 실가드 구동, A3 닫힘 반영)",
+    "f37_crosscheck": "두 독립 judge verdict 일치(pass/pass) → passes=true 전환 허용"
   },
-  "criteria_backfill": [
-    {
-      "item": "README 테스트 수",
-      "detail": "523 → 535. 이번 변경이 12개를 추가해 발생한 드리프트를 consistency 프로브가 탐지 → 즉시 정정."
-    },
-    {
-      "item": "계약 ES-4 문구",
-      "detail": "SC-1이 내용 기반으로 확정되면서 '매칭 방식 결정에 따라'라는 조건부 표현이 무의미해져 확정형으로 갱신."
-    }
-  ],
   "deviations": [
-    {
-      "from": "계약 step 3의 'tests/invariant-guard.bats에 음성 케이스 추가'",
-      "to": "tests/hook-wiring-parity.bats에 배치",
-      "reason": "구현 중 발견한 apply_replace RS 버그(→F53)로 .bats 파일은 Edit 경로가 막혀 있고(가드가 손상된 NEW_CONTENT에서 @test 감소를 오탐), 38K 파일을 Write로 전량 재작성하는 것은 전사 오류 위험이 크다. 신설 파일은 전체 내용을 보유해 안전하게 Write 가능하며 주제 응집도도 높다. 검증 강도 동일 — 음성 케이스 4종 전부 구현·통과."
-    }
+    "invariant-guard.sh 편집을 Edit이 아니라 Write로 반복 — F53(apply_replace RS 버그, macOS BSD awk 문단 모드)이 빈 줄 걸친 old_string을 손상시켜 Edit이 오탐 차단되기 때문. F53이 이 작업 내내 발목을 잡은 근본 결함으로, 다음 최우선 후속.",
+    "음성 케이스를 tests/invariant-guard.bats가 아니라 신설 tests/hook-wiring-parity.bats에 배치(계약 step 3) — 같은 F53 제약 + 주제 응집도. 검증 강도는 동일 이상."
   ],
-  "blocking_discovery": {
-    "id": "→ F53 후보",
-    "severity": "critical",
-    "summary": "apply_replace()가 RS=\"\\0\"를 쓰는데 macOS 기본 awk(BSD 20200816)는 이를 RS=\"\"(문단 모드)로 해석한다. 결과: 파일이 문단 단위로 쪼개져 레코드 간 빈 줄이 소실되고(실측 384→343줄), 빈 줄을 걸친 old_string은 매칭 자체가 실패해 NEW_CONTENT에 편집이 반영되지 않는다.",
-    "impact": "가드가 '변경이 없는 내용'을 검사하고 통과시키는데 Claude Code는 실제 편집을 적용한다. 증가를 탐지하는 검사(INV-10 emit_allow)에서 fail-open 실증 — pre-tool-firewall.sh에 emit_allow 백도어를 추가하는 페이로드가 exit 0으로 승인됐다. 감소를 탐지하는 검사(INV-5/6/7)는 손상이 카운트를 낮추는 방향이라 우연히 fail-closed지만, 오탐으로 정당한 편집을 막는다(invariant-guard.sh는 Edit 자체가 불가능해짐).",
-    "lineage": "F49(이스케이프)·F50(awk 실패)·F51(awk 부재)이 연달아 고친 apply_replace의 네 번째 결함이며, 앞선 셋이 모두 놓친 축(RS 시맨틱). 세 기능 모두 리눅스 CI(gawk)에서 검증돼 macOS 분기를 못 잡은 것으로 보인다.",
-    "fix_direction": "RS=\"\\0\" 대신 라인 버퍼 축적 `{buf = buf $0 ORS} END {...}`. 빈 줄을 걸친 치환이 정확히 동작함을 검증 완료. 이식성 있고 awk 구현에 무관.",
-    "note": "이 결함 때문에 F52의 invariant-guard.sh 변경은 Edit이 아니라 Write 경로로 적용했다(Write는 apply_replace를 타지 않아 가드가 진짜 내용을 검사한다)."
-  },
-  "passes_note": "implementer는 passes를 설정하지 않는다 (INV-1). 독립 evaluator 판정 필요 — security_tier critical이므로 evaluator + security-auditor 필수."
+  "follow_ups": [
+    "F53: apply_replace() RS=\"\\0\" macOS BSD awk 문단 모드 버그 — 라인 버퍼 축적으로 수정(검증 완료, 별도 기능)",
+    "low: 완전성 메타테스트 스키마 부재 시 skip(하드코딩 2스위치는 항상 집행 — 런타임 우회 아님)",
+    "low: 완전성 휴리스틱이 boolean+desc'hook' 기반 — 미래 non-boolean/'hook' 미언급 killer는 자동확장 탈출 가능(현재 스키마엔 미커버 없음)",
+    "AC-5(init.sh 훅 개수 로그)는 2차 judge가 이번 세션 미재검증 — 비보안 cosmetic, 이전 iteration 근거"
+  ],
+  "passes_note": "implementer는 passes를 설정하지 않는다(INV-1). 두 독립 judge pass 일치로 메인 루프가 F37 교차검증 후 전환한다."
 }

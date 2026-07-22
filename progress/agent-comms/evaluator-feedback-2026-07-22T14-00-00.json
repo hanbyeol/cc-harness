@@ -1,0 +1,111 @@
+{
+  "timestamp": "2026-07-22T14:00:00Z",
+  "sprint": 38,
+  "iteration": 5,
+  "commit": "7134e6a",
+  "features_evaluated": [
+    "F52"
+  ],
+  "security_tier": "critical",
+  "judge_role": "independent_2nd_judge",
+  "f37_crosscheck": {
+    "first_judge_file": "progress/agent-comms/evaluator-feedback-2026-07-22T12-00-00.json",
+    "first_judge_commit": "08561a4",
+    "first_judge_verdict": "pass",
+    "this_judge_commit": "7134e6a",
+    "this_judge_verdict": "pass",
+    "verdicts_agree": true,
+    "passes_transition_allowed": true,
+    "note": "F37 교차검증은 verdict(pass/fail) 일치로 게이트한다 — 둘 다 pass이므로 일치, 메인 루프가 passes=true 전환 가능. 나는 passes를 직접 set하지 않는다(판정만 기록). 1차는 부모 커밋 08561a4(A3 value-coercion·SOH separator 잔존)를 pass(min7/sec7)로 판정했고, 나는 그 두 follow-up을 닫은 자식 커밋 7134e6a를 독립 채점했다. 나는 1차 결론을 신뢰하지 않고 REAL 가드를 42회 직접 구동해 근거를 세웠다."
+  },
+  "scores": {
+    "functionality": 8,
+    "code_quality": 8,
+    "security": 8,
+    "error_handling": 8,
+    "test_coverage": 8
+  },
+  "score": 8,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "pass",
+  "fail_reasons": [],
+  "verdict_note": "독립 재현으로 pass. min-of-5=8 >= threshold 7, security 8 >= critical floor 7(auto-fail 해소). 1차와 verdict 일치(둘 다 pass). 점수 델타(나 8 vs 1차 7)는 충돌이 아니라 정합 — 1차가 security를 7로 묶은 근거(A3 value-coercion 잔존 + SOH 구분자 취약)를 이 커밋(7134e6a)이 둘 다 닫았고, 나는 그 폐쇄를 직접 실행으로 확인했다. 실증 가능한 스펙-유효 우회는 하나도 발견하지 못했다.",
+  "score_delta_vs_first_judge": "나=8, 1차=7. 1차가 평가한 08561a4는 disableAllHooks:1/\"true\"(A3)를 통과시켰고 파일에 SOH(0x01) 리터럴이 있었다. 7134e6a는 (a) kill-switch를 jq -c로 비교해 false/부재만 off로 보아 truthy/비-false 전부 deny, (b) SOH 구분자를 JSON-배열-라인으로 대체해 제어문자 0개. 개선된 커밋이 더 높은 점수를 받는 것은 일관적이며, F37 게이트는 verdict 일치로만 판정하므로 델타는 에스컬레이션 사유가 아니다.",
+  "independent_reproduction": {
+    "method": "REAL 가드 직접 구동 — echo <payload> | bash hooks/invariant-guard.sh. OLD는 init.sh 설치 형태를 모사한 wired settings.json(디스크), NEW는 Write tool_input.content. 1차 판정을 신뢰하지 않고 처음부터 재구성.",
+    "adversarial_vectors_total": 42,
+    "all_as_expected": true,
+    "core_denies_confirmed": [
+      "disableAllHooks:true/1(num)/\"true\"/0/[]/{}/\"false\" -> 전부 deny(2) — A3 value-coercion 폐쇄 확인",
+      "allowManagedHooksOnly:true -> deny(2)",
+      "N1 command 주석처리(true # ) -> deny(2)",
+      "N2 형제필드(once/if/async/type/timeout=0) 5종 -> 전부 deny(2)",
+      "matcher 무력화(NeverMatchXYZ)/축소(drop MultiEdit) -> deny(2)",
+      "invariant-guard 제거 / hooks->disabled_hooks 이동 / hooks={} -> deny(2)"
+    ],
+    "overblock_guards_confirmed_allow": [
+      "no-op / env 추가 / disableWorkflows(무관 스위치) / disableAllHooks:false / disableAllHooks:null(null//false=false) -> allow(0)",
+      "matcher 확대(+NotebookEdit) / matcher 삭제(=전체매치) / matcher 빈문자열 / 훅 추가 / 무관 matcher 확대 -> allow(0)",
+      "훅 미배선 settings.json(OLD_R 공집합) + disableAllHooks:true -> allow(0) — 죽일 배선이 없으므로 스킵(정당)"
+    ],
+    "axis2_new_probes": {
+      "row_injection_via_newline": "command 문자열에 개행+가짜 wired-row([...]) 삽입해 NEW_R에 스푸핑 행 주입 시도(P1) + invariant-guard 자기 command에 개행 삽입하며 narrow(P4) -> 둘 다 deny(2). tojson이 개행을 \\n으로 이스케이프해 jq -c가 항상 1줄 보장(직접 확인: newline 든 command도 wired_rows 출력 1줄) -> 행 오분할 불가.",
+      "special_chars": "backslash+bracket+newline command / unicode(é☃)+]  matcher 확대-추가 -> allow(0), 파싱 크래시 없음.",
+      "completeness_gate": "GUARD_SET == SCHEMA_SET == {allowManagedHooksOnly, disableAllHooks} (라이브 스키마 2.1.217, description에 'hook' 포함하는 최상위 boolean 정확히 2개). 완전성 메타테스트(bats ok 77)는 skip이 아니라 실제 실행됨 — 유일한 skip(1건)은 무관한 v1.4.0 마이그레이션 테스트."
+    },
+    "tool_deprivation_failclosed": "jq 부재 + settings.json Write -> deny(2); awk 부재 + settings.json Write -> deny(2); 둘 다 존재 + no-op -> allow(0). is_wiring_file()가 has_jq/has_awk 게이트에 포함되어 F41/F51 대칭 유지.",
+    "control_chars": "invariant-guard.sh 제어/SOH 바이트 0개(tab/newline 제외), SOH(0x01) count=0 — 5차 follow-up '구분자 제어문자 제거' 확인."
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1 settings.json invariant-guard 배선 + matcher 'Edit|Write|MultiEdit' + timeout 5 = hooks.json과 동일(직접 jq 대조)",
+      "AC-2 settings.json pre-tool-firewall 배선 + matcher 'WebFetch|WebSearch|NotebookRead|mcp__.*'(직접 확인)",
+      "AC-3 대칭 회귀 테스트 존재(hook-wiring-parity.bats) + 음성 케이스 포함 — settings.json↔hooks.json 스크립트 집합 차집합 = {setup-claudemd.sh}뿐",
+      "AC-4 의도적 제외 allowlist(setup-claudemd.sh, self-wipe 사유) — 유일한 차집합 원소로 확인"
+    ],
+    "security": [
+      "SC-1 실행 도달성 축소 편집 전면 차단 — 오브젝트 레벨(정규화 tojson 바이트동일) + 문서 레벨(kill-switch, value-coercion 강건화) + JSON-라인 파싱 견고성 모두 직접 실행으로 검증. 실증 가능한 우회 0건.",
+      "SC-2 완전성 메타테스트가 라이브 스키마와 일치 강제(GUARD_SET==SCHEMA_SET, ok 77 실제 실행)",
+      "SC-3 invariant-guard 자체 검사 + bats 전체 통과(555/0)",
+      "SC-4 INVARIANTS.md INV-13 명문화 + 변경 이력(2026-07-20) 존재"
+    ],
+    "error_scenarios": [
+      "ES-1 jq/awk 부재 -> fail-closed deny(조용한 통과 아님) 직접 확인",
+      "ES-2 깨진 JSON settings.json Write -> deny(2) 직접 확인"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "unverified_this_session": [
+    "AC-5 (init.sh '(N hooks)' 로그 실측 정정) — 이번 세션에서 로그 라인을 직접 재확인하지 못함(grep로 해당 echo 미발견, 동적 카운터로 대체됐을 가능성). 비보안 cosmetic이라 critical 게이트에 무관. 1차 판정과 이전 iteration 근거에 의존.",
+    "shellcheck 재실행 안 함(implementer 보고: SC2012 info 1건, 신규 경고 0) — 코드 품질 판정에 load-bearing 아님."
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "hardening_followups_non_blocking": [
+      "완전성 메타테스트는 스키마 파일 부재 환경(CI without VSCode ext)에서 명시 skip — 가드의 하드코딩 목록은 어디서든 2개 스위치를 계속 강제하므로 런타임 우회 아님(자기확장 메타체크만 휴면). low.",
+      "완전성 게이트가 'description에 hook 포함하는 top-level boolean' 휴리스틱에 의존 — 미래에 non-boolean이거나 description에 'hook'을 안 쓰는 kill-switch가 나오면 자기확장이 놓칠 수 있음(단 오늘 GUARD_SET==SCHEMA_SET). low, 헌팅 완전성 한계.",
+      "disableAllHooks:0/[]/{}/\"false\" 같은 스펙위반 값을 보수적으로 on 취급해 deny(과잉차단) — fail-closed 정방향이라 결함 아님. 정당한 오타 편집은 사람이 승인."
+    ],
+    "action_required": "none blocking — 위 3건은 hardening/heuristic-completeness 티어. 다음 iteration에서 여유 있을 때 검토 권장."
+  },
+  "process_note": {
+    "stale_implementer_output": "progress/agent-comms/implementer-output.json이 F52가 아닌 sprint37/F51을 기술(security_self_check도 F51 내용). F52 전용 implementer-output이 부재. 내 판정은 self-check 주장이 아니라 REAL 가드 42회 직접 구동에 근거(evidence over claims)하므로 verdict 불변 — 다만 추적성 위해 F52 implementer-output 기록 권장(비차단).",
+    "feature_list_state": "commit 7134e6a에서 F52 passes:false 유지 — F37 2차 재확인 전이라 정합. 나는 passes를 set하지 않음; 메인 루프가 두 판정(둘 다 pass) 대조 후 전환."
+  },
+  "escalation": "불요 — 1차/2차 verdict 일치(pass). 메인 루프는 passes=true 전환 진행 가능.",
+  "evidence": {
+    "guard_reproduction": "bash /scratchpad/f52_repro.sh -> DENY 19 + ALLOW 12 + ADVERSARIAL(P1-P4) 4 = 35/35 as-expected; wired_rows one-line guarantee = 1 line. bash /scratchpad/f52_toolgate.sh -> jq-absent deny(2), awk-absent deny(2), both-present no-op allow(0). AC-1/AC-2/ES-2 direct: hooks.json&settings.json invariant-guard timeout 둘 다 5, pre-tool-firewall matcher 'WebFetch|WebSearch|NotebookRead|mcp__.*', broken-JSON Write -> exit 2.",
+    "wiring_parity": "jq 대조 — settings.json .sh set == hooks.json .sh set (comm -23 차집합 = setup-claudemd.sh 단 1개 = 의도적 제외). settings.json 배선 스크립트 8개(invariant-guard, pre-tool-firewall 포함).",
+    "completeness": "라이브 스키마 /Users/hanbyeol/.vscode/extensions/anthropic.claude-code-2.1.217-.../claude-code-settings.schema.json — description에 'hook' 든 top-level boolean = {allowManagedHooksOnly, disableAllHooks} == HOOK_KILL_SWITCHES. bats 'INV-13 완전성' = ok 77(실행됨, skip 아님).",
+    "control_chars": "python3 바이트 스캔 — hooks/invariant-guard.sh 제어/SOH 바이트 0개(tab/newline 제외), SOH(0x01) 0개.",
+    "tests": "/tmp/bats-f52g.txt 파싱(재실행 안 함) — 555 ok / 0 not-ok / 1 skip(무관 v1.4.0 마이그레이션, line 533). INV-13 테스트 53~77 전부 ok.",
+    "_note": "모든 pass/fail 판정은 이 세션에서 직접 실행한 가드 구동·jq 대조·바이트 스캔·bats 파싱 결과에 고정. self-check 주장은 검증 대상으로만 취급하고 근거로 삼지 않음."
+  }
+}

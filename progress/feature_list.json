@@ -661,9 +661,9 @@
       "name": "설치 경로 간 훅 배선 대칭 — init.sh 경로 invariant-guard 배선 복원 + settings.json 자기보호 + 대칭 회귀 테스트",
       "description": "cc-harness는 두 설치 경로를 갖는다 — 플러그인 경로(hooks/hooks.json이 9개 스크립트 배선)와 init.sh 경로(루트 settings.json을 .claude/settings.json으로 복사, init.sh:612). 두 배선이 비대칭이어서 init.sh 경로로 설치한 프로젝트는 invariant-guard.sh와 pre-tool-firewall.sh 없이 동작한다. 두 스크립트는 init.sh:602-609가 .claude/hooks/로 복사하지만 settings.json에 배선이 없어 dead file이 된다(grep -c 'invariant-guard' settings.json → 0). 영향: invariant-guard 부재로 INV-1~INV-12 전체가 미집행 — passes:false→true 무단 전환(INV-11), pass_threshold 하향(INV-3), firewall deny 축소(INV-5), 안전장치 자기보호(INV-7), 도구 방화벽 allow 확장(INV-10)이 모두 차단되지 않는다. 부가 발견: settings.json 자체가 is_protected() 대상이 아니어서(grep -c 'settings.json' hooks/invariant-guard.sh → 0) 배선을 복원해도 배선 파일이 무방비인 동일 등급 우회 경로가 남는다 — INV-7의 직접 연장으로 함께 봉합한다. 근본 원인은 settings.json↔hooks.json 배선 대칭을 검증하는 테스트의 부재이며, F45가 is_protected↔INV-12에 확립한 양방향 파싱 대조 패턴을 배선에도 동일 적용해 재발을 차단한다. 결함 아닌 것(조사로 확인): setup-claudemd.sh 미배선은 self-wipe 방지를 위한 의도된 제외(init.sh:278,604)이고, egress 티어(F33)는 정상 배선된 pre-bash-firewall.sh에 있어 영향 없으며, pre-tool-firewall.sh는 allow 전용이라 부재 시 네이티브 프롬프트로 안전 degrade하는 편의 퇴행이지 보안 구멍이 아니다 — critical 등급은 invariant-guard 단일 요인에서 나온다.",
       "security_tier": "critical",
-      "status": "pending",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 5,
       "dependencies": [
         "F12",
         "F28",
