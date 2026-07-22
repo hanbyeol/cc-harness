@@ -67,6 +67,14 @@ is_wiring_file() {
 
 # old_string의 첫 출현을 new_string으로 치환한 전체 내용을 stdout으로.
 # 매치가 없으면 원본 그대로. (리터럴 치환 — 정규식 메타 영향 없음)
+#
+# 구현: 각 줄을 buf에 축적(RS 미사용)한 뒤 END에서 index()로 첫 출현을 치환한다.
+# 주의(F53): RS="\0"로 전체를 1레코드로 읽는 방식은 awk 구현마다 시맨틱이 다르다 — gawk는
+# NUL 구분(사실상 전체읽기)이지만 BSD one-true-awk는 RS="\0"를 RS=""(문단 모드)로 강등해
+# 파일을 빈 줄 경계로 쪼갠다. 그러면 빈 줄을 걸친 old_string이 매칭 실패하고(편집 미반영으로
+# false-deny·false-allow) 레코드 사이 빈 줄이 소실된다(실측 518→473줄). 라인 버퍼 축적은
+# RS에 의존하지 않아 awk 구현 독립적이다 — apply_replace의 네 번째 결함(F49~F51 계보)이라
+# awk 시맨틱 가정을 아예 제거했다. trailing newline은 호출부 $()가 정규화하므로 무해.
 # 주의(F49): o/n은 awk -v가 아니라 환경변수(ENVIRON[])로 전달한다 — POSIX awk의 -v 할당은
 # 문자열 리터럴처럼 백슬래시 이스케이프를 처리해, o/n에 백슬래시(이 코드베이스의 멀티라인
 # case문 line-continuation처럼 흔한 패턴)가 있으면 손상된다(로케일/멀티바이트 무관, 전
@@ -74,11 +82,12 @@ is_wiring_file() {
 apply_replace() {
   local __IG_OLD__="$2" __IG_NEW__="$3"
   __IG_OLD__="$__IG_OLD__" __IG_NEW__="$__IG_NEW__" awk '
-    BEGIN { RS="\0"; o=ENVIRON["__IG_OLD__"]; n=ENVIRON["__IG_NEW__"] }
-    {
-      idx=index($0,o);
-      if (idx>0) { printf "%s", substr($0,1,idx-1) n substr($0,idx+length(o)) }
-      else { printf "%s", $0 }
+    { buf = buf $0 ORS }
+    END {
+      o = ENVIRON["__IG_OLD__"]; n = ENVIRON["__IG_NEW__"]
+      idx = index(buf, o)
+      if (idx > 0) { printf "%s", substr(buf,1,idx-1) n substr(buf,idx+length(o)) }
+      else { printf "%s", buf }
     }
   ' <<<"$1" 2>/dev/null
   # 폴백 없음(F50): awk 실패 시 원본을 반환해 실패를 숨기지 않는다 — 함수의 종료 상태가

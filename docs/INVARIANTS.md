@@ -306,3 +306,12 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
   전부 미집행이었다. 배선 복원 + `is_wiring_file()` 신설(`is_protected()`와 분리 — 전면 차단이 아니라
   배선 축소만 탐지, `has_jq`/`has_awk` fail-closed 게이트에는 포함) + `tests/hook-wiring-parity.bats`
   양방향 대칭 회귀 테스트. sprint-38 F52)
+- 2026-07-22: apply_replace() awk 구현 독립성 (INV-7 자기보호 연장) — `RS="\0"`로 파일 전체를
+  1레코드로 읽는 방식이 awk 구현마다 다르다(gawk는 NUL 구분≈전체읽기, BSD one-true-awk는 `RS=""`
+  문단 모드로 강등). BSD awk에서 빈 줄을 걸친 old_string이 매칭 실패해 편집 미반영(false-deny 및
+  약화 편집 미탐지 false-allow)과 빈 줄 소실(실측 518→473줄)이 발생했다. **안전장치는 특정 awk 구현의
+  시맨틱을 가정하지 않는다** — apply_replace를 RS 미사용 라인 버퍼 축적(`{buf=buf $0 ORS} END{index로
+  치환}`)으로 재작성해 구현 독립성을 확보. F49(ENVIRON 이스케이프)·F50(실패 fail-closed)·F51(부재
+  게이트)은 회귀 없이 보존. apply_replace의 네 번째 결함이며, 셋 다 리눅스 CI(gawk)에서만 검증되고
+  기존 테스트가 전부 단일라인 old_string이라 놓쳤다 — 테스트에 빈 줄 픽스처를 잠가 다섯 번째를 막는다.
+  sprint-39 F53)

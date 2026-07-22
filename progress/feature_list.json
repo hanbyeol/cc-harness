@@ -670,6 +670,21 @@
         "F45"
       ],
       "assigned_sprint": 38
+    },
+    {
+      "id": "F53",
+      "name": "apply_replace() RS 문단 모드 버그 수정 — awk 구현 독립성",
+      "description": "hooks/invariant-guard.sh의 apply_replace()가 awk BEGIN{RS=\"\\0\"}로 파일 전체를 1레코드로 읽으려 하지만, macOS 기본 awk(BSD one-true-awk 20200816)는 이를 RS=\"\"(문단 모드)로 해석해 파일을 빈 줄 경계로 여러 레코드로 쪼갠다. 결과: (1) false-deny — 빈 줄을 걸친 old_string은 레코드 경계로 분할돼 index() 매칭 실패, NEW_CONTENT에 편집 미반영(F52 내내 invariant-guard.sh를 Edit할 수 없어 매번 전체 Write를 강요당한 근본 원인). (2) 내용 손상 — 레코드 사이 빈 줄 소실(실측 384→343줄). (3) false-allow(보안) — 매칭 실패로 NEW_CONTENT=OLD가 되면 증가 탐지 검사(INV-10 emit_allow 증가)에서 실제 편집이 반영 안 돼 우회가 통과(F52 조사 중 pre-tool-firewall.sh emit_allow 백도어 페이로드가 exit 0으로 승인됨을 실증). 근본 원인은 RS=\"\\0\"의 awk 구현별 시맨틱 차이(gawk는 NUL 구분≈전체읽기, BSD는 빈 문자열로 강등→문단 모드)이며, F49(이스케이프)·F50(awk실패)·F51(awk부재)에 이은 apply_replace의 네 번째 결함이다. 세 기능 모두 리눅스 CI(gawk)에서만 검증되고 기존 테스트가 전부 단일라인 old_string 또는 Write 경로라 이 분기를 놓쳤다. 수정: RS 미사용 라인 버퍼 축적({buf=buf $0 ORS} END{index로 첫 출현 치환})으로 awk 구현 독립성 확보. o/n은 ENVIRON[] 유지(F49), 폴백 없음 유지(F50), has_awk 게이트 유지(F51). 테스트에 빈 줄 포함 픽스처를 잠가 다섯 번째 결함을 막고, INVARIANTS.md에 'awk 구현 시맨틱 가정 금지'를 명문화한다.",
+      "security_tier": "critical",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F49",
+        "F50",
+        "F51"
+      ],
+      "assigned_sprint": 39
     }
   ]
 }

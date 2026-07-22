@@ -1,0 +1,37 @@
+{
+  "feature_id": "F53",
+  "sprint": 39,
+  "timestamp": "2026-07-22T11:45:00Z",
+  "security_tier": "critical",
+  "title": "apply_replace() RS 문단 모드 버그 수정 — awk 구현 독립성",
+  "mode": "serial",
+  "summary": "hooks/invariant-guard.sh의 apply_replace()를 RS 미사용 라인 버퍼 축적({buf=buf $0 ORS} END{index로 첫 출현 치환})으로 재작성해 awk 구현 독립성을 확보했다. 원래 RS=\"\\0\"는 BSD one-true-awk에서 RS=\"\"(문단 모드)로 강등돼 빈 줄 걸친 old_string 매칭 실패(false-deny·false-allow)와 빈 줄 소실을 일으켰다. F49(ENVIRON 이스케이프)·F50(실패 fail-closed)·F51(부재 게이트)은 회귀 없이 보존.",
+  "files_changed": [
+    "hooks/invariant-guard.sh — apply_replace() 함수 본문 라인 버퍼 재작성 + F53 주석",
+    "tests/apply-replace-f53.bats — 신규. 빈 줄 픽스처 7 테스트(치환·보존·원본·첫출현·false-allow·F49회귀·F50 fail-closed)",
+    "docs/INVARIANTS.md — apply_replace awk 구현 독립성 명문화 + 이력",
+    "README.md — 테스트 수 555→562"
+  ],
+  "evidence": {
+    "red_confirmed": "수정 전 apply_replace 직접 구동: 빈 줄 걸친 치환 실패(결과 'block AMIDDLEblock B'), no-op 빈 줄 5→1줄 손실. 실제 파일 no-op 518→473줄(45줄 손실).",
+    "green": "수정 후 apply_replace 직접 구동 6/6(빈줄 걸침·보존·원본·첫출현·F49·false-allow). tests/apply-replace-f53.bats 7/7 통과.",
+    "regression": "기존 F49(4)·F50(4)·F51(4) 전부 통과 — 회귀 없음. bats tests/ 562 통과 / 0 실패 / 실제 skip 1(무관 v1.4.0 캐시 부재).",
+    "edit_restore_smoke": "워킹트리 invariant-guard.sh를 직접 bash 구동 시 빈 줄 걸친 Edit 페이로드 → exit 0(허용). INVARIANTS.md에 빈 줄 포함 문단으로 이력 추가하는 실제 Edit 성공(F53 이후 첫 성공 Edit).",
+    "probes": "consistency 프로브 클린"
+  },
+  "acceptance_backfill": [],
+  "critical_note_execution_hook": {
+    "issue": "실행되는 PreToolUse 훅은 워킹트리가 아니라 플러그인 캐시본(${CLAUDE_PLUGIN_ROOT}/hooks/invariant-guard.sh = ~/.claude/plugins/cache/.../1.30.0/)이다. 이 세션에서 F53은 워킹트리에만 반영됐고 캐시본은 여전히 RS=\\0(버그)라, 이 세션의 실제 Edit 툴은 여전히 손상된다(그래서 tests/*.bats도 신규 파일 Write로 추가했다).",
+    "implication": "F52 내내 invariant-guard.sh Edit이 막힌 진짜 이유가 이것 — 워킹트리 수정이 실행 훅에 반영되지 않는다. F53의 Edit 복원 효과는 캐시본이 F53본으로 갱신될 때(plugin update / 릴리스) 실현된다.",
+    "verification_note": "evaluator는 워킹트리 소스(bash hooks/invariant-guard.sh)를 직접 구동해 검증하므로 캐시본 미반영은 판정에 영향 없다 — 판정 대상은 F53본이다. 캐시 동기화는 검증 정확성을 위해 의도적으로 하지 않았다(하네스 실행 상태 조작 회피).",
+    "follow_up": "F53 커밋 후 릴리스(버전 범프 + plugin update)로 캐시본 갱신 시 Edit 복원. 이번 세션에선 Write 우회 유지."
+  },
+  "deviations": [
+    "F53 테스트를 기존 tests/invariant-guard.bats(874줄)에 추가하지 않고 신규 tests/apply-replace-f53.bats로 분리 — 캐시본 apply_replace 버그로 기존 파일 Edit이 @test 개수 오판으로 막히기 때문(신규 파일은 invariant-guard의 신규 생성 면제로 통과). F52의 hook-wiring-parity.bats와 동일 패턴. 주제 응집도(apply_replace 전용)도 높음."
+  ],
+  "follow_ups": [
+    "릴리스: 버전 범프(1.31.0→1.32.0) + 커밋/푸시로 F53을 캐시본에 반영 → Edit 복원 완성",
+    "F52 5차 잔여 low(완전성 휴리스틱)는 별개 — F53 무관"
+  ],
+  "passes_note": "implementer는 passes를 설정하지 않는다(INV-1). security_tier critical → 독립 evaluator + 2차 judge(F37) 후 메인 루프가 전환."
+}

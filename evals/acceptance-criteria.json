@@ -79,6 +79,12 @@
       "contract": "progress/contracts/sprint-38.json",
       "security_tier": "critical",
       "summary": "두 설치 경로(플러그인 hooks.json / init.sh settings.json)의 훅 배선 비대칭 해소 — init.sh 경로에 invariant-guard.sh·pre-tool-firewall.sh 배선을 복원하고, 배선 파일인 settings.json 자체를 is_protected()에 편입해 배선 약화 경로를 닫으며, F45의 양방향 파싱 대조 패턴을 배선 대칭에 적용한 회귀 테스트로 재발을 차단한다. 이전까지 INV-1~INV-12는 플러그인 경로에서만 집행되고 있었다."
+    },
+    {
+      "feature_id": "F53",
+      "contract": "progress/contracts/sprint-39.json",
+      "security_tier": "critical",
+      "summary": "apply_replace()의 RS=\"\\0\" 문단 모드 버그 수정 — macOS BSD awk가 RS=\"\\0\"를 RS=\"\"(문단 모드)로 해석해 빈 줄 걸친 old_string 매칭 실패·빈 줄 소실을 일으켜 false-deny(보호파일 Edit 불가)와 false-allow(약화 편집 미반영으로 우회) 둘 다 발생. RS 미사용 라인 버퍼 축적으로 awk 구현 독립성 확보. F49(ENVIRON 이스케이프)·F50(실패 fail-closed)·F51(부재 게이트) 회귀 없이 보존. 빈 줄 픽스처를 테스트에 잠가 apply_replace의 다섯 번째 결함을 차단. INVARIANTS.md에 awk 시맨틱 가정 금지 명문화."
     }
   ]
 }
