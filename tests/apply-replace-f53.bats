@@ -90,3 +90,58 @@ _source_apply_replace() {
   PATH=/nonexistent-dir apply_replace "content" "old" "new" >/dev/null 2>&1 && rc=0 || rc=$?
   [ "$rc" -ne 0 ] || { echo "awk 실패인데 0 종료(fail-closed 깨짐)"; false; }
 }
+
+# --- 후속(F53 evaluator low): multibyte 픽스처 + live-hook end-to-end 회귀 ---
+# 양 judge가 남긴 non-blocking 후속을 영구 잠금으로 편입한다:
+#  (1) ko_KR.UTF-8(멀티바이트)에서 빈 줄 걸친 치환 — index/substr가 바이트/문자 경계에서
+#      안전한지(단일 awk 내 일관 단위)를 픽스처로 고정.
+#  (2) SC-1 false-allow 차단을 함수 레벨(위 테스트)뿐 아니라 **라이브 훅 end-to-end**로 잠근다.
+
+@test "F53: apply_replace가 멀티바이트(한글) old_string을 빈 줄 걸쳐 치환한다 (ko_KR.UTF-8)" {
+  _source_apply_replace
+  local content old new result
+  content=$(printf '한글 블록 가\n\n중간 나\n\n한글 블록 다\n')
+  old=$(printf '한글 블록 가\n\n중간 나\n\n한글 블록 다')
+  new="MB_REPLACED"
+  result=$(apply_replace "$content" "$old" "$new")
+  [[ "$result" == *"MB_REPLACED"* ]] || { echo "멀티바이트 빈 줄 걸친 치환 실패:[$result]"; false; }
+}
+
+@test "F53: apply_replace가 멀티바이트 no-op 시 한글·빈 줄을 완전 보존한다" {
+  _source_apply_replace
+  local content result
+  content=$(printf '설명 하나\n\n둘째 줄\n\n셋째 줄\n')
+  result=$(apply_replace "$content" "존재하지않는문자열" "")
+  [[ "$result" == "$content" ]] || { echo "멀티바이트 no-op 손상:[$result]"; false; }
+}
+
+# 라이브 훅을 Edit 페이로드로 구동한다 (함수 소스가 아니라 실제 PreToolUse 경로).
+_run_guard_edit() {
+  jq -n --arg f "$1" --arg o "$2" --arg n "$3" \
+    '{tool_name:"Edit",tool_input:{file_path:$f,old_string:$o,new_string:$n}}' | bash "$HOOK"
+}
+
+@test "F53: 라이브 훅이 빈 줄 걸친 deny 제거 편집을 deny한다 (SC-1 end-to-end 회귀)" {
+  # 미니 보호파일(basename invariant-guard.sh → is_protected)에서 빈 줄을 걸쳐 deny 블록을
+  # 제거하는 Edit. RS 문단 모드 버그가 재발하면 apply_replace 매칭 실패로 편집이 미반영돼
+  # deny_has_exit가 TRUE→TRUE(변화 없음)로 오판, 약화가 통과(exit 0 = false-allow)한다.
+  # 라인 버퍼 구현에선 실제 제거가 반영돼 deny(exit 2). 이 테스트가 그 회귀를 영구 잠근다.
+  local W rc old new
+  W=$(mktemp -d)
+  cat > "$W/invariant-guard.sh" <<'SH'
+deny() {
+  echo msg
+  exit 2
+}
+
+other() {
+  :
+}
+SH
+  old=$(printf 'deny() {\n  echo msg\n  exit 2\n}\n\nother() {\n  :\n}')
+  new=$(printf 'deny() {\n  echo msg\n}\n\nother() {\n  :\n}')
+  _run_guard_edit "$W/invariant-guard.sh" "$old" "$new" >/dev/null 2>&1 && rc=0 || rc=$?
+  rm -rf "$W"
+  [ "$rc" -eq 2 ] \
+    || { echo "빈 줄 걸친 deny 제거가 라이브 훅에서 deny되지 않음(false-allow 재발):rc=$rc"; false; }
+}
