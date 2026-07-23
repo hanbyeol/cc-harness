@@ -1,0 +1,103 @@
+{
+  "timestamp": "2026-07-23T10:15:00Z",
+  "sprint": 39,
+  "iteration": 1,
+  "commit_evaluated": "c00a4c8761f35e7af1ecef446569347ea3e2b8a5",
+  "features_evaluated": [
+    "F53"
+  ],
+  "security_tier": "critical",
+  "judge": "1st (independent); 2nd judge required before passes flip (F37 critical cross-check)",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 8,
+    "security": 9,
+    "error_handling": 8,
+    "test_coverage": 7
+  },
+  "score": 7,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "pass",
+  "fail_reasons": [],
+  "passes_transition": "DEFERRED — do NOT set feature_list passes:true yet. critical tier → requires independent 2nd judge (F37); if 2nd judge verdict agrees (pass), main loop flips passes. INV-11 machine-recheck will pass against this record (verdict=pass, 5 numeric dims, min-of-5=7 >= 7, security=9 >= critical 7).",
+  "issues": [
+    "[test] SC-1 라이브 훅(end-to-end) 빈 줄 걸친 false-allow 차단이 bats 스위트에 회귀로 잠기지 않음 — 신규 apply-replace-f53.bats test 5는 sourced apply_replace 레벨만 단언(라이브 훅 exit 2는 이 세션에서 evaluator가 differential로 직접 재현했으나 영구 회귀 테스트 없음). 기저 메커니즘(apply_replace 빈 줄 치환)은 test 1/2/5로, 카운트 비교는 기존 INV-7/INV-10 테스트로 커버되므로 실질 회귀 위험은 낮음 — minor.",
+    "[minor] 트레일링 개행 무해성이 호출부 $() 정규화에 암묵 의존한다(함수 주석에 문서화됨). 현재 3개 호출부(Edit/MultiEdit/no-op) 모두 $() 정규화 컨텍스트라 성립 — 재확인 완료. 향후 apply_replace를 $() 밖에서 직접 소비하는 호출부가 생기면 트레일링 개행 1개 차이가 샐 수 있음(계약이 아닌 호출 규약)."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1 빈 줄 걸친 old_string 정확 치환 (sourced + 라이브 differential Case A/B/C)",
+      "AC-2 no-op 시 빈 줄 보존 — 연속 다중 빈줄 바이트 동일 ($() 정규화)",
+      "AC-3 매치 없으면 원본 바이트 동일 반환 (실제 멀티바이트 invariant-guard.sh)",
+      "AC-4 첫 출현만 치환",
+      "AC-5 awk 구현 독립 — 함수 본문 RS 미사용(declare -f 확인) + RED 전제 재현(RS=\\0 → 2 records paragraph mode) + 버그본 differential"
+    ],
+    "security": [
+      "SC-1 false-allow 차단 — 버그본 vs 수정본 라이브 differential로 실증: 빈 줄 걸쳐 emit_allow 추가(INV-10)·exit 2 제거(INV-7) 편집을 버그본은 exit 0(false-allow), 수정본은 exit 2(deny)",
+      "SC-2 F49 무회귀 — 백슬래시-개행 continuation 치환·백슬래시/앰퍼샌드 new 축자 보존·라이브 F49 편집 허용 + bats F49 4테스트 통과",
+      "SC-3 F50/F51 무회귀 — awk 부재 시 보호파일 deny(2)·비보호 allow(0), sourced apply_replace awk 실패 시 non-zero(127) 전파",
+      "SC-4 INVARIANTS.md 명문화 — 2026-07-22 항목(RS 문단모드→라인버퍼, F49~F51 보존, sprint-39 F53)"
+    ],
+    "error_scenarios": [
+      "ES-1 awk 부재/실패 → fail_closed_on_apply_failure deny(2) (라이브 Case D)",
+      "ES-2 빈 old_string은 호출부 [[ -n \"$OLD_S\" ]] 필터로 apply_replace 미진입 (코드 확인, 회귀 없음)",
+      "ES-3 NUL 바이트 특수취급 없음 — bash 변수는 NUL을 보유 불가라 apply_replace 도달 불가(구조적 무해), 제어문자(탭) 스모크 무크래시",
+      "ES-4 파일 맨 끝 old_string 치환 + 트레일링 개행 보존"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "adversarial_probes": {
+    "summary": "라인 버퍼 재작성의 새 결함을 겨냥한 23종 sourced 프로브 + 5종 라이브 differential 케이스 전부 무결함.",
+    "no_new_defect_found": [
+      "멀티바이트(한글) ko_KR.UTF-8 로케일: index/length/substr가 단일 awk 내 동일 단위로 일관 → replace-middle·no-op 바이트 동일·빈줄 걸친 멀티바이트 old 전부 정확 (구조적으로 안전, 실측 확인)",
+      "정규식 메타(.* [ ] $ ( ) |) 리터럴 매칭 — 글로빙 없음",
+      "awk sub()의 `&`(전체매치) 미해석 — new='X&Y'가 축자 보존(index/substr는 리터럴이라 sub()보다 오히려 안전)",
+      "new_string의 백슬래시 축자 보존",
+      "old_string 파일 맨 앞/맨 끝/연속 빈 줄 걸침",
+      "트레일링 개행 흡수 주장을 실제 호출부 컨텍스트($())에서 검증 — no-op이 $(cat FILE)와 바이트 동일 + 줄 수 보존, 트레일링 개행 없는 입력도 정규화 후 동일",
+      "ORS 기본값(\\n)은 로케일 무관 — ko_KR.UTF-8에서 확인"
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "멀티바이트/로케일 무결성이 명시적 criterion으로 없음 — invariant-guard.sh 자체가 한글 주석(UTF-8)이라 apply_replace의 실제 상시 입력이 멀티바이트다. 이번에 안전 확인했으나 향후 apply_replace 회귀 방지 기준으로 멀티바이트 픽스처를 명문화 권고.",
+      "라이브 훅(end-to-end) 빈 줄 걸친 false-allow 차단에 대한 영구 bats 회귀가 없음(sourced 레벨만). 계약 SC-1은 '라이브 훅 exit 2 확인'을 요구하나 구현은 sourced 테스트로 인코딩 — 기준-테스트 정합 갭(minor)."
+    ],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "action_required": "다음 iteration 필수 아님(minor). 권고: (1) apply-replace-f53.bats에 멀티바이트 픽스처 + 라이브 훅 false-allow 회귀 1건 추가, (2) 계약-테스트 인코딩 정합 명시."
+  },
+  "criteria_issues": {
+    "backfill_reviewed": "implementer-output-F53.json acceptance_backfill=[] — 범위 확장/요건 완화 없음. criteria_backfill 이슈 0건.",
+    "count": 0
+  },
+  "harness_observations": [
+    {
+      "observation": "실행되는 PreToolUse invariant-guard 훅은 워킹트리가 아니라 플러그인 캐시본(${CLAUDE_PLUGIN_ROOT}, 1.30.0)이며 여전히 RS=\\0 버그본이다. F53은 워킹트리에만 반영 — 릴리스(버전 범프 + plugin update) 전까지 이 repo 세션의 실제 집행 가드는 버그본(빈 줄 걸친 false-allow 잔존).",
+      "scope": "F53 범위 밖 — 검증 대상은 워킹트리 F53 소스이고 evaluator는 워킹트리를 직접 구동해 판정하므로 판정 정확성에 무관.",
+      "impact": "구조적: 검증(워킹트리)과 집행(캐시본)의 배포 지연. 안전장치 수정은 커밋만으로 유효화되지 않고 릴리스+plugin update가 있어야 실제 가드에 반영된다. 이 창(window) 동안 invariant-guard 자신을 보호하는 라이브 가드가 스테일 버그본으로 동작.",
+      "implementer_choice": "implementer가 캐시 동기화를 의도적으로 하지 않음(하네스 실행 상태 조작 회피) — 검증 무결성 측면에서 올바른 보수적 선택.",
+      "follow_up": "F53 커밋 후 릴리스로 캐시본 갱신 시 라이브 false-allow 차단·Edit 복원이 실현. 이 배포 지연 자체를 별도 개선 후보로 기록(하네스 자기개선 스코프)."
+    }
+  ],
+  "calibration_notes": {
+    "false_positives_reviewed": "evals/calibration/false-positives.json의 F52 3종 교훈(인스턴스 vs 클래스, 화이트리스트 역전, 문서 보증 반증, projection 사각지대) 대조 완료.",
+    "class_vs_instance": "F53는 F49~F51에 이은 apply_replace 네 번째 결함이나, 수정이 결함의 축(RS 시맨틱 가정)과 동일한 축을 제거한다 — RS를 아예 안 쓰는 라인 버퍼로 재작성해 '구현 독립성' 클래스를 닫음(축을 넓힌 게 아니라 없앰). F52 guard-2 통과.",
+    "doc_claim_vs_impl": "INVARIANTS.md의 'awk 시맨틱 가정 금지' 보증을 함수 본문 RS 부재(declare -f)로 반증 시도 → 보증이 구현으로 뒷받침됨. F52 guard-3/5 통과.",
+    "projection_blind_spot": "index()/substr()는 토큰 추출 projection이 아니라 단일 리터럴 치환이라 접두/접미 조작 클래스에 무관 — 메타/백슬래시/앰퍼샌드/멀티바이트 적대 프로브로 재확인. F52 guard-4 무해."
+  },
+  "evidence": {
+    "env": "git HEAD=c00a4c8; awk=/usr/bin/awk BSD one-true-awk 20200816; locale LANG=ko_KR.UTF-8 LC_ALL=ko_KR.UTF-8 (멀티바이트)",
+    "red_premise": "printf 'A\\nB\\n\\nC\\nD\\n' | awk 'BEGIN{RS=\"\\0\"}{n++}END{print n}' → 2 (문단 모드 강등 재현, RS=\\0가 이 시스템에서 1레코드가 아님을 실증)",
+    "sourced_apply_replace": "source <(sed -n '/^apply_replace()/,/^}/p' hooks/invariant-guard.sh) 후 23종 적대 프로브: AC-1~5 + 멀티바이트 3 + 메타/백슬래시/앰퍼샌드 6 + 시작/끝/연속빈줄 3 + 트레일링개행 호출부 2 + ES-3/ES-4 → PASS=23 FAIL=0",
+    "live_differential": "버그본(RS=\\0 복원) vs 수정본(워킹트리) 라이브 invariant-guard.sh: Case A(pre-tool-firewall emit_allow 추가 빈줄걸침) 버그본 exit 0/수정본 exit 2; Case B(invariant-guard exit 2 제거 빈줄걸침) 버그본 exit 0/수정본 exit 2; Case C(실파일 양성 편집) 버그본 exit 2(false-deny)/수정본 exit 0; Case D(awk 부재) 보호 exit 2·비보호 exit 0, sourced apply_replace rc=127; Case E(F49 백슬래시 continuation 라이브) exit 0",
+    "bats": "/tmp/bats-f53.txt 파싱(재실행 안 함): ok=562 not_ok=0. apply-replace-f53.bats 7/7 ok(1~7), F49 회귀 4/4 ok(178~181)",
+    "invariants_md": "docs/INVARIANTS.md:309-317 — 2026-07-22 apply_replace awk 구현 독립성 항목(RS 문단모드→라인버퍼, F49~F51 보존, sprint-39 F53)",
+    "verify_scripts": "/private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/264c876f-efc7-48ce-b999-1b468757f7e6/scratchpad/verify_f53.sh, verify_live.sh"
+  }
+}
