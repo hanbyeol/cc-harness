@@ -685,6 +685,20 @@
         "F51"
       ],
       "assigned_sprint": 39
+    },
+    {
+      "id": "F54",
+      "name": "SubagentStop 훅으로 evaluator 실행 기계 검증 — INV-11 강화",
+      "description": "현재 INV-11(hooks/invariant-guard.sh)은 feature_list.json passes:false→true 전환 시 progress/agent-comms/evaluator-feedback-*.json의 파일 존재 + verdict/min-of-5/(critical이면)보안점수 내용만 기계 검증한다. 그 feedback 파일이 실제 독립 evaluator 서브에이전트 실행의 산출인지는 검증하지 못한다 — implementer나 메인 루프가 feedback JSON을 직접 위조해 passes를 전환할 수 있는 speed-bump 갭(F35가 신설한 INV-11의 알려진 한계). Claude Code 2.0.42+의 SubagentStop 훅(agent_id + agent_transcript_path 제공, matcher로 agent type ^cc-harness:evaluator$ 필터)을 배선해, evaluator 서브에이전트의 실제 실행을 **하네스(훅)가 캡처**한다(메인 루프가 못 쓰는 실행 기록 — Claude Code가 훅을 실행하므로). INV-11이 passes 전환 시 이 실행 기록과 feedback을 대조해, 'evaluator를 돌리지 않고 feedback만 위조한' 경로를 차단한다. 완전한 위조 방지는 self-referential 한계로 불가능(INVARIANTS 위협모델의 기존 전제) — 목표는 위조 난이도를 'feedback 파일 1개 작성'에서 '실제 evaluator 실행 + 기록 정합'으로 올리는 speed-bump 강화이며, 이 한계를 SPEC/INVARIANTS에 정직히 명문화한다(F38 과대주장 정정 교훈). 방어 수준(실행 존재 검사 vs transcript-feedback 정합)과 evaluator-runs 로그 보호 방식은 Plan 게이트에서 확정.",
+      "security_tier": "critical",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F35",
+        "F37"
+      ],
+      "assigned_sprint": 40
     }
   ]
 }

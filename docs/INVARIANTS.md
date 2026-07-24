@@ -114,6 +114,13 @@ Edit|Write|MultiEdit 시점에 결정론적으로 재검증한다:
 - 5차원 점수(`functionality`·`code_quality`·`security`·`error_handling`·`test_coverage`)가 완비되고
   **min-of-5 ≥ `pass_threshold`** (INV-2의 산술을 기계 재검증)
 - `security_tier: critical`이면 **`scores.security` ≥ `security_thresholds.critical`** (INV-4의 기계 재검증)
+- **evaluator 실행 기록(F54)**: 위 feedback 검증에 더해, SubagentStop 훅
+  (`hooks/subagent-evaluator-log.sh`, matcher `^cc-harness:evaluator$`)이 캡처한 evaluator 실행 로그
+  (`progress/agent-comms/evaluator-runs.jsonl`)에 **최근(≤48h, 시간창) 실행 기록이 하나 이상** 있어야 한다.
+  SubagentStop은 Claude Code가 실행하므로 메인 루프가 발화 자체를 위조할 수 없다 — feedback JSON만 작성하고
+  evaluator를 실제로 돌리지 않은 경로를 차단한다. 시간창은 신뢰 가능한 벽시계(NOW)와 훅이 기록한 정수 `epoch`로
+  판정한다 — 논리적·반올림된 feedback 파일명 타임스탬프(예: `T14-00-00`, 수동 지정)와 직접 순서 비교하면
+  flaky하므로 쓰지 않는다. 이 로그는 `is_protected()`로 append-only 보호된다(기존 라인 사후 삭제·변조 차단).
 
 `progress/contracts/sprint-*.json`의 `agreed:false→true` 전환도 비어있지 않은
 `acceptance_criteria`·`implementation_steps`를 전제한다(Plan 산출물 없는 합의 금지).
@@ -125,11 +132,16 @@ delete-then-recreate(파일 삭제 후 `passes:true`로 재생성)로 primary �
 막는다 — feature_list.json은 파일 부재 시에도 신규 생성 면제에서 제외되어, 없는 파일에 대한
 `passes:true` Write도 근거를 요구한다. 문자열 타입 점수(`"3"`)로 min-of-5를 가리는 우회도
 타입 검사로 fail-closed한다.
-**알려진 한계**: 가짜 evaluator-feedback 파일을 Write로 위조한 뒤 passes를 뒤집는 경로는
-텍스트 검사로 막을 수 없다(훅은 호출 주체를 구별하지 못한다) — 위조에는 그럴듯한 5차원
-점수·verdict가 필요하므로 문턱은 높아지지만, 위협 모델상 speed-bump다. Bash로
-feature_list.json을 직접 쓰는 우회는 firewall ASK(basename 앵커 — `progress//`·`cd progress`
-등 경로정규화 변종 포함)가 게이트하고, behavioral 프로브 코퍼스가 이 부류의 누출을 감시한다.
+**알려진 한계(정직히)**: F54가 위조 난이도를 '가짜 feedback 파일 1개 작성'에서 '최근 evaluator 실행이
+SubagentStop 훅에 캡처됨'으로 올렸지만 **완전 차단은 아니다**(self-referential 한계 — 검증 장치의 상태도
+결국 파일이다). evaluator-runs.jsonl도 파일이라, 위조자가 (a) 실제로 evaluator를 최근 돌렸거나(그러면
+위조할 이유가 없다) (b) 실행 로그에 그럴듯한 `epoch` 레코드를 직접 append하면 시간창 검사를 통과할 수 있다.
+(b)는 append-only 보호(기존 라인 사후 변조·삭제 차단)와 Bash firewall ASK(`progress/` 쓰기 게이트)가
+speed-bump로 막지만 append 자체를 원천 봉쇄하지는 못한다. 또한 시간창 검사는 per-feature 정밀 대응이
+아니다 — 같은 창(≤48h) 안의 정당한 evaluator 실행 1건이 다른 전환도 만족시킨다. 목표는 '완전 방지'가
+아니라 '위조 난이도 상향'이다(F38 과대주장 정정 교훈). Bash로 feature_list.json을 직접 쓰는 우회는
+firewall ASK(basename 앵커 — `progress//`·`cd progress` 등 경로정규화 변종 포함)가 게이트하고,
+behavioral 프로브 코퍼스가 이 부류의 누출을 감시한다.
 
 ### INV-12. 검증 장치·critical 후보는 무인 실행 불가
 `/improve --auto`(무인 배치 자기개선 루프, [ADR-006](DECISIONS/ADR-006-batch-approval-autonomy.md))는
@@ -137,7 +149,7 @@ feature_list.json을 직접 쓰는 우회는 firewall ASK(basename 앵커 — `p
 거친다(`progress/approval-queue.json`에 적립):
 - 검증 장치 파일: `harness-config.json`·`hooks/pre-bash-firewall.sh`·`hooks/pre-tool-firewall.sh`·
   `hooks/invariant-guard.sh`·`docs/INVARIANTS.md`·`hooks/hooks.json`·`agents/evaluator.md`·`feature_list.json`·
-  `tests/*.bats`·`skills/change-request/SKILL.md`·`skills/improve/SKILL.md`·`skills/hotfix/SKILL.md`
+  `evaluator-runs.jsonl`·`tests/*.bats`·`skills/change-request/SKILL.md`·`skills/improve/SKILL.md`·`skills/hotfix/SKILL.md`
 - `security_tier: critical`인 모든 후보
 
 이 목록은 `invariant-guard.sh`의 `is_protected()`(F41) 집합과 정합해야 한다 — 어느 한쪽에만 있는 파일은
@@ -315,3 +327,12 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
   게이트)은 회귀 없이 보존. apply_replace의 네 번째 결함이며, 셋 다 리눅스 CI(gawk)에서만 검증되고
   기존 테스트가 전부 단일라인 old_string이라 놓쳤다 — 테스트에 빈 줄 픽스처를 잠가 다섯 번째를 막는다.
   sprint-39 F53)
+- 2026-07-24: INV-11 강화 — evaluator 실행 기계 검증 (F54). SubagentStop 훅
+  (`subagent-evaluator-log.sh`, matcher `^cc-harness:evaluator$`)이 evaluator 서브에이전트 종료를
+  `evaluator-runs.jsonl`에 `{agent_id,timestamp,epoch,...}`로 캡처 — Claude Code가 실행하므로 메인 루프가
+  위조 불가. INV-11이 passes 전환 시 **최근(≤48h, 시간창) 실행 기록**을 신뢰 벽시계 NOW와 정수 epoch로
+  대조(논리적 feedback 타임스탬프 순서 비교는 flaky해 미채택). `evaluator-runs.jsonl`을 `is_protected()`+
+  INV-12 목록에 대칭 편입하고 전용 append-only 브랜치(OLD가 NEW의 접두 보존 + 라인 수 비감소)로 사후
+  변조 차단. 설치 경로 대칭(INV-13/F52)으로 `hooks.json`·`settings.json` 양쪽 배선. **한계 정직 명문화**:
+  완전 방지 아님(self-referential) — 위조 로그 append는 speed-bump로만 막히고 시간창은 per-feature 정밀
+  대응이 아니다. 목표는 '완전 차단'이 아니라 '위조 난이도 상향'(F38 과대주장 정정). sprint-40 F54)

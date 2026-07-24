@@ -36,6 +36,7 @@ is_protected() {
     hooks.json | \
     feature_list.json | \
     evaluator.md | \
+    evaluator-runs.jsonl | \
     *.bats)
       return 0 ;;
   esac
@@ -443,6 +444,31 @@ if [[ "$BASENAME" == "pre-tool-firewall.sh" ]]; then
   exit 0
 fi
 
+# === evaluator-runs.jsonl: evaluator 실행 로그 append-only 보호 (INV-11/F54) ===
+# 이 파일의 유일한 정당한 기록자는 SubagentStop 훅의 bash `>>`다 — Edit/Write/MultiEdit 도구가
+# 아니므로 invariant-guard를 애초에 경유하지 않는다(정상 기록은 이 브랜치에 도달조차 안 함).
+# 따라서 도구로 이 파일을 건드리는 것은 이미 캡처된 실행 기록의 삭제·타임스탬프 변조·재정렬
+# 시도로 본다: OLD 전체가 NEW의 접두(prefix)로 보존되고 라인 수가 줄지 않을 때만 허용(순수 append).
+# 한계(정직히): 위조된 실행 레코드를 새로 append하는 것 자체는 못 막는다(self-referential) —
+# 그러나 이미 기록된 실행의 사후 변조/삭제는 차단해 로그 신뢰도를 speed-bump로 올린다.
+if [[ "$BASENAME" == "evaluator-runs.jsonl" ]]; then
+  OLD_ALL=$(cat "$FILE" 2>/dev/null || echo "")
+  # 라인 수는 awk NR로 센다(grep -c는 빈 입력에서 "0" 출력 + exit1 → `|| echo 0` 이중출력 버그).
+  OLD_N=$(printf '%s' "$OLD_ALL" | awk 'END{print NR+0}' 2>/dev/null || echo 0)
+  NEW_N=$(printf '%s' "$NEW_CONTENT" | awk 'END{print NR+0}' 2>/dev/null || echo 0)
+  if [[ "$NEW_N" -lt "$OLD_N" ]]; then
+    deny "evaluator-runs.jsonl 라인 수 감소 ($OLD_N → $NEW_N) — evaluator 실행 로그는 append-only (INV-11/F54)"
+  fi
+  # OLD 전체가 NEW의 접두여야 한다(기존 라인 불변): head -n OLD_N NEW == OLD.
+  if [[ "$OLD_N" -gt 0 ]]; then
+    NEW_PREFIX=$(printf '%s' "$NEW_CONTENT" | head -n "$OLD_N" 2>/dev/null || echo "")
+    if [[ "$NEW_PREFIX" != "$OLD_ALL" ]]; then
+      deny "evaluator-runs.jsonl 기존 라인 변조/삭제/재정렬 — 실행 로그는 append-only(기존 라인 불변) (INV-11/F54)"
+    fi
+  fi
+  exit 0
+fi
+
 # === feature_list.json: passes 전환 근거 검증 (INV-11) ===
 # passes:false→true(신규·중복 id로 true 유입 포함)는 evaluator-feedback 근거가 있어야 한다:
 # 해당 id를 평가한 최신 레코드가 verdict pass, 5차원 완비, min-of-5 ≥ pass_threshold,
@@ -480,6 +506,36 @@ if [[ "$BASENAME" == "feature_list.json" && "$FILE" != *"/templates/"* ]]; then
       done < <(ls -1 "$COMMS_DIR"/evaluator-feedback-*.json 2>/dev/null | sort -r)
     fi
     [[ -z "$AUTH" ]] && deny "feature $fid passes:true 전환 근거 없음 — evaluator-feedback 레코드 부재. passes는 독립 evaluator 판정 후에만 (INV-1/INV-11)"
+    # === F54: evaluator 실행 기계 검증 — 실행존재 + 시간창 (INV-11 강화) ===
+    # AUTH(feedback)의 존재·내용만으로는 '실제 evaluator가 돌았는지' 알 수 없다 — 메인 루프가
+    # feedback JSON을 위조해 passes를 전환할 수 있다(F35가 남긴 알려진 갭). SubagentStop 훅
+    # (하네스가 실행하므로 메인 루프가 발화를 위조할 수 없다)이 캡처한 evaluator 실행 기록
+    # (evaluator-runs.jsonl)에, **최근(시간창 내)** 실행이 하나라도 있어야 passes 전환을 허용한다.
+    #
+    # 왜 feedback timestamp와 순서 비교(≤)를 쓰지 않는가: feedback 파일명 타임스탬프는 논리적·
+    # 반올림값(예: T10-15-00, T14-00-00 — 수동 지정)이라 벽시계 실행시각과 직접 비교하면 flaky하다.
+    # 대신 신뢰 가능한 벽시계 NOW와, 훅이 기록한 정수 epoch만 비교한다(정수 산술 — BSD/GNU date
+    # ISO 파싱차 무관). 이것이 사용자 승인 설계 'A: 실행존재 + 시간창'의 정합 구현이다.
+    # 한계(정직히): evaluator-runs도 파일이라 완전 방지는 불가(self-referential). 위조자가 실행
+    # 기록까지 위조하려면 실제 evaluator를 최근 돌렸거나(위조 무의미) 로그에 append해야 하는데,
+    # 후자는 append-only 보호(is_protected)와 firewall ASK가 speed-bump로 막는다. per-feature
+    # 정밀 대응은 아니다(최근 실행 1건이 같은 창의 다른 전환도 만족) — 위조 난이도 상향이 목표.
+    RUNS="$COMMS_DIR/evaluator-runs.jsonl"
+    F54_WINDOW=172800   # 48h — evaluator 실행 '최근성' 창. 다세션(장기) 작업 허용하되 수주 전
+                        # 스테일 실행은 배제. 창 상한은 미래 클럭스큐 1h 허용.
+    NOW_EPOCH=$(date +%s 2>/dev/null || echo 0)
+    RUN_OK=false
+    if [[ -f "$RUNS" && "$NOW_EPOCH" -gt 0 ]]; then
+      while IFS= read -r __re; do
+        [[ -z "$__re" ]] && continue
+        # 정수 epoch만 신뢰(F54 이전 레코드엔 epoch 부재 → 빈값 → 보수적 제외). 시간창 내면 OK.
+        if awk -v r="$__re" -v now="$NOW_EPOCH" -v w="$F54_WINDOW" \
+             'BEGIN{ if (r !~ /^[0-9]+$/) exit 1; exit !(r+0 >= now-w && r+0 <= now+3600) }'; then
+          RUN_OK=true; break
+        fi
+      done < <(jq -r '.epoch // empty' "$RUNS" 2>/dev/null)
+    fi
+    [[ "$RUN_OK" == "true" ]] || deny "feature $fid evaluator 실행 기록 부재 — SubagentStop이 캡처한 최근(≤48h) evaluator 실행이 없다. feedback만으로 passes 전환 불가 (INV-11/F54)"
     V=$(jq -r '.verdict // empty' "$AUTH" 2>/dev/null || echo "")
     [[ "$V" == pass* ]] || deny "feature $fid 최신 판정 verdict='$V' — pass 판정 없이 passes:true 불가 (INV-1/INV-11)"
     # 타입 검사 fail-closed: 문자열 점수("3")는 jq min에서 숫자보다 크게 정렬돼 최솟값을

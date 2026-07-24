@@ -1,0 +1,174 @@
+{
+  "sprint": 40,
+  "feature_id": "F54",
+  "title": "SubagentStop 훅으로 evaluator 실행 기계 검증 — INV-11 강화",
+  "security_tier": "critical",
+  "agreed": true,
+  "_agreed_note": "Plan 게이트(ExitPlanMode)에서 2026-07-24 사용자 승인 — 계획 ~/.claude/plans/wild-questing-clarke.md. 방어 수준 A+C 확정 후 승인.",
+  "problem": {
+    "summary": "INV-11(passes:false→true 전환의 기계 검증)은 evaluator-feedback JSON의 존재+내용만 본다. 그 파일이 실제 독립 evaluator 서브에이전트 실행의 산출인지는 모른다.",
+    "gap": "메인 루프나 implementer가 evaluator를 돌리지 않고 evaluator-feedback-*.json을 직접 위조하면(verdict:pass, min-of-5≥7, critical이면 security≥7), INV-11이 통과시켜 passes가 true로 전환된다. Generator-Evaluator 분리(INV-1)의 프롬프트 관례를 우회하는 경로.",
+    "evidence": "이번 세션에서 F52·F53 판정에 evaluator를 6번 수동 디스패치했다. 각 판정마다 feedback 파일이 생겼지만, INV-11은 '그 파일이 존재하고 내용이 맞다'만 검사할 뿐 '독립 evaluator가 실제로 그 판정을 내렸다'는 검증하지 못한다.",
+    "prior_art": "F35가 INV-11을 신설하며 '프롬프트 관례(INV-1/2/4)를 결정론적 집행으로 상향'했으나, 근거의 진위(evaluator 실제 실행)는 검증 범위 밖으로 남겼다. F54는 그 한 층을 더한다."
+  },
+  "fundamental_limit": {
+    "statement": "완전한 위조 방지는 불가능하다 — self-referential 보호의 한계(INVARIANTS 위협모델의 기존 전제). 하네스가 쓰는 실행 기록(evaluator-runs)도 결국 파일이라 이론상 조작 가능하다.",
+    "what_F54_achieves": "위조 난이도를 'feedback 파일 1개 작성'에서 '실제 evaluator 서브에이전트 실행이 하네스 훅에 캡처됨 + 그 기록과 feedback 정합'으로 올린다. SubagentStop 훅은 Claude Code가 실행하므로 메인 루프가 그 발화 자체를 위조할 수 없다 — 이것이 speed-bump를 실질 강화하는 핵심.",
+    "honesty_requirement": "SPEC·INVARIANTS에 이 한계를 정직히 명문화한다. F38(F13 과대주장 정정)의 교훈 — 'X를 완전 차단한다'가 아니라 'X의 난이도를 Y까지 올린다'로 기술."
+  },
+  "open_design_questions": [
+    {
+      "id": "SC-1 방어 수준",
+      "question": "SubagentStop 캡처와 feedback을 어느 강도로 대조할 것인가",
+      "options": [
+        "(A) 실행 존재 + 시간창: SubagentStop(evaluator)가 evaluator-runs.jsonl에 {agent_id, timestamp, transcript_path} append. INV-11은 passes 전환 시 '해당 feedback 파일 timestamp 직전에 evaluator 실행 기록 존재'를 검사. 위조하려면 evaluator를 최소 1회 돌려야(빈 실행이라도) → '아예 안 돌리고 위조' 차단. 구현 단순, transcript 파싱 없음.",
+        "(B) transcript-feedback 정합: SubagentStop이 agent_transcript_path를 파싱해 evaluator가 실제 Write한 evaluator-feedback 파일 경로를 추출 → evaluator-runs에 기록. INV-11은 passes 전환이 참조하는 feedback 파일이 '실제 evaluator가 쓴 파일'로 등록됐는지 검사. 위조하려면 evaluator가 그 내용을 실제로 쓰게 해야(정상 경로) → 임의 feedback 위조 차단. 강하지만 transcript(JSONL) 파싱이 필요하고 형식 의존.",
+        "(C) 하이브리드: A(존재+시간창) + evaluator-runs를 is_protected 편입(append-only, 라인 감소 차단)해 로그 자체 위조도 speed-bump."
+      ],
+      "resolution": "Plan 게이트에서 사용자 결정. 권장 시작점은 (A)+(C) — transcript 파싱(B)은 형식 취약성이 크므로 MVP 이후."
+    },
+    {
+      "id": "evaluator-runs 보호",
+      "question": "evaluator-runs.jsonl을 is_protected에 넣으면 SubagentStop 훅의 append와 위조 append를 구분 못 하는 딜레마",
+      "note": "훅(하네스)이 쓰는 파일을 invariant-guard가 검사하면, 정당한 append도 검사 대상. append-only(라인 수 비감소 + 기존 라인 불변)만 허용하면 훅 append는 통과하고 라인 삭제/변조는 차단. 완전하진 않으나 speed-bump. Plan에서 확정."
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "hooks.json에 SubagentStop 훅이 배선된다 — matcher는 evaluator agent type을 앵커(^cc-harness:evaluator$), 스크립트는 실행을 evaluator-runs.jsonl에 기록",
+      "verification": "jq로 hooks.json의 SubagentStop 항목 확인 + 훅 스크립트 존재. 설치 경로 대칭(F52/INV-13): settings.json에도 동일 배선"
+    },
+    {
+      "id": "AC-2",
+      "criterion": "SubagentStop 훅이 evaluator 종료 시 {agent_id, timestamp, transcript_path, session_id}를 progress/agent-comms/evaluator-runs.jsonl에 한 줄 append한다 (JSON per line)",
+      "verification": "훅에 모의 SubagentStop 입력(agent_id·agent_transcript_path 포함) 투입 → evaluator-runs.jsonl에 유효 JSON 라인 추가 확인"
+    },
+    {
+      "id": "AC-3",
+      "criterion": "evaluator가 아닌 agent type의 SubagentStop은 기록하지 않는다 (matcher 필터 정확)",
+      "verification": "matcher가 evaluator만 매치. 다른 agent(implementer 등) 종료는 evaluator-runs에 안 남음"
+    },
+    {
+      "id": "AC-4",
+      "criterion": "훅은 evaluator 판정 결과를 바꾸지 않는다 — 순수 기록(side-effect)이며 exit 0으로 evaluator 흐름에 개입하지 않는다",
+      "verification": "훅 실행이 evaluator 서브에이전트 종료·feedback 생성에 영향 없음"
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "INV-11이 passes:false→true 전환 시 evaluator-runs.jsonl의 실행 기록과 대조한다 — evaluator 실행 기록이 없으면(feedback만으로 전환) deny. evaluator-runs는 is_protected(append-only)로 보호한다.",
+      "rationale": "feedback 위조만으로 passes 전환하는 경로를 차단. Generator-Evaluator 분리(INV-1)의 결정론적 강화",
+      "design_decision": "A+C 확정(2026-07-24 사용자 결정). (A) 실행존재+시간창: SubagentStop(^cc-harness:evaluator$)이 evaluator-runs.jsonl에 {agent_id,timestamp,epoch,transcript_path,session_id} append. INV-11은 passes:false→true 전환 시 evaluator-runs에 '최근(≤48h 시간창) 실행 기록'이 하나 이상 있는지 검사 — 없으면 deny('evaluator 미실행'). (C) evaluator-runs.jsonl을 is_protected 편입 + append-only 검사(OLD가 NEW의 접두 보존 + 라인 수 비감소)로 로그 위조도 speed-bump. 기각 — (B) transcript-feedback 정합: JSONL 형식 의존이 Claude Code 버전 변경에 취약하고 파싱 복잡해 MVP 이후 backlog. (A만): evaluator-runs 미보호로 로그 위조 우회 여지.",
+      "_refinement_2026-07-24": "구현 중 기준 역전파: 초기 계획은 'AUTH(feedback 파일명) timestamp 이전(≤)의 실행 기록'을 요구했으나, 실제 feedback 파일명 타임스탬프가 논리적·반올림값(예: T10-15-00, T14-00-00 — 수동 지정)이라 벽시계 실행시각과 직접 순서 비교하면 flaky함을 발견. 사용자 승인 설계는 '실행존재 + 시간창'이므로, 신뢰 가능한 벽시계 NOW와 훅이 기록한 정수 epoch만 비교하는 '최근성 시간창(≤48h)'으로 구현 — 승인된 '시간창' 설계의 정합 구현이며 방향 전환이 아니다(agreed 유지). per-feature 정밀 대응이 아님은 fundamental_limit로 명문화.",
+      "verification": "evaluator-runs에 최근 기록 없이(부재/스테일>48h) passes:true 전환하는 feature_list Write → deny. 시간창 내 기록 있으면 통과. epoch 없는 레거시 레코드는 보수적 제외(deny). evaluator-runs Edit으로 라인 삭제/변조/재정렬 → deny(append-only). 훅 bash append는 미경유로 통과."
+    },
+    {
+      "id": "SC-2",
+      "criterion": "자기 참조 한계가 SPEC·INVARIANTS에 정직히 명문화된다 — '완전 차단'이 아니라 '위조 난이도를 실행+기록 정합으로 상향'. 과대주장 금지(F38)",
+      "rationale": "F13→F38의 교훈. 안전장치의 실제 보장 범위를 정확히 기술해 유지보수자를 오도하지 않는다"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "기존 INV-11 로직 회귀 없음 — feedback 존재+verdict+min-of-5+critical 보안점수 검사(F35)는 그대로, 실행기록 대조는 add-only 계층",
+      "rationale": "F35가 확립한 검증을 약화하지 않고 한 층 추가만",
+      "verification": "기존 INV-11 테스트(passes 전환 근거·verdict·min-of-5·critical security) 전부 통과"
+    },
+    {
+      "id": "SC-4",
+      "criterion": "설치 경로 대칭(INV-13/F52) — SubagentStop 배선이 hooks.json과 settings.json 양쪽에 대칭으로 존재. hook-wiring-parity 테스트 통과",
+      "rationale": "F52가 닫은 '한쪽 경로만 배선' 갭을 새 훅에서 재발시키지 않는다"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "SubagentStop 입력에 agent_transcript_path가 없거나 파일 부재",
+      "expected": "훅은 가용 필드만 기록하고 exit 0 — evaluator 흐름 방해 없음. transcript 없어도 agent_id+timestamp는 기록"
+    },
+    {
+      "id": "ES-2",
+      "scenario": "evaluator-runs.jsonl 부재(첫 실행) 또는 디렉토리 없음",
+      "expected": "훅이 파일·디렉토리를 생성하고 append"
+    },
+    {
+      "id": "ES-3",
+      "scenario": "jq 부재 상태에서 INV-11의 실행기록 대조",
+      "expected": "기존 has_jq fail-closed(F41)와 정합 — jq 없으면 보호파일(feature_list) 편집 차단이 선행하므로 대조 지점 도달 전 이미 fail-closed"
+    },
+    {
+      "id": "ES-4",
+      "scenario": "SubagentStop 훅 스크립트 자체 실패(권한·문법)",
+      "expected": "evaluator 서브에이전트 종료를 막지 않음 — 기록 실패는 로그만, evaluator 흐름 비차단. 단 기록 부재 시 이후 passes 전환이 SC-1으로 차단될 수 있음(보수적)"
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": "1. SubagentStop 훅 스크립트 신설(hooks/subagent-evaluator-log.sh) — stdin JSON에서 agent_id·agent_transcript_path·session_id 추출, {agent_id,timestamp,transcript_path,session_id}를 progress/agent-comms/evaluator-runs.jsonl에 한 줄 append. 파일·디렉토리 부재 시 생성. 항상 exit 0(비차단). matcher가 evaluator만 매치하므로 스크립트는 agent type 재확인 불요하나 방어적으로 확인",
+      "verify": "모의 SubagentStop 입력(agent_id+transcript_path) 투입 → evaluator-runs.jsonl에 유효 JSON 라인. jq -c로 파싱 확인. exit 0",
+      "done": true,
+      "covers": [
+        "AC-2",
+        "AC-4",
+        "ES-1",
+        "ES-2",
+        "ES-4"
+      ]
+    },
+    {
+      "step": "2. hooks.json + settings.json에 SubagentStop 배선(matcher ^cc-harness:evaluator$) — 설치 경로 대칭(F52/INV-13). hook-wiring-parity.bats가 두 배선 대칭을 강제하므로 양쪽 동시",
+      "verify": "jq로 hooks.json·settings.json의 SubagentStop 항목 확인. bats tests/hook-wiring-parity.bats 통과(신규 스크립트 대칭)",
+      "done": true,
+      "covers": [
+        "AC-1",
+        "AC-3",
+        "SC-4"
+      ]
+    },
+    {
+      "step": "3. invariant-guard INV-11 강화 — passes:false→true 전환하는 각 feature의 AUTH(최신 feedback) timestamp 이전에 evaluator-runs.jsonl 실행 기록 존재 검사. 없으면 deny. 기존 F35 로직(존재·verdict·min-of-5·critical security)은 그대로 앞단에 유지(add-only)",
+      "verify": "evaluator-runs 없이 passes 전환 Write → deny. 기록 있으면 통과. 기존 INV-11 테스트 무회귀",
+      "done": true,
+      "covers": [
+        "SC-1",
+        "SC-3",
+        "ES-3"
+      ]
+    },
+    {
+      "step": "4. evaluator-runs.jsonl을 is_protected 편입 + append-only 검사(OLD 라인 부분집합 보존 + 라인 수 비감소). 훅 bash append(>>)는 invariant-guard(Edit/Write) 미경유라 통과, Edit/Write로 라인 삭제·변조는 deny",
+      "verify": "evaluator-runs Edit으로 라인 삭제 → deny. append(라인 추가) → 통과",
+      "done": true,
+      "covers": [
+        "SC-1"
+      ]
+    },
+    {
+      "step": "5. INVARIANTS.md 명문화 — INV-11 확장(실행기록 대조 계층) + self-referential 한계 정직 기술('완전 차단'이 아니라 '위조 난이도 상향'). 변경이력. is_protected↔INV-12 대칭(F45)에 evaluator-runs 추가 시 대칭 유지",
+      "verify": "문서-구현 정합. bats invariant-guard.bats의 F45 대칭 테스트 통과",
+      "done": true,
+      "covers": [
+        "SC-2"
+      ]
+    },
+    {
+      "step": "6. 전체 회귀 — bats tests/ + probes/run-all.sh 1회. F35(기존 INV-11)·F45(대칭)·F52(배선 대칭) 무회귀 확인",
+      "verify": "bats tests/ 전체 통과 + probes 클린 (1회 실행, 재실행 금지)",
+      "done": true,
+      "covers": [
+        "SC-3",
+        "SC-4"
+      ]
+    }
+  ],
+  "_parallelizable": false,
+  "_parallel_note": "step 3·4가 같은 invariant-guard.sh를 수정하고 3이 1·2(evaluator-runs 생성 경로)에 의존 — 직렬.",
+  "dependencies": [
+    "F35",
+    "F37"
+  ],
+  "_dependency_note": "F35(INV-11 신설)의 직접 연장 — passes 전환 검증에 실행기록 층 추가. F37(critical 2차 판정 코퍼스)과 정합 — evaluator 실행 캡처가 2차 판정 추적에도 쓰인다.",
+  "verification_tier": "critical",
+  "_tier_note": "security_tier critical — passes 게이트 무결성. evaluator + 독립 2차 judge(F37). hotfix 금지(F48). 단 이 기능 자체가 evaluator 검증 인프라라, 자기 검증에 순환 주의(evaluator로 F54를 판정하되 F54는 아직 미배선이므로 순환 없음)."
+}

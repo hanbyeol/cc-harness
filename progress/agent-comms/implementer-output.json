@@ -1,36 +1,37 @@
 {
-  "timestamp": "2026-07-07T09:45:00Z",
-  "sprint": 37,
-  "scope": "F51",
-  "features_implemented": [
-    "F51"
-  ],
+  "feature_id": "F54",
+  "sprint": 40,
+  "title": "SubagentStop 훅으로 evaluator 실행 기계 검증 — INV-11 강화",
+  "security_tier": "critical",
+  "timestamp": "2026-07-25T00:00:00Z",
+  "summary": "SubagentStop(^cc-harness:evaluator$) 훅을 신설·배선(hooks.json+settings.json 대칭)해 evaluator 서브에이전트 실행을 evaluator-runs.jsonl에 {agent_id,timestamp,epoch,transcript_path,session_id}로 캡처. INV-11이 passes:false→true 전환 시 '최근(≤48h 시간창) 실행 기록'을 신뢰 벽시계 NOW와 정수 epoch로 대조 — feedback만으로 passes를 뒤집는 경로를 차단. evaluator-runs.jsonl은 is_protected+append-only로 사후 변조 차단. self-referential 한계를 INVARIANTS.md에 정직히 명문화.",
+  "design_decision": "A(실행존재+시간창) + C(로그 append-only 보호). 기준 역전파: 초기 계획의 'feedback 파일명 timestamp 이전(≤)' 순서 비교는 feedback 파일명이 논리적·반올림값이라 flaky함을 구현 중 발견 → 승인된 '시간창' 설계를 신뢰 벽시계 NOW vs 정수 epoch의 최근성 창(≤48h)으로 구현. (B) transcript 파싱은 형식 취약성으로 backlog.",
   "files_changed": [
-    "hooks/invariant-guard.sh (has_awk() 함수 추가, FILE 확정 직후·TOOL 디스패치 직전에 블랭킷 fail-closed 게이트 삽입)",
-    "tests/invariant-guard.bats (_noawk_run 셰임에 ls·sort 추가 — F51-4 검증을 위해 awk만 정확히 격리, F51 신규 4개 테스트: harness-config.json/feature_list.json Write 경로 awk부재→deny, 비보호→통과, awk정상 컨트롤)",
-    "README.md (테스트 수 519→523 정정)"
-  ],
-  "iteration": 1,
-  "tdd": "3개 신규 테스트 작성 후 실행 → RED 1건만 확인(harness-config.json 케이스), feature_list.json 케이스는 예상과 다르게 이미 GREEN — 원인 조사 결과 기존 _noawk_run 셰임에 `sort`가 빠져 있어 INV-11의 evaluator-feedback 파일 탐색(`ls | sort -r`) 자체가 실패해 '근거 없음'으로 deny된 것(내가 테스트하려던 awk 비교 버그와 다른 경로로 우연히 deny됨) — 셰임에 ls·sort 추가해 awk만 정확히 격리되도록 수정 후 재실행하니 진짜 RED(2건) 확인. has_awk() + 블랭킷 게이트 추가 → 4개 전부 GREEN.",
-  "security_self_check": {
-    "checklist_items": 4,
-    "checklist_passed": 4,
-    "notes": "(1) has_jq() 블록과 완전 동일한 스타일·판정 기준(보호 파일 fail-closed, 비보호 가용성 우선). (2) TOOL 종류(Write 포함) 무관하게 FILE 하나로 판정 — F50이 남긴 Edit/MultiEdit 전용 갭을 닫음. (3) 기존 weakening-check 로직 자체는 무변경, 게이트 추가만. (4) F50의 fail_closed_on_apply_failure()와 중복 아님 — has_awk()는 완전부재, F50 메커니즘은 존재하되 런타임 실패를 각각 커버, 순서상 has_awk() 게이트가 먼저 걸리므로 실질적으로는 F50 케이스도 이 게이트에서 먼저 잡히지만 결과(exit 2)는 동일해 회귀 없음."
-  },
-  "error_scenarios_tested": [
-    "awk 부재 + Write로 harness-config.json pass_threshold 하향 → deny(exit 2, security-auditor C1 재현 고정)",
-    "awk 부재 + Write로 feature_list.json 미달점수(min-of-5=3) feature passes:true 주입 → deny(exit 2, security-auditor D 재현 고정)",
-    "awk 부재 + 비보호 파일 Write → exit 0(가용성 유지)",
-    "awk 정상 + 기존 정상 편집 → 회귀 없음"
+    "hooks/subagent-evaluator-log.sh (신규) — SubagentStop 훅, evaluator 실행 기록 append, 항상 exit 0(비차단), epoch 정수 기록",
+    "hooks/hooks.json — SubagentStop 배선 (matcher ^cc-harness:evaluator$)",
+    "settings.json — SubagentStop 대칭 배선 (INV-13/F52)",
+    "hooks/invariant-guard.sh — is_protected()에 evaluator-runs.jsonl 편입 + INV-11 시간창 대조 로직 + evaluator-runs append-only 전용 브랜치",
+    "docs/INVARIANTS.md — INV-11 확장(실행기록 계층) + self-referential 한계 정직 명문화 + INV-12 목록 대칭 추가 + 변경이력",
+    "tests/invariant-guard.bats — evrun() 헬퍼 + F54 시간창/append-only 테스트 9건 + 기존 allows 테스트 3건에 evrun 보강(회귀 방지)",
+    "tests/subagent-evaluator-log-f54.bats (신규) — SubagentStop 훅 단위 테스트 7건",
+    ".claude-plugin/plugin.json — hooks 9→10 정정 (consistency)",
+    "README.md — hooks 9→10 (4곳) + SubagentStop 훅 행 추가 + 테스트 565→581 정정",
+    "progress/contracts/sprint-40.json — 구현 스텝 done + SC-1 정련 기록",
+    "progress/feature_list.json — F54 (passes:false 유지 — evaluator 판정 대기)"
   ],
   "evidence": {
-    "tests": "bats tests/*.bats — 523 passed, 0 failed (519 기존 + F51 신규 4)",
-    "lint": "shellcheck hooks/invariant-guard.sh — 기존과 동일(SC2012 info 1건, 신규 경고 0)",
-    "consistency_probe": "scripts/probes/consistency.sh 실행 → [] (README 테스트 수 드리프트 해소 후)"
+    "bats_full": "581/581 통과 (초기 2건 실패 → 수정: test 160 delete-then-recreate에 evrun 보강, plugin.json hooks 9→10). 수정 파일만 타깃 확인 0 실패.",
+    "f54_tests": "INV-11 시간창: 부재→deny, 스테일>48h→deny, 창내(47h)→allow, epoch부재→fail-closed(deny). append-only: append→allow, 삭제/변조/재정렬→deny. 훅 단위: agent_id+epoch 기록·exit 0·non-evaluator 필터·transcript부재 기록·malformed 비차단·JSONL 유효.",
+    "direct_probe": "실제 invariant-guard.sh 직접 구동으로 시간창 deny/allow + append-only deny/allow 실증(모의 SubagentStop 입력·모의 passes 전환).",
+    "probes": "scripts/probes/run-all.sh 클린 — F54 유발 drift(hooks count·test count·훅↔테스트 매핑) 전부 해소. 남은 1건은 기존 F53 백로그(a58b750에서 이미 해결, F54 무관).",
+    "shellcheck": "info만(SC1091 sourced-lib·SC2012 기존 라인) — 전 훅 공통, CI 통과 수준.",
+    "hook_wiring_parity": "hook-wiring-parity.bats 통과 — SubagentStop이 hooks.json·settings.json 양쪽 대칭 배선.",
+    "regression": "F35(기존 INV-11)·F45(is_protected↔INV-12 대칭)·F52(배선 대칭) 무회귀."
   },
-  "criteria_backfill": {
-    "reason": "테스트 셰임의 sort 누락 발견은 criteria 자체의 갭이 아니라 내 테스트 구현의 버그였음 — 즉시 수정, 상위 산출물 변경 불요."
-  },
-  "self_notes": "이로써 has_jq()/has_awk() 두 블랭킷 게이트가 완전 대칭 — F49(이스케이프 손상)·F50(apply_replace 실패 감지)·F51(전역 awk 부재 게이트)이 함께 invariant-guard.sh의 단일 실패점 방어를 완결. F50의 apply_replace 개별 실패 감지는 has_awk() 게이트 뒤에서 'awk는 있으나 특정 호출만 런타임 실패'하는 잔여 경우를 계속 커버(중복 아닌 계층화).",
-  "ready_for": "evaluation"
+  "criteria_backfill": [
+    "SC-1 design_decision을 '엄격 순서 비교(≤feedback ts)'에서 '최근성 시간창(NOW vs epoch)'으로 정련 — feedback 파일명 타임스탬프의 논리적·반올림 특성으로 순서 비교가 flaky함을 구현 중 발견(기준 역전파). 승인된 '시간창' 설계 범위 내 정합 구현이며 방향 전환 아님(agreed 유지).",
+    "훅에 epoch(정수 초) 필드 추가 — BSD/GNU date ISO 파싱차 무관한 신뢰 비교 위해."
+  ],
+  "self_review_note": "implementer는 passes를 set하지 않는다(INV-1). 이 산출물은 evaluator 판정을 대체하지 않고 보완한다. critical 티어 → 독립 evaluator + F37 2차 독립 judge 필요. 자기검증 순환 주의: 이 세션 실행 훅은 캐시본 1.32.0(F54 미배선)이라 F54 강화는 워킹트리에만 반영 — evaluator는 워킹트리 invariant-guard를 직접 구동해 검증하며, 이 세션의 passes 전환은 1.32.0 실행 훅(강화 없음)이 검사하므로 순환 없음.",
+  "limitations_honest": "완전한 위조 방지 아님(self-referential). 위조자가 실제 evaluator를 최근 돌렸거나 로그에 epoch 레코드를 직접 append하면 시간창을 통과할 수 있다(후자는 append-only+firewall ASK로 speed-bump). 시간창은 per-feature 정밀 대응이 아님 — 같은 창의 정당한 실행 1건이 다른 전환도 만족. 목표는 '완전 차단'이 아니라 '위조 난이도 상향'(F38 과대주장 정정)."
 }

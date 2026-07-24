@@ -375,6 +375,16 @@ fb() {
     > "$WORK/progress/agent-comms/evaluator-feedback-2026-07-05T00-00-00.json"
 }
 
+# F54: SubagentStop 훅이 캡처하는 evaluator 실행 기록 한 줄을 evaluator-runs.jsonl에 append.
+# $1 = now로부터 뺄 초(기본 0=지금). INV-11의 시간창(≤48h) 검사가 이 epoch를 벽시계 NOW와 비교한다.
+evrun() {
+  mkdir -p "$WORK/progress/agent-comms"
+  local now; now=$(date +%s)
+  jq -cn --argjson e "$((now - ${1:-0}))" \
+    '{agent_id:"ev-test", timestamp:"x", epoch:$e, transcript_path:"", session_id:"s"}' \
+    >> "$WORK/progress/agent-comms/evaluator-runs.jsonl"
+}
+
 @test "INV-11: denies passes false->true with no evaluator feedback" {
   flist false > "$WORK/progress/feature_list.json"
   run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
@@ -415,6 +425,7 @@ JSON
 @test "INV-11: allows passes flip with complete passing feedback" {
   flist false > "$WORK/progress/feature_list.json"
   fb '{"functionality":8,"code_quality":8,"security":8,"error_handling":7,"test_coverage":7}' pass
+  evrun   # F54: 최근 evaluator 실행 기록이 있어야 통과
   run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
   [ "$status" -eq 0 ]
 }
@@ -422,6 +433,7 @@ JSON
 @test "INV-11: allows critical flip when security meets critical threshold" {
   flist false critical > "$WORK/progress/feature_list.json"
   fb '{"functionality":8,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8}' pass
+  evrun   # F54: 최근 evaluator 실행 기록이 있어야 통과
   run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true critical)")"
   [ "$status" -eq 0 ]
 }
@@ -431,6 +443,89 @@ JSON
   NEW=$(flist false | jq '.features[0].description = "changed"')
   run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$NEW")"
   [ "$status" -eq 0 ]
+}
+
+# --- F54: evaluator 실행 기계 검증 — 실행존재 + 시간창 (INV-11 강화) ---
+# feedback이 완비돼도(verdict/min/security 통과) 최근 evaluator 실행 기록이 없으면 passes 전환 차단.
+
+@test "F54: denies passes flip when feedback complete but no evaluator run record" {
+  flist false > "$WORK/progress/feature_list.json"
+  fb '{"functionality":8,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8}' pass
+  # evrun 호출 없음 — evaluator-runs.jsonl 부재
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"evaluator 실행 기록 부재"* ]]
+}
+
+@test "F54: denies passes flip when only a stale run record (>48h) exists" {
+  flist false > "$WORK/progress/feature_list.json"
+  fb '{"functionality":8,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8}' pass
+  evrun $((49 * 3600))   # 49시간 전 실행 → 시간창(48h) 밖
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 2 ]
+}
+
+@test "F54: allows passes flip with a run record inside the window (47h)" {
+  flist false > "$WORK/progress/feature_list.json"
+  fb '{"functionality":8,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8}' pass
+  evrun $((47 * 3600))   # 47시간 전 실행 → 시간창(48h) 안
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 0 ]
+}
+
+@test "F54: run record without epoch field does not authorize (fail-closed)" {
+  flist false > "$WORK/progress/feature_list.json"
+  fb '{"functionality":8,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8}' pass
+  mkdir -p "$WORK/progress/agent-comms"
+  # epoch 없는 레거시 레코드 → 시간창 검사에서 제외 → deny
+  echo '{"agent_id":"x","timestamp":"2026-07-24T00:00:00Z"}' \
+    > "$WORK/progress/agent-comms/evaluator-runs.jsonl"
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
+  [ "$status" -eq 2 ]
+}
+
+# --- F54: evaluator-runs.jsonl append-only 보호 ---
+
+@test "F54: allows appending a new line to evaluator-runs.jsonl" {
+  local runs="$WORK/progress/agent-comms/evaluator-runs.jsonl"
+  mkdir -p "$WORK/progress/agent-comms"
+  printf '%s\n' '{"agent_id":"a","epoch":100}' '{"agent_id":"b","epoch":200}' > "$runs"
+  NEW=$(printf '%s\n' '{"agent_id":"a","epoch":100}' '{"agent_id":"b","epoch":200}' '{"agent_id":"c","epoch":300}')
+  run run_write "$(mk_write_input "$runs" "$NEW")"
+  [ "$status" -eq 0 ]
+}
+
+@test "F54: denies deleting a line from evaluator-runs.jsonl" {
+  local runs="$WORK/progress/agent-comms/evaluator-runs.jsonl"
+  mkdir -p "$WORK/progress/agent-comms"
+  printf '%s\n' '{"agent_id":"a","epoch":100}' '{"agent_id":"b","epoch":200}' '{"agent_id":"c","epoch":300}' > "$runs"
+  NEW=$(printf '%s\n' '{"agent_id":"a","epoch":100}' '{"agent_id":"c","epoch":300}')
+  run run_write "$(mk_write_input "$runs" "$NEW")"
+  [ "$status" -eq 2 ]
+}
+
+@test "F54: denies modifying an existing line in evaluator-runs.jsonl" {
+  local runs="$WORK/progress/agent-comms/evaluator-runs.jsonl"
+  mkdir -p "$WORK/progress/agent-comms"
+  printf '%s\n' '{"agent_id":"a","epoch":100}' '{"agent_id":"b","epoch":200}' > "$runs"
+  NEW=$(printf '%s\n' '{"agent_id":"a","epoch":100}' '{"agent_id":"b","epoch":999}')
+  run run_write "$(mk_write_input "$runs" "$NEW")"
+  [ "$status" -eq 2 ]
+}
+
+@test "F54: denies reordering lines in evaluator-runs.jsonl" {
+  local runs="$WORK/progress/agent-comms/evaluator-runs.jsonl"
+  mkdir -p "$WORK/progress/agent-comms"
+  printf '%s\n' '{"agent_id":"a","epoch":100}' '{"agent_id":"b","epoch":200}' > "$runs"
+  NEW=$(printf '%s\n' '{"agent_id":"b","epoch":200}' '{"agent_id":"a","epoch":100}')
+  run run_write "$(mk_write_input "$runs" "$NEW")"
+  [ "$status" -eq 2 ]
+}
+
+@test "F54: evaluator-runs.jsonl is is_protected (fail-closed coverage)" {
+  # shellcheck disable=SC1090
+  source <(sed -n '/^is_protected()/,/^}/p' "$HOOK")
+  is_protected "/x/progress/agent-comms/evaluator-runs.jsonl"
 }
 
 @test "INV-11: allows passes true->false reset (not a weakening)" {
@@ -491,6 +586,7 @@ JSON
 @test "INV-11: recreate WITH complete feedback is allowed (F-2 no false-positive)" {
   rm -f "$WORK/progress/feature_list.json"
   fb '{"functionality":8,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8}' pass
+  evrun   # F54: 최근 evaluator 실행 기록이 있어야 통과
   run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist true)")"
   [ "$status" -eq 0 ]
 }

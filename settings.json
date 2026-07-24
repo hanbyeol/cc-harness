@@ -85,6 +85,18 @@
           }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "^cc-harness:evaluator$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/subagent-evaluator-log.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

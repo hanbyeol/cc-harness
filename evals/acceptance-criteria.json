@@ -85,6 +85,12 @@
       "contract": "progress/contracts/sprint-39.json",
       "security_tier": "critical",
       "summary": "apply_replace()의 RS=\"\\0\" 문단 모드 버그 수정 — macOS BSD awk가 RS=\"\\0\"를 RS=\"\"(문단 모드)로 해석해 빈 줄 걸친 old_string 매칭 실패·빈 줄 소실을 일으켜 false-deny(보호파일 Edit 불가)와 false-allow(약화 편집 미반영으로 우회) 둘 다 발생. RS 미사용 라인 버퍼 축적으로 awk 구현 독립성 확보. F49(ENVIRON 이스케이프)·F50(실패 fail-closed)·F51(부재 게이트) 회귀 없이 보존. 빈 줄 픽스처를 테스트에 잠가 apply_replace의 다섯 번째 결함을 차단. INVARIANTS.md에 awk 시맨틱 가정 금지 명문화."
+    },
+    {
+      "feature_id": "F54",
+      "contract": "progress/contracts/sprint-40.json",
+      "security_tier": "critical",
+      "summary": "SubagentStop 훅(matcher ^cc-harness:evaluator$)을 배선해 evaluator 서브에이전트의 실제 실행을 하네스가 캡처(evaluator-runs.jsonl)하고, INV-11이 passes:false→true 전환 시 그 실행 기록과 feedback을 대조하도록 강화. 현재 INV-11은 evaluator-feedback 파일의 존재+내용만 검사해 feedback 위조만으로 passes 전환이 가능한 갭(F35의 알려진 한계)을 닫는다 — evaluator를 돌리지 않고 위조한 경로를 차단. 완전 방지는 self-referential 한계로 불가하며, 위조 난이도를 '파일 1개'에서 '실제 실행+기록 정합'으로 올리는 speed-bump 강화임을 SPEC/INVARIANTS에 정직히 명문화(F38 과대주장 정정). 설치 경로 대칭(INV-13/F52)으로 hooks.json·settings.json 양쪽 배선."
     }
   ]
 }

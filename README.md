@@ -2,7 +2,7 @@
 
 > A full-SDLC harness for Claude Code — quality gates, security by design, and a development methodology that enforces itself.
 
-Claude Code의 전체 개발 생명주기(설계 정제 → 기획 → 아키텍처 → 구현 → 검증 → 배포 → 관측)를 구조화하는 harness입니다. plugin 설치 한 번으로 8 agents · 11 skills · 9 hooks · 11 rules가 적용됩니다.
+Claude Code의 전체 개발 생명주기(설계 정제 → 기획 → 아키텍처 → 구현 → 검증 → 배포 → 관측)를 구조화하는 harness입니다. plugin 설치 한 번으로 8 agents · 11 skills · 10 hooks · 11 rules가 적용됩니다.
 
 > **Note:** 이 프로젝트는 [Harness.io](https://harness.io) (CI/CD 플랫폼)와 무관합니다. 여기서 "harness"는 [AI agent harness engineering](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) 개념 — 에이전트가 일관된 품질로 일하도록 둘러싸는 구조 — 을 의미합니다.
 
@@ -143,7 +143,7 @@ claude
 > 선택적으로 채택했습니다. inline self-review는 독립 evaluator를 유지하기 위해 의도적으로 채택하지
 > 않았습니다 — 근거는 [ADR-003](docs/DECISIONS/ADR-003-superpowers-adoption.md).
 
-### Hooks (9개)
+### Hooks (10개)
 
 plugin 설치 시 `hooks.json`으로 **네이티브 등록**됩니다 — settings.json 수정 불필요:
 
@@ -158,6 +158,7 @@ plugin 설치 시 `hooks.json`으로 **네이티브 등록**됩니다 — settin
 | Stop | `pre-commit-gate.sh` | 변경 언어별 테스트 + 커버리지 기록 + 시크릿 스캔 (동일 트리 재실행 skip 캐시) |
 | Stop | `session-handoff.sh` | 세션 상태 저장 (draft 병합 → 다음 세션 주입) |
 | PreCompact | `pre-compact.sh` | 컨텍스트 컴팩션 직전 세션 상태 스냅샷(session-handoff와 로직 공유) + draft 부재 시 미기록 결정·블로커 기록 유도 (게이트 아님·컴팩션 미차단) |
+| SubagentStop (evaluator) | `subagent-evaluator-log.sh` | evaluator 서브에이전트 실행을 `evaluator-runs.jsonl`에 기록 — INV-11이 passes 전환 시 '실제 evaluator 실행'을 시간창으로 대조(F54, 순수 기록·비차단) |
 
 > `hooks/lib.sh`는 이벤트 훅이 아니라 위 훅들이 공유하는 라이브러리(cfg_get·version_lt·harness_cd·handoff snapshot)입니다.
 
@@ -204,7 +205,7 @@ plugin 업데이트(`/plugin` → Installed) 후 **첫 세션에서 자동 마�
 
 | | Plugin (`/plugin install`) | Bootstrapper (`npx cc-harness`) |
 |---|---|---|
-| **agents** (8) / **skills** (11) / **hooks** (9) | O — 네이티브 로딩 (업데이트 즉시 반영) | O — `.claude/` 복사 |
+| **agents** (8) / **skills** (11) / **hooks** (10) | O — 네이티브 로딩 (업데이트 즉시 반영) | O — `.claude/` 복사 |
 | **rules** (11) | O — `.claude/rules/` 복사 | O — 프리셋 기반 선택 |
 | settings.json | 불필요 (hooks.json 네이티브) | O |
 | progress/ · docs/ · evals/ · Makefile · CLAUDE.md 스캐폴딩 | CLAUDE.md 섹션만 | O |
@@ -333,7 +334,7 @@ harness 자체도 실패에서 배웁니다:
 - `jq` — **권장**. 없으면 bash firewall이 비활성화되고(경고 출력) 세션 컨텍스트 주입이 축소됩니다
 - `bash` 3.2+ (hooks), 4.0+ (bootstrapper)
 - 각 언어 도구 (선택 — 없으면 해당 hook이 graceful skip)
-- 개발 시: `bats`, `shellcheck` (테스트 565개, CI에서 강제)
+- 개발 시: `bats`, `shellcheck` (테스트 581개, CI에서 강제)
 
 ## License
 
