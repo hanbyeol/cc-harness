@@ -13,6 +13,7 @@ progress/session-handoff.json
 progress/session-handoff-draft.json
 progress/coverage-report.json
 progress/agent-comms/archive/
+progress/agent-comms/evaluator-runs.jsonl
 
 # Quality gate cache (per-tree, transient)
 progress/.gate-cache
