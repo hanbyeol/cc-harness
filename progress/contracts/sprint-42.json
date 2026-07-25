@@ -33,7 +33,7 @@
       "id": "AC-7",
       "criterion": "기존 테스트·프로브가 회귀 없이 통과한다.",
       "verification": "bats tests/ 전체 1회 실행 후 출력 파싱(재실행 금지) + scripts/probes/run-all.sh",
-      "_result": "달성 — bats 600 ok / 0 fail(기준선 596 + 신규 4), 프로브 [], shellcheck clean. evaluator가 관련 59 테스트 재실행으로 0 fail 확인(PreCompact 포함)",
+      "_result": "달성 — bats 604 ok / 0 fail(기준선 600 + 신규 4), 프로브 [](README 테스트 수 갱신 후), shellcheck clean, harness-config·INVARIANTS diff 없음",
       "done": true
     },
     {
@@ -48,7 +48,8 @@
       "id": "AC-9",
       "criterion": "[재정의 시 신설 — evaluator 권고] AC-6의 '두 파일 모두 읽기'를 전용 테스트로 잠근다. run-all.sh의 백로그 중복 제거가 draft 단독·병합본 단독·양쪽·부재 상황에서 각각 어떻게 동작하는지를 bats로 고정해, 한쪽 소스가 다시 빠지는 회귀를 CI에서 잡는다.",
       "verification": "신규 테스트가 (a) 병합본에만 백로그가 있을 때 후보가 소거되는지 — 이 케이스가 빠지면 F56의 회귀를 못 잡는다, (b) draft에만 있을 때도 소거되는지, (c) 양쪽 부재 시 소거되지 않는지, (d) 빈 백로그가 소거하지 않는지를 고정하는지 확인. 수정 전 run-all.sh(session-handoff.json 미읽기)로 되돌리면 (a)가 실패해야 한다 — 테스트가 실제로 회귀를 잡는지 mutation으로 확인",
-      "done": false
+      "done": true,
+      "_result": "달성. tests/probes.bats에 4건 추가 — draft 백로그 소거, 병합본 백로그 소거(핵심 회귀 케이스), 백로그 부재 시 미소거, 빈 백로그 미소거. 기존 tests/probes.bats:367의 feature_list 소스 중복 제거 테스트와 대칭 패턴이며 seed_consistent 헬퍼를 재사용해 신규 픽스처를 만들지 않았다. ES-7 mutation 확인 완료: run-all.sh에서 session-handoff.json 읽기를 임시 제거하자 정확히 병합본 케이스만 실패(1 fail)하고 나머지 3건은 통과 — 이 테스트가 회귀를 실제로 포착하며 다른 케이스는 mutation에 무관함을 보였다. 복원 후 diff 없음 확인."
     }
   ],
   "security_criteria": [
@@ -90,7 +91,8 @@
     {
       "id": "ES-7",
       "scenario": "[재정의 시 신설] AC-9 테스트가 회귀를 실제로 잡지 못함(테스트는 통과하는데 수정을 되돌려도 통과)",
-      "expected": "mutation으로 확인한다 — run-all.sh에서 session-handoff.json 읽기를 제거하면 '병합본에만 백로그' 케이스가 반드시 실패해야 한다. 실패하지 않으면 테스트가 회귀를 못 잡는 것이므로 재작성한다"
+      "expected": "mutation으로 확인한다 — run-all.sh에서 session-handoff.json 읽기를 제거하면 '병합본에만 백로그' 케이스가 반드시 실패해야 한다. 실패하지 않으면 테스트가 회귀를 못 잡는 것이므로 재작성한다",
+      "_result": "달성 — mutation으로 확인했다. run-all.sh의 백로그 루프에서 session-handoff.json을 제거하면 병합본 케이스가 실패(not ok 37)하고, 복원하면 통과한다. 테스트가 수정의 유무를 실제로 구분한다."
     }
   ],
   "implementation_steps": [
@@ -116,7 +118,7 @@
     {
       "step": "3. AC-9 — run-all.sh의 백로그 소스 읽기를 잠그는 bats 테스트 추가. 4가지 상황(병합본만·draft만·양쪽 부재·빈 백로그)을 고정하고, 특히 '병합본만' 케이스가 F56 회귀를 잡는 핵심임을 주석으로 남긴다",
       "verify": "신규 테스트 통과 + mutation 확인(run-all.sh에서 session-handoff.json 읽기를 제거하면 '병합본만' 케이스가 실패)",
-      "done": false,
+      "done": true,
       "covers": [
         "AC-9",
         "ES-7"
@@ -125,7 +127,7 @@
     {
       "step": "4. 회귀 검증 — bats 전체 1회(재실행 금지) + probes/run-all.sh + SC-1 게이트 불변 확인",
       "verify": "bats 통과(신규분 반영), 프로브 정합, harness-config·INVARIANTS diff 없음",
-      "done": false,
+      "done": true,
       "covers": [
         "AC-7",
         "SC-1"
@@ -135,6 +137,6 @@
   "_parallelizable": false,
   "_parallel_note": "직렬. 남은 작업이 step 3~4뿐이고 파일 1~2개 편집 규모라 위임 상한 기준상 직접 처리가 맞다.",
   "fundamental_limit": "핸드오프 캐리오버는 '에이전트가 기록한 필드'와 '자동 수집 필드'의 구분에 의존한다. 이 구분은 필드명 목록으로 하드코딩되어 있으므로, 앞으로 새로운 에이전트 기록 필드가 추가되면 목록에도 넣어야 보존된다. 목록 누락을 기계적으로 탐지할 방법은 현재 없다 — 스냅샷이 만들지 않는 키를 전부 보존하는 방식(화이트리스트 대신 블랙리스트)으로 바꾸면 자동화되지만, 그러면 일회성 필드나 오염된 키까지 영구 보존되는 반대 위험이 생긴다. 현재 설계는 명시적 목록을 택했고 이 한계를 인지한다.",
-  "agreed": false,
-  "_agreed_note": "범위 재정의로 agreed를 false로 리셋했다(change-request Step 6). 재합의는 /implement --retry의 Plan 게이트(ExitPlanMode)에서 받는다. 이미 완료된 step 1~2는 커밋 4dcbfb5에 있으며 되돌리지 않는다 — 재합의 대상은 남은 step 3~4(AC-9)와 축소된 범위 자체다."
+  "agreed": true,
+  "_agreed_note": "축소된 범위를 Plan 게이트(ExitPlanMode)에서 2026-07-25 재승인 — 계획 ~/.claude/plans/distributed-percolating-origami.md. 최초 승인은 컨텍스트 다이어트 2차 범위였고, evaluator fail(min-of-5=4) 후 핸드오프 백로그 유실 수정으로 좁혀 재합의했다. 이미 완료된 step 1~2는 커밋 4dcbfb5에 있으며 되돌리지 않는다 — 이번 승인 대상은 남은 step 3~4(AC-9 + 회귀)와 축소된 범위 자체다. AC-9는 tests/probes.bats:367의 기존 대칭 패턴(feature_list 소스 중복 제거)을 handoff 백로그 소스에 적용하고, ES-7에 따라 mutation으로 회귀 포착력을 확인한다."
 }

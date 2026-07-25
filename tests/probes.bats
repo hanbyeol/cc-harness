@@ -375,6 +375,51 @@ JSON
   [ "$(echo "$output" | jq --arg n "$CAND" '[.[]|select(.name==$n)]|length')" -eq 0 ]
 }
 
+# --- handoff backlog dedup (F56 AC-9) ---
+# 위 feature_list 소스와 대칭. run-all은 백로그를 두 곳에서 읽는다: 에이전트가 쓰는
+# session-handoff-draft.json과, Stop 훅이 draft를 소비해 병합한 session-handoff.json.
+# 병합본을 읽지 않으면 draft가 소비되는 순간 억제가 사라져 같은 후보가 매 회전 재출현한다.
+
+# consistency 후보 하나를 만들고 그 name을 돌려준다 (백로그에 넣을 대상)
+seed_backlog_candidate() {
+  seed_consistent
+  echo '{"version":"9.9.9"}' > "$WORK/package.json"
+  (cd "$WORK" && bash "$PROBES/consistency.sh" | jq -r '.[0].name')
+}
+
+@test "run-all: dedups candidates listed in the handoff draft backlog" {
+  CAND=$(seed_backlog_candidate)
+  jq -n --arg n "$CAND" '{follow_ups_backlog:[$n]}' > "$WORK/progress/session-handoff-draft.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/run-all.sh' 2026-06-13T00:00:00Z"
+  [ "$(echo "$output" | jq --arg n "$CAND" '[.[]|select(.name==$n)]|length')" -eq 0 ]
+}
+
+@test "run-all: dedups candidates listed in the merged handoff backlog" {
+  # 핵심 회귀 케이스. Stop 훅(session-handoff.sh)은 draft를 session-handoff.json으로
+  # 병합한 뒤 draft를 지운다. 그 시점부터 백로그는 병합본에만 존재하므로, draft만
+  # 읽는 구현에서는 편입해 둔 후보가 다시 올라온다 — F56이 고친 결함이다.
+  CAND=$(seed_backlog_candidate)
+  jq -n --arg n "$CAND" '{follow_ups_backlog:[$n]}' > "$WORK/progress/session-handoff.json"
+  [ ! -f "$WORK/progress/session-handoff-draft.json" ]   # draft는 이미 소비된 상태
+  run bash -c "cd '$WORK' && bash '$PROBES/run-all.sh' 2026-06-13T00:00:00Z"
+  [ "$(echo "$output" | jq --arg n "$CAND" '[.[]|select(.name==$n)]|length')" -eq 0 ]
+}
+
+@test "run-all: candidate survives when no handoff backlog exists" {
+  # 억제가 과하지 않은지 — 백로그가 없으면 후보는 그대로 올라와야 한다
+  CAND=$(seed_backlog_candidate)
+  run bash -c "cd '$WORK' && bash '$PROBES/run-all.sh' 2026-06-13T00:00:00Z"
+  [ "$(echo "$output" | jq --arg n "$CAND" '[.[]|select(.name==$n)]|length')" -eq 1 ]
+}
+
+@test "run-all: an empty handoff backlog suppresses nothing" {
+  CAND=$(seed_backlog_candidate)
+  jq -n '{follow_ups_backlog:[]}' > "$WORK/progress/session-handoff.json"
+  jq -n '{follow_ups_backlog:[]}' > "$WORK/progress/session-handoff-draft.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/run-all.sh' 2026-06-13T00:00:00Z"
+  [ "$(echo "$output" | jq --arg n "$CAND" '[.[]|select(.name==$n)]|length')" -eq 1 ]
+}
+
 # --- model-tiering probe (F23) ---
 
 # 현재 할당과 정합하는 config + agents를 만든다 (역전/ drift 없음)
