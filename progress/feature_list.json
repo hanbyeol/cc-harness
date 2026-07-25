@@ -715,6 +715,36 @@
         "F37"
       ],
       "assigned_sprint": 41
+    },
+    {
+      "id": "F56",
+      "name": "컨텍스트 다이어트 2차 — 중복 라우팅 제거 · 스킬 점진적 공개 · 규칙의 인터페이스 강등",
+      "description": "Anthropic 블로그 'The new rules of context engineering for Claude 5 generation models'(2026-07-24, Thariq Shihipar)가 제시한 기준으로 하네스를 실측한 결과 세 가지 갭이 확인됐다. 블로그의 핵심은 Claude Code 시스템 프롬프트의 80%를 삭제해도 코딩 평가 손실이 없었다는 것이며, 구세대 모델을 위한 방어적 규칙·중복·예시가 신세대에서는 오히려 추론을 소모시킨다는 것이다. (1) 중복 라우팅: CLAUDE.md의 '요청 → 행동 라우팅' 표 11행과 TRIGGER 보유 스킬 11개가 정확히 1:1로 대응한다 — 스킬 description의 TRIGGER가 이미 라우팅을 수행하는데 상시 로드되는 CLAUDE.md가 같은 매핑을 반복한다(블로그: '뻔한 것을 쓰지 마라'). 판단 규칙이 담긴 행(예: 모호하면 /brainstorm 먼저)만 남기고 자명한 1:1 행은 제거한다. (2) 점진적 공개 미적용: 스킬 11개가 전부 단일 파일이다(블로그: '긴 스킬은 여러 파일로 쪼개라'). skills/implement/SKILL.md(160줄·10.6KB)의 '6. 구현 실행 모드'와 '8. 검증 디스패치 티어링', skills/improve/SKILL.md(116줄·9.9KB)의 '6. 무인 배치 모드'를 하위 파일로 분리하고 본체는 참조만 남긴다. (3) 규칙의 인터페이스 강등: 블로그의 '규칙 대신 인터페이스를 설계하라'를 적용할 자리가 있다 — test-writer의 isolation:worktree는 현재 CLAUDE.md:54와 skills/implement/SKILL.md:153에서 '디스패치 시 지정하라'는 산문 지시로만 존재해 호출자가 잊으면 조용히 깨진다. Claude Code 공식 문서 확인 결과 isolation은 서브에이전트 frontmatter 지원 필드이므로 agents/test-writer.md에 선언해 호출자 무관하게 강제하고, 대응 산문 지시는 제거한다. 함께 maxTurns로 서브에이전트 폭주 상한을 기계화한다(F55 D4의 위임 상한이 산문으로 규정한 것의 기계 대응). 주의: 당초 검토에서 'evaluator에 disallowedTools로 코드 수정 금지'를 제안했으나 실측 결과 기각한다 — 모든 에이전트가 파일을 쓰며(evaluator 11건·implementer 13건 쓰기 정황) disallowedTools는 도구 단위라 경로별 제어가 불가능하다. 아울러 F55 마무리 중 발견한 갭을 함께 수정한다: scripts/probes/run-all.sh가 progress/session-handoff-draft.json만 읽어, Stop 훅이 draft를 소비해 session-handoff.json으로 병합하면 백로그 편입 효과가 사라지고 같은 프로브 후보가 무한 재출현한다. 불변: INVARIANTS·min-of-5·임계값·게이트 구조는 건드리지 않는다 — 블로그의 '판단에 맡겨라'는 모델의 코드 스타일 판단에 관한 것이지 게이트 설계에 관한 것이 아니다.",
+      "security_tier": "standard",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F16",
+        "F18",
+        "F29",
+        "F43"
+      ],
+      "assigned_sprint": 42
+    },
+    {
+      "id": "F57",
+      "name": "effort 티어링 — 역할별 추론 강도 배분 (모델 티어링의 두 번째 축)",
+      "description": "Opus 5 마이그레이션 가이드는 effort를 '전환 시 반드시 재튜닝할 레버'로 지목하며 코딩·에이전틱은 xhigh에서 시작해 아래로 스윕하고 그 외 intelligence-sensitive 작업은 최소 high를 권고한다. 하네스는 현재 모델 할당(누구를 쓰는가)만 config/models.json에서 단일 출처로 관리하고 추론 강도(얼마나 생각하는가)는 전혀 제어하지 않아 전부 세션 기본값을 상속한다. Claude Code 공식 문서 확인 결과 effort는 서브에이전트 frontmatter 지원 필드다(description·prompt·tools·disallowedTools·model·maxTurns·skills·memory·effort·background·isolation·color 등). 기존 feat/agent-effort-tiering 브랜치(2026-07-03, main 대비 -107 커밋)의 설계를 재사용한다: config/models.json assignments에 effort 필드를 추가하고 agents/*.md frontmatter에 effort:를 선언하며 scripts/probes/model-tiering.sh가 model과 동일하게 effort drift도 정적 탐지하도록 확장한다. 배분안은 implementer·evaluator·security-auditor=xhigh(코딩/판정/취약점 탐지 recall), architect=high(경계 명확한 1회성 태스크 — 과추론 억제), spec-writer·test-writer·deploy-operator=medium, qa-reviewer=미지정(Haiku 4.5는 effort 파라미터 미지원이라 세션 상속). 브랜치는 체리픽하지 않는다 — 107 커밋 뒤처졌고 모델 ID가 claude-opus-4-8 기준이라 F55의 claude-opus-5 정합 상태를 되돌리게 된다. 설계만 흡수하고 브랜치는 정리한다. 검증에는 F55의 교훈을 적용한다: frontmatter 필드 지원 여부를 '디스패치가 성공한다'로 확인하지 않는다 — 성공 신호가 목표 달성과 동치가 아니며, effort가 무시돼도 디스패치는 성공한다.",
+      "security_tier": "standard",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F23",
+        "F55"
+      ],
+      "assigned_sprint": 43
     }
   ]
 }

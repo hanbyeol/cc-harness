@@ -1,7 +1,7 @@
 {
   "current_phase": "implementation",
   "phase_transition_rule": "all criteria == true AND user_approved → auto-advance to next phase",
-  "_comment": "F55(Opus 4.8→Opus 5 전환 — 모델 정합화 + 4.8 보정 지침 재튜닝) 기준. specification/architecture는 change-request 산출물(feature_list·contracts·acceptance-criteria·기존 ADR/INVARIANTS 위협모델)로 충족 — 신규 아키텍처 문서는 불요, F55는 ADR-007(security-auditor 모델 정책)을 구현 중 작성. 컴포넌트·API·데이터 모델 변경이 없어 phase 롤백 없음(implementation 유지).",
+  "_comment": "F56(컨텍스트 다이어트 2차 — sprint-42)·F57(effort 티어링 — sprint-43) 기준. specification/architecture는 change-request 산출물(feature_list·contracts·acceptance-criteria·기존 ADR/INVARIANTS 위협모델)로 충족 — 신규 아키텍처 문서는 불요. 두 기능 모두 컴포넌트·API·데이터 모델 변경이 없어 phase 롤백 없음(implementation 유지). F56은 상시 로드 컨텍스트와 지시 전달 경로를, F57은 모델 티어링의 두 번째 축(추론 강도)을 다루며 게이트 구조·임계값은 양쪽 다 불변.",
   "phases": {
     "specification": {
       "status": "complete",

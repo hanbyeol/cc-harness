@@ -1,0 +1,183 @@
+{
+  "sprint": 43,
+  "title": "effort 티어링 — 역할별 추론 강도 배분 (모델 티어링의 두 번째 축)",
+  "feature_id": "F57",
+  "security_tier": "standard",
+  "verification_tier": "standard",
+  "_tier_note": "security_tier standard — 게이트 구조·임계값 불변. 다만 effort는 evaluator·security-auditor의 판정 품질에 영향을 주므로 하향 배분은 사실상 게이트 약화다. critical 역할은 xhigh 이상으로만 배분하고, 낮추는 방향의 변경은 이 스프린트 범위 밖이다.",
+  "dependencies": [
+    "F23",
+    "F55"
+  ],
+  "_dependency_note": "F23(model-tiering 프로브)의 탐지 대상을 model에서 model+effort로 확장한다 — 프로브 로직 변경이므로 기존 model drift 탐지에 회귀가 없어야 한다. F55(Opus 5 전환)가 정합화한 claude-opus-5 상태 위에 얹는다.",
+  "problem": "Opus 5 마이그레이션 가이드는 effort를 '전환 시 반드시 재튜닝할 레버'로 지목하며, 코딩·에이전틱은 xhigh에서 시작해 아래로 스윕하고 그 외 intelligence-sensitive 작업은 최소 high를 권고한다. 하네스는 현재 모델 할당(누구를 쓰는가)만 config/models.json에서 단일 출처로 관리하고 추론 강도(얼마나 생각하는가)는 전혀 제어하지 않아 모든 서브에이전트가 세션 기본값을 상속한다. Claude Code 공식 문서 확인 결과 effort는 서브에이전트 frontmatter 지원 필드다.",
+  "_prior_art_note": "기존 feat/agent-effort-tiering 브랜치(2026-07-03, main 대비 -107 커밋)가 같은 설계를 담고 있다 — config assignments에 effort, frontmatter에 effort:, 프로브 확장. 설계는 재사용하되 체리픽하지 않는다: 107 커밋 뒤처졌고 모델 ID가 claude-opus-4-8 기준이라 F55의 정합 상태를 되돌린다. 설계 흡수 후 브랜치는 정리한다.",
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "config/models.json assignments의 각 역할에 effort 필드를 추가한다. 배분: implementer·evaluator·security-auditor=xhigh, architect=high, spec-writer·test-writer·deploy-operator=medium, qa-reviewer=미지정(Haiku 4.5는 effort 미지원이라 세션 상속).",
+      "verification": "jq로 assignments의 effort 값 확인. qa-reviewer에 effort 키가 없음을 확인"
+    },
+    {
+      "id": "AC-2",
+      "criterion": "agents/*.md frontmatter에 effort:를 선언하고 config와 일치시킨다. qa-reviewer는 선언하지 않는다.",
+      "verification": "awk로 8개 frontmatter의 effort를 추출해 config assignments와 1:1 대조"
+    },
+    {
+      "id": "AC-3",
+      "criterion": "scripts/probes/model-tiering.sh가 effort drift(frontmatter↔config 불일치), 미등록 effort 값(허용 집합 low/medium/high/xhigh/max 밖), effort 미지원 모델에 대한 effort 지정을 후보로 탐지한다.",
+      "verification": "각 위반 상태를 픽스처로 만들어 프로브가 후보를 반환하는지 실측. 정합 상태에서는 빈 배열"
+    },
+    {
+      "id": "AC-4",
+      "criterion": "기존 model drift·unregistered·tier inversion 탐지에 회귀가 없다.",
+      "verification": "tests/probes.bats의 기존 model-tiering 테스트 전원 통과 + 정합 상태에서 run-all → 후보 없음"
+    },
+    {
+      "id": "AC-5",
+      "criterion": "effort 티어링을 테스트로 잠근다 — 양성(각 위반)과 음성(정합 상태·qa-reviewer 미지정)을 tests/probes.bats에 추가한다.",
+      "verification": "bats 전체 1회 실행에서 신규 테스트 통과"
+    },
+    {
+      "id": "AC-6",
+      "criterion": "config/models.json의 _comment와 README의 모델 라우팅 설명에 effort 축을 반영한다 — 단일 출처가 model+effort 두 축임을 명시.",
+      "verification": "문서에 effort 언급 존재 + consistency 프로브 통과"
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "게이트 구조·임계값이 불변이다. harness-config.json·INVARIANTS.md에 diff가 없다.",
+      "rationale": "effort는 판정 품질에 영향을 주는 레버이므로 게이트 인접 변경이다. 임계값과 함께 움직이면 약화를 은폐할 수 있다.",
+      "verification": "git diff --quiet 확인 + 임계값 하향 deny 회귀 테스트 통과"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "검증 게이트 역할(evaluator·security-auditor)의 effort가 구현 역할(implementer)보다 낮지 않다 — model tier inversion 규칙과 같은 원칙을 effort 축에도 적용한다.",
+      "rationale": "게이트가 구현보다 얕게 추론하면 판정이 구현을 따라가지 못한다. model 축에서 이미 rules.gate_reference_role로 강제하는 불변식을 effort 축에서도 유지해야 대칭이 성립한다.",
+      "verification": "프로브에 effort 역전 검사를 추가하고, 역전 픽스처(evaluator=medium, implementer=xhigh)로 후보 반환을 실측"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "effort가 실제로 적용되는지 확인할 수 없는 부분을 한계로 명시하고 과대주장하지 않는다.",
+      "rationale": "F55의 교훈 — 디스패치 성공은 목표 달성과 동치가 아니다. effort가 무시돼도 서브에이전트는 정상 동작하므로 '적용됐다'는 주장에는 근거가 필요하다.",
+      "verification": "확인 가능한 것(문서상 지원 필드·프로브 정합)과 확인 불가한 것(런타임 실제 반영)을 evidence에서 분리해 기록"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "frontmatter만 또는 config만 effort를 갱신한 중간 상태",
+      "expected": "확장된 model-tiering이 effort drift로 탐지한다. 두 지점은 한 커밋에서 함께 변경"
+    },
+    {
+      "id": "ES-2",
+      "scenario": "qa-reviewer(Haiku 4.5)에 effort를 지정",
+      "expected": "프로브가 'effort 미지원 모델에 effort 지정' 후보를 반환한다. Haiku 4.5는 effort 파라미터를 지원하지 않는다"
+    },
+    {
+      "id": "ES-3",
+      "scenario": "effort frontmatter가 플러그인 서브에이전트에서 무시됨",
+      "expected": "정적 정합성(config↔frontmatter)은 여전히 유효하고 프로브도 정상 동작한다. 런타임 미반영은 SC-3의 한계로 기록하며, 이 경우에도 롤백 사유는 아니다 — 선언이 무해하고 지원 시점에 자동으로 효력이 생긴다"
+    },
+    {
+      "id": "ES-4",
+      "scenario": "effort 값에 오타(예: 'x-high', 'highest')가 들어감",
+      "expected": "프로브가 허용 집합(low/medium/high/xhigh/max) 밖 값을 미등록으로 탐지한다"
+    },
+    {
+      "id": "ES-5",
+      "scenario": "게이트 역할의 effort가 구현 역할보다 낮게 설정됨",
+      "expected": "SC-2의 effort 역전 검사가 후보를 반환한다"
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": "0. 기준선 — bats 1회 실행, model-tiering·run-all 출력 보관",
+      "verify": "기준선 확보",
+      "done": false,
+      "covers": [
+        "AC-4"
+      ]
+    },
+    {
+      "step": "1. AC-1/AC-2 정합화(원자적) — config/models.json assignments에 effort 추가 + agents/*.md frontmatter에 effort: 선언. qa-reviewer는 양쪽 모두 미지정",
+      "verify": "awk+jq로 8개 역할 1:1 대조. 한 커밋에서 함께 변경(ES-1)",
+      "done": false,
+      "covers": [
+        "AC-1",
+        "AC-2",
+        "ES-1",
+        "ES-2"
+      ]
+    },
+    {
+      "step": "2. AC-3/SC-2 프로브 확장 — model-tiering.sh에 effort drift·미등록 값·미지원 모델 지정·게이트 역전 검사 추가. 기존 model 검사 로직은 보존",
+      "verify": "정합 상태에서 [] 반환. 각 위반 픽스처에서 해당 후보 반환",
+      "done": false,
+      "covers": [
+        "AC-3",
+        "SC-2",
+        "ES-4",
+        "ES-5"
+      ]
+    },
+    {
+      "step": "3. AC-5 테스트 잠금 — tests/probes.bats에 effort 양성·음성 케이스 추가(정합·drift·미등록 값·미지원 모델·게이트 역전)",
+      "verify": "신규 테스트 통과",
+      "done": false,
+      "covers": [
+        "AC-5"
+      ]
+    },
+    {
+      "step": "4. AC-6 문서 — config _comment와 README 라우팅 설명에 effort 축 반영",
+      "verify": "문서 확인 + consistency 프로브 통과",
+      "done": false,
+      "covers": [
+        "AC-6"
+      ]
+    },
+    {
+      "step": "5. 회귀 검증 — bats 전체 1회(재실행 금지) + run-all. SC-1 게이트 불변 확인. SC-3에 따라 확인 가능/불가를 분리 기록",
+      "verify": "bats 통과, 프로브 정합, harness-config·INVARIANTS diff 없음, 한계 명시",
+      "done": false,
+      "covers": [
+        "AC-4",
+        "SC-1",
+        "SC-3"
+      ]
+    },
+    {
+      "step": "6. 브랜치 정리 — feat/agent-effort-tiering 삭제(설계 흡수 완료). 함께 스테일 브랜치 정리: feat/firewall-auto-allow(main 대비 +0), chore/prune-stale-evaluator-feedback(아카이브 로테이션이 목적 달성), docs/finish-branch-optional-pr(내용 확인 후 판단)",
+      "verify": "각 브랜치의 미머지 커밋이 실제로 불필요함을 확인한 뒤 삭제. 확인되지 않으면 남긴다",
+      "done": false,
+      "covers": []
+    }
+  ],
+  "_parallelizable": false,
+  "_parallel_note": "직렬. step 1이 config와 frontmatter를 원자적으로 바꾸고 step 2가 그 상태를 검증하는 프로브를 확장하므로 순서 의존이다. 규모도 파일 소수라 직접 처리가 맞다.",
+  "fundamental_limit": "effort가 런타임에 실제로 반영되는지는 정적으로 검증할 수 없다 — 서브에이전트의 실제 추론 강도를 관측할 수단이 없고, effort가 무시돼도 디스패치는 정상 성공한다(F55 ES-4와 동형). 이 스프린트가 보장하는 것은 '선언의 정합성'(config↔frontmatter↔프로브)까지이며, '선언이 런타임에 적용됨'은 공식 문서의 지원 필드 목록에 근거한 가정이다. 이 구분을 evidence에서 분리해 기록한다.",
+  "open_design_questions": [
+    {
+      "id": "Q1",
+      "question": "effort 역전 검사(SC-2)를 model 역전 검사와 같은 규칙으로 묶을 것인가",
+      "options": [
+        "(A) 별도 규칙 — model 역전과 effort 역전을 독립 후보로 보고. 진단이 명확",
+        "(B) 통합 규칙 — '게이트가 구현보다 약함'을 model·effort 종합으로 판정. 간결하나 원인 특정이 어려움"
+      ],
+      "resolution": "(A) 권장 — 프로브 후보는 수정 지점을 특정할수록 유용하다. step 2에서 확정."
+    },
+    {
+      "id": "Q2",
+      "question": "architect의 effort를 high로 둘 것인가 xhigh로 올릴 것인가",
+      "options": [
+        "(A) high — 기존 브랜치 설계. 경계 명확한 1회성 태스크라 과추론 억제",
+        "(B) xhigh — 아키텍처·위협모델링은 intelligence-sensitive이며 마이그레이션 가이드는 코딩·에이전틱에 xhigh 권고"
+      ],
+      "resolution": "(A)로 시작한다 — 마이그레이션 가이드도 'xhigh를 반사적으로 쓰지 말고 high에서 시작해 스윕하라'고 권고한다. 판정 품질 저하가 관측되면 상향."
+    }
+  ],
+  "agreed": false,
+  "_agreed_note": "미승인. Plan 게이트(ExitPlanMode)에서 사용자 승인 시에만 true로 전환한다. 승인 전 구현 착수 금지."
+}

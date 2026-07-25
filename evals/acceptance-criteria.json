@@ -97,6 +97,18 @@
       "contract": "progress/contracts/sprint-41.json",
       "security_tier": "standard",
       "summary": "Opus 4.8 → Opus 5 전환. (D1) 모델 ID를 agents/*.md frontmatter 4곳·config/models.json(tiers·assignments·pricing)·README에서 동시 정합화 — model-tiering.sh가 frontmatter↔config drift를 기계 탐지하므로 한쪽만 바꾸면 프로브가 실패한다. Opus 5 단가가 4.8과 동일해 cost-report 산출값은 불변이어야 한다. (D2) security-auditor를 Opus 5로 격상하고 낡은 근거 주석을 재작성 — Opus 5도 cyber classifier refusal이 가능하며 Anthropic 권장 폴백이 Opus 4.8이라는 사실을 명시하고, refusal로 인한 빈 산출을 탐지하는 최소 관측 장치를 배선한다. (D3) evaluator에 Reporting Policy를 대칭 적용 — security-auditor에만 있던 커버리지 우선 보고를 evaluator에도 적용하되 점수 산정·pass/fail 규칙은 불변(보고량만 증가, 게이트 불변). (D4) 병렬 위임에 상한 신설 — F16·F18이 보장한 하한은 유지하고 상한만 추가하며, 독립 evaluator 게이트·F37 2차 판정은 '검증용 위임 금지'의 명시적 예외로 문서화해 INV-1 억제 오독을 차단. (D5) CLAUDE.md에 메인 루프 커뮤니케이션 지침 추가. 이미 존재하는 보정(no-tidying·early stopping·evidence over claims·중복 재검증 방지)은 중복 작업하지 않으며, min-of-5 임계값과 게이트 구조는 변경하지 않는다."
+    },
+    {
+      "feature_id": "F56",
+      "contract": "progress/contracts/sprint-42.json",
+      "security_tier": "standard",
+      "summary": "컨텍스트 다이어트 2차. (1) CLAUDE.md 라우팅 표에서 스킬 TRIGGER와 1:1로 중복되는 자명한 행을 제거하고 판단 규칙 행만 남긴다 — 실측 11행 ↔ TRIGGER 보유 스킬 11개. 라우팅 능력은 보존되어야 하며(스킬 description이 담당), 사용자 의도→스킬 매핑이 깨지지 않아야 한다. (2) skills/implement(160줄)·skills/improve(116줄)를 점진적 공개 구조로 분할 — 본체는 참조만 남기고 하위 파일로 이동. 스킬 호출 시 동작은 불변이어야 한다. (3) agents/test-writer.md frontmatter에 isolation:worktree를 선언해 호출자가 잊어도 강제되게 하고, 대응 산문 지시(CLAUDE.md:54·skills/implement:153)를 제거한다. maxTurns로 서브에이전트 폭주 상한을 기계화한다. (4) scripts/probes/run-all.sh가 session-handoff.json의 follow_ups_backlog도 읽도록 수정 — 현재는 draft만 읽어 Stop 훅이 draft를 소비하면 백로그 편입이 무효화되고 같은 후보가 무한 재출현한다. INVARIANTS·min-of-5·임계값·게이트 구조는 불변."
+    },
+    {
+      "feature_id": "F57",
+      "contract": "progress/contracts/sprint-43.json",
+      "security_tier": "standard",
+      "summary": "effort 티어링. config/models.json assignments에 effort 필드를 추가하고 agents/*.md frontmatter에 effort:를 선언하며, scripts/probes/model-tiering.sh가 model과 동일하게 effort drift·미등록을 정적 탐지하도록 확장한다. 배분: implementer·evaluator·security-auditor=xhigh, architect=high, spec-writer·test-writer·deploy-operator=medium, qa-reviewer=미지정(Haiku 4.5 미지원). F55의 교훈 적용 — frontmatter 필드가 실제로 적용되는지를 '디스패치 성공'으로 확인하지 않는다(effort가 무시돼도 디스패치는 성공한다). 검증 기준은 공식 문서의 지원 필드 목록과 프로브의 정합 탐지이며, 확인 불가한 부분은 한계로 명시한다. 모델 할당(F55)과 직교하는 두 번째 축이므로 기존 model drift 탐지에 회귀가 없어야 한다."
     }
   ]
 }
