@@ -1,5 +1,5 @@
 {
-  "_comment": "단일 출처: 각 역할의 model 할당과 능력 티어 래티스. agents/*.md frontmatter의 model은 여기 assignments와 일치해야 하며, scripts/probes/model-tiering.sh가 drift·역전·미등록을 정적 탐지한다. 새 모델 라인업/재배치 시 이 파일과 frontmatter를 함께 갱신(F55: 한쪽만 바꾸면 프로브가 즉시 drift로 잡는다).",
+  "_comment": "단일 출처: 각 역할의 model·effort 할당과 능력 티어 래티스. 두 축이다 — model은 누구를 쓰는가, effort는 얼마나 생각하는가. agents/*.md frontmatter의 model은 여기 assignments와 일치해야 하며 scripts/probes/model-tiering.sh가 drift·역전·미등록을 정적 탐지한다(F55: 한쪽만 바꾸면 프로브가 즉시 잡는다). effort는 frontmatter에 선언하지 않는다 — 플러그인 서브에이전트에서 적용되는지 규명하지 못했고(F57 AC-0: 디스패치가 권한 분류기에 차단), 같은 계층의 isolation은 F56에서 미적용으로 실증됐다. 적용되지 않을 수 있는 선언은 거짓 보증이 되므로 이 파일이 effort의 단일 출처이자 설계 문서 역할을 한다. 참고로 effort 자체는 Claude Code가 지원한다 — CLI --effort로 동일 프롬프트를 low/max 실행 시 23초 대 55초로 실측됐다(2.1.220). 새 모델 라인업·재배치 시 이 파일과 frontmatter를 함께 갱신.",
   "tiers": [
     "claude-fable-5",
     "claude-opus-5",
@@ -10,42 +10,49 @@
     "implementer": {
       "model": "claude-opus-5",
       "criticality": "critical",
-      "rationale": "long-horizon 에이전틱 코딩 — 가장 무거운 작업. 다중 파일 기능·대형 리팩터에서 완결성이 높고 스텁/플레이스홀더를 남기지 않는다."
+      "rationale": "long-horizon 에이전틱 코딩 — 가장 무거운 작업. 다중 파일 기능·대형 리팩터에서 완결성이 높고 스텁/플레이스홀더를 남기지 않는다. effort xhigh: 마이그레이션 가이드가 코딩·에이전틱의 권장 시작점으로 지목한 수준.",
+      "effort": "xhigh"
     },
     "evaluator": {
       "model": "claude-opus-5",
       "criticality": "critical",
-      "rationale": "유일한 통과 판정 게이트(min-of-5). 판단 정확성이 핵심 — 구현과 동급 티어 이상이어야 한다. 버그 탐지의 정밀도와 재현율이 함께 높다."
+      "rationale": "유일한 통과 판정 게이트(min-of-5). 판단 정확성이 핵심 — 구현과 동급 티어 이상이어야 한다. 버그 탐지의 정밀도와 재현율이 함께 높다. effort xhigh: 게이트가 구현보다 얕게 추론하면 판정이 구현을 따라가지 못하므로 implementer 이상으로 고정(model 축의 gate_reference_role과 같은 원칙).",
+      "effort": "xhigh"
     },
     "security-auditor": {
       "model": "claude-opus-5",
       "criticality": "critical",
-      "rationale": "critical 보안 감사. Opus 5도 강화된 사이버보안 안전장치로 방어 목적 감사가 refusal될 수 있으나(F55), 이 위험을 인지하고 최신 추론 능력을 우선해 격상했다. refusal로 인한 빈/부실 산출은 scripts/probes/audit-integrity.sh가 정상 통과와 구분해 탐지하며, 반복 refusal 시 폴백 후보는 claude-opus-4-8(Anthropic 권장)이다."
+      "rationale": "critical 보안 감사. Opus 5도 강화된 사이버보안 안전장치로 방어 목적 감사가 refusal될 수 있으나(F55), 이 위험을 인지하고 최신 추론 능력을 우선해 격상했다. refusal로 인한 빈/부실 산출은 scripts/probes/audit-integrity.sh가 정상 통과와 구분해 탐지하며, 반복 refusal 시 폴백 후보는 claude-opus-4-8(Anthropic 권장)이다. effort xhigh: 취약점 탐지 recall을 위해.",
+      "effort": "xhigh"
     },
     "architect": {
       "model": "claude-opus-5",
       "criticality": "standard",
-      "rationale": "아키텍처 설계·위협모델링. 깊은 추론이나 경계 명확한 1회성 태스크."
+      "rationale": "아키텍처 설계·위협모델링. 깊은 추론이나 경계가 명확한 1회성 태스크. effort high: 마이그레이션 가이드가 xhigh를 반사적으로 쓰지 말고 high에서 시작해 스윕하라고 권고한다 — 과추론 억제. 판정 품질 저하가 관측되면 상향한다(F57 Q2).",
+      "effort": "high"
     },
     "spec-writer": {
       "model": "claude-sonnet-5",
       "criticality": "standard",
-      "rationale": "인터뷰 브리프 → 스펙. 속도/지능 균형으로 충분."
+      "rationale": "인터뷰 브리프 → 스펙. 속도/지능 균형으로 충분 — effort medium.",
+      "effort": "medium"
     },
     "test-writer": {
       "model": "claude-sonnet-5",
       "criticality": "standard",
-      "rationale": "단위/통합/E2E + 보안 테스트 작성 = 실코딩. 커버리지 게이트 차원에 직결."
+      "rationale": "단위/통합/E2E + 보안 테스트 작성 = 실코딩. 커버리지 게이트 차원에 직결. effort medium: 실코딩이나 범위가 명확해 균형점.",
+      "effort": "medium"
     },
     "deploy-operator": {
       "model": "claude-sonnet-5",
       "criticality": "standard",
-      "rationale": "프로덕션 배포 — 되돌리기 어려움. 절차적이나 안전 마진 확보."
+      "rationale": "프로덕션 배포 — 되돌리기 어려움. 절차적이나 안전 마진 확보. effort medium.",
+      "effort": "medium"
     },
     "qa-reviewer": {
       "model": "claude-haiku-4-5",
       "criticality": "low",
-      "rationale": "사용자 관점 QA 검증. 상대적으로 가벼운 판정 — 최경량 적정."
+      "rationale": "사용자 관점 QA 검증. 상대적으로 가벼운 판정 — 최경량 적정. effort 미지정: Haiku 4.5는 effort 파라미터를 지원하지 않아 세션 기본값을 상속한다(지정하면 프로브가 미지원 모델 지정으로 후보를 낸다)."
     }
   },
   "rules": {
@@ -53,7 +60,18 @@
       "evaluator",
       "security-auditor"
     ],
-    "gate_reference_role": "implementer"
+    "gate_reference_role": "implementer",
+    "effort_levels": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "effort_unsupported_models": [
+      "claude-haiku-4-5"
+    ],
+    "_effort_note": "effort_levels는 허용 집합이며 그 밖의 값은 프로브가 미등록으로 탐지한다. effort_unsupported_models에 속한 모델을 쓰는 역할에 effort를 지정하면 후보를 낸다. 게이트 역할(rules.verification_gates)의 effort는 gate_reference_role보다 낮을 수 없다 — model 축의 역전 규칙을 effort 축에 대칭 적용."
   },
   "pricing": {
     "_comment": "선언 단가(per-1M, USD) — 실제 청구가 아니다. claude-opus-4-8은 assignments·tiers에서 빠졌지만 Opus 5의 cyber classifier refusal 시 Anthropic 권장 폴백 후보이므로 단가를 존치한다(F55 Q4). cost-report.sh는 pricing을 모델 ID로 조회만 하고 순회하지 않으므로 이 주석 키는 무해하다.",

@@ -108,7 +108,8 @@ claude
 | `deploy-operator` | 5. 배포 | 배포 전 검증 → staging → canary → prod, 자동 롤백 | Sonnet 5 |
 
 > **모델 라우팅** — 작업 난이도에 맞춰 차등 배치. 할당은 `config/models.json`을 단일 출처로 관리하며
-> `agents/*.md` frontmatter와 일치해야 한다(불일치·역전·미등록은 model-tiering 프로브가 정적 탐지):
+> `agents/*.md` frontmatter와 일치해야 한다(불일치·역전·미등록은 model-tiering 프로브가 정적 탐지).
+> 축은 둘이다 — **model**(누구를 쓰는가)과 **effort**(얼마나 생각하는가):
 > - **Opus 5** (`claude-opus-5`): 추론 품질이 결과를 좌우하는 단계 — 설계(architect),
 >   품질 게이트(evaluator), 에이전틱 코딩(implementer), 보안 감사(security-auditor).
 >   Opus 5는 강화된 사이버보안 안전장치를 탑재해 **방어 목적 감사도 refusal될 수 있다** —
@@ -117,6 +118,16 @@ claude
 > - **Sonnet 5** (`claude-sonnet-5`): 실코딩성·안전 마진이 필요한 단계 — 스펙(spec-writer),
 >   테스트 작성(test-writer, evaluator의 커버리지 차원에 직결), 배포(deploy-operator).
 > - **Haiku 4.5** (`claude-haiku-4-5`): 체크리스트성 크로스 기능 QA(qa-reviewer).
+>
+> **effort 축** (F57) — implementer·evaluator·security-auditor는 `xhigh`, architect는 `high`,
+> spec-writer·test-writer·deploy-operator는 `medium`, qa-reviewer는 미지정(Haiku 4.5가 effort를
+> 지원하지 않아 세션 기본값 상속). 게이트 역할의 effort는 implementer보다 낮을 수 없다 —
+> model 축의 역전 규칙을 effort에 대칭 적용하며 프로브가 탐지한다.
+> effort는 **frontmatter에 선언하지 않는다**: 플러그인 서브에이전트에서 적용되는지 규명하지
+> 못했고(디스패치가 권한 분류기에 차단), 같은 계층의 `isolation`은 F56에서 미적용으로 실증됐다.
+> 적용되지 않을 수 있는 선언은 거짓 보증이므로 `config/models.json`이 단일 출처이자 설계 문서다.
+> 참고로 effort 자체는 Claude Code가 지원한다 — CLI `--effort`로 동일 프롬프트를 low/max 실행 시
+> 23초 대 55초로 실측됐다(2.1.220).
 >
 > phase별 선언 단가(per-1M)는 `scripts/cost-report.sh`로 확인할 수 있습니다 — 읽기 전용, 실제 청구가 아닌 config 선언값입니다.
 
@@ -336,7 +347,7 @@ harness 자체도 실패에서 배웁니다:
 - `jq` — **권장**. 없으면 bash firewall이 비활성화되고(경고 출력) 세션 컨텍스트 주입이 축소됩니다
 - `bash` 3.2+ (hooks), 4.0+ (bootstrapper)
 - 각 언어 도구 (선택 — 없으면 해당 hook이 graceful skip)
-- 개발 시: `bats`, `shellcheck` (테스트 604개, CI에서 강제)
+- 개발 시: `bats`, `shellcheck` (테스트 610개, CI에서 강제)
 
 ## License
 

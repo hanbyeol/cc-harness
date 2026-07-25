@@ -563,6 +563,68 @@ JSON
   [ "$(echo "$output" | jq '[.[]|select(.name|test("unregistered|미등록";"i"))]|length')" -eq 0 ]
 }
 
+# --- effort tiering (F57) ---
+# model 축과 방향이 반대다: effort_levels는 인덱스가 클수록 강하다(low < … < max).
+# effort는 frontmatter에서 검사하지 않는다 — 플러그인 서브에이전트에서 적용되는지
+# 규명하지 못해(F57 AC-0) 선언하지 않기로 했고, config가 단일 출처다.
+
+# seed_models 위에 effort 축을 얹는다 (frontmatter는 건드리지 않는다)
+seed_effort() {
+  seed_models
+  jq '.assignments.implementer.effort="xhigh"
+    | .assignments.evaluator.effort="xhigh"
+    | .assignments["security-auditor"].effort="xhigh"
+    | .rules.effort_levels=["low","medium","high","xhigh","max"]
+    | .rules.effort_unsupported_models=["claude-haiku-4-5"]' \
+    "$WORK/config/models.json" > "$WORK/config/m.json" && mv "$WORK/config/m.json" "$WORK/config/models.json"
+}
+
+@test "model-tiering: consistent effort assignment yields no candidates" {
+  seed_effort
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "model-tiering: effort value outside the allowed set yields a candidate" {
+  seed_effort
+  jq '.assignments.implementer.effort="x-high"' "$WORK/config/models.json" > "$WORK/config/m.json" && mv "$WORK/config/m.json" "$WORK/config/models.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("unregistered effort"))]|length')" -eq 1 ]
+}
+
+@test "model-tiering: effort on an unsupported model yields a candidate" {
+  # Haiku 4.5는 effort 파라미터를 지원하지 않는다 — 지정하면 무시되므로 거짓 보증이 된다
+  seed_effort
+  jq '.assignments["qa-reviewer"].effort="low"' "$WORK/config/models.json" > "$WORK/config/m.json" && mv "$WORK/config/m.json" "$WORK/config/models.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("effort on unsupported model"))]|length')" -eq 1 ]
+}
+
+@test "model-tiering: gate effort below the reference role yields an inversion candidate" {
+  # model 축 rule4의 effort 대칭 — 게이트가 구현보다 얕게 추론하면 판정이 따라가지 못한다
+  seed_effort
+  jq '.assignments.evaluator.effort="medium"' "$WORK/config/models.json" > "$WORK/config/m.json" && mv "$WORK/config/m.json" "$WORK/config/models.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("effort inversion"))]|length')" -eq 1 ]
+}
+
+@test "model-tiering: gate effort above the reference role is not an inversion" {
+  # 방향 확인 — 게이트가 더 강한 것은 정상이므로 후보를 내면 안 된다
+  seed_effort
+  jq '.assignments.evaluator.effort="max"' "$WORK/config/models.json" > "$WORK/config/m.json" && mv "$WORK/config/m.json" "$WORK/config/models.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("effort inversion"))]|length')" -eq 0 ]
+}
+
+@test "model-tiering: config without any effort keys stays clean (backward compatible)" {
+  # effort 축을 쓰지 않는 기존 config에서 새 규칙이 오탐하면 안 된다
+  seed_models
+  run bash -c "cd '$WORK' && bash '$PROBES/model-tiering.sh'"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("effort"))]|length')" -eq 0 ]
+}
+
 # --- evidence probe (F25) ---
 
 # 최신 evaluator-feedback 레코드를 만든다 (archive/ 제외, lexical 정렬)

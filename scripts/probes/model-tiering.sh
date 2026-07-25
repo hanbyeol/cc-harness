@@ -29,6 +29,11 @@ done
 
 # 2. 규칙 평가 (drift / unregistered / critical-on-lowest / gate-below-reference)는 jq에서 일괄 처리
 #    티어 순위: tiers 배열 인덱스가 작을수록 상위(고능력). gate rank > ref rank ⇒ 게이트가 저티어.
+#
+#    effort 규칙(F57, 6~8)은 model 규칙과 방향이 반대다 — effort_levels는 인덱스가 **클수록**
+#    강하다(low < medium < high < xhigh < max). effort는 frontmatter에서 검사하지 않는다:
+#    플러그인 서브에이전트에서 적용되는지 규명하지 못해(F57 AC-0) frontmatter에 선언하지 않기로
+#    했고, config/models.json이 단일 출처이므로 config 내부 정합성만 본다.
 jq -n -c --argjson cfg "$CFG" --argjson fm "$FM" '
   ($cfg.tiers // [])                            as $tiers
   | ($tiers | length)                           as $tlen
@@ -37,6 +42,11 @@ jq -n -c --argjson cfg "$CFG" --argjson fm "$FM" '
   | ($cfg.rules.gate_reference_role // "implementer") as $refrole
   | ($fm[$refrole] // null)                     as $refmodel
   | (if $refmodel == null then null else ($tiers | index($refmodel)) end) as $refrank
+  | ($cfg.rules.effort_levels // [])            as $elevels
+  | ($cfg.rules.effort_unsupported_models // []) as $eunsup
+  | ($asg[$refrole].effort // null)             as $refeffort
+  | (if $refeffort == null then null else ($elevels | index($refeffort)) end) as $referank
+  | ($asg | to_entries)                         as $A
   | ($fm | to_entries | map(select(.value != "" and .value != null))) as $E
   | (
       # (1) drift: frontmatter ↔ config 불일치 / config 미등록 역할
@@ -89,5 +99,28 @@ jq -n -c --argjson cfg "$CFG" --argjson fm "$FM" '
                    else {name:"model drift: \($role) (agent 파일 없음)",
                          description:"config/models.json에 \($role) 할당이 있으나 agents/\($role).md 없음 — stale 항목 또는 누락 agent",
                          security_tier:"low", source:"model-tiering"} end )
+          else empty end ]
+    + # (6) effort 미등록 값: rules.effort_levels 허용 집합 밖
+      [ $A[] | .key as $role | (.value.effort // null) as $eff
+        | if ($eff != null and ($elevels | length) > 0 and ($elevels | index($eff)) == null)
+            then {name:"unregistered effort: \($role)",
+                  description:"config assignments의 \($role).effort=\($eff)가 rules.effort_levels 허용 집합에 없음 — 오타이거나 미등록 값. 허용값으로 교정하거나 집합에 추가",
+                  security_tier:"low", source:"model-tiering"}
+          else empty end ]
+    + # (7) effort 미지원 모델에 effort 지정 — 무시되므로 거짓 보증이 된다
+      [ $A[] | .key as $role | (.value.effort // null) as $eff | (.value.model // "") as $m
+        | if ($eff != null and (($eunsup | index($m)) != null))
+            then {name:"effort on unsupported model: \($role)",
+                  description:"\($role)의 모델 \($m)은 effort 파라미터를 지원하지 않는데 effort=\($eff)가 지정됨 — 적용되지 않으므로 강도가 걸려 있다는 거짓 보증이 된다. 지정을 제거하고 세션 상속에 맡길 것",
+                  security_tier:"low", source:"model-tiering"}
+          else empty end ]
+    + # (8) 게이트 역할의 effort가 기준 역할보다 낮음 — model 축 rule4의 effort 대칭.
+      #     effort_levels는 인덱스가 클수록 강하므로 gate rank < ref rank 이면 역전이다.
+      [ $A[] | .key as $role | (.value.effort // null) as $eff
+        | (if $eff == null then null else ($elevels | index($eff)) end) as $er
+        | if (($gates | index($role)) != null and $er != null and $referank != null and $er < $referank)
+            then {name:"effort inversion: gate \($role) below \($refrole)",
+                  description:"검증 게이트 \($role)의 effort=\($eff)가 \($refrole)=\($refeffort)보다 낮음 — 게이트가 구현보다 얕게 추론하면 판정이 구현을 따라가지 못한다. 구현 동급 이상으로 올릴 것",
+                  security_tier:"standard", source:"model-tiering"}
           else empty end ]
   )'

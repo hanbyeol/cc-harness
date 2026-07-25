@@ -1,46 +1,43 @@
 {
-  "feature_id": "F56",
-  "sprint": 42,
-  "title": "핸드오프 백로그 유실 수정 — 읽는 쪽·쓰는 쪽 양방향",
+  "feature_id": "F57",
+  "sprint": 43,
+  "title": "effort 티어링 — 역할별 추론 강도 배분 (모델 티어링의 두 번째 축)",
   "security_tier": "standard",
-  "timestamp": "2026-07-25T23:45:00+09:00",
-  "attempt": "재시도 (--retry). 1차 시도는 컨텍스트 다이어트 2차 범위로 evaluator fail(min-of-5=4, functionality 4 — 8개 AC 중 3개 인도). 범위를 핸드오프 백로그 유실 수정으로 재정의하고 롤백/보류분을 F58·F59로 분리한 뒤 남은 AC-9를 구현했다.",
-  "summary": "재정의된 계약의 4개 AC를 모두 달성했다. 백로그 유실을 읽는 쪽(run-all.sh가 두 handoff 파일을 읽음)과 쓰는 쪽(스냅샷이 에이전트 기록 필드를 캐리오버)에서 함께 고치고, 이번 회차에 읽는 쪽을 전용 테스트로 잠갔다. 그 테스트가 실제로 회귀를 잡는지는 mutation으로 확인했다.",
+  "timestamp": "2026-07-26T01:00:00+09:00",
+  "summary": "계약의 7개 AC를 모두 달성했다. config/models.json에 effort 축을 신설해 모델 티어링의 두 번째 축(얼마나 생각하는가)을 단일 출처로 관리하고, model-tiering 프로브를 확장해 미등록 값·미지원 모델 지정·게이트 역전을 정적 탐지한다. 다만 effort를 agents/*.md frontmatter에는 선언하지 않았다 — 플러그인 서브에이전트에서 적용되는지 규명하지 못했고, Q3 결정(F59 원칙)상 적용되지 않을 수 있는 선언은 거짓 보증이기 때문이다.",
   "achieved": {
-    "AC-6": "run-all.sh가 session-handoff-draft.json과 session-handoff.json의 follow_ups_backlog를 모두 읽는다 (커밋 4dcbfb5)",
-    "AC-7": "bats 604 ok / 0 fail (기준선 600 + 신규 4), 프로브 [], shellcheck clean, 게이트 파일 무변경",
-    "AC-8": "스냅샷이 에이전트 기록 필드를 캐리오버하고 자동 필드는 새 값이 이긴다. tests/session-handoff.bats 4건으로 잠금 (커밋 4dcbfb5)",
-    "AC-9": "읽는 쪽을 tests/probes.bats 4건으로 잠금 — 이번 회차 신규"
+    "AC-0": "규명 불가(frontmatter) / 지원 확인(CLI). 서브에이전트 디스패치가 권한 분류기에 차단돼 frontmatter 경로를 판정하지 못했다. CLI 경로에서는 --effort가 실제로 작동함을 실측했다",
+    "AC-1": "config assignments 7개 역할에 effort 추가 + rules에 허용 집합·미지원 모델·역전 규칙 노트",
+    "AC-2": "미적용 경로로 확정 — frontmatter에 effort 선언 없음. 사유를 config _comment와 README에 기록",
+    "AC-3": "model-tiering.sh에 규칙 6~8 추가(미등록 값·미지원 모델 지정·게이트 역전)",
+    "AC-4": "기존 model 축 탐지 회귀 없음 + effort 없는 config 하위호환 확인",
+    "AC-5": "tests/probes.bats 6건 + mutation 확인",
+    "AC-6": "config _comment·README에 effort 축 반영"
   },
   "files_changed": [
-    "tests/probes.bats — handoff 백로그 중복 제거 테스트 4건 + seed_backlog_candidate 헬퍼 (AC-9)",
-    "README.md — 테스트 수 600→604",
-    "progress/contracts/sprint-42.json — AC-9/ES-7 결과 기록, steps done, agreed:true(축소 범위 재승인)"
+    "config/models.json — assignments 7개 역할에 effort, rules에 effort_levels·effort_unsupported_models·역전 노트, _comment를 두 축 기준으로 재작성",
+    "scripts/probes/model-tiering.sh — 규칙 6~8 추가. effort_levels는 인덱스가 클수록 강해 model 축과 방향이 반대임을 주석으로 명시",
+    "tests/probes.bats — effort 테스트 6건 + seed_effort 헬퍼",
+    "README.md — 모델 라우팅 섹션에 effort 축 문단, 테스트 수 604→610"
   ],
   "evidence": {
-    "bats_full": "604 ok / 0 fail, exit=0 (기준선 600 + 신규 4). 1회 실행 후 출력 파싱 — 재실행 없음",
-    "ac9_tests": "tests/probes.bats 신규 4건 — 36 draft 백로그 소거 / 37 병합본 백로그 소거(핵심) / 38 백로그 부재 시 후보 생존 / 39 빈 백로그 미소거. 전부 통과",
-    "es7_mutation": "run-all.sh의 백로그 루프에서 session-handoff.json을 임시 제거하고 실행 → 'not ok 37 run-all: dedups candidates listed in the merged handoff backlog' 하나만 실패(1 fail), 나머지 3건은 통과. 테스트가 수정의 유무를 정확히 구분하며 다른 케이스는 mutation에 무관함을 보였다. 복원 후 git diff 없음 확인",
-    "design_reuse": "기존 tests/probes.bats:367 'run-all: dedups candidates already in feature_list'와 대칭 패턴을 사용했다 — seed_consistent 헬퍼 재사용, consistency 후보의 name을 백로그에 삽입해 소거 확인. completeness용 evaluator-feedback 픽스처를 새로 만들지 않아 테스트가 기존 것과 같은 형태로 읽힌다",
-    "probes": "run-all.sh → [] (2026-07-25 커밋 363f1b8 시점, README 테스트 수 갱신 직후 측정). [정정: 이 표현은 측정 시점을 명시하지 않아 부정확했다 — evaluator 검증 시점에는 F43 completeness가 1차 판정의 미해결 action_required를 표면화해 후보 1건이 있었다. drift/consistency 프로브는 양 시점 모두 clean이므로 AC-7(회귀 없음)에는 무해하나, 시점 없는 [] 표기는 오해를 부른다. evaluator 지적으로 정정]",
+    "bats_full": "610 ok / 0 fail, exit=0 (기준선 604 + 신규 6). 1회 실행 후 출력 파싱 — 재실행 없음",
+    "ac0_cli_measurement": "claude --help에 --effort <level>(low·medium·high·xhigh·max) 존재 확인. 동일 프롬프트를 --effort low와 --effort max로 실행: 사고량을 요구하는 문제에서 23초 대 55초(2.4배), 답은 양쪽 44로 동일해 품질 저하 없음. 대조군인 쉬운 문제에서는 11초 대 11초로 차이 없음 — effort 미작동이 아니라 문제가 쉬워 양쪽 모두 세션 시작 오버헤드에 묻힌 것으로 해석",
+    "ac0_frontmatter_blocked": "agents/architect.md에 effort: low를 선언하고 isolation 파라미터 없이 디스패치를 시도했으나 Claude Code 권한 분류기에 차단됐다. 우회하지 않았고 frontmatter는 원복했다(git diff 없음 확인). F55의 런타임 모델 ID 확인 때와 같은 차단이다",
+    "ac3_probe_fixtures": "격리 픽스처 5조합 실측 — 정합 [], 미등록 effort 값 1건, 미지원 모델에 지정 1건, 게이트 역전 1건, 게이트가 더 강한 경우 [](오탐 없음)",
+    "ac5_mutation": "역전 검사 조건을 false로 비활성화하자 정확히 'gate effort below the reference role' 테스트만 실패(1 fail)하고 나머지 5건은 통과. 테스트가 회귀를 실제로 포착하며 다른 케이스는 그 로직에 둔감하다. 복원 후 잔존 0 확인",
+    "ac4_backward_compat": "effort 키가 전혀 없는 기존 config(seed_models)에서 새 규칙이 후보를 내지 않음을 전용 테스트로 고정",
+    "probes": "model-tiering.sh → [] (실제 저장소). run-all.sh는 F56 판정 관련 2건 반환 — 백로그 편입 대상이며 F57 변경과 무관",
     "sc1_gate": "git diff --quiet progress/harness-config.json docs/INVARIANTS.md — 무변경",
-    "sc4_tools": "tests/probes.bats는 보호 파일이므로 Edit 툴로만 편집. mutation을 위한 run-all.sh 임시 수정과 복원도 Edit 툴 사용",
-    "shellcheck": "scripts/probes/run-all.sh — clean"
+    "shellcheck": "scripts/probes/model-tiering.sh — clean",
+    "branch_cleanup": "3개 삭제(feat/agent-effort-tiering·feat/firewall-auto-allow·chore/prune-stale-evaluator-feedback), 1개 존치(docs/finish-branch-optional-pr — 안전장치 제거가 포함돼 별도 검토 필요)"
   },
-  "prior_verdict": {
-    "file": "progress/agent-comms/evaluator-feedback-2026-07-25T23-15-00.json",
-    "verdict": "fail",
-    "score": 4,
-    "driver": "functionality 4 — 8개 AC 중 3개만 인도",
-    "recommendation_followed": "F56을 AC-6/AC-8 범위로 재정의(완료, 커밋 27bbf37) + F58/F59 분리(완료) + AC-6 전용 테스트 추가(완료, AC-9)",
-    "evidence_corrections_applied": "evaluator가 지적한 두 건(session-handoff.bats 18/18 → 13/13, efficiency.bats → subagent-mode+improve-auto)을 정정 표기와 함께 반영(커밋 96a2934)"
-  },
-  "scope_boundary": {
-    "moved_to_F58": "라우팅 축소·스킬 점진적 공개 — F29 불변식 재검토가 선결이며 사람 승인 필요",
-    "moved_to_F59": "isolation·maxTurns frontmatter 강등 — 플러그인에서 적용되는 필드 규명이 선결",
-    "not_unwound": "1차 시도에서 인도한 구현(커밋 4dcbfb5)은 되돌리지 않았다. 재정의는 계약 범위를 좁힌 것이지 코드를 무른 것이 아니다"
-  },
-  "self_review_note": "implementer는 passes를 set하지 않는다(INV-1). standard 티어이므로 독립 evaluator 1회 판정이 게이트다. 이번에는 계약의 4개 AC를 모두 채운 상태로 판정을 받는다 — 다만 그 계약이 1차 fail 후 축소된 것이므로, evaluator는 축소 자체가 정당했는지(요건 완화가 아니라 범위 분리였는지)도 함께 볼 필요가 있다. 근거는 _scope_redefinition에 이관 이력으로 남겼고, 이관된 항목들은 삭제가 아니라 각자의 계약을 가진 F58·F59로 살아 있다.",
-  "limitations_honest": "AC-9는 run-all.sh의 백로그 읽기를 잠그지만, 캐리오버 필드 목록(sprint-42 fundamental_limit)의 누락은 여전히 기계 탐지되지 않는다 — 새 에이전트 기록 필드가 추가되면 목록에도 넣어야 보존되고, 그 누락을 잡는 장치는 없다. 백로그에 남겼다.",
+  "design_notes": [
+    "effort 순위는 model 축과 방향이 반대다 — tiers는 인덱스가 작을수록 상위(고능력)인데 effort_levels는 인덱스가 클수록 강하다(low < medium < high < xhigh < max). 규칙 8의 역전 조건이 model 축 규칙 4와 부호가 반대인 이유이며 주석과 테스트로 고정했다",
+    "게이트 역전 규칙을 effort 축에 대칭 적용했다 — model 축에서 rules.gate_reference_role로 강제하던 불변식(게이트는 구현 동급 이상)을 effort에도 적용한다. 게이트가 구현보다 얕게 추론하면 판정이 구현을 따라가지 못한다",
+    "seed_effort 헬퍼는 기존 seed_models 위에 effort만 얹는다 — 기존 model 축 테스트를 건드리지 않아 두 축의 회귀가 서로 섞이지 않는다"
+  ],
+  "self_review_note": "implementer는 passes를 set하지 않는다(INV-1). standard 티어이므로 독립 evaluator 1회 판정이 게이트다. 7개 AC를 모두 채웠으나 AC-0이 '규명 불가'로 처리된 것이 판정의 쟁점이 될 수 있다 — 규명 실패를 달성으로 볼 수 있는가. 계약이 애초에 '판정 불가하면 불가로 기록한다'를 verification에 명시했고 Q3 결정이 '미적용과 규명 불가를 동일 처리'로 정했으므로 절차상 정합하지만, evaluator가 이를 다르게 판단한다면 그 판정이 옳다.",
+  "limitations_honest": "effort 적용 여부를 토큰·시간 프록시로만 판정했고, 그마저도 CLI 경로다. 프록시가 차이를 보이지 않아도 미적용의 증명이 아니라 증거 부재다. 플러그인 서브에이전트 frontmatter 경로는 디스패치 차단으로 전혀 확인하지 못했으며, 이 제약이 해소되지 않으면 F59도 같은 벽에 부딪힌다. 결론은 Claude Code 2.1.220 기준이며 버전이 바뀌면 재확인이 필요하다. 또한 config에 effort를 선언해도 런타임에 아무 효과가 없을 가능성이 남아 있다 — 현재로서는 설계 문서이자 프로브 검사 대상으로서만 확실히 유효하다.",
   "ready_for": "evaluation"
 }
