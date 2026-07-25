@@ -1,7 +1,7 @@
 {
   "current_phase": "implementation",
   "phase_transition_rule": "all criteria == true AND user_approved → auto-advance to next phase",
-  "_comment": "F56(핸드오프 백로그 유실 수정 — sprint-42, 2026-07-25 범위 재정의)·F57(effort 티어링 — sprint-43)·F58(컨텍스트 다이어트 — sprint-44)·F59(인터페이스 강등 — sprint-45) 기준. specification/architecture는 change-request 산출물(feature_list·contracts·acceptance-criteria·기존 ADR/INVARIANTS 위협모델)로 충족 — 신규 아키텍처 문서는 불요. 네 기능 모두 컴포넌트·API·데이터 모델 변경이 없어 phase 롤백 없음(implementation 유지). 게이트 구조·임계값은 전부 불변. F58·F59는 F56의 evaluator fail(min-of-5=4) 후 범위 재정의로 분리된 것이며 각각 선결 조건이 있다 — F58은 F29 불변식 재검토 여부(사람 승인 필수), F59는 플러그인 서브에이전트에서 실제 적용되는 frontmatter 필드 규명.",
+  "_comment": "F56(핸드오프 백로그 유실 수정 — sprint-42, 2026-07-25 범위 재정의)·F57(effort 티어링 — sprint-43)은 독립 evaluator pass 후 main에 머지 완료(2026-07-26). 남은 미완료는 F58(컨텍스트 다이어트 — sprint-44)·F59(인터페이스 강등 — sprint-45)이며 둘 다 선결 조건이 사용자 결정에 걸려 있어 implementation phase를 유지한다. 아래 criteria는 phase 전체 기준이므로 F58·F59가 남은 동안 false가 정상이다. specification/architecture는 change-request 산출물(feature_list·contracts·acceptance-criteria·기존 ADR/INVARIANTS 위협모델)로 충족 — 신규 아키텍처 문서는 불요. 네 기능 모두 컴포넌트·API·데이터 모델 변경이 없어 phase 롤백 없음(implementation 유지). 게이트 구조·임계값은 전부 불변. F58·F59는 F56의 evaluator fail(min-of-5=4) 후 범위 재정의로 분리된 것이며 각각 선결 조건이 있다 — F58은 F29 불변식 재검토 여부(사람 승인 필수), F59는 플러그인 서브에이전트에서 실제 적용되는 frontmatter 필드 규명.",
   "phases": {
     "specification": {
       "status": "complete",
