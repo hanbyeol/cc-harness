@@ -196,7 +196,18 @@ case "$TOOL" in
     exit 0
     ;;
 esac
-[[ -z "$NEW_CONTENT" ]] && exit 0
+# 빈 내용 Write = 파일 전체 비우기(truncation). 아래 개별 브랜치는 내용을 파싱해 약화를
+# 탐지하므로 빈 내용에는 검사할 것이 없어 통과시켜 왔다 — 그러나 이는 클래스 우회다(F54 A6,
+# judge2가 evaluator-runs에서 실증): 보호 파일을 빈 Write로 비우면 그 파일의 개별 약화 검사
+# (@test 수·임계값·firewall 패턴·실행기록·배선)를 통째로 우회해 검증 장치를 무력화할 수 있다.
+# 따라서 기존에 내용이 있던 보호/배선 파일의 truncation은 차단한다(fail-closed 게이트와 동일
+# 술어). 신규·이미 빈 파일(-s 거짓)은 파괴할 게 없으므로 통과. (인스턴스가 아니라 클래스를 닫음)
+if [[ -z "$NEW_CONTENT" ]]; then
+  if { is_protected "$FILE" || is_wiring_file "$FILE"; } && [[ -s "$FILE" ]]; then
+    deny "$(basename "$FILE") 전체 비우기(빈 Write) — 보호 파일 truncation은 개별 약화 검사를 우회하는 검증장치 무력화 (INV-7)"
+  fi
+  exit 0
+fi
 
 BASENAME=$(basename "$FILE")
 

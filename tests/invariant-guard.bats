@@ -528,6 +528,54 @@ JSON
   is_protected "/x/progress/agent-comms/evaluator-runs.jsonl"
 }
 
+# --- F54 follow-up (judge2 A6): empty-Write truncation bypass — closed as a CLASS ---
+# 빈 내용 Write로 보호 파일을 통째로 비우면 개별 약화 검사를 우회하던 클래스 갭. evaluator-runs
+# 뿐 아니라 모든 보호/배선 파일의 truncation을 차단한다(인스턴스가 아니라 클래스를 닫음).
+
+@test "F54-A6: empty Write truncating a non-empty evaluator-runs.jsonl is denied" {
+  local runs="$WORK/progress/agent-comms/evaluator-runs.jsonl"
+  mkdir -p "$WORK/progress/agent-comms"
+  printf '%s\n' '{"agent_id":"a","epoch":100}' '{"agent_id":"b","epoch":200}' > "$runs"
+  run run_write "$(mk_write_input "$runs" "")"
+  [ "$status" -eq 2 ]
+}
+
+@test "F54-A6 class: empty Write truncating a non-empty tests/*.bats is denied" {
+  # @test 수 검사를 빈 Write로 우회하던 경로 — 클래스 픽스가 막는다
+  printf '@test "x" { true; }\n' > "$WORK/tests/foo.bats"
+  run run_write "$(mk_write_input "$WORK/tests/foo.bats" "")"
+  [ "$status" -eq 2 ]
+}
+
+@test "F54-A6 class: empty Write truncating a non-empty harness-config.json is denied" {
+  run run_write "$(mk_write_input "$WORK/progress/harness-config.json" "")"
+  [ "$status" -eq 2 ]
+}
+
+@test "F54-A6: empty Write to a non-existent evaluator-runs.jsonl is allowed (nothing to destroy)" {
+  run run_write "$(mk_write_input "$WORK/progress/agent-comms/evaluator-runs.jsonl" "")"
+  [ "$status" -eq 0 ]
+}
+
+@test "F54-A6: empty Write to a non-protected file is allowed" {
+  printf 'hello\n' > "$WORK/regular.txt"
+  run run_write "$(mk_write_input "$WORK/regular.txt" "")"
+  [ "$status" -eq 0 ]
+}
+
+# N1 (judge2): 새 파일로 위조 evaluator-runs를 생성하는 것은 허용된다 — 사용자 승인 설계 A+C의
+# 알려진 speed-bump 한계(append/create 위조는 원천 봉쇄 못 함). 의도된 동작임을 특성화 테스트로
+# 잠가, 미래 독자가 '갭'이 아니라 '문서화된 한계'임을 알게 한다(INVARIANTS.md 위협모델과 정합).
+@test "F54-N1 (documented limitation): new-file Write of a forged evaluator-runs.jsonl is allowed" {
+  local runs="$WORK/progress/agent-comms/evaluator-runs.jsonl"
+  mkdir -p "$WORK/progress/agent-comms"
+  # 파일 부재 상태에서 위조 레코드로 새로 생성 — 신규 생성 면제로 통과(append-only는 기존
+  # 라인 보호가 목적이지 최초 생성을 막지 않는다). self-referential 한계, speed-bump.
+  local forged; forged=$(jq -cn --argjson e "$(date +%s)" '{agent_id:"forged",epoch:$e}')
+  run run_write "$(mk_write_input "$runs" "$forged")"
+  [ "$status" -eq 0 ]
+}
+
 @test "INV-11: allows passes true->false reset (not a weakening)" {
   flist true > "$WORK/progress/feature_list.json"
   run run_write "$(mk_write_input "$WORK/progress/feature_list.json" "$(flist false)")"

@@ -42,7 +42,18 @@
     "critical_security": 8,
     "agreement": "both PASS, security >= critical threshold 7"
   },
-  "evidence": "Both judges verified by direct execution against the working-tree hooks/invariant-guard.sh (driven via mocked stdin — live hook is cached 1.32.0, F54 unwired, so no circularity). MUST-deny forge scenarios all blocked: no-run->deny, stale>48h->deny, no-epoch->fail-closed deny, malformed/negative/float/future epoch->deny; in-window(47h)->allow. Append-only: delete/modify/reorder->deny, append->allow. F35 regression intact (verdict=fail/min<7/critical security<7 all deny). Recorder: integer epoch, exit 0, non-evaluator filtered, transcript-absent records id+epoch. Wiring symmetric (hooks.json+settings.json). Honesty (SC-2) confirmed — INVARIANTS.md frames as speed-bump, discloses append-forge path + per-feature imprecision, no overclaim. SC-1 refinement (strict-order->recency window) judged sound.",
+  "evidence": {
+    "method": "Both independent judges verified by direct execution against the working-tree hooks/invariant-guard.sh, driven via mocked stdin (live hook is cached 1.32.0, F54 unwired — no circularity).",
+    "sc1_forge_deny": "MUST-deny forge scenarios all blocked: no-run->deny, stale>48h->deny, no-epoch->fail-closed deny, malformed/negative/float/future epoch->deny; in-window(47h)->allow.",
+    "append_only": "delete/modify/reorder->deny, append->allow (both judges, Write+Edit).",
+    "sc3_f35_regression": "verdict=fail / min-of-5<7 / critical security<7 all still deny — F35 gates intact, run-record is add-only layer.",
+    "recorder": "integer epoch recorded, exit 0, non-evaluator filtered, transcript-absent still records id+epoch, malformed input non-blocking.",
+    "sc4_wiring": "SubagentStop present in both hooks.json and settings.json, matcher ^cc-harness:evaluator$, timeout 10.",
+    "sc2_honesty": "INVARIANTS.md frames as speed-bump, discloses append-forge path + per-feature imprecision — no overclaim.",
+    "sc1_refinement": "strict-order->recency window judged sound (feedback filenames are logical/rounded timestamps, so wall-clock ordering would be flaky).",
+    "bats": "581/581 (this pass record); follow-up A6 hardening adds 6 tests -> 587.",
+    "probes": "scripts/probes/run-all.sh clean of F54-induced drift."
+  },
   "action_required": "Not required for pass. Recommended follow-ups (both fail-closed, non-blocking): (A6) empty-content Write truncates evaluator-runs.jsonl via the `[[ -z NEW_CONTENT ]] && exit 0` short-circuit before the append-only branch — fail-closed (emptying the log denies future transitions, cannot forge a pass) but contradicts the 'delete->deny' claim; add a deny for empty-write/truncation on evaluator-runs.jsonl + regression test. (N1) new-file Write of a forged evaluator-runs.jsonl is allowed (new-file exemption) — the user-approved append/create speed-bump limitation, honestly documented; lock it as an explicit limitation test. Release note: F54 is inert until v1.33.0 + plugin update + restart on both install paths (recorder not wired in live 1.32.0).",
   "issues": [
     {

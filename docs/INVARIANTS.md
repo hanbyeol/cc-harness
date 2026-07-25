@@ -336,3 +336,10 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
   변조 차단. 설치 경로 대칭(INV-13/F52)으로 `hooks.json`·`settings.json` 양쪽 배선. **한계 정직 명문화**:
   완전 방지 아님(self-referential) — 위조 로그 append는 speed-bump로만 막히고 시간창은 per-feature 정밀
   대응이 아니다. 목표는 '완전 차단'이 아니라 '위조 난이도 상향'(F38 과대주장 정정). sprint-40 F54)
+- 2026-07-25: 빈 Write truncation 클래스 차단 (INV-7 연장, F54 judge2 A6 후속). `[[ -z "$NEW_CONTENT" ]]
+  && exit 0` 단락이 개별 약화 검사(@test 수·임계값·firewall 패턴·실행기록·배선) 이전에 위치해,
+  빈 내용 Write로 보호 파일을 통째로 비우면 그 파일의 검사를 통째로 우회할 수 있었다(evaluator-runs를
+  비워 append-only를 우회하는 인스턴스로 발견, 하지만 .bats @test 전멸·harness-config 임계값 제거 등
+  모든 보호 파일에 해당하는 **클래스**). 기존에 내용이 있던 보호/배선 파일(`is_protected || is_wiring_file`
+  + `-s`)의 빈 Write는 truncation으로 차단한다 — 신규·이미 빈 파일은 파괴할 게 없어 통과. '실증된 인스턴스가
+  아니라 클래스를 닫는다'는 F52 교훈의 적용. sprint-40 F54 follow-up)
