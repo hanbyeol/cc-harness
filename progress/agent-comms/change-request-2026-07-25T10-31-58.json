@@ -1,0 +1,43 @@
+{
+  "timestamp": "2026-07-25T10:31:58+09:00",
+  "type": "add",
+  "description": "Opus 4.8 → Opus 5 전환 — 모델 정합화 + 4.8 보정 지침 재튜닝 (F55)",
+  "affected_features": [
+    "F55"
+  ],
+  "related_features_not_reset": {
+    "features": [
+      "F16",
+      "F18",
+      "F23",
+      "F37"
+    ],
+    "reason": "F16·F18(병렬 디스패치)은 D4가 지침에 상한을 얹지만 병렬화 능력 자체는 보존되므로 인수조건('독립 태스크를 병렬 디스패치할 수 있다')이 여전히 참이다. F23(모델 티어링 프로브)은 프로브 로직 불변이고 config 데이터만 바뀐다. F37(evaluator 보정 코퍼스)은 D3의 Reporting Policy와 직교한다. 따라서 passes를 리셋하지 않고 F55의 dependencies로 연결한다."
+  },
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": false,
+    "acceptance_criteria_updated": true,
+    "feature_list_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false,
+    "phase_gate_comment_refreshed": true
+  },
+  "_impact_note": "docs/SPEC.md·docs/ARCHITECTURE.md는 이 저장소에 존재하지 않는다 — cc-harness는 자기 자신이 하네스라 README.md + docs/INVARIANTS.md + docs/DECISIONS/가 스펙·아키텍처 산출물 역할을 한다(phase-gate _comment의 기존 관행). README의 모델 표기 갱신은 D1에 포함되어 Sprint Contract의 implementation_steps에서 처리하며, change-request 단계에서는 구현 파일을 수정하지 않는다. 컴포넌트·API·데이터 모델·보안 플로우 변경이 없어 ARCHITECTURE 갱신은 불요. security-auditor 모델 정책 결정은 ADR-007로 구현 중 작성한다(F39가 ADR-006을 구현 중 작성한 선례).",
+  "tier_classification": {
+    "hotfix_eligible": false,
+    "reason": "hotfix 적용 조건 미충족 — 편집 대상이 3파일을 초과하고(agents/*.md 4 + config/models.json + CLAUDE.md + skills 2 + README + 관측 장치), 버그 수정이 아니라 신규 기능 항목이다."
+  },
+  "security_tier": "standard",
+  "_security_tier_note": "게이트 구조·임계값(min-of-5, security_thresholds, pass_threshold)을 변경하지 않고 판정 행동에 영향을 주는 프롬프트와 모델 설정만 바꾼다. progress/harness-config.json은 변경 대상이 아니다. 다만 D2가 critical 게이트 에이전트(security-auditor)의 모델을 바꾸므로 evaluator는 SC-3(refusal 관측)을 실행 근거로 확인해야 한다.",
+  "new_sprint_contract": "progress/contracts/sprint-41.json",
+  "design_source": "docs/brainstorms/2026-07-25-opus5-migration.md",
+  "prior_decisions": {
+    "scope": "전환 + 행동 재튜닝 (effort 티어링·512토큰 캐시·fast mode·Workflow 오케스트레이션 등 신기능 채택은 범위 밖)",
+    "security_auditor_model": "Opus 5로 단순 격상 — cyber classifier refusal 위험을 제기했고 사용자가 인지 후 선택(2026-07-25). 위험 제거가 아니라 관측 가능화가 목표",
+    "delegation_policy": "상한 추가 — F16·F18이 보장한 하한은 유지하고 상한만 신설"
+  },
+  "rollback_to_phase": null,
+  "agreed": false,
+  "next_step": "/implement F55 — Plan 게이트(ExitPlanMode) 승인 시에만 sprint-41.json의 agreed를 true로 전환한다. 미해결 설계 질문 Q1(refusal 관측 계층)·Q4(pricing에 opus-4-8 존치 여부)는 Plan 게이트에서 함께 결정한다."
+}

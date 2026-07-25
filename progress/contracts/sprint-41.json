@@ -1,0 +1,260 @@
+{
+  "sprint": 41,
+  "title": "Opus 5 전환 — 모델 정합화 + 4.8 보정 지침 재튜닝",
+  "feature_id": "F55",
+  "security_tier": "standard",
+  "verification_tier": "standard",
+  "_tier_note": "security_tier standard — 게이트 구조·임계값(min-of-5, security_thresholds, pass_threshold)을 변경하지 않고, 판정 행동에 영향을 주는 프롬프트와 모델 설정만 바꾼다. progress/harness-config.json은 변경 대상이 아니다(invariant-guard가 하향을 차단). 검증 티어링상 standard → 독립 evaluator 1회 판정. critical이 아니므로 F37 2차 판정은 불요하나, D2가 critical 게이트 에이전트(security-auditor)의 모델을 바꾸므로 evaluator는 SC-3을 반드시 실행 근거로 확인한다.",
+  "dependencies": [
+    "F16",
+    "F18",
+    "F23",
+    "F37"
+  ],
+  "_dependency_note": "F23(모델 티어링 프로브)이 D1의 정합성을 기계 검증한다 — 프로브 로직은 변경하지 않고 config 데이터만 바꾼다. F16·F18(병렬 디스패치)의 지침에 D4가 상한을 얹지만 병렬화 능력은 보존되므로 두 기능의 인수조건은 여전히 참이고 passes를 리셋하지 않는다. F37(evaluator 보정 코퍼스)은 D3가 evaluator.md를 수정하므로 관련 — Reporting Policy는 골든셋 판정 규칙과 직교한다.",
+  "problem": "하네스가 Opus 4.8을 전제로 배선돼 있다. (1) 정합성 부채: 모델 ID가 agents/*.md frontmatter 4곳·config/models.json(tiers·assignments·pricing)·README 산문에 흩어져 있고, scripts/probes/model-tiering.sh가 frontmatter↔config drift를 기계 탐지하므로 한쪽만 바꾸면 프로브가 즉시 실패한다. (2) 보정 부채: 일부 지침은 Opus 4.8의 약점을 보정하려 만든 것인데 Opus 5는 그 약점이 반대로 뒤집혔다 — 4.8은 서브에이전트 위임을 꺼려 CLAUDE.md가 위임을 장려하는 하한만 두었으나 Opus 5는 과잉 위임하고, 4.8은 보수적 보고 필터를 느슨히 해석했으나 Opus 5는 문자 그대로 준수해 evaluator.md:145의 '사소한 스타일 이슈로 반려하지 않음'이 finding 누락을 유발한다. Opus 5는 4.8과 동일 가격($5/$25 per MTok)·동일 1M 컨텍스트·동일 요청 표면이므로 API 파괴적 변경 대응은 불요하며, 본 변경은 모델 ID 스왑 + 프롬프트 재튜닝이다. 설계 근거: docs/brainstorms/2026-07-25-opus5-migration.md.",
+  "_scope_note": "하네스는 4.8/Fable 5 세대 보정을 이미 흡수했으므로 중복 작업 금지: no-tidying/scope discipline(implementer.md:144-145), early stopping 방지(implementer.md:142·evaluator.md:150), evidence over claims·unverified 규칙(evaluator.md:60,126), security-auditor Reporting Policy(17-20), 중복 재검증 방지(qa-reviewer.md:65,74)는 이미 존재한다. 마이그레이션 가이드의 '과잉 검증 지시를 삭제하라'는 항목에 해당하는 삭제 대상은 하네스에 없다 — 가이드가 지목하는 것은 모델의 자기검증 지시이고, 독립 evaluator 게이트와 F37 2차 판정은 별도 컨텍스트에서 수행되는 조직적 통제다.",
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "agents/{implementer,evaluator,security-auditor,architect}.md의 frontmatter model이 claude-opus-5로 갱신된다. 나머지 4개 에이전트(spec-writer·test-writer·deploy-operator=claude-sonnet-5, qa-reviewer=claude-haiku-4-5)는 변경하지 않는다.",
+      "verification": "awk로 8개 agents/*.md frontmatter의 model을 추출해 기대값과 대조"
+    },
+    {
+      "id": "AC-2",
+      "criterion": "config/models.json이 동시 정합화된다 — tiers는 [claude-fable-5, claude-opus-5, claude-sonnet-5, claude-haiku-4-5](claude-opus-4-8 제거), assignments 4건의 model과 rationale 갱신, pricing에 claude-opus-5 {input:5, output:25} 추가.",
+      "verification": "jq로 tiers·assignments·pricing 확인. bash scripts/probes/model-tiering.sh → 빈 배열([]) — drift·unregistered·tier inversion 후보가 하나도 없어야 한다"
+    },
+    {
+      "id": "AC-3",
+      "criterion": "cost-report 산출값에 회귀가 없다 — Opus 5 단가가 Opus 4.8과 동일($5/$25)하므로 phase별 비용 추정치가 변경 전과 같아야 한다.",
+      "verification": "변경 전 bash scripts/cost-report.sh --json 출력을 보관 → 변경 후 재실행 → 수치 동일 확인(diff)"
+    },
+    {
+      "id": "AC-4",
+      "criterion": "agents/security-auditor.md:13-15의 모델 선택 근거 주석이 재작성된다 — 'Fable 5를 피해 Opus 4.8을 쓴다'는 현행 문구를 제거하고, Opus 5 채택 사실·Opus 5도 cyber classifier refusal이 가능하다는 점·Anthropic이 cyber 카테고리 refusal의 권장 폴백으로 Opus 4.8을 지정한다는 점을 명시한다.",
+      "verification": "주석 본문에서 'Fable 5가 아닌 Opus 4.8을 사용' 문구 부재 + refusal·폴백 언급 존재를 grep으로 확인"
+    },
+    {
+      "id": "AC-5",
+      "criterion": "agents/evaluator.md에 Reporting Policy가 추가된다 — 발견한 이슈를 전부 issues에 올리고 각 항목에 severity와 confidence를 표기하며, 중요도 필터링은 판정 단계가 수행한다는 취지. security-auditor.md:17-20과 동일한 커버리지 우선 원칙이다.",
+      "verification": "evaluator.md에 Reporting Policy 섹션 존재 확인 + security-auditor.md의 대응 섹션과 원칙이 대칭임을 대조"
+    },
+    {
+      "id": "AC-6",
+      "criterion": "CLAUDE.md·skills/implement/SKILL.md·skills/debug/SKILL.md에 병렬 위임 상한이 추가된다 — (a) 직접 소수의 tool call로 끝낼 작업은 위임하지 않는다 (b) 동시 스폰 수 상한 (c) 자기 작업 재확인 목적의 위임 금지. 기존 하한('독립 태스크 2개 이상이면 병렬', 'verification 병렬')은 삭제하지 않는다.",
+      "verification": "세 파일에서 상한 문구 존재 + 기존 하한 문구 보존을 grep으로 확인"
+    },
+    {
+      "id": "AC-7",
+      "criterion": "CLAUDE.md에 메인 루프 커뮤니케이션 지침이 추가된다 — 간결성, 결과 우선(outcome-first), 불필요한 자기 정정 억제.",
+      "verification": "CLAUDE.md에 해당 섹션 존재 확인"
+    },
+    {
+      "id": "AC-8",
+      "criterion": "README.md:102-103의 모델 산문 표기가 Opus 5로 갱신된다.",
+      "verification": "grep으로 README 에이전트 표에서 'Opus 4.8' 잔존 부재 확인"
+    },
+    {
+      "id": "AC-9",
+      "criterion": "security-auditor의 refusal로 인한 빈/부실 산출을 탐지하는 최소 관측 장치가 배선된다 — 산출 JSON 부재 또는 findings·checklist 필드가 비어 있는 상태를 정상 통과와 구분해 표면화한다.",
+      "verification": "빈 security-audit 산출 픽스처를 투입 → 탐지 경로가 후보/경고로 표면화하는지 실행 확인"
+    },
+    {
+      "id": "AC-10",
+      "criterion": "기존 테스트·프로브가 회귀 없이 통과한다.",
+      "verification": "bats tests/ 전체 1회 실행 후 출력 파싱(재실행 금지) + bash scripts/probes/run-all.sh"
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "게이트 구조와 임계값이 불변이다 — progress/harness-config.json 미변경, evaluator의 min-of-5 산정·security_thresholds(critical 7/standard 5/low 3)·pass_threshold 7 규칙 미변경. D3의 Reporting Policy는 보고량만 늘리고 판정 규칙을 바꾸지 않는다.",
+      "rationale": "min-of-5와 임계값은 INVARIANTS상 하향 불가이며 invariant-guard가 차단한다. 모델 전환을 빌미로 게이트가 완화되는 것이 이 변경의 최대 위험이다.",
+      "verification": "harness-config.json git diff 없음 확인 + evaluator.md의 점수 산정·Constraints 섹션 diff가 판정 규칙을 건드리지 않음을 확인 + 임계값 하향 시도가 invariant-guard에 의해 deny되는 기존 회귀 테스트 통과"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "D4의 '자기 작업 재확인 목적의 위임 금지'가 독립 evaluator 게이트를 억제하도록 오독되지 않는다 — 워크플로우가 규정한 독립 evaluator 판정과 F37 critical 2차 판정은 명시적 예외로 같은 문단에 기재한다.",
+      "rationale": "이 예외를 빠뜨리면 INV-1(Generator-Evaluator 분리)이 '불필요한 검증 위임'으로 해석돼 게이트 자체가 생략될 수 있다. 조직적 통제와 모델 자기검증의 구분이 이 변경의 핵심 전제다.",
+      "verification": "세 파일의 위임 상한 문단에 evaluator 게이트·F37 예외 문구가 함께 있는지 확인"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "security-auditor를 Opus 5로 격상한 뒤에도 cyber classifier refusal이 critical 보안 게이트를 조용히 무력화하지 않는다 — refusal로 인한 빈 산출이 '이슈 없음(통과)'과 구분된다.",
+      "rationale": "서브에이전트는 refusal 시 빈/부실 산출을 낼 수 있고 현재 하네스에는 탐지 장치가 없다. 사용자가 위험을 인지하고 격상을 선택했으므로(2026-07-25), 위험 제거가 아니라 관측 가능화가 목표다.",
+      "verification": "AC-9의 관측 장치로 빈 산출 픽스처가 표면화되는지 실행 확인. 완전한 refusal 방지는 불가(fundamental_limit)"
+    },
+    {
+      "id": "SC-4",
+      "criterion": "하네스 보호 파일 편집 시 Bash 리다이렉트·sed -i·tee·cp가 아니라 Edit/Write 툴을 사용한다.",
+      "rationale": ".claude/rules/general.md — invariant-guard가 내용 기반으로 판단하도록 해 불필요한 ask 프롬프트와 우회 경로를 피한다.",
+      "verification": "구현 중 사용 툴 확인. 본 스프린트의 보호 파일 대상은 feature_list.json(이미 갱신 완료)이며 tests/*.bats를 손대면 동일 규칙 적용"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "frontmatter만 갱신하고 config/models.json을 갱신하지 않은(또는 그 반대) 중간 상태",
+      "expected": "model-tiering.sh가 drift 후보를 반환해 탐지한다. 두 지점은 한 커밋에서 함께 갱신한다"
+    },
+    {
+      "id": "ES-2",
+      "scenario": "security-auditor가 cyber classifier refusal을 받아 빈 산출을 반환",
+      "expected": "AC-9의 관측 장치가 '이슈 없음'과 구분해 표면화한다. 조용한 통과가 되지 않는다"
+    },
+    {
+      "id": "ES-3",
+      "scenario": "tiers에서 claude-opus-4-8을 제거했으나 pricing 또는 다른 곳에 잔존 참조가 남음",
+      "expected": "cost-report가 미등록 모델을 만나도 graceful degrade하며 오류로 죽지 않는다. 잔존 참조는 의도적(폴백 후보 기록)이면 주석으로 근거를 남긴다"
+    },
+    {
+      "id": "ES-4",
+      "scenario": "Claude Code의 agent frontmatter가 claude-opus-5 문자열을 수용하지 않음",
+      "expected": "서브에이전트 디스패치가 실패하거나 기본 모델로 폴백한다. 실제 디스패치 1회로 조기 검증하고, 실패 시 접미사·별칭 형태를 재검토한다(open_design_questions Q3)"
+    },
+    {
+      "id": "ES-5",
+      "scenario": "D3 적용 후 evaluator가 사소한 스타일 이슈까지 보고해 issues가 비대해지고, 그것이 fail 사유로 오인됨",
+      "expected": "보고와 판정이 분리된다 — issues 증가가 점수를 낮추지 않으며 pass/fail은 기존 min-of-5와 criteria 충족 여부로만 결정된다"
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": "0. 기준선 확보 — 변경 전 bash scripts/cost-report.sh --json과 bash scripts/probes/model-tiering.sh 출력을 보관(AC-3 diff 대조용). bats tests/ 전체 1회 실행해 현재 통과 상태 기록",
+      "verify": "기준선 출력 파일 존재 + 현재 bats 통과 수 기록",
+      "done": false,
+      "covers": [
+        "AC-3",
+        "AC-10"
+      ]
+    },
+    {
+      "step": "1. D1 모델 정합화(원자적) — agents/{implementer,evaluator,security-auditor,architect}.md frontmatter model을 claude-opus-5로, config/models.json의 tiers(opus-4-8 제거·opus-5 등재)·assignments 4건 model+rationale·pricing(claude-opus-5 추가) 갱신, README.md:102-103 표기 갱신. frontmatter와 config는 반드시 같은 커밋에서 함께 변경(ES-1)",
+      "verify": "bash scripts/probes/model-tiering.sh → [] (후보 없음). bash scripts/cost-report.sh --json → step 0 기준선과 수치 동일. awk로 8개 frontmatter model 대조",
+      "done": false,
+      "covers": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "AC-8",
+        "ES-1",
+        "ES-3"
+      ]
+    },
+    {
+      "step": "2. ES-4 조기 검증 — claude-opus-5 frontmatter로 서브에이전트를 실제 1회 디스패치해 모델 문자열이 수용되는지 실행 확인. 실패 시 즉시 중단하고 Q3(접미사·별칭)을 재검토",
+      "verify": "실제 디스패치 1회 성공 + 산출 반환 확인. 실패 시 오류 내용 기록",
+      "done": false,
+      "covers": [
+        "ES-4"
+      ]
+    },
+    {
+      "step": "3. D2 security-auditor 근거 주석 재작성 — 'Fable 5가 아닌 Opus 4.8' 문구를 제거하고 Opus 5 채택·refusal 가능성·Opus 4.8이 Anthropic 권장 폴백이라는 점을 명시",
+      "verify": "grep으로 구 문구 부재 + refusal·폴백 언급 존재 확인",
+      "done": false,
+      "covers": [
+        "AC-4"
+      ]
+    },
+    {
+      "step": "4. D2 관측 장치 — security-auditor 산출의 부재/공백(findings·checklist_compliance가 비었거나 파일 없음)을 정상 통과와 구분해 표면화. 기존 프로브 계층에 최소 형태로 편입하며 새 게이트를 신설하지 않는다",
+      "verify": "빈 security-audit 산출 픽스처 투입 → 후보/경고로 표면화 확인. 정상 산출 픽스처는 표면화되지 않음(오탐 없음)",
+      "done": false,
+      "covers": [
+        "AC-9",
+        "SC-3",
+        "ES-2"
+      ]
+    },
+    {
+      "step": "5. D3 evaluator Reporting Policy — agents/evaluator.md에 커버리지 우선 보고 정책 추가(발견 전부 보고, severity·confidence 표기, 필터링은 판정 단계). 점수 산정·Constraints의 판정 규칙은 손대지 않는다",
+      "verify": "evaluator.md diff가 Reporting Policy 추가에 한정되고 min-of-5·임계값·판정 규칙 문단은 무변경임을 git diff로 확인. security-auditor.md:17-20과 원칙 대칭 대조",
+      "done": false,
+      "covers": [
+        "AC-5",
+        "SC-1",
+        "ES-5"
+      ]
+    },
+    {
+      "step": "6. D4 위임 상한 — CLAUDE.md·skills/implement/SKILL.md·skills/debug/SKILL.md에 상한 3항목 추가. 같은 문단에 독립 evaluator 게이트·F37 2차 판정 예외를 명시(SC-2). 기존 하한 문구는 보존",
+      "verify": "세 파일에 상한 + 예외 문구 존재, 기존 하한 문구 보존을 grep으로 확인",
+      "done": false,
+      "covers": [
+        "AC-6",
+        "SC-2"
+      ]
+    },
+    {
+      "step": "7. D5 커뮤니케이션 지침 — CLAUDE.md에 간결성·결과 우선·자기 정정 억제 지침 추가",
+      "verify": "CLAUDE.md에 해당 섹션 존재 확인",
+      "done": false,
+      "covers": [
+        "AC-7"
+      ]
+    },
+    {
+      "step": "8. 회귀 검증 + 픽스처 판단 — bats tests/ 전체 1회 실행(재실행 금지, 출력 파싱) + scripts/probes/run-all.sh. tests/probes.bats·tests/cost-report.bats의 하드코딩 모델 ID는 격리 픽스처로 프로브 로직만 검증하므로 갱신 여부를 Q2 기준으로 판단하고 결정 근거를 기록",
+      "verify": "bats 전체 통과 + run-all.sh 실행. 픽스처 갱신/보류 결정과 근거 기록",
+      "done": false,
+      "covers": [
+        "AC-10",
+        "SC-4"
+      ]
+    },
+    {
+      "step": "9. ADR-007 작성 — security-auditor 모델 정책(cyber refusal 위험을 인지하고 Opus 5 격상을 선택한 근거, 폴백 후보로서의 Opus 4.8, 관측 장치의 한계)을 기록. F39가 ADR-006을 구현 중 작성한 선례를 따른다",
+      "verify": "docs/DECISIONS/ADR-007-*.md 존재 + 결정·대안·결과 섹션 포함",
+      "done": false,
+      "covers": [
+        "SC-3"
+      ]
+    }
+  ],
+  "_parallelizable": false,
+  "_parallel_note": "직렬. (1) D1의 frontmatter(agents/*.md)와 config/models.json은 model-tiering 프로브가 동시 정합을 요구해 분리하면 중간 상태에서 프로브가 실패한다(ES-1). (2) D2·D3가 D1과 같은 파일(security-auditor.md·evaluator.md)을 수정하고, D4·D5가 CLAUDE.md를 공유해 파일 충돌이 발생한다. (3) 각 그룹이 파일 2~4개 편집 규모라 이 스프린트가 신설하는 위임 상한 기준(직접 소수의 tool call로 끝날 작업은 위임하지 않는다)을 스스로에게 적용하면 직접 처리가 맞다.",
+  "fundamental_limit": "security-auditor의 cyber classifier refusal은 하네스가 방지할 수 없다 — 모델 제공자 측 안전 분류기의 동작이며, 서브에이전트 계층에서 refusal fallback을 선언할 수단이 현재 없다. 따라서 SC-3의 목표는 refusal 제거가 아니라 '빈 산출이 정상 통과로 오인되지 않게 하는 관측 가능화'이며, 이 한계를 ADR-007과 INVARIANTS 위협모델에 정직히 명문화한다(F38 과대주장 정정 교훈). 또한 Claude Code frontmatter가 claude-opus-5를 수용하는지는 정적으로 검증할 수 없어 실제 디스패치 1회(step 2)로만 확인 가능하다.",
+  "open_design_questions": [
+    {
+      "id": "Q1",
+      "question": "security-auditor refusal을 어느 계층에서 관측할 것인가",
+      "options": [
+        "(A) 프로브 계층: 기존 scripts/probes/에 security-audit 산출의 부재/공백 검사를 추가 — 구현 단순, 새 게이트 없음, 사후 탐지",
+        "(B) SubagentStop 훅: F54가 배선한 훅 패턴을 security-auditor에도 확장해 실행·산출을 캡처 — 실시간에 가깝지만 배선 대칭(INV-13) 부담과 범위 증가",
+        "(C) qa-reviewer/evaluator 프롬프트에 명문화: 보안 감사 산출이 비었으면 통과로 해석하지 말라 — 비용 0이지만 기계 검증이 아님"
+      ],
+      "resolution": "Plan 게이트에서 결정. 권장 시작점은 (A) — 본 스프린트는 standard 티어이고 새 게이트를 신설하지 않는 것이 범위에 맞다. (B)는 효과가 크지만 F54의 훅 배선 대칭 작업을 반복해야 해 별도 기능으로 분리하는 편이 낫다."
+    },
+    {
+      "id": "Q2",
+      "question": "tests/probes.bats·tests/cost-report.bats의 하드코딩 모델 ID(일부 스테일: claude-sonnet-4-6)를 갱신할 것인가",
+      "options": [
+        "(A) 그대로 둔다 — 격리 픽스처는 프로브 로직만 검증하므로 실제 모델 ID가 유효할 필요가 없다",
+        "(B) 갱신한다 — 정합성과 가독성. 단 tests/*.bats는 보호 파일이므로 Edit 툴 사용 필수"
+      ],
+      "resolution": "step 8에서 판단하고 근거를 기록. 픽스처가 실제 config를 참조하지 않는다면 (A)가 기본."
+    },
+    {
+      "id": "Q3",
+      "question": "frontmatter에 claude-opus-5[1m] 같은 컨텍스트 변종 ID가 필요한가",
+      "options": [
+        "(A) 접미사 없이 claude-opus-5 — Opus 5는 1M이 기본값이자 최대값이므로 불필요할 가능성이 높다",
+        "(B) 변종 ID 사용 — 실행 검증 후에만"
+      ],
+      "resolution": "(A)로 시작하고 step 2의 실제 디스패치로 검증. 실패 시에만 (B) 재검토."
+    },
+    {
+      "id": "Q4",
+      "question": "claude-opus-4-8을 config/models.json의 pricing에 남길 것인가",
+      "options": [
+        "(A) 제거 — tiers에서 빠졌으니 일관되게 정리",
+        "(B) 존치 + 주석 — cyber refusal 폴백 후보로서의 근거를 남긴다"
+      ],
+      "resolution": "Plan 게이트에서 결정. (B)를 권장 — D2가 Opus 4.8을 폴백 후보로 문서화하므로 단가 정보를 함께 두는 편이 일관된다."
+    }
+  ],
+  "agreed": false,
+  "_agreed_note": "미승인. Plan 게이트(ExitPlanMode)에서 사용자 승인 시에만 true로 전환한다. 승인 전 구현 착수 금지. 사전 결정 사항(2026-07-25 brainstorm): 채택 범위=전환+행동 재튜닝(신기능 채택 제외), security-auditor=Opus 5 단순 격상(refusal 위험 인지 후 선택), 위임 정책=상한 추가(하한 유지)."
+}
