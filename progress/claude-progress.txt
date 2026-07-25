@@ -87,3 +87,22 @@
 - 검증: bats 596/596(+9), shellcheck 클린, 프로브 run-all [] , cost-report 수치 회귀 없음(opus-5 단가 = opus-4-8 단가), frontmatter↔config 8/8 일치. 독립 evaluator pass(min-of-5 = 8, security 8)
 - 교훈: 모델의 자기 모델 ID 자기 보고는 근거가 아니다 — evaluator가 자기 런타임을 opus-4-8[1m]로 오보고했으나 `claude --model claude-opus-5 --print` → claude-opus-5로 실측 확인. evidence over claims는 판정자 자신에게도 적용
 - 남은 관찰(F55 범위 밖): run-all.sh가 session-handoff-draft.json만 읽어 Stop 훅이 draft를 소비하면 백로그 편입 효과가 사라짐(같은 후보 재출현)
+
+[2026-07-26] Sprint 42 — 핸드오프 백로그 유실 수정 (F56, 미릴리스, branch feat/f56-context-diet-effort-tiering → main ff)
+- 최초 범위는 컨텍스트 다이어트 2차(라우팅 축소·스킬 분할·인터페이스 강등·백로그 갭)였으나 evaluator fail(min-of-5=4, functionality 4 — 8개 AC 중 3개 인도) 후 범위 재정의. 롤백분은 F58, 보류분은 F59로 분리하고 각자 계약 부여
+- 근본 원인은 읽는 쪽이 아니라 쓰는 쪽이었다: harness_write_handoff_snapshot이 jq -n으로 JSON을 새로 만들어 파일을 덮어쓰므로 draft 병합분이 다음 Stop에서 전부 유실. follow_ups_backlog는 키째, 나머지는 빈 초기값으로. 이 세션의 백로그 3건이 실제로 그렇게 사라진 것이 발견 계기
+- 수정: run-all.sh가 draft+병합본 양쪽 읽기 / lib.sh 스냅샷이 에이전트 기록 필드 캐리오버(자동 필드는 새 값 우선, 빈 값은 미보존). 양쪽 다 필요 — 읽는 쪽만 고치면 한 세션 만에 무효
+- AC-9(evaluator 권고)로 읽는 쪽을 bats 4건으로 잠그고 mutation으로 회귀 포착력 확인: session-handoff.json 읽기 제거 시 정확히 병합본 케이스만 실패
+- 롤백 사유: F29가 같은 다이어트 작업에서 '라우팅 11개 유지'를 불변식으로 세워 삼중 고정(efficiency.bats 2건 + consistency 프로브 + skill-frontmatter). 관철하려면 검증 장치를 해체해야 해 테스트 약화 금지에 저촉. 계획 단계에서 하나만 발견하고 나머지는 테스트 실행에서 드러남 — 제약 탐색이 얕았다
+- 실측 발견: isolation을 frontmatter에 선언해도 플러그인 서브에이전트에서 적용되지 않는다(ISOLATION: main). 계약 SC-3의 순서 강제(선언→실측→확인 후에만 산문 제거)가 격리 보호 상실을 막았다
+- 검증: bats 610/610, 프로브 [], shellcheck 클린. 독립 evaluator 재판정 pass(min-of-5=7). 축소는 legitimate_scope_separation으로 판정 — 요건 완화 아님
+
+[2026-07-26] Sprint 43 — effort 티어링 (F57, 미릴리스, 같은 브랜치)
+- config/models.json에 effort 축 신설(모델 티어링의 두 번째 축: 누구를 쓰는가 + 얼마나 생각하는가). implementer·evaluator·security-auditor=xhigh, architect=high, Sonnet 역할=medium, qa-reviewer 미지정(Haiku 4.5 미지원)
+- model-tiering.sh에 규칙 3개 추가: 미등록 effort 값 / effort 미지원 모델에 지정 / 게이트 effort 역전. 게이트 역전은 model 축 rule4의 effort 대칭 — 게이트가 구현보다 얕게 추론하면 판정이 따라가지 못한다
+- 두 축의 방향이 반대다: tiers는 인덱스가 작을수록 강하고 effort_levels는 클수록 강하다. rule8의 부등호가 rule4와 반대인 이유이며 '게이트가 더 강한 경우는 후보 없음' 테스트로 방향 고정
+- effort를 frontmatter에 선언하지 않았다 — 플러그인 서브에이전트 적용 여부를 규명하지 못했고(진단 디스패치가 권한 분류기에 차단) F56에서 형제 필드 isolation의 미적용이 실증됐다. Q3 결정(F59 원칙): 적용되지 않을 수 있는 선언은 거짓 보증
+- 규명된 것: effort 자체는 Claude Code가 지원한다. CLI --effort로 동일 프롬프트 low/max 실행 시 23초 대 55초(2.4배), 답 동일. 쉬운 대조 문제는 11초 대 11초 — 미작동이 아니라 오버헤드에 묻힌 것
+- 브랜치 정리: 3개 삭제(agent-effort-tiering 설계 흡수·firewall-auto-allow +0·prune-stale 목적달성), docs/finish-branch-optional-pr 존치(안전장치 제거 포함, 별도 판단 필요)
+- 검증: bats 610/610(+6, mutation 확인), model-tiering [], 독립 evaluator pass(min-of-5=7). AC-0의 '규명 불가'를 달성으로 인정 — 결과가 보수적(미규명→미선언)이고 정직한 불확실성 공개를 감점하면 은폐를 조장한다는 근거
+- 남은 관찰: calibration 프로브가 F56·F57 판정을 연속으로 분포 이탈로 표면화. 둘 다 근거 명시된 정당한 판정이며 기준이 엄격해진 신호 — 골든셋 갱신 여부는 백로그
