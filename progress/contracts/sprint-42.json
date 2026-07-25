@@ -25,13 +25,13 @@
       "id": "AC-2",
       "criterion": "skills/implement/SKILL.md의 '6. 구현 실행 모드'와 '8. 검증 디스패치 티어링'을 하위 파일로 분리하고 본체에는 요약 + 참조만 남긴다. 스킬 호출 시 동작은 불변이어야 한다.",
       "verification": "SKILL.md 줄 수 감소 확인 + 분리된 하위 파일 존재 + 본체에 참조 링크 존재. /implement 절차의 각 단계가 본체 또는 참조 파일에서 여전히 도달 가능함을 확인",
-      "_result": "미달 — 롤백. 분할 자체는 동작했으나(implement 160→133줄, improve 116→93줄, 하위 파일 3개 생성, 참조 도달 확인) tests/efficiency.bats 3건이 실패했다: \"F39: improve SKILL defines the 4 stop conditions\", \"implement skill defines a merge protocol\", \"implement skill specifies token curation\". 이들은 해당 내용이 SKILL.md 본문에 존재할 것을 강제하는 검사로, 분할 시 위치가 바뀌어 걸린다. 검사 범위를 하위 파일까지 넓히는 조정은 가능하나 AC-1 롤백과 함께 F56의 컨텍스트 다이어트 축 전체를 보류하기로 했다(2026-07-25 사용자 결정)."
+      "_result": "미달 — 롤백. 분할 자체는 동작했으나(implement 160→133줄, improve 116→93줄, 하위 파일 3개 생성, 참조 도달 확인) 테스트 3건이 실패했다 [정정 2026-07-25: 파일명 오기 — 실제로는 tests/subagent-mode.bats 2건 + tests/improve-auto.bats 1건이며 efficiency.bats가 아니다. evaluator가 지적. 세 테스트가 SKILL.md 본문 내용을 강제한다는 롤백 근거 자체는 유효]: \"F39: improve SKILL defines the 4 stop conditions\", \"implement skill defines a merge protocol\", \"implement skill specifies token curation\". 이들은 해당 내용이 SKILL.md 본문에 존재할 것을 강제하는 검사로, 분할 시 위치가 바뀌어 걸린다. 검사 범위를 하위 파일까지 넓히는 조정은 가능하나 AC-1 롤백과 함께 F56의 컨텍스트 다이어트 축 전체를 보류하기로 했다(2026-07-25 사용자 결정)."
     },
     {
       "id": "AC-3",
       "criterion": "skills/improve/SKILL.md의 '6. 무인 배치 모드(--auto N)'를 하위 파일로 분리한다.",
       "verification": "AC-2와 동일한 방식",
-      "_result": "미달 — 롤백. 분할 자체는 동작했으나(implement 160→133줄, improve 116→93줄, 하위 파일 3개 생성, 참조 도달 확인) tests/efficiency.bats 3건이 실패했다: \"F39: improve SKILL defines the 4 stop conditions\", \"implement skill defines a merge protocol\", \"implement skill specifies token curation\". 이들은 해당 내용이 SKILL.md 본문에 존재할 것을 강제하는 검사로, 분할 시 위치가 바뀌어 걸린다. 검사 범위를 하위 파일까지 넓히는 조정은 가능하나 AC-1 롤백과 함께 F56의 컨텍스트 다이어트 축 전체를 보류하기로 했다(2026-07-25 사용자 결정)."
+      "_result": "미달 — 롤백. 분할 자체는 동작했으나(implement 160→133줄, improve 116→93줄, 하위 파일 3개 생성, 참조 도달 확인) 테스트 3건이 실패했다 [정정 2026-07-25: 파일명 오기 — 실제로는 tests/subagent-mode.bats 2건 + tests/improve-auto.bats 1건이며 efficiency.bats가 아니다. evaluator가 지적. 세 테스트가 SKILL.md 본문 내용을 강제한다는 롤백 근거 자체는 유효]: \"F39: improve SKILL defines the 4 stop conditions\", \"implement skill defines a merge protocol\", \"implement skill specifies token curation\". 이들은 해당 내용이 SKILL.md 본문에 존재할 것을 강제하는 검사로, 분할 시 위치가 바뀌어 걸린다. 검사 범위를 하위 파일까지 넓히는 조정은 가능하나 AC-1 롤백과 함께 F56의 컨텍스트 다이어트 축 전체를 보류하기로 했다(2026-07-25 사용자 결정)."
     },
     {
       "id": "AC-4",

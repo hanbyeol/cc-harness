@@ -13,7 +13,7 @@
   },
   "not_achieved": {
     "AC-1": "롤백. F29가 같은 CLAUDE.md 다이어트 작업에서 '라우팅 11개 유지'를 불변식으로 세워 삼중 고정(tests/efficiency.bats 2건 + consistency 프로브)해 두었음을 구현 중 발견. 관철하려면 검증 장치 셋을 해체해야 해 테스트 약화 금지에 걸린다",
-    "AC-2, AC-3": "롤백. 분할 자체는 동작했으나(implement 160→133줄, improve 116→93줄) tests/efficiency.bats 3건이 'SKILL.md 본문에 해당 내용이 있을 것'을 강제해 실패. 검사 범위 확장으로 관철 가능하나 AC-1과 함께 보류",
+    "AC-2, AC-3": "롤백. 분할 자체는 동작했으나(implement 160→133줄, improve 116→93줄) 테스트 3건이 \"SKILL.md 본문에 해당 내용이 있을 것\"을 강제해 실패 — tests/subagent-mode.bats 2건 + tests/improve-auto.bats 1건(최초 기록의 efficiency.bats는 파일명 오기, evaluator 지적으로 정정). 검사 범위 확장으로 관철 가능하나 AC-1과 함께 보류",
     "AC-4": "미달(ES-3 발생). isolation frontmatter가 적용되지 않음을 실측 — 산문 제거를 생략하고 보호를 유지",
     "AC-5": "보류(Q2=(C)). turns 관측 데이터 부재 + frontmatter 미적용 가능성"
   },
@@ -37,7 +37,7 @@
     "bats_full": "600 ok / 0 fail, exit=0 (기준선 596 ok / 0 fail + 신규 4). 1회 실행 후 출력 파싱 — 재실행 없음",
     "ac6_matrix": "격리 픽스처 5조합 실측 — 양쪽 부재→후보 1(소거 없음), draft만→0, 병합본만→0(핵심), 양쪽→0, 빈 배열→1(빈 백로그는 소거 안 함)",
     "ac8_carryover": "lib.sh 직접 소스 후 4단계 실측 — 1회차 스냅샷(백로그 없음) → draft 병합(백로그 2·blockers 1·key_decisions 1 유입) → 2회차 draft 없이 스냅샷(전부 보존, 이전에는 유실) → 3회차 반복(보존) → phase 변경 후(자동 필드 verification으로 갱신되고 백로그는 보존)",
-    "ac8_tests": "tests/session-handoff.bats 18/18 통과(신규 4 포함), tests/pre-compact.bats 회귀 없음 — 두 훅이 같은 스냅샷 함수를 공유하므로 함께 확인",
+    "ac8_tests": "tests/session-handoff.bats 13/13 통과(신규 4 포함) + tests/pre-compact.bats 5/5 회귀 없음 — 두 훅이 같은 스냅샷 함수를 공유하므로 함께 확인. [정정 2026-07-25: 최초 기록의 \"session-handoff.bats 18/18\"은 두 파일을 함께 실행한 합계(13+5)를 단일 파일 수로 잘못 적은 것. evaluator가 지적. 실행 사실과 회귀 없음 결론은 불변]",
     "integration": "AC-6+AC-8 결합 효과 확인 — 수정 전 run-all이 'evaluator follow-up' 후보를 반환했으나, 백로그 복원 후 후보 0건. 읽는 쪽만 고쳤다면 다음 Stop에서 다시 유실됐을 것",
     "sc3_isolation": "agents/test-writer.md에 isolation: worktree 선언 후 isolation 파라미터 없이 실제 디스패치 → 'ISOLATION: main'. pwd·git rev-parse --show-toplevel 모두 메인 체크아웃, git worktree list에 별도 항목 없음",
     "sc1_gate": "git diff --quiet progress/harness-config.json docs/INVARIANTS.md — 무변경",
@@ -57,6 +57,24 @@
     "F29가 같은 다이어트 작업에서 '라우팅 유지'를 불변식으로 세워 삼중 고정해 두었다 — 계획 단계에서 tests/skill-frontmatter.bats 하나만 발견했고 나머지 둘은 구현 중 테스트 실행으로 드러났다. 계획 단계의 제약 탐색이 얕았다"
   ],
   "self_review_note": "implementer는 passes를 set하지 않는다(INV-1). standard 티어이므로 독립 evaluator 1회 판정이 게이트다. 8개 AC 중 5개가 미달/보류이므로 evaluator는 '부분 달성을 pass로 볼 것인가'를 판단해야 한다 — 미달 사유가 전부 기록돼 있고 롤백으로 회귀가 없으며 달성분(AC-6·AC-8)이 실제 버그를 고쳤다는 점, 그리고 미달 원인이 구현 실패가 아니라 하네스의 기존 불변식·플랫폼 제약이라는 점을 근거로 삼을 수 있다. 다만 계약의 acceptance를 절반 이상 달성하지 못했으므로 fail 판정도 정당하며, 그 경우 F56을 AC-6/AC-8 범위로 재정의하는 것이 다음 수순이다.",
-  "limitations_honest": "AC-1~3의 롤백은 '블로그 기준이 틀렸다'는 뜻이 아니라 '하네스가 다른 결정을 이미 내렸다'는 뜻이다. 라우팅 중복(11:11)과 스킬 단일 파일(11/11)은 실측된 사실로 남아 있으며, F29 불변식을 재검토할지는 별도 판단이다. 스킬 분할은 tests/efficiency.bats 3건의 검사 범위를 '본체 또는 하위 파일'로 넓히면 불변식을 유지한 채 관철 가능하다 — 백로그에 재검토 후보로 남겼다.",
-  "ready_for": "evaluation"
+  "limitations_honest": "AC-1~3의 롤백은 '블로그 기준이 틀렸다'는 뜻이 아니라 '하네스가 다른 결정을 이미 내렸다'는 뜻이다. 라우팅 중복(11:11)과 스킬 단일 파일(11/11)은 실측된 사실로 남아 있으며, F29 불변식을 재검토할지는 별도 판단이다. 스킬 분할은 그 테스트 3건(tests/subagent-mode.bats 2 + tests/improve-auto.bats 1)의 검사 범위를 '본체 또는 하위 파일'로 넓히면 불변식을 유지한 채 관철 가능하다 — 백로그에 재검토 후보로 남겼다.",
+  "ready_for": "evaluation",
+  "evaluator_verdict": {
+    "verdict": "fail",
+    "score": 4,
+    "scores": {
+      "functionality": 4,
+      "code_quality": 8,
+      "security": 8,
+      "error_handling": 8,
+      "test_coverage": 6
+    },
+    "driver": "functionality — 8개 AC 중 3개(AC-6·7·8)만 달성. security 8은 standard 임계값 5를 넘어 fail 드라이버가 아니다",
+    "character": "re-scope fail이지 broken-code fail이 아니다 — 인도된 슬라이스(AC-6/AC-8)는 독립 검증 통과 품질",
+    "evidence_corrections": [
+      "ac8_tests의 18/18은 13/13(session-handoff) + 5/5(pre-compact)의 합계 오기 — 정정 완료",
+      "AC-2/AC-3 롤백 근거의 efficiency.bats는 subagent-mode.bats 2 + improve-auto.bats 1의 파일명 오기 — 정정 완료. AC-1의 efficiency.bats 인용은 정확"
+    ],
+    "next_step_recommended": "F56을 AC-6/AC-8 범위로 재정의하고, 컨텍스트 다이어트(AC-1~3)와 인터페이스 강등(AC-4~5)을 각각 별도 기능으로 분리. AC-6의 run-all 양쪽 읽기를 잠그는 bats 테스트 1건 추가 권고"
+  }
 }

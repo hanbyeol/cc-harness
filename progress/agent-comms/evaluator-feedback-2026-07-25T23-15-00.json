@@ -1,0 +1,95 @@
+{
+  "timestamp": "2026-07-25T23:15:00+09:00",
+  "sprint": 42,
+  "iteration": 1,
+  "features_evaluated": [
+    "F56"
+  ],
+  "security_tier": "standard",
+  "verification_tier": "standard",
+  "scores": {
+    "functionality": 4,
+    "code_quality": 8,
+    "security": 8,
+    "error_handling": 8,
+    "test_coverage": 6
+  },
+  "score": 4,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "functionality 4 < 7 — 8개 acceptance_criteria 중 3개만 달성(AC-6·AC-7·AC-8). AC-1~3 롤백, AC-4 미달, AC-5 보류로 계약 범위의 과반이 미전달. min-of-5가 이 최솟값에 고정됨",
+    "score 4 < threshold 7 (min_of_5)"
+  ],
+  "verdict_nature": "re-scope fail, NOT broken-code fail — 전달된 슬라이스(AC-6/AC-8)는 독립 검증을 통과하는 품질이다. 미달분은 깨진 코드가 아니라 계약 범위가 전달되지 않은 것. 다음 수순은 F56을 AC-6/AC-8(핸드오프 백로그 유실 수정)로 재정의하고, 롤백된 컨텍스트 다이어트(AC-1~3)와 보류된 인터페이스 강등(AC-4~5)을 별도 기능으로 분리하는 것.",
+  "passed_criteria": {
+    "acceptance": [
+      "AC-6: run-all.sh가 draft와 session-handoff.json 양쪽의 follow_ups_backlog를 읽어 중복 제거 — 5조합 픽스처 실측 재현(merged-only KEY 케이스에서 후보 소거 확인)",
+      "AC-7: 회귀 없음 — F56 관련 6개 suite(session-handoff·pre-compact·efficiency·subagent-mode·improve-auto·skill-frontmatter) 59 tests 0 fail, run-all 프로브 [], shellcheck clean",
+      "AC-8: 스냅샷 캐리오버 — 실측으로 (a)백로그 보존 (b)자동 필드(phase) 갱신·캐리오버 미승 (c)빈 값 비잠식 (d)반복 내성 전부 확인. bats 4건(#10-13)으로 잠금"
+    ],
+    "security": [
+      "SC-1: harness-config.json·INVARIANTS.md 무변경(worktree 및 commit 4dcbfb5 양쪽 확인)",
+      "SC-3: isolation frontmatter 미적용을 실측 후 산문 지시 보존(CLAUDE.md:54·skills/implement/SKILL.md:153 유지), 거짓 보증 frontmatter는 되돌림 — 병렬 검증 파일 충돌 보호 공백 없음",
+      "SC-4: 보호 파일 편집이 정상 커밋으로 반영됨(feature_list.json 무변경, tests/*.bats 정상)"
+    ],
+    "error_scenarios": [
+      "ES-3: isolation 산문 선제거 안 함 — 순서 강제(선언→실측→미적용 확인→산문 유지)로 보호 공백 방지 확인",
+      "ES-4: draft·병합본 동시 존재 시 중복 소스가 무해함(같은 후보 두 번 매치, 결과 동일) 실측 확인"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-1: 롤백(미전달) — CLAUDE.md 라우팅 표 축소. F29 불변식(diet keeps all 11 skills routed)과 충돌해 원복. 결정 자체는 정당(테스트 약화 금지 준수)이나 계약 acceptance는 미충족",
+      "AC-2: 롤백(미전달) — implement SKILL 분할. subagent-mode.bats의 body-content 검사와 충돌",
+      "AC-3: 롤백(미전달) — improve SKILL 분할. improve-auto.bats F39 검사와 충돌",
+      "AC-4: 미달 — isolation frontmatter가 플러그인 서브에이전트에서 미적용(ISOLATION: main 실측). 산문 유지로 보호는 존치하나 frontmatter 강등이라는 목표는 미달성",
+      "AC-5: 보류 — maxTurns 미도입(관측 데이터 부재 + frontmatter 미적용 가능성). Plan 게이트 Q2=(C) 확정"
+    ],
+    "security": [],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "AC-6(run-all.sh가 session-handoff.json을 읽음)의 회귀를 잠그는 전용 bats 테스트가 없다 — session-handoff.bats는 AC-8(스냅샷 함수)만 커버하고 run-all.sh의 both-files dedup 경로는 수동/평가자 픽스처로만 검증됨. 3줄 변경이라 위험은 낮으나 재발 방지 테스트 추가 권고"
+    ],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "criteria_issues": [
+      "계약 과대범위 — sprint-42는 서로 무관한 세 축(컨텍스트 다이어트 AC-1~3 · 인터페이스 강등 AC-4~5 · 백로그 유실 수정 AC-6/AC-8)을 한 기능에 묶었다. 백로그 수정 축만 착지 가능했고 나머지는 기존 불변식(F29)·플랫폼 제약과 충돌. 계획 단계의 제약 탐색이 얕아(skill-frontmatter.bats 하나만 발견, 나머지 둘은 실행 중 노출) 롤백을 자초. 재검토 권고: F56을 AC-6/AC-8로 재정의하고 다이어트·강등 축은 별도 계약으로 분리 (criteria_issues 1건 — 3건 미만이라 spec/architecture 전면 재검토까지는 불요)"
+    ],
+    "criteria_backfill_review": "AC-8 신설(criteria_backfill 1건)은 적절 — 요건 완화가 아니라 AC-6 목적 달성을 위한 누락 보완임을 실측으로 확인(읽는 쪽만 고치면 스냅샷이 draft 병합분을 다음 Stop에서 덮어써 백로그가 한 세션 만에 소실). 범위 과도 확장·요건 완화 아님. 3건 미만이라 spec/architecture 재검토 불요",
+    "action_required": "메인 루프: F56을 AC-6/AC-8 범위로 재정의(달성 슬라이스는 재검증 없이 착지 가능한 품질). 롤백된 AC-1~3과 보류된 AC-4~5는 별도 feature로 분리하고 각 contract 재작성. AC-6 회귀 테스트 1건 추가 권고"
+  },
+  "honesty_assessment": {
+    "verdict": "미달 처리는 대체로 정직하고 문서화가 충실 — 롤백 완전(오펀 하위파일 없음), 산문 보호 보존, 보류 근거 명시. 단, 증거 인용에 두 건의 부정확(사실 왜곡 아님, 실체는 성립)이 있어 calibration 대상",
+    "positives": [
+      "롤백 완전성 — skills/implement·skills/improve 각 SKILL.md만 존재(오펀 없음), CLAUDE.md·efficiency.bats 무변경(순 diff 0)",
+      "AC-4 실패를 목표 미달로 정직히 기록하고 보호(산문)를 우선 — 성공 신호(디스패치 성공)를 목표 달성으로 오인하지 않음",
+      "AC-8 backfill을 요건 완화가 아닌 누락 보완으로 정확히 프레이밍하고 실측 근거 첨부"
+    ],
+    "inaccuracies": [
+      "evidence.ac8_tests의 'tests/session-handoff.bats 18/18'은 부정확 — 실측 13/13(신규 4 포함, ok 1-13 전부 통과). 신규 +4 델타와 README 596→600은 정확하나 총계 18은 오기",
+      "not_achieved.AC-2/AC-3의 'tests/efficiency.bats 3건'은 파일 오귀속 — 실제로는 subagent-mode.bats 2건(merge protocol·token curation) + improve-auto.bats 1건(F39 stop conditions). 검사가 SKILL.md 본문 내용을 강제한다는 실체는 정확하며 AC-1의 efficiency.bats 2건 인용은 정확함"
+    ],
+    "conclusion": "부정확 2건 모두 실체(테스트 존재·통과·본문 강제·회귀 0)는 성립하며 판정 결론을 바꾸지 않는다. 조작이 아니라 인용 정밀도 문제 — lessons.md에 기록해 다음 iteration에서 증거 파일명·개수를 재확인하도록 보정"
+  },
+  "evidence": {
+    "ac8_carryover_driven": "실측: /tmp 격리 dir에서 hooks/lib.sh를 소스해 harness_write_handoff_snapshot 직접 구동. (1)1회차 no-prev → has_backlog=false, in_progress=null, blockers=[]. (2)draft 병합 → backlog=[item A,item B], blockers=[blocker X], in_progress=working on F1, draft consumed. (3)draft 없이 스냅샷+phase→verification → phase=verification(자동 필드 갱신·캐리오버 미승), backlog_len=2(보존), blockers/in_progress 보존. (4)반복 → backlog_len=2 유지. (5)신규 dir 2회 스냅샷 → has_backlog=false, in_progress=null, blockers/next_actions/key_decisions=[](빈 값 비잠식). AC-8 4개 하위기준 전부 통과",
+    "ac6_dedup_driven": "실측: run-all.sh의 SEEN+dedup 블록 verbatim 재현, 5조합. both absent→후보 1(소거 안 함), draft only→0, merged only(KEY)→0(소거), both→0, merged empty backlog→1. AC-6·ES-4 통과. run-all.sh:31-35가 draft·session-handoff.json 양쪽 follow_ups_backlog를 읽음을 소스 확인",
+    "bats": "bats tests/{session-handoff,pre-compact,efficiency,subagent-mode,improve-auto,skill-frontmatter}.bats — 각각 13/5/16/9/8/8 tests, 전부 0 fail(합 59, 0 fail). session-handoff 신규 F56 4건(ok 10-13) 통과. pre-compact 5/5(스냅샷 함수 공유 — PreCompact 회귀 없음). efficiency F29 롤백 불변식 통과. (전체 600 suite는 사용자 비용 지침에 따라 미재실행 — F56 관련 6 suite로 한정; 신규 +4 델타는 README 596→600과 정합)",
+    "rollback_complete": "git show --stat 4dcbfb5: CLAUDE.md·skills/implement·skills/improve·efficiency.bats 미포함(순 diff 0). ls skills/implement skills/improve → 각 SKILL.md만(오펀 하위파일 없음). CLAUDE.md '→' 17개(표 존치). F29 'diet keeps all 11 skills routed' 테스트가 정확히 11개 스킬 열거 확인",
+    "sc1_gate": "git diff --quiet HEAD -- progress/harness-config.json docs/INVARIANTS.md → 무변경. git diff --quiet 4dcbfb5^ 4dcbfb5 -- 동일 → commit 미터치",
+    "sc3_prose_preserved": "grep: CLAUDE.md:54 'test-writer는 파일을 생성하므로 isolation:\"worktree\"로 디스패치' 존치, skills/implement/SKILL.md:153 동일 취지 존치. agents/test-writer.md에 top-level isolation: frontmatter 키 없음(되돌림 확인 — 거짓 보증 방지)",
+    "shellcheck": "shellcheck hooks/lib.sh scripts/probes/run-all.sh — CLEAN",
+    "probes": "bash scripts/probes/run-all.sh <ts> → [] (AC-6+AC-8 결합 효과: 백로그 복원 후 후보 0)",
+    "honesty_cross_check": "grep tests/: 'implement skill defines a merge protocol'→subagent-mode.bats:25, 'implement skill specifies token curation'→subagent-mode.bats:30, 'F39: improve SKILL defines the 4 stop conditions'→improve-auto.bats:28 (구현자가 efficiency.bats로 오귀속했으나 실재·통과 확인). session-handoff.bats 실측 총계 13(구현자 주장 18과 불일치)"
+  },
+  "escaped_defects": [],
+  "lessons": [
+    "F56: 컨텍스트 다이어트 축(AC-1~3)은 기존 불변식(F29 '라우팅 11개 유지')과 충돌 — 다이어트/라우팅 변경 착수 전 tests/{efficiency,subagent-mode,improve-auto,skill-frontmatter}.bats의 body-content 강제 검사를 먼저 전수 조사할 것",
+    "F56: 플러그인 서브에이전트는 isolation/maxTurns frontmatter가 무시될 수 있다(hooks·mcpServers·permissionMode 선례와 동형) — frontmatter 강등 전 실제 디스패치로 적용 여부 실측, 미적용이면 산문 보호 유지",
+    "evaluator/implementer: 증거의 테스트 개수·파일명은 실행으로 재확인 후 인용(F56에서 '18/18'·'efficiency.bats 3건' 오기 발생 — 실체는 성립했으나 정밀도 결함)"
+  ]
+}
