@@ -735,11 +735,11 @@
     {
       "id": "F57",
       "name": "effort 티어링 — 역할별 추론 강도 배분 (모델 티어링의 두 번째 축)",
-      "description": "Opus 5 마이그레이션 가이드는 effort를 '전환 시 반드시 재튜닝할 레버'로 지목하며 코딩·에이전틱은 xhigh에서 시작해 아래로 스윕하고 그 외 intelligence-sensitive 작업은 최소 high를 권고한다. 하네스는 현재 모델 할당(누구를 쓰는가)만 config/models.json에서 단일 출처로 관리하고 추론 강도(얼마나 생각하는가)는 전혀 제어하지 않아 전부 세션 기본값을 상속한다. Claude Code 공식 문서 확인 결과 effort는 서브에이전트 frontmatter 지원 필드다(description·prompt·tools·disallowedTools·model·maxTurns·skills·memory·effort·background·isolation·color 등). 기존 feat/agent-effort-tiering 브랜치(2026-07-03, main 대비 -107 커밋)의 설계를 재사용한다: config/models.json assignments에 effort 필드를 추가하고 agents/*.md frontmatter에 effort:를 선언하며 scripts/probes/model-tiering.sh가 model과 동일하게 effort drift도 정적 탐지하도록 확장한다. 배분안은 implementer·evaluator·security-auditor=xhigh(코딩/판정/취약점 탐지 recall), architect=high(경계 명확한 1회성 태스크 — 과추론 억제), spec-writer·test-writer·deploy-operator=medium, qa-reviewer=미지정(Haiku 4.5는 effort 파라미터 미지원이라 세션 상속). 브랜치는 체리픽하지 않는다 — 107 커밋 뒤처졌고 모델 ID가 claude-opus-4-8 기준이라 F55의 claude-opus-5 정합 상태를 되돌리게 된다. 설계만 흡수하고 브랜치는 정리한다. 검증에는 F55의 교훈을 적용한다: frontmatter 필드 지원 여부를 '디스패치가 성공한다'로 확인하지 않는다 — 성공 신호가 목표 달성과 동치가 아니며, effort가 무시돼도 디스패치는 성공한다.",
+      "description": "Opus 5 마이그레이션 가이드는 effort를 '전환 시 반드시 재튜닝할 레버'로 지목하며 코딩·에이전틱은 xhigh에서 시작해 아래로 스윕하고 그 외 intelligence-sensitive 작업은 최소 high를 권고한다. 하네스는 현재 모델 할당(누구를 쓰는가)만 config/models.json에서 단일 출처로 관리하고 추론 강도(얼마나 생각하는가)는 전혀 제어하지 않아 전부 세션 기본값을 상속한다. Claude Code 공식 문서 확인 결과 effort는 서브에이전트 frontmatter 지원 필드다(description·prompt·tools·disallowedTools·model·maxTurns·skills·memory·effort·background·isolation·color 등). 기존 feat/agent-effort-tiering 브랜치(2026-07-03, main 대비 -107 커밋)의 설계를 재사용한다: config/models.json assignments에 effort 필드를 추가하고 scripts/probes/model-tiering.sh가 effort 미등록 값·미지원 모델 지정·게이트 역전을 정적 탐지하도록 확장한다. [2026-07-26 구현 결과 정정] effort는 agents/*.md frontmatter에 선언하지 않는다 — 플러그인 서브에이전트에서 적용되는지 규명하지 못했고(AC-0: 진단 디스패치가 권한 분류기에 차단), 같은 계층의 isolation은 F56에서 미적용으로 실증됐다. Q3 결정(F59 원칙)상 적용되지 않을 수 있는 선언은 거짓 보증이므로 config가 단일 출처이며, 프로브도 frontmatter 대조가 아니라 config 내부 정합성을 검사한다. 배분안은 implementer·evaluator·security-auditor=xhigh(코딩/판정/취약점 탐지 recall), architect=high(경계 명확한 1회성 태스크 — 과추론 억제), spec-writer·test-writer·deploy-operator=medium, qa-reviewer=미지정(Haiku 4.5는 effort 파라미터 미지원이라 세션 상속). 브랜치는 체리픽하지 않는다 — 107 커밋 뒤처졌고 모델 ID가 claude-opus-4-8 기준이라 F55의 claude-opus-5 정합 상태를 되돌리게 된다. 설계만 흡수하고 브랜치는 정리한다. 검증에는 F55의 교훈을 적용한다: frontmatter 필드 지원 여부를 '디스패치가 성공한다'로 확인하지 않는다 — 성공 신호가 목표 달성과 동치가 아니며, effort가 무시돼도 디스패치는 성공한다.",
       "security_tier": "standard",
-      "status": "pending",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [
         "F23",
         "F55"
