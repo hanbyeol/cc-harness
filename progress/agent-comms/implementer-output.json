@@ -1,37 +1,57 @@
 {
-  "feature_id": "F54",
-  "sprint": 40,
-  "title": "SubagentStop 훅으로 evaluator 실행 기계 검증 — INV-11 강화",
-  "security_tier": "critical",
-  "timestamp": "2026-07-25T00:00:00Z",
-  "summary": "SubagentStop(^cc-harness:evaluator$) 훅을 신설·배선(hooks.json+settings.json 대칭)해 evaluator 서브에이전트 실행을 evaluator-runs.jsonl에 {agent_id,timestamp,epoch,transcript_path,session_id}로 캡처. INV-11이 passes:false→true 전환 시 '최근(≤48h 시간창) 실행 기록'을 신뢰 벽시계 NOW와 정수 epoch로 대조 — feedback만으로 passes를 뒤집는 경로를 차단. evaluator-runs.jsonl은 is_protected+append-only로 사후 변조 차단. self-referential 한계를 INVARIANTS.md에 정직히 명문화.",
-  "design_decision": "A(실행존재+시간창) + C(로그 append-only 보호). 기준 역전파: 초기 계획의 'feedback 파일명 timestamp 이전(≤)' 순서 비교는 feedback 파일명이 논리적·반올림값이라 flaky함을 구현 중 발견 → 승인된 '시간창' 설계를 신뢰 벽시계 NOW vs 정수 epoch의 최근성 창(≤48h)으로 구현. (B) transcript 파싱은 형식 취약성으로 backlog.",
+  "feature_id": "F55",
+  "sprint": 41,
+  "title": "Opus 5 전환 — 모델 정합화 + 4.8 보정 지침 재튜닝",
+  "security_tier": "standard",
+  "timestamp": "2026-07-25T11:05:00+09:00",
+  "summary": "agents/*.md frontmatter 4곳(implementer·evaluator·security-auditor·architect)과 config/models.json(tiers·assignments·pricing)·README를 claude-opus-5로 원자적 정합화하고, Opus 4.8의 약점을 보정하려 만든 지침이 Opus 5에서 역효과가 되는 지점을 재튜닝했다. 게이트 구조와 임계값은 건드리지 않았다.",
+  "design_decision": "채택 범위=전환+행동 재튜닝(effort 티어링·512토큰 캐시·fast mode·Workflow 오케스트레이션 등 신기능은 범위 밖). security-auditor는 refusal 위험을 인지한 상태에서 Opus 5로 격상(사용자 결정) — 위험 제거가 아니라 관측 가능화로 대응. 위임은 하한 유지 + 상한 신설. Plan 게이트 확정: Q1=(A) 프로브 계층, Q4=(B) pricing 존치+주석.",
   "files_changed": [
-    "hooks/subagent-evaluator-log.sh (신규) — SubagentStop 훅, evaluator 실행 기록 append, 항상 exit 0(비차단), epoch 정수 기록",
-    "hooks/hooks.json — SubagentStop 배선 (matcher ^cc-harness:evaluator$)",
-    "settings.json — SubagentStop 대칭 배선 (INV-13/F52)",
-    "hooks/invariant-guard.sh — is_protected()에 evaluator-runs.jsonl 편입 + INV-11 시간창 대조 로직 + evaluator-runs append-only 전용 브랜치",
-    "docs/INVARIANTS.md — INV-11 확장(실행기록 계층) + self-referential 한계 정직 명문화 + INV-12 목록 대칭 추가 + 변경이력",
-    "tests/invariant-guard.bats — evrun() 헬퍼 + F54 시간창/append-only 테스트 9건 + 기존 allows 테스트 3건에 evrun 보강(회귀 방지)",
-    "tests/subagent-evaluator-log-f54.bats (신규) — SubagentStop 훅 단위 테스트 7건",
-    ".claude-plugin/plugin.json — hooks 9→10 정정 (consistency)",
-    "README.md — hooks 9→10 (4곳) + SubagentStop 훅 행 추가 + 테스트 565→581 정정",
-    "progress/contracts/sprint-40.json — 구현 스텝 done + SC-1 정련 기록",
-    "progress/feature_list.json — F54 (passes:false 유지 — evaluator 판정 대기)"
+    "agents/{implementer,evaluator,security-auditor,architect}.md — frontmatter model → claude-opus-5",
+    "config/models.json — tiers에서 claude-opus-4-8 제거·claude-opus-5 등재, assignments 4건 model+rationale, pricing에 claude-opus-5 추가(claude-opus-4-8은 폴백 근거 주석과 함께 존치)",
+    "agents/security-auditor.md — 모델 근거 주석 재작성: 'Fable 5가 아닌 Opus 4.8을 사용' 제거, Opus 5도 cyber refusal 가능·Anthropic 권장 폴백이 Opus 4.8임을 명시",
+    "agents/evaluator.md — Reporting Policy 신설(커버리지 우선 보고, severity·confidence 표기, 보고와 판정 분리) + '스타일 이슈로 반려 안 함'이 반려 기준이지 보고 기준이 아님을 명시",
+    "CLAUDE.md — 위임 상한 3항목 + (c)의 예외(독립 evaluator·F37 2차 판정은 조직적 통제) + 커뮤니케이션 섹션(결과 우선·간결하되 읽히게·불필요한 자기 정정 금지)",
+    "skills/implement/SKILL.md, skills/debug/SKILL.md — 동일한 위임 상한 + 예외 문구",
+    "scripts/probes/audit-integrity.sh (신규) — security-auditor 산출을 '검사 수행 흔적'으로 판정: 빈 산출·refusal 마커는 후보, findings 0건이어도 흔적 있으면 통과, 파일 부재는 후보 아님",
+    "scripts/probes/run-all.sh — audit-integrity 편입 (8개→9개)",
+    "tests/probes.bats — audit-integrity 8건 + run-all 편입 1건 (총 9건)",
+    "README.md — 에이전트 표 4행·라우팅 설명·테스트 수(587→596). README:114의 'cyber-refusal이 없는 Opus를 고수한다'는 Opus 5에서 사실과 어긋나 삭제",
+    "docs/DECISIONS/ADR-007-security-auditor-model-policy.md (신규) — 격상 결정·기각 대안 4건·근본 한계",
+    "progress/contracts/sprint-41.json — agreed:true, 10/10 steps done, Q1~Q4 resolution",
+    "progress/feature_list.json — F55 (passes:false 유지 — evaluator 판정 대기)"
   ],
   "evidence": {
-    "bats_full": "581/581 통과 (초기 2건 실패 → 수정: test 160 delete-then-recreate에 evrun 보강, plugin.json hooks 9→10). 수정 파일만 타깃 확인 0 실패.",
-    "f54_tests": "INV-11 시간창: 부재→deny, 스테일>48h→deny, 창내(47h)→allow, epoch부재→fail-closed(deny). append-only: append→allow, 삭제/변조/재정렬→deny. 훅 단위: agent_id+epoch 기록·exit 0·non-evaluator 필터·transcript부재 기록·malformed 비차단·JSONL 유효.",
-    "direct_probe": "실제 invariant-guard.sh 직접 구동으로 시간창 deny/allow + append-only deny/allow 실증(모의 SubagentStop 입력·모의 passes 전환).",
-    "probes": "scripts/probes/run-all.sh 클린 — F54 유발 drift(hooks count·test count·훅↔테스트 매핑) 전부 해소. 남은 1건은 기존 F53 백로그(a58b750에서 이미 해결, F54 무관).",
-    "shellcheck": "info만(SC1091 sourced-lib·SC2012 기존 라인) — 전 훅 공통, CI 통과 수준.",
-    "hook_wiring_parity": "hook-wiring-parity.bats 통과 — SubagentStop이 hooks.json·settings.json 양쪽 대칭 배선.",
-    "regression": "F35(기존 INV-11)·F45(is_protected↔INV-12 대칭)·F52(배선 대칭) 무회귀."
+    "bats_full": "596 ok / 0 fail, exit=0 (기준선 587 ok / 0 fail + 신규 9). 1회 실행 후 출력 파싱 — 재실행 없음",
+    "f55_tests": "audit-integrity: 산출 부재→후보 없음, 검사 흔적 있고 findings 0건→후보 없음(오탐 방지), 검사 흔적 없음→후보, refusal 마커→후보, findings 안의 'refusal' 단어→후보 없음, malformed→graceful [], 후보 security_tier=critical, 타임스탬프 파일명 인식, run-all 편입",
+    "probes": "run-all.sh → [] (후보 없음). model-tiering.sh → [], audit-integrity.sh → []",
+    "frontmatter_config_parity": "8개 agents/*.md frontmatter model을 config assignments와 대조 — 8/8 일치",
+    "cost_regression": "cost-report.sh --json의 phase별 input/output/total_per_1m·has_uncosted를 변경 전후 diff — 차이 없음(Opus 5 단가 = Opus 4.8 단가)",
+    "smoke_dispatch": "claude-opus-5 frontmatter로 architect 서브에이전트 1회 실제 디스패치 → 'SMOKE OK', tool_uses 0, 3.6초. ES-4·Q3 해소",
+    "shellcheck": "scripts/probes/audit-integrity.sh + run-all.sh — clean",
+    "json_validity": "config/models.json·sprint-41.json·feature_list.json·acceptance-criteria.json 전부 jq 파싱 성공",
+    "sc1_gate_immutability": "harness-config.json git diff 없음. evaluator.md diff(+12/-2)에 min_of_5·최솟값·pass_threshold·security_thresholds·'7 미만'·'자동 fail' 라인 변경 없음",
+    "sc2_exception_wording": "CLAUDE.md·skills/implement·skills/debug 세 파일 모두 위임 상한 문단에 '독립 evaluator 판정과 F37 critical 2차 판정' + '조직적 통제(INV-1)' 문구 존재(볼드 마커 제거 후 grep)",
+    "tdd_exceptions": [
+      "D1(모델 ID)·D2 주석·D4 위임 상한·D5 커뮤니케이션 지침은 설정·산문 변경이라 RED 선행 불가. 기존 model-tiering 프로브와 grep 기반 검증으로 사후 고정",
+      "audit-integrity.sh는 프로브를 먼저 작성하고 8개 픽스처로 양성·음성을 확인한 뒤 tests/probes.bats에 잠갔다 — 엄밀한 RED 선행은 아니나 오탐 케이스(findings 안의 'refusal')를 명시적으로 포함해 음성 검증을 강제"
+    ]
   },
-  "criteria_backfill": [
-    "SC-1 design_decision을 '엄격 순서 비교(≤feedback ts)'에서 '최근성 시간창(NOW vs epoch)'으로 정련 — feedback 파일명 타임스탬프의 논리적·반올림 특성으로 순서 비교가 flaky함을 구현 중 발견(기준 역전파). 승인된 '시간창' 설계 범위 내 정합 구현이며 방향 전환 아님(agreed 유지).",
-    "훅에 epoch(정수 초) 필드 추가 — BSD/GNU date ISO 파싱차 무관한 신뢰 비교 위해."
+  "error_scenarios_tested": [
+    "ES-1 frontmatter↔config drift → model-tiering이 탐지(기존 drift 테스트 통과)",
+    "ES-2 빈 산출·refusal → audit-integrity가 표면화(양성 4케이스 실행)",
+    "ES-3 tiers 제거 후 pricing 잔존 → cost-report graceful, 수치 회귀 없음",
+    "ES-4 claude-opus-5 frontmatter 수용 → 실제 디스패치로 검증(SMOKE OK)"
   ],
-  "self_review_note": "implementer는 passes를 set하지 않는다(INV-1). 이 산출물은 evaluator 판정을 대체하지 않고 보완한다. critical 티어 → 독립 evaluator + F37 2차 독립 judge 필요. 자기검증 순환 주의: 이 세션 실행 훅은 캐시본 1.32.0(F54 미배선)이라 F54 강화는 워킹트리에만 반영 — evaluator는 워킹트리 invariant-guard를 직접 구동해 검증하며, 이 세션의 passes 전환은 1.32.0 실행 훅(강화 없음)이 검사하므로 순환 없음.",
-  "limitations_honest": "완전한 위조 방지 아님(self-referential). 위조자가 실제 evaluator를 최근 돌렸거나 로그에 epoch 레코드를 직접 append하면 시간창을 통과할 수 있다(후자는 append-only+firewall ASK로 speed-bump). 시간창은 per-feature 정밀 대응이 아님 — 같은 창의 정당한 실행 1건이 다른 전환도 만족. 목표는 '완전 차단'이 아니라 '위조 난이도 상향'(F38 과대주장 정정)."
+  "error_scenarios_not_executed": [
+    "ES-5(issues 비대화가 fail로 오인되지 않음) — 보고/판정 분리는 프롬프트와 문서에서 구현했고 diff로 판정 규칙 무변경을 확인했으나, 실제 evaluator 판정 행동으로는 검증하지 않았다. 이 스프린트의 evaluator 판정이 첫 실측 사례가 된다"
+  ],
+  "criteria_backfill": [
+    "AC-8은 README.md:102-103만 지정했으나 실제 잔존 참조는 더 넓었다 — 라우팅 설명(112-116)과 테스트 수(339). 특히 README:114의 'security-auditor는 cyber-refusal이 없는 Opus를 고수한다'는 Opus 5에서 사실과 어긋나므로 AC-4와 동일한 근거로 수정이 필요했다. 기준 완화가 아니라 같은 취지의 확대 적용",
+    "테스트 9건 추가로 README의 '테스트 587개'가 실측과 어긋났고 consistency 프로브가 즉시 후보로 잡아 596으로 정정 — F40(산문 숫자 실측 대조)이 의도대로 작동한 사례",
+    "Q2 판정 근거 기록: tests/probes.bats·cost-report.bats의 하드코딩 모델 ID는 WORK 디렉토리에 자체 models.json을 생성해 프로브 로직만 검증하며 저장소 config를 참조하지 않는다. 596 테스트 전원 통과가 근거이므로 스테일 ID(claude-sonnet-4-6)는 갱신하지 않았다"
+  ],
+  "self_review_note": "implementer는 passes를 set하지 않는다(INV-1). 이 산출물은 evaluator 판정을 대체하지 않고 보완한다. standard 티어이므로 독립 evaluator 1회 판정이 게이트다. 다만 D2가 critical 게이트 에이전트(security-auditor)의 모델을 바꾸므로 evaluator는 SC-3(refusal 관측)을 실행 근거로 확인해야 한다.",
+  "limitations_honest": "security-auditor의 cyber classifier refusal은 하네스가 방지할 수 없다 — 모델 제공자 측 분류기이고 서브에이전트 계층에 폴백 선언 수단이 없다. audit-integrity는 사후 탐지이며, 거절 마커 검사를 summary/error/note로 한정했으므로(findings 본문까지 훑으면 정상 finding에 오탐) 마커 문구가 다른 refusal은 '검사 흔적 없음' 조건에 의존한다. 또한 이번 스프린트에서 security-auditor를 실제로 디스패치하지 않았으므로(standard 티어라 verification 병렬 대상이 아님) Opus 5 security-auditor의 refusal 발생률은 아직 실측되지 않았다. 목표는 refusal 제거가 아니라 '빈 산출이 정상 통과로 오인되지 않게 하는 관측 가능화'다(F38 과대주장 정정 원칙).",
+  "ready_for": "evaluation"
 }

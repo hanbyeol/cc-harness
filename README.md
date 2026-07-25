@@ -99,19 +99,21 @@ claude
 | Agent | Phase | 역할 | 모델 |
 |-------|-------|------|------|
 | `spec-writer` | 1. 기획 | 인터뷰 브리프 → SPEC.md + acceptance criteria (미해결 항목은 `open_questions` 반환) | Sonnet 5 |
-| `architect` | 2. 설계 | 아키텍처 + 위협 모델링(STRIDE) + SECURITY-CHECKLIST + ADR | **Opus 4.8** |
-| `implementer` | 3. 구현 | TDD(RED-GREEN-REFACTOR) 구현 + 보안 셀프체크 + 실행 evidence | Opus 4.8 |
-| `evaluator` | 게이트 | 5차원 품질 평가 (min-of-5, 점수 앵커, unverified 상한) | **Opus 4.8** |
+| `architect` | 2. 설계 | 아키텍처 + 위협 모델링(STRIDE) + SECURITY-CHECKLIST + ADR | **Opus 5** |
+| `implementer` | 3. 구현 | TDD(RED-GREEN-REFACTOR) 구현 + 보안 셀프체크 + 실행 evidence | Opus 5 |
+| `evaluator` | 게이트 | 5차원 품질 평가 (min-of-5, 점수 앵커, unverified 상한) | **Opus 5** |
 | `test-writer` | 4. 검증 | 통합/E2E/보안 테스트 (worktree 격리로 병렬 실행) | Sonnet 5 |
-| `security-auditor` | 4. 검증 | 보안 감사 + supply chain + 위협 모델 대비 검증 | Opus 4.8 |
+| `security-auditor` | 4. 검증 | 보안 감사 + supply chain + 위협 모델 대비 검증 | Opus 5 |
 | `qa-reviewer` | 4. 검증 | 크로스 기능 통합 QA (사용자 관점) | Haiku 4.5 |
 | `deploy-operator` | 5. 배포 | 배포 전 검증 → staging → canary → prod, 자동 롤백 | Sonnet 5 |
 
 > **모델 라우팅** — 작업 난이도에 맞춰 차등 배치. 할당은 `config/models.json`을 단일 출처로 관리하며
 > `agents/*.md` frontmatter와 일치해야 한다(불일치·역전·미등록은 model-tiering 프로브가 정적 탐지):
-> - **Opus 4.8** (`claude-opus-4-8`): 추론 품질이 결과를 좌우하는 단계 — 설계(architect),
+> - **Opus 5** (`claude-opus-5`): 추론 품질이 결과를 좌우하는 단계 — 설계(architect),
 >   품질 게이트(evaluator), 에이전틱 코딩(implementer), 보안 감사(security-auditor).
->   security-auditor는 방어 목적 분석까지 refusal하지 않도록 **cyber-refusal이 없는 Opus를 고수**한다.
+>   Opus 5는 강화된 사이버보안 안전장치를 탑재해 **방어 목적 감사도 refusal될 수 있다** —
+>   이 위험을 인지하고 최신 추론 능력을 우선해 격상했으며(F55), refusal로 인한 빈 산출은
+>   `audit-integrity` 프로브가 정상 통과와 구분해 탐지한다. 권장 폴백은 `claude-opus-4-8`이다.
 > - **Sonnet 5** (`claude-sonnet-5`): 실코딩성·안전 마진이 필요한 단계 — 스펙(spec-writer),
 >   테스트 작성(test-writer, evaluator의 커버리지 차원에 직결), 배포(deploy-operator).
 > - **Haiku 4.5** (`claude-haiku-4-5`): 체크리스트성 크로스 기능 QA(qa-reviewer).
@@ -334,7 +336,7 @@ harness 자체도 실패에서 배웁니다:
 - `jq` — **권장**. 없으면 bash firewall이 비활성화되고(경고 출력) 세션 컨텍스트 주입이 축소됩니다
 - `bash` 3.2+ (hooks), 4.0+ (bootstrapper)
 - 각 언어 도구 (선택 — 없으면 해당 hook이 graceful skip)
-- 개발 시: `bats`, `shellcheck` (테스트 587개, CI에서 강제)
+- 개발 시: `bats`, `shellcheck` (테스트 596개, CI에서 강제)
 
 ## License
 

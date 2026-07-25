@@ -738,3 +738,73 @@ JSON
   [ "$status" -eq 0 ]
   echo "$output" | jq -e '.[] | select(.source=="calibration")'
 }
+
+# --- audit-integrity probe (F55) ---
+# security-auditor는 Opus 5를 쓰며 cyber classifier refusal이 가능하다. refusal된 빈 산출은
+# "감사했는데 이슈 없음(통과)"과 겉보기가 같아 critical 게이트를 조용히 무력화한다.
+# 이 프로브는 "검사를 수행한 흔적"으로 둘을 가른다.
+
+audit_out() {
+  mkdir -p "$WORK/progress/agent-comms"
+  printf '%s' "$1" > "$WORK/progress/agent-comms/security-auditor-output.json"
+}
+
+@test "audit-integrity: missing audit output yields no candidates (not-yet-run is normal)" {
+  mkdir -p "$WORK/progress/agent-comms"
+  run bash -c "cd '$WORK' && bash '$PROBES/audit-integrity.sh'"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "audit-integrity: zero findings with real execution trace is clean (no false-positive)" {
+  audit_out '{"scan_tools":["gosec","govulncheck"],"checklist_compliance":{"total_items":12,"passed":12,"failed":0},"findings":[],"summary":"0 high, 0 medium, 0 low"}'
+  run bash -c "cd '$WORK' && bash '$PROBES/audit-integrity.sh'"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "audit-integrity: no execution trace yields a candidate" {
+  audit_out '{"scan_tools":[],"checklist_compliance":{"total_items":0,"passed":0,"failed":0},"findings":[],"summary":""}'
+  run bash -c "cd '$WORK' && bash '$PROBES/audit-integrity.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("no evidence of execution"))]|length')" -eq 1 ]
+}
+
+@test "audit-integrity: refusal marker yields a candidate" {
+  audit_out '{"scan_tools":["gosec"],"checklist_compliance":{"total_items":12,"passed":12},"findings":[],"summary":"I cannot assist with this security analysis request."}'
+  run bash -c "cd '$WORK' && bash '$PROBES/audit-integrity.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("refused"))]|length')" -eq 1 ]
+}
+
+@test "audit-integrity: refusal word inside findings is not a false positive" {
+  audit_out '{"scan_tools":["gosec","npm audit"],"checklist_compliance":{"total_items":8,"passed":7,"failed":1},"findings":[{"severity":"medium","issue":"refusal handling missing in auth flow"}],"summary":"1 medium"}'
+  run bash -c "cd '$WORK' && bash '$PROBES/audit-integrity.sh'"
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "audit-integrity: malformed JSON degrades gracefully" {
+  audit_out '{ not json'
+  run bash -c "cd '$WORK' && bash '$PROBES/audit-integrity.sh'"
+  [ "$status" -eq 0 ]
+  [ "$(echo "$output" | jq 'length')" -eq 0 ]
+}
+
+@test "audit-integrity: candidate is tagged critical (gate integrity)" {
+  audit_out '{"scan_tools":[],"checklist_compliance":{"total_items":0}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/audit-integrity.sh'"
+  [ "$(echo "$output" | jq -r '.[0].security_tier')" = "critical" ]
+}
+
+@test "audit-integrity: timestamped filename is recognized" {
+  mkdir -p "$WORK/progress/agent-comms"
+  printf '%s' '{"scan_tools":[],"checklist_compliance":{"total_items":0}}' > "$WORK/progress/agent-comms/security-audit-2026-07-25T09-00-00.json"
+  run bash -c "cd '$WORK' && bash '$PROBES/audit-integrity.sh'"
+  [ "$(echo "$output" | jq 'length')" -eq 1 ]
+}
+
+@test "run-all: includes audit-integrity source" {
+  seed_consistent
+  audit_out '{"scan_tools":[],"checklist_compliance":{"total_items":0}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/run-all.sh' 2026-09-02T00:00:00Z"
+  [ "$status" -eq 0 ]
+  echo "$output" | jq -e '.[] | select(.source=="audit-integrity")'
+}

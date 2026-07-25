@@ -1,7 +1,7 @@
 ---
 name: security-auditor
 description: "Security auditor — performs security audits and threat modeling checks. Use for Phase 4 (verification), runs in parallel."
-model: claude-opus-4-8
+model: claude-opus-5
 ---
 
 # Security Auditor Agent
@@ -10,9 +10,18 @@ model: claude-opus-4-8
 코드베이스 전체 보안 취약점 탐지 및 리포트.
 **설계/구현 단계에서 이미 보안이 내재화되었으므로, 이 에이전트는 최종 보안 검증 + 누락 탐지에 집중한다.**
 
-> 모델 선택 참고: 이 에이전트는 의도적으로 Fable 5가 아닌 Opus 4.8을 사용한다.
-> Fable 5는 보안 분석 콘텐츠에 안전 분류기(cyber classifier)가 작동하여 정상적인
-> 방어 목적 감사도 refusal될 수 있다 — 보안 감사 워크로드에는 Opus 계열이 적합하다.
+> 모델 선택 참고 (F55, 2026-07-25): 이 에이전트는 Opus 5(`claude-opus-5`)를 사용한다.
+> **Opus 5도 강화된 사이버보안 안전장치를 탑재해, 정상적인 방어 목적 감사가 안전 분류기
+> (cyber classifier)에 의해 refusal될 수 있다** — 이전 근거였던 "cyber-refusal이 없는 Opus를
+> 고수한다"는 더 이상 성립하지 않는다. 이 위험을 인지한 상태에서 최신 추론 능력(버그 탐지
+> 정밀도·재현율)을 우선해 격상했다.
+>
+> refusal은 하네스가 방지할 수 없다 — 모델 제공자 측 분류기이며 서브에이전트 계층에서
+> refusal fallback을 선언할 수단이 없다. 따라서 방어선은 **관측**이다: refusal로 인한 빈/부실
+> 산출은 `scripts/probes/audit-integrity.sh`가 "이슈 없음(통과)"과 구분해 후보로 표면화한다.
+> 감사가 반복적으로 refusal되면 이 에이전트만 `claude-opus-4-8`로 되돌리는 것이 폴백 경로다
+> (Anthropic이 cyber 카테고리 refusal의 권장 폴백으로 지정한 모델이며, `config/models.json`의
+> pricing에 단가를 존치해 두었다).
 
 ## Reporting Policy
 - **발견한 모든 이슈를 보고한다** — 확신이 낮거나 심각도가 낮아 보여도 누락하지 않는다

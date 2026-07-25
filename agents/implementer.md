@@ -1,7 +1,7 @@
 ---
 name: implementer
 description: "Code implementer — writes code, tests, performs security self-checks, and records criteria gaps. Use for Phase 3 (implementation)."
-model: claude-opus-4-8
+model: claude-opus-5
 ---
 
 # Implementer Agent (Generator)

@@ -1,29 +1,29 @@
 {
-  "_comment": "단일 출처: 각 역할의 model 할당과 능력 티어 래티스. agents/*.md frontmatter의 model은 여기 assignments와 일치해야 하며, scripts/probes/model-tiering.sh가 drift·역전·미등록을 정적 탐지한다. 새 모델 라인업/재배치 시 이 파일과 frontmatter를 함께 갱신.",
+  "_comment": "단일 출처: 각 역할의 model 할당과 능력 티어 래티스. agents/*.md frontmatter의 model은 여기 assignments와 일치해야 하며, scripts/probes/model-tiering.sh가 drift·역전·미등록을 정적 탐지한다. 새 모델 라인업/재배치 시 이 파일과 frontmatter를 함께 갱신(F55: 한쪽만 바꾸면 프로브가 즉시 drift로 잡는다).",
   "tiers": [
     "claude-fable-5",
-    "claude-opus-4-8",
+    "claude-opus-5",
     "claude-sonnet-5",
     "claude-haiku-4-5"
   ],
   "assignments": {
     "implementer": {
-      "model": "claude-opus-4-8",
+      "model": "claude-opus-5",
       "criticality": "critical",
-      "rationale": "long-horizon 에이전틱 코딩 — 가장 무거운 작업. 코딩 SOTA."
+      "rationale": "long-horizon 에이전틱 코딩 — 가장 무거운 작업. 다중 파일 기능·대형 리팩터에서 완결성이 높고 스텁/플레이스홀더를 남기지 않는다."
     },
     "evaluator": {
-      "model": "claude-opus-4-8",
+      "model": "claude-opus-5",
       "criticality": "critical",
-      "rationale": "유일한 통과 판정 게이트(min-of-5). 판단 정확성 핵심 — 구현과 동급 티어 이상."
+      "rationale": "유일한 통과 판정 게이트(min-of-5). 판단 정확성이 핵심 — 구현과 동급 티어 이상이어야 한다. 버그 탐지의 정밀도와 재현율이 함께 높다."
     },
     "security-auditor": {
-      "model": "claude-opus-4-8",
+      "model": "claude-opus-5",
       "criticality": "critical",
-      "rationale": "critical 보안 감사. 강한 추론 필요 + Fable 5 cyber-refusal 회피로 Opus 적정."
+      "rationale": "critical 보안 감사. Opus 5도 강화된 사이버보안 안전장치로 방어 목적 감사가 refusal될 수 있으나(F55), 이 위험을 인지하고 최신 추론 능력을 우선해 격상했다. refusal로 인한 빈/부실 산출은 scripts/probes/audit-integrity.sh가 정상 통과와 구분해 탐지하며, 반복 refusal 시 폴백 후보는 claude-opus-4-8(Anthropic 권장)이다."
     },
     "architect": {
-      "model": "claude-opus-4-8",
+      "model": "claude-opus-5",
       "criticality": "standard",
       "rationale": "아키텍처 설계·위협모델링. 깊은 추론이나 경계 명확한 1회성 태스크."
     },
@@ -56,9 +56,14 @@
     "gate_reference_role": "implementer"
   },
   "pricing": {
+    "_comment": "선언 단가(per-1M, USD) — 실제 청구가 아니다. claude-opus-4-8은 assignments·tiers에서 빠졌지만 Opus 5의 cyber classifier refusal 시 Anthropic 권장 폴백 후보이므로 단가를 존치한다(F55 Q4). cost-report.sh는 pricing을 모델 ID로 조회만 하고 순회하지 않으므로 이 주석 키는 무해하다.",
     "claude-fable-5": {
       "input": 10,
       "output": 50
+    },
+    "claude-opus-5": {
+      "input": 5,
+      "output": 25
     },
     "claude-opus-4-8": {
       "input": 5,
