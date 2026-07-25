@@ -121,6 +121,12 @@
       "contract": "progress/contracts/sprint-45.json",
       "security_tier": "standard",
       "summary": "[F56에서 분리] 규칙의 인터페이스 강등 — 산문 지시로만 존재하는 보호 장치를 서브에이전트 frontmatter로 옮겨 호출자 무관하게 강제한다. F56에서 test-writer의 isolation을 대상으로 시도해 미적용을 실측했다(선언 후 파라미터 없이 디스패치 → ISOLATION: main, worktree 미생성). 공식 문서가 isolation을 지원 필드로 열거하지만 플러그인 서브에이전트에서는 무시되는 것으로 보인다(hooks·mcpServers·permissionMode 선례와 동형). 따라서 선결 조건은 어떤 필드가 플러그인 경로에서 실제로 적용되는지 규명하는 것이며, 규명 없이 선언만 추가하면 거짓 보증이 된다 — 적용되지 않는 선언은 문서화된 보호처럼 보이지만 아무것도 하지 않아 산문마저 없애도 된다는 오판을 부른다. 강등은 선언 → 실측 → 확인 후에만 산문 제거 순서를 지킨다(F56 SC-3가 이 순서로 격리 보호 상실을 실제로 막았다). 결론은 Claude Code 버전에 종속되므로 실측 버전을 명시한다."
+    },
+    {
+      "feature_id": "F60",
+      "contract": "progress/contracts/sprint-46.json",
+      "security_tier": "critical",
+      "summary": "[F58 AC-1 발견의 후속] is_protected의 티어 라우팅 스킬 보호를 파일 단위에서 디렉터리 단위로 넓힌다. hooks/invariant-guard.sh:46-48은 skills/{change-request,improve,hotfix}/SKILL.md를 full-path 리터럴로만 매칭하므로, 스킬을 분할해 배치 승인 조건이나 INV-12(무인 실행에서 tests/*.bats 제외)를 하위 파일로 옮기면 그 내용이 보호 밖으로 나간다 — 게이트를 직접 낮추는 대신 게이트 정의를 보호되지 않는 위치로 이동시키는 형태의 우회다. F58은 해당 3스킬을 분할 대상에서 제외해 회피했을 뿐 원인은 그대로이며, 분할 금지가 계약·ADR에만 기록돼 있어 기계적 강제가 없다. 핵심 제약은 F45/F46의 대칭 파서다 — 대칭 (b)는 is_protected의 arm을 확장자로 끝나는 토큰으로만 추출하므로, 기존 full-path arm을 디렉터리 글롭으로 교체하면 그 arm들이 추출 대상에서 빠져 대칭 검증 커버리지가 조용히 줄어든다. 따라서 기존 arm을 유지한 채 글롭을 추가하는 방식만 허용하며, 이는 보호 범위 확장이지 기존 검증의 약화가 아니다."
     }
   ]
 }

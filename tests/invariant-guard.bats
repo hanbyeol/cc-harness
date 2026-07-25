@@ -895,6 +895,58 @@ _nojq_run() {
   [ "$status" -eq 0 ]
 }
 
+# --- F60: 3스킬 보호를 디렉터리 단위로 확장 (게이트 정의 이동에 의한 우회 차단) ---
+# F48은 세 스킬을 full-path로만 매칭했다. 스킬을 분할해 배치 승인 조건이나 무인 제외
+# 규칙을 하위 파일로 옮기면 게이트 정의가 보호 밖으로 나간다 — 임계값을 낮추는 대신
+# 정의의 위치를 옮기는 우회이며 결과는 같다(F58 AC-1 발견).
+# 위 F48 테스트는 그대로 둔다: 글롭이 기존 full-path arm을 대체한 것이 아니라 추가된
+# 것임을 이 둘의 공존이 증명한다.
+
+@test "F60: is_protected covers sub-files of the 3 tier-routing skill dirs" {
+  # shellcheck disable=SC1090
+  source <(sed -n '/^is_protected()/,/^}/p' "$HOOK")
+  run is_protected "$WORK/skills/change-request/impact-analysis.md"
+  [ "$status" -eq 0 ]
+  run is_protected "$WORK/skills/improve/auto-mode.md"
+  [ "$status" -eq 0 ]
+  run is_protected "$WORK/skills/hotfix/scope-check.md"
+  [ "$status" -eq 0 ]
+}
+
+@test "F60: is_protected covers nested paths and relative forms" {
+  # shellcheck disable=SC1090
+  source <(sed -n '/^is_protected()/,/^}/p' "$HOOK")
+  run is_protected "$WORK/skills/improve/sub/dir/deep.md"
+  [ "$status" -eq 0 ]
+  run is_protected "skills/change-request/relative.md"
+  [ "$status" -eq 0 ]
+  run is_protected "skills/hotfix/nested/x.json"
+  [ "$status" -eq 0 ]
+}
+
+@test "F60: directory widening does not over-protect unrelated skill dirs" {
+  # shellcheck disable=SC1090
+  source <(sed -n '/^is_protected()/,/^}/p' "$HOOK")
+  run is_protected "$WORK/skills/implement/SKILL.md"
+  [ "$status" -ne 0 ]
+  run is_protected "$WORK/skills/implement/parallel-mode.md"
+  [ "$status" -ne 0 ]
+  run is_protected "$WORK/skills/debug/SKILL.md"
+  [ "$status" -ne 0 ]
+  run is_protected "$WORK/skills/brainstorm/sub/x.md"
+  [ "$status" -ne 0 ]
+}
+
+@test "F60: jq absent — Edit to a skill sub-file is blocked (fail-closed symmetry)" {
+  run _nojq_run "$(mk_edit_input "$WORK/skills/improve/auto-mode.md" 'a' 'b')"
+  [ "$status" -eq 2 ]
+}
+
+@test "F60: jq absent — sub-file of an unrelated skill still passes (availability preserved)" {
+  run _nojq_run "$(mk_edit_input "$WORK/skills/implement/parallel-mode.md" 'a' 'b')"
+  [ "$status" -eq 0 ]
+}
+
 # --- F49: apply_replace() escape-corruption fix (false-allow prevention) ---
 # 근본원인: POSIX awk의 `-v var=value` 할당은 문자열 리터럴과 동일하게 백슬래시 이스케이프를
 # 처리한다 — old_string/new_string에 백슬래시(이 코드베이스의 멀티라인 case문

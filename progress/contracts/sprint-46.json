@@ -1,0 +1,168 @@
+{
+  "sprint": 46,
+  "title": "invariant-guard 보호 범위의 디렉터리 확장 — 게이트 정의 이동에 의한 우회 차단",
+  "feature_id": "F60",
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "_tier_note": "security_tier critical — 자기보호 메커니즘(is_protected) 자체의 변경이므로 F45·F48·F52와 동일 등급이다. 검증은 evaluator + security-auditor + qa-reviewer이며 F37 critical 2차 판정을 포함한다. 보안 점수 7/10 미만이면 자동 fail.",
+  "dependencies": [
+    "F45",
+    "F48",
+    "F58"
+  ],
+  "_dependency_note": "F48이 3스킬 보호를 도입했고, F45/F46이 그 보호와 INV-12의 대칭을 기계 검증한다. F58 AC-1이 그 보호의 경로 단위 한계를 발견했다.",
+  "problem": "hooks/invariant-guard.sh:46-48의 is_protected는 티어 라우팅 스킬 3개를 full-path 리터럴(skills/{change-request,improve,hotfix}/SKILL.md)로만 매칭한다. 스킬을 분할해 배치 승인 조건이나 INV-12(무인 실행에서 tests/*.bats 제외)를 하위 파일로 옮기면 그 내용이 보호 밖으로 나간다. 게이트 임계값을 낮추는 우회가 아니라 게이트 정의를 보호되지 않는 위치로 이동시키는 우회이며 결과는 동일하다 — /improve --auto 무인 루프가 자기 중단 조건을 편집할 수 있게 된다. F58은 3스킬을 분할 대상에서 제외(SC-4)해 회피했으나 원인은 남아 있고, 분할 금지가 Sprint Contract와 ADR 산문에만 있어 기계적 강제가 없다.",
+  "_key_constraint": {
+    "finding": "F45/F46의 대칭 파서가 이 변경의 형태를 제한한다.",
+    "detail": "대칭 (b) 테스트(tests/invariant-guard.bats)는 is_protected의 arm을 `[a-zA-Z0-9_*-]+\\.(json|sh|md|bats)` 로 추출한다 — 확장자로 끝나는 토큰만 뽑는다. 기존 full-path arm을 디렉터리 글롭(skills/change-request/*)으로 교체하면 확장자가 없어 추출되지 않고, 그 결과 해당 arm들이 INV-12 대칭 검증에서 빠진다. 실패하지 않고 조용히 커버리지가 줄어드는 형태라 더 위험하다.",
+    "consequence": "기존 arm을 유지한 채 글롭을 추가하는 방식만 허용한다. 파서 자체를 고치는 것은 F45/F46이 tautology 방지에 공들인 영역이라 이 스프린트 범위에 넣지 않는다."
+  },
+  "_runtime_gap": {
+    "discovered": "2026-07-26, F60 구현 중",
+    "finding": "훅은 저장소가 아니라 설치된 플러그인 캐시에서 실행된다 — hooks.json이 ${CLAUDE_PLUGIN_ROOT}를 참조하며 그 경로는 ~/.claude/plugins/cache/cc-harness-marketplace/cc-harness/1.33.0 이다. 설치된 1.33.0의 hooks/lib.sh에는 follow_ups_backlog가 0회 등장한다(저장소는 2회) — 즉 F56의 캐리오버 수정이 런타임에 없다.",
+    "impact": "F54(v1.33.0) 이후 릴리스가 없어 F56·F57·F58의 훅 변경이 전부 미적용 상태다. F60이 확장한 is_protected도 릴리스 전까지 런타임에서는 옛 경로 리터럴로 동작한다 — 저장소 테스트는 저장소 코드를 대상으로 하므로 통과하지만 실제 보호는 넓어지지 않는다.",
+    "evidence": "핸드오프 백로그 유실이 이 갭의 관측 증상이었다. 저장소 코드로는 격리·실제 경로 모두 재현되지 않았고(병합·캐리오버 정상), 실행되는 코드가 다르다는 사실로만 설명된다.",
+    "handling": "F60의 범위 밖이다 — 릴리스는 외부 배포 동작이므로 사용자 결정이 필요하다. F60은 저장소 코드의 정확성을 인도하고, 런타임 적용은 릴리스에 종속됨을 evidence와 limitations에 명시한다."
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "is_protected가 skills/{change-request,improve,hotfix}/ 디렉터리 아래의 임의 파일(하위 디렉터리 포함)을 보호한다. 기존 full-path arm 3쌍은 그대로 유지하고 글롭 arm을 추가한다.",
+      "verification": "함수를 source해 하위 파일 경로(예: skills/improve/auto-mode.md, /x/skills/improve/sub/dir/x.md)로 is_protected 호출 → return 0. 기존 3개 SKILL.md 경로도 계속 return 0"
+    },
+    {
+      "id": "AC-2",
+      "criterion": "F45 대칭 (a)·(b)와 F46 메타 테스트 4건이 변경 없이 통과한다. 기존 arm을 남겼으므로 (b)의 추출 대상이 줄지 않아야 한다.",
+      "verification": "tests/invariant-guard.bats 전체 통과 + (b)가 추출하는 arm 토큰 수가 변경 전과 같거나 늘었음을 실측 대조"
+    },
+    {
+      "id": "AC-3",
+      "criterion": "과보호가 없다 — 무관한 스킬 디렉터리(skills/implement/ 등)는 계속 비보호다. F48이 basename 과보호를 막으려고 넣은 회귀 가드와 같은 성격의 음성 케이스를 추가한다.",
+      "verification": "skills/implement/SKILL.md·skills/implement/parallel-mode.md·skills/debug/SKILL.md에 대해 is_protected → return 1"
+    },
+    {
+      "id": "AC-4",
+      "criterion": "docs/INVARIANTS.md의 INV-12 기술이 실제 보호 범위와 일치한다 — 3스킬이 파일이 아니라 디렉터리 단위로 보호됨을 명시한다.",
+      "verification": "INV-12 산문에 디렉터리 보호 명시 + 대칭 (a) 파서가 참조하는 백틱 토큰 목록은 기존 그대로 유지되어 (a)가 계속 통과"
+    },
+    {
+      "id": "AC-5",
+      "criterion": "신규 테스트가 회귀를 실제로 포착한다(mutation).",
+      "verification": "글롭 arm을 제거하면 AC-1의 하위 파일 테스트가 실패하고, 복원하면 통과. 기존 SKILL.md 테스트는 두 경우 모두 통과(기존 arm이 살아 있으므로) — 이 대비가 '추가이지 교체가 아님'의 증거다"
+    },
+    {
+      "id": "AC-6",
+      "criterion": "기존 테스트·프로브가 회귀 없이 통과한다.",
+      "verification": "bats tests/ 전체 1회 실행 후 출력 파싱(재실행 금지) + scripts/probes/run-all.sh"
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "임계값·게이트 구조가 불변이다.",
+      "rationale": "자기보호 강화를 빌미로 다른 게이트가 조정되는 것을 막는다.",
+      "verification": "git diff --quiet progress/harness-config.json"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "이 변경은 보호 범위의 순증이며 어떤 경로도 보호에서 이탈하지 않는다.",
+      "rationale": "보호 확장 작업이 실수로 기존 보호를 좁히면 그 자체가 취약성이 된다. F53(RS 문단 모드)·F49(이스케이프 손상)처럼 자기보호 수정이 자기보호를 깨뜨린 선례가 있다.",
+      "verification": "변경 전후로 동일한 경로 집합에 대해 is_protected 결과를 대조 — 0이던 것이 1로 바뀐 경로가 없어야 한다"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "jq 부재 fail-closed 경로에서도 동일하게 보호된다.",
+      "rationale": "F41·F50·F51이 확립한 fail-closed 대칭. is_protected는 두 브랜치가 공유하지만 실제로 그런지 실행으로 확인한다.",
+      "verification": "F48의 'jq absent' 테스트와 같은 방식으로 하위 파일에 대한 jq 부재 편집이 차단되는지 확인"
+    },
+    {
+      "id": "SC-4",
+      "criterion": "대칭 검증의 커버리지가 줄지 않는다.",
+      "rationale": "_key_constraint 참조. 교체 방식이면 (b)의 추출 대상에서 arm이 빠져 조용한 약화가 된다.",
+      "verification": "변경 전후 (b) 파서가 추출하는 토큰 집합을 실측 비교 — 기존 토큰이 하나도 사라지지 않아야 한다"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "글롭 패턴이 의도보다 넓게 매칭해 무관한 파일까지 보호(과보호) → 불필요한 ask 프롬프트 급증",
+      "expected": "AC-3의 음성 케이스에서 사전 검출. case 패턴은 skills/{name}/ 접두를 정확히 요구하도록 작성한다"
+    },
+    {
+      "id": "ES-2",
+      "scenario": "글롭 추가로 대칭 (b) 파서가 새 arm을 추출하려다 예상 못 한 토큰을 잡아 테스트 실패",
+      "expected": "글롭 arm은 확장자로 끝나지 않아 추출되지 않는다. 만약 추출되면 INV-12에 대응 기재가 필요하므로 즉시 계약을 갱신하고 진행한다"
+    },
+    {
+      "id": "ES-3",
+      "scenario": "보호가 넓어져 정상 작업(예: 3스킬 디렉터리에 문서 추가)이 차단됨",
+      "expected": "차단이 아니라 ask 프롬프트다(invariant-guard는 내용 기반 판단). 그 3스킬은 티어 라우팅 정의이므로 프롬프트가 적절한 마찰이며, 회피하려면 Edit/Write 툴을 쓰라는 기존 규칙이 그대로 적용된다"
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": "1. 기준선 — 변경 전 is_protected 결과 집합과 대칭 (b) 추출 토큰 집합을 기록",
+      "verify": "SC-2·SC-4 대조용 기준 확보",
+      "done": true,
+      "covers": [
+        "SC-2",
+        "SC-4"
+      ],
+      "result": "완료. SC-2·SC-4 기준선 확보 — 추출 토큰 12개, 대표 경로 20개 결과 기록."
+    },
+    {
+      "step": "2. AC-1 — is_protected에 디렉터리 글롭 arm 추가(기존 arm 유지). Edit 툴 사용",
+      "verify": "하위 파일 경로 → return 0, 기존 SKILL.md → return 0",
+      "done": true,
+      "covers": [
+        "AC-1"
+      ],
+      "result": "완료. 글롭 arm 3쌍 추가(기존 full-path arm 유지). 문법 OK."
+    },
+    {
+      "step": "3. AC-3·AC-5 — 양성·음성 테스트 추가 후 mutation 확인",
+      "verify": "무관 스킬 → return 1 / 글롭 제거 시 하위 파일 테스트만 실패",
+      "done": true,
+      "covers": [
+        "AC-3",
+        "AC-5"
+      ],
+      "result": "완료. 양성 2건·음성 1건·fail-closed 2건 추가(총 5건). mutation: 글롭 제거 시 F60 양성 3건만 실패, F48 전부 통과."
+    },
+    {
+      "step": "4. AC-4 — INV-12 산문에 디렉터리 보호 명시. 백틱 토큰 목록은 불변",
+      "verify": "대칭 (a) 계속 통과",
+      "done": true,
+      "covers": [
+        "AC-4"
+      ],
+      "result": "완료. INV-12에 F60 문단 추가(우회 성격·교체가 아닌 추가인 이유·남는 한계). 백틱 토큰 목록 불변 → 대칭 (a) 계속 통과."
+    },
+    {
+      "step": "5. SC-3 — jq 부재 경로 확인",
+      "verify": "하위 파일에 대한 jq 부재 편집 차단",
+      "done": true,
+      "covers": [
+        "SC-3"
+      ],
+      "result": "완료. F60 테스트 104·105로 커버 — 하위 파일에 대한 jq 부재 편집 차단(exit 2), 무관 스킬 하위 파일은 통과(exit 0, 가용성 보존)."
+    },
+    {
+      "step": "6. AC-2·AC-6·SC-1·SC-2·SC-4 — 회귀 및 대조 검증",
+      "verify": "bats 전체 1회 + run-all + 기준선 대조",
+      "done": true,
+      "covers": [
+        "AC-2",
+        "AC-6",
+        "SC-1",
+        "SC-2",
+        "SC-4"
+      ],
+      "result": "완료. bats 615 ok / 0 fail(기준선 610 + 신규 5). SC-4 토큰 집합 동일, SC-2 이탈 0건·추가 3건. harness-config diff 없음. README 테스트 수 610→615 동기화."
+    }
+  ],
+  "_parallelizable": false,
+  "_parallel_note": "직렬. 단일 함수의 좁은 변경이며 step 1의 기준선이 이후 대조의 입력이다. 위임 상한 (a)에 해당 — 직접 수행한다.",
+  "agreed": true,
+  "_agreed_note": "**승인됨 — 2026-07-26 Plan 게이트(ExitPlanMode).** 기존 arm 유지 + 글롭 추가 방식으로 승인. 보호 파일은 Edit/Write 툴로만 수정했다."
+}

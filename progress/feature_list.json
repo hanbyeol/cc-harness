@@ -774,6 +774,21 @@
         "F56"
       ],
       "assigned_sprint": 45
+    },
+    {
+      "id": "F60",
+      "name": "invariant-guard 보호 범위의 디렉터리 확장 — 게이트 정의 이동에 의한 우회 차단",
+      "description": "[F58 AC-1 발견의 후속, 2026-07-26] hooks/invariant-guard.sh:46-48의 is_protected는 티어 라우팅 스킬 3개를 skills/{change-request,improve,hotfix}/SKILL.md라는 full-path 리터럴로만 매칭한다. 따라서 스킬을 분할해 배치 승인 조건이나 INV-12(무인 실행에서 tests/*.bats 제외)를 하위 파일로 옮기면 그 내용이 보호 밖으로 나간다. 게이트 임계값을 낮추는 고전적 우회가 아니라 **게이트 정의를 보호되지 않는 위치로 이동시키는** 형태이며, 결과는 같다 — 무인 자기개선 루프가 자기 중단 조건을 편집할 수 있게 된다. F58은 해당 3스킬을 분할 대상에서 제외(SC-4)해 회피했을 뿐 원인은 그대로이고, 분할 금지가 Sprint Contract와 ADR 산문에만 있어 기계적 강제가 없다. 핵심 제약은 F45/F46이 만든 대칭 파서다: 대칭 (b)는 is_protected의 arm을 확장자로 끝나는 토큰(`[a-zA-Z0-9_*-]+\\.(json|sh|md|bats)`)으로만 추출하므로, 기존 full-path arm을 디렉터리 글롭으로 **교체**하면 그 arm들이 추출 대상에서 빠져 INV-12↔is_protected 대칭 검증의 커버리지가 조용히 줄어든다. 따라서 기존 arm을 유지한 채 글롭을 **추가**하는 방식만 허용한다 — 보호 범위 확장이지 기존 검증의 약화가 아니다. security_tier는 F45·F48·F52와 동일하게 critical(자기보호 메커니즘 자체의 변경).",
+      "security_tier": "critical",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F45",
+        "F48",
+        "F58"
+      ],
+      "assigned_sprint": 46
     }
   ]
 }

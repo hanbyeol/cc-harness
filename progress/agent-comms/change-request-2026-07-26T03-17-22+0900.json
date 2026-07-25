@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-07-26T00:00:00+09:00",
+  "type": "add",
+  "description": "invariant-guard 보호 범위의 디렉터리 확장 — 게이트 정의를 보호 밖으로 이동시키는 우회 차단 (F58 AC-1 발견의 후속)",
+  "affected_features": ["F60"],
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": false,
+    "acceptance_criteria_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false
+  },
+  "new_sprint_contract": "progress/contracts/sprint-46.json",
+  "rollback_to_phase": null,
+  "_spec_note": "SPEC/ARCHITECTURE 미변경 — 컴포넌트·API·데이터 모델 변경이 없고 기존 자기보호 메커니즘(INV-12)의 적용 범위를 넓히는 변경이다. 위협 모델은 INVARIANTS.md의 INV-12 항목에서 AC-4로 갱신한다.",
+  "_tier": "critical — F45·F48·F52와 동일하게 자기보호 메커니즘 자체의 변경. hotfix 부적격(critical 보안 로직).",
+  "_origin": "F58 AC-1 전수 조사에서 발견. F58은 해당 3스킬을 분할 대상에서 제외해 회피했을 뿐 원인은 남아 있었다."
+}

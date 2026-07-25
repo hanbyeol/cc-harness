@@ -46,6 +46,14 @@ is_protected() {
     */skills/change-request/SKILL.md | skills/change-request/SKILL.md | \
     */skills/improve/SKILL.md | skills/improve/SKILL.md | \
     */skills/hotfix/SKILL.md | skills/hotfix/SKILL.md) return 0 ;;  # F48: 티어 라우팅/배치 조건 정의 파일 자기보호(evaluator.md/F45와 동일한 fail-closed 방식)
+    # F60: 위 3스킬의 디렉터리 전체로 확장. 스킬을 분할해 배치 승인 조건이나 무인 제외
+    # 규칙을 하위 파일로 옮기면 게이트 정의가 보호 밖으로 나가는 우회가 성립한다(F58 발견).
+    # 위 full-path arm을 지우지 않고 남겨 두는 이유: F45/F46 대칭 (b) 파서는 arm을 확장자로
+    # 끝나는 토큰으로만 추출하므로, 글롭으로 교체하면 그 arm들이 추출 대상에서 빠져
+    # INV-12 대칭 검증의 커버리지가 조용히 줄어든다. 교체가 아니라 추가여야 한다.
+    */skills/change-request/* | skills/change-request/* | \
+    */skills/improve/* | skills/improve/* | \
+    */skills/hotfix/* | skills/hotfix/*) return 0 ;;
   esac
   return 1
 }
