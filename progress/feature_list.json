@@ -751,9 +751,9 @@
       "name": "컨텍스트 다이어트 2차 — 라우팅 중복·스킬 점진적 공개 (F56에서 분리)",
       "description": "[F56 범위 재정의로 분리, 2026-07-25] Anthropic 컨텍스트 엔지니어링 블로그(2026-07-24) 기준 실측에서 두 갭이 확인됐다: (1) CLAUDE.md 라우팅 표 11행 ↔ TRIGGER 보유 스킬 11개가 정확히 1:1 중복 — 스킬 description이 이미 라우팅을 수행하는데 상시 로드 파일이 같은 매핑을 반복한다. (2) 스킬 11개가 전부 단일 파일로 점진적 공개가 하나도 적용되지 않았다(implement 160줄, improve 116줄). F56 구현에서 둘 다 시도했으나 롤백했다 — **하네스가 F29에서 이미 반대 결정을 내려 삼중으로 고정해 두었기 때문**이다: tests/efficiency.bats의 'F29: diet keeps all 11 skills routed (repo & tmpl)'와 'F29: diet preserves SENTINEL + tiering + plan-review', 그리고 consistency 프로브의 라우팅 검사. 이를 관철하려면 검증 장치 셋을 해체해야 하고 implementer.md의 '구현에 맞추기 위한 기존 테스트 수정/단언 약화' 금지에 걸린다. **따라서 이 기능의 핵심은 코드 변경이 아니라 F29 불변식을 재검토할 것인가라는 설계 판단이다** — 재검토 없이 진행하면 안 된다. 두 축은 난이도가 다르다: 스킬 분할은 실패한 테스트 3건(tests/subagent-mode.bats 2 + tests/improve-auto.bats 1)의 검사 범위를 '본체 또는 하위 파일'로 넓히면 불변식(내용이 존재한다)을 유지한 채 관철 가능해 상대적으로 안전하고, 라우팅 축소는 F29 불변식 자체를 부정하므로 사람 승인이 필수다(improve §3 불변식 가드 대상). F56에서 분할 자체는 동작함을 이미 확인했다(implement 160→133줄, improve 116→93줄, 하위 파일 3개, 참조 도달 확인). 측정된 중복은 사실로 남아 있으나 하네스의 명시적 결정을 뒤집는 것이므로 이 기능은 반드시 Plan 게이트에서 불변식 재검토 여부를 먼저 확정한다.",
       "security_tier": "standard",
-      "status": "pending",
-      "passes": false,
-      "iteration": 0,
+      "status": "passed",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [
         "F29",
         "F56"
