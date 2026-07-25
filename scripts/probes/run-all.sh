@@ -24,9 +24,15 @@ if [[ -f progress/feature_list.json ]]; then
   SEEN+=$(jq -r '.features[]? | "\(.name)\n\(.description)"' progress/feature_list.json 2>/dev/null || true)
   SEEN+=$'\n'
 fi
-if [[ -f progress/session-handoff-draft.json ]]; then
-  SEEN+=$(jq -r '.follow_ups_backlog[]? // empty' progress/session-handoff-draft.json 2>/dev/null || true)
-fi
+# draft와 병합본을 모두 읽는다 — Stop 훅(session-handoff.sh)이 draft를 소비해
+# session-handoff.json으로 병합하면, draft만 보던 시절에는 백로그 편입 효과가 사라져
+# 같은 후보가 매 회전 재출현했다(F56 AC-6). 중복 소스는 무해하다: 아래 중복 제거가
+# 후보 name의 부분 문자열 포함 검사라 같은 항목이 두 번 매치될 뿐이다.
+for HANDOFF in progress/session-handoff-draft.json progress/session-handoff.json; do
+  [[ -f "$HANDOFF" ]] || continue
+  SEEN+=$(jq -r '.follow_ups_backlog[]? // empty' "$HANDOFF" 2>/dev/null || true)
+  SEEN+=$'\n'
+done
 
 # 3. 중복 제거 + id 부여
 RESULT="[]"; n=0

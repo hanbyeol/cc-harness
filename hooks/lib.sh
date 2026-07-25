@@ -88,6 +88,17 @@ harness_write_handoff_snapshot() {
   local timestamp
   timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
+  # 기존 핸드오프의 에이전트 기록분을 캐리오버하기 위해 읽어둔다(F56).
+  # 이 스냅샷은 아래에서 JSON을 새로 만들어 파일을 통째로 덮어쓰므로, 보존하지 않으면
+  # draft 병합으로 들어온 필드가 draft 없는 다음 Stop에서 전부 사라진다 —
+  # follow_ups_backlog는 스냅샷이 만들지도 않아 키째 유실되고, blockers/key_decisions/
+  # next_actions/in_progress는 아래의 빈 초기값으로 덮어써진다.
+  local prev='{}'
+  if [[ -f progress/session-handoff.json ]]; then
+    prev=$(jq -c '.' progress/session-handoff.json 2>/dev/null || echo '{}')
+    [[ -n "$prev" ]] || prev='{}'
+  fi
+
   # Build handoff JSON safely using jq instead of heredoc interpolation, then
   # validate the tmp before publishing (atomic mv). Clean up tmp on any failure.
   if jq -n \
@@ -96,6 +107,7 @@ harness_write_handoff_snapshot() {
       --argjson completed "$completed" \
       --argjson pending "$pending" \
       --argjson recent_commits "$recent_commits" \
+      --argjson prev "$prev" \
       '{
         timestamp: $ts,
         phase: $phase,
@@ -106,7 +118,16 @@ harness_write_handoff_snapshot() {
         blockers: [],
         next_actions: [],
         key_decisions: []
-      }' > "$tmp" 2>/dev/null && jq '.' "$tmp" &>/dev/null; then
+      }
+      # 자동 필드(timestamp·phase·completed·pending·recent_commits)는 항상 새 값이 이기고,
+      # 에이전트 기록 필드는 기존 값이 비어있지 않을 때만 보존한다.
+      + ( ["in_progress", "blockers", "next_actions", "key_decisions", "follow_ups_backlog"]
+          | reduce .[] as $k ({};
+              ($prev[$k]) as $v
+              | if ($v == null or $v == "" or $v == [] or $v == {})
+                  then .
+                  else . + { ($k): $v } end) )
+      ' > "$tmp" 2>/dev/null && jq '.' "$tmp" &>/dev/null; then
     mv "$tmp" progress/session-handoff.json
     return 0
   fi

@@ -6,6 +6,17 @@ model: claude-sonnet-5
 
 # Test Writer Agent
 
+> **격리는 호출자가 지정해야 한다 (F56, 2026-07-25 실측)**: 이 에이전트는 테스트 파일을
+> 생성하므로 다른 검증 에이전트와 병렬 실행될 때 `isolation: "worktree"`가 필요하다.
+> frontmatter에 `isolation: worktree`를 선언하는 방식을 시도했으나 **적용되지 않았다** —
+> 실제 디스패치로 확인한 결과 worktree가 생성되지 않고 메인 체크아웃에서 실행됐다
+> (`pwd`·`git worktree list` 모두 메인). 공식 문서는 isolation을 지원 frontmatter 필드로
+> 열거하지만 플러그인 서브에이전트에서는 무시되는 것으로 보인다(hooks·mcpServers·
+> permissionMode가 같은 이유로 무시되는 선례가 있다). 따라서 **디스패치 시 호출자가
+> `isolation: "worktree"`를 명시해야 하며**, CLAUDE.md와 skills/implement의 해당 지시를
+> 제거하지 않는다. 적용되지 않는 선언을 남기면 격리된다는 거짓 보증이 되므로 frontmatter
+> 선언은 되돌렸다.
+
 ## Role
 통합/E2E 테스트 작성 및 실행.
 **단위 테스트는 implementer가 담당하며, 이 에이전트는 통합/E2E/보안 테스트에 집중한다.**

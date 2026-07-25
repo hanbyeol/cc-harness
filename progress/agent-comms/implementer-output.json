@@ -1,57 +1,62 @@
 {
-  "feature_id": "F55",
-  "sprint": 41,
-  "title": "Opus 5 전환 — 모델 정합화 + 4.8 보정 지침 재튜닝",
+  "feature_id": "F56",
+  "sprint": 42,
+  "title": "컨텍스트 다이어트 2차 — 중복 라우팅 · 스킬 점진적 공개 · 규칙의 인터페이스 강등",
   "security_tier": "standard",
-  "timestamp": "2026-07-25T11:05:00+09:00",
-  "summary": "agents/*.md frontmatter 4곳(implementer·evaluator·security-auditor·architect)과 config/models.json(tiers·assignments·pricing)·README를 claude-opus-5로 원자적 정합화하고, Opus 4.8의 약점을 보정하려 만든 지침이 Opus 5에서 역효과가 되는 지점을 재튜닝했다. 게이트 구조와 임계값은 건드리지 않았다.",
-  "design_decision": "채택 범위=전환+행동 재튜닝(effort 티어링·512토큰 캐시·fast mode·Workflow 오케스트레이션 등 신기능은 범위 밖). security-auditor는 refusal 위험을 인지한 상태에서 Opus 5로 격상(사용자 결정) — 위험 제거가 아니라 관측 가능화로 대응. 위임은 하한 유지 + 상한 신설. Plan 게이트 확정: Q1=(A) 프로브 계층, Q4=(B) pricing 존치+주석.",
+  "timestamp": "2026-07-25T21:30:00+09:00",
+  "summary": "8개 AC 중 2개 달성(AC-6·AC-8), 1개 부분 달성(hotfix description 보강), 5개 미달/보류. 컨텍스트 다이어트 축(AC-1~3)은 하네스가 F29에서 이미 세운 불변식과 충돌해 롤백했고, 인터페이스 강등 축(AC-4·AC-5)은 frontmatter 필드가 플러그인 서브에이전트에서 적용되지 않음을 실측해 보류했다. 실질 성과는 핸드오프 백로그 유실 버그의 근본 수정이다.",
+  "achieved": {
+    "AC-6": "scripts/probes/run-all.sh가 session-handoff-draft.json과 session-handoff.json의 follow_ups_backlog를 모두 읽는다. 격리 픽스처 5조합(양쪽 부재/draft만/병합본만/양쪽/빈 배열) 전부 기대대로 동작",
+    "AC-8": "[기준 역전파] hooks/lib.sh의 harness_write_handoff_snapshot이 에이전트 기록 필드(follow_ups_backlog·blockers·key_decisions·next_actions·in_progress)를 캐리오버한다. 자동 필드는 새 값이 이기고 에이전트 필드는 비어있지 않을 때만 보존. tests/session-handoff.bats에 4건으로 잠금",
+    "AC-7": "bats 600 ok / 0 fail (기준선 596 + 신규 4), 프로브 클린, shellcheck clean, 게이트 파일 무변경",
+    "partial": "skills/hotfix/SKILL.md description에 '원인 명확 · 3파일 이하 · 비보안' 조건과 라우팅 대안(/debug, /change-request) 보강 — AC-1의 사전 작업이었으나 그 자체로 유효해 유지"
+  },
+  "not_achieved": {
+    "AC-1": "롤백. F29가 같은 CLAUDE.md 다이어트 작업에서 '라우팅 11개 유지'를 불변식으로 세워 삼중 고정(tests/efficiency.bats 2건 + consistency 프로브)해 두었음을 구현 중 발견. 관철하려면 검증 장치 셋을 해체해야 해 테스트 약화 금지에 걸린다",
+    "AC-2, AC-3": "롤백. 분할 자체는 동작했으나(implement 160→133줄, improve 116→93줄) tests/efficiency.bats 3건이 'SKILL.md 본문에 해당 내용이 있을 것'을 강제해 실패. 검사 범위 확장으로 관철 가능하나 AC-1과 함께 보류",
+    "AC-4": "미달(ES-3 발생). isolation frontmatter가 적용되지 않음을 실측 — 산문 제거를 생략하고 보호를 유지",
+    "AC-5": "보류(Q2=(C)). turns 관측 데이터 부재 + frontmatter 미적용 가능성"
+  },
   "files_changed": [
-    "agents/{implementer,evaluator,security-auditor,architect}.md — frontmatter model → claude-opus-5",
-    "config/models.json — tiers에서 claude-opus-4-8 제거·claude-opus-5 등재, assignments 4건 model+rationale, pricing에 claude-opus-5 추가(claude-opus-4-8은 폴백 근거 주석과 함께 존치)",
-    "agents/security-auditor.md — 모델 근거 주석 재작성: 'Fable 5가 아닌 Opus 4.8을 사용' 제거, Opus 5도 cyber refusal 가능·Anthropic 권장 폴백이 Opus 4.8임을 명시",
-    "agents/evaluator.md — Reporting Policy 신설(커버리지 우선 보고, severity·confidence 표기, 보고와 판정 분리) + '스타일 이슈로 반려 안 함'이 반려 기준이지 보고 기준이 아님을 명시",
-    "CLAUDE.md — 위임 상한 3항목 + (c)의 예외(독립 evaluator·F37 2차 판정은 조직적 통제) + 커뮤니케이션 섹션(결과 우선·간결하되 읽히게·불필요한 자기 정정 금지)",
-    "skills/implement/SKILL.md, skills/debug/SKILL.md — 동일한 위임 상한 + 예외 문구",
-    "scripts/probes/audit-integrity.sh (신규) — security-auditor 산출을 '검사 수행 흔적'으로 판정: 빈 산출·refusal 마커는 후보, findings 0건이어도 흔적 있으면 통과, 파일 부재는 후보 아님",
-    "scripts/probes/run-all.sh — audit-integrity 편입 (8개→9개)",
-    "tests/probes.bats — audit-integrity 8건 + run-all 편입 1건 (총 9건)",
-    "README.md — 에이전트 표 4행·라우팅 설명·테스트 수(587→596). README:114의 'cyber-refusal이 없는 Opus를 고수한다'는 Opus 5에서 사실과 어긋나 삭제",
-    "docs/DECISIONS/ADR-007-security-auditor-model-policy.md (신규) — 격상 결정·기각 대안 4건·근본 한계",
-    "progress/contracts/sprint-41.json — agreed:true, 10/10 steps done, Q1~Q4 resolution",
-    "progress/feature_list.json — F55 (passes:false 유지 — evaluator 판정 대기)"
+    "hooks/lib.sh — 스냅샷에 에이전트 기록 필드 캐리오버 추가(AC-8)",
+    "scripts/probes/run-all.sh — 백로그 소스에 session-handoff.json 추가(AC-6)",
+    "tests/session-handoff.bats — 캐리오버 테스트 4건(보존·반복 내성·자동 필드 갱신·빈 값 비잠식)",
+    "agents/test-writer.md — isolation frontmatter 미적용 실측 결과를 본문에 기록",
+    "skills/hotfix/SKILL.md — description에 적용 조건 보강",
+    "README.md — 테스트 수 596→600",
+    "progress/contracts/sprint-42.json — AC별 _result, Q1/Q2 resolution, agreed:true",
+    "evals/acceptance-criteria.json — F56 요약을 읽기/쓰기 양쪽 수정으로 정정"
+  ],
+  "rolled_back": [
+    "CLAUDE.md (라우팅 표 원복)",
+    "tests/skill-frontmatter.bats (test 48 원복)",
+    "skills/implement/SKILL.md, skills/improve/SKILL.md (분할 원복)",
+    "skills/implement/execution-modes.md, verification-tiering.md, skills/improve/auto-batch.md (삭제)"
   ],
   "evidence": {
-    "bats_full": "596 ok / 0 fail, exit=0 (기준선 587 ok / 0 fail + 신규 9). 1회 실행 후 출력 파싱 — 재실행 없음",
-    "f55_tests": "audit-integrity: 산출 부재→후보 없음, 검사 흔적 있고 findings 0건→후보 없음(오탐 방지), 검사 흔적 없음→후보, refusal 마커→후보, findings 안의 'refusal' 단어→후보 없음, malformed→graceful [], 후보 security_tier=critical, 타임스탬프 파일명 인식, run-all 편입",
-    "probes": "run-all.sh → [] (후보 없음). model-tiering.sh → [], audit-integrity.sh → []",
-    "frontmatter_config_parity": "8개 agents/*.md frontmatter model을 config assignments와 대조 — 8/8 일치",
-    "cost_regression": "cost-report.sh --json의 phase별 input/output/total_per_1m·has_uncosted를 변경 전후 diff — 차이 없음(Opus 5 단가 = Opus 4.8 단가)",
-    "smoke_dispatch": "claude-opus-5 frontmatter로 architect 서브에이전트 1회 실제 디스패치 → 'SMOKE OK', tool_uses 0, 3.6초. ES-4·Q3 해소",
-    "shellcheck": "scripts/probes/audit-integrity.sh + run-all.sh — clean",
-    "json_validity": "config/models.json·sprint-41.json·feature_list.json·acceptance-criteria.json 전부 jq 파싱 성공",
-    "sc1_gate_immutability": "harness-config.json git diff 없음. evaluator.md diff(+12/-2)에 min_of_5·최솟값·pass_threshold·security_thresholds·'7 미만'·'자동 fail' 라인 변경 없음",
-    "sc2_exception_wording": "CLAUDE.md·skills/implement·skills/debug 세 파일 모두 위임 상한 문단에 '독립 evaluator 판정과 F37 critical 2차 판정' + '조직적 통제(INV-1)' 문구 존재(볼드 마커 제거 후 grep)",
+    "bats_full": "600 ok / 0 fail, exit=0 (기준선 596 ok / 0 fail + 신규 4). 1회 실행 후 출력 파싱 — 재실행 없음",
+    "ac6_matrix": "격리 픽스처 5조합 실측 — 양쪽 부재→후보 1(소거 없음), draft만→0, 병합본만→0(핵심), 양쪽→0, 빈 배열→1(빈 백로그는 소거 안 함)",
+    "ac8_carryover": "lib.sh 직접 소스 후 4단계 실측 — 1회차 스냅샷(백로그 없음) → draft 병합(백로그 2·blockers 1·key_decisions 1 유입) → 2회차 draft 없이 스냅샷(전부 보존, 이전에는 유실) → 3회차 반복(보존) → phase 변경 후(자동 필드 verification으로 갱신되고 백로그는 보존)",
+    "ac8_tests": "tests/session-handoff.bats 18/18 통과(신규 4 포함), tests/pre-compact.bats 회귀 없음 — 두 훅이 같은 스냅샷 함수를 공유하므로 함께 확인",
+    "integration": "AC-6+AC-8 결합 효과 확인 — 수정 전 run-all이 'evaluator follow-up' 후보를 반환했으나, 백로그 복원 후 후보 0건. 읽는 쪽만 고쳤다면 다음 Stop에서 다시 유실됐을 것",
+    "sc3_isolation": "agents/test-writer.md에 isolation: worktree 선언 후 isolation 파라미터 없이 실제 디스패치 → 'ISOLATION: main'. pwd·git rev-parse --show-toplevel 모두 메인 체크아웃, git worktree list에 별도 항목 없음",
+    "sc1_gate": "git diff --quiet progress/harness-config.json docs/INVARIANTS.md — 무변경",
+    "shellcheck": "hooks/lib.sh, scripts/probes/run-all.sh — clean",
+    "probes": "run-all.sh → [] (README 테스트 수 갱신 후)",
     "tdd_exceptions": [
-      "D1(모델 ID)·D2 주석·D4 위임 상한·D5 커뮤니케이션 지침은 설정·산문 변경이라 RED 선행 불가. 기존 model-tiering 프로브와 grep 기반 검증으로 사후 고정",
-      "audit-integrity.sh는 프로브를 먼저 작성하고 8개 픽스처로 양성·음성을 확인한 뒤 tests/probes.bats에 잠갔다 — 엄밀한 RED 선행은 아니나 오탐 케이스(findings 안의 'refusal')를 명시적으로 포함해 음성 검증을 강제"
+      "AC-6·AC-8은 수정을 먼저 하고 픽스처로 양성·음성을 확인한 뒤 bats에 잠갔다 — 엄밀한 RED 선행은 아니나, AC-8은 수정 전 상태에서 유실이 실제로 재현된 것(이 세션의 백로그 3건 소실)이 RED 역할을 했다"
     ]
   },
-  "error_scenarios_tested": [
-    "ES-1 frontmatter↔config drift → model-tiering이 탐지(기존 drift 테스트 통과)",
-    "ES-2 빈 산출·refusal → audit-integrity가 표면화(양성 4케이스 실행)",
-    "ES-3 tiers 제거 후 pricing 잔존 → cost-report graceful, 수치 회귀 없음",
-    "ES-4 claude-opus-5 frontmatter 수용 → 실제 디스패치로 검증(SMOKE OK)"
-  ],
-  "error_scenarios_not_executed": [
-    "ES-5(issues 비대화가 fail로 오인되지 않음) — 보고/판정 분리는 프롬프트와 문서에서 구현했고 diff로 판정 규칙 무변경을 확인했으나, 실제 evaluator 판정 행동으로는 검증하지 않았다. 이 스프린트의 evaluator 판정이 첫 실측 사례가 된다"
-  ],
   "criteria_backfill": [
-    "AC-8은 README.md:102-103만 지정했으나 실제 잔존 참조는 더 넓었다 — 라우팅 설명(112-116)과 테스트 수(339). 특히 README:114의 'security-auditor는 cyber-refusal이 없는 Opus를 고수한다'는 Opus 5에서 사실과 어긋나므로 AC-4와 동일한 근거로 수정이 필요했다. 기준 완화가 아니라 같은 취지의 확대 적용",
-    "테스트 9건 추가로 README의 '테스트 587개'가 실측과 어긋났고 consistency 프로브가 즉시 후보로 잡아 596으로 정정 — F40(산문 숫자 실측 대조)이 의도대로 작동한 사례",
-    "Q2 판정 근거 기록: tests/probes.bats·cost-report.bats의 하드코딩 모델 ID는 WORK 디렉토리에 자체 models.json을 생성해 프로브 로직만 검증하며 저장소 config를 참조하지 않는다. 596 테스트 전원 통과가 근거이므로 스테일 ID(claude-sonnet-4-6)는 갱신하지 않았다"
+    "AC-8 신설 — AC-6만으로는 목적 미달임을 구현 중 발견. 스냅샷이 파일을 통째로 덮어써 draft 병합분이 다음 Stop에서 유실되므로, 읽는 쪽만 고치면 백로그 편입이 한 세션 만에 무효가 된다. 요건 완화가 아니라 누락 보완(계약 _backfill_reason에 기록)",
+    "evals/acceptance-criteria.json의 F56 항목 (4)를 '읽는 쪽만'에서 '읽는 쪽과 쓰는 쪽 둘 다'로 정정"
   ],
-  "self_review_note": "implementer는 passes를 set하지 않는다(INV-1). 이 산출물은 evaluator 판정을 대체하지 않고 보완한다. standard 티어이므로 독립 evaluator 1회 판정이 게이트다. 다만 D2가 critical 게이트 에이전트(security-auditor)의 모델을 바꾸므로 evaluator는 SC-3(refusal 관측)을 실행 근거로 확인해야 한다.",
-  "limitations_honest": "security-auditor의 cyber classifier refusal은 하네스가 방지할 수 없다 — 모델 제공자 측 분류기이고 서브에이전트 계층에 폴백 선언 수단이 없다. audit-integrity는 사후 탐지이며, 거절 마커 검사를 summary/error/note로 한정했으므로(findings 본문까지 훑으면 정상 finding에 오탐) 마커 문구가 다른 refusal은 '검사 흔적 없음' 조건에 의존한다. 또한 이번 스프린트에서 security-auditor를 실제로 디스패치하지 않았으므로(standard 티어라 verification 병렬 대상이 아님) Opus 5 security-auditor의 refusal 발생률은 아직 실측되지 않았다. 목표는 refusal 제거가 아니라 '빈 산출이 정상 통과로 오인되지 않게 하는 관측 가능화'다(F38 과대주장 정정 원칙).",
+  "discoveries": [
+    "isolation frontmatter는 플러그인 서브에이전트에서 적용되지 않는다 — 공식 문서가 지원 필드로 열거해도 플러그인 경로에서는 무시될 수 있다(hooks·mcpServers·permissionMode 선례와 동형). 디스패치 파라미터로 지정해야 하며, 이를 모르고 산문 지시를 제거하면 병렬 검증 시 파일 충돌 보호가 조용히 사라진다. SC-3의 순서 강제(선언→실측→제거)가 실제로 이 사고를 막았다",
+    "핸드오프 백로그 유실의 근본 원인은 읽는 쪽이 아니라 쓰는 쪽이었다 — 진단을 '프로브가 draft만 읽는다'에서 멈췄다면 증상만 고치고 원인을 남겼을 것",
+    "F29가 같은 다이어트 작업에서 '라우팅 유지'를 불변식으로 세워 삼중 고정해 두었다 — 계획 단계에서 tests/skill-frontmatter.bats 하나만 발견했고 나머지 둘은 구현 중 테스트 실행으로 드러났다. 계획 단계의 제약 탐색이 얕았다"
+  ],
+  "self_review_note": "implementer는 passes를 set하지 않는다(INV-1). standard 티어이므로 독립 evaluator 1회 판정이 게이트다. 8개 AC 중 5개가 미달/보류이므로 evaluator는 '부분 달성을 pass로 볼 것인가'를 판단해야 한다 — 미달 사유가 전부 기록돼 있고 롤백으로 회귀가 없으며 달성분(AC-6·AC-8)이 실제 버그를 고쳤다는 점, 그리고 미달 원인이 구현 실패가 아니라 하네스의 기존 불변식·플랫폼 제약이라는 점을 근거로 삼을 수 있다. 다만 계약의 acceptance를 절반 이상 달성하지 못했으므로 fail 판정도 정당하며, 그 경우 F56을 AC-6/AC-8 범위로 재정의하는 것이 다음 수순이다.",
+  "limitations_honest": "AC-1~3의 롤백은 '블로그 기준이 틀렸다'는 뜻이 아니라 '하네스가 다른 결정을 이미 내렸다'는 뜻이다. 라우팅 중복(11:11)과 스킬 단일 파일(11/11)은 실측된 사실로 남아 있으며, F29 불변식을 재검토할지는 별도 판단이다. 스킬 분할은 tests/efficiency.bats 3건의 검사 범위를 '본체 또는 하위 파일'로 넓히면 불변식을 유지한 채 관철 가능하다 — 백로그에 재검토 후보로 남겼다.",
   "ready_for": "evaluation"
 }

@@ -102,3 +102,60 @@ EOF
   TS=$(jq -r '.timestamp' "$TEST_DIR/progress/session-handoff.json")
   [[ "$TS" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]
 }
+
+# --- agent-record carry-over (F56) ---
+# The snapshot rebuilds the handoff JSON from scratch and overwrites the file, so
+# without carry-over everything a draft merged in is lost on the NEXT stop that has
+# no draft: follow_ups_backlog vanishes key and all (the snapshot never emits it),
+# and blockers/key_decisions/next_actions/in_progress get clobbered by empty defaults.
+# That silently defeated backlog suppression in run-all.sh — the same candidate
+# resurfaced every round.
+
+seed_draft() {
+  cat > "$TEST_DIR/progress/session-handoff-draft.json" <<'EOF'
+{"follow_ups_backlog":["backlog item A","backlog item B"],"blockers":["blocker X"],"key_decisions":["decision 1"]}
+EOF
+}
+
+@test "agent-recorded fields survive a later snapshot with no draft" {
+  echo '{}' | bash "$HOOK"
+  seed_draft
+  echo '{}' | bash "$HOOK"
+  # no draft this time — previously everything above was wiped here
+  echo '{}' | bash "$HOOK"
+  [ "$(jq -r '.follow_ups_backlog | length' "$TEST_DIR/progress/session-handoff.json")" -eq 2 ]
+  [ "$(jq -r '.blockers | length' "$TEST_DIR/progress/session-handoff.json")" -eq 1 ]
+  [ "$(jq -r '.key_decisions | length' "$TEST_DIR/progress/session-handoff.json")" -eq 1 ]
+}
+
+@test "carry-over holds across repeated snapshots" {
+  echo '{}' | bash "$HOOK"
+  seed_draft
+  echo '{}' | bash "$HOOK"
+  echo '{}' | bash "$HOOK"
+  echo '{}' | bash "$HOOK"
+  echo '{}' | bash "$HOOK"
+  [ "$(jq -r '.follow_ups_backlog | length' "$TEST_DIR/progress/session-handoff.json")" -eq 2 ]
+}
+
+@test "auto fields still refresh — carried-over values must not win" {
+  echo '{"current_phase":"implementation"}' > "$TEST_DIR/progress/phase-gate.json"
+  echo '{}' | bash "$HOOK"
+  seed_draft
+  echo '{}' | bash "$HOOK"
+  echo '{"current_phase":"verification"}' > "$TEST_DIR/progress/phase-gate.json"
+  echo '{}' | bash "$HOOK"
+  [ "$(jq -r '.phase' "$TEST_DIR/progress/session-handoff.json")" = "verification" ]
+  [ "$(jq -r '.follow_ups_backlog | length' "$TEST_DIR/progress/session-handoff.json")" -eq 2 ]
+}
+
+@test "empty agent fields do not shadow the fresh snapshot defaults" {
+  echo '{}' | bash "$HOOK"
+  # first snapshot leaves blockers=[] / key_decisions=[]; a second run must keep
+  # them as the snapshot's own empty defaults rather than carrying empties forward
+  echo '{}' | bash "$HOOK"
+  [ "$(jq -r '.blockers | length' "$TEST_DIR/progress/session-handoff.json")" -eq 0 ]
+  [ "$(jq -r '.in_progress' "$TEST_DIR/progress/session-handoff.json")" = "null" ]
+  # follow_ups_backlog was never set, so it must stay absent rather than appear empty
+  [ "$(jq -r 'has("follow_ups_backlog")' "$TEST_DIR/progress/session-handoff.json")" = "false" ]
+}
