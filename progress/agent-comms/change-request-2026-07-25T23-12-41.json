@@ -1,0 +1,79 @@
+{
+  "timestamp": "2026-07-25T23:12:41+09:00",
+  "type": "modify",
+  "description": "F56 범위 재정의(컨텍스트 다이어트 2차 → 핸드오프 백로그 유실 수정) + 분리된 축을 F58·F59로 신설 — evaluator fail(min-of-5=4) 권고 반영",
+  "affected_features": [
+    "F56",
+    "F57",
+    "F58",
+    "F59"
+  ],
+  "trigger": {
+    "verdict": "progress/agent-comms/evaluator-feedback-2026-07-25T23-15-00.json",
+    "score": 4,
+    "scores": {
+      "functionality": 4,
+      "code_quality": 8,
+      "security": 8,
+      "error_handling": 8,
+      "test_coverage": 6
+    },
+    "driver": "functionality — 8개 AC 중 3개(AC-6·7·8)만 인도. security 8은 standard 임계값 5를 넘어 fail 드라이버가 아니다",
+    "character": "re-scope fail이지 broken-code fail이 아니다. 인도된 슬라이스는 독립 검증 통과 품질",
+    "recommendation": "F56을 AC-6/AC-8 범위로 재정의하고 롤백/보류분을 별도 기능으로 분리. AC-6의 run-all 양쪽 읽기를 잠그는 bats 테스트 추가"
+  },
+  "changes": {
+    "F56": {
+      "type": "modify — 범위 축소",
+      "before": "컨텍스트 다이어트 2차 — 라우팅 축소 + 스킬 분할 + 인터페이스 강등 + 백로그 갭 (AC 8개)",
+      "after": "핸드오프 백로그 유실 수정 — 읽는 쪽·쓰는 쪽 양방향 (AC-6·7·8 유지 + AC-9 신설)",
+      "contract": "progress/contracts/sprint-42.json 재작성 — _scope_redefinition에 이관 이력, AC 번호는 재배정하지 않음(추적성), agreed:false로 리셋",
+      "added_criteria": "AC-9(읽는 쪽 전용 테스트 — evaluator가 test_coverage 6의 근거로 지적), SC-5(캐리오버가 자동 상태를 가리지 않을 것 — 이미 구현·검증된 안전 속성의 명문화), ES-6(빈 값 비잠식), ES-7(AC-9 테스트가 실제로 회귀를 잡는지 mutation 확인)",
+      "passes_reset": "불필요 — 이미 false이며 evaluator가 fail 판정했다"
+    },
+    "F58": {
+      "type": "add",
+      "scope": "구 AC-1(라우팅 축소)·AC-2/AC-3(스킬 분할), 구 SC-2, 구 ES-1/ES-2",
+      "contract": "progress/contracts/sprint-44.json",
+      "precondition": "F29 불변식('diet keeps all 11 skills routed') 재검토 여부가 선결 — 사람 승인 필수(tests/*.bats는 /improve §3 불변식 가드 대상). 착수 전 제약 전수 조사(AC-1)도 선결"
+    },
+    "F59": {
+      "type": "add",
+      "scope": "구 AC-4(isolation 강등)·AC-5(maxTurns), 구 SC-3, 구 ES-3/ES-5",
+      "contract": "progress/contracts/sprint-45.json",
+      "precondition": "플러그인 서브에이전트에서 실제 적용되는 frontmatter 필드 규명이 선결 — 규명 없이 선언만 추가하면 거짓 보증(SC-3)"
+    },
+    "F57": {
+      "type": "modify — 계약 보강(기준 역전파)",
+      "reason": "F56의 isolation 미적용 실측이 F57에 직접 영향을 준다 — effort도 같은 계층의 frontmatter 필드이므로 무시될 가능성이 실증적으로 높아졌다. fundamental_limit를 '정적 검증 불가'에서 '이미 한 번 어긋난 가정'으로 강화하고, Q3(미적용 가능성을 어떻게 다룰 것인가)를 신설했다.",
+      "conflict_flagged": "F57의 ES-3(미반영이어도 롤백 사유 아님, 선언은 무해)과 F59의 SC-3(적용되지 않는 필드를 선언해 두지 않는다)이 상반된다. 두 기능의 원칙을 Plan 게이트에서 일치시켜야 한다"
+    }
+  },
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": false,
+    "acceptance_criteria_updated": true,
+    "feature_list_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false,
+    "phase_gate_comment_refreshed": true
+  },
+  "_impact_note": "docs/SPEC.md·ARCHITECTURE.md는 이 저장소에 없다(README + INVARIANTS + DECISIONS가 그 역할). 네 기능 모두 컴포넌트·API·데이터 모델 변경이 없어 ARCHITECTURE 갱신 불요. 이미 커밋된 F56 구현(4dcbfb5)은 되돌리지 않는다 — 재정의는 계약의 범위를 좁히는 것이지 인도된 코드를 무르는 것이 아니다.",
+  "tier_classification": {
+    "hotfix_eligible": false,
+    "reason": "신규 기능 2개 추가 + 기존 기능 범위 재정의. hotfix 조건 미충족"
+  },
+  "security_tier": "standard",
+  "_security_tier_note": "네 기능 모두 게이트 구조·임계값 불변. 다만 F58은 검증 장치(tests/*.bats) 재검토를 수반하므로 사람 승인이 필수이고, F59는 보호 장치를 산문에서 frontmatter로 옮기는 과정에서 보호 공백이 생길 수 있어 순서 강제(선언→실측→제거)를 계약에 박았다.",
+  "new_sprint_contracts": [
+    "progress/contracts/sprint-44.json (F58)",
+    "progress/contracts/sprint-45.json (F59)"
+  ],
+  "modified_sprint_contracts": [
+    "progress/contracts/sprint-42.json (F56 — 범위 축소, agreed:false 리셋)",
+    "progress/contracts/sprint-43.json (F57 — fundamental_limit 강화 + Q3 신설)"
+  ],
+  "rollback_to_phase": null,
+  "agreed": false,
+  "next_step": "/implement --retry F56 — Plan 게이트에서 축소된 범위를 재합의받고 AC-9(읽는 쪽 전용 테스트 + mutation 확인)를 구현한 뒤 재판정. 이후 F57(effort, Q3 결정 필요) → F58/F59는 각자의 선결 조건 해소 후."
+}

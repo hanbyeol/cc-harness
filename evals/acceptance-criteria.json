@@ -102,13 +102,25 @@
       "feature_id": "F56",
       "contract": "progress/contracts/sprint-42.json",
       "security_tier": "standard",
-      "summary": "컨텍스트 다이어트 2차. (1) CLAUDE.md 라우팅 표에서 스킬 TRIGGER와 1:1로 중복되는 자명한 행을 제거하고 판단 규칙 행만 남긴다 — 실측 11행 ↔ TRIGGER 보유 스킬 11개. 라우팅 능력은 보존되어야 하며(스킬 description이 담당), 사용자 의도→스킬 매핑이 깨지지 않아야 한다. (2) skills/implement(160줄)·skills/improve(116줄)를 점진적 공개 구조로 분할 — 본체는 참조만 남기고 하위 파일로 이동. 스킬 호출 시 동작은 불변이어야 한다. (3) agents/test-writer.md frontmatter에 isolation:worktree를 선언해 호출자가 잊어도 강제되게 하고, 대응 산문 지시(CLAUDE.md:54·skills/implement:153)를 제거한다. maxTurns로 서브에이전트 폭주 상한을 기계화한다. (4) 백로그 편입이 무효화되지 않게 한다 — 읽는 쪽(scripts/probes/run-all.sh가 draft와 session-handoff.json 양쪽의 follow_ups_backlog를 읽음)과 쓰는 쪽(hooks/lib.sh의 스냅샷이 에이전트 기록 필드를 캐리오버함) 둘 다 필요하다. 스냅샷은 JSON을 새로 만들어 파일을 덮어쓰므로 캐리오버가 없으면 draft 병합분이 다음 Stop에서 유실되고, 읽는 쪽만 고치면 백로그 편입이 한 세션 만에 무효가 된다(구현 중 실측으로 확인). 자동 필드는 새 값이 이기고 에이전트 필드만 보존한다. INVARIANTS·min-of-5·임계값·게이트 구조는 불변."
+      "summary": "[2026-07-25 범위 재정의 — evaluator fail(min-of-5=4) 권고 반영] 핸드오프 백로그 유실 수정. 프로브가 이미 백로그에 편입한 후보를 매 회전 다시 올리는 문제를 양방향으로 고친다. (1) 읽는 쪽 — scripts/probes/run-all.sh가 session-handoff-draft.json과 session-handoff.json의 follow_ups_backlog를 모두 읽는다. (2) 쓰는 쪽 — hooks/lib.sh의 스냅샷이 에이전트 기록 필드(follow_ups_backlog·blockers·key_decisions·next_actions·in_progress)를 캐리오버한다. 스냅샷은 jq -n으로 JSON을 새로 만들어 파일을 덮어쓰므로 캐리오버가 없으면 draft 병합분이 다음 Stop에서 유실되고, 읽는 쪽만 고치면 백로그 편입이 한 세션 만에 무효가 된다(구현 중 실측). 자동 필드(timestamp·phase·completed·pending·recent_commits)는 항상 새 값이 이기고 에이전트 필드는 비어있지 않을 때만 보존한다 — 보존이 자동 상태를 가리면 다음 세션이 잘못된 phase를 물려받는다. (3) 읽는 쪽 수정을 전용 bats 테스트로 잠근다(evaluator가 test_coverage 6의 근거로 지적한 갭). 스냅샷 함수는 Stop 훅과 PreCompact 훅이 공유하므로 양쪽 회귀를 함께 확인한다. 최초 범위였던 라우팅 축소·스킬 분할은 F58로, isolation·maxTurns 강등은 F59로 분리했다. INVARIANTS·min-of-5·임계값·게이트 구조는 불변."
     },
     {
       "feature_id": "F57",
       "contract": "progress/contracts/sprint-43.json",
       "security_tier": "standard",
       "summary": "effort 티어링. config/models.json assignments에 effort 필드를 추가하고 agents/*.md frontmatter에 effort:를 선언하며, scripts/probes/model-tiering.sh가 model과 동일하게 effort drift·미등록을 정적 탐지하도록 확장한다. 배분: implementer·evaluator·security-auditor=xhigh, architect=high, spec-writer·test-writer·deploy-operator=medium, qa-reviewer=미지정(Haiku 4.5 미지원). F55의 교훈 적용 — frontmatter 필드가 실제로 적용되는지를 '디스패치 성공'으로 확인하지 않는다(effort가 무시돼도 디스패치는 성공한다). 검증 기준은 공식 문서의 지원 필드 목록과 프로브의 정합 탐지이며, 확인 불가한 부분은 한계로 명시한다. 모델 할당(F55)과 직교하는 두 번째 축이므로 기존 model drift 탐지에 회귀가 없어야 한다."
+    },
+    {
+      "feature_id": "F58",
+      "contract": "progress/contracts/sprint-44.json",
+      "security_tier": "standard",
+      "summary": "[F56에서 분리] 컨텍스트 다이어트 2차 — 라우팅 중복(CLAUDE.md 11행 ↔ TRIGGER 11스킬)과 스킬 점진적 공개(11/11 단일 파일). F56에서 구현했으나 롤백했다: F29가 같은 다이어트 작업에서 \"diet keeps all 11 skills routed\"를 불변식으로 세워 삼중 고정(tests/efficiency.bats 2건 + consistency 프로브 + skill-frontmatter 1건)해 두었고, 관철하려면 검증 장치를 해체해야 해 테스트 약화 금지에 걸린다. 따라서 이 기능의 핵심은 코드가 아니라 F29 불변식을 재검토할 것인가라는 설계 판단이며, 사람 승인 없이 진행하지 않는다. 두 축은 난이도가 다르다 — 스킬 분할은 실패 테스트 3건(subagent-mode 2 + improve-auto 1)의 검사 범위를 본체 또는 하위 파일로 넓히면 불변식을 유지한 채 관철 가능해 상대적으로 안전하고, 라우팅 축소는 불변식 자체를 부정한다. 착수 전 제약 전수 조사가 선결 조건이다(F56에서 계획 단계 조사가 얕아 구현 중에야 드러난 반복 방지)."
+    },
+    {
+      "feature_id": "F59",
+      "contract": "progress/contracts/sprint-45.json",
+      "security_tier": "standard",
+      "summary": "[F56에서 분리] 규칙의 인터페이스 강등 — 산문 지시로만 존재하는 보호 장치를 서브에이전트 frontmatter로 옮겨 호출자 무관하게 강제한다. F56에서 test-writer의 isolation을 대상으로 시도해 미적용을 실측했다(선언 후 파라미터 없이 디스패치 → ISOLATION: main, worktree 미생성). 공식 문서가 isolation을 지원 필드로 열거하지만 플러그인 서브에이전트에서는 무시되는 것으로 보인다(hooks·mcpServers·permissionMode 선례와 동형). 따라서 선결 조건은 어떤 필드가 플러그인 경로에서 실제로 적용되는지 규명하는 것이며, 규명 없이 선언만 추가하면 거짓 보증이 된다 — 적용되지 않는 선언은 문서화된 보호처럼 보이지만 아무것도 하지 않아 산문마저 없애도 된다는 오판을 부른다. 강등은 선언 → 실측 → 확인 후에만 산문 제거 순서를 지킨다(F56 SC-3가 이 순서로 격리 보호 상실을 실제로 막았다). 결론은 Claude Code 버전에 종속되므로 실측 버전을 명시한다."
     }
   ]
 }

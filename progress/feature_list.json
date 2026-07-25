@@ -718,8 +718,8 @@
     },
     {
       "id": "F56",
-      "name": "컨텍스트 다이어트 2차 — 중복 라우팅 제거 · 스킬 점진적 공개 · 규칙의 인터페이스 강등",
-      "description": "Anthropic 블로그 'The new rules of context engineering for Claude 5 generation models'(2026-07-24, Thariq Shihipar)가 제시한 기준으로 하네스를 실측한 결과 세 가지 갭이 확인됐다. 블로그의 핵심은 Claude Code 시스템 프롬프트의 80%를 삭제해도 코딩 평가 손실이 없었다는 것이며, 구세대 모델을 위한 방어적 규칙·중복·예시가 신세대에서는 오히려 추론을 소모시킨다는 것이다. (1) 중복 라우팅: CLAUDE.md의 '요청 → 행동 라우팅' 표 11행과 TRIGGER 보유 스킬 11개가 정확히 1:1로 대응한다 — 스킬 description의 TRIGGER가 이미 라우팅을 수행하는데 상시 로드되는 CLAUDE.md가 같은 매핑을 반복한다(블로그: '뻔한 것을 쓰지 마라'). 판단 규칙이 담긴 행(예: 모호하면 /brainstorm 먼저)만 남기고 자명한 1:1 행은 제거한다. (2) 점진적 공개 미적용: 스킬 11개가 전부 단일 파일이다(블로그: '긴 스킬은 여러 파일로 쪼개라'). skills/implement/SKILL.md(160줄·10.6KB)의 '6. 구현 실행 모드'와 '8. 검증 디스패치 티어링', skills/improve/SKILL.md(116줄·9.9KB)의 '6. 무인 배치 모드'를 하위 파일로 분리하고 본체는 참조만 남긴다. (3) 규칙의 인터페이스 강등: 블로그의 '규칙 대신 인터페이스를 설계하라'를 적용할 자리가 있다 — test-writer의 isolation:worktree는 현재 CLAUDE.md:54와 skills/implement/SKILL.md:153에서 '디스패치 시 지정하라'는 산문 지시로만 존재해 호출자가 잊으면 조용히 깨진다. Claude Code 공식 문서 확인 결과 isolation은 서브에이전트 frontmatter 지원 필드이므로 agents/test-writer.md에 선언해 호출자 무관하게 강제하고, 대응 산문 지시는 제거한다. 함께 maxTurns로 서브에이전트 폭주 상한을 기계화한다(F55 D4의 위임 상한이 산문으로 규정한 것의 기계 대응). 주의: 당초 검토에서 'evaluator에 disallowedTools로 코드 수정 금지'를 제안했으나 실측 결과 기각한다 — 모든 에이전트가 파일을 쓰며(evaluator 11건·implementer 13건 쓰기 정황) disallowedTools는 도구 단위라 경로별 제어가 불가능하다. 아울러 F55 마무리 중 발견한 갭을 함께 수정한다: scripts/probes/run-all.sh가 progress/session-handoff-draft.json만 읽어, Stop 훅이 draft를 소비해 session-handoff.json으로 병합하면 백로그 편입 효과가 사라지고 같은 프로브 후보가 무한 재출현한다. 불변: INVARIANTS·min-of-5·임계값·게이트 구조는 건드리지 않는다 — 블로그의 '판단에 맡겨라'는 모델의 코드 스타일 판단에 관한 것이지 게이트 설계에 관한 것이 아니다.",
+      "name": "핸드오프 백로그 유실 수정 — 읽는 쪽·쓰는 쪽 양방향",
+      "description": "[2026-07-25 범위 재정의] 최초 F56은 컨텍스트 다이어트 2차(라우팅 축소·스킬 분할·인터페이스 강등·백로그 갭)를 한 기능으로 묶었으나, 독립 evaluator가 fail 판정(min-of-5=4, functionality 4 — 8개 AC 중 3개만 인도)하며 범위 재정의를 권고했다. 판정 성격은 '깨진 코드 fail이 아니라 범위 fail'로, 인도된 슬라이스(백로그 유실 수정)는 독립 검증을 통과하는 품질이었다. 이에 F56을 **핸드오프 백로그 유실 수정**으로 좁히고, 롤백한 컨텍스트 다이어트는 F58, 보류한 인터페이스 강등은 F59로 분리한다. 재정의된 F56의 내용: 프로브가 재출현 후보를 무한 반복하던 원인을 양방향으로 고친다. (1) 읽는 쪽 — scripts/probes/run-all.sh가 session-handoff-draft.json만 읽어, Stop 훅이 draft를 소비해 session-handoff.json으로 병합하면 백로그 편입이 무효화됐다. 두 파일을 모두 읽도록 수정. (2) 쓰는 쪽(구현 중 기준 역전파로 발견) — hooks/lib.sh의 harness_write_handoff_snapshot이 jq -n으로 JSON을 새로 만들어 파일을 통째로 덮어쓰므로, draft가 병합해 넣은 필드가 draft 없는 다음 Stop에서 전부 사라진다. follow_ups_backlog는 스냅샷이 만들지 않아 키째 유실되고 blockers·key_decisions·next_actions·in_progress는 빈 초기값으로 덮어써진다. 실제로 이 세션에서 기록한 백로그 3건이 그렇게 소실됐다. 에이전트 기록 필드를 캐리오버하되 자동 필드(timestamp·phase·completed·pending·recent_commits)는 새 값이 이기고 에이전트 필드는 기존 값이 비어있지 않을 때만 보존한다. 읽는 쪽만 고치면 백로그 편입이 한 세션 만에 무효가 되므로 양쪽이 모두 필요하다. evaluator 권고에 따라 읽는 쪽 수정을 잠그는 전용 테스트를 추가한다(현재 test_coverage 6의 원인). 이 스냅샷 함수는 Stop 훅과 PreCompact 훅이 공유하므로 양쪽 회귀를 함께 확인한다. [이하 최초 범위 기록 — F58/F59로 이관] Anthropic 블로그 'The new rules of context engineering for Claude 5 generation models'(2026-07-24, Thariq Shihipar)가 제시한 기준으로 하네스를 실측한 결과 세 가지 갭이 확인됐다. 블로그의 핵심은 Claude Code 시스템 프롬프트의 80%를 삭제해도 코딩 평가 손실이 없었다는 것이며, 구세대 모델을 위한 방어적 규칙·중복·예시가 신세대에서는 오히려 추론을 소모시킨다는 것이다. (1) 중복 라우팅: CLAUDE.md의 '요청 → 행동 라우팅' 표 11행과 TRIGGER 보유 스킬 11개가 정확히 1:1로 대응한다 — 스킬 description의 TRIGGER가 이미 라우팅을 수행하는데 상시 로드되는 CLAUDE.md가 같은 매핑을 반복한다(블로그: '뻔한 것을 쓰지 마라'). 판단 규칙이 담긴 행(예: 모호하면 /brainstorm 먼저)만 남기고 자명한 1:1 행은 제거한다. (2) 점진적 공개 미적용: 스킬 11개가 전부 단일 파일이다(블로그: '긴 스킬은 여러 파일로 쪼개라'). skills/implement/SKILL.md(160줄·10.6KB)의 '6. 구현 실행 모드'와 '8. 검증 디스패치 티어링', skills/improve/SKILL.md(116줄·9.9KB)의 '6. 무인 배치 모드'를 하위 파일로 분리하고 본체는 참조만 남긴다. (3) 규칙의 인터페이스 강등: 블로그의 '규칙 대신 인터페이스를 설계하라'를 적용할 자리가 있다 — test-writer의 isolation:worktree는 현재 CLAUDE.md:54와 skills/implement/SKILL.md:153에서 '디스패치 시 지정하라'는 산문 지시로만 존재해 호출자가 잊으면 조용히 깨진다. Claude Code 공식 문서 확인 결과 isolation은 서브에이전트 frontmatter 지원 필드이므로 agents/test-writer.md에 선언해 호출자 무관하게 강제하고, 대응 산문 지시는 제거한다. 함께 maxTurns로 서브에이전트 폭주 상한을 기계화한다(F55 D4의 위임 상한이 산문으로 규정한 것의 기계 대응). 주의: 당초 검토에서 'evaluator에 disallowedTools로 코드 수정 금지'를 제안했으나 실측 결과 기각한다 — 모든 에이전트가 파일을 쓰며(evaluator 11건·implementer 13건 쓰기 정황) disallowedTools는 도구 단위라 경로별 제어가 불가능하다. 아울러 F55 마무리 중 발견한 갭을 함께 수정한다: scripts/probes/run-all.sh가 progress/session-handoff-draft.json만 읽어, Stop 훅이 draft를 소비해 session-handoff.json으로 병합하면 백로그 편입 효과가 사라지고 같은 프로브 후보가 무한 재출현한다. 불변: INVARIANTS·min-of-5·임계값·게이트 구조는 건드리지 않는다 — 블로그의 '판단에 맡겨라'는 모델의 코드 스타일 판단에 관한 것이지 게이트 설계에 관한 것이 아니다.",
       "security_tier": "standard",
       "status": "pending",
       "passes": false,
@@ -745,6 +745,35 @@
         "F55"
       ],
       "assigned_sprint": 43
+    },
+    {
+      "id": "F58",
+      "name": "컨텍스트 다이어트 2차 — 라우팅 중복·스킬 점진적 공개 (F56에서 분리)",
+      "description": "[F56 범위 재정의로 분리, 2026-07-25] Anthropic 컨텍스트 엔지니어링 블로그(2026-07-24) 기준 실측에서 두 갭이 확인됐다: (1) CLAUDE.md 라우팅 표 11행 ↔ TRIGGER 보유 스킬 11개가 정확히 1:1 중복 — 스킬 description이 이미 라우팅을 수행하는데 상시 로드 파일이 같은 매핑을 반복한다. (2) 스킬 11개가 전부 단일 파일로 점진적 공개가 하나도 적용되지 않았다(implement 160줄, improve 116줄). F56 구현에서 둘 다 시도했으나 롤백했다 — **하네스가 F29에서 이미 반대 결정을 내려 삼중으로 고정해 두었기 때문**이다: tests/efficiency.bats의 'F29: diet keeps all 11 skills routed (repo & tmpl)'와 'F29: diet preserves SENTINEL + tiering + plan-review', 그리고 consistency 프로브의 라우팅 검사. 이를 관철하려면 검증 장치 셋을 해체해야 하고 implementer.md의 '구현에 맞추기 위한 기존 테스트 수정/단언 약화' 금지에 걸린다. **따라서 이 기능의 핵심은 코드 변경이 아니라 F29 불변식을 재검토할 것인가라는 설계 판단이다** — 재검토 없이 진행하면 안 된다. 두 축은 난이도가 다르다: 스킬 분할은 실패한 테스트 3건(tests/subagent-mode.bats 2 + tests/improve-auto.bats 1)의 검사 범위를 '본체 또는 하위 파일'로 넓히면 불변식(내용이 존재한다)을 유지한 채 관철 가능해 상대적으로 안전하고, 라우팅 축소는 F29 불변식 자체를 부정하므로 사람 승인이 필수다(improve §3 불변식 가드 대상). F56에서 분할 자체는 동작함을 이미 확인했다(implement 160→133줄, improve 116→93줄, 하위 파일 3개, 참조 도달 확인). 측정된 중복은 사실로 남아 있으나 하네스의 명시적 결정을 뒤집는 것이므로 이 기능은 반드시 Plan 게이트에서 불변식 재검토 여부를 먼저 확정한다.",
+      "security_tier": "standard",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F29",
+        "F56"
+      ],
+      "assigned_sprint": 44
+    },
+    {
+      "id": "F59",
+      "name": "규칙의 인터페이스 강등 — frontmatter 적용 가능성 확인 후 (F56에서 분리)",
+      "description": "[F56 범위 재정의로 분리, 2026-07-25] 블로그의 '규칙 대신 인터페이스를 설계하라'를 하네스에 적용하려던 축이다. 산문 지시로만 존재하는 보호 장치를 서브에이전트 frontmatter로 옮겨 호출자가 잊어도 강제되게 하는 것이 목표였다. F56에서 test-writer의 isolation을 대상으로 시도한 결과 **frontmatter 선언이 플러그인 서브에이전트에서 적용되지 않음을 실측 확인했다** — isolation 파라미터 없이 디스패치했더니 'ISOLATION: main'으로 worktree가 생성되지 않았다(pwd·git rev-parse·git worktree list 모두 메인 체크아웃). 공식 문서가 isolation을 지원 frontmatter 필드로 열거하지만, 플러그인 서브에이전트가 hooks·mcpServers·permissionMode를 무시하는 것과 동형으로 보인다. F56의 SC-3(선언→실측→그 다음에만 산문 제거) 순서 강제가 격리 보호가 조용히 사라지는 사고를 막았다. maxTurns도 같은 이유로 보류했다 — turns 관측 데이터가 없는 데다 선언이 무시되면 '상한이 걸려 있다'는 거짓 보증이 된다. **따라서 이 기능의 선결 조건은 어떤 frontmatter 필드가 플러그인 경로에서 실제로 적용되는지를 먼저 규명하는 것이다** — 규명 없이 선언만 추가하면 거짓 보증을 만든다. 규명 방법(공식 문서 문의·버전별 실측·필드별 스모크)과 적용 대상(isolation·maxTurns·disallowedTools 등)을 Plan 게이트에서 확정한다. 참고: disallowedTools로 evaluator의 코드 수정을 막는 안은 F56 검토 단계에서 이미 기각했다 — 모든 에이전트가 파일을 쓰며(evaluator 11건·implementer 13건) 도구 단위 제어라 경로별 구분이 불가능하다.",
+      "security_tier": "standard",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F16",
+        "F18",
+        "F56"
+      ],
+      "assigned_sprint": 45
     }
   ]
 }

@@ -1,0 +1,158 @@
+{
+  "sprint": 44,
+  "title": "컨텍스트 다이어트 2차 — 라우팅 중복·스킬 점진적 공개 (F56에서 분리)",
+  "feature_id": "F58",
+  "security_tier": "standard",
+  "verification_tier": "standard",
+  "_tier_note": "security_tier standard이나 **라우팅 축은 검증 장치 재검토를 수반**한다. F29 불변식을 강제하는 tests/efficiency.bats는 /improve §3의 불변식 가드 대상(tests/*.bats)이므로 자동 진행 금지 — 사람 승인이 필수다. 스킬 분할 축은 검사 범위 확장에 그쳐 상대적으로 안전하다.",
+  "dependencies": [
+    "F29",
+    "F56"
+  ],
+  "_dependency_note": "F29(CLAUDE.md 1차 다이어트)가 세운 불변식이 이 기능의 대상이다. F56에서 시도·롤백한 이력이 근거 자료다.",
+  "problem": "Anthropic 컨텍스트 엔지니어링 블로그(2026-07-24) 기준 실측에서 두 갭이 확인됐다. (1) CLAUDE.md 라우팅 표 11행 ↔ TRIGGER 보유 스킬 11개가 정확히 1:1 중복 — 스킬 description이 이미 라우팅을 수행하는데 상시 로드 파일이 같은 매핑을 반복한다. (2) 스킬 11개가 전부 단일 파일로 점진적 공개가 하나도 적용되지 않았다(implement 160줄/10.6KB, improve 116줄/9.9KB). F56에서 둘 다 구현했으나 롤백했다 — 하네스가 F29에서 이미 반대 결정을 내려 삼중으로 고정해 두었기 때문이다.",
+  "_prior_attempt": {
+    "sprint": 42,
+    "outcome": "롤백. 구현 자체는 동작했다(CLAUDE.md 65→57줄, implement 160→133줄, improve 116→93줄, 하위 파일 3개, 참조 도달 확인). 실패한 것은 검증 장치와의 충돌이다.",
+    "blocking_tests": [
+      "tests/efficiency.bats — 'F29: diet keeps all 11 skills routed (repo & tmpl)' (11개 스킬을 CLAUDE.md와 템플릿 양쪽에서 강제)",
+      "tests/efficiency.bats — 'F29: diet preserves SENTINEL + tiering + plan-review'",
+      "scripts/probes/consistency.sh — 라우팅 누락을 후보로 반환(스킬 9건)",
+      "tests/subagent-mode.bats 2건 + tests/improve-auto.bats 1건 — 병합 프로토콜·토큰 큐레이션·중단 조건 4종이 SKILL.md 본문에 있을 것을 강제",
+      "tests/skill-frontmatter.bats — 'every skill appears in CLAUDE.md and template routing' (F56에서 조정 시도했다가 원복)"
+    ],
+    "lesson": "계획 단계에서 skill-frontmatter.bats 하나만 발견하고 나머지는 테스트 실행에서 드러났다. 이 기능은 **착수 전에 제약을 전수 조사**해야 한다."
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "[선결] 착수 전에 라우팅·스킬 본문을 강제하는 검증 장치를 전수 조사해 목록화한다. F56에서 발견한 5개(위 _prior_attempt.blocking_tests) 외에 누락이 없는지 확인한다.",
+      "verification": "tests/*.bats와 scripts/probes/*.sh에서 CLAUDE.md·templates/CLAUDE.md.tmpl·README·SKILL.md 본문을 참조하는 검사를 grep으로 전수 추출해 목록과 대조"
+    },
+    {
+      "id": "AC-2",
+      "criterion": "[스킬 분할 축] 실패했던 테스트 3건(tests/subagent-mode.bats 2 + tests/improve-auto.bats 1)의 검사 범위를 '본체 또는 하위 파일'로 넓힌 뒤 스킬을 분할한다. 불변식(해당 내용이 존재한다)은 유지하고 검사 범위만 확장하는 것이므로 약화가 아님을 근거와 함께 기록한다.",
+      "verification": "범위 확장 후 분할 → 세 테스트 통과 + mutation 확인(내용을 아예 삭제하면 여전히 실패해야 한다 — 범위만 넓히고 검사 자체는 살아 있는지)"
+    },
+    {
+      "id": "AC-3",
+      "criterion": "[라우팅 축 — Q1 결정에 따름] F29 불변식을 재검토하기로 결정한 경우에만 진행한다. 결정 시 CLAUDE.md·templates·README·관련 테스트·프로브를 일관되게 갱신하고, F29가 그 불변식을 세운 이유가 지금도 유효한지를 근거와 함께 기록한다.",
+      "verification": "Q1 결정 기록 + 결정이 '유지'면 이 AC는 해당 없음으로 종료(미달 아님). '재검토'면 전 계층 일관성 + 전체 회귀"
+    },
+    {
+      "id": "AC-4",
+      "criterion": "기존 테스트·프로브가 회귀 없이 통과한다.",
+      "verification": "bats tests/ 전체 1회 실행 후 출력 파싱(재실행 금지) + scripts/probes/run-all.sh"
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "INVARIANTS·min-of-5·임계값·게이트 구조가 불변이다.",
+      "rationale": "컨텍스트 다이어트를 빌미로 게이트가 약해지는 것이 이 변경의 최대 위험이다.",
+      "verification": "git diff --quiet progress/harness-config.json docs/INVARIANTS.md"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "라우팅을 축소한다면 스킬 발견성이 유지된다 — 제거된 모든 행의 라우팅 의도가 해당 스킬의 description TRIGGER로 실제 커버된다.",
+      "rationale": "TRIGGER가 커버하지 못하는 행을 지우면 사용자 의도가 스킬에 도달하지 못해 워크플로우 자체가 우회된다(예: 기능 변경이 /change-request를 거치지 않음). 게이트 우회와 같은 결과다.",
+      "verification": "제거 행별 TRIGGER 키워드 1:1 대조표를 evidence에 기록. F56 조사에서 완전 커버 8행·부분 커버 1행(hotfix의 '3파일 이하')로 확인됐고 hotfix description은 이미 보강됨"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "검증 장치 변경은 '범위 확장'과 '불변식 부정'을 명확히 구분해 기록한다. 전자는 진행 가능하나 후자는 사람 승인 없이 진행하지 않는다.",
+      "rationale": "테스트를 구현에 맞춰 고치는 것과, 불변식이 바뀌어 테스트를 따라 고치는 것은 다르다. 이 구분이 흐려지면 검증 장치가 조용히 해체된다(implementer.md의 테스트 약화 금지).",
+      "verification": "변경한 각 테스트에 대해 어느 쪽인지 근거와 함께 기록"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "제약 전수 조사에서 또 누락이 발생해 구현 중 새 테스트가 실패",
+      "expected": "AC-1을 먼저 완료하고, 조사 결과를 계약에 반영한 뒤 착수한다. 그래도 누락이 나오면 즉시 중단하고 계약을 갱신한다(F56의 반복 방지)"
+    },
+    {
+      "id": "ES-2",
+      "scenario": "라우팅 행을 제거했는데 TRIGGER가 그 의도를 커버하지 못해 요청이 스킬로 라우팅되지 않음",
+      "expected": "SC-2의 1:1 대조에서 사전 검출된다. 커버되지 않는 행은 제거하지 않는다"
+    },
+    {
+      "id": "ES-3",
+      "scenario": "스킬 분할 후 하위 파일이 로드되지 않아 절차 일부가 유실됨",
+      "expected": "본체에 명시적 참조를 남기고 각 절차 단계의 도달 가능성을 확인한다. 로드 메커니즘이 불확실하면 분할하지 않는다"
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": "1. AC-1 제약 전수 조사 — 라우팅·스킬 본문을 강제하는 모든 테스트·프로브 추출",
+      "verify": "목록 산출 + F56 발견분 5개와 대조",
+      "done": false,
+      "covers": [
+        "AC-1",
+        "ES-1"
+      ]
+    },
+    {
+      "step": "2. Q1·Q2 결정 — Plan 게이트에서 라우팅 불변식 재검토 여부와 진행 범위 확정",
+      "verify": "결정 기록",
+      "done": false,
+      "covers": [
+        "AC-3"
+      ]
+    },
+    {
+      "step": "3. [Q2가 분할 포함이면] 테스트 3건 범위 확장 → 스킬 분할 → mutation 확인",
+      "verify": "세 테스트 통과 + 내용 삭제 시 실패 확인",
+      "done": false,
+      "covers": [
+        "AC-2",
+        "SC-3",
+        "ES-3"
+      ]
+    },
+    {
+      "step": "4. [Q1이 재검토면] 라우팅 축소 — CLAUDE.md·templates·README·테스트·프로브 일관 갱신",
+      "verify": "전 계층 일관성 + SC-2 대조표",
+      "done": false,
+      "covers": [
+        "AC-3",
+        "SC-2"
+      ]
+    },
+    {
+      "step": "5. 회귀 검증",
+      "verify": "bats 전체 1회 + run-all + SC-1",
+      "done": false,
+      "covers": [
+        "AC-4",
+        "SC-1"
+      ]
+    }
+  ],
+  "_parallelizable": false,
+  "_parallel_note": "직렬. step 1의 조사 결과가 step 2의 결정을, 결정이 step 3~4의 범위를 정한다.",
+  "open_design_questions": [
+    {
+      "id": "Q1",
+      "question": "F29의 '라우팅 11개 유지' 불변식을 재검토할 것인가",
+      "options": [
+        "(A) 유지 — F29 결정을 존중하고 라우팅 축은 종료. 측정된 중복은 '알려진 트레이드오프'로 문서화하고 스킬 분할만 진행",
+        "(B) 재검토 — 블로그 기준과 실측(11:11)을 근거로 불변식을 폐기하고 전 계층(CLAUDE.md·템플릿·README·테스트·프로브)을 일관되게 갱신. 템플릿 변경은 설치되는 모든 프로젝트에 영향",
+        "(C) 부분 — 하네스 자신의 CLAUDE.md만 축소하고 템플릿·README는 유지. F56에서 시도했다가 F29 테스트에 막힌 경로"
+      ],
+      "resolution": "Plan 게이트에서 결정. 이것은 코드 판단이 아니라 하네스 설계 판단이므로 사용자 승인이 필수다. F29가 그 불변식을 세운 이유(다이어트 중 라우팅 유실 방지)가 지금도 유효한지가 핵심 논점이며, TRIGGER가 실제로 라우팅을 수행한다는 사실이 반론의 근거다."
+    },
+    {
+      "id": "Q2",
+      "question": "스킬 분할만 먼저 진행할 것인가",
+      "options": [
+        "(A) 분할 먼저 — 검사 범위 확장은 불변식을 부정하지 않아 상대적으로 안전. 라우팅은 Q1 결정 후 별도",
+        "(B) 함께 — 두 축을 한 스프린트에서 처리",
+        "(C) 둘 다 보류 — F29 불변식 재검토가 '유지'로 결정되면 분할만 남는데, 그것만으로 별도 기능을 유지할 가치가 있는지 판단"
+      ],
+      "resolution": "Q1 결정에 종속. Q1이 (A) 유지면 Q2는 (A) 또는 (C)."
+    }
+  ],
+  "agreed": false,
+  "_agreed_note": "미승인. Plan 게이트(ExitPlanMode)에서 사용자 승인 시에만 true로 전환한다. **특히 Q1은 하네스 설계 판단이므로 승인 없이 진행 금지** — 검증 장치(tests/*.bats)는 /improve §3의 불변식 가드 대상이다."
+}

@@ -1,0 +1,155 @@
+{
+  "sprint": 45,
+  "title": "규칙의 인터페이스 강등 — frontmatter 적용 가능성 규명 후 (F56에서 분리)",
+  "feature_id": "F59",
+  "security_tier": "standard",
+  "verification_tier": "standard",
+  "_tier_note": "security_tier standard. 다만 이 기능이 다루는 대상(isolation·maxTurns 등)은 병렬 실행 시 파일 충돌을 막는 보호 장치이므로, 산문 지시를 제거하는 순간 보호가 사라질 수 있다. F56의 SC-3(선언→실측→그 다음에만 제거) 순서 강제를 그대로 계승한다.",
+  "dependencies": [
+    "F16",
+    "F18",
+    "F56"
+  ],
+  "_dependency_note": "F16·F18이 보장하는 병렬 디스패치의 격리 지시가 이 기능의 대상이다. F56에서 isolation 강등을 시도해 미적용을 실측한 이력이 출발점이다.",
+  "problem": "블로그의 '규칙 대신 인터페이스를 설계하라'를 하네스에 적용하려는 축이다. 산문 지시로만 존재하는 보호 장치는 호출자가 잊으면 조용히 깨진다 — test-writer의 isolation:worktree가 대표 사례로, CLAUDE.md:54와 skills/implement/SKILL.md:153의 산문에만 있어 디스패치 때 빠뜨리면 병렬 검증 에이전트들이 같은 워킹트리에서 충돌한다. 이를 서브에이전트 frontmatter로 옮기면 호출자와 무관하게 강제된다는 것이 원 구상이었다.",
+  "_blocking_finding": {
+    "date": "2026-07-25",
+    "sprint": 42,
+    "finding": "frontmatter 선언이 플러그인 서브에이전트에서 적용되지 않는다. agents/test-writer.md에 isolation: worktree를 선언하고 isolation 파라미터 없이 실제 디스패치한 결과 'ISOLATION: main' — pwd와 git rev-parse --show-toplevel이 모두 메인 체크아웃이었고 git worktree list에 별도 항목이 없었다.",
+    "interpretation": "공식 문서는 isolation을 지원 frontmatter 필드로 열거한다(description·prompt·tools·disallowedTools·model·permissionMode·mcpServers·hooks·maxTurns·skills·initialPrompt·memory·effort·background·isolation·color). 그러나 같은 문서가 '플러그인 서브에이전트는 보안상 hooks·mcpServers·permissionMode를 지원하지 않는다'고 명시하므로, 플러그인 경로에서 무시되는 필드가 그 셋에 한정되지 않을 가능성이 있다.",
+    "consequence": "적용되지 않는 선언을 남기면 '격리된다'는 거짓 보증이 된다. F56에서는 선언을 되돌리고 산문을 유지했으며, 발견 사실을 agents/test-writer.md 본문에 기록했다.",
+    "prevented_incident": "F56의 SC-3 순서 강제(선언→실측→확인 후에만 산문 제거)가 없었다면 산문을 먼저 지웠을 것이고, 병렬 검증 시 파일 충돌 보호가 조용히 사라졌을 것이다."
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "[선결] 플러그인 서브에이전트에서 실제로 적용되는 frontmatter 필드를 규명한다. 최소한 이 기능이 쓰려는 필드(isolation·maxTurns·disallowedTools)에 대해 적용 여부를 실측으로 판정하고, 판정 불가한 것은 불가로 기록한다.",
+      "verification": "필드별 스모크 — 선언만 하고 디스패치 파라미터 없이 실행해 효과가 나타나는지 관측한다. isolation은 작업 디렉토리, maxTurns는 턴 상한 도달, disallowedTools는 도구 거부로 확인. 관측 수단이 없는 필드는 '규명 불가'로 분류하고 강등 대상에서 제외"
+    },
+    {
+      "id": "AC-2",
+      "criterion": "적용이 확인된 필드에 한해서만 강등한다. 각 강등에 대해 (a) frontmatter 선언, (b) 실측 확인, (c) 확인된 뒤에만 대응 산문 제거의 순서를 지킨다.",
+      "verification": "강등한 각 항목의 실측 근거를 evidence에 기록 + 산문 제거가 실측 이후에 이루어졌음을 커밋 순서로 확인"
+    },
+    {
+      "id": "AC-3",
+      "criterion": "적용되지 않는 필드는 선언하지 않는다. 대신 그 사실과 대안(디스패치 파라미터로 지정)을 해당 에이전트 문서에 기록해 다음 시도가 같은 함정을 반복하지 않게 한다.",
+      "verification": "미적용 필드가 frontmatter에 없는지 확인 + 해당 에이전트 문서에 발견 기록 존재. F56에서 test-writer는 이미 처리됨"
+    },
+    {
+      "id": "AC-4",
+      "criterion": "기존 테스트·프로브가 회귀 없이 통과한다.",
+      "verification": "bats tests/ 전체 1회 실행 후 출력 파싱(재실행 금지) + scripts/probes/run-all.sh"
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "보호가 어느 시점에도 공백이 되지 않는다 — frontmatter 선언이 실제로 적용됨을 확인한 뒤에만 산문 지시를 제거한다.",
+      "rationale": "F56에서 실증된 위험이다. 산문을 먼저 지우고 frontmatter가 무시되면 병렬 검증 시 파일 충돌 보호가 조용히 사라진다. 성공 신호(디스패치 성공)가 목표 달성(격리 적용)과 동치가 아니라는 F55 ES-4의 교훈과 동형이다.",
+      "verification": "커밋 순서로 확인 — 선언 커밋과 산문 제거 커밋 사이에 실측 근거가 기록돼 있어야 한다"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "INVARIANTS·min-of-5·임계값·게이트 구조가 불변이다.",
+      "rationale": "인터페이스 강등은 지시 전달 경로를 바꾸는 것이지 게이트를 바꾸는 것이 아니다.",
+      "verification": "git diff --quiet progress/harness-config.json docs/INVARIANTS.md"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "거짓 보증을 만들지 않는다 — 적용되지 않는 필드를 '나중에 지원되면 효력이 생긴다'는 이유로 선언해 두지 않는다.",
+      "rationale": "선언이 있으면 읽는 사람은 강제된다고 믿는다. 미적용 선언은 문서화된 보호처럼 보이지만 실제로는 아무것도 하지 않는 최악의 상태다 — 산문 지시조차 없애도 된다는 오판을 부른다.",
+      "verification": "frontmatter의 각 필드가 AC-1의 적용 확인 목록에 있는지 대조"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "필드 적용 여부를 관측할 수단이 없어 규명이 불가능",
+      "expected": "'규명 불가'로 분류하고 강등 대상에서 제외한다. 추측으로 선언하지 않는다(SC-3)"
+    },
+    {
+      "id": "ES-2",
+      "scenario": "Claude Code 버전 업그레이드로 적용 여부가 바뀜",
+      "expected": "이 기능의 실측은 특정 버전(현재 2.1.220) 기준임을 evidence에 명시한다. 버전 의존적 결론이므로 재확인 시점을 백로그에 남긴다"
+    },
+    {
+      "id": "ES-3",
+      "scenario": "maxTurns를 도입했는데 값이 너무 낮아 정상 작업이 절단됨",
+      "expected": "turns 관측 데이터를 먼저 수집한다. 데이터 없이 값을 정하지 않는다 — F56에서 같은 이유로 보류했다"
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": "1. AC-1 규명 — isolation·maxTurns·disallowedTools 각각에 대해 선언만 하고 디스패치해 효과를 관측. 관측 수단이 없으면 '규명 불가'로 분류",
+      "verify": "필드별 판정표 산출(적용/미적용/규명불가 + 관측 근거)",
+      "done": false,
+      "covers": [
+        "AC-1",
+        "ES-1"
+      ]
+    },
+    {
+      "step": "2. Plan 게이트 — 판정표를 근거로 강등 대상을 확정. 적용 확인된 것만 대상",
+      "verify": "결정 기록",
+      "done": false,
+      "covers": [
+        "AC-2"
+      ]
+    },
+    {
+      "step": "3. 강등 실행 — 대상별로 선언 → 실측 → 확인 후 산문 제거 순서를 지킨다",
+      "verify": "각 항목의 실측 근거 + 커밋 순서",
+      "done": false,
+      "covers": [
+        "AC-2",
+        "SC-1"
+      ]
+    },
+    {
+      "step": "4. 미적용 필드 문서화 — frontmatter에 넣지 않고, 대안(디스패치 파라미터)과 발견 사실을 해당 에이전트 문서에 기록",
+      "verify": "문서 확인 + frontmatter에 미적용 필드 부재",
+      "done": false,
+      "covers": [
+        "AC-3",
+        "SC-3"
+      ]
+    },
+    {
+      "step": "5. 회귀 검증",
+      "verify": "bats 전체 1회 + run-all + SC-2",
+      "done": false,
+      "covers": [
+        "AC-4",
+        "SC-2"
+      ]
+    }
+  ],
+  "_parallelizable": false,
+  "_parallel_note": "직렬. step 1의 규명 결과가 이후 전 단계의 범위를 정한다.",
+  "fundamental_limit": "어떤 frontmatter 필드가 플러그인 서브에이전트에서 적용되는지는 공식 문서만으로 확정할 수 없다 — 문서는 '지원 필드'를 열거하고 플러그인 미지원 항목을 따로 명시하지만, F56의 isolation 실측이 그 목록과 어긋났다. 실측이 유일한 확정 수단이고, 관측 수단이 없는 필드(예: 효과가 외부에서 보이지 않는 설정)는 규명 자체가 불가능하다. 또한 결론은 Claude Code 버전에 종속된다.",
+  "open_design_questions": [
+    {
+      "id": "Q1",
+      "question": "규명 대상 필드를 어디까지 잡을 것인가",
+      "options": [
+        "(A) isolation만 — F56에서 이미 미적용으로 판정됐으므로 재확인 성격. 범위 최소",
+        "(B) isolation·maxTurns·disallowedTools — 하네스가 실제로 쓸 만한 셋",
+        "(C) 지원 필드 전수 — 문서가 열거한 16개 전부. 범위가 크고 상당수는 하네스에 무용"
+      ],
+      "resolution": "(B) 권장 — 하네스가 쓸 대상으로 한정하되, isolation은 F56 판정의 재확인으로 포함한다. Plan 게이트에서 확정."
+    },
+    {
+      "id": "Q2",
+      "question": "규명 결과가 '전부 미적용'이면 이 기능을 어떻게 종료할 것인가",
+      "options": [
+        "(A) 문서화로 종료 — 미적용 사실과 대안을 각 에이전트 문서에 기록하고 기능 완료. 인터페이스 강등은 플랫폼이 지원할 때까지 불가로 결론",
+        "(B) 대안 설계 — frontmatter가 아닌 다른 강제 수단(훅으로 디스패치 파라미터 검사 등)을 모색",
+        "(C) 기능 취소 — status: removed"
+      ],
+      "resolution": "Plan 게이트에서 결정. (A)가 기본이며, 문서화만으로도 '다음 시도가 같은 함정을 반복하지 않는다'는 가치는 실현된다."
+    }
+  ],
+  "agreed": false,
+  "_agreed_note": "미승인. Plan 게이트(ExitPlanMode)에서 사용자 승인 시에만 true로 전환한다. AC-1 규명 없이 강등을 진행하지 않는다 — 거짓 보증 위험(SC-3)."
+}
