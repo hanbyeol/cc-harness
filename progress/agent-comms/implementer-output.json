@@ -1,43 +1,54 @@
 {
-  "feature_id": "F57",
-  "sprint": 43,
-  "title": "effort 티어링 — 역할별 추론 강도 배분 (모델 티어링의 두 번째 축)",
+  "feature_id": "F58",
+  "sprint": 44,
+  "title": "컨텍스트 다이어트 2차 — 스킬 점진적 공개 (라우팅 축은 유지 결정)",
   "security_tier": "standard",
-  "timestamp": "2026-07-26T01:00:00+09:00",
-  "summary": "계약의 7개 AC를 모두 달성했다. config/models.json에 effort 축을 신설해 모델 티어링의 두 번째 축(얼마나 생각하는가)을 단일 출처로 관리하고, model-tiering 프로브를 확장해 미등록 값·미지원 모델 지정·게이트 역전을 정적 탐지한다. 다만 effort를 agents/*.md frontmatter에는 선언하지 않았다 — 플러그인 서브에이전트에서 적용되는지 규명하지 못했고, Q3 결정(F59 원칙)상 적용되지 않을 수 있는 선언은 거짓 보증이기 때문이다.",
+  "timestamp": "2026-07-26T12:00:00+09:00",
+  "summary": "AC-1 전수 조사를 선결로 수행한 뒤 사용자 결정(Q1=라우팅 유지 · Q2=비보호 스킬만 분할)에 따라 범위를 확정하고, implement 스킬에 점진적 공개를 적용했다. 라우팅 축은 유지 결정에 따라 손대지 않았고 근거를 ADR-008로 남겼다. 조사 과정에서 계약의 전제를 뒤집는 보안 발견(분할이 invariant-guard 보호를 우회시킬 수 있음)을 얻어 SC-4로 승격했다.",
   "achieved": {
-    "AC-0": "규명 불가(frontmatter) / 지원 확인(CLI). 서브에이전트 디스패치가 권한 분류기에 차단돼 frontmatter 경로를 판정하지 못했다. CLI 경로에서는 --effort가 실제로 작동함을 실측했다",
-    "AC-1": "config assignments 7개 역할에 effort 추가 + rules에 허용 집합·미지원 모델·역전 규칙 노트",
-    "AC-2": "미적용 경로로 확정 — frontmatter에 effort 선언 없음. 사유를 config _comment와 README에 기록",
-    "AC-3": "model-tiering.sh에 규칙 6~8 추가(미등록 값·미지원 모델 지정·게이트 역전)",
-    "AC-4": "기존 model 축 탐지 회귀 없음 + effort 없는 config 하위호환 확인",
-    "AC-5": "tests/probes.bats 6건 + mutation 확인",
-    "AC-6": "config _comment·README에 effort 축 반영"
+    "AC-1": "완료. 라우팅 강제 7개 지점 + 본문 강제 2파일(12건)을 전수 추출. F56 인지분은 과소 집계였으며 신규 발견 4건(efficiency.bats F19 · probes.bats consistency · profile.bats:39 · consistency.sh의 README 축)과 과소 집계 2건(subagent-mode 2→7 · improve-auto 1→5)을 교정했다",
+    "AC-2": "완료. tests/subagent-mode.bats의 검사 범위를 SKILL.md 단일 파일에서 skills/implement/ 디렉터리 전체(grep -r)로 확장한 뒤 Step 6b의 조건부 절차를 skills/implement/parallel-mode.md로 분리. SKILL.md 160줄/10632B → 151줄/9611B, 신규 20줄/1722B. 보호 3스킬 무수정",
+    "AC-3": "해당 없음(미달 아님). Q1=(A) 유지 확정으로 라우팅 축 미수행. 강제 7개 지점 + CLAUDE.md·템플릿·README 전부 diff 없음. 계약이 요구한 '알려진 트레이드오프 문서화'는 ADR-008로 이행",
+    "AC-4": "완료. bats 610 ok / 0 fail — 기준선 610과 동일해 회귀 없음. run-all.sh → []"
+  },
+  "security": {
+    "SC-1": "충족. git diff --quiet progress/harness-config.json docs/INVARIANTS.md → diff 없음. 임계값·게이트 구조 불변",
+    "SC-3": "충족. 이번 테스트 변경은 전부 범위 확장이며 불변식 부정은 없다. 불변식은 '해당 내용이 implement 스킬 어딘가에 존재한다'로 동일하고 검사가 볼 수 있는 곳만 넓혔다. mutation으로 입증 — parallel-mode.md 제거 시 4·5번 실패, 복원 시 9/9",
+    "SC-4": "충족. skills/{change-request,improve,hotfix}/SKILL.md diff 없음 + 세 디렉터리 신규 파일 0. AC-1이 발견한 우회 경로(full-path 보호이므로 내용을 하위 파일로 옮기면 보호 소멸)를 만들지 않았다"
+  },
+  "evidence": {
+    "baseline": "bats 610 ok / 0 fail (main, finish-branch 시점 측정) · run-all []",
+    "final": "bats 610 ok / 0 fail (exit=0) · run-all [] · 2026-07-26",
+    "range_expansion_before_split": "범위를 디렉터리로 넓힌 직후, 분할 전 상태에서 subagent-mode.bats 9/9 통과 — 확장 자체가 기존 상태를 깨지 않음을 먼저 확인한 뒤 분할했다",
+    "mutation": "parallel-mode.md 제거 시 not ok 4 (defines a merge protocol) · not ok 5 (specifies token curation), 나머지 7건 통과. 복원 후 9/9",
+    "split_measurement": "skills/implement/SKILL.md 160줄/10632B → 151줄/9611B (9줄 · 1021B · 9.6% 감소) · parallel-mode.md 20줄/1722B 신규",
+    "untouched": "라우팅 강제 지점(efficiency.bats · skill-frontmatter.bats · profile.bats · probes.bats · consistency.sh · CLAUDE.md · templates/CLAUDE.md.tmpl · README.md) git diff 없음"
   },
   "files_changed": [
-    "config/models.json — assignments 7개 역할에 effort, rules에 effort_levels·effort_unsupported_models·역전 노트, _comment를 두 축 기준으로 재작성",
-    "scripts/probes/model-tiering.sh — 규칙 6~8 추가. effort_levels는 인덱스가 클수록 강해 model 축과 방향이 반대임을 주석으로 명시",
-    "tests/probes.bats — effort 테스트 6건 + seed_effort 헬퍼",
-    "README.md — 모델 라우팅 섹션에 effort 축 문단, 테스트 수 604→610"
+    "tests/subagent-mode.bats — 검사 범위를 skills/implement/ 디렉터리로 확장 (보호 파일, Edit 툴 사용)",
+    "skills/implement/SKILL.md — Step 6b 상세를 참조로 축약",
+    "skills/implement/parallel-mode.md — 신규, 조건부 절차 분리",
+    "docs/DECISIONS/ADR-008-routing-duplication-tradeoff.md — 신규, 라우팅 유지 결정과 기각한 대안",
+    "progress/contracts/sprint-44.json — AC-1 조사 결과 · Q1/Q2 결정 · SC-4 신설 · agreed 전환"
   ],
-  "evidence": {
-    "bats_full": "610 ok / 0 fail, exit=0 (기준선 604 + 신규 6). 1회 실행 후 출력 파싱 — 재실행 없음",
-    "ac0_cli_measurement": "claude --help에 --effort <level>(low·medium·high·xhigh·max) 존재 확인. 동일 프롬프트를 --effort low와 --effort max로 실행: 사고량을 요구하는 문제에서 23초 대 55초(2.4배), 답은 양쪽 44로 동일해 품질 저하 없음. 대조군인 쉬운 문제에서는 11초 대 11초로 차이 없음 — effort 미작동이 아니라 문제가 쉬워 양쪽 모두 세션 시작 오버헤드에 묻힌 것으로 해석",
-    "ac0_frontmatter_blocked": "agents/architect.md에 effort: low를 선언하고 isolation 파라미터 없이 디스패치를 시도했으나 Claude Code 권한 분류기에 차단됐다. 우회하지 않았고 frontmatter는 원복했다(git diff 없음 확인). F55의 런타임 모델 ID 확인 때와 같은 차단이다",
-    "ac3_probe_fixtures": "격리 픽스처 5조합 실측 — 정합 [], 미등록 effort 값 1건, 미지원 모델에 지정 1건, 게이트 역전 1건, 게이트가 더 강한 경우 [](오탐 없음)",
-    "ac5_mutation": "역전 검사 조건을 false로 비활성화하자 정확히 'gate effort below the reference role' 테스트만 실패(1 fail)하고 나머지 5건은 통과. 테스트가 회귀를 실제로 포착하며 다른 케이스는 그 로직에 둔감하다. 복원 후 잔존 0 확인",
-    "ac4_backward_compat": "effort 키가 전혀 없는 기존 config(seed_models)에서 새 규칙이 후보를 내지 않음을 전용 테스트로 고정",
-    "probes": "model-tiering.sh → [] (실제 저장소). run-all.sh는 F56 판정 관련 2건 반환 — 백로그 편입 대상이며 F57 변경과 무관",
-    "sc1_gate": "git diff --quiet progress/harness-config.json docs/INVARIANTS.md — 무변경",
-    "shellcheck": "scripts/probes/model-tiering.sh — clean",
-    "branch_cleanup": "3개 삭제(feat/agent-effort-tiering·feat/firewall-auto-allow·chore/prune-stale-evaluator-feedback), 1개 존치(docs/finish-branch-optional-pr — 안전장치 제거가 포함돼 별도 검토 필요)"
-  },
   "design_notes": [
-    "effort 순위는 model 축과 방향이 반대다 — tiers는 인덱스가 작을수록 상위(고능력)인데 effort_levels는 인덱스가 클수록 강하다(low < medium < high < xhigh < max). 규칙 8의 역전 조건이 model 축 규칙 4와 부호가 반대인 이유이며 주석과 테스트로 고정했다",
-    "게이트 역전 규칙을 effort 축에 대칭 적용했다 — model 축에서 rules.gate_reference_role로 강제하던 불변식(게이트는 구현 동급 이상)을 effort에도 적용한다. 게이트가 구현보다 얕게 추론하면 판정이 구현을 따라가지 못한다",
-    "seed_effort 헬퍼는 기존 seed_models 위에 effort만 얹는다 — 기존 model 축 테스트를 건드리지 않아 두 축의 회귀가 서로 섞이지 않는다"
+    "분할 지점 선정 기준은 크기가 아니라 '조건부로만 필요한가'였다. Step 6b는 독립 태스크 2개 이상일 때만 필요한 유일한 절차이고, Step 8(검증 디스패치)은 구현하면 거의 항상 필요하므로 제외했다. 크다는 이유로 나누면 참조를 따라가는 비용만 늘고 절감은 없다",
+    "본체 참조를 지시형으로 썼다 — '이 모드를 선택했다면 parallel-mode.md를 읽고 그 절차를 따른다'. 완곡한 문구는 읽히지 않을 수 있고 그 경우 절차가 유실된다(ES-3)",
+    "독립 evaluator 유지 노트(INV-1)는 두 모드 공통이므로 본체에 남겼다. 게이트 규칙을 조건부 파일로 내보내면 SC-4가 지적한 것과 같은 종류의 희석이 된다"
   ],
-  "self_review_note": "implementer는 passes를 set하지 않는다(INV-1). standard 티어이므로 독립 evaluator 1회 판정이 게이트다. 7개 AC를 모두 채웠으나 AC-0이 '규명 불가'로 처리된 것이 판정의 쟁점이 될 수 있다 — 규명 실패를 달성으로 볼 수 있는가. 계약이 애초에 '판정 불가하면 불가로 기록한다'를 verification에 명시했고 Q3 결정이 '미적용과 규명 불가를 동일 처리'로 정했으므로 절차상 정합하지만, evaluator가 이를 다르게 판단한다면 그 판정이 옳다.",
-  "limitations_honest": "effort 적용 여부를 토큰·시간 프록시로만 판정했고, 그마저도 CLI 경로다. 프록시가 차이를 보이지 않아도 미적용의 증명이 아니라 증거 부재다. 플러그인 서브에이전트 frontmatter 경로는 디스패치 차단으로 전혀 확인하지 못했으며, 이 제약이 해소되지 않으면 F59도 같은 벽에 부딪힌다. 결론은 Claude Code 2.1.220 기준이며 버전이 바뀌면 재확인이 필요하다. 또한 config에 effort를 선언해도 런타임에 아무 효과가 없을 가능성이 남아 있다 — 현재로서는 설계 문서이자 프로브 검사 대상으로서만 확실히 유효하다.",
-  "ready_for": "evaluation"
+  "criteria_backfill": [
+    "SC-4 신설 — AC-1 조사 중 발견. hooks/invariant-guard.sh:46-48이 보호 3스킬을 full-path로만 보호하므로 분할해 내용을 하위 파일로 옮기면 보호가 소멸한다. 계약이 '분할 축은 상대적으로 안전'이라 전제했으나 보호 대상에 한해 틀렸다",
+    "AC-2 범위를 '비보호 스킬만'으로 좁히고 대상·검증 방법을 실측에 맞게 구체화",
+    "AC-3에 not_applicable 필드와 결정 근거를 명시 — '해당 없음'이 미달과 구분되도록",
+    "_ac1_survey 블록 신설 — 조사 방법·결과·critical_finding·실측 크기·범위 주석을 계약에 고정"
+  ],
+  "limitations_honest": [
+    "실측 절감이 계획 예상보다 작다. Plan에 '약 20~27줄'로 적었으나 실제는 9줄(1021B, 9.6%)이다. 분할 기준을 '조건부인가'로 좁게 잡았기 때문이며 더 옮기려면 항상 필요한 절차까지 내보내야 해서 하지 않았다. 예상과 결과의 차이를 조정하지 않고 그대로 보고한다",
+    "SKILL.md 본문은 상시 로드가 아니다 — 상시 로드는 스킬 listing(name+description)이고 본문은 호출 시 로드된다. 이 변경의 이득은 상시 컨텍스트 절감이 아니라 호출 시 로드량 절감이며 그 크기가 위의 9.6%다",
+    "하위 파일이 실제로 읽히는지는 강제할 수 없다. base directory를 통해 Read로 도달 가능하다는 것까지만 확인했고 모델이 참조를 따라갈 확률은 측정하지 않았다. 절차 유실이 관측되면 분할을 되돌리는 것이 옳은 대응이다",
+    "mutation에서 2·3·6번이 통과한 것은 해당 키워드가 본체에도 남아 있기 때문이다(예: Step 8의 test-writer isolation). 즉 그 세 검사는 이번 분할에 대한 회귀 포착력을 직접 입증하지 못했다 — 입증된 것은 4·5번이다",
+    "라우팅 축의 '유지'는 TRIGGER 라우팅이 실제로 도달한다는 측정 없이 내린 보수적 판단이다. 측정 수단이 생기면 ADR-008을 재검토할 근거가 된다"
+  ],
+  "self_review_note": "이 산출은 implementer 자기 보고이며 passes를 판정하지 않는다(INV-1). 판정은 독립 evaluator가 수행한다.",
+  "ready_for": "evaluator"
 }

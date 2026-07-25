@@ -99,17 +99,8 @@ implementer agent 프로세스를 한 컨텍스트에서 따른다:
 4. 보안 self-check → 린트 + 테스트 → implementer-output.json의 `evidence` 기록
 
 #### 6b. 서브에이전트 구동 모드 (독립 태스크 병렬)
-부모(메인 루프)가 오케스트레이션하고, 독립 태스크를 격리 서브에이전트로 병렬 디스패치한다:
-1. **컨텍스트 큐레이션**: 부모가 Sprint Contract를 **1회만** 읽고, 각 서브에이전트에는 **그 task의
-   step+verify+관련 criteria만** 전달한다. **전체 contract·세션 이력을 상속시키지 않는다** —
-   각 자식은 자기 task만 아는 최소 컨텍스트(~task별 컨텍스트)로 동작해 부모 컨텍스트와 토큰을 보존한다.
-2. **병렬 디스패치**: 독립 태스크들을 **한 메시지에서 동시에** `isolation: "worktree"` implementer
-   서브에이전트로 디스패치(파일 충돌 방지). 각 자식은 자기 task를 TDD로 구현 + per-task evidence 반환.
-3. **병합 프로토콜** — evaluator로 넘기기 전에:
-   - (1) **각 서브에이전트 요약 검토** — 무엇을 바꿨는지 파악
-   - (2) **충돌 확인** — 두 자식이 같은 파일을 편집했는지 점검(독립성 오판 감지). 충돌 시 직렬 재실행
-   - (3) **전체 테스트 실행** — 통합 후 회귀 없음 확인. 실패 시 evaluator로 넘기지 않고 `/debug` 안내
-4. 병합 결과를 implementer-output.json의 `evidence`에 취합
+이 모드를 선택했다면 **`parallel-mode.md`를 읽고 그 절차를 따른다** — 컨텍스트 큐레이션,
+격리 병렬 디스패치, 병합 프로토콜이 거기 있다. 직렬 모드에서는 읽지 않아도 된다.
 
 > **독립 evaluator 유지**: 두 모드 모두 **병합 후 독립 evaluator가 1회 판정**한다.
 > 서브에이전트(부모·자식)는 passes를 set하지 않는다(INV-1). per-task evidence는 evaluator를

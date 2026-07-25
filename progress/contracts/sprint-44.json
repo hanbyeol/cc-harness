@@ -23,6 +23,29 @@
     ],
     "lesson": "계획 단계에서 skill-frontmatter.bats 하나만 발견하고 나머지는 테스트 실행에서 드러났다. 이 기능은 **착수 전에 제약을 전수 조사**해야 한다."
   },
+  "_ac1_survey": {
+    "performed": "2026-07-26",
+    "method": "tests/*.bats·scripts/probes/*.sh에서 CLAUDE.md·templates/CLAUDE.md.tmpl·README·SKILL.md 참조를 전수 추출 후 각 단언의 성격을 확인",
+    "routing_axis": [
+      "tests/efficiency.bats — F29: diet keeps all 11 skills routed (repo & tmpl)",
+      "tests/efficiency.bats — F29: diet preserves SENTINEL + tiering + plan-review (repo & tmpl)",
+      "tests/efficiency.bats — F19: CLAUDE.md carries the tier->verification mapping [F56 미발견]",
+      "tests/skill-frontmatter.bats — every skill appears in CLAUDE.md and template routing",
+      "scripts/probes/consistency.sh:41 — CLAUDE.md·templates/CLAUDE.md.tmpl·README.md 3곳 전부에서 /{skill} 요구 [F56은 CLAUDE.md만 인지]",
+      "tests/probes.bats — consistency: skill count claim mismatch yields a candidate [F56 미발견]",
+      "tests/profile.bats:39 — iac 프로파일 CLAUDE.md에 plan-review 강제 [F56 미발견]"
+    ],
+    "skill_body_axis": [
+      "tests/subagent-mode.bats — 7건이 implement SKILL 본문을 강제 [F56은 2건으로 과소 집계]",
+      "tests/improve-auto.bats — 5건이 improve SKILL 본문을 강제 [F56은 1건으로 과소 집계]"
+    ],
+    "unrelated": [
+      "tests/setup-claudemd.bats — 마커·구조만 검사, 라우팅 내용 미강제"
+    ],
+    "critical_finding": "계약의 전제('스킬 분할 축은 검사 범위 확장에 그쳐 상대적으로 안전')가 보호 대상 3스킬에 한해 틀렸다. hooks/invariant-guard.sh:46-48은 skills/{change-request,improve,hotfix}/SKILL.md 세 파일을 full-path로만 보호한다. 분할해 배치 조건·중단 조건을 하위 파일로 옮기면 그 내용이 보호 밖으로 나가, improve-auto.bats가 강제하는 INV-12(무인 실행에서 tests/*.bats 제외)가 무보호 파일에서 편집 가능해진다 — 자기보호 우회 경로다.",
+    "size_measurement": "implement 160줄/10.6KB · improve 116줄/9.9KB[보호] · change-request 109줄[보호] · debug 85 · hotfix 76[보호] · finish-branch 72 · progress 72 · brainstorm 62 · sync-docs 60 · rollout 51 · plan-review 47. Q2=(A) 하에서 실질 분할 대상은 implement 하나이며, 나머지 비보호 스킬은 47~85줄로 분할 이득이 미미하다.",
+    "scope_note": "SKILL.md 본문은 상시 로드가 아니다 — 상시 로드는 스킬 listing(name+description)이고 본문은 호출 시 로드된다. 따라서 분할의 이득은 상시 컨텍스트 절감이 아니라 호출 시 로드량 절감이며, 조건부로만 필요한 절차를 하위 파일로 내보낼 때만 실효가 있다."
+  },
   "acceptance_criteria": [
     {
       "id": "AC-1",
@@ -31,13 +54,15 @@
     },
     {
       "id": "AC-2",
-      "criterion": "[스킬 분할 축] 실패했던 테스트 3건(tests/subagent-mode.bats 2 + tests/improve-auto.bats 1)의 검사 범위를 '본체 또는 하위 파일'로 넓힌 뒤 스킬을 분할한다. 불변식(해당 내용이 존재한다)은 유지하고 검사 범위만 확장하는 것이므로 약화가 아님을 근거와 함께 기록한다.",
-      "verification": "범위 확장 후 분할 → 세 테스트 통과 + mutation 확인(내용을 아예 삭제하면 여전히 실패해야 한다 — 범위만 넓히고 검사 자체는 살아 있는지)"
+      "criterion": "[스킬 분할 축 — Q2=(A) 확정 범위] **비보호 스킬만** 분할한다. 실측상 실질 대상은 implement(160줄)이며, 이를 강제하는 tests/subagent-mode.bats 7건의 검사 범위를 '본체 또는 하위 파일'로 넓힌 뒤 분할한다. 불변식(해당 내용이 존재한다)은 유지하고 검사 범위만 확장하는 것이므로 약화가 아님을 근거와 함께 기록한다. 보호 대상 3스킬(change-request·improve·hotfix)은 _ac1_survey.critical_finding의 우회 위험 때문에 분할하지 않으며, tests/improve-auto.bats 5건은 손대지 않는다.",
+      "verification": "범위 확장 후 분할 → subagent-mode.bats 7건 통과 + mutation 확인(내용을 아예 삭제하면 여전히 실패해야 한다 — 범위만 넓히고 검사 자체는 살아 있는지). 보호 3스킬의 SKILL.md가 diff에 없음을 확인"
     },
     {
       "id": "AC-3",
-      "criterion": "[라우팅 축 — Q1 결정에 따름] F29 불변식을 재검토하기로 결정한 경우에만 진행한다. 결정 시 CLAUDE.md·templates·README·관련 테스트·프로브를 일관되게 갱신하고, F29가 그 불변식을 세운 이유가 지금도 유효한지를 근거와 함께 기록한다.",
-      "verification": "Q1 결정 기록 + 결정이 '유지'면 이 AC는 해당 없음으로 종료(미달 아님). '재검토'면 전 계층 일관성 + 전체 회귀"
+      "criterion": "[라우팅 축 — Q1=(A) 유지로 확정, 해당 없음] 사용자가 2026-07-26 Plan 게이트에서 (A) 유지를 선택했다. 라우팅 축은 진행하지 않으며, 측정된 11:11 중복은 '알려진 트레이드오프'로 문서화한다. 라우팅을 강제하는 7개 지점은 일절 수정하지 않는다.",
+      "verification": "해당 없음으로 종료(미달 아님) — git diff에 efficiency.bats·skill-frontmatter.bats·profile.bats·consistency.sh·CLAUDE.md 라우팅 표·templates/CLAUDE.md.tmpl·README 라우팅이 없음을 확인",
+      "not_applicable": true,
+      "decision_rationale": "얻는 것은 CLAUDE.md 8줄이고 잃는 것은 TRIGGER만으로 라우팅이 도달하는가에 대한 보장이다. SC-2의 1:1 대조는 정적 텍스트 비교일 뿐 실제 라우팅 동작 검증이 아니다. F57에서 '적용 여부를 규명하지 못한 것은 선언하지 않는다'를 원칙으로 세웠는데, 미검증 상태에서 기존 보장을 제거하는 것은 같은 원칙의 반대 방향이다. 7개 검증 장치 해체 비용이 8줄 절감을 넘어선다."
     },
     {
       "id": "AC-4",
@@ -63,6 +88,12 @@
       "criterion": "검증 장치 변경은 '범위 확장'과 '불변식 부정'을 명확히 구분해 기록한다. 전자는 진행 가능하나 후자는 사람 승인 없이 진행하지 않는다.",
       "rationale": "테스트를 구현에 맞춰 고치는 것과, 불변식이 바뀌어 테스트를 따라 고치는 것은 다르다. 이 구분이 흐려지면 검증 장치가 조용히 해체된다(implementer.md의 테스트 약화 금지).",
       "verification": "변경한 각 테스트에 대해 어느 쪽인지 근거와 함께 기록"
+    },
+    {
+      "id": "SC-4",
+      "criterion": "[AC-1 조사에서 신규 도출] invariant-guard의 보호 대상 내용이 보호 밖으로 이동하지 않는다. hooks/invariant-guard.sh:46-48이 full-path로 보호하는 skills/{change-request,improve,hotfix}/SKILL.md는 분할하지 않으며, 이 세 파일의 어떤 내용도 하위 파일로 옮기지 않는다.",
+      "rationale": "분할은 그 자체로는 무해해 보이지만 보호가 파일 경로 단위이므로 내용을 옮기는 순간 보호가 소멸한다. improve의 배치 승인 조건과 INV-12(무인 실행에서 tests/*.bats 제외)가 무보호 파일로 나가면 자기보호 우회 경로가 된다 — 게이트를 직접 낮추지 않고 게이트 정의를 보호 밖으로 이동시키는 형태의 우회다.",
+      "verification": "git diff --quiet skills/change-request/SKILL.md skills/improve/SKILL.md skills/hotfix/SKILL.md 및 해당 디렉터리에 신규 파일이 없음을 확인"
     }
   ],
   "error_scenarios": [
@@ -86,7 +117,8 @@
     {
       "step": "1. AC-1 제약 전수 조사 — 라우팅·스킬 본문을 강제하는 모든 테스트·프로브 추출",
       "verify": "목록 산출 + F56 발견분 5개와 대조",
-      "done": false,
+      "done": true,
+      "result": "완료(2026-07-26). 라우팅 축 7개·본문 축 2파일(12건)을 추출했고 F56 미발견 4건(F19·probes.bats·profile.bats·consistency의 README 축)과 과소 집계 2건을 교정했다. 부수적으로 보호 우회 위험을 발견해 SC-4로 승격했다. 상세는 _ac1_survey.",
       "covers": [
         "AC-1",
         "ES-1"
@@ -95,15 +127,17 @@
     {
       "step": "2. Q1·Q2 결정 — Plan 게이트에서 라우팅 불변식 재검토 여부와 진행 범위 확정",
       "verify": "결정 기록",
-      "done": false,
+      "done": true,
+      "result": "Q1=(A) 유지 · Q2=(A) 비보호 스킬만. 두 resolution에 근거와 함께 기록.",
       "covers": [
         "AC-3"
       ]
     },
     {
-      "step": "3. [Q2가 분할 포함이면] 테스트 3건 범위 확장 → 스킬 분할 → mutation 확인",
+      "step": "3. [Q2=(A) 확정] subagent-mode.bats 범위를 skills/implement/ 디렉터리로 확장 → Step 6b를 parallel-mode.md로 분할 → mutation 확인",
       "verify": "세 테스트 통과 + 내용 삭제 시 실패 확인",
-      "done": false,
+      "done": true,
+      "result": "완료. 확장 직후(분할 전) 9/9로 확장이 기존 상태를 깨지 않음을 먼저 확인한 뒤 분할. SKILL.md 160→151줄. mutation: parallel-mode.md 제거 시 4·5번 실패, 복원 시 9/9.",
       "covers": [
         "AC-2",
         "SC-3",
@@ -111,9 +145,10 @@
       ]
     },
     {
-      "step": "4. [Q1이 재검토면] 라우팅 축소 — CLAUDE.md·templates·README·테스트·프로브 일관 갱신",
-      "verify": "전 계층 일관성 + SC-2 대조표",
-      "done": false,
+      "step": "4. [해당 없음 — Q1=(A) 유지] 라우팅 축소는 수행하지 않는다",
+      "verify": "라우팅 강제 7개 지점이 diff에 없음",
+      "done": true,
+      "not_applicable": true,
       "covers": [
         "AC-3",
         "SC-2"
@@ -122,7 +157,8 @@
     {
       "step": "5. 회귀 검증",
       "verify": "bats 전체 1회 + run-all + SC-1",
-      "done": false,
+      "done": true,
+      "result": "완료. bats 610 ok / 0 fail(기준선과 동일) · run-all [] · SC-1·SC-4·AC-3 무수정 확인.",
       "covers": [
         "AC-4",
         "SC-1"
@@ -140,7 +176,7 @@
         "(B) 재검토 — 블로그 기준과 실측(11:11)을 근거로 불변식을 폐기하고 전 계층(CLAUDE.md·템플릿·README·테스트·프로브)을 일관되게 갱신. 템플릿 변경은 설치되는 모든 프로젝트에 영향",
         "(C) 부분 — 하네스 자신의 CLAUDE.md만 축소하고 템플릿·README는 유지. F56에서 시도했다가 F29 테스트에 막힌 경로"
       ],
-      "resolution": "Plan 게이트에서 결정. 이것은 코드 판단이 아니라 하네스 설계 판단이므로 사용자 승인이 필수다. F29가 그 불변식을 세운 이유(다이어트 중 라우팅 유실 방지)가 지금도 유효한지가 핵심 논점이며, TRIGGER가 실제로 라우팅을 수행한다는 사실이 반론의 근거다."
+      "resolution": "**(A) 유지로 확정 — 사용자 결정, 2026-07-26.** AC-1 전수 조사로 라우팅 강제 지점이 F56 인지분 3개에서 7개로 늘어난 상태에서 판단했다. 근거는 AC-3.decision_rationale. 라우팅 축은 이 스프린트에서 종료하며, 재개하려면 새 기능으로 다시 제안한다."
     },
     {
       "id": "Q2",
@@ -150,9 +186,9 @@
         "(B) 함께 — 두 축을 한 스프린트에서 처리",
         "(C) 둘 다 보류 — F29 불변식 재검토가 '유지'로 결정되면 분할만 남는데, 그것만으로 별도 기능을 유지할 가치가 있는지 판단"
       ],
-      "resolution": "Q1 결정에 종속. Q1이 (A) 유지면 Q2는 (A) 또는 (C)."
+      "resolution": "**(A) 비보호 스킬만 분할로 확정 — 사용자 결정, 2026-07-26.** AC-1이 발견한 보호 우회 위험(_ac1_survey.critical_finding) 때문에 보호 3스킬은 제외한다. 실측상 실질 대상은 implement 하나이며 이 사실을 승인 전에 제시했다. is_protected를 디렉터리 단위로 확장하는 (B)는 보호 강화라 정당하나 hooks/invariant-guard.sh 편집을 수반하므로 이 스프린트 범위에 넣지 않고 후속으로 남긴다."
     }
   ],
-  "agreed": false,
-  "_agreed_note": "미승인. Plan 게이트(ExitPlanMode)에서 사용자 승인 시에만 true로 전환한다. **특히 Q1은 하네스 설계 판단이므로 승인 없이 진행 금지** — 검증 장치(tests/*.bats)는 /improve §3의 불변식 가드 대상이다."
+  "agreed": true,
+  "_agreed_note": "**승인됨 — 2026-07-26 Plan 게이트(ExitPlanMode).** Q1=(A) 라우팅 불변식 유지 · Q2=(A) 비보호 스킬만 분할로 범위가 확정된 상태에서 승인받았다. 승인 전에 AC-1 전수 조사 결과(라우팅 강제 7개 지점, 보호 우회 위험)와 실질 규모(분할 대상은 implement 하나, 약 20~27줄)를 제시했다. 라우팅 축과 보호 3스킬은 이 승인 범위 밖이며 손대지 않는다."
 }
