@@ -1,0 +1,182 @@
+{
+  "sprint": 47,
+  "title": "evaluator 보정 코퍼스 갱신 + 드리프트 탐지 기법 교체 (F37 후속)",
+  "feature_id": "F61",
+  "security_tier": "standard",
+  "verification_tier": "standard",
+  "_tier_note": "F37과 동일하게 standard. calibration은 통과를 막는 게이트가 아니라 판정 품질을 감시하는 진단 장치다. 다만 검증 장치이므로 '탐지력이 유지되는가'를 실증으로 요구한다.",
+  "dependencies": [
+    "F37"
+  ],
+  "problem": "golden-set이 노후해 정상 판정을 연속 오탐하고 있다. 판정 기록 61건 중 21건만 코퍼스에 있고 standard pass 표본은 6건이며 그중 test_coverage는 6건 전부 8이라 분포 폭이 0이다. F56(품질 7·보안 7)·F57(기능 7)·F58(테스트 7)이 이 좁은 범위 때문에 이탈로 잡혔고, 세 판정 모두 score_rationale에 근거가 명시된 정당한 판정이었다. 근본 원인은 재생성 경로의 부재다 — calibration.sh는 코퍼스를 소비만 하고 생성 스크립트가 없어 수작업 산출물이 그대로 굳었다.",
+  "_key_constraint": {
+    "finding": "단순 갱신은 프로브를 무력화한다.",
+    "measurement": "재생성 시 확보되는 표본으로 [min,max]를 계산하면 standard pass는 functionality [7,9] · code_quality [7,9] · security [7,9] · error_handling [7,9] · test_coverage [7,8]이 된다. pass_threshold가 7이므로 pass 판정의 점수는 정의상 7 이상이고 상한은 9다 — 즉 모든 유효한 pass 점수가 범위 안에 들어와 어떤 판정도 이탈로 잡히지 않는다.",
+    "consequence": "갱신만 하면 프로브를 조용히 폐기하는 것과 같다. 통계 기법 교체가 갱신의 전제 조건이다."
+  },
+  "_technique_rationale": {
+    "why_not_minmax": "표본이 커질수록 [min,max]는 척도 전체로 수렴한다. 7~9 정수 소척도에서는 표본 12건만 넘어도 사실상 무의미해진다.",
+    "why_not_quantile": "관측값이 3개(7·8·9)뿐이라 사분위수가 값 사이를 구분하지 못한다. Q1과 Q3가 같은 값이 되는 경우가 흔하다.",
+    "why_frequency": "실측 빈도가 의미 있는 차이를 보인다 — critical pass 28건에서 functionality=7은 0건이지만 test_coverage=7은 9건(32%)이다. 같은 '7'이어도 전자는 이례적이고 후자는 일상적인데 [min,max]는 둘 다 잡지 못하거나 둘 다 잡는다. 빈도는 이 구분을 표현한다.",
+    "measured_distribution": "standard pass 17건 — functionality 7:2/8:7/9:8 · code_quality 7:1/8:11/9:5 · security 7:1/8:12/9:4 · error_handling 7:3/8:11/9:3 · test_coverage 7:2/8:15/9:0. critical pass 28건 — functionality 8:8/9:20 · code_quality 7:2/8:18/9:8 · security 7:3/8:13/9:12 · error_handling 7:1/8:20/9:7 · test_coverage 7:9/8:14/9:5."
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "골든셋 재생성 스크립트를 신설한다. progress/agent-comms의 현행+archive evaluator-feedback을 읽어 코퍼스를 결정적으로(deterministic) 생성하며, 같은 입력에 대해 같은 출력을 낸다.",
+      "verification": "스크립트를 2회 실행해 산출물이 바이트 동일한지 확인. 기존 golden-set의 description·generated_from 의미를 보존"
+    },
+    {
+      "id": "AC-2",
+      "criterion": "재생성된 코퍼스가 판정 기록을 누락 없이 반영한다 — scores를 가진 evaluator-feedback 전건이 records에 들어가고 tier·verdict가 원본과 일치한다.",
+      "verification": "records 수 == scores를 가진 판정 파일 수. tier×verdict 교차 집계가 원본 파일 집계와 일치"
+    },
+    {
+      "id": "AC-3",
+      "criterion": "시크릿이 코퍼스에 유입되지 않는다 — 기존 정책(evidence 원문은 유무만 기록)을 스크립트가 그대로 지킨다.",
+      "verification": "산출물에 evidence 원문·경로·명령어 문자열이 없고 has_evidence 같은 불리언만 존재함을 확인"
+    },
+    {
+      "id": "AC-4",
+      "criterion": "calibration.sh의 (e) 검사를 [min,max]에서 희소 점수 탐지로 교체한다. 동일 tier·pass baseline에서 해당 점수의 출현 빈도가 임계 미만이면 후보로 보고한다.",
+      "verification": "정합 상태에서 [] 반환. 희소 점수를 가진 픽스처에서 후보 반환"
+    },
+    {
+      "id": "AC-5",
+      "criterion": "교체 후에도 탐지력이 살아 있음을 실증한다 — 갱신된 코퍼스 기준으로 이례적 판정(예: critical functionality=7, baseline 0건 출현)이 후보로 잡히고, 일상적 판정(예: critical test_coverage=7, 32% 출현)은 잡히지 않는다.",
+      "verification": "두 픽스처를 각각 넣어 후보 유무가 갈리는지 실행으로 확인. 이 대비가 '갱신이 프로브를 죽이지 않았다'의 증거다"
+    },
+    {
+      "id": "AC-6",
+      "criterion": "과탐이 해소된다 — F57·F58은 후보에서 사라지고, F56은 baseline 유일 사례이므로 후보로 남는 것이 정상 동작이다. 남는 후보에 대해서는 그것이 왜 정당한 신호인지 근거를 기록한다.",
+      "verification": "세 판정 파일을 각각 최신으로 놓고 프로브 실행 → F57·F58 후보 없음, F56은 code_quality·security 후보 유지. F56이 남는 것을 미달로 보지 않는다",
+      "_revised": "2026-07-26 Plan 게이트. 원래 문구는 '세 건 모두 오탐되지 않는다'였으나 실측이 그 전제를 반증했다 — 프로브가 baseline에서 판정 자신을 제외하므로, F56의 code_quality=7·security=7은 나머지 16건에서 0건 출현인 유일 사례다. 프로브가 이를 지적하는 것은 오탐이 아니며 후보의 의미도 '판정이 틀렸다'가 아니라 '재검토하라'다. 정당한 판정과 이례적인 판정은 배타적이지 않다. 기준을 실측에 맞춰 고친 것이지 요건을 완화한 것이 아니다 — 오히려 '모든 후보가 사라져야 한다'는 원래 문구가 탐지력 소거를 정당화할 위험이 있었다.",
+      "_baseline_measurement": "현행 코퍼스 기준 오탐 재현(2026-07-26): F56 code_quality:7<min8; security:7<min8 · F57 functionality:7<min8 · F58 test_coverage:7<min8. 갱신 후 16건 baseline 기준 출현율: F57 functionality 7 = 1/16(6.3%) · F58 error_handling 7 = 2/16, test_coverage 7 = 1/16(6.3%) · F56 code_quality 7 = 0/16, security 7 = 0/16."
+    },
+    {
+      "id": "AC-7",
+      "criterion": "tests/probes.bats의 기존 calibration 테스트를 새 기법에 맞게 갱신하고 mutation으로 회귀 포착력을 확인한다.",
+      "verification": "빈도 검사 로직을 제거하면 해당 테스트가 실패하고 복원하면 통과. 기존 (a)~(d) 검사 테스트는 무변경 통과"
+    },
+    {
+      "id": "AC-8",
+      "criterion": "기존 테스트·프로브가 회귀 없이 통과한다.",
+      "verification": "bats tests/ 전체 1회 실행 후 출력 파싱(재실행 금지) + scripts/probes/run-all.sh"
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "pass_threshold·security_thresholds는 불변이다.",
+      "rationale": "calibration 정밀화가 통과 기준 완화로 번지지 않도록 한다.",
+      "verification": "git diff --quiet progress/harness-config.json"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "이 변경은 진단 정밀화이지 검사 제거가 아니다 — 교체 전후로 '탐지 가능한 이상'의 집합이 축소되지 않음을 근거와 함께 기록한다.",
+      "rationale": "골든셋을 넓히는 작업은 겉보기에 기준 완화와 구분되지 않는다. AC-5의 대비 실험이 이 구분을 실증한다.",
+      "verification": "교체 전 기법이 잡던 실제 이상 사례를 교체 후에도 잡는지 대조. 잡지 못하는 사례가 있으면 그 사유를 명시"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "코퍼스에 시크릿·자격증명이 유입되지 않는다.",
+      "rationale": "판정 기록에는 명령어·경로·evidence 문자열이 들어 있어 그대로 복사하면 유출 경로가 된다. 기존 정책이 그래서 유무만 기록했다.",
+      "verification": "AC-3과 동일 + 산출물 전문 스캔"
+    },
+    {
+      "id": "SC-4",
+      "criterion": "재생성이 판정 기록을 수정하지 않는다 — 원본 evaluator-feedback 파일은 읽기 전용으로 다룬다.",
+      "rationale": "코퍼스 생성이 판정 이력을 바꾸면 감사 추적이 무너진다.",
+      "verification": "스크립트 실행 전후 progress/agent-comms의 git 상태 무변화"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "판정 파일에 scores가 없거나 비수치 — 재생성 시 오류",
+      "expected": "해당 파일을 건너뛰고 건너뛴 수를 로그로 남긴다. 조용히 누락하지 않는다"
+    },
+    {
+      "id": "ES-2",
+      "scenario": "tier가 없는 과거 판정(unknown)이 baseline을 오염",
+      "expected": "unknown은 별도 tier로 분리해 다른 tier의 baseline에 섞지 않는다. 현행 코퍼스에도 unknown이 3건 있다"
+    },
+    {
+      "id": "ES-3",
+      "scenario": "특정 tier의 표본이 임계 미만이라 빈도 판정이 무의미",
+      "expected": "기존 N≥5 게이트를 유지하거나 빈도 기법에 맞게 재설정하고, skip 시 그 사실이 드러나게 한다"
+    },
+    {
+      "id": "ES-4",
+      "scenario": "빈도 임계를 낮게 잡아 정상 판정을 다시 오탐",
+      "expected": "임계는 실측 분포를 근거로 정하고 AC-6으로 검증한다 — F57·F58이 후보에서 사라지는 것이 기준이며, F56은 baseline 유일 사례라 남는 것이 정상이다. 임계를 더 낮춰 F56까지 없애려 하지 않는다(그것은 탐지력 소거다)."
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": "1. 기준선 — 현행 코퍼스로 F56·F57·F58 판정을 각각 최신으로 놓고 프로브 실행, 오탐 재현 기록",
+      "verify": "세 건 모두 분포 이탈 후보 반환 확인",
+      "done": true,
+      "covers": [
+        "AC-6"
+      ],
+      "result": "완료. 현행 코퍼스로 오탐 재현 — F56 code_quality:7<min8; security:7<min8 · F57 functionality:7<min8 · F58 test_coverage:7<min8."
+    },
+    {
+      "step": "2. AC-1·AC-2·AC-3 — 재생성 스크립트 신설 및 결정성·누락·시크릿 검증",
+      "verify": "2회 실행 바이트 동일 + 건수 대조 + 시크릿 스캔",
+      "done": true,
+      "covers": [
+        "AC-1",
+        "AC-2",
+        "AC-3",
+        "SC-3",
+        "SC-4"
+      ],
+      "result": "완료. scripts/build-golden-set.sh 신설. 2회 실행 바이트 동일(결정성), tier×verdict 교차 집계가 원본과 완전 일치(critical 28/3 · standard 17/3 · low 5/1 · unknown 2/2), records 내부에 경로·명령·자격증명 0건, 원본 판정 기록 diff 없음."
+    },
+    {
+      "step": "3. AC-4 — calibration.sh (e)를 희소 점수 탐지로 교체. 임계는 실측 분포 근거로 결정",
+      "verify": "정합 시 [] / 희소 픽스처에서 후보",
+      "done": true,
+      "covers": [
+        "AC-4"
+      ],
+      "result": "완료. calibration.sh (e)를 [min,max]에서 희소 점수 빈도(RARE_PCT=5)로 교체. N≥5 게이트와 fail 제외는 유지."
+    },
+    {
+      "step": "4. 코퍼스 갱신 실행 + AC-5·AC-6 — 탐지력 대비 실험과 오탐 해소 확인",
+      "verify": "이례적 판정은 잡고 일상적 판정은 안 잡음 / F57·F58 후보 해소 / F56은 유일 사례로 후보 유지",
+      "done": true,
+      "covers": [
+        "AC-5",
+        "AC-6",
+        "SC-2"
+      ],
+      "result": "완료. 코퍼스 21→61건 갱신(standard pass 6→17, critical pass 8→28). AC-6: F57·F58 후보 해소, F56은 code_quality·security가 baseline 0/16으로 유일 사례라 후보 유지. AC-5: critical functionality=7(0/28) 잡힘 / critical test_coverage=7(9/28=32%) 안 잡힘."
+    },
+    {
+      "step": "5. AC-7 — tests/probes.bats 갱신 + mutation (보호 파일, Edit 툴)",
+      "verify": "빈도 로직 제거 시 실패 / 기존 (a)~(d) 테스트 무변경 통과",
+      "done": true,
+      "covers": [
+        "AC-7"
+      ],
+      "result": "완료. probes.bats에 F61 테스트 2건 추가(희소 점수 포착 · 흔한 점수 무후보). 기존 calibration 테스트 6건 무변경 통과. mutation: 빈도 검사 무력화 시 79·81번 실패, 복원 시 통과."
+    },
+    {
+      "step": "6. AC-8·SC-1 — 회귀 검증",
+      "verify": "bats 전체 1회 + run-all + harness-config diff 없음",
+      "done": true,
+      "covers": [
+        "AC-8",
+        "SC-1"
+      ],
+      "result": "완료. bats 617 ok / 0 fail(기준선 615 + 신규 2). run-all은 F61 무관 후보 1건만. harness-config·판정 기록 diff 없음. shellcheck 클린. README 테스트 수 615→617 동기화."
+    }
+  ],
+  "_parallelizable": false,
+  "_parallel_note": "직렬. step 2의 코퍼스가 step 3의 임계 결정에, 그 임계가 step 4의 검증에 입력된다.",
+  "agreed": true,
+  "_agreed_note": "**승인됨 — 2026-07-26 Plan 게이트(ExitPlanMode).** 골든셋 갱신 + [min,max]→희소 점수 탐지(5% 임계) 교체로 범위 확정. 승인 전에 단순 갱신이 프로브를 무력화한다는 실측(갱신 후 standard pass 범위가 [7,9]가 되어 모든 유효 pass가 범위 안)과 5% 임계 검증표를 제시했다. AC-6은 실측 반증에 따라 승인 시점에 수정했다. tests/probes.bats는 보호 파일이며 Edit 툴로만 수정한다."
+}

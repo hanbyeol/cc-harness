@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-07-26T04:30:00+09:00",
+  "type": "modify",
+  "description": "evaluator 보정 코퍼스(F37 golden-set) 갱신 + 드리프트 탐지 기법을 [min,max]에서 희소 점수 빈도로 교체",
+  "affected_features": ["F61", "F37"],
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": false,
+    "acceptance_criteria_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false
+  },
+  "new_sprint_contract": "progress/contracts/sprint-47.json",
+  "rollback_to_phase": null,
+  "_origin": "F56·F57·F58 판정이 연속으로 분포 이탈 후보가 된 것이 계기. 조사 결과 miscalibration이 아니라 코퍼스 노후(61건 중 21건만 반영, standard pass 표본 6건, test_coverage 분포 폭 0)였다.",
+  "_key_finding": "단순 갱신은 프로브를 무력화한다 — 표본을 17건으로 늘리면 standard pass 범위가 [7,9]가 되고 pass_threshold=7이므로 모든 유효 pass가 범위 안에 든다. 갱신의 전제 조건으로 통계 기법 교체가 필요하다.",
+  "_f37_note": "F37은 passes:true를 유지한다. 이 변경은 F37이 만든 장치의 baseline 노후와 기법 한계를 후속으로 다루는 것이지 F37 구현의 결함 수정이 아니다."
+}

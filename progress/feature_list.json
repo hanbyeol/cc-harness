@@ -789,6 +789,19 @@
         "F58"
       ],
       "assigned_sprint": 46
+    },
+    {
+      "id": "F61",
+      "name": "evaluator 보정 코퍼스 갱신 + 드리프트 탐지 기법 교체 (F37 후속)",
+      "description": "[2026-07-26] F37이 만든 golden-set이 노후했다. 판정 기록 61건 중 21건만 코퍼스에 있고 standard pass 표본은 6건뿐이며 그중 test_coverage는 전부 8이라 분포 폭이 0이다. F56(품질·보안 7)·F57(기능 7)·F58(테스트 7)이 연속 이탈했으나 세 판정 모두 근거가 명시된 정당한 판정이었다 — miscalibration이 아니라 baseline 부족이다. 근본 원인은 재생성 경로의 부재다: calibration.sh는 코퍼스를 소비만 하고 생성 스크립트가 없어, 수작업으로 만들어진 뒤 40건의 판정이 쌓이는 동안 갱신되지 않았다. **단순 갱신은 프로브를 무력화한다** — 표본을 17건으로 늘리면 standard pass 범위가 [7,9]가 되는데 pass_threshold가 7이므로 유효한 pass 점수가 전부 범위 안에 들어와 탐지력이 0이 된다. 따라서 갱신과 통계 기법 교체를 함께 한다. 점수가 7~9 정수 소척도라 [min,max]나 분위수보다 출현 빈도가 적합하다: 실측상 critical의 functionality=7은 28건 중 0건 출현으로 명확한 신호이고 standard의 code_quality=7은 6%로 경계선인데, [min,max]는 두 경우를 구분하지 못한다. pass_threshold·security_thresholds는 불변이며, calibration은 게이트가 아니라 판정 품질 진단이므로 이 변경은 진단 정밀화이지 통과 기준 완화가 아니다.",
+      "security_tier": "standard",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F37"
+      ],
+      "assigned_sprint": 47
     }
   ]
 }

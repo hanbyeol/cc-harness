@@ -57,13 +57,20 @@ if [[ "$VERDICT" == pass* && "$HAS_EV" != "true" ]]; then
   add "evaluator pass without evidence ($FEAT)" "verdict=pass인데 evidence 객체가 비어있음 — evidence over claims 위반. $LATEST" "standard"
 fi
 
-# (e) golden-set 분포 이탈 (F37-2c) — 최신이 pass일 때만, 동일 tier의 과거 pass 판정 분포와 대조.
-# 판정 기록(golden-set)을 실제 소비해 judge grade drift를 잡는다: 어떤 차원이 동일 tier·pass
-# baseline의 [min,max] 범위를 벗어나면 후보. baseline N≥5 게이트(표본 부족 시 skip — 분포 무의미).
-# fail 판정은 정당히 낮을 수 있어 대상에서 제외(pass 판정의 이례적 점수만 grade drift 신호).
+# (e) golden-set 희소 점수 탐지 (F37-2c, 기법은 F61에서 교체) — 최신이 pass일 때만,
+# 동일 tier의 과거 pass 판정과 대조해 어떤 차원의 점수가 baseline에서 이례적으로 드물면 후보.
+# baseline N≥5 게이트(표본 부족 시 skip — 분포 무의미). fail 판정은 정당히 낮을 수 있어 제외.
+#
+# 왜 [min,max]가 아닌가(F61): 점수는 7~9 정수 소척도이고 pass 판정은 정의상 pass_threshold
+# 이상이다. 표본이 조금만 쌓이면 [min,max]가 척도 전체로 수렴해 어떤 판정도 이탈로 잡히지
+# 않는다 — 실제로 코퍼스를 17건으로 갱신하자 standard pass 범위가 [7,9]가 되어 검사가 무력화됐다.
+# 사분위수도 관측값이 3개뿐이라 값 사이를 구분하지 못한다. 반면 출현 빈도는 같은 "7"이어도
+# 전례 없는 7(critical functionality, 28건 중 0건)과 일상적인 7(critical test_coverage, 32%)을
+# 구분한다. 임계 5%는 실측으로 정했다 — 정당한 판정(6% 이상 출현)은 통과시키고 유일 사례는 잡는다.
+RARE_PCT=5
 if [[ "$VERDICT" == pass* && "$MIN" != "null" && -f "$GOLDEN" ]] && jq -e '.records' "$GOLDEN" &>/dev/null; then
   TIER=$(jq -r '.security_tier // "unknown"' "$LATEST" 2>/dev/null || echo "unknown")
-  DRIFT=$(jq -r --arg tier "$TIER" --arg fk "$FEAT" --slurpfile latest "$LATEST" '
+  DRIFT=$(jq -r --arg tier "$TIER" --arg fk "$FEAT" --argjson rare "$RARE_PCT" --slurpfile latest "$LATEST" '
     ($latest[0].scores) as $ls
     | [.records[] | select((.tier == $tier) and ((.verdict // "") | test("pass"))
         and (((.features // []) | join(",")) != $fk))] as $base
@@ -75,14 +82,17 @@ if [[ "$VERDICT" == pass* && "$MIN" != "null" && -f "$GOLDEN" ]] && jq -e '.reco
              | if ($vals | length) < 5 then empty
                else ($ls[$d]) as $v
                  | if ($v | type) != "number" then empty
-                   elif $v < ($vals | min) then "\($d):\($v)<min\($vals|min)"
-                   elif $v > ($vals | max) then "\($d):\($v)>max\($vals|max)"
-                   else empty end
+                   else ($vals | map(select(. == $v)) | length) as $cnt
+                     | (($cnt * 100) / ($vals | length)) as $pct
+                     | if $pct < $rare
+                       then "\($d):\($v)(baseline \($cnt)/\($vals|length)회)"
+                       else empty end
+                   end
                end)
          | if length > 0 then join("; ") else empty end)
       end' "$GOLDEN" 2>/dev/null || echo "")
   if [[ -n "$DRIFT" ]]; then
-    add "evaluator score distribution drift ($FEAT)" "최신 pass 판정 점수가 동일 tier($TIER) 과거 pass 분포 범위를 이탈: $DRIFT — grade drift 가능성, $LATEST 재검토(golden-set 대조)" "standard"
+    add "evaluator score distribution drift ($FEAT)" "최신 pass 판정에 동일 tier($TIER) 과거 pass baseline에서 ${RARE_PCT}% 미만으로만 나타나는 점수가 있음: $DRIFT — grade drift 가능성, $LATEST 재검토(golden-set 대조). 후보는 재검토 신호이지 판정이 틀렸다는 뜻이 아니다" "standard"
   fi
 fi
 

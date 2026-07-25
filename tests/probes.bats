@@ -821,6 +821,41 @@ JSON
   [ "$(echo "$output" | jq '[.[]|select(.name|test("distribution drift"))]|length')" -eq 0 ]
 }
 
+# F61: 기법이 [min,max]에서 희소 점수 빈도로 바뀌었다. 위 세 테스트는 name 기준이라
+# 무변경 통과하지만, 그것만으로는 교체의 실익이 잠기지 않는다 — 현재 코퍼스 규모에서는
+# 두 기법의 출력이 동일하기 때문이다. 차이는 baseline이 커질 때 나타난다: [min,max]는
+# 어떤 값이 한 번이라도 나타나면 그 값을 영구히 정상으로 만들지만, 빈도는 비율로 보므로
+# 표본이 커질수록 오히려 희소성을 잘 포착한다. 아래 두 테스트가 그 분기를 고정한다.
+seed_golden_large() {
+  mkdir -p "$WORK/evals/calibration"
+  # standard pass 25건 — functionality만 7:1건 / 8:12건 / 9:12건, 나머지 차원은 전부 8.
+  # [min,max]=[7,9]이므로 옛 기법은 functionality=7을 놓친다. 빈도는 1/25=4% < 5%라 잡는다.
+  jq -n '{records: (
+      [{features:["R1"],  tier:"standard", scores:{functionality:7,code_quality:8,security:8,error_handling:8,test_coverage:8}, verdict:"pass"}]
+    + [range(2;14)  | {features:["R\(.)"], tier:"standard", scores:{functionality:8,code_quality:8,security:8,error_handling:8,test_coverage:8}, verdict:"pass"}]
+    + [range(14;26) | {features:["R\(.)"], tier:"standard", scores:{functionality:9,code_quality:8,security:8,error_handling:8,test_coverage:8}, verdict:"pass"}]
+  )}' > "$WORK/evals/calibration/golden-set.json"
+}
+
+@test "calibration: rare score inside the old [min,max] range is still caught (F61)" {
+  seed_feedback
+  seed_golden_large
+  # functionality=7은 baseline 범위 [7,9] 안이라 옛 기법은 놓쳤을 케이스다
+  fb 2026-09-03T00-00-00 '{"features_evaluated":["Z"],"security_tier":"standard","verdict":"pass","score":7,"scores":{"functionality":7,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8},"evidence":{"x":"y"}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/calibration.sh'"
+  echo "$output" | jq -e '.[] | select(.name | test("distribution drift"))'
+  echo "$output" | jq -e '.[] | select(.description | test("functionality:7"))'
+}
+
+@test "calibration: common score in a large baseline is not flagged (F61)" {
+  seed_feedback
+  seed_golden_large
+  # functionality=8은 12/25=48%로 일상적 — 표본이 커져도 후보가 되면 안 된다
+  fb 2026-09-03T00-00-00 '{"features_evaluated":["Z"],"security_tier":"standard","verdict":"pass","score":8,"scores":{"functionality":8,"code_quality":8,"security":8,"error_handling":8,"test_coverage":8},"evidence":{"x":"y"}}'
+  run bash -c "cd '$WORK' && bash '$PROBES/calibration.sh'"
+  [ "$(echo "$output" | jq '[.[]|select(.name|test("distribution drift"))]|length')" -eq 0 ]
+}
+
 @test "calibration: fail verdict is exempt from drift check (harsh fail is legitimate)" {
   seed_feedback
   seed_golden
