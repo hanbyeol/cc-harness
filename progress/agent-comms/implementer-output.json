@@ -22,7 +22,7 @@
     "ac9_tests": "tests/probes.bats 신규 4건 — 36 draft 백로그 소거 / 37 병합본 백로그 소거(핵심) / 38 백로그 부재 시 후보 생존 / 39 빈 백로그 미소거. 전부 통과",
     "es7_mutation": "run-all.sh의 백로그 루프에서 session-handoff.json을 임시 제거하고 실행 → 'not ok 37 run-all: dedups candidates listed in the merged handoff backlog' 하나만 실패(1 fail), 나머지 3건은 통과. 테스트가 수정의 유무를 정확히 구분하며 다른 케이스는 mutation에 무관함을 보였다. 복원 후 git diff 없음 확인",
     "design_reuse": "기존 tests/probes.bats:367 'run-all: dedups candidates already in feature_list'와 대칭 패턴을 사용했다 — seed_consistent 헬퍼 재사용, consistency 후보의 name을 백로그에 삽입해 소거 확인. completeness용 evaluator-feedback 픽스처를 새로 만들지 않아 테스트가 기존 것과 같은 형태로 읽힌다",
-    "probes": "run-all.sh → [] (README 테스트 수 갱신 후)",
+    "probes": "run-all.sh → [] (2026-07-25 커밋 363f1b8 시점, README 테스트 수 갱신 직후 측정). [정정: 이 표현은 측정 시점을 명시하지 않아 부정확했다 — evaluator 검증 시점에는 F43 completeness가 1차 판정의 미해결 action_required를 표면화해 후보 1건이 있었다. drift/consistency 프로브는 양 시점 모두 clean이므로 AC-7(회귀 없음)에는 무해하나, 시점 없는 [] 표기는 오해를 부른다. evaluator 지적으로 정정]",
     "sc1_gate": "git diff --quiet progress/harness-config.json docs/INVARIANTS.md — 무변경",
     "sc4_tools": "tests/probes.bats는 보호 파일이므로 Edit 툴로만 편집. mutation을 위한 run-all.sh 임시 수정과 복원도 Edit 툴 사용",
     "shellcheck": "scripts/probes/run-all.sh — clean"
