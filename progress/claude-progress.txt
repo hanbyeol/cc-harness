@@ -118,3 +118,20 @@
 - 검증: bats 610/610(회귀 없음), 프로브 [], 독립 evaluator pass(min-of-5=7, 보안 8). evaluator가 세 판정을 독립 재현 — AC-3 not_applicable은 사전 규정된 범위 제외이지 미달 우회 아님, 범위 확장은 mutation 재현으로 약화 아님, SC-4는 선재 취약성 발견·회피이므로 감점 아님
 - 미규명으로 남긴 것: 핸드오프 백로그 유실. 병합·캐리오버 로직은 실제 파일 복사 환경과 실제 경로 직접 실행에서 모두 정상이고 draft 삭제 경로도 병합 성공 하나뿐인데, 실제로는 기록한 4건이 남지 않았다. 동시 실행 5×5 재현도 실패(0/5). 규명하지 못했음을 그대로 기록하고 백로그 항목 자체가 다음 세션에 살아남는지를 관측 장치로 삼았다
 - 남은 관찰: F58 판정도 calibration 분포를 이탈해 F56·F57·F58 3연속이 됐다. 골든셋 갱신 여부는 미루기 어려운 사안
+
+[2026-07-26] Sprint 46 — invariant-guard 보호 범위의 디렉터리 확장 (F60, v1.34.0으로 릴리스, branch feat/f60-protect-skill-dirs → main ff)
+- F58의 착수 전 조사가 찾은 우회를 닫았다. is_protected가 티어 라우팅 스킬 3개를 full-path 리터럴로만 매칭해, 스킬을 분할해 배치 승인 조건이나 INV-12를 하위 파일로 옮기면 게이트 정의가 보호 밖으로 나갔다 — 임계값을 낮추는 대신 정의의 위치를 옮기는 우회이며 결과는 같다
+- 기존 arm을 유지한 채 글롭을 추가했다. 교체했다면 F45/F46 대칭 (b) 파서가 arm을 확장자로 끝나는 토큰으로만 추출하므로 그 arm들이 INV-12 대칭 검증에서 빠져 커버리지가 실패 없이 줄었을 것이다. mutation에서 F48 6건이 통과 유지되는 것이 추가이지 교체가 아님의 직접 증거
+- critical tier 4중 검증: evaluator 1차 pass(8) · F37 2차 pass(8, 일치) · security-auditor 0 high/1 medium/2 low · qa-reviewer pass. 2차는 look-alike 배터리(change-request-backup·xskills/change-request)를, security-auditor는 22경로 배터리를 각각 독립 수행
+- security-auditor가 선재 취약 클래스를 발견: 경로 정규화 우회(상위 traversal·대소문자 변형·중복 슬래시·symlink)가 실제 보호 파일로 해석되지만 is_protected는 매칭하지 않는다. F48 arm 포함 모든 경로 기반 arm에 동일 — 백로그
+- **런타임 갭 발견이 이 스프린트의 최대 소득**: 훅은 저장소가 아니라 설치된 플러그인 캐시(${CLAUDE_PLUGIN_ROOT})에서 실행되고 그 버전이 v1.33.0에 머물러 F56·F57·F58·F60의 훅 변경이 전부 미적용이었다. 저장소 테스트 615건 전수 통과가 런타임 적용을 보장하지 않는다. 핸드오프 백로그 반복 유실이 이 갭의 관측 증상이었고, 격리·실제 경로 재현이 모두 정상이라 규명이 늦었다
+- 양 evaluator가 "passes=true는 저장소 코드 인증이지 런타임 우회 차단의 인증이 아니다"를 verdict에 명시하고 릴리스를 필수 후속으로 고정. v1.34.0 릴리스 후 캐시를 내용으로 대조해 확인(lib.sh 캐리오버 2회 · 글롭 3개 · effort 7개 · parallel-mode.md 존재 · is_protected를 직접 source해 하위 파일 보호 동작)
+
+[2026-07-26] Sprint 47 — evaluator 보정 코퍼스 갱신 + 드리프트 탐지 기법 교체 (F61, 미릴리스, branch feat/f61-golden-set-refresh → main ff)
+- F56·F57·F58 연속 이탈의 원인은 기준 강화가 아니라 코퍼스 노후였다. 판정 61건 중 21건만 반영됐고 standard pass 표본 6건, 그중 test_coverage는 전부 8이라 분포 폭이 0 — 7이든 9든 무조건 이탈로 잡혔다
+- 근본 원인은 F37이 코퍼스를 만들며 재생성 경로를 남기지 않은 것이다. 실질 산출물은 갱신된 데이터가 아니라 scripts/build-golden-set.sh다 — 데이터만 고치면 같은 노후가 반복된다
+- calibration (e)를 [min,max]에서 희소 점수 빈도(5%)로 교체. 점수가 7~9 정수 3값뿐이라 사분위수는 값 사이를 구분 못 하고 [min,max]는 표본이 쌓이면 척도 전체로 수렴한다. 빈도만이 같은 7을 전례 없는 7과 일상적인 7로 구분한다
+- **자기 성과를 과소 보고한 오류**: '두 기법 출력이 동일하므로 지금은 효과 없음'이라 보고했으나 비교한 다섯 케이스가 전부 standard tier였고, 그 tier는 자기 제외 baseline 16건이라 1건=6.25%>5%로 구조적으로 일치할 수밖에 없는 표집이었다. critical(28건, 1건=3.57%)에서는 갈리며 지금도 더 잡는다. evaluator가 격자 전수 비교로 반증 — 옛 기법만 잡는 조합 0건
+- AC-6을 Plan 게이트에서 수정했다. 원래 'F56·F57·F58 무오탐'이었으나 프로브가 baseline에서 자기를 제외하므로 F56의 q7·s7은 나머지 16건에서 0건인 유일 사례다. evaluator 검증: F56까지 없애는 임계는 존재하지 않으며(0건을 통과시키려면 임계 0 → 아무것도 못 잡음) 원래 문구는 달성 자체가 탐지력 전멸과 동치였다
+- evaluator가 실제 결함을 찾았다 — 입력 61건 중 51건이 gitignore된 archive/에 있어 clean clone에서 실행하면 코퍼스가 11건으로 축소되고 critical 표본이 4건이 되어 N게이트 아래로 떨어진다. AC-1의 '2회 실행 바이트 동일'로는 드러나지 않는 구멍. 재현 확인 후 축소 방지 가드 + tests/golden-set.bats 6건 추가
+- 검증: bats 623/623, shellcheck 클린, 독립 evaluator pass(min-of-5=7). ES-3(skip 사실 노출)은 미구현 — 프로브에 skip 보고 채널이 없어 부분 충족으로 처리되고 error_handling 7에 반영됐다
