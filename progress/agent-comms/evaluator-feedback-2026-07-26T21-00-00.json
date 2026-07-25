@@ -1,0 +1,144 @@
+{
+  "timestamp": "2026-07-26T21:00:00+09:00",
+  "sprint": 47,
+  "iteration": 1,
+  "features_evaluated": [
+    "F61"
+  ],
+  "security_tier": "standard",
+  "verification_tier": "standard",
+  "_conflict_of_interest_note": "이 판정의 대상은 evaluator 판정을 감사하는 장치다. 따라서 '탐지가 느슨해졌는가'를 구현자의 보고에 의존하지 않고 기계적으로 재검증했다 — 갱신된 코퍼스 전체(3 tier x 5 차원 x 점수 1~10, N>=5 게이트 통과분)에 대해 옛 기법([min,max])과 새 기법(빈도 5%)의 탐지 집합을 전수 비교했다. 결과: 옛 기법이 잡고 새 기법이 놓치는 경우 0건, 두 기법이 함께 잡는 경우 111건, 새 기법만 잡는 경우 1건. 탐지 집합은 축소되지 않았고 진부분집합 관계로 확대됐다.",
+  "scores": {
+    "functionality": 8,
+    "code_quality": 8,
+    "security": 8,
+    "error_handling": 7,
+    "test_coverage": 7
+  },
+  "score": 7,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_threshold_applied": 5,
+  "verdict": "pass",
+  "score_rationale": {
+    "functionality": "AC-1~AC-8 8건 전부 실행으로 검증해 충족. 8인 이유는 산출물의 핵심 목적(재생성 경로 상설화)에 재현성 구멍이 있기 때문 — 코퍼스 입력 61건 중 51건이 gitignore된 archive/에 있어 clean clone에서 스크립트를 돌리면 10건짜리 코퍼스가 나오고 기존 61건을 덮어쓴다(issues[1]).",
+    "code_quality": "결정적 정렬 키·mktemp+trap·읽기 전용 입력·stderr 스킵 보고·기법 선택 근거 주석이 모두 갖춰져 있다. 경미한 흠: has_evidence 정의가 프로브 자신의 evidence 정의와 어긋나고(issues[6]) 소비자가 없으며, design_notes의 임계 설명이 상하한을 뒤집어 서술한다(issues[5]).",
+    "security": "SC-1~SC-4 4건 전부 독립 재현으로 충족. 임계값 불변, 시크릿 0건, 판정 기록 불변, 탐지 축소 없음(전수 증명). 8인 이유는 코퍼스가 대부분 버전 관리 밖 입력의 파생물이 되어 감사 추적이 약해졌기 때문(issues[7]) — F37 설계에서 물려받은 성질이나 F61이 코퍼스를 커밋된 수작업 산출물에서 파생 산출물로 바꾸면서 부각됐다.",
+    "error_handling": "ES-1·ES-2·ES-4는 실행으로 충족 확인. ES-3은 절반만 충족 — N>=5 게이트는 유지됐으나 skip이 런타임에 전혀 드러나지 않는다(issues[3]). 기준 문구 자체가 '드러나게'의 의미를 특정하지 않아 모호하고, 하네스의 어느 프로브에도 skip 보고 채널이 없다는 점을 감안해 미달이 아닌 부분 충족으로 본다.",
+    "test_coverage": "신규 테스트 2건이 기법 교체의 분기점(옛 범위 안의 희소 점수)을 정확히 고정하고, 내가 직접 돌린 4개 mutant 중 비등가 3개가 모두 잡혔다 — 특히 임계를 느슨하게(5->50) 바꾼 경우와 사실상 무력화(5->0.0001)한 경우가 양방향으로 잡힌다. 7인 이유는 실질 산출물인 build-golden-set.sh(73줄)에 자동 테스트가 0건이기 때문 — 결정성·건수 정합·시크릿 배제·skip 카운트가 전부 수작업 검증에만 의존한다(issues[2])."
+  },
+  "fail_reasons": [],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1 재생성 스크립트 결정성 — 2회 실행 바이트 동일(cmp), 산출물이 커밋된 코퍼스와도 바이트 동일",
+      "AC-2 판정 기록 누락 없음 — records 61건, tier x verdict 교차 집계가 원본 파일 집계와 9개 조합 전부 일치(critical 28/3 · standard 17/3 · low 5/1 · unknown 2/1/1)",
+      "AC-3 시크릿 미유입 — records 내 전체 문자열 값이 feature id · tier · verdict 뿐. 경로·명령·evidence 원문 0건, evidence 키 자체가 부재",
+      "AC-4 (e) 검사 교체 — 정합 판정에서 [] 반환, 희소 점수 픽스처에서 후보 반환 확인",
+      "AC-5 탐지력 대비 — critical functionality=7(0/28) 후보 / critical test_coverage=7(9/28=32%) 무후보",
+      "AC-6 과탐 해소 — F57·F58 후보 소멸, F56은 code_quality:7·security:7이 자기 제외 baseline 16건에서 0건 출현이라 후보 유지(계약이 승인 시점에 수정한 기준대로 정상)",
+      "AC-7 테스트 갱신 + mutation — 신규 2건이 기법 분기를 고정, 비등가 mutant 3종 전부 포착",
+      "AC-8 회귀 없음 — bats tests/ 617 ok / exit 0, run-all은 F61 무관 후보 1건"
+    ],
+    "security": [
+      "SC-1 임계값 불변 — git diff --quiet progress/harness-config.json 통과, pass_threshold 7 · security_thresholds 원본 유지",
+      "SC-2 탐지 축소 없음 — 코퍼스 전수 비교에서 옛 기법이 잡고 새 기법이 놓치는 조합 0건, 새 기법만 잡는 조합 1건(critical.error_handling=7, 1/28=3.6%). 진부분집합 확대이며 구현자 보고보다 강한 결론",
+      "SC-3 시크릿 미유입 — 산출물 전문 스캔에서 자격증명·경로·명령 패턴 0건",
+      "SC-4 판정 기록 불변 — 스크립트 2회 실행 후 git diff --quiet progress/agent-comms/ 통과, 스크립트는 find로 읽기만 한다"
+    ],
+    "error_scenarios": [
+      "ES-1 scores 부재·비수치 파일 — 3종(비수치 점수 · scores 키 없음 · JSON 파손)을 넣어 실행: 전부 skip되고 'records 10건 (판정 파일 13건 중 3건 skip)'으로 카운트가 stderr에 보고됨",
+      "ES-2 unknown tier 분리 — 코퍼스에 unknown 4건이 별도 tier 값으로 존재하고 프로브가 .tier == $tier로 선택하므로 다른 tier baseline에 섞이지 않음",
+      "ES-4 임계 과민 방지 — 임계 허용대를 직접 계산: 자기 제외 후 standard baseline 16건에서 1건 출현 = 6.25%이므로 6.25% 미만이어야 F57·F58이 해소된다. 5%는 이 상한 아래. 반대로 F56까지 없애려면 임계 0%가 되어 탐지 전멸 — ES-4가 금지한 방향이 실제로 봉쇄돼 있음"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": [
+      "ES-3 부분 미충족 — 'skip 시 그 사실이 드러나게 한다' 절이 미구현. baseline이 5건 미만이면 후보도 stderr 메모도 없이 조용히 건너뛴다. 실측: tier 미지정 pass 판정(unknown baseline 2건)을 최신으로 놓으면 정상 판정과 구분 불가능한 []가 나온다. low tier는 baseline이 정확히 5건이라, 이미 코퍼스에 있는 low 기능을 재판정하면 자기 제외로 4건이 되어 같은 무음 skip 경로를 탄다"
+    ]
+  },
+  "judgment_on_requested_questions": {
+    "Q1_technique_swap_efficacy": {
+      "question": "지금 효과 없는 변경을 완료로 보고한 것인가, 미래 강건성을 위한 정당한 교체인가",
+      "verdict": "정당한 교체이며, 구현자가 자기 성과를 과소 보고했다. AC-4·SC-2 충족.",
+      "finding": "구현자의 '두 기법 결론 전부 동일' 주장은 사실이 아니다 — 비교한 다섯 케이스가 전부 standard tier였기 때문에 나온 착시다. standard의 자기 제외 baseline은 16건이라 1건 출현 = 6.25% > 5%가 되어 두 기법이 구조적으로 일치할 수밖에 없다. critical tier는 baseline 28건이라 1건 출현 = 3.57% < 5%이고, 여기서 갈린다: critical error_handling=7을 빈도 기법은 잡고 [min,max]는 놓친다. 이 divergence는 계약의 _technique_rationale.measured_distribution에 이미 적혀 있던 데이터(critical error_handling 7:1)에서 도출 가능했다.",
+      "verification": "코퍼스 전수 비교(3 tier x 5 차원 x 값 1~10) + 실제 판정 재생: 아카이브의 F52 critical pass 판정(security 7·error_handling 7·test_coverage 7)을 최신으로 놓으면 새 기법은 security:7(1/25)과 error_handling:7(0/25) 두 차원을, 옛 기법은 error_handling만 지적한다.",
+      "residual_issue": "실익 판단이 아니라 검증 범위가 문제다 — 단일 tier만 표집해 결론을 일반화했다. 결론 방향이 보수적(과소 보고)이라 판정을 뒤집지는 않으나 issues[4]로 기록한다."
+    },
+    "Q2_AC6_revision_legitimacy": {
+      "question": "정당한 기준 역전파인가, 달성 못한 요건에 맞춘 완화인가",
+      "verdict": "정당한 기준 역전파다. 완화가 아니라 오히려 강화에 해당한다.",
+      "reasoning": [
+        "원래 문구('F56·F57·F58이 오탐되지 않는다')는 실측으로 반증됐다 — 프로브가 감사 대상 판정을 baseline에서 제외하므로 F56의 code_quality=7·security=7은 나머지 16건에서 문자 그대로 전례 없는(0건) 값이다. 프로브가 이를 지적하는 것은 정의상 오탐이 아니다.",
+        "수정된 문구가 더 엄격하다. 원래 문구는 '모든 후보가 사라져야 한다'는 요구라서, 이를 충족시키는 유일한 방법이 임계를 0%로 낮추는 것 — 즉 탐지력 전면 소거였다. 수정된 문구는 ES-4와 함께 그 경로를 명시적으로 금지한다.",
+        "내가 임계 허용대를 독립 계산한 결과 이 구조가 실제로 성립한다: F57·F58을 해소하는 임계는 6.25% 미만이면 무엇이든 되지만, F56까지 없애는 임계는 존재하지 않는다(0건 출현을 통과시키려면 임계가 0이어야 하고 그러면 아무것도 잡지 못한다). 즉 원래 문구는 달성 자체가 탐지력 파괴와 동치였다.",
+        "절차도 적법하다. Plan 게이트(ExitPlanMode) 승인 시점에 _revised·_baseline_measurement로 근거를 남기고 수정한 뒤 승인받았다 — 구현 실패 후 사후에 맞춘 것이 아니다. criteria_backfill 1건으로 3건 임계 미만이라 spec/architecture 재검토 사유도 아니다."
+      ]
+    },
+    "Q3_five_percent_threshold": {
+      "question": "원리에 근거한 선택인가 원하는 결과에서 역산한 것인가, 후자라면 문제인가",
+      "verdict": "역산이 맞다. 그러나 이 맥락에서는 정당한 보정이며, 다만 구현자의 서술은 방향이 틀렸다.",
+      "reasoning": [
+        "역산 자체는 문제가 아니다. 맞춘 대상이 '원하는 판정 결과'가 아니라 독립적으로 확립된 정답 레이블이기 때문이다 — F56·F57·F58 세 판정은 각각 score_rationale에 근거가 명시된 정당한 판정으로 이미 확인됐다. 검증된 레이블에 탐지기를 보정하는 것은 표준적 절차다.",
+        "다만 구현자의 서술이 뒤집혀 있다. design_notes는 5%를 'F57·F58을 통과시키는 하한'이라 했는데, 실제 제약은 상한이다 — 자기 제외 standard baseline 16건에서 1건 = 6.25%이므로 임계는 6.25% 미만이어야 하고, (0, 6.25%) 구간의 어떤 값도 N=16~17에서 완전히 동일하게 동작한다(0건 출현만 발화). 즉 현재 standard 표본에서 5라는 숫자 자체는 임의적이다.",
+        "임계가 실제로 유효한 곳은 critical tier다. N=28에서 5%는 1건 출현까지 잡고 3%는 0건만 잡는다 — 값 선택이 동작을 바꾸는 유일한 구간인데, 구현자는 이 구간을 분석하지도 테스트하지도 않았다. 나는 직접 확인했고 결과는 보수적인 쪽(더 민감)이라 문제가 되지 않는다.",
+        "원리적 근거의 부재(신뢰구간·N 연동 규칙 없음)는 실재하는 한계지만 구현자가 limitations_honest[1]에 표본 크기 민감도로 정확히 공개했고, calibration.sh 주석은 정확하게('6% 이상 출현은 통과, 유일 사례는 포착') 서술한다. 잘못된 것은 구현 산출 JSON의 문구뿐이다(issues[5])."
+      ]
+    }
+  },
+  "issues": [
+    "[functionality|high-confidence|medium-severity] build-golden-set.sh의 입력 61건 중 51건이 .gitignore:15로 무시되는 progress/agent-comms/archive/에 있다. git이 추적하는 evaluator-feedback은 10건뿐이므로, clean clone에서 이 스크립트를 실행하면 10건짜리 코퍼스가 생성되어 커밋된 61건을 조용히 덮어쓴다 — 대부분의 tier가 N>=5 게이트 아래로 떨어져 프로브가 사실상 무음이 된다. 이 기능의 명시된 실질 산출물이 '재생성 경로의 상설화'인데 그 경로가 이 워킹 카피 밖에서 재현되지 않는다. 완화책: 수집 건수가 기존 코퍼스보다 현저히 적으면 경고·중단하거나, archive를 버전 관리에 포함하거나, 출력 경로 인자 사용을 기본으로 문서화한다.",
+    "[test|high-confidence|medium-severity] build-golden-set.sh(73줄, 실질 산출물)에 자동 테스트가 0건이다 — tests/·.github/·Makefile 어디에도 참조가 없다. AC-1(결정성)·AC-2(건수 정합)·AC-3/SC-3(시크릿 배제)·ES-1(skip 카운트)·ES-2(unknown 분리)가 전부 1회성 수작업 검증에만 근거한다. 누군가 records에 evidence 원문을 추가해도 실패하는 테스트가 없다 — 시크릿 배제가 보안 기준인 점을 감안하면 특히 아쉽다.",
+    "[error|high-confidence|low-severity] ES-3의 'skip 시 그 사실이 드러나게 한다'가 미구현. baseline < 5이면 후보도 stderr 메모도 없이 조용히 건너뛴다. 실측 확인: tier 없는 pass 판정(unknown baseline 2건)에서 정상 결과와 구분 불가능한 []가 반환된다. low tier는 baseline이 정확히 5라 기존 low 기능을 재판정하면 자기 제외로 4가 되어 같은 경로를 탄다. 참고로 하네스의 다른 프로브에도 skip 보고 채널이 없어 기준 자체가 모호하다(criteria_gaps 참조).",
+    "[verification|high-confidence|low-severity] '갱신된 코퍼스에서 두 기법 결론이 전부 동일'이라는 핵심 주장이 반례로 반증된다 — critical.error_handling=7(1/28=3.6%)은 빈도 기법만 잡는다. 비교한 다섯 케이스가 모두 standard tier(N=16, 1건=6.25%>5%)여서 일치가 구조적으로 강제된 표집이었다. 결론 방향은 보수적(자기 성과 과소 보고)이라 판정에 영향은 없으나, 단일 tier 표집으로 일반화한 검증 습관은 반대 방향으로도 작동할 수 있다.",
+    "[docs|high-confidence|low-severity] implementer-output design_notes[2]가 5%를 'F57·F58을 통과시키는 하한'이라 서술하는데 실제로는 상한 제약(6.25% 미만)이며, (0, 6.25%) 구간의 모든 값이 현재 standard 표본에서 동일하게 동작한다. calibration.sh 주석은 정확하므로 코드가 아니라 보고 문구의 문제다.",
+    "[design|high-confidence|low-severity] build-golden-set.sh의 has_evidence는 `(.evidence // null) != null`로 계산되어 프로브 자신의 (d) 검사 정의와 두 군데서 어긋난다 — 빈 객체 `evidence:{}`를 true로 기록하고((d)는 length>0 요구), F47의 grounded_evidence 별칭을 false로 기록한다((d)는 수용). 현재 이 필드를 읽는 코드가 없어(전체 grep 0건) 잠복 상태지만, 처음 소비하는 쪽을 오도한다.",
+    "[security|medium-confidence|low-severity] baseline이 자기 출처(self-sourced)다 — progress/agent-comms에 evaluator-feedback-*.json 이름으로 놓인 JSON은 무엇이든 검증 없이 baseline에 들어가고, 현재 입력의 51/61이 git 추적 밖이라 코퍼스 오염·유실이 버전 관리에 흔적을 남기지 않는다. F37 설계에서 물려받은 성질이며 프로브가 게이트가 아니라 진단이라 영향은 제한적이지만, F61이 코퍼스를 커밋된 수작업 산출물에서 무추적 입력의 파생물로 바꾸면서 노출면이 커졌다.",
+    "[design|medium-confidence|low-severity] 이 프로브는 절대 기준이 아니라 '최근 관행'으로부터의 이탈을 측정하며 시간 가중이 없다. 따라서 개별 이상치는 잡아도 판정 전체가 서서히 후해지는 집단적 drift는 원리적으로 보이지 않는다 — 인플레된 점수가 쌓이면 그 자체가 정상 baseline이 된다. 이번에 과거 판정 40건을 추가한 것은 이 방향으로는 오히려 완화 요인이다.",
+    "[sensitivity|high-confidence|low-severity] 현재 표본에서 standard·low tier의 검사는 사실상 '이 tier·차원에서 이 점수가 한 번도 나온 적 없는가'로 축소된다. 실측: (tier, 차원, 값∈{7,8,9}) 45개 조합 중 발화하는 것은 3개뿐이다(standard.test_coverage=9, critical.functionality=7, critical.error_handling=7). 각 칸이 첫 출현을 얻을 때마다 더 둔해지고, N>20이 되어야(1/21=4.76%<5%) 1건 출현이 다시 잡히며 회복된다. 좁고 자가 회복되는 구간이지만 향후 몇 건 동안 standard tier 탐지는 거의 휴면 상태다.",
+    "[style|high-confidence|trivial] shellcheck이 calibration.sh:28에 SC2012(info, `ls -1` 대신 find 권장)를 보고한다. F61이 건드리지 않은 기존 줄이고 info 등급이라 실질 문제는 아니나, 'shellcheck 클린'이라는 보고는 심각도 필터를 전제로 할 때만 정확하다."
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [
+      "재현성 기준 부재 — AC-1은 '2회 연속 실행이 바이트 동일'만 요구하므로 입력 대부분이 버전 관리 밖이어도 충족된다. clean checkout에서의 재생성 가능성을 요구하는 기준이 없었고, 그래서 issues[1]이 기준을 통과했다.",
+      "신규 스크립트에 대한 테스트 기준 부재 — AC-7은 tests/probes.bats로만 범위를 한정해, 실질 산출물인 build-golden-set.sh는 자동 테스트 없이도 모든 기준을 통과한다."
+    ],
+    "ambiguous_criteria": [
+      "ES-3 'skip 시 그 사실이 드러나게 한다' — 런타임 출력인지, 주석·문서인지, 테스트로 고정하는 것인지 특정하지 않는다. 하네스의 어느 프로브에도 skip 보고 채널이 없어 판정 기준이 서지 않았고, 그래서 미달이 아닌 부분 충족으로 처리했다. 다음 회전에서 '후보 배열에 skip 사유를 별도 항목으로 넣는다' 같은 관측 가능한 형태로 재작성할 것을 권고한다."
+    ],
+    "security_criteria_insufficient": [],
+    "criteria_quality_note": "SC-2의 검증 방법('교체 전 기법이 잡던 실제 이상 사례를 교체 후에도 잡는지 대조')이 표집 대조로 서술돼 있어 구현자가 다섯 케이스만 보고 일반화했다. 이 검사는 전수 비교가 가능하다(코퍼스 x 차원 x 점수 유한 격자) — 다음에 유사 기준을 쓸 때는 '전수 비교로 탐지 집합의 포함관계를 보인다'로 명시하면 표집 오류가 원천 차단된다.",
+    "action_required": "위 두 missing_criteria와 ES-3 재작성은 F61의 판정을 막는 사유가 아니므로 후속 항목으로 백로그에 올린다. criteria_backfill은 1건(AC-6)으로 3건 임계 미만이라 spec/architecture 재검토는 불필요하다."
+  },
+  "criteria_backfill_review": {
+    "count": 1,
+    "items": [
+      "AC-6 수정 (Plan 게이트 승인 시점)"
+    ],
+    "assessment": "적절. 범위 확장도 요건 완화도 아니다 — 실측이 원래 문구의 전제를 반증했고, 수정된 문구가 오히려 '임계를 낮춰 후보를 없애는' 경로를 금지해 더 엄격하다. 사용자 확인이 필요한 criteria_issues 없음.",
+    "escalation_needed": false
+  },
+  "evidence": {
+    "tests": "bats tests/ 1회 실행 — exit 0, 617 tests, 마지막 테스트까지 ok (기준선 615 + 신규 2). 백그라운드 실행 후 종료 코드로 확인, 재실행 없음",
+    "determinism": "bash scripts/build-golden-set.sh <tmp1> && bash scripts/build-golden-set.sh <tmp2> && cmp -s → 바이트 동일. 추가로 tmp1과 커밋된 evals/calibration/golden-set.json도 cmp -s 동일 — 커밋된 코퍼스가 실제로 이 스크립트의 출력임을 확인",
+    "record_fidelity_AC2": "원본 61개 판정 파일을 jq로 직접 집계한 tier x verdict 교차표와 코퍼스 집계가 9개 조합 전부 일치 (critical pass 28 / fail 3, standard pass 17 / fail 3, low pass 5 / fail 1, unknown pass 2 / fail 1 / fail(downgrade) 1). recorded_score != computed_min인 레코드 0건",
+    "secret_scan_AC3_SC3": "jq '[.records[] | .. | strings] | unique' 결과가 feature id(F1~F60) + tier 4종 + verdict 3종뿐. 슬래시·$·=·--·공백을 포함하는 값은 'fail (downgrade)' 하나이며 이는 verdict 문자열. records에 evidence 키 자체가 없음",
+    "SC1_SC4": "git diff --quiet progress/harness-config.json → 통과. 스크립트 2회 실행 후 git diff --quiet progress/agent-comms/ → 통과. git status 클린",
+    "SC2_exhaustive_superset_proof": "갱신 코퍼스 전체에 대해 (tier x 차원 x 점수 1~10) 격자를 순회하며 옛 기법(v<min 또는 v>max)과 새 기법(빈도<5%)의 발화를 비교 — 옛 기법만 잡는 조합(탐지 손실) 0건, 두 기법 공통 111건, 새 기법만 잡는 조합 1건(critical.error_handling=7, 1/28=3.6%). 탐지 집합은 진부분집합으로 확대",
+    "AC5_AC6_probe_replay": "샌드박스(progress/agent-comms + evals/calibration만 구성)에서 프로브를 픽스처별로 직접 실행. F56 → code_quality:7(0/16); security:7(0/16) 후보 유지 · F57 → 후보 없음 · F58 → 후보 없음 · critical functionality=7 → functionality:7(0/28) 후보 · critical test_coverage=7 → 후보 없음 · standard 전 차원 9 → test_coverage:9(0/17) 후보(성적 인플레이션 포착 확인)",
+    "old_vs_new_matrix": "옛 프로브 x 옛 코퍼스 / 옛 프로브 x 새 코퍼스 / 새 프로브 x 새 코퍼스 3열 대조표를 동일 픽스처 7종에 대해 생성 — 과탐 해소가 기법 교체가 아니라 코퍼스 갱신에서 온다는 구현자 주장이 재현됨(옛 프로브 + 새 코퍼스에서 이미 F57·F58 무후보)",
+    "real_judgment_replay": "아카이브의 실제 critical pass 판정(F52: security 7 · error_handling 7 · test_coverage 7)을 최신으로 재생 — 새 프로브는 security:7(1/25)·error_handling:7(0/25) 지적, 옛 프로브는 error_handling만 지적. critical tier에서 임계 5%가 실제로 동작을 바꾸는 구간임을 실증",
+    "threshold_band_analysis": "자기 제외 후 standard baseline 16건에서 1건 출현 = 6.25%, critical 28건에서 1건 = 3.57%. 따라서 F57·F58 해소 조건은 임계 < 6.25%이고 (0, 6.25%) 전 구간이 N=16~17에서 동일 동작. F56을 없애려면 임계 0% 필요 → 탐지 전멸. ES-4가 금지한 방향이 실제로 봉쇄됨을 확인",
+    "mutation_independent": "저장소를 건드리지 않고 scripts/probes + tests/probes.bats를 샌드박스로 복사해 4종 변이 주입. (1) 빈도 검사 무력화 → 2건 실패(F37-2c golden range, F61 rare score) (2) 임계 5→50 과민화 → 2건 실패(common score not flagged, in-range no false-positive) (3) 임계 5→0.0001 사실상 소거 → 1건 실패(rare score inside old range) (4) 외곽 N>=5 게이트 제거 → 0건 실패. (4)는 커버리지 구멍이 아니라 등가 변이다 — vals 길이 <= base 길이이므로 내부 게이트가 외곽 게이트를 완전히 포함해 동작이 바뀌지 않는다. 즉 비등가 변이 3종은 전부 포착됐고 임계 변경이 양방향으로 잡힌다",
+    "error_scenarios": "ES-1: 비수치 점수·scores 키 없음·JSON 파손 3종을 투입 → 'records 10건 (판정 파일 13건 중 3건 skip: scores 부재/비수치)' stderr 보고 확인, 해당 레코드 코퍼스 미유입 0건. ES-2: unknown 4건이 별도 tier로 격리. ES-3: unknown tier 최신 판정(baseline 2)에서 무음 [] 반환 — 미충족 확인",
+    "lint": "shellcheck scripts/build-golden-set.sh scripts/probes/calibration.sh → SC2012(info, 기존 줄 28) 1건 외 지적 없음",
+    "probe_suite": "bash scripts/probes/run-all.sh → 후보 1건(completeness, F61 무관)",
+    "artifact_sync": "feature_list.json F61 등록 확인 · acceptance-criteria.json F61 항목 추가 확인 · README 테스트 수 615→617 동기화 확인"
+  },
+  "lessons_for_future_iterations": [
+    "탐지 장치의 기법을 교체할 때 '탐지 집합이 축소되지 않았다'는 표집 대조가 아니라 전수 비교로 증명할 수 있다 — 코퍼스 x 차원 x 점수는 유한 격자다. 이번에는 전수 비교가 구현자 주장보다 강한 결론(진부분집합 확대)을 냈고 동시에 반례(critical.error_handling)도 찾아냈다.",
+    "표본 크기가 다른 tier가 공존하는 비율 임계는 tier마다 다른 민감도를 갖는다. 한 tier에서만 검증하면 임계 선택의 실질 효과가 있는 구간을 통째로 놓친다."
+  ],
+  "verdict_summary": "min-of-5 = 7 = pass_threshold. standard tier 보안 임계 5에 대해 보안 8. 3개 criteria 카테고리 중 acceptance 8/8 · security 4/4 충족, error_scenarios는 4건 중 3건 충족 + ES-3 부분 충족(기준 문구 모호 + 하네스에 선례 채널 부재). 이 기능의 핵심 위험이었던 '검증 장치가 조용히 느슨해지는가'는 전수 비교로 반증됐다 — 탐지 집합은 축소되지 않고 확대됐다. 잔여 이슈는 재현성(gitignore된 입력)과 신규 스크립트의 테스트 부재이며, 둘 다 계약 기준을 위반하지 않고 후속으로 처리 가능하다. pass."
+}

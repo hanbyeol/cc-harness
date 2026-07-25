@@ -62,6 +62,22 @@ done < <(find "$COMMS" -name 'evaluator-feedback-*.json' -type f 2>/dev/null | s
 
 [[ -s "$TMP" ]] || { echo "build-golden-set: 수집된 판정이 없습니다" >&2; exit 1; }
 
+# 축소 방지 가드 — 입력의 대부분(현재 61건 중 51건)이 gitignore된 archive/에 있다.
+# clean clone처럼 archive가 없는 환경에서 실행하면 커밋된 코퍼스를 훨씬 작은 것으로
+# 덮어쓰고, tier별 표본이 calibration.sh의 N≥5 게이트 아래로 떨어져 그 tier의 검사가
+# 조용히 꺼진다. 결정성 검사(2회 실행 동일)로는 이 구멍이 드러나지 않는다.
+NEW_N=$(wc -l < "$TMP" | tr -d ' ')
+if [[ -f "$OUT" ]]; then
+  PREV_N=$(jq '.records | length' "$OUT" 2>/dev/null || echo 0)
+  if [[ "$NEW_N" -lt "$PREV_N" && "${GOLDEN_SET_ALLOW_SHRINK:-}" != "1" ]]; then
+    echo "build-golden-set: 중단 — 새 코퍼스가 기존보다 작습니다(${NEW_N} < ${PREV_N})." >&2
+    echo "  입력 대부분이 gitignore된 ${COMMS}/archive/ 에 있어, 그 디렉터리가 없는 환경에서" >&2
+    echo "  실행하면 코퍼스가 축소되고 tier별 표본이 N게이트 아래로 떨어집니다." >&2
+    echo "  의도한 축소라면 GOLDEN_SET_ALLOW_SHRINK=1 을 지정하십시오." >&2
+    exit 1
+  fi
+fi
+
 # 정렬 키를 고정해 입력 순서와 무관하게 같은 출력을 낸다.
 jq -s --sort-keys '{
   description: "과거 evaluator 판정 정규화 코퍼스 (F37). calibration.sh가 판정 산술·분포 감사에 사용. evidence 원문은 시크릿 회피 위해 유무만 기록. scripts/build-golden-set.sh로 재생성한다(F61) — 수작업 갱신 금지.",
