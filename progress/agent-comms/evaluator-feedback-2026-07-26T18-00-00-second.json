@@ -1,0 +1,123 @@
+{
+  "timestamp": "2026-07-26T18:00:00+09:00",
+  "sprint": 46,
+  "iteration": 1,
+  "features_evaluated": [
+    "F60"
+  ],
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "branch": "feat/f60-protect-skill-dirs",
+  "commit": "568e853",
+  "judgment_role": "F37 critical second (independent) judge",
+  "first_judgment_ref": "progress/agent-comms/evaluator-feedback-2026-07-26T16-30-00.json",
+  "does_not_set_passes": "이 2차 판정은 passes를 변경하지 않는다. feature_list.json의 passes는 1차 판정이 이미 true로 전환했고, 이 판정의 역할은 그 전환의 교차검증이다(F37). verdict가 1차와 불일치하면 자동 pass 금지·사람 에스컬레이션이나, 아래대로 일치하므로 에스컬레이션 불필요.",
+  "scores": {
+    "functionality": 8,
+    "code_quality": 9,
+    "security": 8,
+    "error_handling": 9,
+    "test_coverage": 8
+  },
+  "score": 8,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_threshold_critical": 7,
+  "verdict": "pass",
+  "fail_reasons": [],
+  "verdict_note": "PASS는 '합의된 Sprint Contract(AC-1~6·SC-1~4·ES-1~3, 전부 저장소 코드 기준)를 저장소 코드가 충족했다'는 인증이다. '실행 중인 하네스에서 우회가 닫혔다'는 인증이 아니다 — 런타임 갭(아래) 때문에 실제 보호는 릴리스 전까지 넓어지지 않는다. 이 구분을 반드시 함께 읽어야 한다.",
+  "agreement_with_first_judgment": {
+    "verdict_match": true,
+    "composite_match": true,
+    "first_composite": 8,
+    "second_composite": 8,
+    "escalation_required": false,
+    "escalation_reason": "verdict(pass)와 종합 점수(8)가 완전 일치. F37 불일치 에스컬레이션 조건 미충족.",
+    "dimension_divergence": [
+      "functionality: 1차 9 vs 2차 8. 이유 — 나는 인도된 가치가 '릴리스 전까지 잠재적(latent)'이라는 점(런타임 갭)을 기능 차원에 소폭 반영했다. 계약이 기능을 '저장소 코드 정확성'으로 스코프했으므로 9도 방어 가능하나, 기능의 명시 목적(우회 차단)이 런타임에서 아직 실현되지 않음을 등록하기 위해 8로 두었다. min-of-5에서 security(8)·test(8)가 이미 최솟값이므로 이 차이는 종합 점수·verdict를 바꾸지 않는다.",
+      "나머지 4개 차원(품질 9·보안 8·에러 9·테스트 8)은 1차와 동일하며 독립 재현으로 같은 결론에 도달했다."
+    ]
+  },
+  "independently_verified": true,
+  "verification_method": "1차 피드백에 끌려가지 않도록, (1) is_protected 함수 배터리 테스트, (2) 대칭(b) 토큰 추출 pre/post 대조, (3) 자체 mutation, (4) bats tests/ 615 1회 실행, (5) scripts/probes/run-all.sh, (6) SC-1 config diff 를 먼저 직접 실행해 결론을 세운 뒤 마지막에 1차 피드백을 읽고 대조했다. implementer self-check와 1차 판정은 모두 검증 대상으로만 취급했다.",
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1: 하위 파일 보호 독립 재현 — skills/improve/auto-mode.md·/x/skills/improve/sub/dir/x.md·skills/change-request/nested/deep/thing.txt·/abs/skills/hotfix/z.md 전부 return 0. 기존 3 SKILL.md arm 유지(양쪽 PROT). bats 196·197 ok",
+      "AC-2: 대칭(b) 추출 토큰 pre(568e853^)=12 · post=12, diff 완전 동일. F45/F46 포함 invariant-guard.bats 전량 통과(615 스위트 내)",
+      "AC-3: 과보호 없음 — skills/implement/SKILL.md·implement/parallel-mode.md·debug/SKILL.md·brainstorm/sub/x.md 전부 return 1. bats 198 ok",
+      "AC-4: INV-12 산문에 F60 문단(우회 성격·교체 아닌 추가 이유·경로 기반 잔여 한계). 백틱 토큰 목록 불변 → 대칭(a) 통과",
+      "AC-5: mutation 자체 재현 — 글롭 arm 3쌍 제거 시 하위 파일(auto-mode.md·change-request/sub/x.md·/abs/.../z.md)이 PROT→open으로 회귀하고 3 SKILL.md는 PROT 유지. '교체가 아니라 추가'의 직접 증거를 독립 관측",
+      "AC-6: bats 615 ok / 0 fail(exit 0, 기준선 610 + 신규 5). run-all은 F60 무관 후보 1건(C1 completeness)만 반환"
+    ],
+    "security": [
+      "SC-1: git diff --quiet progress/harness-config.json → diff 없음. 커밋 568e853도 harness-config 미변경. 임계값·게이트 구조 불변",
+      "SC-2: 보호 이탈(PROT→open) 0건. 케이스에 arm을 추가만 했고 기존 arm/토큰이 하나도 사라지지 않음을 배터리+토큰 대조로 확인 — 순증",
+      "SC-3: jq 부재 fail-closed 대칭 — bats 199(skill 하위 파일 편집 exit 2 차단)·200(무관 스킬 하위 파일 exit 0 통과, 가용성 보존) 통과. is_protected를 공유하는 경로라 자동 대칭",
+      "SC-4: 대칭(b) 추출 토큰 집합 pre/post 완전 동일(12개). 글롭 arm은 확장자 미종결이라 추출되지 않아 커버리지 무감소 — 조용한 약화 회피의 핵심 정당화를 독립 재현"
+    ],
+    "error_scenarios": [
+      "ES-1: 과보호 방지 독립 확인 — skills/change-request-backup/x.md·/foo/skills/improvement/y.md·xskills/change-request/y.md·skills/change-request(무슬래시)·notes/skills/hotfix.md 전부 return 1. 글롭이 skills/{name}/ 접두를 정확히 요구",
+      "ES-2: 대칭(b)의 예상 못 한 토큰 추출 — 미발생(토큰 집합 불변)",
+      "ES-3: 정상 작업 차단이 아니라 ask 프롬프트 — 티어 라우팅 정의 디렉터리이므로 마찰이 적절, Edit/Write 회피 규칙 그대로"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "user_concern_rulings": {
+    "runtime_gap": {
+      "question": "critical tier에서 '실행되지 않는 보안 수정'을 통과시키는 것이 정당한가?",
+      "my_independent_ruling": "정당하다 — 단, passes:true는 저장소 코드 인증이지 런타임 우회 폐쇄 인증이 아니라는 조건 하에서만. 1차 결론에 동의한다.",
+      "reasoning": [
+        "합의된 계약의 AC-1~6·SC-1~4·ES-1~3이 전부 저장소 코드 기준이며 릴리스를 요건에 넣지 않았다 — 나는 이 기준들을 저장소 코드로 전수 재현했고 전부 충족됐다. 계약이 요구한 것과 인도된 것이 정확히 일치한다.",
+        "릴리스는 marketplace 배포+plugin update+restart를 요하는 외부 배포 동작으로, 서브에이전트가 결정할 수 없고 사용자 결정이 필요하다(하네스의 deployment는 별도 phase·사용자 게이트). evaluator가 릴리스를 게이트하는 것은 하네스 설계와 모순된다.",
+        "F60은 런타임을 악화시키지 않는다. 갭은 F60 고유가 아니라 F56·F57·F58이 공유하는 릴리스 계던스 계통 조건이며(캐시 1.33.0이 F56 이전), F60이 도입·파손한 결함이 아니다. 게다가 이 우회의 구체적 익스플로잇(스킬 분할)도 런타임에 아직 존재하지 않으므로 F60은 예방적 수정이다.",
+        "implementer가 구현 중 발견해 _runtime_gap으로 계약에 backfill하고 limitations_honest·커밋 메시지에 전면 공개했다 — '동작하지 않는 것을 숨김'의 정반대이며 evidence-over-claims·기준 역전파의 모범이다."
+      ],
+      "strict_critical_caveat": "그럼에도 이것은 보안 기능이며 그 목적(실행 중 하네스의 우회 차단)은 릴리스 전까지 실현되지 않는다. passes:true를 '우회가 닫혔다'로 오독하면 그것이 false positive다. 따라서 required_followups FU-1(릴리스)을 필수 추적으로 고정하고, 목적 미실현을 functionality 8(1차보다 1점 낮음)에 반영했다. 보안 점수는 임계 이하로 내리지 않는다 — SC-1~4가 전부 충족·독립 검증됐고 런타임 갭은 코드의 보안 결함이 아니라 배포 계통 한계이며, 동일 조건에서 F56/F57/F58이 이미 pass했다. F60만 penalize하는 것은 정직한 발견·공개를 벌하는 비일관이다.",
+      "would_i_flip_to_fail": "아니오. fail은 '실행되는 하네스에서 우회가 열려 있음'을 이유로 삼아야 하는데, 그 원인은 릴리스 부재이지 F60 코드가 아니다. F60을 fail시키면 릴리스 게이트를 evaluator로 옮기는 것이 되어 잘못된 신호를 준다. 올바른 통제는 pass + 조건 명시 + FU-1 추적이다."
+    },
+    "glob_arm_symmetry_blind_spot": {
+      "question": "글롭 arm이 대칭(b) 검증 사각지대인 것이 F60 감점 사유인가, 별도 후속인가?",
+      "my_independent_ruling": "별도 후속. F60 감점 사유가 아니다. 1차의 hardening_recommendation 판단에 동의한다.",
+      "reasoning": [
+        "F60은 대칭(b) 커버리지를 줄이지 않았다 — 토큰 집합이 pre/post 12개로 동일함을 독립 재현했다. 글롭 arm 자체는 대칭 검증 밖이지만 F60의 직접 양성·음성·mutation 테스트로 커버된다(테스트 커버리지는 있고, '대칭' 커버리지가 없을 뿐).",
+        "이 사각지대는 F45/F46 파서의 속성이지 F60이 만든 것이 아니다. 파서 수정은 F45/F46이 tautology 방지에 공들인 영역이라 이 스프린트 범위 밖으로 두는 것이 정당하며, implementer가 _key_constraint·limitations_honest #4에 명시했다.",
+        "F60은 '교체가 아니라 추가' 설계로 이 함정을 정확히 우회했다. 이를 감점하면 사전 인지·문서화·회피한 구현자를 파서의 선재 한계로 벌하는 것이 된다."
+      ],
+      "recommended_followup": "AC-5 mutation을 상시 메타 테스트로 인코딩(F46이 대칭 파서에 한 것과 동형) — '글롭 arm 제거 시 하위 파일 테스트만 fail, SKILL.md는 통과' 관계를 standing test로 잠그면 향후 글롭이 유일 보호가 되는 경우까지 클래스 종결된다. 추가로 대칭(b) 파서가 글롭 arm을 인식하도록 확장하는 것은 별도 과제(파서 tautology 위험 검토 포함)."
+    }
+  },
+  "criteria_gaps": {
+    "missing_criteria": [],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "hardening_recommendations": [
+      "FU(follow-up): AC-5 mutation을 상시 메타 테스트로 인코딩해 글롭-only 보호의 대칭 사각지대를 클래스 종결(감점 아님).",
+      "FU(follow-up): 대칭(b) 파서가 글롭 arm을 인식하도록 확장 — 별도 스프린트, tautology 위험 검토 필요."
+    ],
+    "action_required": "없음(F60 판정에 대한 기준 갭 없음). criteria_backfill(_runtime_gap 신설)은 1건으로 재검토 권고 임계(3건) 미달이며, 요건 완화·범위 과확장이 아니라 발견의 정직한 고정이다."
+  },
+  "required_followups": [
+    {
+      "id": "FU-1",
+      "type": "release",
+      "priority": "high",
+      "owner": "user_decision_required",
+      "description": "플러그인 릴리스(v1.33.0 → 신버전)를 수행해야 F56·F57·F58·F60의 훅 변경이 런타임에 적용된다. 릴리스 전까지 실행 중 하네스에서 게이트 정의 이동 우회는 여전히 열려 있다. F60의 실제 우회 차단은 이 릴리스에 종속된다.",
+      "blocks_runtime_protection": true
+    }
+  ],
+  "escaped_defect_watch": "없음. 통과 후 발견된 결함 없음. 이 판정은 저장소 코드 인증이며, 런타임 미적용은 결함이 아니라 릴리스 종속(FU-1)으로 추적된다.",
+  "evidence": {
+    "is_protected_battery": "hooks/invariant-guard.sh에서 is_protected를 awk로 추출·eval 후 21개 경로 실행 — 양성 6(하위/중첩/절대/비-md 확장자) PROT, 기존 3 SKILL.md(+절대형) PROT, 무관 스킬 4(implement/debug/brainstorm) open, 과보호 엣지 5(change-request-backup·improvement·xskills·무슬래시 dir·notes/skills/hotfix.md) open, 기타 보호파일 4(invariant-guard.sh·feature_list.json·*.bats·sprint-46.json) PROT",
+    "sc4_token_diff": "awk로 is_protected case 블록 추출 후 grep -oE '[a-zA-Z0-9_*-]+\\.(json|sh|md|bats)' | sort -u — pre(568e853^)=12개, post=12개, diff 빈 출력(IDENTICAL). 글롭 arm(skills/.../*)은 추출되지 않음(사각지대 독립 확인)",
+    "mutation_self": "글롭 arm 라인 제거한 함수 사본을 eval — skills/improve/auto-mode.md·skills/change-request/sub/x.md·/abs/skills/hotfix/z.md 가 PROT→open, 3 SKILL.md는 PROT 유지",
+    "bats": "bats tests/ → plan 1..615, ok 615 / not ok 0, exit 0. F60 tests ok 196(sub-files)·197(nested/relative)·198(no over-protect)·199(jq absent block exit2)·200(jq absent unrelated pass exit0)",
+    "probes": "scripts/probes/run-all.sh → exit 0, 후보 1건 C1(completeness, security_tier low): 1차 피드백의 미해결 후속 없음을 확인하는 항목. F60 코드·게이트·config·evidence·calibration에 대한 부정 신호 0건",
+    "sc1_config": "git diff --quiet progress/harness-config.json → diff 없음; git diff 568e853^ 568e853 -- progress/harness-config.json → 미변경",
+    "_note": "판정 근거는 이 세션에서 직접 실행한 명령·출력이다. implementer-output.json self-check와 1차 evaluator-feedback는 검증 대상으로만 사용하고 모든 항목을 독립 재현했다. canonical evidence 필드에 기록."
+  }
+}

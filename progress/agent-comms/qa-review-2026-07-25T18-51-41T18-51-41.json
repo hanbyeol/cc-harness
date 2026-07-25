@@ -1,0 +1,244 @@
+{
+  "timestamp": "2026-07-25T18:51:41.130Z",
+  "feature_id": "F60",
+  "sprint": 46,
+  "branch": "feat/f60-protect-skill-dirs",
+  "commit": "568e853",
+  "qa_dimensions": {
+    "usability_impact": {
+      "title": "사용성 영향 (스킬 디렉터리 보호 확장)",
+      "status": "acceptable",
+      "details": [
+        {
+          "scenario": "skills/improve/ 하위에 문서 추가",
+          "impact_before_f60": "보호 대상 없음 (Write 자유)",
+          "impact_after_f60": "보호 대상 됨 (ask 프롬프트)",
+          "friction_level": "minimal",
+          "justification": "3스킬은 티어 라우팅 정의로 ask 프롬프트가 적절한 마찰이며, Edit/Write 사용으로 회피 가능. 기존에 SKILL.md 3개는 이미 보호 중이었으므로 순 증가는 미미."
+        }
+      ],
+      "recommendation": "ACCEPTED — 사용자 메뉴얼(CLAUDE.md)에 Edit/Write 회피 규칙이 명시돼 있으므로 추가 안내 불필요"
+    },
+    "workflow_interactions": {
+      "title": "워크플로우 상호작용",
+      "status": "pass_with_documentation_gap",
+      "findings": [
+        {
+          "workflow": "/improve --auto (무인 루프)",
+          "risk_before_f60": "게이트 정의(SKILL.md)를 하위 파일로 이동 시 우회 가능",
+          "risk_after_f60": "디렉터리 단위 보호로 우회 차단",
+          "status": "✓ 정상 방지",
+          "verification": "INV-12 무인 대상 제외 리스트가 skills/{change-request,improve,hotfix}/SKILL.md를 명시하고 있으며, F60으로 확장된 보호가 하위 파일까지 포괄"
+        },
+        {
+          "workflow": "플러그인 설치/업그레이드",
+          "consideration": "프로젝트 코드와 플러그인 캐시 간 시간 차이 (저장소 코드 ≠ 런타임 훅)",
+          "status": "✓ 정상 범위분리",
+          "note": "evaluator가 저장소 코드 기준으로 검증했으므로 evaluator feedback의 \"runtime_gap_ruling\"에 의해 정당한 범위 분리로 판정됨"
+        },
+        {
+          "workflow": "change-request/implement/hotfix 브랜치",
+          "status": "✓ 영향 없음",
+          "reason": "F60은 is_protected 확장일 뿐 산출물 생성 로직이나 evaluator 기준을 바꾸지 않음"
+        }
+      ]
+    },
+    "documentation_consistency": {
+      "title": "문서 정합성 (CLAUDR.md, general.md, README.md, INVARIANTS.md)",
+      "status": "fail_documentation_gap",
+      "findings": [
+        {
+          "doc": "general.md (.claude/rules/general.md)",
+          "issue": "보호 파일 목록에 skills 디렉터리 미포함",
+          "current_line_12": "하네스 보호 파일(`harness-config.json`, `hooks/*.sh`, `tests/*.bats`, `INVARIANTS.md`, `hooks/hooks.json`, `.claude/settings(.local)?.json`, `feature_list.json`)",
+          "required_update": "skills/{change-request,improve,hotfix}/* 추가 필요",
+          "impact": "low",
+          "risk": "CLAUDE.md의 하네스 워크플로우 섹션에는 보호 파일 안내가 없고, general.md의 산문 목록만 참고하는 사용자가 skills 디렉터리 편집 시 Edit/Write 사용 규칙을 모를 수 있음",
+          "severity": "documentation_drift"
+        },
+        {
+          "doc": "README.md",
+          "check": "테스트 수 동기화",
+          "status": "✓ 동기화됨",
+          "detail": "라인 350에서 \"테스트 615개\"로 명시되어 있으며, evaluator feedback의 \"신규 테스트 5건 추가(기준선 610 + 신규 5)\"와 일치"
+        },
+        {
+          "doc": "INVARIANTS.md (INV-12)",
+          "status": "✓ 정합",
+          "detail": "INV-12에 F60 문단이 추가돼 디렉터리 단위 보호를 명시하고 있으며, 우회의 성격, 교체가 아닌 추가 이유, 경로 기반 보호의 한계를 설명"
+        }
+      ]
+    },
+    "test_scenarios": {
+      "title": "테스트 케이스 5건 시나리오 분석",
+      "test_cases": [
+        {
+          "bats_id": "196",
+          "scenario": "skills/improve/auto-mode.md (하위 디렉터리 파일)",
+          "expected": "is_protected → return 0 (보호)",
+          "coverage": "양성 — 하위 파일 보호 확인",
+          "quality": "good — 실제 사용 사례(스킬 내용 추가)"
+        },
+        {
+          "bats_id": "197",
+          "scenario": "skills/hotfix/sub/dir/nested.md (중첩)",
+          "expected": "is_protected → return 0 (보호)",
+          "coverage": "양성 — 임의 깊이 중첩 보호 확인",
+          "quality": "good — 글롭 아스텔 커버리지 확인"
+        },
+        {
+          "bats_id": "198",
+          "scenario": "skills/implement/parallel-mode.md (무관 스킬)",
+          "expected": "is_protected → return 1 (미보호)",
+          "coverage": "음성 — 과보호 회귀 가드",
+          "quality": "good — F48과 동일한 회귀 가드 패턴"
+        },
+        {
+          "bats_id": "199",
+          "scenario": "jq 부재 시 skill 하위 파일 편집",
+          "expected": "exit 2 (fail-closed)",
+          "coverage": "보안 — jq 부재 시 fail-closed 대칭 검증",
+          "quality": "good — SC-3 보안 조건 커버"
+        },
+        {
+          "bats_id": "200",
+          "scenario": "jq 부재 시 무관 스킬 하위 파일 편집",
+          "expected": "exit 0 (통과, 가용성 보존)",
+          "coverage": "보안 + 가용성 — 과차단 방지",
+          "quality": "good — 두 가지 목표(보안·가용성) 동시 달성 확인"
+        }
+      ],
+      "assessment": "All 5 scenarios are representative of real use patterns and adequately cover positive/negative/security/regression cases."
+    },
+    "regression_scenarios": {
+      "title": "회귀 시나리오 분석",
+      "scenarios": [
+        {
+          "scenario": "게이트 정의 우회 (F58에서 발견한 원인)",
+          "example": "skills/improve/auto-condition.md에 무인 판단 조건 이동",
+          "detection_before_f60": "불가 (하위 파일 보호 없음)",
+          "detection_after_f60": "✓ 보호됨 — jq 부재 시 fail-closed",
+          "status": "PREVENTED"
+        },
+        {
+          "scenario": "F45/F46 대칭 커버리지 약화 (동작하지만 검증 깐깐)",
+          "risk": "글롭 arm을 기존 arm 대체로 추가하면 대칭(b) 파서에서 빠져 조용한 약화",
+          "mitigation_in_f60": "기존 full-path arm 3쌍 유지 + 글롭 추가 (교체 아님)",
+          "verification": "대칭(b) 토큰 추출 12개 불변 (commit 568e853에서 evaluator가 검증)",
+          "status": "MITIGATED"
+        },
+        {
+          "scenario": "저장소·런타임 갭 (F60 자체는 저장소 코드 기준)",
+          "risk": "plugin update 전까지 런타임에서 글롭 arm이 작동 안 함",
+          "handling": "evaluator feedback의 \"runtime_gap_ruling\"에서 정당한 범위 분리로 판정 (저장소 코드 기준이 맞음)",
+          "status": "ACKNOWLEDGED"
+        }
+      ]
+    }
+  },
+  "cross_feature_assessment": {
+    "title": "크로스 기능 QA 최종 판정",
+    "issues": [
+      {
+        "id": "DOC-001",
+        "type": "documentation_drift",
+        "severity": "low",
+        "affected_file": ".claude/rules/general.md",
+        "issue": "보호 파일 목록에 skills 디렉터리 명시 부족",
+        "current_state": "skills 미포함",
+        "expected_state": "skills/{change-request,improve,hotfix}/* 포함",
+        "impact": "사용자가 Edit/Write 규칙(general.md 라인 12)을 적용해야 할 때 skills 디렉터리를 놓칠 수 있음",
+        "root_cause": "F60이 SKILL.md 3개를 파일 단위에서 디렉터리 단위로 확장했으나, general.md의 목록이 동기화되지 않음",
+        "recommendation": "general.md 라인 12의 보호 파일 목록을 업데이트해 skills 디렉터리를 명시",
+        "blocker": false
+      }
+    ],
+    "regressions_found": 0,
+    "blocking_issues": 0,
+    "design_gaps": 0,
+    "verdict": "PASS_WITH_DOCUMENTATION_UPDATE",
+    "verdict_explanation": "기능 동작(is_protected 글롭 확장, 테스트 5건, 무인 루프 보호)은 모두 정상이며, evaluator의 판정(pass, score 8)이 정당하다. 다만 사용자 교육 문서(general.md)와 저장소 코드의 동기화 갭이 있으므로, 이를 수정한 후 완전 PASS로 전환 권고."
+  },
+  "qa_checklist": [
+    {
+      "check": "사용성: 정상 작업 차단 여부",
+      "status": "PASS",
+      "note": "ask 프롬프트는 마찰이지 차단이 아님"
+    },
+    {
+      "check": "사용성: Edit/Write 회피 가능성",
+      "status": "PASS",
+      "note": "CLAUDE.md 메뉴얼과 general.md 규칙이 안내"
+    },
+    {
+      "check": "워크플로우: /improve --auto 우회 방지",
+      "status": "PASS",
+      "note": "INV-12 + F60 보호로 정상 방지"
+    },
+    {
+      "check": "워크플로우: 플러그인 캐시 분리",
+      "status": "PASS",
+      "note": "evaluator feedback에서 runtime_gap 정당화"
+    },
+    {
+      "check": "워크플로우: evaluator·test-writer·security-auditor 상호작용",
+      "status": "PASS",
+      "note": "각 에이전트가 기존 계약 기반으로 독립 수행"
+    },
+    {
+      "check": "문서: INVARIANTS.md INV-12 정합",
+      "status": "PASS",
+      "note": "F60 문단 추가로 디렉터리 보호 명시"
+    },
+    {
+      "check": "문서: general.md 보호 파일 목록",
+      "status": "FAIL",
+      "note": "skills 디렉터리 미포함 — 업데이트 필요"
+    },
+    {
+      "check": "문서: README.md 테스트 수",
+      "status": "PASS",
+      "note": "615로 동기화됨"
+    },
+    {
+      "check": "테스트: 양성 시나리오 (2건)",
+      "status": "PASS",
+      "note": "bats 196·197 — 하위 파일·중첩 보호"
+    },
+    {
+      "check": "테스트: 음성 시나리오 (1건)",
+      "status": "PASS",
+      "note": "bats 198 — 과보호 회귀 가드"
+    },
+    {
+      "check": "테스트: 보안 시나리오 (2건)",
+      "status": "PASS",
+      "note": "bats 199·200 — jq 부재 fail-closed·가용성"
+    },
+    {
+      "check": "테스트: mutation 커버리지",
+      "status": "PASS",
+      "note": "글롭 제거 시 F60만 실패, F48 무변경(추가 증명)"
+    },
+    {
+      "check": "회귀: 게이트 우회 시나리오",
+      "status": "PASS",
+      "note": "F58 원인(경로 단위 한계) 정상 해결"
+    },
+    {
+      "check": "회귀: 대칭 파서 약화",
+      "status": "PASS",
+      "note": "토큰 12개 불변 (교체 아닌 추가)"
+    }
+  ],
+  "summary": {
+    "feature": "F60 — invariant-guard 보호 범위 디렉터리 확장",
+    "scope": "is_protected() 글롭 arm 추가 + 테스트 5건 + 문서 1건",
+    "evaluator_verdict": "PASS (score 8/10, security 8, error_handling 9)",
+    "qa_verdict": "PASS_WITH_MINOR_DOCUMENTATION_UPDATE",
+    "qa_focus_areas": "크로스 기능(무인 루프·플러그인·스킬 라우팅)·문서 정합성·사용성",
+    "blockers": 0,
+    "documentation_gap_count": 1,
+    "recommendation": "general.md 보호 파일 목록 업데이트 후 완전 PASS. 저장소·런타임 갭은 evaluator feedback에 의해 정당한 범위 분리로 판정됨."
+  }
+}
