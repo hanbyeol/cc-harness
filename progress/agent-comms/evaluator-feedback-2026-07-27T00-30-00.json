@@ -1,0 +1,190 @@
+{
+  "timestamp": "2026-07-27T00:30:00+09:00",
+  "_timestamp_note": "파일명 타임스탬프는 이 저장소의 단조 증가 규약을 따른다(실제 벽시계는 2026-07-26T13:07+09:00). invariant-guard.sh:525 · session-context.sh:70 · probes/{calibration,completeness,evidence}.sh가 'latest feedback'을 파일명 역순 정렬(sort -r | head -1)로 해석하므로, 직전 판정(T23-30-00)보다 사전순으로 뒤에 와야 최신 판정으로 읽힌다. 벽시계 시각을 쓰면 stale fail 판정이 최신으로 읽혀 INV-11이 오작동한다.",
+  "sprint": 45,
+  "iteration": 2,
+  "features_evaluated": [
+    "F59"
+  ],
+  "security_tier": "standard",
+  "verification_tier": "standard",
+  "commit_evaluated": "945c440",
+  "prior_verdict": "evaluator-feedback-2026-07-26T23-30-00.json (fail, min-of-5=6, error_handling=6, commit 8e48b0c)",
+  "scores": {
+    "functionality": 8,
+    "code_quality": 8,
+    "security": 9,
+    "error_handling": 8,
+    "test_coverage": 7
+  },
+  "score": 7,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_threshold_applied": 5,
+  "verdict": "pass",
+  "verdict_note": "반려 해제 조건이던 ES-2 후반부(재확인 트리거 백로그 등록)가 충족됐고, 함께 권고된 3건도 모두 실제로 해소됐음을 독립 검증으로 확인했다. 점수는 전 회차 대비 error_handling 6→8, security 8→9, functionality·code_quality 7→8로 올랐고 test_coverage만 7로 유지된다 — 지목된 사각(templates/CLAUDE.md.tmpl)은 닫혔으나 **같은 클래스의 네 번째 사본**(templates/docs/HARNESS-GUIDE.md:341)이 여전히 잠기지 않았기 때문이다. 이는 계약 문언 미충족이 아니라 커버리지 잔여이며 min-of-5=7로 통과 요건을 만족한다.",
+  "independence_note": "이 판정은 이전 판정을 상속하지 않는다. AC-1의 핵심 경험적 주장(frontmatter isolation 적용)을 이 세션에서 직접 재디스패치해 재현했고, 4갈래 mutation·테스트 625건·게이트 불변성·철회 주장 제거를 모두 자체 실행으로 확인했다. 이전 판정이 '반려 해제에 필요한 것은 ES-2 1건'이라고 명시했으나, 그 조건 충족 여부와 무관하게 신규 결함 탐색을 별도로 수행했고 실제로 1건(I3)을 새로 찾았다.",
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1 — 세 필드 규명 완료 + 기록. **evaluator가 이 세션에서 독립 재현**: cc-harness:test-writer를 isolation 파라미터 **없이** 디스패치(파일 생성 금지 지시) → pwd = /Users/hanbyeol/Project/studioj/cc-harness/.claude/worktrees/agent-a0c570c019c0c9885, git rev-parse --show-toplevel 동일, branch = worktree-agent-a0c570c019c0c9885, git worktree list에 locked 등재. 종료 후 잔존 0. frontmatter 선언만으로 격리가 걸린다는 주장을 구현자 보고에 의존하지 않고 확인했다. 기록은 contract _result · agents/test-writer.md 산문 · feature_list · acceptance-criteria · lessons.md 5곳에 존재",
+      "AC-2 — not_applicable 종료가 일관되게 반영됨. Q3=B(이중 보호 유지, open_design_questions에 '사용자 결정 2026-07-26'으로 기록)에 따라 강등하지 않았고, 호출자 측 산문 3곳·frontmatter 선언 모두 무손실. **전 회차 criteria_gaps였던 '조건부 기준의 not_applicable 종료를 레지스트리에 반영하는 경로 부재'가 이번에 실질 해소됐다** — feature_list F59·acceptance-criteria F59가 비강등 결과를 반영해 재작성됐다",
+      "AC-3 — 미적용 필드 미선언. evaluator 실측: 저장소 agents/*.md 8개 frontmatter 전수(awk 추출)에 maxTurns·disallowedTools 0건, 캐시 v1.35.0 agents/ 전수에도 0건. 캐시 test-writer.md의 isolation 선언은 존재(측정 조건 성립 확인)",
+      "AC-4 — 회귀 없음. bats tests/ 1회 실행(재실행 없음): 1..625 / ok 625 / not ok 0 / skip 1 / exit 0. F59 신규 2건은 603·604번으로 통과. scripts/probes/run-all.sh: 후보 1건(C1 — 직전 판정 파일의 action_required를 미해결로 읽는 completeness 프로브, 이 판정으로 해소됨), 신규 결함 후보 0"
+    ],
+    "security": [
+      "SC-1 — 보호 공백 없음. 이번 재작업은 계층을 **제거하지 않고 잠금 범위를 넓혔다**. evaluator가 저장소를 건드리지 않고 임시 사본으로 4갈래 mutation을 정적 증명: (A) agents/test-writer.md의 isolation 선언 제거 → 테스트 603 실패, (B) CLAUDE.md, (C) skills/implement/SKILL.md, (D) templates/CLAUDE.md.tmpl의 지시 제거 → 각각 테스트 604 실패. 세 파일 모두 same-line 매치가 정확히 1줄이므로 패턴이 느슨하지 않다",
+      "SC-2 — 게이트 불변. git diff 9b39dcd..HEAD -- progress/harness-config.json docs/INVARIANTS.md → 빈 출력. harness-config 실측값 pass_threshold 7 · score_method min_of_5 · security_thresholds {critical 7, standard 5, low 3} — 하향 없음",
+      "SC-3 — 거짓 보증 없음, 그리고 **역방향 거짓 주장까지 제거됨**. 저장소·캐시 어디에도 미적용 필드 선언이 없다(AC-3 실측). 나아가 '적용되지 않는다'는 철회된 주장 3곳이 정정됐다 — 미적용 선언과 마찬가지로 사실과 어긋나는 보증이며, 이쪽은 '보호가 없다'고 잘못 믿게 만들어 산문 제거를 정당화할 수 있었다. 저장소 전수 grep으로 철회 문구가 agent-comms(역사적 기록, 보존 적절) 밖에 남아 있지 않음을 확인"
+    ],
+    "error_scenarios": [
+      "**ES-2 — 충족(반려 해제 조건). 이것이 직전 fail의 유일한 사유였다.** progress/session-handoff.json follow_ups_backlog **1번 항목**에 재확인 트리거가 등록됨: 시점 3가지((a) Claude Code 마이너 버전 상승 (b) frontmatter 필드 신규 선언 시 (c) 최소 반기 1회) + 절차(agents/test-writer.md 산문의 4단계 참조) + 재개 조건('결과가 바뀌면 Q3 결정을 재검토한다'). 버전 명시(2.1.220 · v1.35.0)는 5곳에 유지. 조건부 결정에 조건을 다시 열 트리거가 생겼으므로 ES-2가 막으려던 '유예로 굳음'이 닫혔다. 확인 경로: session-handoff-draft.json은 Stop 훅이 소비해 session-handoff.json으로 병합 완료(파일 부재는 정상 동작이며 F56이 고친 캐리오버 경로)",
+      "ES-1 — '규명 불가' 회피 경로 미남용. 세 필드 모두 적용/미적용 판정을 받았고 관측 불가로 분류한 항목 0건",
+      "ES-3 — maxTurns 미도입. 값 설정 없이 미적용 판정만 기록했으므로 '너무 낮은 상한으로 정상 작업 절단' 위험 미발생"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "issues": [
+    {
+      "id": "I3",
+      "severity": "medium",
+      "confidence": "high",
+      "category": "test_coverage",
+      "status": "new",
+      "title": "호출자 측 지시의 **네 번째 사본**이 여전히 잠기지 않았다 — 인스턴스는 닫혔고 클래스는 열려 있다",
+      "detail": "이번 재작업은 직전 판정이 이름을 지목한 파일(templates/CLAUDE.md.tmpl)을 테스트에 추가했다. 그러나 저장소 전수 검사 결과 같은 지시의 사본이 하나 더 있다 — **templates/docs/HARNESS-GUIDE.md:341**: 'test-writer는 테스트 파일을 생성하므로 `isolation: \"worktree\"`로 격리해 파일 충돌을 방지합니다.' 문맥도 동일하다(병렬 실행 섹션, CLAUDE.md:54·tmpl:86과 같은 자리). 테스트 604의 파일 목록은 CLAUDE.md · skills/implement/SKILL.md · templates/CLAUDE.md.tmpl 3개뿐이라 이 줄을 지워도 625건이 전량 통과한다. 나머지 매치(agent-comms 판정 기록·contract·feature_list·lessons.md·테스트 자신)는 역사적 서술이므로 잠금 대상이 아니다 — 실제 잔여 사본은 이 1건이다.",
+      "why_it_matters": "evals/calibration/false-positives.json에 F52로 **두 번 연속** 기록된 실패 패턴과 같은 형태다: '실증된 인스턴스를 닫는 것은 클래스를 닫는 것이 아니다.' 직전 판정이 tmpl을 지목했고 재작업은 정확히 그 한 파일을 추가했을 뿐, '배포되는 호출자 측 지시 사본 전수'를 열거하지 않았다. 구현자가 tmpl을 추가하며 든 근거('다운스트림 기준으로는 그쪽이 정본')는 templates/docs/HARNESS-GUIDE.md에도 그대로 적용된다 — 둘 다 templates/ 아래 소비 프로젝트로 배포되는 산출물이다.",
+      "mitigation_observed": "high가 아니라 medium인 이유: HARNESS-GUIDE.md는 소비자용 **설명 문서**이지 메인 루프가 읽는 작동 지시가 아니다. 강제 계층(frontmatter 선언 + CLAUDE.md + skills/implement + tmpl) 4개는 모두 잠겨 있으므로 이 줄이 사라져도 보호가 줄지 않고 설명이 줄 뿐이다. SC-1(보호 공백 없음)은 온전히 성립한다.",
+      "remedy": "테스트 604의 for 루프 목록에 templates/docs/HARNESS-GUIDE.md를 추가(1줄). 더 나은 형태는 목록을 하드코딩하는 대신 '보호 지시를 담은 배포 산출물'을 계약에 먼저 열거하고 테스트가 그 목록을 참조하게 하는 것이다 — 그래야 다섯 번째 사본이 생겨도 같은 반려가 반복되지 않는다."
+    },
+    {
+      "id": "I1",
+      "severity": "medium",
+      "confidence": "high",
+      "category": "error_handling",
+      "status": "new (ES-2 충족을 전제로 한 잔여 위험 — 반려 사유 아님)",
+      "title": "ES-2 재확인 트리거가 **git 추적 밖** 파일에만 존재한다",
+      "detail": ".gitignore:12-13이 progress/session-handoff.json과 progress/session-handoff-draft.json을 모두 무시한다(git ls-files 확인: 두 파일 모두 미추적). 즉 (a) Claude Code 마이너 버전 상승 (b) frontmatter 신규 선언 (c) 반기 1회라는 세 트리거 시점은 **이 머신의 로컬 파일에만** 있고 저장소에는 커밋되지 않았다. 커밋된 산출물에서 트리거를 찾으면 feature_list.json F59의 '재확인 트리거는 백로그에 기록했다(ES-2)'라는 **포인터**만 나오고, 가리키는 대상이 추적 밖이라 새 클론·다른 머신에서는 따라갈 수 없다. agents/test-writer.md 산문에는 측정 4단계와 '다음 버전 보장 없음'은 있으나 트리거 시점 3가지는 없다.",
+      "why_it_matters": "ES-2가 막으려는 실패 모드가 정확히 이것이다 — 조건부 결정이 조건을 다시 열 수단 없이 유예로 굳는 것. 트리거 기록이 유실되면 ES-2의 목적이 무효화된다. F56의 교훈 자체가 백로그 유실이었다는 점에서 아이러니가 있다.",
+      "why_not_a_fail": "판정을 뒤집지 않는 이유가 셋이다. (1) ES-2 문언은 '백로그에 남긴다'이고 follow_ups_backlog가 이 하네스의 백로그다 — 다른 위치를 요구하지 않는다. (2) 직전 판정이 remedy로 **이 위치를 명시 지정**했고 구현자는 그대로 이행했다. 이제 와서 더 강한 위치를 요구하는 것은 골대 이동이다. (3) 이 저장소의 후속 항목 10건 전부가 같은 파일에 살며, F59에만 더 높은 내구성 기준을 적용할 근거가 없다(직전 판정도 I4에서 같은 자기제약을 적용했다).",
+      "remedy": "트리거 시점 3가지를 추적되는 산출물에 미러링한다 — agents/test-writer.md의 '측정 이력' 문단이 가장 자연스럽다(측정 절차 4단계가 이미 거기 있고, 트리거가 바로 그 절차를 참조한다). 백로그는 워킹 큐로 두고 항구적 규칙은 커밋되는 곳에 둔다."
+    },
+    {
+      "id": "I2",
+      "severity": "low",
+      "confidence": "high",
+      "category": "code_quality",
+      "status": "new — 이번 커밋이 유입시킨 회귀",
+      "title": "945c440이 JSON 두 개의 끝 개행을 제거했다",
+      "detail": "evals/acceptance-criteria.json과 progress/feature_list.json은 8e48b0c까지 끝 개행이 있었고 945c440에서 사라졌다(git show의 '\\ No newline at end of file' 2건, 커밋 전후 tail -c 1 대조로 확인). JSON 파싱은 정상이고 bats 624 'all JSON files are valid'도 통과한다. 저장소 전체로는 추적 JSON 94개 중 9개가 끝 개행이 없어 이미 혼재 상태이며, progress/contracts/sprint-45.json은 앞선 0140e64에서 같은 식으로 잃었다.",
+      "why_it_matters": "기능 영향은 없다. 다만 같은 직렬화 경로가 세 번째 파일에서 반복됐고, 그중 하나가 하네스 보호 파일(feature_list.json)이라 향후 diff가 항상 마지막 줄을 포함해 노이즈가 된다.",
+      "remedy": "JSON을 쓰는 경로에서 마지막에 개행을 붙인다. 소급 정리는 별도 커밋으로 9개 일괄이 낫다(F59 범위 밖)."
+    },
+    {
+      "id": "I8",
+      "severity": "low",
+      "confidence": "high",
+      "category": "bookkeeping",
+      "status": "carried over — 직전 판정 action_required (5), 미이행",
+      "title": "contract가 자기 실행 상태에 대해 여전히 자기모순이다",
+      "detail": "progress/contracts/sprint-45.json의 implementation_steps 5개가 전부 done:false인데 AC-1·AC-2는 done:true이고 _result까지 있다. AC-3·AC-4는 반대로 done 표기도 _result도 없다(evaluator 실측으로는 둘 다 충족). step 1(규명)과 step 5(회귀 검증)는 명백히 실행됐고 step 2(Plan 게이트)는 Q3 resolution에 '사용자 결정 2026-07-26'으로 기록돼 있다.",
+      "why_it_matters": "판정에는 영향이 없지만 계약 파일이 스프린트 종료 상태의 기록으로 쓰이므로, 다음에 이 계약을 읽는 쪽이 '3·4단계가 남았다'고 오독할 수 있다. 실제로는 step 3(강등 실행)이 Q3=B로 not_applicable, step 4는 AC-3로 이행 완료다.",
+      "remedy": "step 1·2·5 → done:true, step 3·4 → not_applicable(사유 1줄), AC-3·AC-4에 done:true + _result 추가. 이 판정의 passed_criteria 문구를 그대로 옮겨 쓸 수 있다."
+    },
+    {
+      "id": "I4",
+      "severity": "low",
+      "confidence": "high",
+      "category": "test_coverage",
+      "status": "carried over — 백로그 등재됨, 구조적 한계",
+      "title": "산문 잠금은 삭제만 막고 의미 역전을 막지 못한다",
+      "detail": "grep -qE 'test-writer.*isolation.*worktree'는 한 줄에 세 토큰이 순서대로 있으면 통과하므로, 'test-writer는 파일을 생성하지만 isolation:\"worktree\"는 frontmatter가 강제하므로 디스패치 시 지정하지 않는다' 같은 **강등 그 자체**를 서술한 문장도 통과한다.",
+      "why_not_scored_down": "F59 고유 결함이 아니라 이 저장소의 기존 산문 잠금(tests/subagent-mode.bats:21 등)이 공유하는 구조적 한계이고, follow_ups_backlog 3번 항목으로 등재돼 있다. F59에만 더 높은 기준을 적용하지 않는다.",
+      "remedy": "없음(추적 중). 의미 수준 검증이 필요한 클래스로 분류돼 있다."
+    },
+    {
+      "id": "I5",
+      "severity": "low",
+      "confidence": "medium",
+      "category": "evidence",
+      "status": "carried over — 정직하게 기록됨, 미해소",
+      "title": "positive control은 기록됐을 뿐 실행되지는 않았다",
+      "detail": "implementer-output.json의 evidence.positive_control_gap과 limitations_honest에 '음성 결과를 낸 세션에서 isolation이 여전히 작동했다는 관측을 남기지 않았다'가 그대로 기록됐다. 요청받은 것이 '기록'이었으므로 이행은 완전하다. 다만 통제 자체는 여전히 없으므로 disallowedTools·maxTurns의 **미적용** 결론은 '로드됐는데 무시됨'과 '로드 안 됨'을 기록만으로 구분하지 못한다. evidence.maxTurns_assumption도 turn == tool call 가정 의존을 명시했다 — 세 판정 중 가장 약한 근거라고 스스로 표기했다.",
+      "why_not_scored_down": "이 약한 결론이 **아무 보호도 제거하지 않았다**. Q3=B로 이중 보호를 유지했고 미적용 필드는 선언하지 않았으므로, 결론이 틀렸더라도 손실이 없는 방향(보수적)으로 종결됐다. 또한 선행 grep으로 세 선언이 같은 파일 같은 블록에 캐시에 존재함을 확인했고, isolation은 두 명의 독립 evaluator가 각자 재현했다.",
+      "remedy": "다음 측정 회차에서 음성 결과와 양성 대조를 같은 세션에 함께 기록한다(ES-2 트리거 발동 시 자연히 수행됨)."
+    },
+    {
+      "id": "I6",
+      "severity": "low",
+      "confidence": "high",
+      "category": "observation",
+      "status": "carried over — 백로그 등재됨, F59 범위 밖",
+      "title": "worktree가 메인 HEAD가 아니라 릴리스 커밋에서 체크아웃된다",
+      "detail": "evaluator의 독립 재현에서 재확인: 메인은 945c440인데 생성된 worktree의 HEAD는 382c2f4(v1.35.0 릴리스 커밋)였다. 직전 판정도 같은 값을 관측했다 — 재현성 있는 동작이며 우연이 아니다. 격리 자체는 정상 작동한다.",
+      "why_it_matters": "F59 판정에는 무관하나, 병렬 implementer/test-writer의 산출을 메인으로 가져오는 병합 프로토콜(skills/implement/SKILL.md)이 '자식은 메인 HEAD에서 출발한다'를 전제한다면 어긋난다. 병렬 병합에서 예상 밖 충돌이 반복되면 이것을 먼저 의심할 것.",
+      "remedy": "없음(정보). follow_ups_backlog 4번으로 등재돼 있다."
+    },
+    {
+      "id": "I7",
+      "severity": "low",
+      "confidence": "high",
+      "category": "housekeeping",
+      "status": "new — F59 범위 밖 부수 관측",
+      "title": "evaluator-feedback 파일이 보관 한도를 넘었다",
+      "detail": "harness-config.json의 agent_comms.max_files_per_type이 10이고 archive_enabled가 true인데, 이 판정을 쓰기 전 시점에 evaluator-feedback-*.json이 11개다. 아카이빙이 한도를 따라가지 못하고 있다.",
+      "why_it_matters": "F59와 무관하며 판정에 반영하지 않았다. 다만 파일명 역순 정렬로 '최신 판정'을 찾는 경로가 5곳(invariant-guard·session-context·프로브 3종)이므로, 보관 정책이 느슨하면 오래된 판정이 누적되며 탐색 비용과 오독 위험이 함께 는다.",
+      "remedy": "없음(정보). 아카이빙 동작을 별도로 확인할 가치가 있다."
+    }
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [
+      "**보호 지시의 사본 집합을 정의한 기준이 여전히 없다**(직전 판정에서 지적, 이번에도 미해소 — I3가 그 결과다). 계약은 CLAUDE.md와 skills/implement만 지목했고, 재작업은 evaluator가 이름을 댄 tmpl 하나를 더했다. 어느 단계에서도 '보호 지시를 담은 배포 산출물 전수'를 열거하지 않았기 때문에 네 번째 사본(templates/docs/HARNESS-GUIDE.md)이 또 빠졌다. 산문 보호를 다루는 기준은 파일 목록을 결과가 아니라 **입력**으로 먼저 확정해야 한다.",
+      "버전 의존적 결론의 **기록 위치**에 대한 기준이 없다. ES-2는 '백로그에 남긴다'까지만 정하고 그 백로그가 추적되는지를 묻지 않는다(I1). 항구적 규칙과 워킹 큐를 구분하는 문언이 필요하다."
+    ],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "criteria_backfill_review": {
+      "count": 2,
+      "assessment": "직전 회차와 동일한 2건(Q3 신설, AC-1 검증 절차 강화)이며 이번 재작업은 새 backfill을 추가하지 않았다. 둘 다 범위 확장이나 요건 완화가 아니다 — Q3는 계약이 예상하지 못한 실제 상황(일부 적용 + 강등 안 함)의 문서화이고, AC-1 절차 보강은 요건을 **강화**한 방향이다. 3건 미만이므로 spec/architecture 재검토 권고 없음.",
+      "user_confirmation_needed": []
+    },
+    "action_required": "다음 회전 후속(모두 통과 후 개선이며 반려 사유 아님): (1) 테스트 604에 templates/docs/HARNESS-GUIDE.md 추가 — 더 나은 형태는 계약이 배포 산출물 전수를 먼저 열거하고 테스트가 그 목록을 참조하는 것(I3). (2) ES-2 트리거 3시점을 agents/test-writer.md 측정 이력 문단에 미러링해 추적 대상으로 만든다(I1). (3) JSON 끝 개행 회귀 정리(I2). (4) sprint-45.json의 step/AC done 표기 정리(I8)."
+  },
+  "evidence": {
+    "tests": "bats tests/ — 1회 실행(재실행 없음), 출력 파싱. 1..625 / ok 625 / not ok 0 / skip 1 / exit 0. F59 신규 2건 = 603 'test-writer declares isolation in frontmatter (half of the double guard)', 604 'caller-side isolation instruction is kept (the other half)' 모두 ok.",
+    "probes": "bash scripts/probes/run-all.sh — 후보 1건만 반환: C1(completeness, low) = 직전 판정 파일의 action_required를 미해결로 읽은 것으로 이 판정으로 해소. 신규 결함 후보 0.",
+    "ac1_independent_reproduction": "evaluator가 cc-harness:test-writer를 **isolation 파라미터 없이** 직접 디스패치(파일 생성 금지 지시, 읽기 전용 환경 보고만 요청). 반환값 — pwd: /Users/hanbyeol/Project/studioj/cc-harness/.claude/worktrees/agent-a0c570c019c0c9885 · git rev-parse --show-toplevel: 동일 경로 · branch: worktree-agent-a0c570c019c0c9885 · HEAD: 382c2f4 · git worktree list: 'agent-a0c570c019c0c9885 382c2f4 [worktree-agent-a0c570c019c0c9885] locked' 등재(메인은 945c440 [main]). ISOLATION=worktree. **AC-1의 핵심 주장을 구현자 보고에도 직전 판정에도 의존하지 않고 이 세션에서 재현했다.**",
+    "mutation_4way": "저장소를 변경하지 않고 scratchpad 임시 사본으로 정적 증명. (A) agents/test-writer.md에서 'isolation: worktree' 제거 → 테스트 603의 awk+grep이 매치 실패 = 실패 감지. (B) CLAUDE.md (C) skills/implement/SKILL.md (D) templates/CLAUDE.md.tmpl 각각에서 'test-writer.*isolation.*worktree' 매치 줄 제거 → 해당 파일에 잔여 매치 0 = 테스트 604 실패 감지. 무변경 기준선은 4갈래 모두 통과. 세 파일의 same-line 매치 수는 각각 정확히 1 — 패턴이 느슨하지 않음을 확인(CLAUDE.md에는 isolation 언급이 2줄 있으나 test-writer 동일 줄은 1줄).",
+    "class_closure_check": "false-positives.json의 F52 교훈('인스턴스가 아니라 클래스를 닫았는가')을 적용해 git ls-files 전수에서 'test-writer.*isolation.*worktree' same-line 매치를 검색. 잠긴 3파일 외 매치는 agent-comms 판정 기록 2건 · sprint-45.json · feature_list.json · lessons.md · 테스트 자신(모두 역사적 서술, 잠금 대상 아님)과 **templates/docs/HARNESS-GUIDE.md:341(실제 잔여 사본 1건 — I3)**.",
+    "es2_backlog_verification": "progress/session-handoff.json의 follow_ups_backlog **1번 항목**에 ES-2 트리거 존재 확인(python3 json 파싱). 내용 — 시점 (a)Claude Code 마이너 버전 상승 (b)frontmatter 필드 신규 선언 시 (c)최소 반기 1회 + 절차(test-writer.md 4단계 참조) + '결과가 바뀌면 Q3 결정을 재검토한다'. session-handoff-draft.json은 부재(Stop 훅이 소비해 병합 완료 — F56이 고친 정상 경로). 추가 확인: .gitignore:12-13이 두 파일을 무시하며 git ls-files에 없음 → I1.",
+    "retracted_claim_removal": "저장소 전수 grep('적용되지 않음을 실측' · '무시되는 것으로 보인다' · '미적용을 실측' · 'frontmatter 선언이 플러그인')에서 agent-comms 밖 잔존 0건. 개별 확인 — feature_list F59: 'isolation은 적용되고 … F56이 기록했던 적용되지 않음을 실측 확인은 철회됐다'로 재작성. feature_list F57: '철회됐고 F59에서 적용으로 확정됐다 — 다만 형제 필드로 일반화할 수 없으므로 effort 미선언 결정은 규명 불가라는 독립 근거로 유지'로 정정(일반화 금지 논리가 정확하다). acceptance-criteria F59 summary: 규명 결과 + 4단계 측정 절차 중심으로 재작성.",
+    "sc2_gate_immutability": "git diff 9b39dcd..HEAD -- progress/harness-config.json docs/INVARIANTS.md → 빈 출력. harness-config.json 실측: pass_threshold 7 · max_iterations 5 · score_method min_of_5 · security_thresholds {critical 7, standard 5, low 3}. 945c440의 변경 파일 6개 목록에 두 파일 부재.",
+    "ac3_field_absence": "저장소 agents/*.md 8개의 frontmatter를 awk로 추출해 '^(maxTurns|disallowedTools):' 검색 → 0건. 캐시 ~/.claude/plugins/cache/cc-harness-marketplace/cc-harness/1.35.0/agents/*.md → 0건. 같은 캐시의 test-writer.md에는 isolation 선언 존재(측정 조건 성립).",
+    "newline_regression": "커밋별 tail -c 1 대조 — evals/acceptance-criteria.json과 progress/feature_list.json은 9b39dcd·0140e64·e9f5698·8e48b0c에서 끝 개행 있음, 945c440에서 없음. sprint-45.json은 0140e64부터 없음. 추적 JSON 94개 중 9개가 끝 개행 없음. 3파일 모두 json.load 파싱 정상.",
+    "implementer_claims_verified_independently": "구현자 보고 중 재확인한 항목 — 625/0(일치), mutation 4갈래 포착(일치, 단 evaluator는 정적 증명으로 재현), harness-config·INVARIANTS diff 없음(일치), ES-2 백로그 등재(일치), 철회 주장 3곳 정정(일치), positive_control_gap·maxTurns_assumption 기록(일치). 구현자가 주장하지 않았으나 evaluator가 확인한 항목 — AC-3 충족, AC-4 프로브 부분, isolation 재현. **구현자 보고와 어긋난 항목 없음.** 구현자가 files_changed에 'progress/session-handoff-draft.json'을 적었으나 현재 파일은 부재 — 오기가 아니라 Stop 훅 소비에 따른 정상 상태이며 내용은 session-handoff.json에 병합돼 있음을 확인했다.",
+    "_note": "canonical 필드명은 evidence다(F47). 모든 pass 판정 근거는 이 세션에서 직접 실행한 명령과 그 출력이며, unverified로 표기한 차원은 없다."
+  },
+  "score_rationale": {
+    "functionality": "8 — AC-1~AC-4 전부 실행 근거로 충족. AC-1의 핵심 경험적 주장을 evaluator가 자체 디스패치로 재현했고, AC-3는 저장소와 캐시 양쪽 실측, AC-4는 625/0. 9-10이 아닌 이유: 규명 결과 3건 중 maxTurns 판정이 turn == tool call 가정에 의존한다고 구현자 스스로 표기했고 그 가정은 검증되지 않았다(I5). 규명은 완료됐으나 세 판정의 근거 강도가 균일하지 않다.",
+    "code_quality": "8 — 테스트를 3파일 루프로 일반화한 형태가 향후 사본 추가에 견디고, 주석이 '왜 same-line인가'까지 설명한다. 철회 주장 정정은 단순 삭제가 아니라 F57에서 '형제 필드로 일반화할 수 없으므로 별개 근거로 유지'라는 정확한 논리를 세웠다. 9가 아닌 이유: 이번 커밋이 JSON 2개의 끝 개행 회귀를 유입했고(I2), 직전 판정이 지목한 계약 정합성 정리(I8)가 미이행이다. 둘 다 기능 영향 없는 위생 문제라 7로 내리지는 않았다.",
+    "security": "9 — SC-1·SC-2·SC-3 전부 실행 근거로 충족하며, 이번 재작업은 보호를 **줄이지 않고 늘렸다**. 지우면 625건이 전량 통과하던 실증된 구멍(tmpl)이 닫혔고 mutation으로 확인했다. SC-3는 미적용 선언 부재를 넘어 역방향 거짓 주장(적용되지 않는다)까지 제거했다 — 후자가 더 위험한 쪽이었다. 산문 제거를 정당화할 수 있었기 때문이다. 10이 아닌 이유: 잠금 범위가 여전히 열거식이라 클래스가 닫히지 않았다(I3). 다만 I3는 설명 문서 1건이고 강제 계층 4개는 모두 잠겨 있으므로 SC-1의 '보호 공백'에는 해당하지 않아 보안 점수를 7 이하로 내리지 않았다. standard 티어 임계 5를 충분히 상회.",
+    "error_handling": "8 — ES-1·ES-2·ES-3 전부 충족. 직전 fail의 유일한 사유였던 ES-2 후반부가 닫혔고, 트리거가 시점·절차·재개 조건을 모두 갖춰 '조건부 결정이 유예로 굳음'을 실제로 막는 형태다. 여기에 자기 음성 결과의 통제 부재(positive control)와 가정 의존(maxTurns)을 스스로 evidence에 기록한 것은 요구된 수준 이상이다. 9가 아닌 이유: 트리거가 git 추적 밖 파일에만 있어 내구성이 백로그 캐리오버 메커니즘에만 의존한다(I1). 6→8 상향은 계약 문언 충족 + 기록 품질 개선을 함께 반영한 것이다.",
+    "test_coverage": "7 — 625/0에 F59 전용 2건이 4갈래 mutation을 모두 포착함을 evaluator가 독립 증명했다. 직전 회차의 명시적 사각(tmpl)이 닫혔다. 그럼에도 8로 올리지 않은 이유는 하나다: **같은 클래스의 네 번째 사본이 아직 잠기지 않았다**(templates/docs/HARNESS-GUIDE.md:341, I3). 직전 판정이 이름을 댄 인스턴스만 닫고 클래스를 열거하지 않았기 때문에 발생한 잔여이며, false-positives.json에 두 번 기록된 실패 패턴의 재발이다. 통과 요건(7)은 만족하나 개선 여지를 점수에 정직하게 반영한다."
+  },
+  "self_bias_check": {
+    "against_optimism": "구현자 보고와 직전 판정을 근거로 삼지 않고 재확인했다 — isolation은 자체 디스패치로, mutation은 자체 사본으로, ES-2는 파일 파싱으로, 게이트 불변은 자체 diff로 확인했다. 직전 판정이 '반려 해제에 필요한 것은 ES-2 1건'이라고 못박았지만 그것을 통과 사유로 삼지 않고 신규 결함 탐색을 별도로 수행했고, 실제로 I3(신규 medium)·I2(신규 low)·I7(신규 low)을 찾았다.",
+    "against_pessimism": "반대 방향 편향도 점검했다. I1(백로그 gitignore)은 계약 문언이 요구하지 않는 위치 요건이고 직전 판정이 그 위치를 직접 지정했으므로, 이를 fail 사유로 쓰면 골대 이동이 된다 — 이슈로만 보고했다. I4(재작성 mutation)와 I6(worktree HEAD)는 이 저장소가 공유하는 구조적 사안이라 F59에만 더 높은 기준을 적용하지 않았다. I7은 F59 범위 밖이라 점수에 반영하지 않았다. **issues가 7건이라는 사실 자체는 점수를 낮추지 않는다** — 보고는 커버리지, 판정은 min-of-5와 계약 충족 여부로만 한다.",
+    "prior_verdict_independence": "직전 판정과 결론이 갈릴 수 있음을 전제하고 시작했다. 실제로 test_coverage는 직전과 같은 7이지만 **사유가 다르다** — 직전은 tmpl 미포함, 이번은 HARNESS-GUIDE 미포함이다. 같은 점수를 관성으로 유지한 것이 아니라 각각의 근거로 도달했다."
+  },
+  "second_judge_required": false,
+  "_second_judge_note": "security_tier가 standard이므로 F37의 critical 2차 판정 요건 대상이 아니다. 다만 AC-1의 핵심 주장(isolation 적용)은 결과적으로 서로 다른 두 세션의 독립 evaluator가 각자 디스패치해 재현했다 — 직전 판정이 agent-ae0f220654bf9540f로, 이 판정이 agent-a0c570c019c0c9885로. 두 관측이 일치한다.",
+  "required_followups": [
+    "[권고·반려 사유 아님] 테스트 604에 templates/docs/HARNESS-GUIDE.md 추가 — 또는 계약이 '보호 지시를 담은 배포 산출물' 전수를 먼저 열거하고 테스트가 참조하게 해 클래스를 닫는다(I3)",
+    "[권고] ES-2 트리거 3시점을 agents/test-writer.md 측정 이력 문단에 미러링(I1)",
+    "[권고] JSON 끝 개행 회귀 정리(I2) · sprint-45.json step/AC done 표기 정리(I8)"
+  ],
+  "next_action": "F59 passes → true 전환(이 판정으로 승인). 위 후속 3건은 백로그로 편입해 다음 회전에서 처리한다 — 어느 것도 이 스프린트의 재반려 사유가 아니다."
+}

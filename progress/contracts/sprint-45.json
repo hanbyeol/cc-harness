@@ -179,5 +179,18 @@
   ],
   "agreed": true,
   "_agreed_note": "**승인됨 — 2026-07-26, 사용자 직접 지시.** 'measurement 후 판단' 요구에 따라 세 필드를 실측한 뒤 '강등하지 말고 이중 보호 유지로 마무리'로 방향이 확정됐다. AC-1은 완료(세 필드 판정), AC-2는 해당 없음으로 종료한다. 호출자 측 isolation 지시는 어느 파일에서도 제거하지 않는다.",
-  "_ac1_status": "완료 — isolation 적용 / disallowedTools·maxTurns 미적용 (2026-07-26, Claude Code 2.1.220, 플러그인 v1.35.0)"
+  "_ac1_status": "완료 — isolation 적용 / disallowedTools·maxTurns 미적용 (2026-07-26, Claude Code 2.1.220, 플러그인 v1.35.0)",
+  "_caller_side_copies": {
+    "note": "호출자 측 isolation 지시의 배포 사본 전수. 두 차례 판정에서 사본이 하나씩 더 발견됐고 원인은 지목된 인스턴스만 닫고 클래스를 열거하지 않은 것이다(false-positives.json의 F52 패턴 재발). tests/skill-frontmatter.bats의 테스트 10이 이 목록을 그대로 검사한다 — 사본을 추가하면 양쪽을 함께 갱신한다.",
+    "files": [
+      "CLAUDE.md",
+      "skills/implement/SKILL.md",
+      "templates/CLAUDE.md.tmpl",
+      "templates/docs/HARNESS-GUIDE.md"
+    ],
+    "excluded": {
+      "progress/lessons.md": "역사적 기록 — 지시가 아니라 경위 서술이므로 잠금 대상 아님"
+    },
+    "surveyed": "2026-07-27, grep -rn 'test-writer.*isolation' --include='*.md' --include='*.tmpl' (agent-comms·.git 제외)"
+  }
 }

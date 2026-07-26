@@ -79,11 +79,13 @@ PLUGIN_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
   # test-writer와 isolation이 **같은 줄에** 있어야 한다: 두 파일 모두 병렬 디스패치용
   # isolation 언급을 따로 갖고 있어서, 단순히 'isolation'만 찾으면 test-writer 지시가
   # 사라져도 통과한다(느슨한 판정이 mutation에서 실제로 드러났다).
-  # templates/CLAUDE.md.tmpl은 소비 프로젝트의 CLAUDE.md로 병합되는 스캐폴드다 — 다운스트림
-  # 기준으로는 이쪽이 정본이므로 함께 잠근다. tmpl에 대한 기존 assertion은 줄 수·마커·스킬
-  # 라우팅뿐이라 이 줄을 지워도 625건이 전량 통과했다(evaluator가 정적으로 증명).
+  # 목록은 전수여야 한다. 두 차례 판정에서 각각 사본이 하나씩 더 발견됐는데, 원인은
+  # 지목된 인스턴스만 닫고 클래스를 열거하지 않은 것이다(false-positives.json에 F52로
+  # 기록된 패턴의 재발). 저장소 전수 grep 기준 대상은 아래 4개이며 progress/lessons.md의
+  # 언급은 역사적 기록이라 제외한다. 사본을 새로 만들면 이 목록에 추가한다 —
+  # sprint-45.json의 _caller_side_copies가 같은 목록을 계약 측에 고정한다.
   local f
-  for f in CLAUDE.md skills/implement/SKILL.md templates/CLAUDE.md.tmpl; do
+  for f in CLAUDE.md skills/implement/SKILL.md templates/CLAUDE.md.tmpl templates/docs/HARNESS-GUIDE.md; do
     grep -qE 'test-writer.*isolation.*worktree' "$PLUGIN_ROOT/$f" \
       || { echo "$f 의 test-writer isolation 지시가 사라졌다"; return 1; }
   done
