@@ -114,17 +114,17 @@ ASK_PATTERNS=(
   'kubectl[^;|&]* drain'
   # 하네스 검증 파일 훼손 (invariant-guard는 Edit|Write만 후킹 → Bash cp/mv/sed -i/리다이렉트 우회 차단)
   '>>? *[^ ]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
-  '\b(cp|mv|install|rsync|ln|tee|truncate)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
+  '\b(cp|mv|install|rsync|ln|tee|sponge|truncate)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
   # in-place 쓰기. -i 뒤에 단어경계를 두지 않는다 — sed -ie·sed -ni·awk -iinplace 처럼
   # 결합 단축옵션이 실제로 파일을 쓴다(실측: echo AAA > t1; sed -ie s/AAA/BBB/ t1 → BBB).
   # `-[a-zA-Z]*i` 로 넓히지 않는다 — 하이픈 뒤 i를 포함한 장옵션(--quiet·--posix·
   # --field-separator=·--lint)까지 in-place로 오인해 새 과탐을 만든다(F63 2차 판정).
   # `-i` 는 --in-place 도 부분 매치하므로 별도 대안이 필요 없다.
-  '\b(sed|perl|awk)\b[^;|&]*-i[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  '\b(g?sed|perl|g?awk|mawk)\b[^;|&]*-i[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
   # sed의 w 명령/s///w 플래그 — 플래그도 리다이렉트도 없이 임의 파일에 쓴다.
   # 실측: sed -n 'w victim' src → victim에 src 내용 · sed 's/x/PWN/w victim2' → victim2=PWN.
   # F63 이전에는 에디터 이름 목록이 sed를 통째로 잡아 가려져 있었다.
-  '\bsed\b[^;|&]*\bw\b *[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  '\bg?sed\b[^;|&]*\bw\b *[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
   '\bof= *[^ ]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
   # 민감 파일(비밀키·크리덴셜) 이동/복사/덮어쓰기
   '\b(cp|mv|rsync|install|tee|scp)\b[^;|&]*(\.ssh/|\.aws/|\.gnupg/)'
@@ -145,9 +145,9 @@ ASK_PATTERNS=(
   #
   # 인터프리터(바로 아래)도 그대로다 — python·node·perl은 읽기/쓰기를 구문으로 구분할 수 없다.
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
-  '\b(ed|ex|vi|vim|nano|emacs|sed|awk|dd|patch)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  '\b(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
   '>>? *[^ ]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
-  '\b(cp|mv|install|rsync|ln|tee|truncate)\b[^;|&]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
+  '\b(cp|mv|install|rsync|ln|tee|sponge|truncate)\b[^;|&]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
   'git\b[^;|&]*-c[^;|&]*core\.hooksPath'
   'GIT_CONFIG_(COUNT|KEY|VALUE|GLOBAL|SYSTEM)'
   # S-2(F33): 시크릿 네트워크 유출(egress) — 민감 파일이 네트워크로 나갈 때 ask(무인 exfil 차단).
@@ -161,12 +161,12 @@ ASK_PATTERNS=(
   # 읽기(jq/grep/cat 조회)는 미발동 — 쓰기 메커니즘 토큰과 결합할 때만 ask.
   # basename 앵커(harness-config 패턴과 동일 방식) — progress// · cd progress 등 경로정규화 우회 차단 (F-1).
   '>>? *[^ ]*feature_list\.json'
-  '\b(cp|mv|install|rsync|ln|tee|truncate)\b[^;|&]*feature_list\.json'
+  '\b(cp|mv|install|rsync|ln|tee|sponge|truncate)\b[^;|&]*feature_list\.json'
   '\b(sed|perl|awk)\b[^;|&]*-i[^;|&]*feature_list\.json'
   '\bsed\b[^;|&]*\bw\b *[^;|&]*feature_list\.json'
   '\bof= *[^ ]*feature_list\.json'
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*feature_list\.json'
-  '\b(ed|ex|vi|vim|nano|emacs|sed|awk|dd|patch)\b[^;|&]*feature_list\.json'
+  '\b(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)\b[^;|&]*feature_list\.json'
 )
 
 # === Layer 3.5: 읽기 화이트리스트 (F63) — ASK 검사보다 먼저 ===
@@ -194,17 +194,32 @@ if [[ "$NORMALIZED_CMD" != *'>'* && "$NORMALIZED_CMD" != *'|'* && "$NORMALIZED_C
   # `sed 's/a/b/' <file> -i` 같은 인자 순열도 일치하지 않는다.
   # 여기 없는 읽기 형태(예: `sed -n '$=' <file>`)는 ask로 남는다 — 마찰이지 보호 상실이
   # 아니며, 그것이 이 방향을 택한 이유다.
+  # 치환 플래그 집합에서 **e를 뺐다** — GNU sed의 s///e는 패턴 공간을 셸로 실행한다.
+  # 3차 판정이 실증: `sed 's/.*/rm -rf ~/e' <보호경로>` 는 DENY 패턴이 문자열 안의
+  # payload를 보지 못해 화이트리스트를 타고 allow가 됐다. 읽기 형태 하나를 잘못 넣으면
+  # ask→allow 한 단계가 아니라 임의 명령 실행이 된다.
   SED_QUIET='(-n|--quiet|--silent)'
   SED_SAFEOPT='(--posix|--regexp-extended|-[Eersz]+)'
   if echo "$NORMALIZED_CMD" | grep -qE "^ *sed +($SED_SAFEOPT +)*$SED_QUIET +($SED_SAFEOPT +)*'?[0-9,\$]+p'? +[^ ']+$" \
      || echo "$NORMALIZED_CMD" | grep -qE "^ *sed +($SED_SAFEOPT +)*$SED_QUIET +($SED_SAFEOPT +)*'?/[^/']*/p'? +[^ ']+$" \
-     || echo "$NORMALIZED_CMD" | grep -qE "^ *sed +($SED_SAFEOPT +)*'?s/[^/']*/[^/']*/[gpIie0-9]*'? +[^ ']+$" ; then
+     || echo "$NORMALIZED_CMD" | grep -qE "^ *sed +($SED_SAFEOPT +)*'?s/[^/']*/[^/']*/[gpIi0-9]*'? +[^ ']+$" ; then
     SAFE_READ=1
   fi
-  # awk: 인라인 프로그램에 쓰기 수단이 없을 때만. -v(변수 경유 리다이렉트)·-i·print>·
-  # system() 이 모두 없어야 한다 — 2차 판정이 `awk -v f=<P> '{print > f}'` 와
-  # `awk 'BEGIN{f="<P>"; print "x" > f}'` 로 변수 경유 쓰기를 실증했다.
-  if echo "$NORMALIZED_CMD" | grep -qE '^ *(g?awk|mawk) +' \
+  # awk: sed와 같은 방식으로 형태 전체를 앵커한다 — 허용 옵션은 -F(필드 구분자)뿐이고
+  # 프로그램은 인용부호 안에, 그 뒤에 파일 인자 하나로 끝나야 한다.
+  #   awk 'NR<10' <file>  ·  awk '{print $1}' <file>  ·  awk -F: '{print}' <file>
+  # 3차 판정이 실증: 부정 조건만 쓰면 **프로그램이 파일에 있는 형태를 볼 수 없다.**
+  # `awk -f prog.awk <보호경로>` 는 -i·-v·print>·system 이 명령행에 하나도 없으므로
+  # 부정 조건을 전부 통과했고, 실제로 보호 파일을 덮어썼다(main에서는 ask였던 회귀).
+  # 앵커는 이것을 열거 없이 배제한다 — -f·--file=·--include= 는 인용된 프로그램 자리에
+  # 오지 못한다. 부정 조건은 앵커 안에서 여전히 필요하다: `awk '{print > "<P>"}' src` 는
+  # 앵커에 맞지만 쓰기다.
+  # 프로그램 자리는 인용되어 있거나(`'…'`), 인용 없이 오되 **하이픈으로 시작하지 않아야**
+  # 한다. 인용 없는 형태(`awk /warn/{print} <file>`·`awk {print $1} <file>`)는 셸에서
+  # 정상 동작하는 읽기이므로 받아야 하고, 하이픈 배제가 -f·-E·--file= 을 프로그램 자리에
+  # 오지 못하게 막는다 — 열거가 아니라 위치로 배제하는 것이 요점이다.
+  AWK_FORM="^ *(g?awk|mawk) +(-F ?[^ ']+ +)*('[^']*'|[^-' ][^ ']*) +[^ ']+$"
+  if echo "$NORMALIZED_CMD" | grep -qE "$AWK_FORM" \
      && ! echo "$NORMALIZED_CMD" | grep -qE '(^| )-[a-zA-Z]*i|--in-place|(^| )-v|--assign' \
      && ! echo "$NORMALIZED_CMD" | grep -qE '\b(print|printf)[^;}]*>' \
      && ! echo "$NORMALIZED_CMD" | grep -qE '\bsystem *\(' ; then

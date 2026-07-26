@@ -3,63 +3,68 @@
   "sprint": 49,
   "title": "방화벽 과탐 제거 — 보호 경로 읽기(sed -n·awk)를 쓰기와 구분",
   "security_tier": "critical",
-  "timestamp": "2026-07-27T07:40:00+09:00",
-  "round": 3,
-  "summary": "**설계 방향을 뒤집었다.** 1·2차 판정은 둘 다 fail(보안 5)이었고 사유는 정책이 아니라 쓰기 술어의 불완전성이었다 — 도구 이름(sed|awk)을 플래그(-i)로 교체하자 후자가 실제 쓰기 집합보다 좁아 1차에서 54건, 2차에서 6형태가 더 열렸다. 3차는 열거하는 쪽을 바꿨다: **쓰기는 이름 기반 블랙리스트로 되돌리고(완전), 읽기를 긍정 화이트리스트로 열거한다(Layer 3.5, ASK 검사 앞).** 화이트리스트가 빠뜨린 읽기 형태는 ask로 남을 뿐 보호를 잃지 않는다 — 오류의 방향이 안전한 쪽이다.",
+  "timestamp": "2026-07-27T16:20:00+09:00",
+  "round": 4,
+  "summary": "**4차. 3차의 설계 반전은 유지하되, 그 반전이 새로 연 구멍 둘을 닫았다.** 3차 판정은 fail(보안 4)이었고 사유는 방향이 아니라 화이트리스트의 구현이었다 — (1) awk 쪽만 부정 조건(-i·-v·print>·system 부재)으로 두어 `awk -f prog.awk <보호경로>` 가 allow였고 실제로 보호 파일을 덮어썼다(main에서는 ask였던 회귀), (2) sed 치환 플래그 집합에 넣은 `e`가 GNU sed에서 패턴 공간을 셸로 실행해 임의 명령 실행 경로가 됐다. awk도 sed와 같이 형태 전체를 앵커했고(프로그램 자리에 하이픈 토큰이 올 수 없으므로 -f·--file=·--include= 가 열거 없이 배제된다), 플래그 집합에서 e를 뺐다. 배터리에는 allow 판정분을 샌드박스에서 실제 실행해 트리 해시 불변을 확인하는 2단계를 추가했다.",
   "achieved": {
-    "AC-1": "완료. 118·145줄의 in-place 패턴은 (sed|perl|awk) + (-i|--in-place)로 유지한다. 이름 기반과 중복이지만 계층을 하나 더 두는 편이 낫다. **2차 판정이 지적한 -[a-zA-Z]*i 과탐은 되돌렸다** — 그 형태는 --quiet·--posix·--field-separator= 의 i까지 잡아 새 과탐을 만들었다.",
-    "AC-2": "완료(설계 반전). 128·148줄에 sed·awk를 **되돌렸다** — 쓰기 판정은 이름 기반이 완전하다. 읽기 마찰은 ASK 검사 앞의 Layer 3.5 화이트리스트가 해소한다. sed는 앵커 고정한 세 형태(`-n` + 행번호 p / `-n` + /re/p / s/// 치환)를 장옵션(--quiet·--silent·--posix·--regexp-extended·-E·-r·-s·-z) 포함해 긍정 열거하고, awk는 쓰기 수단(-i·-v·print>·system)이 하나도 없을 때만 통과시킨다. 파이프·리다이렉트·연쇄가 있으면 화이트리스트 자체를 건너뛴다.",
-    "AC-3": "완료. scripts/verify-firewall-rw.sh 로 대상 9종 × 쓰기 40형태 = 360건 전부 ask, 읽기 12형태 = 108건 전부 allow. 형태 목록에는 1·2차 판정이 찾아낸 11형태가 모두 들어 있다.",
-    "AC-4": "완료(2차 판정 반려분 수정). 에디터 목록 주석에서 **철회한 awk print-redirect 주장을 삭제**하고, 그 자리에 방향을 뒤집은 이유(두 판정이 실증한 열두 형태)를 남겼다. Layer 3.5 주석은 화이트리스트가 실제로 허용하는 형태 목록과 일치시켰다.",
+    "AC-1": "완료(4차 확장). in-place 패턴을 `(g?sed|perl|g?awk|mawk)` + `-i` 로 유지·확장했다. **2차 판정이 지적한 -[a-zA-Z]*i 과탐은 되돌린 상태 그대로** — 그 형태는 --quiet·--posix·--field-separator= 의 i까지 in-place로 오인해 새 과탐을 만든다. 이름 기반 에디터 목록과 중복이지만 계층을 하나 더 두는 편이 낫다.",
+    "AC-2": "완료(4차 재작업). 3차의 방향(쓰기=이름 기반, 읽기=화이트리스트)은 그대로다. 바뀐 것은 awk 화이트리스트의 판정 방식 — 부정 조건에서 **형태 앵커**로 옮겼다: `^ *(g?awk|mawk) +(-F ?[^ ']+ +)*('[^']*'|[^-' ][^ ']*) +[^ ']+$`. 프로그램 자리는 인용되어 있거나 하이픈으로 시작하지 않아야 하므로 -f·--file=·--include=·-E 가 위치로 배제된다(열거 아님). 부정 조건은 앵커 안에서 유지 — `awk '{print > \"<P>\"}' src` 는 앵커에 맞지만 쓰기다. sed는 치환 플래그 집합 [gpIie0-9] → [gpIi0-9].",
+    "AC-3": "완료(재작업). 쓰기 형태를 40→53으로 확장(3차 지적 8형태 + 이름 변형 5형태). 대상 9종 × 쓰기 53형태 = 477건 전부 ask, 읽기 12형태 = 108건 전부 allow, 실행 검증 108건 중 파일 변경 0건.",
+    "AC-4": "완료. awk 앵커와 sed e 제거의 근거를 주석에 남겼고, 3차에서 지적된 '인라인'·'출력 전용' 단언을 코드가 실제로 강제하는 서술로 교체했다.",
     "AC-5": "완료. behavioral 코퍼스에 in-place 5건 + 1차 판정 실증 5건 추가. 프로브 후보 0건.",
-    "AC-6": "완료. bats 635 ok / 0 fail(기준선 628 + 신규 7).",
-    "AC-7": "완료. scripts/verify-firewall-rw.sh 신설 + ci.yml 배선(실행·shellcheck 양쪽)."
+    "AC-6": "완료. bats 638 ok / 0 fail(기준선 628 + 신규 10).",
+    "AC-7": "완료. scripts/verify-firewall-rw.sh 신설 + ci.yml 배선(실행·shellcheck 양쪽).",
+    "AC-8": "완료(신설). 배터리 2단계 — allow 판정분 108건을 격리 샌드박스에서 실제 실행하고 트리 해시 불변을 확인. 워치독은 timeout→gtimeout→perl alarm 순으로 폴백하며(macOS에 timeout이 없다) 셋 다 없으면 명시적으로 건너뜀을 보고한다(조용한 축소 금지). **검출 경로 변이 실증**: awk 앵커를 3차 이전으로 되돌리고 `awk -f prog.awk %s` 를 READS로 오분류하자 2단계가 9건을 잡고 exit 1."
   },
   "security": {
-    "SC-1": "충족(재작업). 쓰기 판정이 이름 기반으로 복귀했으므로 **탐지 집합은 F63 이전과 동일하다** — 축소가 아니라 무변경이다. 배터리 360건 쓰기 전부 ask. **SC-1의 verification 자체를 두 번 고쳤다**: 1차 판정을 받고 커버리지 하한을 명시했는데, 2차 판정이 '개수를 박으면 그 수가 곧 상한이 된다'고 지적해 **개수 대신 출처(a~d)로 규정**하도록 다시 고쳤다.",
+    "SC-1": "충족(재작업). 출처 규정에 두 축을 추가했다 — (a)에 **프로그램을 파일에서 읽는 형태**(-f·--file·--include)와 sed의 s///e(임의 실행), (e)에 **이름 변형**(gsed·gawk·mawk). (a)의 확장이 핵심이다: 이 축은 쓰기 수단이 명령행에 전혀 나타나지 않으므로 '명령행에 무엇이 있는가'를 보는 모든 부정 조건이 원리적으로 실패한다. 쓰기 탐지 집합은 F63 이전 대비 축소 없이 **확대**됐다(gsed·gawk·mawk·sponge가 새로 잡힌다).",
     "SC-2": "충족. DENY_PATTERNS diff 0건, harness-config.json·INVARIANTS.md diff 없음. ASK_PATTERNS는 38개 그대로 — 개수를 줄이려 했을 때 invariant-guard(INV-5 add-only)가 차단했고, 가드를 존중해 개수를 유지하는 설계로 바꿨다.",
-    "SC-3": "충족(기준 재정의). 화이트리스트는 DENY 판정(64·92줄) 이후·ASK 판정(214줄) 직전인 187줄에 있다. 최악의 경우에도 ask를 allow로 바꿀 뿐 deny를 뚫지 못한다. behavioral 코퍼스의 deny 대상 포함 후보 0건."
+    "SC-3": "충족(기준 재정의). 화이트리스트는 DENY 판정(64·92줄) 이후·ASK 판정(230줄) 직전인 187줄에 있다. 최악의 경우에도 ask를 allow로 바꿀 뿐 deny를 뚫지 못한다. behavioral 코퍼스의 deny 대상 포함 후보 0건. **단 3차 판정이 이 논거의 한계를 보였다** — 화이트리스트 원소가 s///e처럼 임의 실행을 포함하면 'ask→allow 한 단계'라는 손실 상한이 성립하지 않는다. 그래서 e를 제거했고, 원소 심사 기준을 '쓰지 않는가'에서 '무엇을 할 수 있는가'로 바꿨다."
   },
   "evidence": {
     "user_report": "사용자가 '일반 bash 명령에도 반복 승인 요청'을 보고. 진단 중 배선 확인 명령(sed -n으로 훅 파일 읽기)이 실제로 프롬프트를 띄워 현상이 재현됐다",
     "overfire_measured": "sed -n '1,20p' hooks/lib.sh → ask · awk '/^@test/{c++}' tests/probes.bats → ask · 반면 grep -c test tests/probes.bats → allow · cat hooks/lib.sh → allow. 위험도가 아니라 도구 이름으로 판정이 갈렸다",
     "accumulation": "사용자 ~/.claude/settings.json의 permissions.allow 665건(Bash 649건), 그중 sed 27·perl 23·awk 16건. 649건 중 와일드카드로 끝나는 규칙 0건",
     "prior_intent": "tests/pre-bash-firewall.bats가 세 곳에서 읽기를 allow로 못박고 있었다 — 'auto-allows sed read (non-destructive)'(769) · 'auto-allows awk (default-allow)'(737) · 'F32: sed reading a normal file still auto-allows'(904). 새 정책이 아니라 보호 경로에서 누락됐던 적용이다",
-    "final_distribution": "읽기 108건 전부 allow · 쓰기 360건 전부 ask (대상 9종 × 읽기 12형태 · 쓰기 40형태). 경계 확인: `sed 's/a/b/' <보호경로>` → allow 이면서 `sed 's/x/y/w <보호경로>' src` → ask, `sed 's/a/b/' <보호경로> -i` → ask",
-    "regression": "bats 635 ok / 0 fail · behavioral 후보 0건 · deny diff 0건 · shellcheck 클린 · 배터리 exit 0",
+    "final_distribution": "읽기 108건 전부 allow · 쓰기 477건 전부 ask (대상 9종 × 읽기 12형태 · 쓰기 53형태) · 실행 검증 108건 중 파일 변경 0건. 경계 확인: `sed 's/a/b/' <보호경로>` → allow 이면서 `sed 's/x/y/w <보호경로>' src` · `sed 's/a/b/' <보호경로> -i` · `sed 's/a/b/e' <보호경로>` → ask. `awk 'NR<10' <보호경로>` · `awk /warn/{print} <보호경로>` → allow 이면서 `awk -f prog.awk <보호경로>` → ask.",
+    "regression": "bats 638 ok / 0 fail · behavioral 후보 0건 · deny diff 0건 · shellcheck 클린 · 배터리 exit 0(1단계 585건 + 2단계 108건 실행)",
     "verdict_bypasses_all_closed": "1·2차 판정이 실증한 11형태를 전부 배터리에 넣고 확인했다 — 1차: sed -ie · sed -ni · sed -n 'w <P>' · sed 's/x/y/w <P>' · awk -iinplace. 2차: `sed 's/a/b/' <P> -i`(GNU 인자 순열) · `sed -n 'w<P>'`(공백 없음) · `sed -n '1w <P>'`(주소 접두) · `sed --expression='w <P>'` · `awk -v f=<P> '{print > f}'` · `awk 'BEGIN{f=\"<P>\"; print \"x\" > f}'`. 전부 ask.",
     "my_claim_was_wrong": "**[정정, 유지] awk print-redirect가 구멍이라던 내 주장은 틀렸다.** awk '{print > \"hooks/lib.sh\"}' 는 리다이렉트 패턴이 따옴표 안 경로를 매치해 ask다(실측). 2차 판정에서 이 정정이 코드 주석에는 반영되지 않은 채 남아 있던 것을 지적받아 이번에 삭제했다.",
     "design_reversal_measured": "방향 반전 전후를 같은 배터리로 대조했다. 플래그 기반(2차까지): 읽기 108 allow / 쓰기 354 ask + 6 allow. 이름 기반 + 화이트리스트(3차): 읽기 108 allow / 쓰기 360 ask. 읽기 마찰 해소는 동일하고 쓰기 상실만 사라졌다.",
-    "whitelist_failed_twice_first": "화이트리스트 첫 시도는 양방향으로 틀렸다 — `\\bw` 부정 조건이 `/word/p`의 w를 잡아 과탐이면서 `1w <P>`는 놓쳤다. 부정 조건을 버리고 형태 전체를 `^…$` 앵커로 고정하는 긍정 열거로 다시 만들었다. 치환 형태의 플래그 문자 집합에 w가 없어 `s/x/y/w`가 자동으로 배제되고, 끝 앵커가 인자 순열을 배제한다."
+    "whitelist_failed_twice_first": "화이트리스트 첫 시도는 양방향으로 틀렸다 — `\\bw` 부정 조건이 `/word/p`의 w를 잡아 과탐이면서 `1w <P>`는 놓쳤다. 부정 조건을 버리고 형태 전체를 `^…$` 앵커로 고정하는 긍정 열거로 다시 만들었다. 치환 형태의 플래그 문자 집합에 w가 없어 `s/x/y/w`가 자동으로 배제되고, 끝 앵커가 인자 순열을 배제한다.",
+    "third_verdict_regression": "3차 판정이 실증한 회귀를 저장소에서 재현·확인했다. main의 훅으로 `awk -f prog.awk hooks/lib.sh` → ask, 3차 브랜치의 훅으로 → allow. 원인은 화이트리스트가 SAFE_READ=1을 세워 ASK 검사를 통째로 건너뛴 것이다 — 에디터 목록에는 awk가 있었으나 도달하지 못했다. 4차 수정 후 다시 ask.",
+    "sed_e_is_execution": "`sed 's/.*/echo hi/e' hooks/lib.sh` 는 3차에서 allow였다. e는 쓰기가 아니라 패턴 공간을 셸로 실행하는 플래그이므로, 화이트리스트 원소 하나를 잘못 고른 대가가 'ask→allow 한 단계'라던 내 3차 주장이 이 원소에서는 성립하지 않는다. DENY 계층은 문자열 안의 payload를 보지 못한다.",
+    "stage2_mutation_proof": "2단계의 검출 경로를 변이로 실증했다 — 격리 랩에서 awk 앵커를 제거하고 `awk -f prog.awk %s` 를 READS로 옮기자 1단계는 읽기 기대와 일치해 통과했고 2단계가 9건(대상 9종)을 '실제로 파일을 바꿨다'로 잡아 exit 1. 정상본은 exit 0. no-op이 아니다.",
+    "name_variant_closed": "이름 변형 우회를 닫았다 — 수정 전 gsed -i·gawk -i inplace·sponge 가 모두 allow였고 gsed는 이 머신에 실제 설치돼 있다(/usr/local/bin/gsed). 수정 후 전부 ask. 부수로 gsed 읽기는 ask가 됐다(화이트리스트가 `^ *sed` 앵커) — 마찰이지 보호 상실이 아니다."
   },
   "files_changed": [
-    "hooks/pre-bash-firewall.sh — Layer 3.5 읽기 화이트리스트 신설(187줄~), 128·148줄 에디터 목록에 sed·awk 복귀, 118·145줄 in-place 패턴 유지 + 경로 목록 정합, 주석 정합 (보호 파일, Edit 툴)",
-    "tests/pre-bash-firewall.bats — F63 테스트 7건 추가(읽기 allow · in-place ask · 경로 목록 대칭 · 결합 단축옵션 · sed w · /word/ 과탐 없음) (보호 파일, Edit 툴)",
-    "scripts/probes/behavioral.sh — in-place·판정 실증 코퍼스 10건 추가",
-    "progress/contracts/sprint-49.json·progress/feature_list.json·evals/acceptance-criteria.json — F63 등록 + 설계 반전 반영",
-    "scripts/verify-firewall-rw.sh — 신규. 대상 9종 × 읽기 12·쓰기 40형태 배터리",
-    ".github/workflows/ci.yml — 배터리 실행·shellcheck 배선"
+    "hooks/pre-bash-firewall.sh — awk 화이트리스트를 형태 앵커로 교체, sed 치환 플래그에서 e 제거, 이름 변형(g?sed·g?awk·mawk·sponge)을 쓰기 패턴 5곳에 반영 (보호 파일, Edit 툴)",
+    "tests/pre-bash-firewall.bats — F63 테스트 3건 추가(awk -f 프로그램 파일 · sed s///e 실행 · 이름 변형) (보호 파일, Edit 툴)",
+    "scripts/verify-firewall-rw.sh — 쓰기 형태 40→53, 2단계 실행 검증 신설(워치독 3단 폴백)",
+    "progress/contracts/sprint-49.json — AC-8 신설, SC-1 출처에 (a) 프로그램 파일 형태·s///e 와 (e) 이름 변형 추가",
+    "progress/lessons.md — 3차 반려 교훈",
+    "scripts/probes/behavioral.sh·evals/acceptance-criteria.json·progress/feature_list.json — F63 등록(기존)",
+    ".github/workflows/ci.yml — 배터리 실행·shellcheck 배선(기존)"
   ],
   "design_notes": [
-    "**쓰기 문법의 열거는 수렴하지 않았다.** 1차 판정이 5형태, 2차가 6형태를 새로 찾아냈고 둘 다 '문서를 더 읽었으면 알 수 있던' 것이었다. 두 번의 실패가 보여준 것은 내 열거가 부족했다는 사실보다, **열거의 완전성에 안전이 걸린 구조 자체**가 잘못됐다는 것이다. 블랙리스트는 전수를 알아야 안전하고, 화이트리스트는 빠뜨려도 마찰만 는다.",
-    "그래서 방향을 뒤집었다. 쓰기 판정은 이름 기반으로 되돌려 F63 이전의 완전성을 그대로 유지하고, 읽기만 긍정 열거한다. 이 설계에서 내가 틀릴 수 있는 방향은 하나뿐이다 — 안전한 읽기를 빠뜨려 ask가 뜨는 것.",
-    "화이트리스트를 ASK 검사 **앞**에만 둔 것도 같은 이유다. 뒤에 두면 순서상 의미가 없고, 앞의 DENY 계층보다 앞에 두면 화이트리스트의 버그가 곧 deny 우회가 된다. 지금 위치에서는 최악의 버그도 ask→allow 한 단계만 움직인다.",
-    "인터프리터(145줄)는 손대지 않았다. python·node·ruby·perl은 읽기/쓰기를 명령줄 구문으로 구분할 수 없다. sed·awk도 결국 같은 성질이었다는 것이 이번에 배운 것이며, 그래서 '구분 가능하다'는 전제 위에 세웠던 초기 설계를 폐기했다.",
-    "invariant-guard가 내 편집을 한 번 차단했다 — ASK_PATTERNS를 38개에서 37개로 줄이려 했고 INV-5(add-only)가 막았다. 가드를 우회하지 않고 개수를 유지하는 설계로 바꿨다. 가드가 의도대로 작동한 사례이므로 기록해 둔다."
+    "**같은 계층 안에서 두 갈래의 강도가 다르면 약한 쪽이 실제 방어선이 된다.** sed 쪽은 형태를 앵커했는데 awk 쪽만 부정 조건으로 뒀고, 뚫린 것은 정확히 그 비대칭 지점이다. F52에서 'CI와 런타임 두 층의 강도가 다르면 약한 층이 방어선'이라는 같은 패턴을 겪었는데, 이번에는 그것이 **한 함수 안의 두 분기**에서 일어났다. 층 사이만 볼 것이 아니라 같은 층의 갈래 사이도 봐야 한다.",
+    "**부정 조건은 명령행에 있는 것만 본다.** 프로그램을 파일에서 읽는 형태는 쓰기 수단이 명령행에 아예 없으므로 어떤 부정 조건도 원리적으로 실패한다. 이것이 '열거를 더 하면 되는' 문제가 아닌 이유다 — 앵커(위치 기반 배제)로 옮겨야 닫힌다.",
+    "**화이트리스트 원소는 '쓰지 않는가'가 아니라 '무엇을 할 수 있는가'로 심사한다.** sed 치환 플래그를 훑으며 w만 쓰기로 봤고 e를 통과시켰는데, e는 셸 실행이다. 3차에서 내가 '최악의 경우도 ask→allow 한 단계'라고 쓴 것은 원소 심사가 정확하다는 전제 위에서만 참이었다.",
+    "배터리에 실행 단계를 넣은 것이 이번 회전의 구조적 변화다. 판정만 비교하는 배터리는 술어를 술어로 검사할 뿐이라 내 분류 오류를 볼 수 없다. 다만 과장하지 않는다 — 2단계도 두 목록에 없는 형태는 발견하지 못하며, 더하는 것은 목록에 있는 형태의 분류 검증이다.",
+    "이름 변형(gsed·gawk·mawk·sponge)은 3차 판정의 지적 사항이 아니라 별도 경로로 확인된 기존 구멍이다. 같은 회전에서 닫은 이유는 F63이 다루는 축이 정확히 '어떤 도구 이름이 게이트를 발동시키는가'이고, 내 화이트리스트가 `g?awk`를 읽기로 받으면서 블랙리스트는 `\\bawk\\b`로 gawk를 놓치는 비대칭을 내가 만들었기 때문이다."
   ],
   "criteria_backfill": [
-    "SC-1의 verification을 **개수에서 출처로** 재규정 — 2차 판정 지적('규정할 것은 개수가 아니라 목록의 출처'). 개수를 명시하면 그 수가 곧 커버리지 상한이 되어, 1차 판정이 비판한 열거 천장을 다른 자리에서 재생산한다. 출처 (a) 두 도구 man page의 쓰기 수단 전부 (b) 판정에서 지적된 형태 전부 (c) is_protected()의 보호 경로 계열 전부 (d) 셸 수준 쓰기.",
-    "AC-2에 _design_change 필드를 추가해 설계 반전과 그 근거를 계약에 남겼다 — 계약이 최종 구현과 다른 설계를 서술한 채 통과하면 다음 사람이 잘못된 전제를 물려받는다.",
-    "SC-3을 '선행 순서'에서 '화이트리스트의 계층 위치'로 재정의 — 원래 기준(awk in-place를 먼저 추가)은 설계 반전으로 무의미해졌고, 실제로 지켜야 할 안전 조건은 화이트리스트가 DENY보다 뒤에 있는 것이다.",
-    "AC-4의 검증 기준을 '주석 문구 일치'에서 '철회한 주장이 남아 있지 않을 것'으로 강화 — 2차 판정이 같은 커밋에서 철회한 주장이 주석에 남은 것을 잡아냈다."
+    "AC-8 신설 — 배터리의 실행 검증. 3차 판정의 '판정만 비교하는 배터리는 술어를 술어로 검사한다'는 지적을 기준으로 승격했다. 변이 테스트로 검출 경로를 실증하는 것까지 verification에 포함했다(no-op 방지).",
+    "SC-1 출처 (a)에 프로그램 파일 형태(-f·--file·--include)와 s///e를, (e)에 이름 변형을 추가. 출처 규정은 2차 판정의 처방이었는데 3차가 그 출처 목록 자체가 좁았음을 보였다 — 규정 방식은 옳았고 내용이 부족했다.",
+    "AC-3의 verification에 'AC-8의 실행 검증을 함께 통과해야 한다'를 명시 — 1단계 통과만으로 AC-3을 충족으로 읽을 수 있던 문구를 닫았다."
   ],
   "limitations_honest": [
-    "화이트리스트는 하한이다. `sed -n '$=' <파일>`(행 수 세기)처럼 안전하지만 열거되지 않은 읽기 형태는 여전히 ask다. 마찰이 남는 것을 알면서 택한 방향이며, 새 형태를 추가하는 것은 언제든 안전하다(추가가 보호를 줄이지 않는다).",
-    "**[정정, 유지] 'awk 스크립트 내부 쓰기가 남는 구멍'이라던 기록은 사실이 아니었다** — 리다이렉트 패턴이 잡고 있다. 잘못된 한계를 기록하면 실제 구멍을 가린다.",
-    "배터리는 대상 9종을 쓴다. templates/ 하위나 새로 추가될 보호 대상은 포함되지 않으며, 보호 경로가 늘면 TARGETS도 함께 갱신해야 한다. 이 갱신을 강제하는 기계 검증은 아직 없다(F62의 목록 대칭 검증과 같은 성질의 갭).",
-    "경로 정규화 우회(`hooks/../hooks/lib.sh`·대소문자·심볼릭 링크)는 이번에도 다루지 않았다 — 화이트리스트가 아니라 모든 경로 기반 가드 arm이 공유하는 기존 갭이며 백로그에 있다.",
-    "사용자의 permissions.allow 665건은 이 수정으로 줄지 않는다. 앞으로 sed/awk 읽기에서 새 규칙이 쌓이지 않을 뿐이다."
+    "2단계 실행 검증은 **두 목록에 있는 형태만** 실행한다. 목록에 없는 우회는 여전히 보이지 않으며, 목록의 출처 규정(SC-1)이 1차 방어선이다. 배터리 주석과 계약(AC-8 _honest_scope)에 이 한계를 명시했다.",
+    "화이트리스트는 하한이다. `gsed -n '1,5p' <파일>`·`sed -n '$=' <파일>`·인용 없는 다중 토큰 awk 프로그램은 ask로 남는다 — 마찰이며, 형태를 추가하는 것은 언제든 안전하다.",
+    "프로그램이 파일에 있는 형태는 이제 ask지만, **보호 경로가 명령행에 전혀 없으면** 여전히 default-allow다(`awk -f prog.awk` 단독). 이는 `python3 prog.py`·`node prog.js`·`bash prog.sh`와 같은 클래스의 기존 한계이며 F63이 만든 것도 닫는 것도 아니다 — 백로그.",
+    "경로 정규화 우회(`hooks/../hooks/lib.sh`·대소문자·심볼릭 링크)는 모든 경로 기반 가드 arm이 공유하는 기존 갭이며 백로그에 있다.",
+    "이름 변형은 gsed·gawk·mawk·sponge를 닫았을 뿐 전수가 아니다(busybox sed 등). 이 축도 열거이므로 같은 수렴 문제를 갖는다 — 다만 쓰기 쪽 열거는 빠뜨려도 F63 이전 수준으로 돌아갈 뿐 새로 나빠지지 않는다."
   ],
-  "self_review_note": "이 산출은 implementer 자기 보고이며 passes를 판정하지 않는다(INV-1). security_tier critical이므로 evaluator 통과 후 F37 2차 판정·security-auditor·qa-reviewer가 필요하다. 1·2차 모두 fail이었으므로 3차 판정은 특히 '설계 반전이 이전 두 반려 사유를 실제로 제거했는가'를 봐야 한다.",
+  "self_review_note": "이 산출은 implementer 자기 보고이며 passes를 판정하지 않는다(INV-1). 1·2·3차 모두 fail이었다. 4차 판정이 특히 확인해야 할 것은 **화이트리스트가 통과시키는 집합 전체**다 — 3차에서 뚫린 것이 방향이 아니라 원소 심사였으므로, 앵커 정규식을 직접 읽고 스스로 변형을 만들어 SAFE_READ=1이 되는 입력 중 파일을 바꾸거나 명령을 실행하는 것이 있는지 보는 것이 핵심이다. security_tier critical이므로 F37 2차 판정·security-auditor·qa-reviewer가 함께 필요하다.",
   "ready_for": "evaluator"
 }

@@ -89,6 +89,23 @@ WRITES=(
   "patch %s < p.diff"
   "python3 -c open %s"
   "node -e writeFileSync %s"
+  # 3차 판정 — 프로그램이 파일에 있어 쓰기 수단이 명령행에 나타나지 않는 형태.
+  # 부정 조건(-i·-v·print>·system 부재)만 보는 술어는 이것을 구조적으로 볼 수 없다.
+  "awk -f prog.awk %s"
+  "awk --file=prog.awk %s"
+  "awk -E prog.awk %s"
+  "awk --exec=prog.awk %s"
+  "awk --include=inplace '{print}' %s"
+  # 3차 판정 — GNU sed의 s///e는 패턴 공간을 셸로 실행한다(읽기가 아니라 임의 실행).
+  "sed 's/.*/touch pwned/e' %s"
+  "sed 's/a/b/e' %s"
+  "sed 's/a/b/ge' %s"
+  # 이름 변형 — 경로는 명령행에 그대로 보이는데 단어경계가 g 접두를 놓친다
+  "gsed -i 's/a/b/' %s"
+  "gsed -n 'w %s' src.txt"
+  "gawk -i inplace '{print}' %s"
+  "mawk -i inplace '{print}' %s"
+  "sponge %s"
 )
 
 decide() {
@@ -99,12 +116,13 @@ decide() {
 
 R_OK=0; R_BAD=0; W_OK=0; W_BAD=0
 BAD_READS=""; BAD_WRITES=""
+ALLOWED=()   # 2단계에서 실제로 실행해볼 명령 — 1단계가 allow로 판정한 것 전부
 
 for t in "${TARGETS[@]}"; do
   for fmt in "${READS[@]}"; do
     # shellcheck disable=SC2059
     cmd=$(printf "$fmt" "$t")
-    if [ "$(decide "$cmd")" = "allow" ]; then R_OK=$((R_OK+1)); else
+    if [ "$(decide "$cmd")" = "allow" ]; then R_OK=$((R_OK+1)); ALLOWED+=("$cmd"); else
       R_BAD=$((R_BAD+1)); BAD_READS="$BAD_READS
     $cmd"; fi
   done
@@ -112,7 +130,7 @@ for t in "${TARGETS[@]}"; do
     # shellcheck disable=SC2059
     cmd=$(printf "$fmt" "$t")
     if [ "$(decide "$cmd")" = "allow" ]; then
-      W_BAD=$((W_BAD+1)); BAD_WRITES="$BAD_WRITES
+      W_BAD=$((W_BAD+1)); ALLOWED+=("$cmd"); BAD_WRITES="$BAD_WRITES
     $cmd"; else W_OK=$((W_OK+1)); fi
   done
 done
@@ -129,5 +147,78 @@ if [ "$W_BAD" -gt 0 ]; then
   echo "  ✗ 쓰기인데 allow (보호 상실):$BAD_WRITES"
   FAILED=1
 fi
+
+# === 2단계: allow 판정분을 실제로 실행해 파일이 바뀌지 않는지 확인 ===
+#
+# 왜 필요한가: 1단계는 훅의 판정만 본다 — 술어를 술어로 검사하는 셈이라, 내가 '읽기'라고
+# 믿는 형태가 실제로는 쓰기일 때 구조적으로 볼 수 없다. F63 3차 판정이 정확히 그렇게
+# 뚫렸다: `awk -f prog.awk <보호경로>` 가 allow였고 실제로 파일을 덮어썼는데, 1단계
+# 배터리는 468건 전부 통과를 보고했다. 형태 목록에 없으면 안 보이기 때문이다.
+#
+# 2단계가 실제로 더하는 것(과장하지 않고 정확히):
+#   (1) **READS의 분류 자체를 실행으로 검증한다.** 내가 '읽기'라고 믿고 READS에 넣은 형태가
+#       사실 쓰기면 1단계는 allow를 기대값과 일치한다고 보고하고 넘어간다 — 2단계만이 잡는다.
+#       3차 판정의 `awk -f`가 정확히 그 성질이었다(부정 조건을 전부 통과하는 '읽기처럼 보이는 쓰기').
+#   (2) 1단계가 새어나갔다고 판정한 WRITE가 **실제로 파일을 바꾸는지** 확인한다 — 판정 불일치와
+#       실제 보호 상실을 구분해준다.
+# 2단계가 하지 못하는 것: 두 목록에 **없는** 형태의 발견. ALLOWED는 목록에서 나오므로
+# 열거되지 않은 우회는 여기서도 보이지 않는다. 목록의 출처 규정(SC-1)이 여전히 1차 방어선이다.
+# 실행에는 워치독이 필요하다 — allow가 샌 명령이 vim처럼 대화형이면 배터리가 멈춘다.
+# macOS에는 timeout이 없으므로 perl의 alarm으로 폴백한다(alarm은 exec 후에도 유지되며
+# SIGALRM 기본 동작이 종료다). 셋 다 없을 때만 건너뛰고, 그 사실을 명시적으로 보고한다.
+GUARD=""
+if command -v timeout &>/dev/null; then GUARD="timeout"
+elif command -v gtimeout &>/dev/null; then GUARD="gtimeout"
+elif command -v perl &>/dev/null; then GUARD="perl"
+fi
+
+run_guarded() {
+  case "$GUARD" in
+    perl) perl -e 'alarm 5; exec("bash","-c",$ARGV[0])' "$1" ;;
+    *)    "$GUARD" 5 bash -c "$1" ;;
+  esac
+}
+
+manifest() { find . -type f -exec shasum {} \; 2>/dev/null | LC_ALL=C sort; }
+
+if [ -z "$GUARD" ]; then
+  echo "  ⚠ 2단계 건너뜀 — timeout·gtimeout·perl 중 어느 것도 없어 워치독을 걸 수 없다."
+  echo "    allow 판정분의 실행 검증이 수행되지 않았다(조용한 축소가 아니라 명시적 보고)."
+else
+  SANDBOX=$(mktemp -d)
+  trap 'rm -rf "$SANDBOX"' EXIT
+  (
+    cd "$SANDBOX" || exit 1
+    mkdir -p progress hooks tests docs .claude
+    for t in "${TARGETS[@]}"; do mkdir -p "$(dirname "$t")"; printf 'ORIGINAL\n' > "$t"; done
+    printf 'SRC\n' > src.txt
+    # 쓰기 프로그램이 담긴 파일 — 명령행에 쓰기 수단이 전혀 나타나지 않는 형태의 재료
+    printf 'BEGIN{ print "PWNED" > "hooks/lib.sh" }\n' > prog.awk
+    printf 'w hooks/lib.sh\n' > prog.sed
+  )
+
+  MUTATED=0; MUTATED_LIST=""
+  for cmd in "${ALLOWED[@]}"; do
+    before=$( cd "$SANDBOX" && manifest )
+    ( cd "$SANDBOX" && run_guarded "$cmd" ) >/dev/null 2>&1 </dev/null || true
+    after=$( cd "$SANDBOX" && manifest )
+    if [ "$before" != "$after" ]; then
+      MUTATED=$((MUTATED+1)); MUTATED_LIST="$MUTATED_LIST
+    $cmd"
+      ( cd "$SANDBOX" && rm -rf ./* && mkdir -p progress hooks tests docs .claude
+        for t in "${TARGETS[@]}"; do mkdir -p "$(dirname "$t")"; printf 'ORIGINAL\n' > "$t"; done
+        printf 'SRC\n' > src.txt
+        printf 'BEGIN{ print "PWNED" > "hooks/lib.sh" }\n' > prog.awk
+        printf 'w hooks/lib.sh\n' > prog.sed )
+    fi
+  done
+
+  printf "  실행 검증  : %s건 실행, 파일 변경 %s건\n" "${#ALLOWED[@]}" "$MUTATED"
+  if [ "$MUTATED" -gt 0 ]; then
+    echo "  ✗ allow인데 실제로 파일을 바꿨다:$MUTATED_LIST"
+    FAILED=1
+  fi
+fi
+
 [ "$FAILED" -eq 0 ] && echo "  배터리 통과"
 exit "$FAILED"

@@ -772,6 +772,42 @@ run_firewall() {
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
+@test "F63: awk -f runs a program from a file — the write never appears on the command line" {
+  # 3차 판정이 실증한 회귀. prog.awk 안의 `print > "<보호경로>"` 는 명령행에 나타나지
+  # 않으므로 -i·-v·print>·system 부정 조건을 전부 통과한다. 읽기 화이트리스트는 형태
+  # 전체를 앵커해 인용된 프로그램만 받으므로 -f 계열이 열거 없이 배제된다.
+  run run_firewall '{"tool_input":{"command":"awk -f prog.awk hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"awk --file=prog.awk progress/feature_list.json"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"awk --include=inplace {print} hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "F63: sed s///e executes the pattern space as a shell command" {
+  # GNU sed의 e 플래그. 화이트리스트가 이것을 읽기로 받으면 ask→allow 한 단계가 아니라
+  # 임의 명령 실행이 된다 — DENY 계층은 문자열 안의 payload를 보지 못한다.
+  run run_firewall '{"tool_input":{"command":"sed s/.*/touch pwned/e hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"sed s/a/b/ge progress/harness-config.json"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  # 안전한 치환 플래그는 그대로 읽기다
+  run run_firewall '{"tool_input":{"command":"sed s/a/b/gI hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "F63: a one-token rename does not evade the guard (gsed/gawk/mawk/sponge)" {
+  # 보호 경로가 명령행에 그대로 보이는데 \bsed\b 가 gsed의 sed를 잡지 못했다.
+  run run_firewall '{"tool_input":{"command":"gsed -i s/a/b/ hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"gawk -i inplace {print} progress/harness-config.json"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"mawk -i inplace {print} tests/probes.bats"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"sponge progress/feature_list.json"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
 @test "gates mv of ~/.ssh secrets as ask" {
   run run_firewall '{"tool_input":{"command":"mv ~/.ssh/id_rsa /tmp/x"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
