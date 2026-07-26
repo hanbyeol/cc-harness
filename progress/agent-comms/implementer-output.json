@@ -7,7 +7,8 @@
   "summary": "선결 조건이던 frontmatter 필드 규명을 완료했다. isolation은 적용되고 disallowedTools·maxTurns는 적용되지 않는다 — 같은 블록에 나란히 선언하고 같은 세션에서 로드했는데도 결과가 갈렸다. 적용이 확인된 isolation에 대해서도 강등하지 않고 이중 보호(frontmatter 선언 + 호출자 측 지시)를 유지하기로 사용자가 결정했으며, 그 결정을 양방향 테스트로 잠갔다.",
   "achieved": {
     "AC-1": "완료. 세 필드 판정 — isolation 적용 / disallowedTools 미적용 / maxTurns 미적용. 측정 환경 Claude Code 2.1.220 · 플러그인 v1.35.0. 각 측정 전에 선언이 캐시에 존재하는지 grep으로 확인했고(F56이 건너뛴 단계), 세션 중 캐시 수정은 반영되지 않음을 대조 실험으로 확정한 뒤 재시작 경로로 측정했다",
-    "AC-2": "해당 없음(미달 아님). '적용이 확인된 필드에 한해서만 강등한다'는 조건부 기준이며, 적용된 isolation에 대해서도 강등하지 않기로 결정했다(Q3=B). 호출자 측 지시는 어느 파일에서도 제거하지 않았다"
+    "AC-2": "해당 없음(미달 아님). '적용이 확인된 필드에 한해서만 강등한다'는 조건부 기준이며, 적용된 isolation에 대해서도 강등하지 않기로 결정했다(Q3=B). 호출자 측 지시는 어느 파일에서도 제거하지 않았다",
+    "ES-2": "완료(재작업). 버전 명시는 다섯 곳에 있었으나 **재확인 시점을 백로그에 남기는** 부분이 빠져 evaluator가 반려했다. Q3=B의 근거가 '다음 버전의 보장이 없다'인 조건부 결정이므로 조건을 다시 열 트리거가 없으면 판단이 유예로 굳는다는 지적이다. 재확인 시점을 (a) Claude Code 마이너 버전 상승 시 (b) frontmatter 필드를 새로 선언하려 할 때 (c) 최소 반기 1회로 정하고 절차와 함께 백로그에 기록했다."
   },
   "security": {
     "SC-1": "충족. git diff --quiet progress/harness-config.json docs/INVARIANTS.md → diff 없음",
@@ -19,19 +20,25 @@
     "disallowedTools": "disallowedTools:[\"WebSearch\"] 선언 후 **재시작**하여 로드시키고 디스패치 → WebSearch 정상 실행, 에이전트 보고 도구 목록에도 WebSearch 노출. 미적용",
     "maxTurns": "maxTurns: 2 선언 후 재시작하여 로드시키고 4회 순차 도구 호출이 필요한 작업 디스패치 → STEP1~STEP4 전부 완료, REACHED: STEP4 보고, tool_uses=4. 미적용",
     "method_control": "세션 중 캐시 수정이 반영되는지 판별하는 대조 실험 — 캐시에서 isolation 선언을 **제거**하고 디스패치했는데도 worktree가 생성됐다(agent-a167b6b2919322f55). 즉 Claude Code는 세션 시작 시 로드한 정의를 쓰며 이후 캐시 수정을 무시한다. 이 대조가 없었다면 첫 disallowedTools 관측을 '미적용'으로 기록했을 것이고 F56과 같은 오류가 됐다",
-    "mutation": "세 갈래 전부 포착 — (A) frontmatter 선언 제거 → 테스트 9 실패, (B) CLAUDE.md의 test-writer isolation 지시 제거 → 테스트 10 실패, (C) skills/implement의 같은 지시 제거 → 테스트 10 실패. 복원 후 10/10",
-    "final": "bats 625 ok / 0 fail (기준선 623 + 신규 2) · harness-config·INVARIANTS diff 없음 · 캐시 원복 해시 동일"
+    "mutation": "네 갈래 전부 포착 — (A) frontmatter 선언 제거 → 테스트 9 실패, (B) CLAUDE.md의 test-writer isolation 지시 제거 → 테스트 10 실패, (C) skills/implement의 같은 지시 제거 → 테스트 10 실패, (D) templates/CLAUDE.md.tmpl의 같은 지시 제거 → 테스트 10 실패(evaluator가 정적으로 뚫린다고 증명한 경로, 재작업에서 추가). 복원 후 10/10",
+    "final": "bats 625 ok / 0 fail (기준선 623 + 신규 2) · harness-config·INVARIANTS diff 없음 · 캐시 원복 해시 동일",
+    "positive_control_gap": "**[evaluator 지적, 2026-07-26] 빠진 통제**: disallowedTools·maxTurns가 미적용으로 나온 그 세션에서 isolation이 여전히 작동했다는 관측을 evidence에 남기지 않았다. 그래서 기록상 '캐시 수정본이 로드되긴 했는가'와 '로드됐는데 두 필드만 무시됐는가'가 구분되지 않는다. 선행 조건 grep으로 세 선언이 모두 캐시에 있음은 확인했고 재시작 경로를 거쳤으나, 같은 세션 안에서의 양성 대조는 별도로 기록했어야 했다. **이 기능이 확립한 교훈이 '실험 조건의 성립까지 기록해야 한다'인데 자기 음성 결과에 그 기준을 적용하지 않았다.** 다만 evaluator가 독립 재현에서 isolation 작동을 확인했고(자기 세션에서 worktree 생성·locked 등재·자동 정리), 세 선언이 같은 파일 같은 블록에 있었으므로 결론 자체는 유지된다.",
+    "maxTurns_assumption": "maxTurns 결론은 turn을 tool call과 동일시하는 가정에 의존한다(evaluator 지적). 4회의 순차 도구 호출이 2턴 제한에 걸리지 않았다는 관측이며, Claude Code가 turn을 다르게 센다면 해석이 달라질 수 있다. 세 판정 중 가장 약한 근거다."
   },
   "files_changed": [
     "progress/contracts/sprint-45.json — AC-1 세 필드 판정 기록, AC-2 not_applicable 종료, Q3 신설, agreed 전환",
     "agents/test-writer.md — frontmatter isolation 선언 유지 + 산문을 결론 중심으로 정리(제거 아님)",
     "tests/skill-frontmatter.bats — F59 테스트 2건 추가 (보호 파일, Edit 툴)",
-    "README.md — 테스트 수 623→625 동기화"
+    "README.md — 테스트 수 623→625 동기화",
+    "progress/feature_list.json — F59 설명 재작성(철회 주장 제거), F57 설명의 인용 정정",
+    "evals/acceptance-criteria.json — F59 요약 재작성",
+    "progress/session-handoff-draft.json — ES-2 재확인 트리거 기록"
   ],
   "design_notes": [
     "강등하지 않기로 한 근거는 이번 측정 자체가 제공했다. 같은 frontmatter 블록에 나란히 선언한 세 필드 중 isolation만 적용됐고 나머지 둘은 무시됐다 — 공식 문서가 셋 다 지원 필드로 열거하는데도 그렇다. 필드별 동작이 예측 불가능하고 문서와 어긋나므로, 지금 적용된다는 사실이 다음 버전의 보장이 되지 못한다",
     "탐지 가능성이 결정적이었다. 선언이 파일에서 사라지는 것은 정적 테스트로 잡지만 '선언은 그대로인데 런타임이 무시하게 되는' 변화는 잡을 수단이 없다. 격리 실패는 파일 충돌이 날 때까지 조용하므로 산문이 그 변화를 사람이 알아챌 유일한 계층이다. 얻는 것은 5줄이고 잃는 것은 그 계층이다",
-    "테스트 10을 처음에는 'CLAUDE.md에 isolation 언급이 있는가'로 썼는데 mutation이 잡지 못했다 — 두 파일 모두 병렬 디스패치용 isolation 언급을 따로 갖고 있어 test-writer 지시가 사라져도 통과했다. test-writer와 isolation이 같은 줄에 있는지로 정밀화했고, 그때야 세 갈래 mutation이 모두 잡혔다"
+    "테스트 10을 처음에는 'CLAUDE.md에 isolation 언급이 있는가'로 썼는데 mutation이 잡지 못했다 — 두 파일 모두 병렬 디스패치용 isolation 언급을 따로 갖고 있어 test-writer 지시가 사라져도 통과했다. test-writer와 isolation이 같은 줄에 있는지로 정밀화했고, 그때야 세 갈래 mutation이 모두 잡혔다",
+    "evaluator가 tmpl 사각지대를 정적으로 증명했다 — tmpl에 대한 기존 assertion이 줄 수·마커·스킬 라우팅뿐이라 test-writer isolation 지시를 지워도 625건이 전량 통과한다. tmpl은 소비 프로젝트의 CLAUDE.md로 병합되는 스캐폴드이므로 다운스트림 기준으로는 그쪽이 정본이다. 세 사본을 루프로 함께 검사하도록 고쳤다."
   ],
   "criteria_backfill": [
     "Q3 신설 — 계약의 Q2는 '규명 결과가 전부 미적용이면 어떻게 종료할 것인가'만 다뤘는데 실제 상황은 '일부 적용되지만 강등하지 않음'이었다. 새 질문과 결정을 근거와 함께 기록했다",
@@ -41,7 +48,8 @@
     "측정 결과는 Claude Code 2.1.220 · 플러그인 v1.35.0에 한정된다. 다른 버전에서 같은 동작이 보장되지 않으며, 그 불확실성이 산문을 남긴 이유이기도 하다",
     "effort는 측정하지 않았다. F59 AC-1의 대상이 아니었고(isolation·maxTurns·disallowedTools), F57의 Q3 결정은 '규명 불가'라는 독립 근거로 유지된다. 다만 이번에 '형제 필드가 적용된다고 일반화할 수 없다'가 실증됐으므로, effort를 선언하려면 같은 절차로 별도 측정해야 한다",
     "이중 보호의 두 계층 중 정적으로 잠근 것은 '선언·산문이 파일에 존재하는가'뿐이다. 런타임이 실제로 격리를 거는지는 매번 디스패치해야 알 수 있어 테스트로 만들지 않았다 — 그것이 탐지 불가능한 축으로 남아 있고, 산문을 유지하는 이유가 정확히 그 축이다",
-    "measurement 과정에서 캐시를 직접 수정했다. 저장소에는 커밋하지 않았고 원복해 해시 동일을 확인했으나, 이 방식은 재시작을 요구하므로 릴리스 경로 대비 이점이 크지 않다는 것이 드러났다"
+    "measurement 과정에서 캐시를 직접 수정했다. 저장소에는 커밋하지 않았고 원복해 해시 동일을 확인했으나, 이 방식은 재시작을 요구하므로 릴리스 경로 대비 이점이 크지 않다는 것이 드러났다",
+    "**[추가] positive control 부재** — 위 evidence.positive_control_gap 참조. 음성 결과를 낸 세션에서 양성 대조를 함께 기록하는 것이 옳은 절차였고, 다음 측정에서는 그 단계를 넣는다."
   ],
   "self_review_note": "이 산출은 implementer 자기 보고이며 passes를 판정하지 않는다(INV-1). 판정은 독립 evaluator가 수행한다.",
   "ready_for": "evaluator"

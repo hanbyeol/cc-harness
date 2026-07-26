@@ -79,8 +79,12 @@ PLUGIN_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
   # test-writer와 isolation이 **같은 줄에** 있어야 한다: 두 파일 모두 병렬 디스패치용
   # isolation 언급을 따로 갖고 있어서, 단순히 'isolation'만 찾으면 test-writer 지시가
   # 사라져도 통과한다(느슨한 판정이 mutation에서 실제로 드러났다).
-  grep -qE 'test-writer.*isolation.*worktree' "$PLUGIN_ROOT/CLAUDE.md" \
-    || { echo "CLAUDE.md의 test-writer isolation 지시가 사라졌다"; return 1; }
-  grep -qE 'test-writer.*isolation.*worktree' "$PLUGIN_ROOT/skills/implement/SKILL.md" \
-    || { echo "skills/implement/SKILL.md의 test-writer isolation 지시가 사라졌다"; return 1; }
+  # templates/CLAUDE.md.tmpl은 소비 프로젝트의 CLAUDE.md로 병합되는 스캐폴드다 — 다운스트림
+  # 기준으로는 이쪽이 정본이므로 함께 잠근다. tmpl에 대한 기존 assertion은 줄 수·마커·스킬
+  # 라우팅뿐이라 이 줄을 지워도 625건이 전량 통과했다(evaluator가 정적으로 증명).
+  local f
+  for f in CLAUDE.md skills/implement/SKILL.md templates/CLAUDE.md.tmpl; do
+    grep -qE 'test-writer.*isolation.*worktree' "$PLUGIN_ROOT/$f" \
+      || { echo "$f 의 test-writer isolation 지시가 사라졌다"; return 1; }
+  done
 }
