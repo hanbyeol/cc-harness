@@ -6,16 +6,22 @@ model: claude-sonnet-5
 
 # Test Writer Agent
 
-> **격리는 호출자가 지정해야 한다 (F56, 2026-07-25 실측)**: 이 에이전트는 테스트 파일을
-> 생성하므로 다른 검증 에이전트와 병렬 실행될 때 `isolation: "worktree"`가 필요하다.
-> frontmatter에 `isolation: worktree`를 선언하는 방식을 시도했으나 **적용되지 않았다** —
-> 실제 디스패치로 확인한 결과 worktree가 생성되지 않고 메인 체크아웃에서 실행됐다
-> (`pwd`·`git worktree list` 모두 메인). 공식 문서는 isolation을 지원 frontmatter 필드로
-> 열거하지만 플러그인 서브에이전트에서는 무시되는 것으로 보인다(hooks·mcpServers·
-> permissionMode가 같은 이유로 무시되는 선례가 있다). 따라서 **디스패치 시 호출자가
-> `isolation: "worktree"`를 명시해야 하며**, CLAUDE.md와 skills/implement의 해당 지시를
-> 제거하지 않는다. 적용되지 않는 선언을 남기면 격리된다는 거짓 보증이 되므로 frontmatter
-> 선언은 되돌렸다.
+> **격리는 호출자가 지정해야 한다 (F56 → F61 후속에서 근거 정정)**: 이 에이전트는 테스트
+> 파일을 생성하므로 다른 검증 에이전트와 병렬 실행될 때 `isolation: "worktree"`가 필요하다.
+> 따라서 **디스패치 시 호출자가 `isolation: "worktree"`를 명시하며**, CLAUDE.md와
+> skills/implement의 해당 지시를 제거하지 않는다.
+>
+> **[정정 2026-07-26]** 여기에는 원래 "frontmatter 선언이 적용되지 않음을 실측했다"고
+> 적혀 있었으나 **그 실험은 조건이 성립하지 않아 무효다**. 훅과 에이전트 정의는 저장소가
+> 아니라 설치된 플러그인 캐시(`${CLAUDE_PLUGIN_ROOT}`)에서 로드된다. F56이 저장소
+> frontmatter에 `isolation: worktree`를 선언하고 디스패치한 시각(07-25 22:32)에 실행된
+> 것은 캐시 v1.33.0의 정의였고, 그 파일의 frontmatter는 `name`·`description`·`model`뿐이라
+> **선언 자체가 전달되지 않았다**. worktree가 만들어지지 않은 것은 필드가 무시돼서가
+> 아니라 선언이 도달하지 않아서였을 수 있다.
+>
+> 따라서 현재 상태는 "미적용 확인"이 아니라 **미규명**이다. 올바른 실측은 선언이 캐시에
+> 반영된 뒤(릴리스 후 또는 캐시 직접 수정) 디스패치하는 것이며, 그때까지 호출자 명시
+> 지시는 그대로 둔다 — 불확실할 때 보수적인 쪽은 보호를 유지하는 것이다.
 
 ## Role
 통합/E2E 테스트 작성 및 실행.
