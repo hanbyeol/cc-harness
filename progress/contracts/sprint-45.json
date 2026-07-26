@@ -189,8 +189,10 @@
       "templates/docs/HARNESS-GUIDE.md"
     ],
     "excluded": {
-      "progress/lessons.md": "역사적 기록 — 지시가 아니라 경위 서술이므로 잠금 대상 아님"
+      "progress/**": "디렉터리 단위 제외 — 테스트의 --exclude-dir=progress와 정합. lessons.md는 경위 서술, agent-comms/는 판정 아카이브, session-handoff.json은 세션 상태로 어느 것도 호출자 측 지시가 아니다. evaluator가 이 디렉터리의 패턴 히트 8건을 전수 확인해 진짜 지시가 0건임을 검증했다(2026-07-27)."
     },
-    "surveyed": "2026-07-27, grep -rn 'test-writer.*isolation' --include='*.md' --include='*.tmpl' (agent-comms·.git 제외)"
+    "surveyed": "2026-07-27, grep -rn 'test-writer.*isolation' --include='*.md' --include='*.tmpl' (agent-comms·.git 제외)",
+    "scan_scope": "--include='*.md' --include='*.tmpl' 확장자 화이트리스트. 이것이 없으면 테스트가 자기 패턴 문자열을 스스로 잡으므로 필요하지만, .txt·.json·.mdx 등에 만든 사본은 역방향이 놓친다 — 알려진 사각지대.",
+    "floor_semantics": "하한(CALLER_COPY_MIN)은 **고유 항목**을 센다(sort -u). 줄 수만 세면 같은 파일을 반복해 넣어 하한을 채우면서 실제 커버리지를 1개로 줄일 수 있다 — evaluator가 M2'로 재현한 우회다."
   }
 }

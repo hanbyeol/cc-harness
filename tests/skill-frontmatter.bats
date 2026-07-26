@@ -121,7 +121,14 @@ _caller_copy_list() {   # 계약에서 목록을 읽는다. 부재/malformed면 
 @test "F62: the contract list cannot be emptied or shrunk past its floor (anti-tautology)" {
   # 목록을 외부화하면 '목록을 줄여 검사를 우회'하는 경로가 새로 생긴다. F46이 대칭 파서에서
   # 막은 퇴화와 같은 형태이므로 하한을 둔다 — 목록이 비면 위 두 루프가 돌지 않고 통과한다.
-  local n; n=$(_caller_copy_list | grep -c . || true)
+  #
+  # **고유 항목을 센다(sort -u).** 줄 수만 세면 같은 파일을 반복해 넣어 하한을 채우면서
+  # 실제 커버리지를 1개로 줄일 수 있다 — 목록을 ["CLAUDE.md"] x4 로 만들고 나머지 세
+  # 사본에서 지시를 지우면 정방향은 같은 파일을 네 번 검사해 통과하고, 역방향은 found가
+  # {CLAUDE.md}로 함께 줄어 집합 포함이 성립해 통과한다. 세 단언이 전부 초록인 채 배포
+  # 사본 4개 중 3개가 지시를 잃는다(evaluator가 M2'로 재현). 비교 투영이 결과를 좌우하는
+  # 상태(여기서는 항목 identity)를 누락한 것으로, false-positives.json의 F52 패턴이다.
+  local n; n=$(_caller_copy_list | sort -u | grep -c . || true)
   [ "$n" -ge "$CALLER_COPY_MIN" ] \
-    || { echo "사본 목록이 하한 아래로 축소됐다 ($n < $CALLER_COPY_MIN)"; return 1; }
+    || { echo "사본 목록의 고유 항목이 하한 아래다 ($n < $CALLER_COPY_MIN)"; return 1; }
 }

@@ -8,8 +8,8 @@
   "achieved": {
     "AC-1": "완료. 테스트가 jq로 계약의 _caller_side_copies.files를 읽는다. F62 테스트 3건 어디에도 사본 파일명이 하드코딩돼 있지 않다(남은 파일명 언급은 스킬 라우팅 등 다른 테스트의 것)",
     "AC-2": "완료. 저장소 전수 grep(--exclude-dir=progress) 결과가 계약 목록에 모두 포함되는지 대조한다. 제외 근거를 주석에 명시했다 — lessons.md는 경위 서술, agent-comms는 판정 아카이브라 지시가 아니다",
-    "AC-3": "완료. 목록 하한(CALLER_COPY_MIN=4)을 검사한다. 목록을 외부화하면 '목록을 줄여 검사를 우회'하는 경로가 새로 생기므로 F46이 대칭 파서에서 막은 퇴화와 같은 형태를 막는다",
-    "AC-4": "완료. mutation 네 갈래로 세 단언의 역할 분리를 실증했다 — 상세는 evidence.mutation",
+    "AC-3": "완료(재작업). 목록 하한을 검사하되 **고유 항목**을 센다(sort -u). 최초 구현은 grep -c로 줄 수만 세어 우회 가능했다 — evaluator가 M2'로 재현: 목록을 ['CLAUDE.md'] x4로 채우고 나머지 세 사본에서 지시를 지우면 정방향은 같은 파일을 네 번 검사해 통과하고 역방향은 found가 함께 줄어 집합 포함이 성립해 통과한다. 세 단언 전부 초록인 채 배포 사본 4개 중 3개가 지시를 잃었다.",
+    "AC-4": "완료(재작업). mutation 여섯 갈래 — 상세는 evidence.mutation. 하한의 근거를 (e)에서 M1'으로 교체했다: (e)는 목록이 비어 정방향 가드도 함께 실패하므로 하한의 고유 기여를 증명하지 못하는 confounded 실험이었다(evaluator 지적).",
     "AC-5": "완료. bats 627 ok / 0 fail (기준선 625 + 신규 2). skill-frontmatter.bats의 기존 9건은 무변경 통과"
   },
   "security": {
@@ -21,28 +21,33 @@
     "baseline": "bats 625 ok / 0 fail · skill-frontmatter.bats 10건",
     "final": "bats 627 ok / 0 fail (exit=0) · skill-frontmatter.bats 12건 · run-all은 F62 무관 후보 2건(README 수는 이 스프린트에서 동기화, 나머지는 선재 false positive)",
     "precondition": "역방향 grep 규칙을 사전 실측 — grep -rl 'test-writer.*isolation.*worktree' --include='*.md' --include='*.tmpl' --exclude-dir=progress --exclude-dir=.git 가 정확히 4개를 반환하고 계약 목록과 comm 대조에서 차집합 0",
-    "mutation": "네 갈래로 세 단언의 역할을 분리 실증했다. (a) 목록 파일에서 지시 제거 → **정방향만** 실패. (b) 미등록 사본 신설(docs/ROGUE-COPY.md) → **역방향만** 실패. (c) 목록 비우기 → 셋 다 실패(목록 비우기가 세 축을 동시에 위반하므로 정상). (e) 사본 전부에서 지시 제거 + 목록 비우기 → **역방향은 통과**(found가 비어 대조할 대상이 없다)하고 정방향·하한만 실패. (a)·(b)가 각각 하나씩만 잡는 것이 정방향과 역방향이 서로 다른 결함을 본다는 증거이고, (e)가 하한이 역방향의 사각을 메운다는 증거다",
+    "mutation": "여섯 갈래. **역할 분리**: (a) 목록 파일에서 지시 제거 → 정방향만 실패. (b) 미등록 사본 신설 → 역방향만 실패. **하한의 근거**: (M1') 목록 4→3 축소 + 빠진 파일의 지시 삭제 → 정방향 ok · 역방향 ok · **하한만 실패** — 하한이 load-bearing임을 증명한다. **우회 차단**: (M2') 목록을 ['CLAUDE.md'] x4로 중복 패딩 + 나머지 3개 지시 삭제 → 수정 전에는 세 단언 전부 통과(우회 성립), sort -u 적용 후 하한이 잡는다. 참고: (c) 목록 비우기 → 셋 다 실패. (e) 사본 전부 삭제 + 목록 비우기 → 역방향 통과·정방향/하한 실패 — 원래 하한의 근거로 제시했으나 목록이 비면 정방향 가드도 실패하므로 confounded였다. M1'이 올바른 근거다.",
     "restoration": "mutation 대상 5개 파일(사본 4 + 계약 1) 전부 git diff 없음으로 복원 확인",
-    "sc2_set_comparison": "변경 전 하드코딩 4개 = 변경 후 계약 목록 4개 (CLAUDE.md · skills/implement/SKILL.md · templates/CLAUDE.md.tmpl · templates/docs/HARNESS-GUIDE.md)"
+    "sc2_set_comparison": "변경 전 하드코딩 4개 = 변경 후 계약 목록 4개 (CLAUDE.md · skills/implement/SKILL.md · templates/CLAUDE.md.tmpl · templates/docs/HARNESS-GUIDE.md)",
+    "bypass_reproduced": "M2' 우회를 저장소에서 직접 재현했다 — 수정 전 세 단언이 전부 통과하는 것을 확인한 뒤 sort -u를 적용하고 다시 돌려 하한이 잡는 것을 확인했다. 대상 파일 4개는 git diff 없음으로 복원 확인."
   },
   "files_changed": [
     "tests/skill-frontmatter.bats — 테스트 10을 F62 3건(정방향·역방향·하한)으로 재구성, 목록 하드코딩 제거 (보호 파일, Edit 툴)",
     "progress/contracts/sprint-48.json — 신규 계약, agreed 전환",
     "progress/feature_list.json·evals/acceptance-criteria.json — F62 등록",
     "README.md — 테스트 수 625→627 동기화",
-    "progress/agent-comms/change-request-*.json — 변경 이력"
+    "progress/agent-comms/change-request-*.json — 변경 이력",
+    "progress/contracts/sprint-45.json — _caller_side_copies의 excluded를 테스트와 정합화(디렉터리 단위), scan_scope·floor_semantics 추가"
   ],
   "design_notes": [
     "빠져 있던 것은 역방향이었다. '목록의 파일에 지시가 있는가'는 지시 삭제를 막지만 '사본을 새로 만들고 목록에 넣지 않는' 경로는 열어 둔다. 이 세션의 두 판정이 각각 그 경로로 사본을 하나씩 찾아냈고, 세 번째 재발을 막으려면 클래스를 기계적으로 열거해야 했다",
     "목록 외부화는 새 우회로를 만든다 — files를 비우면 정방향 루프가 돌지 않고 조용히 통과한다. F46이 대칭 파서에서 정확히 이 퇴화를 막았으므로 같은 방어(하한)를 넣었다. 외부화의 이득만 취하고 부작용을 방치하면 순손실이다",
-    "mutation을 네 갈래로 나눈 이유는 '한 단언이 셋을 다 잡으면 방향 구분이 무의미하다'는 계획의 기준 때문이다. (a)·(b)가 각각 하나만 잡아 정·역방향의 독립성이 확인됐고, (e)에서 역방향이 통과하는 것을 보고서야 하한이 장식이 아님을 알 수 있었다"
+    "mutation을 여러 갈래로 나눈 이유는 '한 단언이 셋을 다 잡으면 방향 구분이 무의미하다'는 계획의 기준 때문이다. (a)·(b)가 각각 하나만 잡아 정·역방향의 독립성은 확인됐으나, **하한의 근거로 제시한 (e)는 confounded였다** — 목록이 비면 정방향의 빈 목록 가드도 함께 실패하므로 하한의 고유 기여가 드러나지 않는다. evaluator가 지적한 M1'(목록 4→3 축소 + 빠진 파일의 지시 삭제)이 올바른 실험이고, 그때 정방향·역방향이 통과하고 하한만 실패한다. 세 축을 다 만들어 놓고도 셋째의 근거를 잘못 골랐다.",
+    "이번 반려의 교훈은 '가드를 추가할 때 그 가드 자체를 우회 대상으로 놓고 시험해야 한다'는 것이다. 하한은 목록 축소를 막으려고 넣었는데 정작 '줄 수'라는 느슨한 투영을 써서, 같은 파일을 반복해 넣는 것만으로 통과했다. 무엇을 세는지가 무엇을 막는지를 결정한다."
   ],
   "criteria_backfill": [],
   "limitations_honest": [
     "역방향 grep은 'test-writer.*isolation.*worktree'라는 특정 패턴에 의존한다. 같은 취지를 다른 표현으로 쓴 사본은 잡지 못하며, F59에서 이미 확인된 한계(산문 잠금은 삭제를 막고 재작성은 막지 못한다)와 같은 축이다",
     "이 대칭은 isolation 지시 하나에만 적용된다. 하네스의 다른 산문 잠금(subagent-mode.bats·improve-auto.bats)은 같은 구조가 없으며 일반화는 이번 범위 밖이다",
-    "계약이 테스트의 입력이 되면서 신뢰 경계가 하나 늘었다. _caller_side_copies는 INV-11이 보호하는 agreed 필드가 아니므로 계약 파일을 조작하면 목록을 바꿀 수 있다. 하한과 역방향이 축소·누락을 막지만 '존재하지 않는 경로를 목록에 넣어 정방향을 실패시키는' 교란은 막지 못한다 — 다만 그것은 검사를 강화하는 방향이라 위험으로 보지 않았다",
-    "제외 규칙(--exclude-dir=progress)은 디렉터리 단위다. 앞으로 progress/ 아래에 진짜 호출자 측 지시가 생기면 역방향이 놓친다. 현재 그 디렉터리는 진행 기록·판정 아카이브 전용이라 해당 사례가 없다"
+    "계약이 테스트의 입력이 되면서 신뢰 경계가 하나 늘었다. _caller_side_copies는 INV-11이 보호하는 agreed 필드가 아니므로 계약 파일을 조작하면 목록을 바꿀 수 있다. **최초 구현은 이 축에서 실제로 뚫렸다** — 중복 패딩으로 하한을 채우는 경로(M2')를 limitations에 '존재하지 않는 경로를 넣는' 반대 방향만 적고 놓쳤다. sort -u로 닫았으나, 이 클래스(비교 투영이 결과를 좌우하는 상태를 누락)는 false-positives.json의 F52로 이미 세 번 기록됐다.",
+    "제외 규칙(--exclude-dir=progress)은 디렉터리 단위다. 앞으로 progress/ 아래에 진짜 호출자 측 지시가 생기면 역방향이 놓친다. 현재 그 디렉터리는 진행 기록·판정 아카이브 전용이라 해당 사례가 없다",
+    "**[evaluator 지적] 하한이 상향 조정되지 않는다** — CALLER_COPY_MIN=4는 고정값이라 사본이 6개로 늘었다가 4개로 줄면서 지시가 제거되면 다시 통과한다. 목록과 실제 사본이 함께 줄면 정당한 리팩터링과 구분되지 않아 이번 범위에서 자동 상향은 넣지 않았다. 사본을 추가할 때 하한도 함께 올리는 것이 현재의 유일한 방어다.",
+    "**[evaluator 지적] 확장자 화이트리스트 사각지대** — 역방향 grep이 --include='*.md' --include='*.tmpl'로 한정된다. 이것이 없으면 테스트가 자기 패턴 문자열을 잡으므로 필요하지만, .txt·.json·.mdx 등에 만든 사본은 놓친다. 계약의 _caller_side_copies.scan_scope에 기록했다."
   ],
   "self_review_note": "이 산출은 implementer 자기 보고이며 passes를 판정하지 않는다(INV-1). 판정은 독립 evaluator가 수행한다.",
   "ready_for": "evaluator"
