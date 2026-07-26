@@ -106,6 +106,15 @@ WRITES=(
   "gawk -i inplace '{print}' %s"
   "mawk -i inplace '{print}' %s"
   "sponge %s"
+  # 4차 판정 — 앵커는 인자 **형태**만 보고 그 인자가 놓인 **셸 문맥**은 보지 않는다.
+  # ${IFS}가 공백을 대신하므로 `[^ ']+$` 파일 슬롯에 명령 치환이 통째로 들어간다.
+  "awk '{print}' \$(cp\${IFS}src.txt\${IFS}%s)"
+  "sed -n 5p \$(cp\${IFS}src.txt\${IFS}%s)"
+  "awk 'NR<10' \`cp src.txt %s\`"
+  "sed -n '1,5p' \$(tee\${IFS}%s)"
+  # 4차 판정 별건 — 인용부호 안의 `;`가 ASK 패턴의 [^;|&]* 스팬을 끊는다
+  "sed -n 'p;w %s' src.txt"
+  "sed 'p;s/a/b/w %s' src.txt"
 )
 
 decide() {

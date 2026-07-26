@@ -95,6 +95,12 @@ fi
 
 # === Layer 3: Ask tier — 파괴적이지만 정상 워크플로우에서 쓰일 수 있는 명령 ===
 # deny 대신 사용자 확인(permissionDecision: ask)으로 강등.
+#
+# 이름 기반 에디터 목록 — 도구 이름만으로 판정하므로 각 도구의 쓰기 문법을 몰라도 안전하다.
+# Layer 3.5의 읽기 화이트리스트가 **면제할 수 있는 유일한 패턴 계열**이며, 아래 두 자리에서만
+# 쓰인다. 변수로 뽑아 둔 이유는 면제 대상 식별과 패턴 정의가 같은 출처를 갖게 하기 위해서다 —
+# 목록이 바뀌면 면제 판정도 함께 바뀐다(어긋나면 면제가 멈춰 읽기가 ask가 될 뿐, 보호는 유지).
+EDITOR_NAME_ARM='(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)'
 ASK_PATTERNS=(
   'git reset[^;|&]*--hard'
   'git clean[^;|&]* -[a-zA-Z]*f'
@@ -146,6 +152,12 @@ ASK_PATTERNS=(
   # 인터프리터(바로 아래)도 그대로다 — python·node·perl은 읽기/쓰기를 구문으로 구분할 수 없다.
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
   '\b(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  # 위 패턴의 `[^;|&]*` 스팬은 **인용부호 안의 `;`에서도 끊긴다** — `sed -n 'p;w <보호경로>' src`
+  # 가 그래서 allow였다(4차 판정 별건, F63 이전부터 존재). 명령이 그 도구로 **시작할 때만**
+  # 세미콜론을 넘어 보는 변형을 하나 더 둔다. 시작 앵커가 있으므로 `echo hi; cat <보호경로>`
+  # 같은 정상 명령은 걸리지 않는다. 패턴 문자열은 리터럴로 둔다 — invariant-guard의
+  # count_array가 작은따옴표로 시작하는 줄만 세므로, 변수 보간을 쓰면 가드의 계수에서 빠진다.
+  '^ *(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)\b[^|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json|feature_list\.json)'
   '>>? *[^ ]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
   '\b(cp|mv|install|rsync|ln|tee|sponge|truncate)\b[^;|&]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
   'git\b[^;|&]*-c[^;|&]*core\.hooksPath'
@@ -185,7 +197,14 @@ ASK_PATTERNS=(
 #   - sed: 아래 세 형태 중 하나와 **전체가** 일치한다(끝의 $ 앵커 — 뒤에 인자가 붙으면 불일치)
 #   - awk: 인라인 프로그램에 쓰기 수단(-i·-v·print>·system)이 하나도 없다
 SAFE_READ=0
-if [[ "$NORMALIZED_CMD" != *'>'* && "$NORMALIZED_CMD" != *'|'* && "$NORMALIZED_CMD" != *';'* && "$NORMALIZED_CMD" != *'&'* ]]; then
+# 선행 가드 — 셸 문맥에 다른 명령이 섞일 여지가 있으면 화이트리스트를 아예 건너뛴다.
+# 4차 판정: 형태 앵커는 sed/awk의 **인자 형태**만 검사하고 그 인자가 놓인 셸 문맥은 보지
+# 않는다. 파일 슬롯 `[^ ']+$` 는 공백만 없으면 무엇이든 받으므로 `${IFS}` 로 공백을 대신하면
+# 명령 치환이 통째로 파일 인자 자리에 들어간다 — `awk '{print}' $(cp${IFS}/tmp/x${IFS}<보호경로>)`
+# 가 실제로 보호 파일을 덮어썼다. 치환·전개 문자를 여기서 배제한다.
+if [[ "$NORMALIZED_CMD" != *'>'* && "$NORMALIZED_CMD" != *'|'* && "$NORMALIZED_CMD" != *';'* \
+   && "$NORMALIZED_CMD" != *'&'* && "$NORMALIZED_CMD" != *'$('* && "$NORMALIZED_CMD" != *'${'* \
+   && "$NORMALIZED_CMD" != *'`'* ]]; then
   # sed: 출력 전용이 확실한 세 형태만 긍정 열거한다.
   #   sed -n '1,20p' <file>  ·  sed -n 5p <file>  ·  sed -n '/re/p' <file>  ·  sed 's/a/b/' <file>
   # w를 부정 조건으로 쓰지 않는다 — `\bw` 는 /word/의 w를 잡고(과탐) `1w file`은 놓친다
@@ -227,9 +246,18 @@ if [[ "$NORMALIZED_CMD" != *'>'* && "$NORMALIZED_CMD" != *'|'* && "$NORMALIZED_C
   fi
 fi
 
-if [ "$SAFE_READ" -eq 0 ] && echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then
+if echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then
   for p in "${ASK_PATTERNS[@]}"; do
     if echo "$NORMALIZED_CMD" | grep -qiE "$p"; then
+      # 화이트리스트가 **면제할 수 있는 패턴은 이름 기반 에디터 목록뿐이다.**
+      # 4차 판정 이전에는 SAFE_READ=1이 ASK 배열 전체를 건너뛰었고, 그 때문에 화이트리스트의
+      # 결함 하나가 sed/awk 마찰을 넘어 egress 티어(`$(curl -T ~/.ssh/id_rsa …)`)와
+      # INV-11 Bash 우회 게이트(`$(cp /tmp/x progress/feature_list.json)`)까지 열었다.
+      # 3차에서 내가 'ASK 앞에 두었으니 최악도 ask→allow 한 단계'라고 주장한 손실 상한은
+      # **면제 범위를 국소화해야 비로소 참이 된다.** 이제 다른 패턴이 하나라도 걸리면 ask다.
+      if [ "$SAFE_READ" -eq 1 ] && [[ "$p" == *"$EDITOR_NAME_ARM"* ]]; then
+        continue
+      fi
       log_decision ask
       jq -n --arg reason "uncommitted 변경을 잃을 수 있는 명령입니다 (pattern: $p). 실행 전 확인이 필요합니다." \
         '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "ask", permissionDecisionReason: $reason}}'
