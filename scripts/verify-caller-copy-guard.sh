@@ -26,11 +26,12 @@ p = sys.argv[1]; s = open(p).read()
 open(p, 'w').write(re.sub(r'[^\n]*test-writer[^\n]*isolation[^\n]*worktree[^\n]*\n', '', s))
 PY
 }
-_strip_all() {
+_strip_all() {   # 사본 경로는 계약에서 읽는다 — 여기 다시 적으면 AC-1이 없앤 중복이
+                 # 세 번째 장소에 생긴다(6차 판정 지적). lab 안에서 호출되므로 상대 경로.
   local f
-  for f in CLAUDE.md skills/implement/SKILL.md templates/CLAUDE.md.tmpl templates/docs/HARNESS-GUIDE.md; do
-    _strip "$f"
-  done
+  while IFS= read -r f; do
+    [ -n "$f" ] && _strip "$f"
+  done < <(jq -r '._caller_side_copies.files[]?' progress/contracts/sprint-45.json 2>/dev/null)
 }
 _set_list() {
   python3 - "$@" <<'PY'
@@ -69,14 +70,16 @@ c_pristine() { true; }
 # 검사(#5)와 frontmatter 검사(#8)까지 함께 실패해 F62 가드의 반응과 섞인다.
 c_e4()       { _decoy docs/DISPATCH.md; git add -A; }
 c_name_dir() { printf '\ntest-writer는 `isolation: "worktree"`로 디스패치.\n' >> skills/progress/SKILL.md; git add -A; }
-c_t2()       { local i; for i in 1 2 3 4; do _decoy "docs/d$i.md"; done; git add -A
-               _set_list docs/d1.md docs/d2.md docs/d3.md docs/d4.md; _strip_all; }
-c_t3()       { mkdir -p .tmp; printf '.tmp/\n' >> .gitignore
+# _strip_all 은 계약에서 사본 경로를 읽으므로 **목록을 바꾸기 전에** 호출해야 한다.
+# 순서를 뒤집으면 decoy를 지우게 되어 진짜 사본이 남는다(이 배터리가 스스로 잡은 부작용).
+c_t2()       { _strip_all; local i; for i in 1 2 3 4; do _decoy "docs/d$i.md"; done; git add -A
+               _set_list docs/d1.md docs/d2.md docs/d3.md docs/d4.md; }
+c_t3()       { _strip_all; mkdir -p .tmp; printf '.tmp/\n' >> .gitignore
                local i; for i in 1 2 3 4; do _decoy ".tmp/d$i.md"; done
-               _set_list .tmp/d1.md .tmp/d2.md .tmp/d3.md .tmp/d4.md; _strip_all; }
+               _set_list .tmp/d1.md .tmp/d2.md .tmp/d3.md .tmp/d4.md; }
 c_m1()       { _set_list CLAUDE.md skills/implement/SKILL.md templates/CLAUDE.md.tmpl
                _strip templates/docs/HARNESS-GUIDE.md; }
-c_dup()      { _set_list CLAUDE.md CLAUDE.md CLAUDE.md CLAUDE.md; _strip_all; }
+c_dup()      { _strip_all; _set_list CLAUDE.md CLAUDE.md CLAUDE.md CLAUDE.md; }
 c_rogue()    { _decoy skills/debug/rogue.md; git add -A; }
 c_empty()    { _set_list; }
 c_strip1()   { _strip templates/docs/HARNESS-GUIDE.md; }

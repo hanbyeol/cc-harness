@@ -18,6 +18,8 @@ jobs:
           shellcheck init.sh
           shellcheck scripts/probes/*.sh
           shellcheck scripts/cost-report.sh
+          shellcheck scripts/build-golden-set.sh
+          shellcheck scripts/verify-caller-copy-guard.sh
 
   json-validate:
     name: JSON Validation
@@ -79,3 +81,8 @@ jobs:
           jq --version
       - name: Run hook tests
         run: bats tests/
+      # F62 사본 가드의 mutation 배터리. bats만으로는 가드가 약해지는 것을 못 본다 —
+      # 3차 수정이 직전 버전이 잡던 드리프트를 놓치는 회귀를 만들었을 때 bats는 전부
+      # 초록이었다. 배터리를 저장소에 두는 것만으로는 상설이 아니며 여기서 불러야 한다.
+      - name: Run caller-copy guard mutation battery
+        run: bash scripts/verify-caller-copy-guard.sh
