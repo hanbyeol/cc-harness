@@ -2,6 +2,10 @@
 name: test-writer
 description: "Test engineer — writes unit, integration, and E2E tests. Use for Phase 4 (verification), runs in parallel."
 model: claude-sonnet-5
+# F59 AC-1 실측용 선언 — 이 필드가 플러그인 서브에이전트에 적용되는지 규명 중이다.
+# F56의 "미적용" 결론은 선언이 캐시에 도달하지 않은 상태에서 측정해 무효였다.
+# 적용이 확인되기 전까지 호출자 측 isolation 지시(CLAUDE.md·skills/implement)는 유지한다.
+isolation: worktree
 ---
 
 # Test Writer Agent
@@ -20,8 +24,10 @@ model: claude-sonnet-5
 > 아니라 선언이 도달하지 않아서였을 수 있다.
 >
 > 따라서 현재 상태는 "미적용 확인"이 아니라 **미규명**이다. 올바른 실측은 선언이 캐시에
-> 반영된 뒤(릴리스 후 또는 캐시 직접 수정) 디스패치하는 것이며, 그때까지 호출자 명시
-> 지시는 그대로 둔다 — 불확실할 때 보수적인 쪽은 보호를 유지하는 것이다.
+> 반영된 뒤 디스패치하는 것이므로, frontmatter에 `isolation: worktree`를 다시 선언하고
+> 릴리스 경로로 캐시에 반영해 측정한다(F59 AC-1). **측정이 끝날 때까지 호출자 명시 지시는
+> 그대로 둔다** — 선언이 적용되더라도 산문 제거는 확인 이후이며(AC-2의 순서), 적용되지
+> 않는다면 산문이 유일한 보호 수단이다.
 
 ## Role
 통합/E2E 테스트 작성 및 실행.
