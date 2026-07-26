@@ -35,13 +35,19 @@
     },
     {
       "id": "AC-4",
-      "criterion": "mutation으로 회귀 포착력을 확인한다. **각 mutation이 적어도 하나의 고유 단언에서 잡히는지**를 본다 — 집합 동등성을 쓰면 한 변경이 여러 단언을 동시에 건드리는 경우가 자연스럽게 생기므로(지시를 지우면 그 파일이 스캔 결과에서도 빠진다) '한 mutation당 정확히 한 단언'은 요구하지 않는다. 요구하는 것은 각 축이 자기만 잡는 케이스를 하나씩 갖는 것이다.",
-      "verification": "여덟 갈래를 pristine lab에서 각각 실행. 축별 고유 케이스: 역방향은 (b) 미등록 사본 신설과 scope-padding 붕괴, 하한은 M1'(목록 4→3 축소 + 빠진 파일 지시 삭제). 정방향은 (a)에서 역방향과 함께 잡히나 (e)에서 역방향이 통과할 때도 잡는다"
+      "criterion": "mutation으로 회귀 포착력을 확인한다. **각 축이 자기만 잡는 케이스를 하나씩 갖는지**를 본다. 다만 정방향은 독립 축이 아니다 — 집합 동등성 하에서 listed의 모든 파일은 정의상 패턴을 가지므로 정방향이 역방향 없이 단독으로 실패할 수 없다(3차 판정 지적). 정방향은 '어느 파일이 지시를 잃었는가'를 알려 주는 진단 편의로 유지한다.",
+      "verification": "열 갈래를 pristine lab에서 실행. 축별 고유 케이스 — 역방향: (b) 미등록 사본 신설. 구조 앵커: t2(범위 밖 decoy)·t3(gitignore된 decoy). 하한: M1'(목록 4→3 축소 + 빠진 파일 지시 삭제). 정방향은 고유 케이스를 갖지 않으며 그것이 정상이다"
     },
     {
       "id": "AC-5",
       "criterion": "기존 테스트·프로브가 회귀 없이 통과한다.",
       "verification": "bats tests/ 전체 1회 실행 후 출력 파싱(재실행 금지) + scripts/probes/run-all.sh"
+    },
+    {
+      "id": "AC-6",
+      "criterion": "[구조 앵커] 계약 목록의 각 경로는 구조적으로 정의된 universe(CLAUDE.md · skills/** · templates/**) 안에 있어야 하고 git이 추적하는 파일이어야 한다. 집합 동등성만으로는 목록과 스캔을 **함께** 옮기는 우회가 남는다 — 범위 밖에 decoy를 만들면 둘이 같이 움직여 동등성이 유지된다.",
+      "verification": "범위 밖 decoy(docs/)와 gitignore된 decoy(.tmp/)로 각각 4→0 붕괴를 시도해 실패하는지 확인. 후자는 git diff 복원 검사조차 조작을 보지 못하는 변형이다",
+      "_origin": "3차 판정 지적. false-positives.json F52 guard(2)의 화이트리스트 역전 처방을 적용했다."
     }
   ],
   "security_criteria": [
@@ -135,5 +141,12 @@
   "_parallelizable": false,
   "_parallel_note": "직렬. 단일 테스트 파일의 좁은 변경이며 위임 상한 (a)에 해당한다.",
   "agreed": true,
-  "_agreed_note": "**승인됨 — 2026-07-27 Plan 게이트(ExitPlanMode).** /improve 1회전 후보 선택(사용자) 후 정방향·역방향·tautology 방어 3축 설계로 승인받았다. tests/skill-frontmatter.bats는 보호 파일이며 Edit 툴로만 수정하고, sprint-45.json은 목록의 단일 출처로 읽기만 한다."
+  "_agreed_note": "**승인됨 — 2026-07-27 Plan 게이트(ExitPlanMode).** /improve 1회전 후보 선택(사용자) 후 정방향·역방향·tautology 방어 3축 설계로 승인받았다. tests/skill-frontmatter.bats는 보호 파일이며 Edit 툴로만 수정하고, sprint-45.json은 목록의 단일 출처로 읽기만 한다.",
+  "_axes": {
+    "note": "이 검사는 네 단언이지만 독립 축은 셋이다.",
+    "reverse": "계약 목록 == universe 스캔 (집합 동등)",
+    "structural_anchor": "목록의 각 경로가 universe 안 + git-tracked",
+    "floor": "고유 항목 수 >= CALLER_COPY_MIN",
+    "forward": "진단 편의 — 집합 동등성의 따름정리이며 단독 실패하지 않는다(3차 판정 지적)"
+  }
 }

@@ -1,0 +1,116 @@
+{
+  "timestamp": "2026-07-27T06:00:00+09:00",
+  "sprint": 48,
+  "iteration": 3,
+  "features_evaluated": [
+    "F62"
+  ],
+  "security_tier": "standard",
+  "verification_tier": "standard",
+  "commit_evaluated": "5e50d6d",
+  "scores": {
+    "functionality": 6,
+    "code_quality": 7,
+    "security": 6,
+    "error_handling": 7,
+    "test_coverage": 6
+  },
+  "score": 6,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_threshold_for_tier": 5,
+  "verdict": "fail",
+  "fail_reasons": [
+    "score 6 < pass_threshold 7 (min-of-5: functionality 6, security 6, test_coverage 6). security 6은 standard 티어 하한 5를 상회하므로 티어 자동 fail은 아니다 — 반려는 min-of-5에 의한 것이다",
+    "**AC-3 미충족 — 같은 클래스의 세 번째 문이 열려 있고, 도달하는 상태가 이전 반려와 동일하다.** 집합 동등성은 '목록이 스캔 결과에 대해 정직한가'만 강제한다. 어느 파일이 그 집합에 있어야 하는지는 아무것도 고정하지 않고, 하한은 개수만 본다. 스캔 범위 **안**에 사소한 .md 4개를 만들어 목록을 그것으로 겨누고 진짜 배포 사본 4개의 지시를 지우면 세 단언이 전부 통과하고 **전체 스위트 627 ok / 0 fail**이다(evaluator가 pristine lab에서 재현: t2_decoy_swap_all, real_copies=0). 2차 반려 사유였던 scope-padding 붕괴와 **도달 상태가 같다**(실제 사본 0개 · 627건 green). 차이는 공격자가 이미 추적 중인 파일을 재사용하는 대신 `echo` 4번을 먼저 실행해야 한다는 것뿐이다. 2차 판정의 논리('4→1로 반려하고 4→0을 통과시키면 자기모순')가 그대로 적용된다",
+    "**변형 t3는 반려된 것보다 강하다** — 디코이를 gitignore된 `.tmp/` 아래 두면 실제 사본 0개 · 전 단언 통과 · **git status가 깨끗하게 유지**된다(evaluator 재현: t3_ignored_decoys). 역방향 grep이 추적 파일이 아니라 워킹트리를 스캔하므로 무시된 파일도 `found`에 계상된다. implementer가 복원 근거로 쓰는 `git diff 없음` 패턴이 이 조작을 보지 못한다",
+    "**AC-4 미충족(수정된 문언 기준)** — 개정된 AC-4는 '각 축이 자기만 잡는 케이스를 하나씩 갖는 것'을 요구한다. 역방향은 (b)와 scope-padding, 하한은 M1'으로 각각 고유 케이스가 있으나 **정방향은 여덟 갈래 어디에서도 단독으로 실패하지 않는다**(evaluator가 전 갈래 재현: (a)=#10#11, (e)=#10#12, c=#10#11#12). 구조적 이유가 있다 — listed == found가 성립하면 listed의 모든 파일은 정의상 패턴을 갖는다. 즉 **정방향은 역방향에 논리적으로 함의되며**, 유일한 고유 기여인 빈 목록 가드는 하한이 함께 덮는다. 세 축이 아니라 실질 두 축이다. 이 사실이 구현에도 산출에도 기록되지 않았다"
+  ],
+  "issues": [
+    "[security][high][confidence:certain] **디코이 스왑으로 보호 사본을 0으로 만드는 경로** — 스캔 범위 안(.md)에 내용 없는 파일 4개를 만들고 목록을 그것으로 교체한 뒤 진짜 사본 4개의 지시를 삭제하면 forward/reverse/floor 전부 통과, 전체 스위트 627 green, 실제 배포 사본 0개. 재현: t2_decoy_swap_all · t4_onedir(한 디렉터리 안 4파일) 모두 failed=(none)",
+    "[security][high][confidence:certain] **gitignore된 경로의 디코이가 유효한 충전재다** — 역방향이 `grep -r`로 워킹트리를 스캔해 추적 여부를 묻지 않는다. `.tmp/D1..4.md`(.gitignore 대상)로 같은 붕괴를 만들면 git status·git diff가 전부 깨끗하다. 재현: t3_ignored_decoys, real_copies=0, failed=(none)",
+    "[security][medium][confidence:high] limitations_honest 6번이 이 경로를 '실제 커버리지는 유지되나 어느 파일이 지시를 갖는가가 바뀐다'로 서술한다 — **반복 적용하면 커버리지가 0이 되므로 사실이 아니다.** 2차 반려 사유였던 SC-3의 '실질적으로 닫힌다' 과장을 정정한 문단 바로 아래에서 같은 종류의 과소 서술이 재발했다. 잔여 위험을 기록하는 것과 그 크기를 정확히 적는 것은 다른 일이다",
+    "[security][medium][confidence:high] '파일 identity 고정은 AC-1과 충돌하므로 수정하지 않는다'는 논거가 과장이다. AC-1이 금지하는 것은 **목록을 테스트에 다시 적는 것**이지 구조적 앵커가 아니다. 충돌하지 않는 완화가 최소 셋 있다 — (1) 목록 항목이 git 추적 파일일 것을 요구(t3를 즉시 차단), (2) 스캔의 우주를 구조로 정의(루트 CLAUDE.md · templates/** · skills/*/SKILL.md 중 'test-writer'를 언급하는 파일 전부가 지시를 가져야 한다)하고 예외만 명시 — 이것이 false-positives.json F52 3차의 guard(2) '화이트리스트 역전'을 이 문제에 적용한 형태다, (3) 목록이 아닌 앵커 한 줄(루트 CLAUDE.md ∈ found)만 보호 파일에 남김",
+    "[security][medium][confidence:high] 신뢰 경계 회귀가 미해결(2차 지적 이월) — F62 이전에는 목록이 보호 파일 tests/skill-frontmatter.bats 안에 있어 invariant-guard 대상이었다. 지금은 비보호 파일 progress/contracts/sprint-45.json에 있고, 재현된 세 붕괴 전부가 그 파일 편집만으로 성립한다",
+    "[test][high][confidence:certain] **보고된 mutation 결과 하나가 재현되지 않는다** — implementer-output.json의 evidence.mutation이 M2'(중복 패딩)를 '#10#11#12'로 적었으나 실제는 **#12 단독**이다(evaluator 재현: m2_dup_padding failed=#12). listed unique={CLAUDE.md}, found={CLAUDE.md}이므로 정방향·역방향은 통과한다. 2차 판정의 기록(P/P/F)과도 어긋난다. mutation 근거가 이 기능의 유일한 보증 수단인데 그 표에 미재현 항목이 있는 것은 evidence 무결성 문제다",
+    "[test][high][confidence:certain] 결정적 갭인 디코이 스왑에 **음성 테스트가 0건**이다. 산문(limitations 6번)으로만 존재한다. false-positives.json F52 3차의 guard(4) '가드가 비교하지 않는 축에 대한 테스트가 0건이면 커버리지 형상 자체가 결함이며 test_coverage를 7 미만으로 채점한다'가 그대로 적용된다",
+    "[test][medium][confidence:high] 정방향 단언이 역방향에 함의되어 사실상 죽은 축이다. 세 축 중 하나가 독립적 회귀 포착력을 갖지 못한다는 사실이 AC-4 검증에서 드러났어야 했다",
+    "[quality][medium][confidence:high] 개정된 AC-4의 criterion 문장('각 축이 자기만 잡는 케이스를 하나씩 갖는다')과 verification 문장('정방향은 (a)에서 역방향과 함께 잡히나 (e)에서 역방향이 통과할 때도 잡는다')이 서로 어긋난다. 앞은 정방향에 고유 케이스를 요구하고 뒤는 없다고 인정한다",
+    "[process][medium][confidence:certain] **합의된 계약의 acceptance criterion이 구현 중 개정됐는데 criteria_backfill이 빈 배열이다.** 5e50d6d가 sprint-48.json의 AC-4 문언을 실질 변경(요건 완화 방향)했다. 2차 evaluator가 트레이드오프를 예고했으므로 개정 자체는 정당하나, 기준 변경은 backfill로 기록돼 사용자 확인 대상이 돼야 한다",
+    "[quality][low][confidence:high] CALLER_COPY_MIN=4가 테스트 파일 상수로 남아 계약과 이중 출처를 이룬다 — 이 기능이 제거하려던 drift의 축소판(2차 이월, 미해결)",
+    "[quality][low][confidence:medium] 역방향이 워킹트리를 스캔하므로 개발자의 임시 .md가 지시 문구를 인용하기만 해도 빌드가 깨진다(ES-2의 오탐 방향). 실패 안전 방향이라 반려 사유는 아니나 제외 규칙에 근거가 기록돼 있지 않다",
+    "[docs][low][confidence:high] sprint-45.json의 floor_semantics가 '고유 항목을 센다'까지만 적어 **무엇을 세는지는 고쳤으나 무엇이 셀 자격이 있는지는 여전히 미검사**라는 사실을 남기지 않는다(2차 이월)"
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1 충족(실행 검증) — F62 3건(tests/skill-frontmatter.bats:93-140)에 사본 파일명 하드코딩이 없고 jq로 계약에서 읽는다. pristine lab에서 12/12 통과",
+      "AC-2 충족(실행 검증, 명시된 두 검증 모두) — (1) 미등록 사본 신설 시 역방향만 실패(b_reverse failed=#11), (2) **2차 반려 사유였던 scope-padding 4→0 붕괴가 이제 잡힌다**(collapse_scope_padding: 목록을 tests/skill-frontmatter.bats·progress/lessons.md·progress/feature_list.json·implementer-output.json으로 겨누고 진짜 사본 4개 지시 삭제 → real_copies=0, failed=#11). 지목한 인스턴스는 실제로 닫혔다",
+      "AC-5 충족(실행 검증) — bats tests/ 627 ok / 0 not ok / exit 0. 워킹트리 clean"
+    ],
+    "security": [
+      "SC-1 충족(실행 검증) — git diff --quiet progress/harness-config.json docs/INVARIANTS.md → diff 없음",
+      "SC-2 충족(실행 검증) — 검사 대상 집합이 변경 전 하드코딩 4개와 동일(CLAUDE.md · skills/implement/SKILL.md · templates/CLAUDE.md.tmpl · templates/docs/HARNESS-GUIDE.md). 줄어든 파일 없음. 역방향·하한은 순증"
+    ],
+    "error_scenarios": [
+      "ES-1 충족(실행 검증, 세 갈래) — 계약 파일 부재·malformed JSON·_caller_side_copies 키 삭제 모두에서 #10#11#12가 전부 실패한다. 부재를 통과로 해석하지 않는다",
+      "ES-2 부분 충족 — 제외 규칙이 계약의 excluded에 디렉터리 단위로 명시되고 근거가 주석에 있다. 테스트의 --exclude-dir=progress와 정합(2차 지적 해소 확인)",
+      "ES-3 충족 — 계약 경로가 바뀌면 ES-1 경로로 실패하므로 조용한 우회가 아니다(위 실행 검증에 포함)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-3 — '목록이 비거나 축소되면 검사가 조용히 통과하지 않는다'. 목록은 4 아래로 못 내려가지만 **보호되는 실제 사본 집합은 조용히 0이 될 수 있다**. 하한이 지키는 것은 목록의 길이이지 보호의 크기가 아니다",
+      "AC-4 — 정방향 축에 고유 케이스가 없다(여덟 갈래 전수 재현). 개정된 criterion 문언이 요구하는 성질이 성립하지 않는다"
+    ],
+    "security": [
+      "SC-3 — 신뢰 경계를 명시하고 '목록을 조작해 검사를 무력화하는 경로가 열리는지 판단해 기록한다'가 요건이다. 경로는 기록됐으나 **크기가 잘못 기록됐고**(커버리지 유지 → 실제 0), 판단 근거로 쓴 'AC-1과 충돌' 논거도 성립하지 않는다. 2차 반려가 지목한 결함(SC-3 서술의 부정확)이 형태를 바꿔 재발했다"
+    ],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "acceptance criteria에 '**어느 파일이** 지시를 가져야 하는가'를 고정하는 기준이 없다. AC-2는 목록↔스캔의 정합만, AC-3은 개수만 요구한다. 두 요건 모두 공격자가 양쪽을 함께 움직이면 성립하므로, 보호 대상의 identity를 어디에 앵커할지가 기준에서 통째로 빠져 있다 — 세 번의 붕괴가 전부 이 빈칸을 통과했다",
+      "역방향 스캔이 **추적 파일**을 대상으로 하는지 **워킹트리**를 대상으로 하는지 기준에 없다. t3(gitignore된 디코이)가 이 미지정을 이용한다"
+    ],
+    "ambiguous_criteria": [
+      "개정된 AC-4의 criterion과 verification이 정방향에 대해 서로 다른 것을 말한다 — 판정 불가"
+    ],
+    "security_criteria_insufficient": [
+      "SC-3이 '기록한다'까지만 요구하고 '기록이 정확한가'를 요구하지 않는다. 두 iteration 연속 부정확한 기록이 나온 만큼, 잔여 위험 서술은 **재현 가능한 형태(도달 상태 + 비용)**로 적도록 기준을 강화할 것"
+    ],
+    "action_required": "다음 iteration에서 (1) evals/acceptance-criteria.json·sprint-48.json에 identity 앵커 기준과 스캔 대상(추적 파일 여부) 기준을 추가, (2) AC-4 criterion/verification 불일치 해소, (3) AC-4 개정을 criteria_backfill에 기록"
+  },
+  "criteria_issues": [
+    "합의된 계약 sprint-48.json의 AC-4가 구현 커밋 5e50d6d에서 요건 완화 방향으로 개정됐으나 implementer-output.json의 criteria_backfill이 []다. 2차 evaluator가 예고한 트레이드오프라 개정 자체는 타당하지만 기록 누락은 사용자 확인 대상이다. 누적 1건 — 재검토 권고 임계(3건)에는 미달"
+  ],
+  "recommended_fix": {
+    "principle": "false-positives.json의 F52 3차 guard(2)를 이 문제에 적용한다 — **비교할 대상을 열거하지 말고 우주를 구조로 정의한 뒤 예외만 명시한다.** 지금은 공격자가 편집하는 목록이 우주를 정의하고, 등식은 그 목록과 그 목록이 만들어낸 스캔 결과를 비교한다. 양변이 함께 움직이는 등식은 어느 쪽도 제약하지 않는다",
+    "minimal_options": [
+      "(1) 목록 항목이 git 추적 파일일 것을 요구 — `git ls-files --error-unmatch`. t3(무시된 디코이)를 즉시 닫고 한 줄이다",
+      "(2) 우주를 구조로 정의 — 루트 CLAUDE.md · templates/** · skills/*/SKILL.md 중 'test-writer'를 언급하는 파일은 전부 완전 지시를 가져야 한다. 디코이는 우주 밖이라 충전 가치가 없고, CLAUDE.md에서 지시만 지우면 여전히 우주 안에 남아 잡힌다. 목록을 테스트에 다시 적지 않으므로 AC-1과 충돌하지 않는다",
+      "(3) 앵커 한 줄만 보호 파일에 — 루트 CLAUDE.md ∈ found. 목록이 아니라 앵커이므로 AC-1 위반이 아니고 신뢰 경계 회귀도 부분 복구된다"
+    ],
+    "also": [
+      "정방향 단언의 역할을 재정의하거나 제거 — 현재 역방향에 함의되어 독립 기여가 없다",
+      "implementer-output.json의 M2' mutation 결과를 실측치(#12 단독)로 정정",
+      "limitations 6번을 도달 상태로 다시 서술 — '커버리지 유지'가 아니라 '반복 적용 시 보호 사본 0, 전체 스위트 green, 비용은 파일 4개 생성'"
+    ]
+  },
+  "evidence": {
+    "lab_setup": "git archive HEAD | tar -x 로 저장소 밖 pristine lab 생성(214파일). 모든 mutation은 lab 사본에서 수행, 저장소는 무변경(git status --porcelain 빈 출력으로 전후 확인)",
+    "full_suite": "bats tests/ (실제 저장소, 1회 실행) → ok=627 / not ok=0 / exit=0",
+    "sc1_gates": "git diff --quiet progress/harness-config.json docs/INVARIANTS.md → no diff",
+    "baseline_sets": "pristine lab에서 역방향 스캔 결과 = {CLAUDE.md, skills/implement/SKILL.md, templates/CLAUDE.md.tmpl, templates/docs/HARNESS-GUIDE.md} = 계약 목록. 필터 없는 전수 grep은 14파일(스캔 범위 밖 10개 = 충전재 후보)",
+    "battery_reproduced": "8갈래 독립 재현 (branch → real_copies / failed assertions): pristine → 4 / none · collapse_scope_padding → 0 / #11 · m2_dup_padding → 1 / **#12만** · m1_floor_only → 3 / #12 · a_forward → 3 / #10 #11 · b_reverse → 4 / #11 · c_empty → 4 / #10 #11 #12 · e_all_gone → 0 / #10 #12",
+    "battery_discrepancy": "8갈래 중 7갈래가 implementer 보고와 일치. 불일치 1건 — M2'(중복 패딩)를 '#10#11#12'로 보고했으나 실측 **#12 단독**. 2차 판정 기록(P/P/F)이 실측과 일치하므로 오기는 implementer 산출 쪽이다",
+    "NEW_t2_decoy_swap_all": "docs/DECOY1..4.md(각 1줄) 생성 + 목록을 그 4개로 교체 + 진짜 사본 4개 지시 삭제 → **failed=(none), real_copies=0**. 같은 lab에서 전체 스위트 재실행 → **ok=627 / not ok=0**. 2차 반려 사유와 도달 상태 동일",
+    "NEW_t3_ignored_decoys": ".tmp/D1..4.md(gitignore 대상)로 동일 조작 → **failed=(none), real_copies=0**. 역방향이 워킹트리를 스캔하므로 무시된 파일이 found에 계상되고, git status는 깨끗하게 유지된다",
+    "NEW_t1_decoy_swap1": "디코이 1개로 templates/docs/HARNESS-GUIDE.md만 교체 → failed=(none), real_copies=3. 점진적 잠식이 가능함을 보인다",
+    "NEW_t4_onedir": "디코이 4개를 docs/x/ 한 디렉터리에 생성 → failed=(none), real_copies=0. 경로 분산도 불필요",
+    "es1_three_ways": "계약 파일 삭제 / malformed JSON / _caller_side_copies 키 삭제 → 세 경우 모두 failed=#10 #11 #12. 조용한 통과 없음",
+    "ac1_static": "tests/skill-frontmatter.bats:85-140 정독 — 사본 파일명 하드코딩 0건. CALLER_COPY_CONTRACT는 계약 경로이지 사본 목록이 아니다",
+    "forward_axis_analysis": "listed == found 가 성립하면 found의 정의상 listed의 모든 원소가 패턴을 가지므로 #10은 #11 없이 실패할 수 없다. 여덟 갈래 + 신규 4갈래 전수에서 #10 단독 실패 0건 — 논증과 실측이 일치"
+  },
+  "calibration_note": "이 판정은 evals/calibration/false-positives.json의 F52 3차 항목이 이미 정의한 클래스('비교 대상 projection이 실행을 좌우하는 상태를 누락한다')와 그 guard(2)(화이트리스트 역전)를 F62에 적용해 도출했다. 같은 코퍼스의 guard(5)('커밋이 교훈을 문서에 명문화한다고 해서 그 교훈이 적용된 것은 아니다')도 적중했다 — limitations 6번이 잔여를 선언하지만 구현은 이미 기록된 guard를 적용하지 않았다. 사용자가 '세 번째 문이 있는지 엄격히 보라'고 요청했고, 있었다.",
+  "verdict_note": "지목했던 인스턴스는 실제로 닫혔고 재현으로 확인했다. 반려는 그 수정이 부실해서가 아니라, 같은 클래스의 다음 인스턴스가 **동일한 도달 상태(보호 사본 0 · 627건 green)**를 유지하기 때문이다. 4→0을 반려한 판정이 4→0을 통과시키면 판정 자체가 근거를 잃는다."
+}

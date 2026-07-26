@@ -86,8 +86,28 @@ CALLER_COPY_CONTRACT="progress/contracts/sprint-45.json"
 CALLER_COPY_PATTERN='test-writer.*isolation.*worktree'
 CALLER_COPY_MIN=4   # AC-3 하한 — 목록을 줄여 검사를 우회하는 경로를 막는다
 
+# universe를 **구조적으로** 정의한다 — 하네스가 배포하는 지시 문서가 놓이는 자리다.
+# false-positives.json F52 guard(2)의 처방: 비교할 대상을 열거하지 말고 전체 동일성을
+# 요구한 뒤 예외만 명시해야 미래 항목이 기본 deny가 된다. 목록만 비교하면 목록과 스캔을
+# 함께 옮기는 우회가 남는다 — 범위 안에 decoy .md를 만들어 계약을 그쪽으로 겨누고 진짜
+# 사본을 비우면 실제 사본 0개에 전 테스트가 초록이 된다(evaluator가 t2/t3로 재현).
+CALLER_COPY_ROOTS=(CLAUDE.md skills templates)
+
 _caller_copy_list() {   # 계약에서 목록을 읽는다. 부재/malformed면 호출부가 실패한다(ES-1)
   jq -r '._caller_side_copies.files[]?' "$PLUGIN_ROOT/$CALLER_COPY_CONTRACT" 2>/dev/null
+}
+
+_caller_copy_scan() {   # universe 안에서 패턴을 가진 파일 (스캔 대상은 구조가 정한다)
+  (cd "$PLUGIN_ROOT" && grep -rl "$CALLER_COPY_PATTERN" \
+     --include='*.md' --include='*.tmpl' "${CALLER_COPY_ROOTS[@]}" 2>/dev/null \
+   | sed 's|^\./||' | sort -u)
+}
+
+_caller_copy_in_universe() {   # 경로가 구조적 universe 안인가
+  case "$1" in
+    CLAUDE.md | skills/* | templates/*) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 @test "F62: caller-side copies listed in the contract all carry the instruction (forward)" {
@@ -111,10 +131,7 @@ _caller_copy_list() {   # 계약에서 목록을 읽는다. 부재/malformed면 
   # 지우면 실제 사본 0개인데 세 단언이 모두 초록이 된다(evaluator가 4→0 붕괴로 재현).
   # 목록이 실제를 정확히 반영하도록 강제하면 그 경로가 닫힌다.
   local found listed
-  found=$(cd "$PLUGIN_ROOT" && grep -rl "$CALLER_COPY_PATTERN" \
-            --include='*.md' --include='*.tmpl' \
-            --exclude-dir=progress --exclude-dir=.git . 2>/dev/null \
-          | sed 's|^\./||' | sort -u)
+  found=$(_caller_copy_scan)
   listed=$(_caller_copy_list | sort -u)
   if [ "$listed" != "$found" ]; then
     echo "계약 목록과 저장소 스캔이 불일치"
@@ -122,6 +139,23 @@ _caller_copy_list() {   # 계약에서 목록을 읽는다. 부재/malformed면 
     echo "  스캔에만: $(comm -13 <(echo "$listed") <(echo "$found") | tr '\n' ' ')"
     return 1
   fi
+}
+
+@test "F62: every listed path is inside the structural universe and git-tracked" {
+  # 집합 동등성만으로는 목록과 스캔을 **함께** 옮기는 우회가 남는다 — 범위 안에 decoy를
+  # 만들면 둘이 같이 움직여 동등성이 유지된다. universe를 구조가 정하고 목록이 그 안에만
+  # 있도록 강제해야 클래스가 닫힌다(F52 guard 2의 화이트리스트 역전).
+  # git 추적 요구는 gitignore된 경로(.tmp/ 등)에 decoy를 두는 변형을 막는다 — 그 경우
+  # git diff 복원 검사조차 조작을 보지 못한다(evaluator가 t3로 재현).
+  local f bad_universe="" untracked=""
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    _caller_copy_in_universe "$f" || bad_universe="$bad_universe $f"
+    (cd "$PLUGIN_ROOT" && git ls-files --error-unmatch "$f" >/dev/null 2>&1) \
+      || untracked="$untracked $f"
+  done <<< "$(_caller_copy_list)"
+  [ -z "$bad_universe" ] || { echo "universe(${CALLER_COPY_ROOTS[*]}) 밖의 경로:$bad_universe"; return 1; }
+  [ -z "$untracked" ]   || { echo "git이 추적하지 않는 경로:$untracked"; return 1; }
 }
 
 @test "F62: the contract list cannot be emptied or shrunk past its floor (anti-tautology)" {
