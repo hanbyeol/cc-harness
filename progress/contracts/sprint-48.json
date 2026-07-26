@@ -26,7 +26,7 @@
     {
       "id": "AC-2",
       "criterion": "[역방향] 계약 목록과 저장소 전수 grep 결과가 **같은 집합**이어야 한다. 포함 관계만 보면 목록이 스캔 범위 밖으로 도망갈 수 있다 — 정방향은 어떤 경로든 grep하지만 역방향은 *.md/*.tmpl에 progress/ 제외로 한정되므로, 그 갭의 파일을 목록에 넣으면 정방향을 통과하면서 역방향에 보이지 않는다.",
-      "verification": "새 사본을 임시로 만들어 실패하는지 + 목록을 스캔 범위 밖 파일로 채우고 진짜 사본을 전부 지웠을 때 실패하는지(4→0 붕괴) 확인. 제외 대상은 명시적으로 두고 근거를 주석에 남긴다"
+      "verification": "저장소 **전수** grep(--exclude-dir=progress --exclude-dir=.git)과 목록의 집합 동등성. 스캔을 루트 열거로 좁히면 universe 밖 미등록 사본을 놓친다 — 4차 판정이 E4(agents/에 사본 생성 → 사본 5·목록 4인데 전 단언 통과)로 실증했다. 검증: E4와 (b)에서 #11이 실패"
     },
     {
       "id": "AC-3",
@@ -46,7 +46,7 @@
     {
       "id": "AC-6",
       "criterion": "[구조 앵커] 계약 목록의 각 경로는 구조적으로 정의된 universe(CLAUDE.md · skills/** · templates/**) 안에 있어야 하고 git이 추적하는 파일이어야 한다. 집합 동등성만으로는 목록과 스캔을 **함께** 옮기는 우회가 남는다 — 범위 밖에 decoy를 만들면 둘이 같이 움직여 동등성이 유지된다.",
-      "verification": "범위 밖 decoy(docs/)와 gitignore된 decoy(.tmp/)로 각각 4→0 붕괴를 시도해 실패하는지 확인. 후자는 git diff 복원 검사조차 조작을 보지 못하는 변형이다",
+      "verification": "범위 밖 decoy(docs/)와 gitignore된 decoy(.tmp/)로 각각 붕괴를 시도해 **#12가 단독으로** 실패하는지 확인. 앵커는 목록 쪽에만 적용하며 스캔 범위를 좁히는 데 쓰지 않는다",
       "_origin": "3차 판정 지적. false-positives.json F52 guard(2)의 화이트리스트 역전 처방을 적용했다."
     }
   ],
@@ -143,10 +143,12 @@
   "agreed": true,
   "_agreed_note": "**승인됨 — 2026-07-27 Plan 게이트(ExitPlanMode).** /improve 1회전 후보 선택(사용자) 후 정방향·역방향·tautology 방어 3축 설계로 승인받았다. tests/skill-frontmatter.bats는 보호 파일이며 Edit 툴로만 수정하고, sprint-45.json은 목록의 단일 출처로 읽기만 한다.",
   "_axes": {
-    "note": "이 검사는 네 단언이지만 독립 축은 셋이다.",
-    "reverse": "계약 목록 == universe 스캔 (집합 동등)",
-    "structural_anchor": "목록의 각 경로가 universe 안 + git-tracked",
-    "floor": "고유 항목 수 >= CALLER_COPY_MIN",
-    "forward": "진단 편의 — 집합 동등성의 따름정리이며 단독 실패하지 않는다(3차 판정 지적)"
+    "note": "네 단언, 독립 축 셋. **스캔과 목록의 방향이 반대**인 것이 설계의 핵심이다.",
+    "scan_direction": "deny-by-default — 저장소 전수를 훑고 progress/·.git만 예외. 좁히면 미래 디렉터리가 기본 invisible이 되어 universe 밖 미등록 사본을 놓친다(4차 판정 E4).",
+    "list_direction": "allow-list — 구조적 universe(CLAUDE.md·skills/**·templates/**) 안 + git-tracked만 허용. 열어 두면 범위 밖 decoy로 계약을 겨눠 실제 사본을 0으로 만들 수 있다(3차 판정 t2/t3).",
+    "reverse": "#11 계약 목록 == 전수 스캔 (고유: E4·(b) 미등록 사본)",
+    "anchor": "#12 목록의 각 경로가 universe 안 + tracked (고유: t2·t3)",
+    "floor": "#13 고유 항목 수 >= CALLER_COPY_MIN (고유: M1')",
+    "forward": "#10 진단 편의 — 집합 동등성의 따름정리이며 단독 실패하지 않는다"
   }
 }

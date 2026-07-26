@@ -86,20 +86,25 @@ CALLER_COPY_CONTRACT="progress/contracts/sprint-45.json"
 CALLER_COPY_PATTERN='test-writer.*isolation.*worktree'
 CALLER_COPY_MIN=4   # AC-3 하한 — 목록을 줄여 검사를 우회하는 경로를 막는다
 
-# universe를 **구조적으로** 정의한다 — 하네스가 배포하는 지시 문서가 놓이는 자리다.
-# false-positives.json F52 guard(2)의 처방: 비교할 대상을 열거하지 말고 전체 동일성을
-# 요구한 뒤 예외만 명시해야 미래 항목이 기본 deny가 된다. 목록만 비교하면 목록과 스캔을
-# 함께 옮기는 우회가 남는다 — 범위 안에 decoy .md를 만들어 계약을 그쪽으로 겨누고 진짜
-# 사본을 비우면 실제 사본 0개에 전 테스트가 초록이 된다(evaluator가 t2/t3로 재현).
-CALLER_COPY_ROOTS=(CLAUDE.md skills templates)
+# **두 방향의 비대칭이 이 설계의 핵심이다.**
+#   스캔(무엇이 사본인가) — deny-by-default: 저장소 전수를 훑고 예외만 명시한다.
+#   목록(무엇을 등록할 수 있나) — allow-list: 구조적 universe 안 + git-tracked만 허용한다.
+# 방향을 맞바꾸면 각각 다른 결함이 생긴다. 스캔을 루트 열거로 좁히면 미래 디렉터리가 기본
+# invisible이 되어 universe 밖의 진짜 미등록 사본이 조용히 통과하고(evaluator가 E4로 재현 —
+# agents/에 사본을 만들면 사본 5개·목록 4개인데 네 단언이 전부 초록), 목록을 전수로 열어 두면
+# 범위 밖 decoy로 계약을 겨눠 실제 사본을 0으로 만들 수 있다(t2/t3).
+# false-positives.json F52 guard(2)의 화이트리스트 역전은 **목록 쪽** 처방이다 — 스캔 쪽은
+# 이미 deny-by-default였고, 그것을 allow-list로 바꾼 것이 4차 반려 사유였다.
+CALLER_COPY_ROOTS=(CLAUDE.md skills templates)   # 목록 앵커용 — 스캔 범위가 아니다
 
 _caller_copy_list() {   # 계약에서 목록을 읽는다. 부재/malformed면 호출부가 실패한다(ES-1)
   jq -r '._caller_side_copies.files[]?' "$PLUGIN_ROOT/$CALLER_COPY_CONTRACT" 2>/dev/null
 }
 
-_caller_copy_scan() {   # universe 안에서 패턴을 가진 파일 (스캔 대상은 구조가 정한다)
+_caller_copy_scan() {   # 저장소 전수 — progress/(경위·판정 아카이브)와 .git만 예외
   (cd "$PLUGIN_ROOT" && grep -rl "$CALLER_COPY_PATTERN" \
-     --include='*.md' --include='*.tmpl' "${CALLER_COPY_ROOTS[@]}" 2>/dev/null \
+     --include='*.md' --include='*.tmpl' \
+     --exclude-dir=progress --exclude-dir=.git . 2>/dev/null \
    | sed 's|^\./||' | sort -u)
 }
 
