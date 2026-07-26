@@ -101,21 +101,27 @@ _caller_copy_list() {   # 계약에서 목록을 읽는다. 부재/malformed면 
   done <<< "$listed"
 }
 
-@test "F62: every copy found in the repo is registered in the contract (reverse)" {
+@test "F62: the contract list and the repo scan must be the same set (reverse)" {
   # progress/ 제외: lessons.md는 경위 서술이고 agent-comms는 판정 아카이브라 지시가 아니다.
-  # 새 사본을 만들고 계약에 등록하지 않으면 여기서 잡힌다 — 정방향만으로는 열려 있던 경로다.
-  local found listed missing=""
+  #
+  # **포함이 아니라 동등성을 요구한다.** found ⊆ listed 만 보면 목록이 스캔 범위 밖으로
+  # 도망갈 수 있다 — 정방향은 어떤 경로든 grep하지만 역방향은 *.md/*.tmpl 에 progress/ 제외로
+  # 한정되므로, 그 갭에 있는 파일(이 테스트 파일 자신, 판정 JSON 등 저장소에 9개)을 목록에
+  # 넣으면 정방향을 통과하면서 역방향에는 보이지 않는다. 그 상태로 진짜 사본의 지시를 전부
+  # 지우면 실제 사본 0개인데 세 단언이 모두 초록이 된다(evaluator가 4→0 붕괴로 재현).
+  # 목록이 실제를 정확히 반영하도록 강제하면 그 경로가 닫힌다.
+  local found listed
   found=$(cd "$PLUGIN_ROOT" && grep -rl "$CALLER_COPY_PATTERN" \
             --include='*.md' --include='*.tmpl' \
             --exclude-dir=progress --exclude-dir=.git . 2>/dev/null \
-          | sed 's|^\./||' | sort)
-  listed=$(_caller_copy_list | sort)
-  local f
-  while IFS= read -r f; do
-    [ -n "$f" ] || continue
-    grep -qxF "$f" <<< "$listed" || missing="$missing $f"
-  done <<< "$found"
-  [ -z "$missing" ] || { echo "계약에 등록되지 않은 사본:$missing"; return 1; }
+          | sed 's|^\./||' | sort -u)
+  listed=$(_caller_copy_list | sort -u)
+  if [ "$listed" != "$found" ]; then
+    echo "계약 목록과 저장소 스캔이 불일치"
+    echo "  목록에만: $(comm -23 <(echo "$listed") <(echo "$found") | tr '\n' ' ')"
+    echo "  스캔에만: $(comm -13 <(echo "$listed") <(echo "$found") | tr '\n' ' ')"
+    return 1
+  fi
 }
 
 @test "F62: the contract list cannot be emptied or shrunk past its floor (anti-tautology)" {
