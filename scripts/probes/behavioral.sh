@@ -92,6 +92,13 @@ BASH_CORPUS=(
   'sed -i s/a/b/ hooks/hooks.json'
   'sed -i s/a/b/ .claude/settings.json'
   'perl -i -pe s/a/b/ .claude/settings.local.json'
+  # F63 1차 판정이 실쓰기로 실증한 두 축 — 결합 단축옵션과 sed w 명령.
+  # 쓰기 술어를 도구 이름에서 플래그로 바꿀 때 술어가 실제 쓰기 집합보다 좁으면 열린다.
+  'sed -ie s/a/b/ hooks/invariant-guard.sh'
+  'sed -ni s/a/b/ hooks/lib.sh'
+  'awk -iinplace {print} hooks/lib.sh'
+  'sed -n w hooks/lib.sh /etc/hosts'
+  'sed s/x/y/w progress/harness-config.json src.txt'
 )
 
 # --- Tool danger 코퍼스 (pre-tool-firewall) : 어느 것도 allow되면 안 된다 ---

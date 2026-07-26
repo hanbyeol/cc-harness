@@ -4,17 +4,18 @@
   "title": "방화벽 과탐 제거 — 보호 경로 읽기(sed -n·awk)를 쓰기와 구분",
   "security_tier": "critical",
   "timestamp": "2026-07-27T03:00:00+09:00",
-  "summary": "보호 경로에 대한 읽기 전용 sed/awk가 쓰기와 구분되지 않아 반복 승인 프롬프트를 유발하던 과탐을 제거했다. sed·awk를 에디터 목록에서 빼고 in-place 패턴으로 옮겼다. 구현 중 배터리가 쓰기 보호 상실 4건을 잡아냈다 — in-place 패턴의 경로 목록이 에디터 패턴보다 좁았고, 계약의 _key_constraint가 경고한 함정의 실제 형태였다.",
+  "summary": "보호 경로에서 읽기와 쓰기를 가르는 변경. 1차 판정에서 fail(보안 5)을 받았고 사유는 정책이 아니라 **쓰기 술어의 불완전성**이었다 — 도구 이름(sed|awk)을 플래그(-i)로 교체했을 때 후자가 실제 쓰기 집합보다 좁아 54건이 열렸다. 두 축을 닫았다: 결합 단축옵션(-ie·-ni·-iinplace)과 sed의 w 명령·s///w 플래그. 배터리를 형태 축까지 확장해 저장소에 상설화하고 CI에 배선했다.",
   "achieved": {
-    "AC-1": "완료(선행). 118·145줄을 (sed|perl|awk) + (-i\\b|--in-place)로 확장. awk -i inplace·awk --in-place가 새로 잡힌다 — 이전에는 128줄이 awk를 통째로 잡아 가려져 있었을 뿐 전용 패턴이 없었다",
+    "AC-1": "완료(재작업). 118·145줄을 (sed|perl|awk) + (-[a-zA-Z]*i|--in-place)로 확장. **-i 뒤의 단어경계를 제거했다** — 1차 판정이 sed -ie가 실제로 파일을 쓰는 것을 실증했고(echo AAA > t1; sed -ie s/AAA/BBB/ t1 → BBB) \\b가 결합형을 놓치고 있었다. 이전 118줄은 경계 없는 -i였는데 내가 좁혔다.",
     "AC-2": "완료. 128·148줄에서 sed·awk 제거. 남긴 ed·ex·vi·vim·nano·emacs·dd·patch는 전부 편집·쓰기 전용 도구다",
-    "AC-3": "완료. 쓰기 배터리 전수(9종 × in-place/리다이렉트/복사/에디터) 전부 ask 유지. 최종 분포: 읽기 63건 전부 allow, 쓰기 117건 전부 ask",
+    "AC-3": "완료(재작업). scripts/verify-firewall-rw.sh 로 대상 9종 × 쓰기 31형태 = 279건 전부 ask, 읽기 12형태 = 108건 전부 allow 확인. 형태에 in-place 결합 단축옵션 5종과 sed w 명령 3종을 포함한다.",
     "AC-4": "완료. 126줄 주석을 구현과 일치시켰다 — 읽기/쓰기 구분 근거, 인터프리터를 유지하는 이유, sed/awk 스크립트 내부 쓰기가 남는 한계까지 명시",
     "AC-5": "완료. behavioral 코퍼스에 in-place 5건 추가(awk -i inplace·awk --in-place·sed -i hooks.json·sed -i settings.json·perl -i settings.local.json). 프로브 후보 0건",
-    "AC-6": "완료. bats 632 ok / 0 fail(기준선 628 + 신규 4)"
+    "AC-6": "완료. bats 632 ok / 0 fail(기준선 628 + 신규 4)",
+    "AC-7": "완료. scripts/verify-firewall-rw.sh 신설 + ci.yml 배선(실행·shellcheck 양쪽)."
   },
   "security": {
-    "SC-1": "충족. 배터리 180건을 수정 전후로 대조 — ask→allow 전환 36건이 전부 읽기 과탐 해소이고 쓰기 상실 0건. **중간에 4건이 실제로 열렸다가 닫혔다**(아래 evidence.regression_caught)",
+    "SC-1": "충족(재작업). 1차 판정이 324건 대조로 쓰기 ask→allow 54건을 실증했고 전부 닫았다. 현재 배터리는 279건 쓰기 전부 ask. **SC-1의 verification 자체를 보완했다** — 대조 입력의 커버리지를 규정하지 않으면 좁은 입력으로 항상 통과한다는 지적을 받아 최소 형태 수와 필수 포함 축을 계약에 명시했다.",
     "SC-2": "충족. DENY_PATTERNS diff 0건, harness-config.json·INVARIANTS.md diff 없음. 이 변경은 ASK 계층만 건드린다",
     "SC-3": "충족. AC-1(awk in-place 추가)을 AC-2(sed·awk 제거)보다 먼저 수행했다. 다만 그것만으로 부족했다 — 경로 목록 불일치라는 두 번째 축이 있었고 배터리가 잡았다"
   },
@@ -25,24 +26,35 @@
     "prior_intent": "tests/pre-bash-firewall.bats가 세 곳에서 읽기를 allow로 못박고 있었다 — 'auto-allows sed read (non-destructive)'(769) · 'auto-allows awk (default-allow)'(737) · 'F32: sed reading a normal file still auto-allows'(904). 새 정책이 아니라 보호 경로에서 누락됐던 적용이다",
     "regression_caught": "**배터리가 잡은 결함** — sed/awk를 128줄에서 빼자 hooks/*.json과 .claude/settings*.json에 대한 in-place 쓰기 4건이 allow로 전환됐다. 원인은 118줄(in-place)의 경로 목록이 128줄(에디터)보다 좁았던 것으로, 128줄이 그 조합을 대신 커버하고 있었다. 경로를 128줄과 동일하게 맞춰 해소했고 재대조에서 상실 0건. 배터리 없이는 놓쳤을 결함이다",
     "final_distribution": "읽기 63건 전부 allow · 쓰기 117건 전부 ask (대상 9종: harness-config.json · hooks/lib.sh · hooks/hooks.json · hooks/invariant-guard.sh · tests/probes.bats · INVARIANTS.md · feature_list.json · .claude/settings.json · .claude/settings.local.json)",
-    "regression": "bats 632 ok / 0 fail (exit=0) · behavioral 프로브 후보 0건 · DENY 무변경"
+    "regression": "bats 635 ok / 0 fail (기준선 628 + 신규 7) · behavioral 후보 0건 · deny diff 0건 · shellcheck 클린",
+    "first_verdict_bypasses": "1차 판정이 실쓰기로 실증한 5형태를 저장소에서 재현했다 — sed -ie → t1 내용 BBB · sed -n 'w victim' src → victim에 SRC · sed 's/x/PWN/w victim2' → victim2=PWN. 다섯 형태 모두 수정 전 allow였고 수정 후 전부 ask다.",
+    "my_claim_was_wrong": "**[정정] awk print-redirect가 구멍이라던 내 주장은 틀렸다.** awk '{print > \"hooks/lib.sh\"}' 는 116·138줄의 리다이렉트 패턴이 따옴표 안 경로를 매치해 여전히 ask다(실측 확인). 진짜 열린 것은 sed의 w 명령이었고, 그것은 '인터프리터와 공유하는 기존 한계'가 아니라 **이번 변경으로 내가 연 것**이다 — 이전엔 에디터 이름 목록이 sed를 통째로 잡고 있었다.",
+    "no_overfire_regression": "w 패턴이 정상 읽기를 잡지 않는지 확인 — sed -n '/word/p' · sed -n '/write/p' · awk '/warn/{print}' 전부 allow. \\bw\\b 단어경계가 정규식 안의 w로 시작하는 단어와 쓰기 명령을 가른다."
   },
   "files_changed": [
     "hooks/pre-bash-firewall.sh — 118·145줄 in-place 확장(sed|perl|awk + 경로 목록 정합), 128·148줄에서 sed·awk 제거, 126줄 주석 정합 (보호 파일, Edit 툴)",
     "tests/pre-bash-firewall.bats — F63 테스트 4건 추가(읽기 allow 2 · in-place ask 2) (보호 파일, Edit 툴)",
     "scripts/probes/behavioral.sh — in-place 코퍼스 5건 추가",
-    "progress/contracts/sprint-49.json·progress/feature_list.json·evals/acceptance-criteria.json — F63 등록"
+    "progress/contracts/sprint-49.json·progress/feature_list.json·evals/acceptance-criteria.json — F63 등록",
+    "scripts/verify-firewall-rw.sh — 신규. 대상 9종 × 읽기 12·쓰기 31형태 배터리",
+    ".github/workflows/ci.yml — 배터리 실행·shellcheck 배선"
   ],
   "design_notes": [
     "이 변경은 새 정책이 아니라 이미 선언된 원칙의 누락된 적용이다. 방화벽 테스트가 세 곳에서 '읽기는 auto-allow'를 못박고 있었는데 보호 경로에서만 그 원칙이 적용되지 않았다. 주석(126줄)도 '정상 개발 sed -n file.go는 미발동'이라 적혀 있었으나 비보호 경로일 때만 참이었다 — 주석과 구현이 어긋난 채 남아 있었다",
     "'빼기 전에 더한다'를 계약에 명시하고 지켰는데도 부족했다. awk in-place 패턴은 먼저 추가했지만 **경로 목록의 불일치**라는 두 번째 축을 보지 못했다. 두 패턴이 같은 대상을 다른 범위로 커버하고 있었고, 넓은 쪽을 좁히자 좁은 쪽이 못 막던 조합이 드러났다. 배터리가 아니었다면 쓰기 4건을 잃은 채 통과했을 것이다",
-    "인터프리터(127줄)는 손대지 않았다. python·node·ruby·perl은 읽기/쓰기를 명령줄 구문으로 구분할 수 없어 보수적 유지가 옳다. sed·awk는 in-place 플래그라는 명시적 신호가 있어 구분이 가능하다는 것이 이번 판단의 근거다"
+    "인터프리터(127줄)는 손대지 않았다. python·node·ruby·perl은 읽기/쓰기를 명령줄 구문으로 구분할 수 없어 보수적 유지가 옳다. sed·awk는 in-place 플래그라는 명시적 신호가 있어 구분이 가능하다는 것이 이번 판단의 근거다",
+    "**쓰기 술어를 이름에서 플래그로 바꿀 때 술어가 실제 쓰기 집합을 덮는지 먼저 확인해야 한다.** 이름 기반은 과탐이지만 완전했고, 플래그 기반은 정밀하지만 불완전했다. 정밀도를 얻는 대가로 완전성을 잃는 교환이었는데 그 손실분을 측정하지 않고 진행했다. 배터리의 형태 축이 바로 그 측정이며, 1차 판정이 324건으로 54건을 찾아낸 것을 이제 279건 상설 검사로 대체했다."
   ],
-  "criteria_backfill": [],
+  "criteria_backfill": [
+    "SC-1의 verification에 대조 입력 커버리지를 규정 — 1차 판정이 '전후 대조만 규정하면 입력이 좁을 때 항상 통과한다'고 지적했고 실제로 그렇게 54건을 놓쳤다. 최소 대상 9종 × 쓰기 31형태 × 읽기 12형태와 필수 포함 축(결합 단축옵션·도구 고유 쓰기 문법)을 명시했다.",
+    "AC-3의 '어느 형태로도'가 열거 목록을 상한으로 읽히던 것을 '열거는 하한이지 상한이 아니다'로 명시.",
+    "AC-7 신설(배터리 상설화 + CI 배선)."
+  ],
   "limitations_honest": [
-    "sed/awk **스크립트 내부의 쓰기**는 여전히 정적으로 잡히지 않는다. awk '{print > \"hooks/lib.sh\"}' 같은 형태는 명령줄에 리다이렉트가 없어 116줄이 놓치고 이번 수정 후에는 128줄도 놓친다. 다만 이 한계는 새로 생긴 것이 아니라 인터프리터(python3 -c)와 공유하는 기존 성질이며, awk를 인터프리터 목록에 넣으면 닫히지만 과탐이 그대로 돌아온다. 절충을 선택했고 그 사실을 주석·계약·여기에 기록했다",
-    "배터리는 대상 9종 × 20명령으로 구성했다. 보호 경로 전체를 망라하지 않으며, 특히 templates/ 하위나 새로 추가될 보호 대상은 포함되지 않았다",
-    "사용자의 permissions.allow 665건은 이 수정으로 줄지 않는다. 이미 누적된 규칙은 그대로 남고, 앞으로 sed/awk 읽기에서 새 규칙이 쌓이지 않을 뿐이다"
+    "**[정정] 이전에 'awk 스크립트 내부 쓰기가 남는 구멍'이라고 적은 것은 사실이 아니었다** — 리다이렉트 패턴이 잡고 있다. 진짜 구멍이었던 sed w 명령은 이번에 닫았다. 잘못된 한계를 기록하면 실제 구멍을 가린다.",
+    "쓰기 술어는 여전히 열거 기반이다. sed·awk·perl의 문서화되지 않은 쓰기 문법이 더 있을 수 있으며, 배터리의 31형태가 상한이 아니라 하한임을 계약(AC-3)에 명시했다.",
+    "배터리는 대상 9종을 쓴다. templates/ 하위나 새로 추가될 보호 대상은 포함되지 않으며, 보호 경로가 늘면 TARGETS도 함께 갱신해야 한다.",
+    "사용자의 permissions.allow 665건은 이 수정으로 줄지 않는다. 앞으로 sed/awk 읽기에서 새 규칙이 쌓이지 않을 뿐이다."
   ],
   "self_review_note": "이 산출은 implementer 자기 보고이며 passes를 판정하지 않는다(INV-1). security_tier critical이므로 evaluator 통과 후 F37 2차 판정·security-auditor·qa-reviewer가 필요하다.",
   "ready_for": "evaluator"

@@ -1,0 +1,106 @@
+{
+  "timestamp": "2026-07-26T20:08:09+09:00",
+  "sprint": 49,
+  "iteration": 1,
+  "features_evaluated": [
+    "F63"
+  ],
+  "security_tier": "critical",
+  "commit_evaluated": "dbb0a47",
+  "branch": "feat/f63-firewall-read-write-split",
+  "scores": {
+    "functionality": 6,
+    "code_quality": 6,
+    "security": 5,
+    "error_handling": 6,
+    "test_coverage": 5
+  },
+  "score": 5,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 5 < 7 (critical tier) — SC-1(탐지 가능한 쓰기 경로 집합 불축소)이 실측으로 위반됨",
+    "score 5 < threshold 7",
+    "AC-3(쓰기 경로는 어느 형태로도 뚫리지 않는다) 미충족 — in-place 쓰기 형태 중 6종이 ask→allow로 전환"
+  ],
+  "verdict_summary": "읽기/쓰기를 가르는 **정책 판단은 옳고 과탐 제거는 완전히 달성**됐다(읽기 72/72 allow, 검증 완료). 반려 사유는 정책이 아니라 쓰기 쪽 술어의 불완전성이다. `sed|awk + 보호경로`(도구 이름)를 `-i\\b|--in-place`(플래그)로 교체했는데, 후자가 전자보다 좁을 뿐 아니라 **실제 쓰기 집합보다도 좁다**. 독립 배터리 324건(36형태 × 대상 9종) 대조에서 쓰기 54건이 ask→allow로 전환됐고, 그중 3형태는 이 머신에서 실제로 파일을 쓰는 것까지 실증했다.",
+  "issues": [
+    "[security][high][confirmed] `sed -ie 's/a/b/' <보호파일>` → 수정 전 ask, 수정 후 **allow**. `-i\\b`의 단어경계가 `-ie`(접미사 e를 붙인 in-place)를 놓친다. 실증: `echo AAA > t1; sed -ie 's/AAA/BBB/' t1` → 파일 내용이 BBB로 바뀜(백업 t1e 생성). 수정 전 118줄 패턴은 경계 없는 `-i`였으므로 이 형태를 잡았고, 128줄이 이름으로 이중 커버했다 — 경계 추가가 커버리지를 좁혔다. 대상 9종 전부 해당.",
+    "[security][high][confirmed] `sed -n 'w <보호파일>' <src>` → ask에서 **allow**. sed 스크립트의 `w` 명령은 in-place 플래그도 리다이렉트도 없이 임의 파일을 쓴다. 실증: `sed -n 'w victim' src` → victim에 src 내용이 기록됨. 116줄 리다이렉트 패턴에 `>`가 없어 미매치이고, 128줄에서 sed가 빠져 이제 어느 패턴도 잡지 않는다. 대상 9종 전부 해당.",
+    "[security][high][confirmed] `sed 's/a/b/w <보호파일>' <src>` → ask에서 **allow**. s 명령의 `w` 플래그도 동일. 실증: `sed 's/SRC2/PWN/w victim2' src2` → victim2 내용이 PWN.",
+    "[security][medium][likely] `sed -ni 's/a/b/p' <보호파일>` · `sed -in ...` → ask에서 **allow**. GNU sed에서 결합 단축옵션의 `-i`는 in-place다. 이 머신(BSD sed)에서는 `-ni`가 in-place로 동작하지 않음을 확인했으므로 플랫폼 의존이나, 리눅스 개발/CI 환경에서는 실쓰기다.",
+    "[security][medium][unverified] `awk -iinplace '{print}' <보호파일>` → ask에서 **allow**. gawk의 `-i` 결합형. 이 머신에 gawk가 없어 실쓰기는 미실증(판정 전환만 실측).",
+    "[doc][medium] 126줄 주석과 implementer-output의 `limitations_honest`가 **남는 구멍을 잘못 지목**한다. (a) 예로 든 `awk '{print > \"hooks/lib.sh\"}'`는 실제로는 여전히 ask다 — 116·138줄의 일반 리다이렉트 패턴이 따옴표 안의 경로를 매치한다(대상 9종 전부 확인). (b) 진짜 열린 것은 언급되지 않은 sed의 `w` 명령이다. (c) '이 한계는 새로 생긴 것이 아니라 인터프리터와 공유하는 기존 한계'라는 서술은 **보호 경로에 한해 사실이 아니다** — 수정 전에는 128줄이 이름으로 잡고 있었다. 구멍의 소재와 출처가 둘 다 어긋난 채 기록됐다.",
+    "[test][medium] 신규 bats 4건이 잠근 축은 '읽기 allow'와 '정규 in-place(-i·--in-place) ask'뿐이다. 실제 구멍이 있는 **플래그 토큰화 축(-ie·-ni·-iinplace)과 sed w 명령 축**에는 테스트가 없다. behavioral 코퍼스 신규 5건도 같은 한계.",
+    "[test][low] 회귀를 잡아낸 180건 배터리가 스크래치에만 있어 재실행 불가. AC-5는 코퍼스 5건 추가로 문언상 충족되므로 계약 위반은 아니나, F62에서 '배터리는 저장소에 있는 것만으로 상설이 아니다'라는 지적을 받은 직후에 저장소 밖에 둔 것은 후퇴다. 이번에 그 배터리가 두 번(구현자 1회·평가자 1회) 값을 증명했다.",
+    "[process][low] SC-1의 verification 문언('쓰기 명령 배터리를 수정 전후로 돌려 판정 집합을 비교')이 **배터리의 커버리지 기준을 규정하지 않는다.** 20형태를 돌려도 충족으로 읽히므로, 형태 열거의 완전성이 판정 대상에서 빠졌다. criteria_gaps 참조."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1: awk in-place 패턴 추가 — `awk -i inplace`·`awk --in-place` + 보호경로 9종 전부 ask 확인",
+      "AC-2: 보호 경로 읽기 전용 sed/awk가 allow — 읽기 8형태 × 대상 9종 = 72건 전부 allow(수정 전 54건 ask)",
+      "AC-4: 126줄 주석이 읽기/쓰기 구분·인터프리터 유지 근거를 서술(구멍 지목의 정확성은 issues 참조)",
+      "AC-5: scripts/probes/behavioral.sh 실행 → 후보 0건(`[]`), 코퍼스 in-place 5건 추가",
+      "AC-6: bats tests/ → 632 ok / 0 not ok / exit=0 (F63 신규 4건 #360-363 포함)"
+    ],
+    "security": [
+      "SC-2: BLOCKED 배열 diff 0줄 · INDIRECT_PATTERNS 배열 diff 0줄 · progress/harness-config.json·INVARIANTS.md diff 0줄. ASK 계층만 변경됨을 실측 확인",
+      "SC-3: 단일 커밋 내에서 in-place 패턴 확장(118·154줄)과 에디터 목록 축소(137·157줄)가 함께 존재 — 중간 무방비 상태 없음"
+    ],
+    "error_scenarios": [
+      "ES-2: awk in-place 패턴이 정상 awk를 잡지 않음 — `awk 'NR<10'`·`awk -F: '{print $1}'`·`awk '/pat/{c++}'` 대상 9종 전부 allow",
+      "ES-3: 인터프리터 패턴(136줄 python3|node|nodejs|ruby|perl|php|lua) 무변경. `perl -i -pe`·`perl -pi -e`는 인터프리터 규칙으로 여전히 ask"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-3: '쓰기 경로는 어느 형태로도 뚫리지 않는다 — in-place ... 전부 ask 유지'. in-place 형태 6종(`sed -ie`·`sed -ni`·`sed -in`·`awk -iinplace`) 및 sed w 명령 2종이 allow로 전환. 대상 9종 전부에서 재현(54건)"
+    ],
+    "security": [
+      "SC-1: '탐지 가능한 쓰기 경로의 집합이 축소되지 않는다'. 수정 전후 배터리 대조 결과 쓰기 54건이 ask→allow. implementer가 보고한 '쓰기 상실 0건'은 20형태 배터리의 커버리지 한계에서 나온 결론이며, 형태를 36종으로 넓히면 성립하지 않는다"
+    ],
+    "error_scenarios": [
+      "ES-1: 'sed/awk를 뺐더니 다른 쓰기 형태가 새로 뚫림 → AC-3의 전수 배터리에서 사전 검출'. 검출 기제 자체는 작동해 경로축 4건을 잡았으나(성과), 플래그 토큰화 축은 배터리에 없어 6형태가 통과. '전수'가 실현되지 않았다"
+    ]
+  },
+  "independent_findings": {
+    "endorsed": "읽기/쓰기 분리라는 정책 판단은 지지한다. tests/pre-bash-firewall.bats가 읽기를 allow로 못박은 자리는 세 곳이 아니라 **네 곳**이다(770 auto-allows awk · 802 auto-allows sed read · 807 auto-allows awk field extraction · 937 F32 sed reading a normal file). 같은 파일을 grep·cat으로 읽으면 allow인데 sed -n이면 ask였던 것은 위험도가 아니라 도구 이름에 따른 판정이었고, 읽기는 보호 파일의 무결성에 어떤 영향도 주지 않는다. '보호 경로는 다른 기준이 정당한가'에 대한 답은 아니오다 — 보호 경로에서 특별한 것은 **쓰기**이지 읽기가 아니다.",
+    "path_axis_verified_clean": "질문 2에 대한 독립 확인: **경로 목록 축의 어긋남은 이것 하나뿐이었고 지금은 해소됐다.** 36형태 × 대상 9종 = 324건 대조에서 판정이 바뀐 108건 중 경로 목록 비대칭에서 비롯한 것은 0건이다. 정규 in-place(sed -i·sed -i.bak·sed --in-place·sed --in-place=.bak·awk -i inplace·awk --in-place·perl -i·perl -pi)·리다이렉트·append·tee·cp·mv·ln·dd of=·truncate·vim·ed·patch·python3는 대상 9종 전부에서 수정 전후 모두 ask다. 남은 결함은 다른 축(플래그 토큰화 + sed 스크립트 내부 쓰기)이다.",
+    "tradeoff_reassessed": "질문 3에 대한 답: awk를 인터프리터 목록에 넣지 않은 절충 자체는 critical에서도 수용 가능하다 — 다만 **절충의 대상을 잘못 파악했다.** 실제로 열린 것은 awk의 `print > \"file\"`(이것은 리다이렉트 패턴이 여전히 잡는다)이 아니라 sed의 `w` 명령이며, 이것은 인터프리터와 공유하는 기존 한계가 아니라 이번 변경으로 새로 열린 구멍이다. 절충을 유지하려면 그 사실을 정확히 적어야 하고, 닫으려면 `\\bsed\\b[^;|&]*\\bw *[^;|&]*<보호경로>` 형태의 좁은 패턴 하나로 충분하다(awk 전체를 인터프리터로 승격할 필요 없음 — 과탐이 돌아오지 않는다).",
+    "battery_persistence": "질문 4에 대한 답: 단독으로는 경미한 감점(test_coverage에 반영)이며 반려 사유가 아니다. AC-5는 코퍼스 추가로 문언상 충족된다. 다만 이번 이터레이션이 그 배터리의 값을 두 번 증명했으므로(구현 중 4건·검증 중 54건) 다음 이터레이션에서 저장소로 옮기고 bats에서 호출하는 것이 가장 값싼 재발 방지책이다."
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "SC-1·AC-3의 배터리에 **형태 열거의 완전성 기준이 없다.** '쓰기 명령 배터리'라고만 되어 있어 20형태로도 충족으로 읽힌다. 도구별 플래그 토큰화(결합 단축옵션·접미사 결합·긴옵션 = 형태)와 도구 고유 쓰기 프리미티브(sed w·awk print redirect·dd of=)를 명시적 축으로 요구해야 한다",
+      "정규식을 좁힐 때 '좁히기 전 패턴이 매치하던 문자열 집합의 부분집합이 되지 않음'을 확인하는 기준이 없다. 이번 결함은 `-i` → `-i\\b` 한 글자에서 나왔다"
+    ],
+    "ambiguous_criteria": [
+      "AC-3의 '어느 형태로도'는 검증 가능한 술어가 아니다 — 열거된 형태 목록(in-place·리다이렉트·append·tee·복사)이 곧 상한으로 읽혀, 목록 밖 형태가 판정에서 빠졌다. F62의 '상설화' 교훈과 같은 구조: 상태를 뜻하는 낱말을 관측 가능한 조건으로 바꿔 적어야 한다"
+    ],
+    "security_criteria_insufficient": [
+      "SC-1의 verification이 '전후 대조'만 규정하고 **대조 입력의 커버리지**를 규정하지 않는다. 입력이 좁으면 대조는 항상 통과한다"
+    ],
+    "action_required": "다음 iteration에서 (1) evals/acceptance-criteria.json의 F63 AC-3 문언을 형태 축 열거로 구체화, (2) sprint-49 SC-1의 verification에 배터리 커버리지 요건 추가, (3) 배터리를 저장소로 이관하고 bats에서 호출"
+  },
+  "required_for_pass": [
+    "1. `-i\\b`의 단어경계를 되돌리거나(`-i` 무경계) 결합 단축옵션을 포함하도록 확장 — `sed -ie`·`sed -ni`·`sed -in`·`awk -iinplace`가 ask로 복귀할 것",
+    "2. sed의 스크립트 내부 쓰기(`w` 명령 / `s///w` 플래그)를 보호 경로와 결합할 때 ask로 잡는 패턴 추가",
+    "3. 위 두 축을 잠그는 bats 테스트 추가 — 최소 `sed -ie`·`sed -n 'w <보호파일>'` 두 건",
+    "4. 126줄 주석과 implementer-output의 limitations를 실측에 맞게 정정 — awk print-redirect는 여전히 잡히고, sed w가 진짜 구멍이었으며, 그것은 기존 한계가 아니라 이번 변경으로 열린 것",
+    "5. 재대조 시 배터리에 플래그 토큰화 축을 포함할 것(최소 36형태 × 대상 9종)"
+  ],
+  "evidence": {
+    "differential_battery": "36형태 × 보호대상 9종 = 324건을 pre-F63 훅(git show d060dc3:hooks/pre-bash-firewall.sh)과 post-F63 훅에 각각 통과시켜 permissionDecision을 대조. 결과: total=324 changed=108. OLD 분포 R:allow=18 R:ask=54 W:ask=252 → NEW 분포 R:allow=72 W:allow=54 W:ask=198. 읽기 54건 ask→allow(의도된 과탐 해소), **쓰기 54건 ask→allow(의도되지 않은 보호 상실)**. 전환된 쓰기 형태: sed-ie-suffix-e · sed-ni-combined · sed-in-combined · sed-w-cmd · sed-s-w-flag · awk-iinplace-joined (각 대상 9종)",
+    "write_forms_are_real": "실쓰기 실증(macOS BSD sed): `echo AAA > t1; sed -ie 's/AAA/BBB/' t1` → t1 내용 BBB(백업 t1e 생성) · `sed -n 'w victim' src` → victim=SRC · `sed 's/SRC2/PWN/w victim2' src2` → victim2=PWN. `sed -ni`는 이 머신에서 미발생(BSD 옵션 파싱) — GNU sed 한정으로 판단. `awk -iinplace`는 gawk 부재로 실쓰기 미실증",
+    "post_fix_spot_check": "post-F63 훅 직접 질의: `awk {print > \"hooks/lib.sh\"} /etc/hosts` → ask · `awk {print > \"hooks/hooks.json\"} /etc/hosts` → ask · `sed -n w hooks/lib.sh /etc/hosts` → **allow** · `sed -ie s/a/b/ hooks/invariant-guard.sh` → **allow**",
+    "tests": "bats tests/ → exit=0, ok=632, not ok=0. F63 신규 4건 통과(#360 sed -n read allow · #361 awk read allow · #362 awk -i inplace ask · #363 path-list parity)",
+    "probes": "bash scripts/probes/behavioral.sh → `[]` (후보 0건)",
+    "deny_invariance": "old/new 훅에서 BLOCKED 배열과 INDIRECT_PATTERNS 배열을 추출해 diff → 각각 0줄. git diff d060dc3 dbb0a47 -- progress/harness-config.json INVARIANTS.md → 0줄",
+    "prior_intent_check": "grep tests/pre-bash-firewall.bats → 읽기를 allow로 못박은 테스트 4곳(770·802·807·937). implementer가 보고한 '세 곳'보다 하나 많다 — 논증은 오히려 더 강하다"
+  },
+  "notes": {
+    "critical_tier_second_judgment": "security_tier=critical이므로 F37 2차 판정 대상이나, 1차 판정이 fail이고 실측 반례가 명확하므로(자동 pass 아님) 에스컬레이션 조건에 해당하지 않는다. 다음 iteration의 재판정 시 독립 컨텍스트 2차 judge를 배선할 것",
+    "credit_where_due": "구현이 계약의 _key_constraint('빼기 전에 더한다')를 지켰고, 배터리가 경로축 회귀 4건을 실제로 잡아 보고에 그대로 기록됐다. 결함을 숨기지 않고 evidence.regression_caught로 남긴 것은 이 반려에서 감점 요인이 아니라 가점 요인이다. 이번 반려는 정직성이 아니라 배터리 커버리지의 문제다"
+  }
+}

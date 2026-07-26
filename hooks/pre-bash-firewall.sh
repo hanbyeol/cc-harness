@@ -115,7 +115,13 @@ ASK_PATTERNS=(
   # 하네스 검증 파일 훼손 (invariant-guard는 Edit|Write만 후킹 → Bash cp/mv/sed -i/리다이렉트 우회 차단)
   '>>? *[^ ]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
   '\b(cp|mv|install|rsync|ln|tee|truncate)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
-  '\b(sed|perl|awk)\b[^;|&]*(-i\b|--in-place)[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  # in-place 쓰기. -i 뒤에 단어경계를 두지 않는다 — sed -ie·sed -ni·awk -iinplace 처럼
+  # 결합 단축옵션이 실제로 파일을 쓴다(실측: echo AAA > t1; sed -ie s/AAA/BBB/ t1 → BBB).
+  '\b(sed|perl|awk)\b[^;|&]*(-[a-zA-Z]*i|--in-place)[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  # sed의 w 명령/s///w 플래그 — 플래그도 리다이렉트도 없이 임의 파일에 쓴다.
+  # 실측: sed -n 'w victim' src → victim에 src 내용 · sed 's/x/PWN/w victim2' → victim2=PWN.
+  # F63 이전에는 에디터 이름 목록이 sed를 통째로 잡아 가려져 있었다.
+  '\bsed\b[^;|&]*\bw\b *[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
   '\bof= *[^ ]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
   # 민감 파일(비밀키·크리덴셜) 이동/복사/덮어쓰기
   '\b(cp|mv|rsync|install|tee|scp)\b[^;|&]*(\.ssh/|\.aws/|\.gnupg/)'
@@ -151,7 +157,8 @@ ASK_PATTERNS=(
   # basename 앵커(harness-config 패턴과 동일 방식) — progress// · cd progress 등 경로정규화 우회 차단 (F-1).
   '>>? *[^ ]*feature_list\.json'
   '\b(cp|mv|install|rsync|ln|tee|truncate)\b[^;|&]*feature_list\.json'
-  '\b(sed|perl|awk)\b[^;|&]*(-i\b|--in-place)[^;|&]*feature_list\.json'
+  '\b(sed|perl|awk)\b[^;|&]*(-[a-zA-Z]*i|--in-place)[^;|&]*feature_list\.json'
+  '\bsed\b[^;|&]*\bw\b *[^;|&]*feature_list\.json'
   '\bof= *[^ ]*feature_list\.json'
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*feature_list\.json'
   '\b(ed|ex|vi|vim|nano|emacs|dd|patch)\b[^;|&]*feature_list\.json'

@@ -743,6 +743,35 @@ run_firewall() {
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
 }
 
+# 1차 판정이 실쓰기로 실증한 두 축. 쓰기 술어를 도구 이름에서 플래그로 바꿀 때
+# 술어가 실제 쓰기 집합보다 좁으면 조용히 열린다 — bats는 그때도 전부 초록이었다.
+@test "F63: combined short options are in-place writes (-ie, -ni)" {
+  # 실측: echo AAA > t1; sed -ie s/AAA/BBB/ t1 → 파일 내용이 BBB로 바뀐다.
+  # -i 뒤에 단어경계를 두면 결합형을 놓친다.
+  run run_firewall '{"tool_input":{"command":"sed -ie s/a/b/ hooks/invariant-guard.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"sed -ni s/a/b/ hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"awk -iinplace {print} hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "F63: sed w command and s///w flag write without any flag or redirect" {
+  # 실측: sed -n 'w victim' src → victim에 src 내용 · sed 's/x/PWN/w victim2' → victim2=PWN
+  run run_firewall '{"tool_input":{"command":"sed -n w hooks/lib.sh /etc/hosts"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"sed s/x/y/w hooks/lib.sh src.txt"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "F63: the w pattern does not swallow normal reads containing w" {
+  # /word/·/write/ 같은 정규식은 w로 시작하지만 쓰기가 아니다 — \bw\b 가 이를 가른다
+  run run_firewall '{"tool_input":{"command":"sed -n /word/p hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+  run run_firewall '{"tool_input":{"command":"awk /warn/{print} hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
 @test "gates mv of ~/.ssh secrets as ask" {
   run run_firewall '{"tool_input":{"command":"mv ~/.ssh/id_rsa /tmp/x"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]

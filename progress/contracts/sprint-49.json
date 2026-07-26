@@ -35,8 +35,8 @@
     },
     {
       "id": "AC-3",
-      "criterion": "쓰기 경로는 어느 형태로도 뚫리지 않는다 — in-place·리다이렉트·append·tee·복사 전부 ask 유지.",
-      "verification": "sed -i · perl -i · awk -i inplace · sed ... > 보호파일 · awk ... >> 보호파일 · cp/mv/tee 보호파일 각각 ask 확인. 보호 대상 4종(harness-config.json · hooks/*.sh · tests/*.bats · INVARIANTS.md)과 feature_list.json · .claude/settings*.json 전부"
+      "criterion": "쓰기 경로는 어느 형태로도 뚫리지 않는다. **열거는 하한이지 상한이 아니다** — 아래 목록에 없더라도 파일을 바꾸는 형태가 발견되면 미충족이다(1차 판정 지적).",
+      "verification": "scripts/verify-firewall-rw.sh 가 대상 9종 × 쓰기 31형태를 전부 ask로, 읽기 12형태를 전부 allow로 판정. 형태에는 in-place 결합 단축옵션과 sed w 명령·s///w 플래그를 포함한다"
     },
     {
       "id": "AC-4",
@@ -52,6 +52,12 @@
       "id": "AC-6",
       "criterion": "기존 테스트가 회귀 없이 통과한다.",
       "verification": "bats tests/ 전체 1회(pre-bash-firewall.bats 172건 포함) + scripts/probes/run-all.sh"
+    },
+    {
+      "id": "AC-7",
+      "criterion": "배터리를 저장소에 상설화한다. 이 가드는 '쓰기 술어가 실제 쓰기 집합을 덮는가'에 전적으로 의존하는데 bats는 그 축을 보지 못한다 — 구현 중 4건, 1차 판정에서 54건이 열렸을 때 bats는 두 번 다 전부 초록이었다.",
+      "verification": "scripts/verify-firewall-rw.sh 존재 + 기대와 다르면 exit 1 + CI가 호출",
+      "_origin": "1차 판정 지적(경미한 감점) + F62에서 같은 지적을 받은 이력"
     }
   ],
   "security_criteria": [
@@ -59,7 +65,7 @@
       "id": "SC-1",
       "criterion": "탐지 가능한 쓰기 경로의 집합이 축소되지 않는다.",
       "rationale": "이 변경은 규칙을 좁히므로 겉보기에 약화와 구분되지 않는다. 좁히기 전후로 쓰기 명령 집합을 대조해 ask를 잃은 것이 없음을 실증해야 한다.",
-      "verification": "쓰기 명령 배터리를 수정 전후로 돌려 판정 집합을 비교 — ask에서 allow로 바뀐 명령이 하나도 없어야 한다"
+      "verification": "쓰기 명령 배터리를 수정 전후로 돌려 판정 집합을 비교 — ask에서 allow로 바뀐 명령이 하나도 없어야 한다. **대조 입력의 커버리지를 함께 규정한다**: 최소 대상 9종 × 쓰기 31형태 × 읽기 12형태이며, 형태 축에는 in-place 결합 단축옵션(-ie·-ni·-in·-iinplace)과 도구 고유 쓰기 문법(sed의 w 명령·s///w 플래그, awk의 print 리다이렉트)을 반드시 포함한다. 1차 판정 지적 — 입력 커버리지를 규정하지 않으면 좁은 입력으로 항상 통과하며, 실제로 그렇게 54건을 놓쳤다."
     },
     {
       "id": "SC-2",
