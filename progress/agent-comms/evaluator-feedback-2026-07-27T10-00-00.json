@@ -1,0 +1,177 @@
+{
+  "timestamp": "2026-07-27T10:00:00+09:00",
+  "sprint": 48,
+  "iteration": 5,
+  "features_evaluated": [
+    "F62"
+  ],
+  "security_tier": "standard",
+  "verification_tier": "standard",
+  "commit_under_review": "16092d6",
+  "scores": {
+    "functionality": 6,
+    "code_quality": 6,
+    "security": 6,
+    "error_handling": 5,
+    "test_coverage": 6
+  },
+  "score": 5,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_threshold_applied": 5,
+  "verdict": "fail",
+  "fail_reasons": [
+    "score 5 < threshold 7 (min-of-5, error_handling=5)",
+    "AC-2 부분 충족 — 스캔이 '저장소 전수'가 아니다. --exclude-dir=progress는 **경로가 아니라 디렉터리 이름**을 배제하므로 skills/progress/(추적됨·universe 안·실재)와 templates/progress/(배포 대상)가 스캔에서 사라진다. 그 자리에 진짜 미등록 사본을 두면 네 단언이 전부 초록이다 — E4와 동일한 클래스가 다른 경로로 살아 있다",
+    "ES-2 미충족 — 문서화된 제외 규칙(progress/**·.git/**)과 구현된 규칙(**/progress/**)이 다르며, 그 차이가 실재 파일 두 디렉터리를 가린다"
+  ],
+  "verified_good": {
+    "E4_closed": "닫혔다. agents/DISPATCH.md에 사본을 만들면 #11이 실패한다 — 4차 반려 사유는 해소됐다",
+    "axis_separation": "여섯 갈래를 독립 lab에서 전부 재현했고 implementer의 보고와 정확히 일치한다. 축별 고유 케이스가 실제로 성립한다",
+    "no_gate_drift": "harness-config.json·INVARIANTS.md diff 없음. 임계값 하향 없음",
+    "regression_free_on_suite": "bats 628 ok / 0 fail, 저장소 clean"
+  },
+  "issues": [
+    {
+      "id": "I1",
+      "severity": "high",
+      "confidence": "high",
+      "category": "functionality",
+      "title": "--exclude-dir=progress가 이름 기반이라 universe 안 두 디렉터리가 스캔에서 사라진다 (E4 클래스 재발)",
+      "detail": "grep의 --exclude-dir는 경로가 아니라 디렉터리 basename을 배제한다. 저장소에는 progress라는 이름의 디렉터리가 세 개 있다 — progress/(의도한 예외), skills/progress/(SKILL.md, git 추적됨, universe 안), templates/progress/(배포 템플릿, universe 안). 뒤 둘은 예외의 근거(경위 서술·판정 아카이브·세션 상태)와 아무 관련이 없는데도 함께 배제된다.",
+      "reproduction": "pristine lab(git archive HEAD + git init)에서 skills/progress/SKILL.md에 지시 한 줄을 덧붙이면 실제 사본 5 · 목록 4인데 F62 네 단언이 전부 통과(totalfail=0). templates/progress/GUIDE.md도 동일. 대조군으로 skills/newskill/SKILL.md에 같은 줄을 넣으면 #11이 정상 실패한다 — 차이를 만드는 것은 위치가 아니라 **디렉터리 이름**이다.",
+      "why_it_matters": "AC-2의 verification 문언이 '스캔을 좁히면 universe 밖 미등록 사본을 놓친다'이고 4차 반려 사유가 정확히 그것이었다. 이번 수정은 루트 열거를 되돌려 그 통로를 닫았지만, 남아 있던 이름 기반 예외가 같은 결함을 universe **안쪽**에서 재생산한다. 적대적 우회가 아니라 평범한 드리프트다 — skills/implement/SKILL.md가 등록된 사본인 것처럼 다른 스킬 문서도 같은 지시를 가질 수 있는 자리다.",
+      "prescribed_fix": "예외를 경로에 고정한다. `--exclude-dir=progress`를 빼고 `--exclude-dir=.git`만 남긴 뒤 출력에서 `grep -v '^progress/'`로 최상위 경로 하나만 제외한다. 스캔의 deny-by-default 성질은 그대로이고 예외의 범위만 정확해진다.",
+      "regression_history": "v1(8c7d6fa)·v2(ff4e6cf)·v3(5e50d6d)이 모두 이 형태였고 v4(779457b)만 루트 열거였다. 즉 이 구멍은 이번에 새로 생긴 것이 아니라 v4가 우연히 덮었다가 되돌리며 다시 열린 것이며, **1~3차 판정이 같은 코드를 보고 세 번 놓쳤다**"
+    },
+    {
+      "id": "I2",
+      "severity": "medium",
+      "confidence": "high",
+      "category": "error_handling",
+      "title": "ES-2 — 문서화된 제외 규칙과 실효 규칙의 불일치가 남았다",
+      "detail": "sprint-45.json의 excluded는 'progress/**'와 '.git/**'로, tests/skill-frontmatter.bats의 주석은 'progress/(경위·판정 아카이브)와 .git만 예외'로 적혀 있다. 둘 다 경로 기준 서술이지만 구현은 이름 기준(**/progress/**)이다. 4차 판정이 지적한 '실효 제외 규칙이 암묵적'이 형태를 바꿔 그대로 남아 있으며, 이번에는 그 불일치가 실재 파일을 가린다는 점에서 서술 문제가 아니라 커버리지 문제다.",
+      "prescribed_fix": "I1의 수정으로 구현을 서술에 맞추거나, 이름 기반을 유지한다면 excluded에 skills/progress/**·templates/progress/**를 명시하고 각각이 왜 사본일 수 없는지 근거를 적는다. 전자를 권한다 — 후자는 미래 디렉터리에 대해 다시 invisible이다"
+    },
+    {
+      "id": "I3",
+      "severity": "medium",
+      "confidence": "high",
+      "category": "test_coverage",
+      "title": "mutation 배터리가 상설이 아니다 — 매 회전 수작업 lab으로만 존재한다",
+      "detail": "여섯 갈래는 잘 설계됐지만 tests/에 남지 않으므로 다음 수정이 축 분리를 깨뜨려도 자동으로 드러나지 않는다. 4차 판정의 후속 (6)('mutation 배터리에 universe 밖 진짜 사본 케이스를 상설 추가')이 이번에도 이행되지 않았다 — lab 케이스로만 실행됐다.",
+      "prescribed_fix": "최소한 (b)/E4/t2/M1' 네 케이스를 임시 디렉터리 픽스처로 돌리는 bats 케이스를 추가하거나, scripts/probes/에 배터리 스크립트를 두고 run-all에 엮는다"
+    },
+    {
+      "id": "I4",
+      "severity": "medium",
+      "confidence": "high",
+      "category": "functionality",
+      "title": "확장자 화이트리스트 사각지대가 여전히 열려 있다 (문서화된 한계)",
+      "detail": "--include='*.md' --include='*.tmpl' 밖의 파일(.txt·.mdx·.json 등)에 만든 사본은 스캔에 보이지 않는다. lab에서 templates/CLAUDE.md.txt에 지시를 넣으면 사본 5 · 목록 4인데 전 단언 통과. sprint-45.json의 scan_scope에 '알려진 사각지대'로 이미 공시돼 있으므로 새 결함은 아니지만, 이 기능의 존재 이유가 '공시된 사각지대에서 사본이 세 번 빠져나간 것'이라는 점에서 방치할 근거가 약하다.",
+      "prescribed_fix": "확장자 화이트리스트가 필요한 이유는 테스트가 자기 패턴 문자열을 스스로 잡는 것을 막기 위해서다. 그렇다면 --exclude 로 테스트 파일 자신만 제외하고 확장자 제한을 푸는 편이 deny-by-default에 맞는다"
+    },
+    {
+      "id": "I5",
+      "severity": "low",
+      "confidence": "medium",
+      "category": "functionality",
+      "title": "심볼릭 링크 뒤의 사본은 스캔되지 않는다",
+      "detail": "grep -r는 명령행 인자가 아닌 심링크 디렉터리를 따라가지 않는다. skills/linked -> /tmp/... 형태의 사본은 보이지 않는다. 다만 이 배치는 skills 관련 다른 테스트가 별도로 실패시키므로 조용하지 않고, 드리프트로 생길 배치도 아니다"
+    },
+    {
+      "id": "I6",
+      "severity": "low",
+      "confidence": "medium",
+      "category": "code_quality",
+      "title": "#12의 git ls-files 의존은 비-git 배포에서 전량 실패로 나타난다",
+      "detail": "플러그인이 git 저장소가 아닌 형태로 배포되면 모든 등록 경로가 untracked로 판정돼 #12가 실패한다. 조용한 통과가 아니라 시끄러운 실패이므로 안전 방향이지만, 배포 형태를 바꿀 때 걸릴 지점으로 기록한다"
+    },
+    {
+      "id": "I7",
+      "severity": "low",
+      "confidence": "high",
+      "category": "code_quality",
+      "title": "CALLER_COPY_ROOTS에 CLAUDE.md가 하드코딩돼 있다 (AC-1 위반은 아님)",
+      "detail": "CLAUDE.md는 등록된 사본 넷 중 하나이면서 동시에 universe 앵커의 원소다. AC-1이 금지하는 것은 '목록을 테스트에 다시 적는 것'이고 이것은 구조적 universe 선언이므로 위반이 아니다 — 다만 이름이 겹쳐 읽는 사람이 목록으로 오해할 여지가 있다. 주석에 '스캔 범위가 아니다'는 이미 있으니 '사본 목록도 아니다'를 덧붙이면 명확해진다"
+    }
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1 정방향 — 테스트가 jq로 계약에서 목록을 읽고 사본 파일명을 다시 적지 않는다 (pristine 통과 + 소스 확인)",
+      "AC-3 tautology 방어 — 빈 목록 픽스처에서 #10·#11·#13이 함께 실패한다 (lab 실행)",
+      "AC-4 축 분리 — 여섯 갈래를 독립 재현: E4→#11 단독, (b)→#11 단독, t2→#12 단독, t3→#12 단독, M1'→#13 단독",
+      "AC-5 회귀 없음 — bats 628 ok / 0 fail, scripts/probes/run-all.sh 실행, 저장소 clean",
+      "AC-6 구조 앵커 — 범위 밖 decoy와 gitignore된 decoy 모두 #12가 단독으로 잡는다"
+    ],
+    "security": [
+      "SC-1 게이트 불변 — git diff --quiet progress/harness-config.json docs/INVARIANTS.md 통과",
+      "SC-3 신뢰 경계 — 목록 조작 경로를 하한(#13)과 앵커(#12)가 닫고 남는 한계를 계약에 기록"
+    ],
+    "error_scenarios": [
+      "ES-1 계약 부재/malformed — 삭제·손상 두 경우 모두 #10·#11·#13이 실패한다. 조용한 통과 없음 (lab 실행)",
+      "ES-3 계약 경로 변경 — ES-1과 같은 경로로 시끄럽게 실패한다"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-2 — 스캔이 전수가 아니다. 이름 기반 예외가 skills/progress/·templates/progress/를 가리고, 그 안의 진짜 미등록 사본이 네 단언을 모두 통과한다 (I1)"
+    ],
+    "security": [
+      "SC-2 부분 — 등록된 네 파일의 정방향 단언은 유지됐으나, 검사가 실제로 보는 영역이 계약이 서술하는 영역보다 좁다. '줄어든 파일이 없어야 한다'를 파일이 아니라 **스캔 도메인**으로 확장해 대조하면 이번 회전에서 드러났을 것이다"
+    ],
+    "error_scenarios": [
+      "ES-2 — 제외 규칙의 서술과 구현이 불일치하며 그 차이가 실재 파일을 가린다 (I2)"
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "AC-2의 verification이 '전수 grep'을 문언으로만 요구하고 **무엇이 전수인지 기계적으로 확인하는 절차**가 없다. 스캔이 실제로 훑은 파일 집합과 저장소의 *.md/*.tmpl 집합의 차집합을 출력해 예외 목록과 대조하는 단언이 있었다면 I1이 자동으로 드러난다",
+      "SC-2의 verification이 '검사되는 파일 집합'만 보고 '스캔 도메인'을 보지 않는다 — 4차 판정 후속 (3)이 요구한 확장이 계약 문언에 반영되지 않았다"
+    ],
+    "ambiguous_criteria": [
+      "AC-2·ES-2가 제외를 'progress/'로만 적어 그것이 경로인지 이름인지 구분하지 않는다. 이 모호함이 I1이 다섯 번의 판정을 통과한 직접 원인이다 — 계약 문언을 경로 기준으로 못박아야 한다"
+    ],
+    "security_criteria_insufficient": [],
+    "action_required": "다음 iteration: (1) I1 수정 — 예외를 경로 고정(--exclude-dir=.git만 유지 + grep -v '^progress/'), (2) 계약의 excluded·scan_scope·AC-2 문언을 '경로 기준'으로 정정, (3) 스캔 도메인 대조 단언을 추가해 AC-2를 기계 검증 가능하게, (4) I3의 상설 mutation 배터리 — 4차 판정 후속 (6)의 두 번째 미이행, (5) I4의 확장자 화이트리스트를 테스트 파일 단독 제외로 대체 검토"
+  },
+  "criteria_backfill_review": {
+    "count": 5,
+    "assessment": "다섯 건 모두 범위 확장이나 요건 완화가 아니라 판정에서 드러난 결함을 계약에 되먹인 것이며 방향이 강화다. 다만 **3건 이상 임계를 넘긴 지 두 회전째**이므로 절차상 권고를 유지한다",
+    "recommendation": "이 기능의 계약은 다섯 번의 판정을 거치며 문언이 판정 기록의 요약으로 두터워졌다. 다음 회전에서 통과하면 sprint-48.json의 acceptance_criteria를 '무엇을 보장하는가'로 재작성하고 경위는 _prior_evidence로 옮길 것을 권한다. 지금 상태로는 계약이 스스로 검증 절차가 되지 못하고 사람의 독해에 의존한다"
+  },
+  "reexamination_of_prior_verdicts": {
+    "requested_by_implementer": true,
+    "finding": "1~3차 판정은 현재와 **동일한 --exclude-dir=progress 스캔**을 보고 통과시켰거나 다른 사유로 반려하면서 이 구멍을 지적하지 않았다. 세 판정 모두 mutation을 '가드가 보는 영역' 안에서만 설계했고, 예외 규칙 자체가 이름 기반인지 경로 기반인지는 검사하지 않았다. 4차 판정이 세운 교훈 (3)('mutation 배터리는 가드가 보는 영역만 훑기 쉽다')이 evaluator 자신에게도 그대로 적용된다",
+    "correction": "1~3차의 AC-2 '통과' 판정은 소급해 부정확했다. AC-2는 이번 회전에 처음 정면으로 검증됐고 미충족이다"
+  },
+  "evidence": {
+    "suite": "bats tests/ (1회) — 628 ok / 0 fail. F62 4건: ok 604 forward · ok 605 reverse · ok 606 anchor · ok 607 floor",
+    "probes": "bash scripts/probes/run-all.sh — completeness 프로브가 4차 판정 후속(C1, low)만 반환. 그 중 (1)(2)(5)는 이행, (3)(4)(6)은 미이행으로 확인",
+    "gate_invariance": "git diff --quiet progress/harness-config.json docs/INVARIANTS.md → 종료 0 (diff 없음). git status --porcelain → 빈 출력",
+    "mutation_lab": "pristine lab = (cd repo && git archive HEAD) | tar -x -C lab; git init; git add -A; commit. 케이스마다 git reset --hard + git clean -fdx로 격리. 각 케이스에서 bats tests/skill-frontmatter.bats 실행 후 F62 4단언의 실패 태그를 파싱",
+    "mutation_results": {
+      "pristine": "real=4 list=4 → 실패 없음",
+      "E4 agents/DISPATCH.md 미등록 사본": "real=5 list=4 → #11 단독 (4차 반려 사유 해소 확인)",
+      "(b) skills/debug/SKILL.md 미등록 사본": "real=5 list=4 → #11 단독",
+      "t2 docs/ 범위 밖 decoy 4개 + 진짜 사본 지시 삭제": "real=4 list=4 → #12 단독",
+      "t3 .tmp/ gitignored decoy 4개 + 진짜 사본 지시 삭제": "real=4 list=4 → #12 단독",
+      "M1' 목록 4→3 + 빠진 파일 지시 삭제": "real=3 list=3 → #13 단독",
+      "N1 skills/progress/SKILL.md 미등록 사본 (신규 프로브)": "real=5 list=4 → **실패 없음** — 결함",
+      "N2 templates/progress/GUIDE.md 미등록 사본 (신규 프로브)": "real=5 list=4 → **실패 없음** — 결함",
+      "N2b 대조군 skills/newskill/SKILL.md": "real=5 list=4 → #11 실패 — 차이는 위치가 아니라 디렉터리 이름임을 확정",
+      "N3 templates/CLAUDE.md.txt 미등록 사본": "real=5 list=4 → 실패 없음 (공시된 확장자 사각지대)",
+      "N4 심링크 뒤 사본": "F62 단언은 실패 없음 (다른 skills 테스트가 별도로 실패)",
+      "ES-1 계약 삭제": "#10 #11 #13 실패",
+      "ES-1 계약 malformed": "#10 #11 #13 실패",
+      "AC-3 목록 빈 배열": "#10 #11 #13 실패"
+    },
+    "static_confirmation": "grep -rl 'TRIGGER' --include='*.md' --exclude-dir=progress --exclude-dir=.git . → skills/progress/SKILL.md 없음. 동일 명령에서 --exclude-dir=progress만 제거 → skills/progress/SKILL.md 나타남. git ls-files skills/progress templates/progress → skills/progress/SKILL.md 외 4개 추적 중",
+    "revision_history": "git show <c>:tests/skill-frontmatter.bats 로 다섯 커밋의 _caller_copy_scan 대조 — 8c7d6fa·ff4e6cf·5e50d6d은 --exclude-dir 형태, 779457b만 루트 열거, 16092d6은 --exclude-dir 복귀"
+  },
+  "lessons_to_record": [
+    "제외 규칙을 grep의 --exclude-dir로 표현하면 그것은 **경로가 아니라 이름**에 대한 규칙이다. 계약이 'progress/**'라고 적고 구현이 '**/progress/**'로 동작하면 같은 이름의 디렉터리가 universe 안에 있는 순간 조용한 사각지대가 된다. deny-by-default를 복원할 때는 예외의 **표현 방식**까지 경로에 고정해야 복원이 완결된다",
+    "evaluator에게도 같은 교훈이 적용된다 — mutation을 '가드가 보는 영역' 안에서만 설계하면 예외 규칙 자체의 형태는 절대 검사되지 않는다. 가드를 볼 때는 '무엇을 보는가'뿐 아니라 '무엇을 안 보기로 했는가, 그 규칙은 어떤 문법으로 쓰였는가'를 한 번 더 본다"
+  ],
+  "next_step": "I1을 수정하고 AC-2에 스캔 도메인 대조 단언을 추가한 뒤 6차 판정 요청. 6차에서는 이번 여섯 갈래 + N1·N2·N2b·N3을 함께 돌린다"
+}

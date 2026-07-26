@@ -48,6 +48,12 @@
       "criterion": "[구조 앵커] 계약 목록의 각 경로는 구조적으로 정의된 universe(CLAUDE.md · skills/** · templates/**) 안에 있어야 하고 git이 추적하는 파일이어야 한다. 집합 동등성만으로는 목록과 스캔을 **함께** 옮기는 우회가 남는다 — 범위 밖에 decoy를 만들면 둘이 같이 움직여 동등성이 유지된다.",
       "verification": "범위 밖 decoy(docs/)와 gitignore된 decoy(.tmp/)로 각각 붕괴를 시도해 **#12가 단독으로** 실패하는지 확인. 앵커는 목록 쪽에만 적용하며 스캔 범위를 좁히는 데 쓰지 않는다",
       "_origin": "3차 판정 지적. false-positives.json F52 guard(2)의 화이트리스트 역전 처방을 적용했다."
+    },
+    {
+      "id": "AC-7",
+      "criterion": "mutation 배터리를 저장소에 상설화한다. 이 가드는 다섯 차례 판정에서 매번 새 우회가 발견됐고 그때마다 임시 스크립트로 재현했다 — 배터리가 저장소 밖에 있으면 다음 수정이 무엇을 잃는지 자동으로 드러나지 않는다. 실제로 3차 수정이 직전 버전이 잡던 드리프트를 놓치는 회귀를 만들었고 bats는 전부 초록이었다.",
+      "verification": "scripts/verify-caller-copy-guard.sh 가 열 갈래를 pristine lab에서 실행하고 기대와 다르면 exit 1",
+      "_origin": "4차·5차 판정이 연속 요청(follow-up 6, 두 번째 미이행 지적)"
     }
   ],
   "security_criteria": [
@@ -144,7 +150,7 @@
   "_agreed_note": "**승인됨 — 2026-07-27 Plan 게이트(ExitPlanMode).** /improve 1회전 후보 선택(사용자) 후 정방향·역방향·tautology 방어 3축 설계로 승인받았다. tests/skill-frontmatter.bats는 보호 파일이며 Edit 툴로만 수정하고, sprint-45.json은 목록의 단일 출처로 읽기만 한다.",
   "_axes": {
     "note": "네 단언, 독립 축 셋. **스캔과 목록의 방향이 반대**인 것이 설계의 핵심이다.",
-    "scan_direction": "deny-by-default — 저장소 전수를 훑고 progress/·.git만 예외. 좁히면 미래 디렉터리가 기본 invisible이 되어 universe 밖 미등록 사본을 놓친다(4차 판정 E4).",
+    "scan_direction": "deny-by-default — 저장소 전수를 훑고 **루트 progress/**와 .git만 예외. 예외는 경로에 고정한다: --exclude-dir 은 이름으로 거르므로 skills/progress/·templates/progress/ 까지 함께 숨겼다(5차 판정 재현 — 실제 사본 5, 스캔 4, 목록 4에 전 단언 통과). 스캔을 루트 열거로 좁히면 universe 밖 미등록 사본을 놓친다(4차 판정 E4).",
     "list_direction": "allow-list — 구조적 universe(CLAUDE.md·skills/**·templates/**) 안 + git-tracked만 허용. 열어 두면 범위 밖 decoy로 계약을 겨눠 실제 사본을 0으로 만들 수 있다(3차 판정 t2/t3).",
     "reverse": "#11 계약 목록 == 전수 스캔 (고유: E4·(b) 미등록 사본)",
     "anchor": "#12 목록의 각 경로가 universe 안 + tracked (고유: t2·t3)",

@@ -101,11 +101,16 @@ _caller_copy_list() {   # 계약에서 목록을 읽는다. 부재/malformed면 
   jq -r '._caller_side_copies.files[]?' "$PLUGIN_ROOT/$CALLER_COPY_CONTRACT" 2>/dev/null
 }
 
-_caller_copy_scan() {   # 저장소 전수 — progress/(경위·판정 아카이브)와 .git만 예외
+_caller_copy_scan() {   # 저장소 전수 — 루트 progress/(경위·판정 아카이브)와 .git만 예외
+  # 예외는 **경로**에 고정한다. --exclude-dir=progress 는 이름으로 거르므로
+  # skills/progress/ 와 templates/progress/ 까지 함께 숨겼다 — 둘 다 universe 안이라
+  # 그곳에 사본이 생기면 스캔이 못 보고 전 단언이 통과했다(evaluator가 재현: 실제 사본 5,
+  # 스캔 4, 목록 4 → 전부 ok). 계약과 이 주석이 예외를 progress/** 로 서술하는데 구현이
+  # **/progress/** 였던 불일치가 원인이다. 이름 글로브를 쓰지 않고 출력에서 접두를 거른다.
   (cd "$PLUGIN_ROOT" && grep -rl "$CALLER_COPY_PATTERN" \
      --include='*.md' --include='*.tmpl' \
-     --exclude-dir=progress --exclude-dir=.git . 2>/dev/null \
-   | sed 's|^\./||' | sort -u)
+     --exclude-dir=.git . 2>/dev/null \
+   | sed 's|^\./||' | grep -v '^progress/' | sort -u)
 }
 
 _caller_copy_in_universe() {   # 경로가 구조적 universe 안인가

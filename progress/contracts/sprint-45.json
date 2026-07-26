@@ -189,8 +189,8 @@
       "templates/docs/HARNESS-GUIDE.md"
     ],
     "excluded": {
-      "progress/**": "스캔 예외 — 테스트의 --exclude-dir=progress와 정합. lessons.md는 경위 서술, agent-comms/는 판정 아카이브, session-handoff.json은 세션 상태로 어느 것도 호출자 측 지시가 아니다. evaluator가 이 디렉터리의 패턴 히트 8건을 전수 확인해 진짜 지시가 0건임을 검증했다(2026-07-27).",
-      ".git/**": "버전 관리 내부"
+      "progress/ (루트만)": "스캔 예외 — 경로 접두로 거른다. lessons.md는 경위 서술, agent-comms/는 판정 아카이브, session-handoff.json은 세션 상태로 어느 것도 호출자 측 지시가 아니다. **이름 글로브(--exclude-dir=progress)는 쓰지 않는다** — skills/progress/ 와 templates/progress/ 까지 숨겨 그곳의 사본이 보이지 않게 된다(5차 판정).",
+      ".git/": "버전 관리 내부"
     },
     "surveyed": "2026-07-27, grep -rn 'test-writer.*isolation' --include='*.md' --include='*.tmpl' (agent-comms·.git 제외)",
     "scan_scope": "--include='*.md' --include='*.tmpl' 확장자 화이트리스트. 이것이 없으면 테스트가 자기 패턴 문자열을 스스로 잡으므로 필요하지만, .txt·.json·.mdx 등에 만든 사본은 역방향이 놓친다 — 알려진 사각지대.",
