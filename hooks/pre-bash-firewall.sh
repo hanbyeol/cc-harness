@@ -115,7 +115,7 @@ ASK_PATTERNS=(
   # 하네스 검증 파일 훼손 (invariant-guard는 Edit|Write만 후킹 → Bash cp/mv/sed -i/리다이렉트 우회 차단)
   '>>? *[^ ]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
   '\b(cp|mv|install|rsync|ln|tee|truncate)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
-  '\b(sed|perl)\b[^;|&]*-i[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
+  '\b(sed|perl|awk)\b[^;|&]*(-i\b|--in-place)[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
   '\bof= *[^ ]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
   # 민감 파일(비밀키·크리덴셜) 이동/복사/덮어쓰기
   '\b(cp|mv|rsync|install|tee|scp)\b[^;|&]*(\.ssh/|\.aws/|\.gnupg/)'
@@ -123,9 +123,18 @@ ASK_PATTERNS=(
   # git 실행 훅 경로 변경 — 이후 임의 git 명령이 임의 스크립트 실행(에스컬레이션)
   'git config[^;|&]*core\.hooksPath'
   # S-1(F32): 메커니즘 무관 보호경로 게이팅 — 인터프리터·에디터·git -c·GIT_CONFIG 우회 차단.
-  # 보호경로 토큰이 있을 때만 발동(정상 개발 python3 script.py·sed -n file.go·vim foo.py는 미발동).
+  # 보호경로 토큰이 있을 때만 발동한다(정상 개발 python3 script.py·vim foo.py는 미발동).
+  #
+  # F63: **읽기와 쓰기를 구분한다.** sed·awk는 in-place 플래그가 있을 때만 파일을 바꾸므로
+  # 아래 에디터 목록에서 빼고 118줄(in-place)로 옮겼다. 이전에는 도구 이름만으로 판정해
+  # `sed -n '1,20p' hooks/lib.sh` 같은 순수 읽기도 ask였고, 같은 파일을 grep·cat으로 읽으면
+  # allow인 비일관이 있었다 — 위험도가 아니라 도구 이름으로 갈리던 셈이다. 이 파일의 테스트가
+  # 이미 "sed read는 auto-allow"를 세 곳에서 못박고 있었으므로 새 정책이 아니라 누락된 적용이다.
+  # 인터프리터(아래 127줄)는 그대로 둔다 — python·node·perl은 읽기/쓰기를 구문으로 구분할 수
+  # 없어 보수적 유지가 옳다. sed/awk 스크립트 내부의 `print > "file"` 쓰기는 여전히 정적으로
+  # 잡히지 않으며, 이는 이번 변경으로 생긴 것이 아니라 인터프리터와 공유하는 기존 한계다.
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
-  '\b(ed|ex|vi|vim|nano|emacs|sed|awk|dd|patch)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  '\b(ed|ex|vi|vim|nano|emacs|dd|patch)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
   '>>? *[^ ]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
   '\b(cp|mv|install|rsync|ln|tee|truncate)\b[^;|&]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
   'git\b[^;|&]*-c[^;|&]*core\.hooksPath'
@@ -142,10 +151,10 @@ ASK_PATTERNS=(
   # basename 앵커(harness-config 패턴과 동일 방식) — progress// · cd progress 등 경로정규화 우회 차단 (F-1).
   '>>? *[^ ]*feature_list\.json'
   '\b(cp|mv|install|rsync|ln|tee|truncate)\b[^;|&]*feature_list\.json'
-  '\b(sed|perl)\b[^;|&]*-i[^;|&]*feature_list\.json'
+  '\b(sed|perl|awk)\b[^;|&]*(-i\b|--in-place)[^;|&]*feature_list\.json'
   '\bof= *[^ ]*feature_list\.json'
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*feature_list\.json'
-  '\b(ed|ex|vi|vim|nano|emacs|sed|awk|dd|patch)\b[^;|&]*feature_list\.json'
+  '\b(ed|ex|vi|vim|nano|emacs|dd|patch)\b[^;|&]*feature_list\.json'
 )
 
 if echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then

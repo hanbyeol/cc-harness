@@ -84,6 +84,14 @@ BASH_CORPUS=(
   'echo x > progress//feature_list.json'
   'cd progress && echo x > feature_list.json'
   'tee feature_list.json'
+  # F63: sed/awk를 에디터 목록에서 빼면서 in-place 쓰기가 열리지 않았는지 확인한다.
+  # 구현 중 실제로 4건이 열렸다 — in-place 패턴의 경로 목록이 에디터 패턴보다 좁아
+  # hooks/*.json과 .claude/settings*.json이 무방비가 됐고, 배터리가 그것을 잡았다.
+  'awk -i inplace {print} hooks/lib.sh'
+  'awk --in-place {print} tests/probes.bats'
+  'sed -i s/a/b/ hooks/hooks.json'
+  'sed -i s/a/b/ .claude/settings.json'
+  'perl -i -pe s/a/b/ .claude/settings.local.json'
 )
 
 # --- Tool danger 코퍼스 (pre-tool-firewall) : 어느 것도 allow되면 안 된다 ---

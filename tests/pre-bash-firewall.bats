@@ -710,6 +710,39 @@ run_firewall() {
   [[ "$output" != *'"permissionDecision": "allow"'* ]]
 }
 
+# --- F63: 보호 경로에서도 읽기와 쓰기를 구분한다 ---
+# 이전에는 도구 이름만으로 판정해 sed -n·awk 같은 순수 읽기도 ask였다. 같은 파일을
+# grep·cat으로 읽으면 allow였으므로 위험도가 아니라 도구 이름으로 갈리던 셈이다.
+# 아래 두 축을 함께 잠근다 — 읽기가 다시 ask가 되면 승인 프롬프트가 돌아오고,
+# in-place가 allow가 되면 보호를 잃는다.
+
+@test "F63: sed -n reading a protected file auto-allows (read is not a write)" {
+  run run_firewall '{"tool_input":{"command":"sed -n 1,20p hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "F63: awk reading a protected test file auto-allows" {
+  run run_firewall '{"tool_input":{"command":"awk NR<10 tests/probes.bats"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "F63: awk -i inplace onto a protected file is still gated" {
+  run run_firewall '{"tool_input":{"command":"awk -i inplace {print} hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+}
+
+# 구현 중 실제로 열렸던 경로 — in-place 패턴의 경로 목록이 에디터 패턴보다 좁아
+# hooks/*.json 과 .claude/settings*.json 이 sed/awk 제거와 함께 무방비가 됐다.
+@test "F63: in-place onto hooks/hooks.json and settings stays gated (path-list parity)" {
+  run run_firewall '{"tool_input":{"command":"sed -i s/a/b/ hooks/hooks.json"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"sed -i s/a/b/ .claude/settings.json"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"awk --in-place {print} .claude/settings.local.json"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
 @test "gates mv of ~/.ssh secrets as ask" {
   run run_firewall '{"tool_input":{"command":"mv ~/.ssh/id_rsa /tmp/x"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]

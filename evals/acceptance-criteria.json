@@ -139,6 +139,12 @@
       "contract": "progress/contracts/sprint-48.json",
       "security_tier": "standard",
       "summary": "[F59 후속, evaluator 권고 I3] 호출자 측 isolation 지시의 배포 사본 목록이 두 곳에 중복 하드코딩돼 있다 — progress/contracts/sprint-45.json의 _caller_side_copies와 tests/skill-frontmatter.bats의 루프 목록. 한쪽만 갱신되면 drift하고 그것을 잡는 검사가 없다. **이 세션에서 정확히 이 문제로 두 번 반려됐다**: 판정 1이 templates/CLAUDE.md.tmpl을, 판정 2가 templates/docs/HARNESS-GUIDE.md를 각각 찾아냈고, 원인은 매번 '지목된 인스턴스만 닫고 클래스를 열거하지 않은 것'이었다(false-positives.json에 F52로 두 번 기록된 패턴). 계약을 단일 출처로 삼아 테스트가 그 목록을 참조하게 하고, **역방향 대칭**(저장소 전수 grep 결과가 목록에 모두 있는가)을 추가해 새 사본을 만들고 목록에 넣지 않으면 기계적으로 드러나게 한다. F45/F46이 is_protected↔INV-12에 만든 양방향 대칭 검증과 같은 구조이며, F46의 교훈대로 목록이 비거나 축소되면 검사가 tautology로 퇴화하므로 그 방어까지 포함한다."
+    },
+    {
+      "feature_id": "F63",
+      "contract": "progress/contracts/sprint-49.json",
+      "security_tier": "critical",
+      "summary": "[2026-07-27, 사용자 보고] 방화벽이 보호 경로에 대한 **읽기 전용** sed/awk 사용을 쓰기와 구분하지 않고 ask로 판정해 불필요한 승인 프롬프트를 반복 유발한다. hooks/pre-bash-firewall.sh:128 의 '(ed|ex|vi|vim|nano|emacs|sed|awk|dd|patch) + 보호경로' 패턴이 원인이며, 148줄(feature_list.json)에도 같은 형태가 있다. **바로 위 126줄 주석은 '정상 개발 sed -n file.go 는 미발동'이라고 적혀 있는데 그것은 비보호 경로일 때만 참이다** — 보호 경로에서는 sed -n(출력 전용)·awk '{print}'(출력 전용)도 발동한다. 같은 파일을 grep·cat으로 읽으면 allow인데 sed·awk로 읽으면 ask라, 위험도가 아니라 도구 이름으로 갈리는 판정이다. 실측 근거: 사용자 ~/.claude/settings.json의 permissions.allow가 665건까지 누적됐고 그중 sed 27·perl 23·awk 16건이며, 649건의 Bash 규칙 중 와일드카드로 끝나는 것이 0건이라 명령 형태가 조금만 달라도 새 승인이 필요하다. **수정 방향은 약화가 아니라 과탐 제거**다: sed/awk는 in-place 플래그가 있을 때만 쓰기이며(sed -i·awk -i inplace), 그 경로는 118줄(sed|perl -i)과 116줄(리다이렉트)이 이미 커버한다. 다만 awk -i inplace 는 현재 어느 패턴도 잡지 않으므로 sed/awk를 128줄에서 빼려면 그것을 먼저 추가해야 한다 — 빼기 전에 더하지 않으면 순수 약화가 된다."
     }
   ]
 }
