@@ -2,35 +2,32 @@
 name: test-writer
 description: "Test engineer — writes unit, integration, and E2E tests. Use for Phase 4 (verification), runs in parallel."
 model: claude-sonnet-5
-# F59 AC-1 실측용 선언 — 이 필드가 플러그인 서브에이전트에 적용되는지 규명 중이다.
-# F56의 "미적용" 결론은 선언이 캐시에 도달하지 않은 상태에서 측정해 무효였다.
-# 적용이 확인되기 전까지 호출자 측 isolation 지시(CLAUDE.md·skills/implement)는 유지한다.
+# F59에서 적용 확인(2026-07-26, Claude Code 2.1.220 · 플러그인 v1.35.0). 이 선언만으로
+# worktree 격리가 걸린다. 호출자 측 지시도 함께 유지하는 이중 보호이며 근거는 아래 산문.
 isolation: worktree
 ---
 
 # Test Writer Agent
 
-> **격리는 호출자가 지정해야 한다 (F56 → F61 후속에서 근거 정정)**: 이 에이전트는 테스트
-> 파일을 생성하므로 다른 검증 에이전트와 병렬 실행될 때 `isolation: "worktree"`가 필요하다.
-> 따라서 **디스패치 시 호출자가 `isolation: "worktree"`를 명시하며**, CLAUDE.md와
-> skills/implement의 해당 지시를 제거하지 않는다.
+> **격리는 이중으로 보호한다 (F59, 2026-07-26 확정)**: 이 에이전트는 테스트 파일을
+> 생성하므로 다른 검증 에이전트와 병렬 실행될 때 `isolation: "worktree"`가 필요하다.
+> 보호는 두 겹이다 — 위 frontmatter의 `isolation: worktree` 선언과, **호출자가 디스패치
+> 시 `isolation: "worktree"`를 명시하는** CLAUDE.md·skills/implement의 지시. 둘 중 어느
+> 것도 제거하지 않는다.
 >
-> **[정정 2026-07-26]** 여기에는 원래 "frontmatter 선언이 적용되지 않음을 실측했다"고
-> 적혀 있었으나 **그 실험은 조건이 성립하지 않아 무효다**. 훅과 에이전트 정의는 저장소가
-> 아니라 설치된 플러그인 캐시(`${CLAUDE_PLUGIN_ROOT}`)에서 로드된다. F56이 저장소
-> frontmatter에 `isolation: worktree`를 선언하고 디스패치한 시각(07-25 22:32)에 실행된
-> 것은 캐시 v1.33.0의 정의였고, 그 파일의 frontmatter는 `name`·`description`·`model`뿐이라
-> **선언 자체가 전달되지 않았다**. worktree가 만들어지지 않은 것은 필드가 무시돼서가
-> 아니라 선언이 도달하지 않아서였을 수 있다.
+> **왜 이중인가**: frontmatter 선언은 실측으로 적용이 확인됐다(파라미터 없이 디스패치 →
+> `.claude/worktrees/agent-<id>`에서 실행, `git worktree list`에 locked 등재, 종료 후
+> 자동 정리). 그럼에도 산문을 남기는 이유는 **필드별 동작이 예측 불가능하기 때문**이다.
+> 같은 frontmatter 블록에 나란히 선언한 세 필드 중 `isolation`만 적용됐고
+> `disallowedTools`·`maxTurns`는 무시됐다 — 공식 문서가 셋 다 지원 필드로 열거하는데도
+> 그렇다. 지금 적용된다고 다음 버전에서도 그러리라는 보장이 없으며, **선언이 그대로인
+> 채 런타임이 무시하게 되는 변화는 정적 검사로 탐지할 수단이 없다.** 격리가 깨지면 파일
+> 충돌이 날 때까지 조용하므로, 산문은 그 변화를 사람이 알아챌 유일한 계층이다.
 >
-> **[측정 완료 2026-07-26 — 적용된다]** v1.35.0으로 선언을 캐시에 반영한 뒤(선행 조건을
-> grep으로 확인) `isolation` 파라미터 **없이** 디스패치한 결과, 이 에이전트는
-> `.claude/worktrees/agent-<id>` 에서 실행됐고 `git worktree list`에 locked 상태로
-> 등재됐으며 종료 후 자동 정리됐다. **frontmatter 선언만으로 격리가 적용된다.**
->
-> 호출자 측 지시(CLAUDE.md·skills/implement)는 당분간 유지한다 — 이중이지만 무해하고,
-> 병렬 디스패치에서 격리 대상을 호출자가 동적으로 정하는 경로가 따로 있기 때문이다.
-> 산문 정리는 F59의 강등 단계에서 Plan 게이트를 거쳐 판단한다.
+> **측정 이력**: F56이 "frontmatter가 무시된다"고 기록했으나 그 실험은 무효였다. 훅과
+> 에이전트 정의는 저장소가 아니라 설치된 플러그인 캐시에서 로드되는데, 당시 실행된 것은
+> 선언이 없는 캐시 v1.33.0의 정의였다. 측정 조건은 **선언이 캐시에 있고 재시작으로
+> 로드된 상태**여야 하며, 세션 중 캐시를 고쳐도 반영되지 않는다(대조 실험으로 확인).
 
 ## Role
 통합/E2E 테스트 작성 및 실행.

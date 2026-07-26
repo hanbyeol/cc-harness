@@ -27,22 +27,26 @@
       "verification": "필드별 스모크 — 선언만 하고 디스패치 파라미터 없이 실행해 효과가 나타나는지 관측한다. isolation은 작업 디렉토리, maxTurns는 턴 상한 도달, disallowedTools는 도구 거부로 확인. **선행 조건: 선언이 ${CLAUDE_PLUGIN_ROOT}가 가리키는 캐시에 실제로 존재함을 grep으로 먼저 확인한다.** 캐시 반영 방법은 (a) 릴리스 후 plugin update, 또는 (b) 캐시 파일 직접 수정 후 원복 중 하나이며 어느 쪽이든 측정 전에 반영을 검증한다. 관측 수단이 없는 필드는 '규명 불가'로 분류하고 강등 대상에서 제외",
       "_revised": "2026-07-26. F56이 '선언 후 디스패치 → worktree 미생성'으로 isolation 미적용을 실측했다고 기록했으나 조건이 성립하지 않았다. 그 시각(07-25 22:32) 실행된 것은 캐시 v1.33.0의 정의였고 frontmatter는 name·description·model뿐이었다(v1.34.0 릴리스는 07-26 04:09). 선언이 전달되지 않았으므로 '무시된다'는 결론을 내릴 수 없다 — 현재 상태는 미적용 확인이 아니라 미규명이다. 이 계약의 선결 조건은 방법 자체가 틀렸던 것이므로 검증 절차에 캐시 반영 확인을 명시했다.",
       "_result": {
-        "verdict": "isolation: 적용됨 (APPLIES)",
+        "verdict": "isolation: 적용 / disallowedTools: 미적용 / maxTurns: 미적용 — 세 필드 판정 완료",
         "measured": "2026-07-26, 캐시 v1.35.0",
         "precondition_check": "캐시 ~/.claude/plugins/cache/cc-harness-marketplace/cc-harness/1.35.0/agents/test-writer.md frontmatter에 `isolation: worktree` 존재 확인 후 측정. F56이 건너뛴 단계다.",
         "observation": "test-writer를 isolation 파라미터 **없이** 디스패치 → pwd = /Users/hanbyeol/Project/studioj/cc-harness/.claude/worktrees/agent-ac265b29f6d9d350b · git worktree list에 별도 worktree가 locked 상태로 등재 · git rev-parse --show-toplevel도 worktree 경로. 에이전트 종료 후 worktree 자동 정리 확인(잔존 없음, 메인 워킹트리 무영향).",
         "conclusion": "frontmatter 선언만으로 격리가 적용된다. F56의 '플러그인 서브에이전트에서 isolation이 무시된다'는 결론은 실험 조건 불성립에 따른 오판이었고 이번 측정으로 확정적으로 뒤집혔다.",
         "remaining": "maxTurns·disallowedTools는 아직 미측정. isolation이 적용된다는 사실은 frontmatter 경로 자체가 살아 있음을 뜻하므로 두 필드도 적용될 가능성이 높아졌으나, 필드별 처리는 다를 수 있어 각각 실측이 필요하다.",
-        "maxTurns": "미측정 — disallowedTools와 같은 이유로 조건 불성립",
-        "disallowedTools": "측정 무효(조건 불성립). 캐시에 disallowedTools:[\"WebSearch\"]를 넣고 디스패치하니 WebSearch가 정상 실행됐으나, 이 관측은 결론 근거가 되지 못한다 — 대조 실험에서 캐시의 isolation 선언을 **제거**한 뒤 디스패치했는데도 worktree가 생성됐다(agent-a167b6b2919322f55). 즉 Claude Code는 세션 시작 시 로드한 에이전트 정의를 사용하며 **런타임 중 캐시 수정은 반영되지 않는다**. 선언이 파일에 있어도 실행 중인 세션에는 전달되지 않으므로 F56과 동일한 조건 불성립이다.",
-        "method_finding": "**측정 방법론 확정**: 플러그인 서브에이전트 frontmatter를 실측하려면 (1) 선언을 캐시에 반영하고 (2) **재시작**한 뒤 (3) 선언 존재를 grep으로 확인하고 (4) 측정해야 한다. 캐시 직접 수정은 릴리스를 아끼지만 재시작을 아끼지는 못한다 — isolation이 측정된 것은 plugin update 후 재시작을 거쳤기 때문이다. 대조 실험(선언 제거 후에도 효과 지속) 없이는 이 사실을 알 수 없었고, F56은 그 대조가 없어 조건 불성립을 미적용으로 오판했다."
+        "maxTurns": "**미적용**. maxTurns: 2 선언 후 재시작하여 로드시키고, 4회의 순차 도구 호출이 필요한 작업을 디스패치 → 에이전트가 STEP1~STEP4를 모두 완료하고 REACHED: STEP4를 보고했다(tool_uses=4). 2턴 제한이 걸리지 않았다.",
+        "disallowedTools": "**미적용 (조건 성립 상태에서의 정당한 결론)**. 캐시에 disallowedTools:[\"WebSearch\"] 선언 후 **재시작**하여 로드시키고(선행 조건 grep 확인) 디스패치 → WebSearch가 정상 실행됐고 에이전트가 보고한 도구 목록에도 WebSearch가 그대로 있었다. 앞서 같은 관측을 세션 중 캐시 수정으로 얻었을 때는 무효였으나, 이번에는 재시작으로 선언이 실제 로드된 상태였다.",
+        "method_finding": "**측정 방법론 확정**: 플러그인 서브에이전트 frontmatter를 실측하려면 (1) 선언을 캐시에 반영하고 (2) **재시작**한 뒤 (3) 선언 존재를 grep으로 확인하고 (4) 측정해야 한다. 캐시 직접 수정은 릴리스를 아끼지만 재시작을 아끼지는 못한다 — isolation이 측정된 것은 plugin update 후 재시작을 거쳤기 때문이다. 대조 실험(선언 제거 후에도 효과 지속) 없이는 이 사실을 알 수 없었고, F56은 그 대조가 없어 조건 불성립을 미적용으로 오판했다.",
+        "key_finding": "**필드마다 처리가 다르다 — 하나의 적용을 근거로 일반화할 수 없다.** isolation이 적용되는 것을 보고 'frontmatter 경로가 살아 있으니 나머지도 적용될 것'이라 추론했으나 실측이 반증했다. 세 필드가 같은 frontmatter 블록에 나란히 선언됐고 같은 세션에서 로드됐는데도 isolation만 효과가 있었다. 향후 어떤 필드를 쓰려 하든 그 필드 자체를 측정해야 한다."
       },
       "done": true
     },
     {
       "id": "AC-2",
       "criterion": "적용이 확인된 필드에 한해서만 강등한다. 각 강등에 대해 (a) frontmatter 선언, (b) 실측 확인, (c) 확인된 뒤에만 대응 산문 제거의 순서를 지킨다.",
-      "verification": "강등한 각 항목의 실측 근거를 evidence에 기록 + 산문 제거가 실측 이후에 이루어졌음을 커밋 순서로 확인"
+      "verification": "강등한 각 항목의 실측 근거를 evidence에 기록 + 산문 제거가 실측 이후에 이루어졌음을 커밋 순서로 확인",
+      "not_applicable": true,
+      "done": true,
+      "_result": "해당 없음(강등 미수행) — 미달이 아니다. AC-2는 '적용이 확인된 필드에 한해서만 강등한다'는 조건부 기준이며, 적용이 확인된 필드는 isolation 하나다. 그 하나에 대해서도 강등하지 않기로 사용자가 결정했다(2026-07-26). 근거는 아래 Q3."
     },
     {
       "id": "AC-3",
@@ -161,9 +165,19 @@
         "(C) 기능 취소 — status: removed"
       ],
       "resolution": "Plan 게이트에서 결정. (A)가 기본이며, 문서화만으로도 '다음 시도가 같은 함정을 반복하지 않는다'는 가치는 실현된다."
+    },
+    {
+      "id": "Q3",
+      "question": "적용이 확인된 필드(isolation)를 실제로 강등할 것인가",
+      "options": [
+        "(A) 강등 — 호출자 측 산문을 제거하고 frontmatter에만 의존",
+        "(B) 이중 보호 유지 — frontmatter 선언과 산문을 함께 둔다",
+        "(C) 보류 — 다음 버전에서 재판단"
+      ],
+      "resolution": "**(B) 이중 보호 유지로 확정 — 사용자 결정, 2026-07-26.** 세 필드를 실측한 뒤 내린 판단이다. 얻는 것은 5줄(CLAUDE.md 80바이트 + skills/implement 2줄 + agents/test-writer.md 2줄)이고, 잃는 것은 조용한 보호 상실에 대한 방어다. 선언이 파일에서 사라지는 것은 정적 테스트로 잡을 수 있지만 '선언은 그대로인데 런타임이 무시하게 되는' 변화는 탐지 수단이 없고, 격리 실패는 파일 충돌이 날 때까지 드러나지 않는다. **이번 측정 자체가 그 위험의 증거다** — 같은 frontmatter 블록에 나란히 선언된 세 필드 중 isolation만 적용됐다. 필드별 동작이 예측 불가능하고 공식 문서와도 어긋나므로, 지금 적용된다고 다음 버전에서도 그러리라는 보장이 없다. F58에서 라우팅 표를 유지한 것과 같은 구조의 판단이다."
     }
   ],
-  "agreed": false,
-  "_agreed_note": "미승인. Plan 게이트(ExitPlanMode)에서 사용자 승인 시에만 true로 전환한다. AC-1 규명 없이 강등을 진행하지 않는다 — 거짓 보증 위험(SC-3).",
-  "_ac1_status": "완료 — isolation 적용 확인(2026-07-26). maxTurns·disallowedTools 미측정."
+  "agreed": true,
+  "_agreed_note": "**승인됨 — 2026-07-26, 사용자 직접 지시.** 'measurement 후 판단' 요구에 따라 세 필드를 실측한 뒤 '강등하지 말고 이중 보호 유지로 마무리'로 방향이 확정됐다. AC-1은 완료(세 필드 판정), AC-2는 해당 없음으로 종료한다. 호출자 측 isolation 지시는 어느 파일에서도 제거하지 않는다.",
+  "_ac1_status": "완료 — isolation 적용 / disallowedTools·maxTurns 미적용 (2026-07-26, Claude Code 2.1.220, 플러그인 v1.35.0)"
 }

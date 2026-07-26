@@ -1,63 +1,47 @@
 {
-  "feature_id": "F61",
-  "sprint": 47,
-  "title": "evaluator 보정 코퍼스 갱신 + 드리프트 탐지 기법 교체 (F37 후속)",
+  "feature_id": "F59",
+  "sprint": 45,
+  "title": "규칙의 인터페이스 강등 — 규명 완료, 강등하지 않고 이중 보호 유지로 종료",
   "security_tier": "standard",
-  "timestamp": "2026-07-26T08:30:00+09:00",
-  "summary": "골든셋을 21건에서 61건으로 재생성하고 calibration (e) 검사를 [min,max]에서 희소 점수 빈도(5% 임계)로 교체했다. 근본 원인은 재생성 경로의 부재였으므로 실질 산출물은 scripts/build-golden-set.sh다 — 수작업 코퍼스가 40건의 판정이 쌓이는 동안 굳어 정상 판정을 오탐하고 있었다. **[정정 2026-07-26]** 최초 보고에서 '현재 표본에서 두 기법 출력이 동일하다'고 했으나 이는 standard tier만 비교한 표집 오류였다 — critical tier에서는 지금도 갈리며 빈도 기법이 더 많이 잡는다. 상세는 limitations_honest 첫 항목.",
+  "timestamp": "2026-07-26T22:00:00+09:00",
+  "summary": "선결 조건이던 frontmatter 필드 규명을 완료했다. isolation은 적용되고 disallowedTools·maxTurns는 적용되지 않는다 — 같은 블록에 나란히 선언하고 같은 세션에서 로드했는데도 결과가 갈렸다. 적용이 확인된 isolation에 대해서도 강등하지 않고 이중 보호(frontmatter 선언 + 호출자 측 지시)를 유지하기로 사용자가 결정했으며, 그 결정을 양방향 테스트로 잠갔다.",
   "achieved": {
-    "AC-1": "완료. scripts/build-golden-set.sh 신설. 2회 실행 산출물이 바이트 동일(cmp). 정렬 키를 (features, tier, verdict, computed_min)으로 고정해 입력 순서와 무관하게 같은 출력을 낸다",
-    "AC-2": "완료. tier×verdict 교차 집계가 원본 판정 파일과 완전 일치 — critical 28/3 · standard 17/3 · low 5/1 · unknown 2/2. scores를 가진 61건 전건 반영, skip 0건",
-    "AC-3": "완료. records 내부에 경로·명령어·자격증명 0건. has_evidence 불리언만 61/61건. evidence 키 자체가 존재하지 않는다",
-    "AC-4": "완료. (e) 검사를 희소 점수 빈도로 교체(RARE_PCT=5). N≥5 게이트와 fail 판정 제외는 그대로 유지",
-    "AC-5": "완료. critical tier baseline 28건 기준 — 이례적 판정(functionality=7, 0/28 출현)은 후보로 잡히고 일상적 판정(test_coverage=7, 9/28=32%)은 잡히지 않는다",
-    "AC-6": "완료. F57·F58 과탐 해소(후보 없음). F56은 code_quality=7·security=7이 자기 제외 baseline 16건에서 0건 출현인 유일 사례라 후보로 남으며, 이는 계약이 승인 시점에 수정한 기준대로 정상 동작이다",
-    "AC-7": "완료. probes.bats에 F61 테스트 2건 추가. 기존 calibration 테스트 6건은 name 기준이라 무변경 통과. mutation으로 회귀 포착력 확인",
-    "AC-8": "완료. bats 617 ok / 0 fail(기준선 615 + 신규 2). shellcheck 클린"
+    "AC-1": "완료. 세 필드 판정 — isolation 적용 / disallowedTools 미적용 / maxTurns 미적용. 측정 환경 Claude Code 2.1.220 · 플러그인 v1.35.0. 각 측정 전에 선언이 캐시에 존재하는지 grep으로 확인했고(F56이 건너뛴 단계), 세션 중 캐시 수정은 반영되지 않음을 대조 실험으로 확정한 뒤 재시작 경로로 측정했다",
+    "AC-2": "해당 없음(미달 아님). '적용이 확인된 필드에 한해서만 강등한다'는 조건부 기준이며, 적용된 isolation에 대해서도 강등하지 않기로 결정했다(Q3=B). 호출자 측 지시는 어느 파일에서도 제거하지 않았다"
   },
   "security": {
-    "SC-1": "충족. git diff --quiet progress/harness-config.json → diff 없음. pass_threshold·security_thresholds 불변",
-    "SC-2": "충족. **[정정 2026-07-26]** 원래 '현재 표본에서 두 기법 출력 동일'이라 적었으나 standard tier만 본 표집 오류였다. evaluator가 tier 3종 × 5차원 × 점수 1~10 격자를 전수 비교한 결과 옛 기법이 잡고 새 기법이 놓치는 조합 0건, 새 기법만 잡는 조합 1건 — 탐지 가능한 이상의 집합은 축소가 아니라 진부분집합으로 확대됐다. 성적 인플레이션 픽스처(standard 전 차원 9점)도 여전히 포착된다.",
-    "SC-3": "충족. AC-3과 동일 + 산출물 전문 스캔에서 자격증명 패턴 0건. 걸린 경로 3건은 전부 description·generated_by의 스크립트 경로(메타데이터)",
-    "SC-4": "충족. git diff --quiet progress/agent-comms/ → 판정 기록 불변. 스크립트는 find로 읽기만 한다"
+    "SC-1": "충족. git diff --quiet progress/harness-config.json docs/INVARIANTS.md → diff 없음",
+    "SC-2": "충족. 보호를 제거하지 않았다 — frontmatter 선언과 호출자 측 지시가 모두 그대로이며, 양쪽이 사라지는 것을 각각 테스트로 잠갔다. 이 기능은 보호 계층을 줄이는 방향이었으나 실측 결과 줄이지 않는 것으로 종료했다",
+    "SC-3": "충족. 측정용 임시 선언은 캐시에만 넣었고 저장소에 커밋하지 않았다. 측정 후 원복해 해시 동일(0990fe13...)을 확인했으며 worktree 잔존도 없다"
   },
   "evidence": {
-    "baseline_overfire": "현행 코퍼스로 오탐 재현 — F56 code_quality:7<min8; security:7<min8 · F57 functionality:7<min8 · F58 test_coverage:7<min8",
-    "corpus_growth": "records 21→61건 · standard pass 6→17 · critical pass 8→28 · low pass 3→5",
-    "determinism": "bash scripts/build-golden-set.sh 2회 실행 후 cmp -s → 바이트 동일",
-    "ac6_after": "갱신 후 재실행 — F56: code_quality:7(baseline 0/16회); security:7(baseline 0/16회) · F57: 후보 없음 · F58: 후보 없음",
-    "ac5_contrast": "critical functionality=7 → functionality:7(baseline 0/28회) 후보 / critical test_coverage=7 → 후보 없음",
-    "technique_equivalence_now": "**[정정 2026-07-26]** standard tier 다섯 케이스 비교에서는 결론이 동일했다 — F56 q7: [min,max]=[8,9] 잡힘 / 빈도 0/16(0%) 잡힘. F57 f7: [7,9] 놓침 / 1/16(6%) 놓침. F58 t7: [7,8] 놓침 / 1/16(6%) 놓침. F58 e7: [7,9] 놓침 / 2/16(12%) 놓침. 그러나 이는 standard의 자기 제외 baseline이 16건이라 1건 = 6.25% > 5%가 되는 **구조적 일치**였고 tier 전체를 대표하지 않는다. critical(28건, 1건 = 3.57%)에서는 갈리며 critical.error_handling=7을 빈도 기법만 잡는다.",
-    "technique_divergence_future": "표본 증가 시뮬레이션 — baseline 16/q7 0건: 둘 다 잡음. 20/1건: 둘 다 놓침. 40/1건: 빈도만 잡음(2.5%). 40/2건: 둘 다 놓침. 60/2건: 빈도만 잡음(3.3%). 100/4건: 빈도만 잡음(4.0%). [min,max]는 한 번이라도 나타난 값을 영구히 정상으로 만들지만 빈도는 비율로 판단한다",
-    "mutation": "빈도 검사를 `if false and (...)`로 무력화 → not ok 79 (F37-2c golden range) · not ok 81 (F61 rare score), 통과 유지: 80 (N-gate) · 82 (common score) · 83 (fail exempt) · 84 (in-range no false-positive). 복원 후 94/94",
-    "final": "bats 617 ok / 0 fail (exit=0) · run-all은 F61 무관 후보 1건(completeness의 action_required false positive) · shellcheck 클린"
+    "isolation": "선행 조건 확인(캐시 v1.35.0 frontmatter에 isolation: worktree 존재) 후 파라미터 없이 디스패치 → pwd = .claude/worktrees/agent-ac265b29f6d9d350b · git worktree list에 locked 등재 · rev-parse --show-toplevel도 worktree · 종료 후 자동 정리",
+    "disallowedTools": "disallowedTools:[\"WebSearch\"] 선언 후 **재시작**하여 로드시키고 디스패치 → WebSearch 정상 실행, 에이전트 보고 도구 목록에도 WebSearch 노출. 미적용",
+    "maxTurns": "maxTurns: 2 선언 후 재시작하여 로드시키고 4회 순차 도구 호출이 필요한 작업 디스패치 → STEP1~STEP4 전부 완료, REACHED: STEP4 보고, tool_uses=4. 미적용",
+    "method_control": "세션 중 캐시 수정이 반영되는지 판별하는 대조 실험 — 캐시에서 isolation 선언을 **제거**하고 디스패치했는데도 worktree가 생성됐다(agent-a167b6b2919322f55). 즉 Claude Code는 세션 시작 시 로드한 정의를 쓰며 이후 캐시 수정을 무시한다. 이 대조가 없었다면 첫 disallowedTools 관측을 '미적용'으로 기록했을 것이고 F56과 같은 오류가 됐다",
+    "mutation": "세 갈래 전부 포착 — (A) frontmatter 선언 제거 → 테스트 9 실패, (B) CLAUDE.md의 test-writer isolation 지시 제거 → 테스트 10 실패, (C) skills/implement의 같은 지시 제거 → 테스트 10 실패. 복원 후 10/10",
+    "final": "bats 625 ok / 0 fail (기준선 623 + 신규 2) · harness-config·INVARIANTS diff 없음 · 캐시 원복 해시 동일"
   },
   "files_changed": [
-    "scripts/build-golden-set.sh — 신규. 재생성 경로 부재가 노후의 근본 원인이므로 실질 산출물",
-    "scripts/probes/calibration.sh — (e) 검사를 희소 점수 빈도로 교체. (a)~(d)는 무변경",
-    "evals/calibration/golden-set.json — 스크립트로 재생성(21→61건)",
-    "tests/probes.bats — F61 테스트 2건 추가 (보호 파일, Edit 툴)",
-    "README.md — 테스트 수 615→617 동기화",
-    "progress/contracts/sprint-47.json·progress/feature_list.json·evals/acceptance-criteria.json — F61 등록 및 AC-6 수정",
-    "tests/golden-set.bats — 신규 6건. evaluator가 '실질 산출물인데 자동 테스트 0건'이라 지적한 갭"
+    "progress/contracts/sprint-45.json — AC-1 세 필드 판정 기록, AC-2 not_applicable 종료, Q3 신설, agreed 전환",
+    "agents/test-writer.md — frontmatter isolation 선언 유지 + 산문을 결론 중심으로 정리(제거 아님)",
+    "tests/skill-frontmatter.bats — F59 테스트 2건 추가 (보호 파일, Edit 툴)",
+    "README.md — 테스트 수 623→625 동기화"
   ],
   "design_notes": [
-    "실질 산출물은 갱신된 데이터가 아니라 재생성 스크립트다. 데이터만 고치면 같은 노후가 반복된다 — 실제로 F37은 코퍼스를 만들었지만 생성 경로를 남기지 않아 40건의 판정이 반영되지 못했다",
-    "빈도를 택한 이유는 척도 특성이다. 점수가 7~9 정수 3값뿐이라 사분위수는 값 사이를 구분하지 못하고, [min,max]는 표본이 조금만 쌓여도 척도 전체로 수렴한다. 빈도만이 같은 '7'을 전례 없는 7과 일상적인 7로 구분한다",
-    "임계 5%는 실측에서 역산했다. 맞춘 대상이 '원하는 판정'이 아니라 독립적으로 확립된 정답 레이블(근거가 명시된 F56·F57·F58 판정)이므로 표준적 보정이다. **[정정 2026-07-26, evaluator 지적]** 다만 서술이 뒤집혀 있었다 — 실제 제약은 '통과시키는 하한'이 아니라 **상한**이다. F57·F58을 해소하려면 임계가 6.25% 미만이어야 하고, (0, 6.25%) 구간의 어떤 값이든 현재 standard 표본에서는 동일하게 동작한다. 즉 5라는 숫자 자체는 그 구간 안에서 임의적이며, 값이 실제로 동작을 가르는 곳은 baseline이 더 큰 critical 구간이다 — 그 구간은 이 스프린트에서 분석도 테스트도 하지 않았다. 코드 주석은 정확하다."
+    "강등하지 않기로 한 근거는 이번 측정 자체가 제공했다. 같은 frontmatter 블록에 나란히 선언한 세 필드 중 isolation만 적용됐고 나머지 둘은 무시됐다 — 공식 문서가 셋 다 지원 필드로 열거하는데도 그렇다. 필드별 동작이 예측 불가능하고 문서와 어긋나므로, 지금 적용된다는 사실이 다음 버전의 보장이 되지 못한다",
+    "탐지 가능성이 결정적이었다. 선언이 파일에서 사라지는 것은 정적 테스트로 잡지만 '선언은 그대로인데 런타임이 무시하게 되는' 변화는 잡을 수단이 없다. 격리 실패는 파일 충돌이 날 때까지 조용하므로 산문이 그 변화를 사람이 알아챌 유일한 계층이다. 얻는 것은 5줄이고 잃는 것은 그 계층이다",
+    "테스트 10을 처음에는 'CLAUDE.md에 isolation 언급이 있는가'로 썼는데 mutation이 잡지 못했다 — 두 파일 모두 병렬 디스패치용 isolation 언급을 따로 갖고 있어 test-writer 지시가 사라져도 통과했다. test-writer와 isolation이 같은 줄에 있는지로 정밀화했고, 그때야 세 갈래 mutation이 모두 잡혔다"
   ],
   "criteria_backfill": [
-    "AC-6 수정 — 원래 문구는 'F56·F57·F58이 갱신 후 오탐되지 않는다'였으나 실측이 전제를 반증했다. 프로브가 baseline에서 판정 자신을 제외하므로 F56의 code_quality=7·security=7은 나머지 16건에서 0건 출현인 유일 사례다. 후보의 의미는 '판정이 틀렸다'가 아니라 '재검토하라'이므로 이를 오탐으로 규정하면 안 된다. 오히려 원래 문구는 '모든 후보가 사라져야 한다'는 요구라서 탐지력 소거를 정당화할 위험이 있었다. Plan 게이트에서 근거와 함께 수정 후 승인받았다",
-    "ES-4·implementation_steps[3]의 옛 AC-6 참조도 같은 기준으로 정합화"
+    "Q3 신설 — 계약의 Q2는 '규명 결과가 전부 미적용이면 어떻게 종료할 것인가'만 다뤘는데 실제 상황은 '일부 적용되지만 강등하지 않음'이었다. 새 질문과 결정을 근거와 함께 기록했다",
+    "AC-1의 검증 절차에 '선언이 캐시에 존재하는지 측정 전 확인' 조항을 추가했고(이전 회차), 이번에 '세션 중 캐시 수정은 반영되지 않으므로 재시작이 필요하다'는 방법론까지 확정해 기록했다"
   ],
   "limitations_honest": [
-    "**[정정 2026-07-26, evaluator 지적] 원래 여기에 '기법 교체가 지금 당장은 아무것도 바꾸지 않는다'고 적었으나 틀렸다.** 비교한 다섯 케이스가 전부 standard tier였는데, 이 tier는 자기 제외 baseline이 16건이라 1건 출현 = 6.25% > 5%가 되어 두 기법이 **구조적으로 일치할 수밖에 없는** 표집이었다. critical(28건, 1건 = 3.57%)에서는 갈리며 실제로 critical.error_handling=7을 빈도 기법만 잡는다. evaluator가 tier 3종 × 5차원 × 점수 1~10 격자를 전수 비교해 확인했다 — 옛 기법이 잡고 새 기법이 놓치는 조합 0건, 새 기법만 잡는 조합 1건. 탐지 집합은 축소가 아니라 진부분집합으로 확대됐다. 표집이 편향된 채 '효과 없음'으로 결론지은 것이 오류였다.",
-    "5% 임계는 표본 크기에 따라 민감도가 달라진다. 20건 미만에서는 0건 출현만 잡는 보수적 동작이고, 100건이면 4건(4%)도 잡는다. 이 변화가 의도된 것인지는 다음 갱신 시점에 재평가해야 한다",
-    "unknown tier 판정 4건이 코퍼스에 남아 있다. ES-2대로 다른 tier와 섞이지는 않지만 unknown끼리의 baseline은 4건이라 N게이트에 걸려 사실상 검사되지 않는다",
-    "이 프로브는 판정의 옳고 그름을 판정하지 않는다. 후보는 재검토 신호이며 후보가 나왔다는 사실만으로 판정을 뒤집지 않는다 — 프로브 메시지에도 이 문구를 넣었다",
-    "F56의 후보는 앞으로도 계속 남는다. 이는 결함이 아니라 '그 판정이 baseline에서 유일하다'는 사실의 표현이며, 다음 standard 판정에서 같은 점수가 한 번 더 나오면 자연히 사라진다",
-    "**[추가 2026-07-26] 재생성 스크립트의 입력 편중** — 61건 중 51건이 gitignore된 progress/agent-comms/archive/ 에 있다. archive가 없는 환경(clean clone)에서 실행하면 코퍼스가 11건으로 축소되고 critical pass 표본이 4건이 되어 N≥5 게이트 아래로 떨어져 그 tier의 검사가 조용히 꺼진다. AC-1이 '2회 연속 실행 바이트 동일'만 요구해 이 구멍이 기준을 통과했다. evaluator 지적 후 축소 방지 가드(GOLDEN_SET_ALLOW_SHRINK로만 우회)와 tests/golden-set.bats 6건을 추가해 잠갔다.",
-    "ES-3('표본 부족으로 skip 시 그 사실이 드러나게 한다')은 미구현이다 — baseline 5건 미만이면 프로브가 무음으로 []를 반환한다. 하네스의 어느 프로브에도 skip 보고 채널이 없어 이 기준만 단독으로 만족시키기 어렵다. evaluator가 부분 충족으로 처리하고 error_handling 7점에 반영했다."
+    "측정 결과는 Claude Code 2.1.220 · 플러그인 v1.35.0에 한정된다. 다른 버전에서 같은 동작이 보장되지 않으며, 그 불확실성이 산문을 남긴 이유이기도 하다",
+    "effort는 측정하지 않았다. F59 AC-1의 대상이 아니었고(isolation·maxTurns·disallowedTools), F57의 Q3 결정은 '규명 불가'라는 독립 근거로 유지된다. 다만 이번에 '형제 필드가 적용된다고 일반화할 수 없다'가 실증됐으므로, effort를 선언하려면 같은 절차로 별도 측정해야 한다",
+    "이중 보호의 두 계층 중 정적으로 잠근 것은 '선언·산문이 파일에 존재하는가'뿐이다. 런타임이 실제로 격리를 거는지는 매번 디스패치해야 알 수 있어 테스트로 만들지 않았다 — 그것이 탐지 불가능한 축으로 남아 있고, 산문을 유지하는 이유가 정확히 그 축이다",
+    "measurement 과정에서 캐시를 직접 수정했다. 저장소에는 커밋하지 않았고 원복해 해시 동일을 확인했으나, 이 방식은 재시작을 요구하므로 릴리스 경로 대비 이점이 크지 않다는 것이 드러났다"
   ],
   "self_review_note": "이 산출은 implementer 자기 보고이며 passes를 판정하지 않는다(INV-1). 판정은 독립 evaluator가 수행한다.",
   "ready_for": "evaluator"
