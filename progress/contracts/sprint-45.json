@@ -32,7 +32,10 @@
         "precondition_check": "캐시 ~/.claude/plugins/cache/cc-harness-marketplace/cc-harness/1.35.0/agents/test-writer.md frontmatter에 `isolation: worktree` 존재 확인 후 측정. F56이 건너뛴 단계다.",
         "observation": "test-writer를 isolation 파라미터 **없이** 디스패치 → pwd = /Users/hanbyeol/Project/studioj/cc-harness/.claude/worktrees/agent-ac265b29f6d9d350b · git worktree list에 별도 worktree가 locked 상태로 등재 · git rev-parse --show-toplevel도 worktree 경로. 에이전트 종료 후 worktree 자동 정리 확인(잔존 없음, 메인 워킹트리 무영향).",
         "conclusion": "frontmatter 선언만으로 격리가 적용된다. F56의 '플러그인 서브에이전트에서 isolation이 무시된다'는 결론은 실험 조건 불성립에 따른 오판이었고 이번 측정으로 확정적으로 뒤집혔다.",
-        "remaining": "maxTurns·disallowedTools는 아직 미측정. isolation이 적용된다는 사실은 frontmatter 경로 자체가 살아 있음을 뜻하므로 두 필드도 적용될 가능성이 높아졌으나, 필드별 처리는 다를 수 있어 각각 실측이 필요하다."
+        "remaining": "maxTurns·disallowedTools는 아직 미측정. isolation이 적용된다는 사실은 frontmatter 경로 자체가 살아 있음을 뜻하므로 두 필드도 적용될 가능성이 높아졌으나, 필드별 처리는 다를 수 있어 각각 실측이 필요하다.",
+        "maxTurns": "미측정 — disallowedTools와 같은 이유로 조건 불성립",
+        "disallowedTools": "측정 무효(조건 불성립). 캐시에 disallowedTools:[\"WebSearch\"]를 넣고 디스패치하니 WebSearch가 정상 실행됐으나, 이 관측은 결론 근거가 되지 못한다 — 대조 실험에서 캐시의 isolation 선언을 **제거**한 뒤 디스패치했는데도 worktree가 생성됐다(agent-a167b6b2919322f55). 즉 Claude Code는 세션 시작 시 로드한 에이전트 정의를 사용하며 **런타임 중 캐시 수정은 반영되지 않는다**. 선언이 파일에 있어도 실행 중인 세션에는 전달되지 않으므로 F56과 동일한 조건 불성립이다.",
+        "method_finding": "**측정 방법론 확정**: 플러그인 서브에이전트 frontmatter를 실측하려면 (1) 선언을 캐시에 반영하고 (2) **재시작**한 뒤 (3) 선언 존재를 grep으로 확인하고 (4) 측정해야 한다. 캐시 직접 수정은 릴리스를 아끼지만 재시작을 아끼지는 못한다 — isolation이 측정된 것은 plugin update 후 재시작을 거쳤기 때문이다. 대조 실험(선언 제거 후에도 효과 지속) 없이는 이 사실을 알 수 없었고, F56은 그 대조가 없어 조건 불성립을 미적용으로 오판했다."
       },
       "done": true
     },
