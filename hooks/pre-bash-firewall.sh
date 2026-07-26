@@ -117,7 +117,10 @@ ASK_PATTERNS=(
   '\b(cp|mv|install|rsync|ln|tee|truncate)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
   # in-place 쓰기. -i 뒤에 단어경계를 두지 않는다 — sed -ie·sed -ni·awk -iinplace 처럼
   # 결합 단축옵션이 실제로 파일을 쓴다(실측: echo AAA > t1; sed -ie s/AAA/BBB/ t1 → BBB).
-  '\b(sed|perl|awk)\b[^;|&]*(-[a-zA-Z]*i|--in-place)[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  # `-[a-zA-Z]*i` 로 넓히지 않는다 — 하이픈 뒤 i를 포함한 장옵션(--quiet·--posix·
+  # --field-separator=·--lint)까지 in-place로 오인해 새 과탐을 만든다(F63 2차 판정).
+  # `-i` 는 --in-place 도 부분 매치하므로 별도 대안이 필요 없다.
+  '\b(sed|perl|awk)\b[^;|&]*-i[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
   # sed의 w 명령/s///w 플래그 — 플래그도 리다이렉트도 없이 임의 파일에 쓴다.
   # 실측: sed -n 'w victim' src → victim에 src 내용 · sed 's/x/PWN/w victim2' → victim2=PWN.
   # F63 이전에는 에디터 이름 목록이 sed를 통째로 잡아 가려져 있었다.
@@ -131,16 +134,18 @@ ASK_PATTERNS=(
   # S-1(F32): 메커니즘 무관 보호경로 게이팅 — 인터프리터·에디터·git -c·GIT_CONFIG 우회 차단.
   # 보호경로 토큰이 있을 때만 발동한다(정상 개발 python3 script.py·vim foo.py는 미발동).
   #
-  # F63: **읽기와 쓰기를 구분한다.** sed·awk는 in-place 플래그가 있을 때만 파일을 바꾸므로
-  # 아래 에디터 목록에서 빼고 118줄(in-place)로 옮겼다. 이전에는 도구 이름만으로 판정해
-  # `sed -n '1,20p' hooks/lib.sh` 같은 순수 읽기도 ask였고, 같은 파일을 grep·cat으로 읽으면
-  # allow인 비일관이 있었다 — 위험도가 아니라 도구 이름으로 갈리던 셈이다. 이 파일의 테스트가
-  # 이미 "sed read는 auto-allow"를 세 곳에서 못박고 있었으므로 새 정책이 아니라 누락된 적용이다.
-  # 인터프리터(아래 127줄)는 그대로 둔다 — python·node·perl은 읽기/쓰기를 구문으로 구분할 수
-  # 없어 보수적 유지가 옳다. sed/awk 스크립트 내부의 `print > "file"` 쓰기는 여전히 정적으로
-  # 잡히지 않으며, 이는 이번 변경으로 생긴 것이 아니라 인터프리터와 공유하는 기존 한계다.
+  # F63: sed·awk는 아래 에디터 목록에 **그대로 둔다**(이름 기반 = 쓰기 문법을 몰라도 안전).
+  # 읽기 마찰은 Layer 3.5의 화이트리스트가 해소한다 — 방향이 반대인 이유는 그쪽 주석 참조.
+  #
+  # 처음에는 sed·awk를 여기서 빼고 in-place 플래그로만 판정했는데, 두 차례 판정이 각각
+  # 여섯 형태씩 열린 것을 실증했다(결합 단축옵션 -ie·-ni·-iinplace / GNU 인자 순열
+  # `sed 's/a/b/' <파일> -i` / sed w의 공백·주소 변형 `w<파일>`·`1w <파일>` /
+  # awk 변수 경유 `-v f=<파일> '{print > f}'`·`BEGIN{f="<파일>"; print > f}`).
+  # 쓰기 문법을 열거하는 블랙리스트는 **전수를 알아야** 안전한데 수렴하지 않았다.
+  #
+  # 인터프리터(바로 아래)도 그대로다 — python·node·perl은 읽기/쓰기를 구문으로 구분할 수 없다.
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
-  '\b(ed|ex|vi|vim|nano|emacs|dd|patch)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  '\b(ed|ex|vi|vim|nano|emacs|sed|awk|dd|patch)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
   '>>? *[^ ]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
   '\b(cp|mv|install|rsync|ln|tee|truncate)\b[^;|&]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
   'git\b[^;|&]*-c[^;|&]*core\.hooksPath'
@@ -157,14 +162,57 @@ ASK_PATTERNS=(
   # basename 앵커(harness-config 패턴과 동일 방식) — progress// · cd progress 등 경로정규화 우회 차단 (F-1).
   '>>? *[^ ]*feature_list\.json'
   '\b(cp|mv|install|rsync|ln|tee|truncate)\b[^;|&]*feature_list\.json'
-  '\b(sed|perl|awk)\b[^;|&]*(-[a-zA-Z]*i|--in-place)[^;|&]*feature_list\.json'
+  '\b(sed|perl|awk)\b[^;|&]*-i[^;|&]*feature_list\.json'
   '\bsed\b[^;|&]*\bw\b *[^;|&]*feature_list\.json'
   '\bof= *[^ ]*feature_list\.json'
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*feature_list\.json'
-  '\b(ed|ex|vi|vim|nano|emacs|dd|patch)\b[^;|&]*feature_list\.json'
+  '\b(ed|ex|vi|vim|nano|emacs|sed|awk|dd|patch)\b[^;|&]*feature_list\.json'
 )
 
-if echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then
+# === Layer 3.5: 읽기 화이트리스트 (F63) — ASK 검사보다 먼저 ===
+#
+# 보호 경로의 sed/awk는 위 ASK 목록이 이름으로 전부 잡는다(보호 완전). 그 대가로 순수
+# 읽기까지 프롬프트가 떠서, 같은 파일을 grep·cat으로 읽으면 allow인데 sed -n으로 읽으면
+# ask인 비일관이 생겼다 — 사용자가 겪던 반복 승인의 실제 원인이다.
+#
+# **방향을 뒤집어 읽기 쪽을 열거한다.** 쓰기 문법을 열거하는 블랙리스트는 전수를 알아야
+# 안전한데, 두 차례 판정이 각각 여섯 형태를 새로 찾아내며 수렴하지 않음을 보였다
+# (in-place 결합 단축옵션·GNU 인자 순열·sed w의 공백/주소 변형·awk 변수 경유 리다이렉트).
+# 반대로 여기서 빠뜨린 읽기 형태는 ask로 남을 뿐 보호를 잃지 않는다 — 틀리는 방향이 안전하다.
+#
+# 허용 조건(전부 만족해야 한다):
+#   - 명령이 sed 또는 awk 하나로만 구성된다(파이프·연쇄·리다이렉트 없음 — 위 [^;|&] 계열과 동일 취지)
+#   - sed: 아래 세 형태 중 하나와 **전체가** 일치한다(끝의 $ 앵커 — 뒤에 인자가 붙으면 불일치)
+#   - awk: 인라인 프로그램에 쓰기 수단(-i·-v·print>·system)이 하나도 없다
+SAFE_READ=0
+if [[ "$NORMALIZED_CMD" != *'>'* && "$NORMALIZED_CMD" != *'|'* && "$NORMALIZED_CMD" != *';'* && "$NORMALIZED_CMD" != *'&'* ]]; then
+  # sed: 출력 전용이 확실한 세 형태만 긍정 열거한다.
+  #   sed -n '1,20p' <file>  ·  sed -n 5p <file>  ·  sed -n '/re/p' <file>  ·  sed 's/a/b/' <file>
+  # w를 부정 조건으로 쓰지 않는다 — `\bw` 는 /word/의 w를 잡고(과탐) `1w file`은 놓친다
+  # (보호 상실). 양방향으로 틀리는 부정 조건 대신 형태 전체를 앵커로 고정한다: 치환 형태의
+  # 플래그 문자 집합에 w가 없으므로 `s/x/y/w <file>` 은 일치하지 않고, 끝의 `$` 때문에
+  # `sed 's/a/b/' <file> -i` 같은 인자 순열도 일치하지 않는다.
+  # 여기 없는 읽기 형태(예: `sed -n '$=' <file>`)는 ask로 남는다 — 마찰이지 보호 상실이
+  # 아니며, 그것이 이 방향을 택한 이유다.
+  SED_QUIET='(-n|--quiet|--silent)'
+  SED_SAFEOPT='(--posix|--regexp-extended|-[Eersz]+)'
+  if echo "$NORMALIZED_CMD" | grep -qE "^ *sed +($SED_SAFEOPT +)*$SED_QUIET +($SED_SAFEOPT +)*'?[0-9,\$]+p'? +[^ ']+$" \
+     || echo "$NORMALIZED_CMD" | grep -qE "^ *sed +($SED_SAFEOPT +)*$SED_QUIET +($SED_SAFEOPT +)*'?/[^/']*/p'? +[^ ']+$" \
+     || echo "$NORMALIZED_CMD" | grep -qE "^ *sed +($SED_SAFEOPT +)*'?s/[^/']*/[^/']*/[gpIie0-9]*'? +[^ ']+$" ; then
+    SAFE_READ=1
+  fi
+  # awk: 인라인 프로그램에 쓰기 수단이 없을 때만. -v(변수 경유 리다이렉트)·-i·print>·
+  # system() 이 모두 없어야 한다 — 2차 판정이 `awk -v f=<P> '{print > f}'` 와
+  # `awk 'BEGIN{f="<P>"; print "x" > f}'` 로 변수 경유 쓰기를 실증했다.
+  if echo "$NORMALIZED_CMD" | grep -qE '^ *(g?awk|mawk) +' \
+     && ! echo "$NORMALIZED_CMD" | grep -qE '(^| )-[a-zA-Z]*i|--in-place|(^| )-v|--assign' \
+     && ! echo "$NORMALIZED_CMD" | grep -qE '\b(print|printf)[^;}]*>' \
+     && ! echo "$NORMALIZED_CMD" | grep -qE '\bsystem *\(' ; then
+    SAFE_READ=1
+  fi
+fi
+
+if [ "$SAFE_READ" -eq 0 ] && echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then
   for p in "${ASK_PATTERNS[@]}"; do
     if echo "$NORMALIZED_CMD" | grep -qiE "$p"; then
       log_decision ask

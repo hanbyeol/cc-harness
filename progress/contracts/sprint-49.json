@@ -18,9 +18,9 @@
     "comment_mismatch": "126줄 주석이 '정상 개발 sed -n file.go는 미발동'이라고 하나 그것은 비보호 경로일 때만 참이다. 주석과 구현이 어긋난 채로 남아 있었다."
   },
   "_key_constraint": {
-    "finding": "빼기 전에 더해야 한다.",
-    "detail": "sed/awk는 in-place 플래그가 있을 때만 쓰기다. sed -i는 118줄이, 리다이렉트는 116줄이 이미 커버하지만 **awk -i inplace는 현재 어느 패턴도 잡지 않는다**. 128줄에서 sed|awk를 먼저 빼면 그 순간 awk -i inplace가 무방비가 된다.",
-    "consequence": "awk in-place 패턴을 추가한 뒤에 128줄을 좁힌다. 순서를 지키지 않으면 과탐 제거가 아니라 순수 약화다."
+    "finding": "쓰기 형태의 열거는 수렴하지 않는다 — 그러므로 열거하는 쪽을 읽기로 바꾼다.",
+    "detail": "초기 설계는 '에디터 목록에서 sed·awk를 빼고 in-place 플래그로 판정'이었다. 그 방향에서는 술어가 실제 쓰기 집합을 **전부** 덮어야 안전한데, 두 차례 판정이 각각 여섯 형태씩 새 우회를 실증했다: (1차) sed -ie·sed -ni 같은 결합 단축옵션과 sed의 w 명령·s///w 플래그, (2차) GNU 인자 순열 `sed 's/a/b/' <P> -i`, 공백 없는 `w<P>`, 주소 접두 `1w <P>`, awk `-v f=<P> '{print > f}'`, awk `BEGIN{f=\"<P>\"; print > f}`.",
+    "consequence": "최종 설계는 **쓰기=이름 기반 블랙리스트(완전) + 읽기=긍정 화이트리스트(안전한 실패)**다. 화이트리스트가 빠뜨린 읽기는 ask로 남을 뿐 보호를 잃지 않는다. AC-1(awk in-place 패턴)은 그대로 유지한다 — 이름 기반과 중복이지만 계층이 하나 더 있는 편이 낫다."
   },
   "acceptance_criteria": [
     {
@@ -30,18 +30,19 @@
     },
     {
       "id": "AC-2",
-      "criterion": "128줄과 148줄에서 sed·awk를 제거한다. 나머지 도구(ed·ex·vi·vim·nano·emacs·dd·patch)는 전부 편집·쓰기 도구이므로 유지한다.",
-      "verification": "sed -n '1,20p' hooks/lib.sh · awk 'NR<10' hooks/invariant-guard.sh · sed -n 5p tests/probes.bats 가 allow"
+      "criterion": "보호 경로의 **읽기 전용** sed/awk가 allow가 된다. 단 쓰기 판정은 이름 기반을 유지한다 — sed·awk를 에디터 목록에서 빼는 대신, ASK 검사 앞에 읽기 화이트리스트(Layer 3.5)를 두어 안전이 확실한 형태만 통과시킨다.",
+      "_design_change": "2차 판정까지는 '에디터 목록에서 sed·awk를 빼고 in-place 플래그로만 판정'하는 방향이었다. 두 판정이 각각 여섯 형태씩 새 우회를 실증해 방향을 뒤집었다 — SC-1의 rationale 참조. 화이트리스트가 빠뜨린 읽기는 ask로 남을 뿐이므로 오류의 방향이 안전하다.",
+      "verification": "sed -n '1,20p' hooks/lib.sh · sed -n 5p tests/probes.bats · sed -n '/re/p' <보호경로> · sed 's/a/b/' <보호경로> · awk 'NR<10' hooks/invariant-guard.sh 가 allow. 동시에 sed 's/x/y/w <보호경로>' · sed 's/a/b/' <보호경로> -i 는 ask"
     },
     {
       "id": "AC-3",
-      "criterion": "쓰기 경로는 어느 형태로도 뚫리지 않는다. **열거는 하한이지 상한이 아니다** — 아래 목록에 없더라도 파일을 바꾸는 형태가 발견되면 미충족이다(1차 판정 지적).",
-      "verification": "scripts/verify-firewall-rw.sh 가 대상 9종 × 쓰기 31형태를 전부 ask로, 읽기 12형태를 전부 allow로 판정. 형태에는 in-place 결합 단축옵션과 sed w 명령·s///w 플래그를 포함한다"
+      "criterion": "쓰기 경로는 어느 형태로도 뚫리지 않는다. **열거는 하한이지 상한이 아니다** — 배터리 목록에 없더라도 파일을 바꾸는 형태가 발견되면 미충족이다(1차 판정 지적).",
+      "verification": "scripts/verify-firewall-rw.sh 가 보호 대상 전 계열 × 쓰기 형태 전부를 ask로, 읽기 형태 전부를 allow로 판정(exit 0). 형태 목록의 출처는 SC-1이 규정한 (a)~(d)이며 개수는 그 결과이지 목표가 아니다"
     },
     {
       "id": "AC-4",
-      "criterion": "126줄 주석을 구현과 일치시킨다. 현재 문구는 비보호 경로 기준 설명인데 보호 경로 동작을 서술하는 것처럼 읽힌다.",
-      "verification": "주석이 '읽기는 경로와 무관하게 미발동, 쓰기 메커니즘과 결합할 때만 발동'을 정확히 서술"
+      "criterion": "주석이 최종 구현과 일치한다 — 철회한 주장이 남아 있으면 미충족이다(2차 판정 지적: 같은 커밋에서 철회한 awk print 리다이렉트 주장이 주석에 남아 있었다).",
+      "verification": "에디터 목록 주석과 Layer 3.5 주석을 함께 읽었을 때 (a) 쓰기는 이름 기반·읽기는 화이트리스트라는 방향, (b) 방향을 뒤집은 이유(블랙리스트 미수렴 실증), (c) 화이트리스트가 실제로 허용하는 형태 목록이 구현과 어긋나지 않을 것"
     },
     {
       "id": "AC-5",
@@ -63,9 +64,9 @@
   "security_criteria": [
     {
       "id": "SC-1",
-      "criterion": "탐지 가능한 쓰기 경로의 집합이 축소되지 않는다.",
-      "rationale": "이 변경은 규칙을 좁히므로 겉보기에 약화와 구분되지 않는다. 좁히기 전후로 쓰기 명령 집합을 대조해 ask를 잃은 것이 없음을 실증해야 한다.",
-      "verification": "쓰기 명령 배터리를 수정 전후로 돌려 판정 집합을 비교 — ask에서 allow로 바뀐 명령이 하나도 없어야 한다. **대조 입력의 커버리지를 함께 규정한다**: 최소 대상 9종 × 쓰기 31형태 × 읽기 12형태이며, 형태 축에는 in-place 결합 단축옵션(-ie·-ni·-in·-iinplace)과 도구 고유 쓰기 문법(sed의 w 명령·s///w 플래그, awk의 print 리다이렉트)을 반드시 포함한다. 1차 판정 지적 — 입력 커버리지를 규정하지 않으면 좁은 입력으로 항상 통과하며, 실제로 그렇게 54건을 놓쳤다."
+      "criterion": "탐지 가능한 쓰기 경로의 집합이 축소되지 않는다. **쓰기 판정은 도구 이름 기반을 유지한다** — sed·awk는 에디터 목록에 남고, 읽기 마찰은 화이트리스트로 해소한다.",
+      "rationale": "쓰기 문법을 열거하는 블랙리스트는 전수를 알아야 안전한데 수렴하지 않았다 — 1·2차 판정이 각각 여섯 형태씩 새로 찾아냈다(결합 단축옵션, GNU 인자 순열, sed w의 공백·주소 변형, awk 변수 경유 리다이렉트). 반대 방향(읽기 화이트리스트)은 빠뜨린 형태가 ask로 남을 뿐 보호를 잃지 않는다 — 틀리는 방향이 안전하다.",
+      "verification": "배터리의 형태 목록은 **개수가 아니라 출처로 규정한다**(2차 판정 지적 — 개수를 박으면 그 수가 곧 커버리지 상한이 되어 열거 천장을 재생산한다). 출처는 다음 넷이며, 각각에서 나온 형태는 빠짐없이 배터리에 있어야 한다: (a) 두 도구의 man page가 문서화한 쓰기 수단 전부(sed: -i·w 명령·s///w 플래그 / awk: -i inplace·print 리다이렉트·system), (b) 판정에서 지적된 형태 전부, (c) is_protected()가 다루는 보호 경로 계열 전부, (d) 셸 수준 쓰기(리다이렉트·cp·mv·tee·dd·ln·truncate). 새 형태가 발견되면 상한을 넘는 것이 아니라 출처 (b)에 편입해 배터리를 늘린다. 판정 방향은 고정이다 — 읽기 allow / 쓰기 ask, 하나라도 어긋나면 exit 1."
     },
     {
       "id": "SC-2",
@@ -75,9 +76,9 @@
     },
     {
       "id": "SC-3",
-      "criterion": "AC-1의 선행 순서를 지킨다 — awk in-place 패턴을 추가한 뒤에만 128줄을 좁힌다.",
-      "rationale": "_key_constraint 참조. 순서를 뒤집으면 중간 상태에서 awk in-place가 무방비다.",
-      "verification": "커밋 단위로 순서 확인 또는 단일 커밋 내에서 두 변경이 함께 있음을 확인"
+      "criterion": "읽기 화이트리스트는 ASK 검사 **앞**에 두되, 그보다 위의 계층은 건드리지 않는다 — DENY(Layer 1·2)와 egress 티어는 화이트리스트가 통과시킬 수 없다.",
+      "rationale": "화이트리스트를 어디에 두는지가 곧 우회 가능 범위다. ASK 앞에만 두면 최악의 경우에도 ask를 allow로 바꿀 뿐 deny를 뚫지 못한다.",
+      "verification": "grep으로 SAFE_READ 블록이 DENY 판정 이후·ASK 판정 직전에 있음을 확인 + behavioral 코퍼스(deny 대상 포함) 후보 0건"
     }
   ],
   "error_scenarios": [
@@ -118,13 +119,13 @@
       "result": "완료. 118·145줄을 (sed|perl|awk) + (-i|--in-place)로 확장. awk in-place가 새로 잡힌다."
     },
     {
-      "step": "2. AC-2 128·148줄에서 sed·awk 제거",
-      "verify": "읽기 전용 sed/awk → allow",
+      "step": "2. AC-2 읽기 전용 sed/awk를 allow로",
+      "verify": "읽기 전용 sed/awk → allow, 쓰기 형태는 전부 ask 유지",
       "done": true,
       "covers": [
         "AC-2"
       ],
-      "result": "완료. 128·148줄에서 sed·awk 제거. ed·ex·vi·vim·nano·emacs·dd·patch는 전부 편집 도구라 유지."
+      "result": "**설계를 두 번 뒤집었다.** 1·2차 시도는 에디터 목록에서 sed·awk를 빼고 in-place 플래그로 판정하는 방향이었고, 두 판정이 각각 여섯 형태씩 우회를 실증해 모두 반려됐다(_key_constraint). 3차에서 방향을 반전 — sed·awk를 에디터 목록에 되돌리고(쓰기 보호 완전), ASK 검사 앞에 Layer 3.5 읽기 화이트리스트를 두었다. sed는 `-n`+p 형태 둘과 치환 형태 하나를 앵커 고정으로 긍정 열거(장옵션 --quiet/--posix/-E 포함), awk는 쓰기 수단(-i·-v·print>·system)이 하나도 없을 때만."
     },
     {
       "step": "3. AC-3·SC-1 쓰기 배터리 전수 확인 + 기준선 대조",
