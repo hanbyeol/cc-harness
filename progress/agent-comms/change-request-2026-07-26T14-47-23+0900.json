@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-07-27T00:00:00+09:00",
+  "type": "add",
+  "description": "호출자 측 지시 사본 목록의 양방향 대칭 검증 — 계약을 단일 출처로 삼고 테스트가 참조, 역방향 대조 추가 (F59 evaluator 권고 I3)",
+  "affected_features": ["F62", "F59"],
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": false,
+    "acceptance_criteria_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false
+  },
+  "new_sprint_contract": "progress/contracts/sprint-48.json",
+  "rollback_to_phase": null,
+  "_origin": "/improve 1회전 진단에서 evaluator follow-up 후보로 발견. 네 항목 중 셋은 이미 처리됐고 (1)의 '더 나은 형태'(계약이 전수를 열거하고 테스트가 참조)만 남아 이번 회전 대상이 됐다.",
+  "_tier": "standard — F46과 동일. tests/*.bats를 수정하나 방향이 강화(검사 추가)이며 기존 단언을 제거하지 않는다. /improve §3에 따라 사람 승인을 받고 진행한다.",
+  "_root_cause": "정방향 검사만 있고 역방향이 없어 '새 사본을 만들고 목록에 넣지 않는' 경로가 열려 있었다. 이 세션의 두 판정이 각각 그 경로로 사본을 하나씩 찾아냈다."
+}

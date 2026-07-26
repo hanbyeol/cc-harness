@@ -133,6 +133,12 @@
       "contract": "progress/contracts/sprint-47.json",
       "security_tier": "standard",
       "summary": "evaluator 보정 코퍼스(F37 golden-set)의 노후를 해소하고 드리프트 탐지 기법을 표본 크기에 맞게 교체한다. 현재 코퍼스는 61건의 판정 기록 중 21건만 담고 있고 standard pass 표본은 6건뿐이며, 그중 test_coverage는 6건 전부 8이라 분포 폭이 0이다. 그 결과 F56(품질·보안 7)·F57(기능 7)·F58(테스트 7)이 연속으로 이탈 후보가 됐는데, 세 판정 모두 score_rationale에 근거가 명시된 정당한 판정이었다 — miscalibration이 아니라 baseline 부족이다. 근본 원인은 골든셋에 재생성 경로가 없다는 것이다: calibration.sh는 소비만 하고 생성 스크립트가 없어 수작업으로 만들어진 뒤 갱신되지 않았다. 다만 단순 갱신은 프로브를 무력화한다 — 표본을 17건으로 늘리면 standard pass 범위가 [7,9]가 되고 pass_threshold가 7이므로 모든 유효한 pass 점수가 범위 안에 들어와 탐지력이 0이 된다. 따라서 갱신과 함께 통계 기법을 [min,max]에서 희소 점수 탐지로 바꾼다. 점수가 7~9 정수 소척도라 분위수보다 출현 빈도가 적합하며, 실측상 critical의 functionality=7은 28건 중 0건이라 명확한 신호가 되고 standard의 code_quality=7은 6%로 경계선이 된다 — [min,max]로는 두 경우가 구분되지 않는다. pass_threshold·security_thresholds는 건드리지 않는다. calibration은 게이트가 아니라 판정 품질 진단이므로 이 변경은 진단 정밀화이지 통과 기준 완화가 아니다."
+    },
+    {
+      "feature_id": "F62",
+      "contract": "progress/contracts/sprint-48.json",
+      "security_tier": "standard",
+      "summary": "[F59 후속, evaluator 권고 I3] 호출자 측 isolation 지시의 배포 사본 목록이 두 곳에 중복 하드코딩돼 있다 — progress/contracts/sprint-45.json의 _caller_side_copies와 tests/skill-frontmatter.bats의 루프 목록. 한쪽만 갱신되면 drift하고 그것을 잡는 검사가 없다. **이 세션에서 정확히 이 문제로 두 번 반려됐다**: 판정 1이 templates/CLAUDE.md.tmpl을, 판정 2가 templates/docs/HARNESS-GUIDE.md를 각각 찾아냈고, 원인은 매번 '지목된 인스턴스만 닫고 클래스를 열거하지 않은 것'이었다(false-positives.json에 F52로 두 번 기록된 패턴). 계약을 단일 출처로 삼아 테스트가 그 목록을 참조하게 하고, **역방향 대칭**(저장소 전수 grep 결과가 목록에 모두 있는가)을 추가해 새 사본을 만들고 목록에 넣지 않으면 기계적으로 드러나게 한다. F45/F46이 is_protected↔INV-12에 만든 양방향 대칭 검증과 같은 구조이며, F46의 교훈대로 목록이 비거나 축소되면 검사가 tautology로 퇴화하므로 그 방어까지 포함한다."
     }
   ]
 }

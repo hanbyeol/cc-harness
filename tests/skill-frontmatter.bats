@@ -74,19 +74,54 @@ PLUGIN_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
     || { echo "test-writer frontmatter에 isolation: worktree 선언이 없다"; return 1; }
 }
 
-@test "F59: caller-side isolation instruction is kept (the other half)" {
-  # 산문이 제거되면 런타임 변화를 알아챌 계층이 사라진다 — 강등하지 않기로 한 결정(Q3=B)을 잠근다.
-  # test-writer와 isolation이 **같은 줄에** 있어야 한다: 두 파일 모두 병렬 디스패치용
-  # isolation 언급을 따로 갖고 있어서, 단순히 'isolation'만 찾으면 test-writer 지시가
-  # 사라져도 통과한다(느슨한 판정이 mutation에서 실제로 드러났다).
-  # 목록은 전수여야 한다. 두 차례 판정에서 각각 사본이 하나씩 더 발견됐는데, 원인은
-  # 지목된 인스턴스만 닫고 클래스를 열거하지 않은 것이다(false-positives.json에 F52로
-  # 기록된 패턴의 재발). 저장소 전수 grep 기준 대상은 아래 4개이며 progress/lessons.md의
-  # 언급은 역사적 기록이라 제외한다. 사본을 새로 만들면 이 목록에 추가한다 —
-  # sprint-45.json의 _caller_side_copies가 같은 목록을 계약 측에 고정한다.
+# F59/F62: 산문이 제거되면 런타임 변화를 알아챌 계층이 사라진다 — 강등하지 않기로 한
+# 결정(sprint-45.json Q3=B)을 잠근다. test-writer와 isolation이 **같은 줄에** 있어야 한다:
+# 사본 파일들은 병렬 디스패치용 isolation 언급을 따로 갖고 있어서, 단순히 'isolation'만
+# 찾으면 test-writer 지시가 사라져도 통과한다(느슨한 판정이 mutation에서 실제로 드러났다).
+#
+# F62에서 목록의 단일 출처를 계약(_caller_side_copies)으로 옮기고 세 방향으로 검사한다.
+# 목록을 테스트에 다시 적으면 두 곳이 drift하며, 이 세션의 두 판정이 각각 미등록 사본을
+# 하나씩 찾아낸 것이 그 결과였다(false-positives.json에 F52로 두 번 기록된 패턴).
+CALLER_COPY_CONTRACT="progress/contracts/sprint-45.json"
+CALLER_COPY_PATTERN='test-writer.*isolation.*worktree'
+CALLER_COPY_MIN=4   # AC-3 하한 — 목록을 줄여 검사를 우회하는 경로를 막는다
+
+_caller_copy_list() {   # 계약에서 목록을 읽는다. 부재/malformed면 호출부가 실패한다(ES-1)
+  jq -r '._caller_side_copies.files[]?' "$PLUGIN_ROOT/$CALLER_COPY_CONTRACT" 2>/dev/null
+}
+
+@test "F62: caller-side copies listed in the contract all carry the instruction (forward)" {
+  local listed; listed=$(_caller_copy_list)
+  [ -n "$listed" ] || { echo "계약 $CALLER_COPY_CONTRACT 에서 사본 목록을 읽지 못했다"; return 1; }
   local f
-  for f in CLAUDE.md skills/implement/SKILL.md templates/CLAUDE.md.tmpl templates/docs/HARNESS-GUIDE.md; do
-    grep -qE 'test-writer.*isolation.*worktree' "$PLUGIN_ROOT/$f" \
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    grep -qE "$CALLER_COPY_PATTERN" "$PLUGIN_ROOT/$f" \
       || { echo "$f 의 test-writer isolation 지시가 사라졌다"; return 1; }
-  done
+  done <<< "$listed"
+}
+
+@test "F62: every copy found in the repo is registered in the contract (reverse)" {
+  # progress/ 제외: lessons.md는 경위 서술이고 agent-comms는 판정 아카이브라 지시가 아니다.
+  # 새 사본을 만들고 계약에 등록하지 않으면 여기서 잡힌다 — 정방향만으로는 열려 있던 경로다.
+  local found listed missing=""
+  found=$(cd "$PLUGIN_ROOT" && grep -rl "$CALLER_COPY_PATTERN" \
+            --include='*.md' --include='*.tmpl' \
+            --exclude-dir=progress --exclude-dir=.git . 2>/dev/null \
+          | sed 's|^\./||' | sort)
+  listed=$(_caller_copy_list | sort)
+  local f
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    grep -qxF "$f" <<< "$listed" || missing="$missing $f"
+  done <<< "$found"
+  [ -z "$missing" ] || { echo "계약에 등록되지 않은 사본:$missing"; return 1; }
+}
+
+@test "F62: the contract list cannot be emptied or shrunk past its floor (anti-tautology)" {
+  # 목록을 외부화하면 '목록을 줄여 검사를 우회'하는 경로가 새로 생긴다. F46이 대칭 파서에서
+  # 막은 퇴화와 같은 형태이므로 하한을 둔다 — 목록이 비면 위 두 루프가 돌지 않고 통과한다.
+  local n; n=$(_caller_copy_list | grep -c . || true)
+  [ "$n" -ge "$CALLER_COPY_MIN" ] \
+    || { echo "사본 목록이 하한 아래로 축소됐다 ($n < $CALLER_COPY_MIN)"; return 1; }
 }

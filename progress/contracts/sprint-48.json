@@ -1,0 +1,139 @@
+{
+  "sprint": 48,
+  "title": "호출자 측 지시 사본 목록의 양방향 대칭 검증 (F59 후속)",
+  "feature_id": "F62",
+  "security_tier": "standard",
+  "verification_tier": "standard",
+  "_tier_note": "F46(대칭 파서 음성 테스트)과 동일 등급. 검증 장치를 다루지만 게이트가 아니라 산문 잠금의 정합성이다. tests/*.bats를 수정하므로 /improve §3의 불변식 가드 대상 — 다만 방향이 강화(검사 추가)이며 기존 단언을 제거하지 않는다.",
+  "dependencies": [
+    "F45",
+    "F46",
+    "F59"
+  ],
+  "_dependency_note": "F45가 is_protected↔INV-12 양방향 대칭을 만들었고 F46이 그 파서의 tautology 퇴화를 음성 테스트로 막았다. 이 기능은 같은 구조를 산문 사본 목록에 적용한다.",
+  "problem": "호출자 측 isolation 지시의 배포 사본 목록이 progress/contracts/sprint-45.json의 _caller_side_copies와 tests/skill-frontmatter.bats의 루프에 중복 하드코딩돼 있다. 한쪽만 갱신되면 drift하며 그것을 잡는 검사가 없다. 실제로 이 세션의 두 판정이 각각 사본을 하나씩 더 찾아냈고(templates/CLAUDE.md.tmpl, templates/docs/HARNESS-GUIDE.md) 원인은 매번 '지목된 인스턴스만 닫고 클래스를 열거하지 않은 것'이었다 — false-positives.json에 F52로 두 번 기록된 패턴의 세 번째 재발이다.",
+  "_prior_evidence": {
+    "verdict_1": "templates/CLAUDE.md.tmpl이 잠기지 않아 지워도 625건 전량 통과 — evaluator가 정적으로 증명",
+    "verdict_2": "templates/docs/HARNESS-GUIDE.md도 같은 상태. test_coverage 7로 묶인 유일한 이유",
+    "root_cause": "정방향 검사(목록의 파일에 지시가 있는가)만 있고 역방향(저장소의 사본이 목록에 있는가)이 없다"
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "[정방향] 테스트가 계약의 _caller_side_copies.files를 단일 출처로 읽어 각 파일에 지시가 있는지 검사한다. 목록을 테스트에 다시 적지 않는다.",
+      "verification": "테스트 소스에 파일명이 하드코딩돼 있지 않고 jq로 계약에서 읽는지 확인 + 정합 상태에서 통과"
+    },
+    {
+      "id": "AC-2",
+      "criterion": "[역방향] 저장소 전수 grep 결과가 계약 목록에 모두 포함되는지 검사한다. 새 사본을 만들고 목록에 넣지 않으면 실패해야 한다.",
+      "verification": "새 사본을 임시로 만들어 실패하는지 확인 후 제거. 제외 대상(progress/ 이하 — lessons.md는 역사적 기록, agent-comms는 판정 아카이브)은 명시적으로 제외하고 그 근거를 주석에 남긴다"
+    },
+    {
+      "id": "AC-3",
+      "criterion": "[tautology 방어] 목록이 비거나 축소되면 검사가 조용히 통과하지 않는다. F46이 대칭 파서에서 막은 것과 같은 퇴화를 막는다.",
+      "verification": "계약의 files를 빈 배열로 만든 픽스처에서 실패하는지 확인. 최소 개수 하한을 검사에 넣는다"
+    },
+    {
+      "id": "AC-4",
+      "criterion": "mutation으로 회귀 포착력을 확인한다.",
+      "verification": "(a) 목록의 각 파일에서 지시 제거 → 정방향 실패, (b) 목록에 없는 새 사본 추가 → 역방향 실패, (c) 목록 비우기 → tautology 방어 실패. 세 갈래 모두 확인 후 복원"
+    },
+    {
+      "id": "AC-5",
+      "criterion": "기존 테스트·프로브가 회귀 없이 통과한다.",
+      "verification": "bats tests/ 전체 1회 실행 후 출력 파싱(재실행 금지) + scripts/probes/run-all.sh"
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "게이트·임계값이 불변이다.",
+      "rationale": "검증 장치 정합성 개선이 게이트 조정으로 번지지 않도록 한다.",
+      "verification": "git diff --quiet progress/harness-config.json docs/INVARIANTS.md"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "검사가 약화되지 않는다 — 기존 4개 파일에 대한 정방향 단언이 유지되고 역방향이 추가된다.",
+      "rationale": "목록을 외부화하면 '목록을 줄여서 검사를 우회'하는 새 경로가 생긴다. AC-3의 하한 검사가 그것을 막는다.",
+      "verification": "변경 전후로 검사되는 파일 집합을 대조 — 줄어든 파일이 없어야 한다"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "계약 파일이 테스트의 입력이 되면서 생기는 신뢰 경계를 명시한다.",
+      "rationale": "sprint-45.json은 INV-11이 agreed 전환을 보호하지만 _caller_side_copies는 그 대상이 아니다. 목록을 조작해 검사를 무력화하는 경로가 열리는지 판단해 기록한다.",
+      "verification": "AC-3의 하한이 그 경로를 닫는지 확인하고, 남는 위험은 한계로 명시"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "계약 파일이 없거나 malformed — 테스트가 조용히 통과",
+      "expected": "jq 실패 시 명시적으로 실패한다. 파일 부재를 통과로 해석하지 않는다"
+    },
+    {
+      "id": "ES-2",
+      "scenario": "역방향 grep이 의도치 않은 파일을 잡아 오탐",
+      "expected": "제외 규칙을 명시적 목록으로 두고 근거를 주석에 남긴다. 새 오탐이 생기면 제외 목록을 늘리기 전에 그것이 진짜 사본인지 먼저 판단한다"
+    },
+    {
+      "id": "ES-3",
+      "scenario": "sprint-45.json이 아카이브되거나 경로가 바뀜",
+      "expected": "테스트가 계약 파일 부재로 실패하므로 조용한 우회가 아니다. 경로 변경 시 테스트도 함께 갱신한다"
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": "1. AC-1 정방향 — 테스트가 계약에서 목록을 읽도록 전환",
+      "verify": "하드코딩 제거 + 정합 상태 통과",
+      "done": true,
+      "covers": [
+        "AC-1"
+      ],
+      "result": "완료. 테스트가 jq로 계약에서 목록을 읽는다. F62 테스트 3건에 사본 파일명 하드코딩 없음."
+    },
+    {
+      "step": "2. AC-2 역방향 — 저장소 전수 grep과 목록 대조, 제외 규칙 명시",
+      "verify": "새 사본 추가 시 실패",
+      "done": true,
+      "covers": [
+        "AC-2",
+        "ES-2"
+      ],
+      "result": "완료. --exclude-dir=progress 기준 전수 grep과 목록 대조. 제외 근거를 주석에 명시."
+    },
+    {
+      "step": "3. AC-3 tautology 방어 — 목록 하한 검사",
+      "verify": "빈 목록 픽스처에서 실패",
+      "done": true,
+      "covers": [
+        "AC-3",
+        "SC-2",
+        "SC-3"
+      ],
+      "result": "완료. CALLER_COPY_MIN=4 하한 검사. 목록 비우기·축소를 막는다."
+    },
+    {
+      "step": "4. AC-4 mutation 3갈래",
+      "verify": "각각 실패 후 복원",
+      "done": true,
+      "covers": [
+        "AC-4"
+      ],
+      "result": "완료. 네 갈래 — (a) 정방향만 · (b) 역방향만 · (c) 셋 다 · (e) 역방향 통과/정방향·하한 실패. 역할 분리 실증."
+    },
+    {
+      "step": "5. AC-5·SC-1 회귀 검증",
+      "verify": "bats 전체 1회 + run-all + harness-config diff 없음",
+      "done": true,
+      "covers": [
+        "AC-5",
+        "SC-1"
+      ],
+      "result": "완료. bats 627 ok / 0 fail. 대상 5파일 복원 확인(git diff 없음)."
+    }
+  ],
+  "_parallelizable": false,
+  "_parallel_note": "직렬. 단일 테스트 파일의 좁은 변경이며 위임 상한 (a)에 해당한다.",
+  "agreed": true,
+  "_agreed_note": "**승인됨 — 2026-07-27 Plan 게이트(ExitPlanMode).** /improve 1회전 후보 선택(사용자) 후 정방향·역방향·tautology 방어 3축 설계로 승인받았다. tests/skill-frontmatter.bats는 보호 파일이며 Edit 툴로만 수정하고, sprint-45.json은 목록의 단일 출처로 읽기만 한다."
+}
