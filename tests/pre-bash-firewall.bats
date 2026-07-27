@@ -717,13 +717,23 @@ run_firewall() {
 # in-place가 allow가 되면 보호를 잃는다.
 
 @test "F63: sed -n reading a protected file auto-allows (read is not a write)" {
-  run run_firewall '{"tool_input":{"command":"sed -n 1,20p hooks/lib.sh"}}'
+  run run_firewall '{"tool_input":{"command":"sed -n '"'"'1,20p'"'"' hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
 @test "F63: awk reading a protected test file auto-allows" {
-  run run_firewall '{"tool_input":{"command":"awk NR<10 tests/probes.bats"}}'
+  run run_firewall '{"tool_input":{"command":"awk '"'"'NR<10'"'"' tests/probes.bats"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "F63: an unquoted program stays ask — accepted friction, not lost protection" {
+  # 6차 판정 이후 선행 가드의 안전 문자 집합에서 셸 확장 문자를 전부 뺐다. 그 결과 인용하지 않은
+  # 프로그램(`,`·`<`·`{`·`}` 포함)은 화이트리스트에 도달하지 못한다. 실사용에서 sed/awk 프로그램은
+  # 거의 항상 인용되며, 빠뜨린 읽기가 ask로 남는 것이 이 설계가 택한 안전한 실패 방향이다.
+  run run_firewall '{"tool_input":{"command":"sed -n 1,20p hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"awk NR<10 tests/probes.bats"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
 }
 
 @test "F63: awk -i inplace onto a protected file is still gated" {
@@ -765,11 +775,14 @@ run_firewall() {
 }
 
 @test "F63: the w pattern does not swallow normal reads containing w" {
-  # /word/·/write/ 같은 정규식은 w로 시작하지만 쓰기가 아니다 — \bw\b 가 이를 가른다
-  run run_firewall '{"tool_input":{"command":"sed -n /word/p hooks/lib.sh"}}'
+  # /word/·/write/ 같은 정규식은 w로 시작하지만 쓰기가 아니다 — 화이트리스트가 이를 가른다
+  run run_firewall '{"tool_input":{"command":"sed -n '"'"'/word/p'"'"' hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
-  run run_firewall '{"tool_input":{"command":"awk /warn/{print} hooks/lib.sh"}}'
+  run run_firewall '{"tool_input":{"command":"awk '"'"'/warn/{print}'"'"' hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
+  # 반대로 진짜 쓰기는 여전히 잡힌다
+  run run_firewall '{"tool_input":{"command":"sed -n '"'"'/re/w hooks/lib.sh'"'"' src.txt"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
 }
 
 @test "F63: awk -f runs a program from a file — the write never appears on the command line" {

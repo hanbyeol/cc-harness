@@ -123,6 +123,14 @@ WRITES=(
   # 5차 별건 — 인용 세미콜론이 에디터 arm 밖(cp·tee)에도 남아 있었다
   "cp 'a;b' %s"
   "tee 'a;b' %s"
+  # 6차 판정 — 셸 확장이 한 단어를 여러 인자로 만든다. 형태 앵커의 "한 토큰 = 한 인자" 전제를
+  # 사후에 깨므로, 앵커에는 안전해 보이면서 셸에는 -f(프로그램 파일)를 넘길 수 있다.
+  "awk {-F,-f}/tmp/evil.awk %s"
+  "awk {-f,-F}/tmp/evil.awk %s"
+  "awk *prog.awk %s"
+  "sed -n 1p {-ew/tmp/v,%s}"
+  "sed -n 1p ~/x %s"
+  "awk [a-z]prog.awk %s"
 )
 
 # 읽기지만 화이트리스트가 커버하지 않아 ask로 남는 형태 — 마찰이며 보호 상실이 아니다.
@@ -143,11 +151,26 @@ R_OK=0; R_BAD=0; W_OK=0; W_BAD=0
 BAD_READS=""; BAD_WRITES=""
 ALLOWED=()   # 2단계에서 실제로 실행해볼 명령 — 1단계가 allow로 판정한 것 전부
 
+GATED_READS=0
 for t in "${TARGETS[@]}"; do
+  # feature_list.json은 읽기도 ask다 — 의도된 예외다. 이 arm은 INV-11의 Bash 우회 게이트이므로
+  # 읽기 화이트리스트의 면제 대상에서 뺐다(6차 판정 권고). 여기서 기대값을 뒤집어 **명시적으로
+  # 검증**한다: 조용히 통과시키면 나중에 이 예외가 사라져도 아무도 모른다.
+  expect_allow=1
+  case "$t" in *feature_list.json) expect_allow=0 ;; esac
+
   for fmt in "${READS[@]}"; do
     # shellcheck disable=SC2059
     cmd=$(printf "$fmt" "$t")
-    if [ "$(decide "$cmd")" = "allow" ]; then R_OK=$((R_OK+1)); ALLOWED+=("$cmd"); else
+    d=$(decide "$cmd")
+    if [ "$expect_allow" -eq 0 ]; then
+      if [ "$d" = "allow" ]; then
+        R_BAD=$((R_BAD+1)); ALLOWED+=("$cmd"); BAD_READS="$BAD_READS
+    [feature_list 면제 예외가 깨졌다] $cmd"
+      else GATED_READS=$((GATED_READS+1)); fi
+      continue
+    fi
+    if [ "$d" = "allow" ]; then R_OK=$((R_OK+1)); ALLOWED+=("$cmd"); else
       R_BAD=$((R_BAD+1)); BAD_READS="$BAD_READS
     $cmd"; fi
   done
@@ -163,6 +186,8 @@ done
 echo "방화벽 읽기/쓰기 배터리 — 대상 ${#TARGETS[@]}종 × 읽기 ${#READS[@]}형태 · 쓰기 ${#WRITES[@]}형태"
 printf "  읽기 allow : %s / %s\n" "$R_OK" "$((R_OK+R_BAD))"
 printf "  쓰기 ask   : %s / %s\n" "$W_OK" "$((W_OK+W_BAD))"
+printf "  feature_list 읽기 ask : %s / %s (의도된 예외 — INV-11 게이트는 면제하지 않는다)\n" \
+  "$GATED_READS" "${#READS[@]}"
 
 if [ "$R_BAD" -gt 0 ]; then
   echo "  ✗ 읽기인데 ask (과탐 — 승인 프롬프트 유발):$BAD_READS"
