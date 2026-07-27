@@ -1,0 +1,160 @@
+{
+  "timestamp": "2026-07-27T13:28:54+0900",
+  "sprint": 49,
+  "iteration": 8,
+  "features_evaluated": [
+    "F63"
+  ],
+  "security_tier": "critical",
+  "branch": "feat/f63-firewall-read-write-split",
+  "commit": "a43ea90",
+  "scores": {
+    "functionality": 5,
+    "code_quality": 4,
+    "security": 3,
+    "error_handling": 5,
+    "test_coverage": 5
+  },
+  "score": 3,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_threshold_for_tier": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 3 < 7 (critical tier) — 자동 fail",
+    "score 3 < pass_threshold 7",
+    "AC-3 미충족: 화이트리스트를 통과하면서 보호 파일을 0바이트로 절단하는 sed 형태를 실행으로 실증했다",
+    "SC-1 미충족: 탐지 가능한 쓰기 경로가 main 대비 축소됐다 (8형태 × 5계열, main=ask → HEAD=allow)",
+    "AC-4 미충족: 철회된 awk 화이트리스트 주장이 Layer 3.5 '허용 조건' 주석에 그대로 남아 있다"
+  ],
+  "headline": "awk 제외는 정확히 반영됐고 쓰기 강화 8건도 유지된다. 그러나 **남은 sed 앵커가 뚫린다** — 세 앵커 모두 마지막 토큰을 '파일 이름'으로 가정하는데, 그 자리에 `-e<script>`(붙여쓴 옵션 인자)를 넣으면 sed 프로그램 슬롯이 다시 열린다. `sed -e 's/a/b/' -ewhooks/invariant-guard.sh` 가 allow이고 실행하면 대상 파일이 0바이트가 된다.",
+  "primary_finding": {
+    "id": "V8-1",
+    "severity": "critical",
+    "confidence": "high",
+    "title": "형태 앵커의 후행 슬롯 `[^ ']+$` 는 '파일'이 아니라 '임의의 붙여쓴 옵션 인자'를 받는다 — sed 프로그램 슬롯 재개방",
+    "mechanism": "세 앵커의 끝은 모두 ` +[^ ']+$` 이고 코드·주석·계약은 이 자리를 입력 파일로 서술한다. 그러나 `[^ ']+` 는 하이픈으로 시작하는 토큰을 배제하지 않으므로 `-e<script>`(GNU/BSD 공통, optarg 붙여쓰기)와 `-f<path>` 가 그대로 들어간다. `-e` 는 **두 번째 sed 스크립트 슬롯**이고 여기에는 인용된 스크립트 슬롯에 걸린 어떤 제약도 걸리지 않는다. 게다가 `SED_SAFEOPT='(--posix|--regexp-extended|-[Eersz]+)'` 가 `-e` 를 **명시적으로 허용**하므로, 인용된 스크립트를 `-e` 로 공급하고 남은 후행 슬롯을 `-ew<보호경로>` 에 내줄 수 있다.",
+    "why_it_writes": "sed 는 `w` 대상 파일을 **스크립트 컴파일 시점에** 열어 truncate 한다. 입력 파일이 없어 stdin(=/dev/null)이 비어 있어도, 즉 단 한 사이클도 돌지 않아도 대상은 0바이트가 된다. 실측으로 확인했다.",
+    "pre_guard_does_not_stop_it": "`-ewhooks/invariant-guard.sh` 의 문자는 영숫자·`-`·`/`·`.` 뿐이라 긍정 문자 집합 `[A-Za-z0-9_.:/ -]` 안에 전부 들어간다. 셸 확장 축(6·7차가 닫은 축)과는 다른 축이며, 선행 가드는 원리적으로 이것을 볼 수 없다 — 셸이 아니라 **sed 자신의 인자 파싱**이 문제이기 때문이다.",
+    "verified_forms_main_vs_head": [
+      "sed -e 's/a/b/' -ewhooks/invariant-guard.sh        main=ask HEAD=allow  (실행: 7B → 0B)",
+      "sed -n -e '1p' -ewhooks/invariant-guard.sh         main=ask HEAD=allow  (실행: 7B → 0B)",
+      "sed -n -e '/x/p' -ewhooks/invariant-guard.sh       main=ask HEAD=allow  (실행: 7B → 0B)",
+      "sed -E -e 's/a/b/' -ewhooks/invariant-guard.sh     main=ask HEAD=allow  (실행: 7B → 0B)",
+      "sed -n -e '1p' -e2whooks/invariant-guard.sh        main=ask HEAD=allow  (실행: 7B → 0B, 주소 접두 변형)",
+      "sed -n -e '1p' -ewprogress/harness-config.json     main=ask HEAD=allow",
+      "sed -n -e '1p' -ewINVARIANTS.md                    main=ask HEAD=allow",
+      "sed -n -e '1p' -ew.claude/settings.local.json      main=ask HEAD=allow",
+      "sed -n -e '1p' -ewtests/pre-bash-firewall.bats     main=ask HEAD=allow",
+      "sed 's/a/b/' -fhooks/lib.sh                        main=ask HEAD=allow  (프로그램을 파일에서 — 쓰기는 아니나 같은 슬롯)"
+    ],
+    "affected_protected_families": [
+      "hooks/*.sh",
+      "progress/harness-config.json",
+      "INVARIANTS.md",
+      "tests/*.bats",
+      ".claude/settings(.local)?.json"
+    ],
+    "not_affected": "progress/feature_list.json — SC-3의 국소화(면제 대상에서 feature_list arm 제외)가 여기서 실제로 작동했다. 설계 의도대로 막힌 유일한 계열이다.",
+    "platform_note": "macOS(BSD sed)에서는 getopt가 첫 비옵션 인자에서 파싱을 멈추므로 스크립트를 `-e` 로 공급한 형태만 쓴다(위 목록이 그것이다). Linux CI(GNU sed)는 인자를 permute 하므로 `sed -n '1p' -ew<경로>` 처럼 `-e` 없는 평문 형태까지 전부 쓴다 — gsed 4.10으로 실측 확인했다. 즉 노출면은 CI에서 더 넓다.",
+    "impact": "프롬프트 없이 하네스 자기보호 파일을 절단할 수 있다. `hooks/pre-bash-firewall.sh` 를 비우면 훅이 결정을 내지 않고, `hooks/invariant-guard.sh` 를 비우면 INV 강제가 사라지며, `progress/harness-config.json` 을 비우면 임계값 판정이 깨진다. 이것이 F63이 지키기로 한 바로 그 계층이다."
+  },
+  "issues": [
+    "[security][critical] V8-1 — `-e<script>` 붙여쓴 옵션 인자가 후행 파일 슬롯을 차지해 sed 프로그램 슬롯이 재개방된다. 5계열 × 8형태 main=ask → HEAD=allow, 실행으로 0바이트 절단 확인",
+    "[security][high] 같은 슬롯으로 `-f<path>`(프로그램을 파일에서)도 들어간다. SC-1 출처 (a)가 3차에 '이 축은 명령행에 쓰기 수단이 나타나지 않으므로 모든 부정 조건이 원리적으로 실패한다'며 명시적으로 편입한 축인데, 앵커의 후행 슬롯을 통해 그대로 살아 있다",
+    "[security][medium] `SED_SAFEOPT` 가 `-e` 를 'SAFEOPT'로 분류한다. `-e` 는 sed 프로그램을 공급하는 옵션이므로 화이트리스트 문맥에서 안전 옵션이 아니다 — 이름 자체가 오분류다",
+    "[security][low] 정규화(`tr -s '[:space:]' ' '`)가 개행을 공백으로 접는데 셸은 개행을 명령 구분자로 본다. `sed -n '1p'\\nhooks/pre-bash-firewall.sh` 는 접히면 앵커에 맞아 allow가 되고 실제로는 2행(둘째 행이 실행)이다. 인자 없는 단일 토큰만 가능해 쓰기 프리미티브는 아니지만 화이트리스트 판정과 실제 셸 의미가 어긋나는 지점이다",
+    "[security][info] 긍정 문자 집합의 `:` 는 셸 층에서는 주석의 논증대로 불활성이다(`${var:-}` 는 `{}`, 대입 틸데 전개는 `~` 를 요구하며 둘 다 집합 밖). 다만 `:` 는 sed s/// 의 유효한 구분자이기도 해서, `-e` 슬롯이 열려 있는 한 백슬래시 없이 경로를 담을 수 있다. 문자 집합의 논증이 셸 층만 덮고 sed 층은 덮지 않는다는 점을 드러낸다",
+    "[quality][high] hooks/pre-bash-firewall.sh 의 86~256행과 257~427행이 **바이트 단위로 동일**하다(171행 중복). Layer 1 검사·Layer 2 블록·EDITOR_NAME_ARM·39개 ASK_PATTERNS 배열 전체가 두 번 정의된다. 동작은 멱등이라 판정은 안 바뀌지만 (a) 매 Bash 호출마다 L1·L2 grep이 두 번 돌고 (b) **첫 번째 ASK_PATTERNS 배열에 패턴을 추가해도 두 번째 정의가 덮어써 조용히 무효가 된다**. 보안 훅에서 위험한 잠복 함정이다 (main은 187행, HEAD는 514행)",
+    "[quality][high] AC-4 위반 — Layer 3.5 '허용 조건' 주석이 철회된 awk 화이트리스트를 그대로 서술한다: '명령이 sed 또는 awk 하나로만 구성된다', 'awk: 인라인 프로그램에 쓰기 수단(-i·-v·print>·system)이 하나도 없다'. 8차에 awk를 제거했으므로 둘 다 거짓이며, 449~463행의 올바른 설명과 같은 파일 안에서 모순된다. 중복 때문에 226~228행과 397~399행 두 곳에 있다",
+    "[quality][medium] 보증 초과 — 주석 '치환 형태의 플래그 문자 집합에 w가 없으므로 s/x/y/w 는 일치하지 않고, 끝의 $ 때문에 인자 순열도 일치하지 않는다'. 끝 앵커가 보장하는 것은 **후행 토큰이 하나**라는 것뿐이고 그 토큰이 파일이라는 보장은 없다. 5차 판정이 지적한 '보증이 코드보다 강하고 그 초과분에 구멍이 있다'가 같은 형태로 재발했다",
+    "[quality][medium] 보증 초과 — 주석 'sed: 출력 전용이 확실한 세 형태만 긍정 열거한다' 및 계약 AC-2 `_awk_exclusion` 의 'sed는 앵커가 스크립트 문법 자체를 좁게 묶는다'. 인용된 스크립트 슬롯에 대해서는 참이지만 `-e`·`-f` 슬롯에는 적용되지 않는다. **awk를 빼고 sed를 남긴다는 범위 결정의 근거 자체가 이 지점에서 불완전하다** — sed도 '프로그램을 임의 텍스트/파일에서 받는 슬롯'을 갖고 있다",
+    "[quality][medium] 구현 보고의 철회된 서술이 남아 있다 — `evidence.ifs_bypass` 는 '선행 가드에 `$(`·`${`·백틱을 넣어' 라고 4차의 열거식 가드를 서술하는데 6·7차에 긍정 문자 집합으로 대체됐다. `evidence.quoted_semicolon` 은 '시작 앵커 변형을 추가해 닫았고' 라고 5차 방식을 서술하는데 6차에 정규화로 옮겼다. `files_changed[0]` 은 'awk 화이트리스트를 형태 앵커로 교체'라고 하는데 8차에 awk는 제거됐다",
+    "[quality][low] 구현 보고 내부 수치 불일치 — `achieved.AC-8` 은 'allow 판정분 108건', `evidence.final_distribution` 은 '실행 검증 77건'. 실제 배터리 출력은 77건이다",
+    "[test][medium] 배터리 WRITES에 `sed -n 1p {-ew/tmp/v,%s}` (6차, 중괄호 확장)가 있다 — 즉 `-ew` 가 쓰기 수단이라는 것을 이미 알고 페이로드로 썼다. 중괄호 확장 축을 닫은 뒤 **같은 페이로드를 직접 전달하는 형태**(`sed -e '…' -ew<경로>`)를 재시험하지 않았다. 2차 판정의 교훈 '인스턴스 단위로 닫으면 클래스는 그대로 열려 있다'가 다시 발생했다",
+    "[test][medium] 후행 슬롯의 옵션 형태(`-e`·`-f`·`-i` 붙여쓰기) 축을 겨냥한 테스트가 bats·배터리 어디에도 없다",
+    "[test][low] 배터리 KNOWN_FRICTION의 `sed -n 1,20p %s` 는 쉼표가 긍정 문자 집합 밖이라 ask다. 실제 사용 빈도가 높은 형태이므로 마찰 항목으로만 두기보다 문서화된 대체 안내가 있으면 좋다"
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1 — awk in-place(`gawk -i inplace`·`mawk -i inplace`·`awk -iinplace`·`awk --in-place`)가 보호 경로와 결합할 때 ask. 배터리 639/639 쓰기 ask에 포함",
+      "AC-2 — awk 제외가 코드에 정확히 반영됐다. SAFE_READ은 sed 앵커 세 갈래에서만 세워지고(428~448행) awk 분기는 주석만 남았다. 보호 경로 awk는 프로그램 형태와 무관하게 전부 ask(`'{print}'`·`-F: '{print $1}'`·`'NR<10'`·`'/x/{print}'`·gawk·mawk), 비보호 경로 awk는 기존대로 allow(`awk '{print}' README.md`·`awk -f /tmp/p.awk data.csv`·`awk -i inplace /tmp/scratch.txt`) — 과탐 신설 없음. 배터리 KNOWN_FRICTION 63/63이 제외 결정 유지를 확인",
+      "AC-5 — behavioral 프로브 후보 0건 (출력 `[]`)",
+      "AC-6 — bats 645건 전부 통과, exit 0, not-ok 0건 (1회 실행 후 출력 파싱)",
+      "AC-7 — scripts/verify-firewall-rw.sh 상설화 + CI(.github/workflows/ci.yml:93)가 호출 + shellcheck 대상. 기대와 다르면 exit 1임을 내 변이로 실증",
+      "AC-8 — 2단계 실행 검증이 **실제로 작동한다**. 내가 만든 변이(READS에 `sed -e 's/a/b/' -ew%s` 주입)에서 1단계는 '읽기 allow 1/1'로 통과시켰고 2단계가 파일 변경을 잡아 exit 1을 냈다. no-op이 아니다",
+      "AC-9 — 인용부호 안 `;` 중화가 모든 arm에서 성립: `sed -n 'p;w <P>' src`·`cp 'a;b' <P>`·`tee 'a;b' <P>` 전부 ask. 동시에 인용부호 밖 구분자는 유지: `echo hi; cat <P>`·`sed -n '1,20p' README.md; grep -n foo <P>`·`echo \"it's done\"; python3 build.py; ls <P>` 전부 allow(6차 과탐 재발 없음)"
+    ],
+    "security": [
+      "SC-2 — BLOCKED 배열이 main과 바이트 동일(diff 무출력). progress/harness-config.json·INVARIANTS.md·hooks/hooks.json·.claude/settings.json 은 main..HEAD diff에 없다. deny 티어·임계값 불변",
+      "쓰기 강화 8건 유지 — gsed -i · gawk -i inplace · mawk -i inplace · sponge · sed -n 'p;w …' · cp 'a;b' … · tee 'a;b' … · gsed -n 'w …' 가 전부 main=allow / HEAD=ask. 8/8 실측 대조",
+      "SC-3 부분 — 면제가 EDITOR_NAME_ARM을 포함하는 두 패턴에만 적용되고 feature_list arm은 제외됨을 코드(478행)와 실측으로 확인. `sed -n '1p' -ewprogress/feature_list.json` 은 HEAD에서도 ask다 — V8-1이 유일하게 뚫지 못한 계열이며 국소화가 실제로 값을 했다",
+      "인용 상태 기계는 안전한 방향으로만 틀린다 — 중화는 스팬을 늘리기만 하므로 ASK arm에서 false negative를 만들 수 없다. 홀수 따옴표(`echo 'unterminated; cp /tmp/x <P>`)·큰따옴표 안 이스케이프(`echo \"a\\\"b\"; cp /tmp/x <P>`) 모두 보수적으로 ask. 선행 가드도 짝이 맞지 않는 `'` 나 `\"` 가 남으면 집합 밖 문자로 거부"
+    ],
+    "error_scenarios": [
+      "ES-2 — awk in-place 패턴이 정상 사용을 잡지 않는다. `awk 'NR<10' src/main.go`·`awk -i inplace '{print}' /tmp/scratch.txt` 모두 allow",
+      "ES-3 — 인터프리터 arm(python3|node|nodejs|ruby|perl|php|lua)은 main과 동일하게 유지"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-3 — '쓰기 경로는 어느 형태로도 뚫리지 않는다. 열거는 하한이지 상한이 아니다 — 배터리 목록에 없더라도 파일을 바꾸는 형태가 발견되면 미충족이다.' V8-1이 정확히 그 조건이다: 배터리 목록에 없고, allow이며, 실행하면 파일이 0바이트가 된다",
+      "AC-4 — Layer 3.5 '허용 조건' 주석에 철회된 awk 화이트리스트 서술이 남아 있다(226~228행 및 중복본 397~399행). AC-4는 '철회한 주장이 남아 있으면 미충족'이라고 명시한다. 추가로 '출력 전용이 확실한 세 형태'·'끝 앵커가 인자 순열을 배제한다'가 코드가 강제하는 범위를 넘는다"
+    ],
+    "security": [
+      "SC-1 — '탐지 가능한 쓰기 경로의 집합이 축소되지 않는다'. 8형태 × 5계열이 main=ask → HEAD=allow로 축소됐고 실행으로 실제 쓰기임을 확인했다. 출처 (a)가 3차에 편입한 '프로그램을 파일에서 읽는 형태(-f)'와 sed의 w 명령이 앵커의 후행 슬롯을 통해 되살아났다",
+      "SC-3 — 국소화 자체는 검증됐으나(위 passed 참조), 6차에 스스로 정정한 손실 상한 서술 '최악 결과는 보호경로 쓰기 한 건이 프롬프트 없이 지나가는 것'이 **현실화**했다. 범위 한정은 성립하고 무해는 성립하지 않는다"
+    ],
+    "error_scenarios": [
+      "ES-1 — 'sed/awk를 뺐더니 다른 쓰기 형태가 새로 뚫림 → AC-3의 전수 배터리에서 사전 검출'. 배터리는 exit 0(읽기 77/77 allow, 쓰기 639/639 ask, 실행 검증 0건 변경)으로 초록이었고 V8-1을 사전 검출하지 못했다. 형태가 열거에 없었기 때문이며, 열거하자 2단계가 즉시 잡았다(변이 실증)"
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "후행 인자 슬롯을 '파일'로 가정하는 모든 앵커에 대해 '그 슬롯에 옵션이 들어올 수 있는가'를 묻는 기준이 없다. SC-1 출처에 **(h) 도구 자신의 인자 파싱 축** — 붙여쓴 optarg(`-e<arg>`·`-f<arg>`·`-i<suffix>`), getopt permutation(GNU vs BSD 차이), `--` 종결자 — 을 추가해야 한다. (f)·(g)가 셸 층을 다루는 것과 대칭으로 이 축은 **도구 층**이며, 지금까지의 축 중 어느 것도 이것을 덮지 않는다",
+      "배터리·bats가 GNU sed와 BSD sed의 인자 파싱 차이를 구분하지 않는다. 같은 명령이 macOS에서는 안전하고 Linux CI에서는 쓰기가 되는 형태가 존재하므로(V8-1의 평문 변형), 플랫폼 축이 검증 기준에 필요하다",
+      "정규화가 개행을 공백으로 접는 것과 셸이 개행을 구분자로 보는 것 사이의 불일치를 규정한 기준이 없다(AC-9가 인용부호 안 `;` 만 다룬다)"
+    ],
+    "ambiguous_criteria": [
+      "SC-1의 '축소되지 않는다'가 형태 단위 집합 비교인지 순증감인지 불명확하다. 이번 결과는 '8건 신규 차단 / 8형태 신규 누출'이라 순증감으로 읽으면 논쟁 여지가 있다. 나는 집합 포함관계(main에서 ask였던 것이 HEAD에서 allow면 축소)로 판정했다 — 문구를 그렇게 확정할 것을 권고한다"
+    ],
+    "security_criteria_insufficient": [
+      "AC-2의 `_awk_exclusion` 이 sed/awk 비대칭을 '앵커가 스크립트 문법을 좁게 묶는다'로 논증하는데, 그 논증은 **인용된 스크립트 슬롯**에만 적용된다. 범위 축소 결정의 근거 문서이므로 `-e`·`-f` 슬롯을 포함하도록 정정해야 한다 — 그러지 않으면 다음 회전이 같은 잘못된 전제 위에서 설계된다"
+    ],
+    "action_required": "다음 iteration에서 (1) SC-1 출처에 (h) 도구 인자 파싱 축을 추가, (2) AC-2 `_awk_exclusion` 의 비대칭 논증을 정정, (3) 배터리에 후행 슬롯 옵션 형태와 플랫폼 축을 편입 — 전부 evals/acceptance-criteria.json 및 progress/contracts/sprint-49.json 에 반영"
+  },
+  "criteria_backfill_review": {
+    "count": 3,
+    "assessment": "적절. 세 건 모두 판정 지적을 기준으로 승격한 것이며 범위 확장이나 요건 완화가 아니다. AC-8 신설(배터리 실행 검증)과 AC-3 verification 강화는 오히려 기준을 엄격하게 했다. 3건이지만 재검토 권고 사유(범위 과도 확장·요건 완화)에는 해당하지 않는다.",
+    "criteria_issues": []
+  },
+  "remediation_guidance": [
+    "후행 슬롯을 파일로 한정하라. `[^ ']+$` 를 하이픈으로 시작하지 않는 토큰으로 좁히는 것이 최소 수정이지만, 6차 교훈('하이픈 배제는 리터럴 첫 글자에만 걸린다')이 셸 확장 축에 대한 것이었음을 기억할 것 — 확장 문자는 이미 긍정 집합에서 제거됐으므로 이 슬롯에서는 리터럴 검사로 충분하다. 그래도 `--` 이후 처리와 `-i`·`-f`·`-e` 를 명시적으로 배제하는 이중 방어를 권한다",
+    "`SED_SAFEOPT` 에서 `-e` 를 빼라. `-e` 는 프로그램 공급 옵션이므로 화이트리스트 문맥의 '안전 옵션'이 아니다. 남길 경우 '스크립트는 정확히 하나'를 앵커가 강제해야 한다",
+    "화이트리스트가 허용하는 sed 인자 개수를 상한으로 못박는 것을 검토하라 — '옵션 0~2개 + 스크립트 1개 + 파일 1개' 를 넘으면 건너뛴다. 지금은 `($SED_SAFEOPT +)*` 가 무제한이다",
+    "AC-4 정리: Layer 3.5 '허용 조건' 목록에서 awk 두 줄을 제거하고, '출력 전용이 확실한' 및 '끝 앵커가 인자 순열을 배제한다' 를 코드가 실제로 보장하는 서술로 교체",
+    "171행 중복 블록(86~256 == 257~427)을 제거하라. 지금은 무해하지만 첫 번째 ASK_PATTERNS 배열 편집이 조용히 무효가 되는 구조다. INV-5(add-only)가 패턴 수 감소를 차단하므로 중복 제거 시 가드와의 상호작용을 먼저 확인할 것",
+    "배터리에 최소 다음을 추가: `sed -e 's/a/b/' -ew%s` · `sed -n -e '1p' -ew%s` · `sed -n -e '/x/p' -ew%s` · `sed -n -e '1p' -e1w%s` · `sed 's/a/b/' -f%s` · (GNU 축) `sed -n '1p' -ew%s`"
+  ],
+  "second_judge_required": {
+    "reason": "security_tier critical (F37) — 1차 판정 후 독립 컨텍스트의 2차 judge 교차검증이 배선되어야 한다",
+    "note": "이번 판정은 verdict=fail 이므로 자동 pass 위험은 없다. 다만 F37의 취지상 pass 후보가 될 때 반드시 2회 독립 디스패치가 필요하다"
+  },
+  "evidence": {
+    "bats": "bats tests/ — 1회 실행, exit 0. ok 645 / not ok 0 / skip 0 (마지막 테스트 'ok 645 all template JSON files are valid'). 재실행하지 않고 출력 파싱",
+    "battery": "bash scripts/verify-firewall-rw.sh — exit 0. '대상 9종 × 읽기 9형태 · 쓰기 71형태 / 읽기 allow 77/77 / 쓰기 ask 639/639 / feature_list 읽기 ask 4/9 / 실행 검증 77건 실행, 파일 변경 0건 / 알려진 마찰 63/63 / 배터리 통과'",
+    "behavioral": "bash scripts/probes/behavioral.sh — 출력 '[]' (후보 0건)",
+    "battery_mutation_test": "배터리 사본(scratchpad)의 READS에 내가 찾은 형태 하나만 넣고 실행 → '읽기 allow : 1 / 1' 로 1단계 통과, '실행 검증: 1건 실행, 파일 변경 1건' → '✗ allow인데 실제로 파일을 바꿨다: sed -e 's/a/b/' -ewhooks/invariant-guard.sh' → exit 1. 2단계 검출 경로가 살아 있음과 해당 형태가 진짜 쓰기임을 동시에 실증",
+    "firewall_decision_probe": "hooks/pre-bash-firewall.sh 와 `git show main:hooks/pre-bash-firewall.sh` 에 동일 JSON(stdin)을 먹여 permissionDecision 을 대조하는 스크립트로 60여 개 명령 판정. deny 는 exit 2 로 구분",
+    "write_execution_proof": "격리 샌드박스에서 실행: `printf 'ORIG\\n' > hooks/invariant-guard.sh` (7 bytes) → `sed -e 's/a/b/' -ewhooks/invariant-guard.sh </dev/null` → 0 bytes. `-n -e '1p'`·`-n -e '/x/p'`·`-E -e 's/a/b/'`·`-n -e '1p' -e2w` 변형 모두 동일하게 0 bytes. 입력이 비어도 truncate 되는 이유는 sed 가 w 대상을 스크립트 컴파일 시점에 열기 때문",
+    "gnu_vs_bsd": "/usr/bin/sed (BSD, macOS 15) 는 첫 비옵션 인자에서 옵션 파싱을 멈춘다 → `-e` 로 스크립트를 공급한 형태만 씀. /usr/local/bin/gsed (GNU sed 4.10) 는 permute 하므로 `gsed -n '1p' -ewhooks/invariant-guard.sh`·`gsed 's/a/b/' -ew…`·`gsed -n '/x/p' -ew…` 전부 0 bytes — Linux CI 의 /usr/bin/sed 가 GNU 이므로 노출면이 더 넓다",
+    "sc2_diff": "git diff --stat main..HEAD -- progress/harness-config.json INVARIANTS.md hooks/hooks.json .claude/settings.json → 무출력. BLOCKED 배열 diff → 무출력('BLOCKED: IDENTICAL')",
+    "duplication_check": "hooks/pre-bash-firewall.sh 의 86~256행과 257~427행을 문자열 비교 → identical: true. ASK_PATTERNS 정의 2개(각 39패턴, 시작행 128·299), INDIRECT_PATTERNS 2개, EDITOR_NAME_ARM 2개, SAFE_READ=0 2개. main 은 각각 1개, 187행",
+    "code_read": "hooks/pre-bash-firewall.sh 전체 513행 정독 — 정규화·RAW_CMD(13~37), EDITOR_NAME_ARM(127/298), ASK_PATTERNS(128~212/299~383), 선행 가드(428~429), SED_QUIET·SED_SAFEOPT·세 앵커(442~448), awk 제외 주석(449~463), ASK 디스패치 면제 조건(478)"
+  },
+  "notes_for_next_round": [
+    "이번 회전의 구조는 이전 여섯 번과 같다: 앵커가 좁힌 슬롯 옆에 **앵커가 좁히지 않은 슬롯**이 하나 남아 있고 거기로 프로그램이 들어온다. 6·7차는 그 슬롯을 셸이 만들었고(확장·치환), 8차는 sed 자신의 옵션 파서가 만든다. 축이 셸에서 도구로 옮겨간 것이지 클래스가 바뀐 것이 아니다",
+    "다만 이번 것은 이전 여섯과 달리 **한 지점 수정으로 닫힌다** — 후행 슬롯을 하이픈 비시작 토큰으로 한정하고 SED_SAFEOPT에서 -e를 빼는 것. awk 슬롯이 일곱 축으로 흩어졌던 것과 성격이 다르므로, 이 발견을 근거로 sed까지 철회할 필요는 없어 보인다. 판단은 사용자 몫이지만 범위 재축소를 권고하지는 않는다",
+    "쓰기 강화 8건·SC-2·AC-9·AC-5·AC-6·AC-7·AC-8·awk 제외는 모두 견고하다. 재작업 범위는 화이트리스트 앵커의 후행 슬롯과 주석 정리, 중복 블록 제거로 한정된다"
+  ]
+}

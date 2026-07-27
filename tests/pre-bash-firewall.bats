@@ -891,6 +891,36 @@ run_firewall() {
   [ "$output" -ge 3 ]   # 정의 1 + ASK 패턴 최소 2
 }
 
+@test "F63: an attached optarg cannot occupy the file slot (-e<script>)" {
+  # 8차 판정: 끝 슬롯을 "파일"이라 부르면서 하이픈 토큰을 배제하지 않아 -e<script>가 들어갔다.
+  # -e는 두 번째 스크립트 슬롯이라 인용 스크립트 슬롯의 제약이 하나도 걸리지 않고, sed가 w
+  # 대상을 컴파일 시점에 열어 truncate하므로 입력이 비어 있어도 보호 파일이 0바이트가 된다.
+  run run_firewall '{"tool_input":{"command":"sed -e '"'"'s/a/b/'"'"' -ewhooks/invariant-guard.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"sed -n '"'"'1p'"'"' -ewhooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"sed -n 5p -ewdocs/INVARIANTS.md"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  # -e는 SED_SAFEOPT에서도 빠졌다 — 스크립트 슬롯이지 안전 옵션이 아니다
+  run run_firewall '{"tool_input":{"command":"sed -e '"'"'s/a/b/'"'"' -ewprogress/harness-config.json"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  # 남긴 안전 옵션은 정상 동작한다
+  run run_firewall '{"tool_input":{"command":"sed -E '"'"'s/a/b/'"'"' hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "F63: the firewall defines each pattern array exactly once" {
+  # 8차 판정 부수 지적: 파일에 171행이 통째로 중복돼 ASK_PATTERNS가 두 번 정의됐다.
+  # 첫 배열에 패턴을 추가해도 두 번째 정의가 덮어써 조용히 무효가 되는 잠복 함정이다.
+  local fw="$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh"
+  for arr in BLOCKED INDIRECT_PATTERNS ASK_PATTERNS; do
+    run grep -c "^$arr=(" "$fw"
+    [ "$output" -eq 1 ]
+  done
+  run grep -c "^SAFE_READ=0" "$fw"
+  [ "$output" -eq 1 ]
+}
+
 @test "gates mv of ~/.ssh secrets as ask" {
   run run_firewall '{"tool_input":{"command":"mv ~/.ssh/id_rsa /tmp/x"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]

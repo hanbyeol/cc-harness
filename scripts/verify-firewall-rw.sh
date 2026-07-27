@@ -137,6 +137,15 @@ WRITES=(
   "sed -n 1p {-ew/tmp/v,%s}"
   "sed -n 1p ~/x %s"
   "awk [a-z]prog.awk %s"
+  # 8차 판정 — 붙여쓴 optarg가 "파일" 슬롯에 들어간다. `-e`는 두 번째 스크립트 슬롯이고
+  # 인용 스크립트 슬롯의 제약이 하나도 걸리지 않는다. sed가 w 대상을 컴파일 시점에 열어
+  # truncate하므로 입력이 비어 있어도 파일이 0바이트가 된다.
+  "sed -e 's/a/b/' -ew%s"
+  "sed -n '1p' -ew%s"
+  "sed -n 5p -ew%s"
+  "sed -n '/re/p' -ew%s"
+  "sed -e 's/a/b/' -e w%s"
+  "sed --posix -n 1p -ew%s"
 )
 
 # 읽기지만 화이트리스트가 커버하지 않아 ask로 남는 형태 — 마찰이며 보호 상실이 아니다.
