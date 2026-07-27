@@ -32,20 +32,26 @@ TARGETS=(
 )
 
 # 읽기 형태 — 전부 allow여야 한다(과탐이면 승인 프롬프트가 반복된다)
+#
+# awk는 여기 없다. 화이트리스트에서 제외했기 때문이다 — awk의 프로그램 자리는 완전한
+# 프로그래밍 언어라 앵커가 제약하지 못하고, 판정 회전마다 다른 메커니즘으로 뚫렸다.
+# awk 읽기는 아래 KNOWN_FRICTION에서 ask임을 확인한다.
 READS=(
   "sed -n '1,20p' %s"
   "sed -n 5p %s"
   "sed -n '/word/p' %s"
   "sed 's/a/b/' %s"
-  "awk 'NR<10' %s"
-  "awk '{print \$1}' %s"
-  "awk -F: '{print}' %s"
   "grep -c x %s"
   "cat %s"
   "head -5 %s"
   "tail -5 %s"
   "wc -l %s"
 )
+
+# 화이트리스트 면제가 적용되는 형태 — feature_list.json에 대해서는 이것들만 ask가 된다
+# (INV-11 게이트는 면제하지 않기 때문). grep·cat·head 등은 애초에 에디터 arm에 걸리지
+# 않으므로 대상 파일과 무관하게 allow이며, 예외 검증에서 제외해야 한다.
+EXEMPT_FORMS_RE="^sed "
 
 # 쓰기 형태 — 전부 ask여야 한다(하나라도 allow면 보호 상실)
 WRITES=(
@@ -138,6 +144,12 @@ WRITES=(
 KNOWN_FRICTION=(
   "gsed -n '1,5p' %s"
   "sed -n '\$=' %s"
+  "sed -n 1,20p %s"
+  # awk는 화이트리스트에서 제외했다(7차, 사용자 결정) — 읽기도 ask다.
+  # 여기서 확인하는 것은 "마찰이 있다"가 아니라 **"제외 결정이 유지되고 있다"**이다.
+  "awk 'NR<10' %s"
+  "awk '{print \$1}' %s"
+  "awk -F: '{print}' %s"
   "awk -f prog.awk %s"
 )
 
@@ -156,13 +168,18 @@ for t in "${TARGETS[@]}"; do
   # feature_list.json은 읽기도 ask다 — 의도된 예외다. 이 arm은 INV-11의 Bash 우회 게이트이므로
   # 읽기 화이트리스트의 면제 대상에서 뺐다(6차 판정 권고). 여기서 기대값을 뒤집어 **명시적으로
   # 검증**한다: 조용히 통과시키면 나중에 이 예외가 사라져도 아무도 모른다.
-  expect_allow=1
-  case "$t" in *feature_list.json) expect_allow=0 ;; esac
+  gated_target=0
+  case "$t" in *feature_list.json) gated_target=1 ;; esac
 
   for fmt in "${READS[@]}"; do
     # shellcheck disable=SC2059
     cmd=$(printf "$fmt" "$t")
     d=$(decide "$cmd")
+    expect_allow=1
+    # 면제 대상 형태(sed)이면서 대상이 feature_list일 때만 ask를 기대한다
+    if [ "$gated_target" -eq 1 ] && printf '%s' "$fmt" | grep -qE "$EXEMPT_FORMS_RE"; then
+      expect_allow=0
+    fi
     if [ "$expect_allow" -eq 0 ]; then
       if [ "$d" = "allow" ]; then
         R_BAD=$((R_BAD+1)); ALLOWED+=("$cmd"); BAD_READS="$BAD_READS
@@ -279,7 +296,7 @@ for t in "${TARGETS[@]}"; do
     [ "$(decide "$(printf "$fmt" "$t")")" != "allow" ] && FRICTION=$((FRICTION+1))
   done
 done
-printf "  알려진 마찰 : %s / %s (읽기지만 ask — 보호 상실 아님)\n" \
+printf "  알려진 마찰 : %s / %s (읽기지만 ask — awk 제외 결정 포함, 보호 상실 아님)\n" \
   "$FRICTION" "$((${#TARGETS[@]} * ${#KNOWN_FRICTION[@]}))"
 
 [ "$FAILED" -eq 0 ] && echo "  배터리 통과"

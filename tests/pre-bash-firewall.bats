@@ -721,8 +721,17 @@ run_firewall() {
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
-@test "F63: awk reading a protected test file auto-allows" {
+@test "F63: awk is excluded from the read whitelist — a protected read stays ask" {
+  # 사용자 결정(7차): awk의 프로그램 자리는 완전한 프로그래밍 언어라 앵커가 제약하지 못하고,
+  # 판정 회전마다 다른 메커니즘으로 뚫렸다(-f · -v · print> · system · @include · 중괄호 확장 ·
+  # "cmd" | getline — 일곱 가지가 전부 다른 축). sed는 앵커가 스크립트 문법을 좁게 묶으므로 남긴다.
+  # 보호 파일을 읽어야 하면 grep·cat·head·jq(전부 auto-allow)로 대체할 수 있다.
   run run_firewall '{"tool_input":{"command":"awk '"'"'NR<10'"'"' tests/probes.bats"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"awk '"'"'{print $1}'"'"' hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  # 비보호 경로의 awk는 영향받지 않는다 — 기존 default-allow 그대로
+  run run_firewall '{"tool_input":{"command":"awk '"'"'NR<10'"'"' README.md"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
@@ -777,8 +786,6 @@ run_firewall() {
 @test "F63: the w pattern does not swallow normal reads containing w" {
   # /word/·/write/ 같은 정규식은 w로 시작하지만 쓰기가 아니다 — 화이트리스트가 이를 가른다
   run run_firewall '{"tool_input":{"command":"sed -n '"'"'/word/p'"'"' hooks/lib.sh"}}'
-  [[ "$output" == *'"permissionDecision": "allow"'* ]]
-  run run_firewall '{"tool_input":{"command":"awk '"'"'/warn/{print}'"'"' hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
   # 반대로 진짜 쓰기는 여전히 잡힌다
   run run_firewall '{"tool_input":{"command":"sed -n '"'"'/re/w hooks/lib.sh'"'"' src.txt"}}'
