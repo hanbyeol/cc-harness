@@ -817,22 +817,45 @@ run_firewall() {
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
 }
 
-@test "F63: command substitution and expansion skip the whitelist entirely" {
-  # 앵커는 인자 형태만 보고 셸 문맥은 보지 않는다 — ${IFS}가 공백을 대신하면 명령 치환이
-  # 통째로 파일 슬롯에 들어간다. 치환·전개 문자가 있으면 화이트리스트를 건너뛴다.
+@test "F63: only a positive character set reaches the whitelist" {
+  # 앵커는 인자 형태만 보고 셸 문맥은 보지 않는다. 배제 문자를 열거한 4차 가드는 5차 판정의
+  # `$IFS`(중괄호 없음) + 프로세스 치환에 뚫렸다 — 그래서 허용 문자를 긍정 열거로 뒤집었다.
+  # ( ) $ 백틱이 집합 밖이므로 명령 치환·프로세스 치환·변수 전개가 구조적으로 배제된다.
   run run_firewall '{"tool_input":{"command":"awk {print} $(cp${IFS}/tmp/evil${IFS}hooks/lib.sh)"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
   run run_firewall '{"tool_input":{"command":"sed -n 1,5p `cp /tmp/x hooks/lib.sh`"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"awk {print} <(patch$IFS./hooks/lib.sh$IFS./p.diff)"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"sed -n 5p <(cp$IFS/tmp/x$IFS./progress/feature_list.json)"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "F63: quoted separators are neutralized for every arm, not just the editor one" {
+  # 정규화가 인용부호 안의 ; | & 를 중화한다 — cp·tee 등 [^;|&] 를 쓰는 arm도 함께 정합해진다
+  run run_firewall '{"tool_input":{"command":"cp '"'"'a;b'"'"' progress/feature_list.json"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"tee '"'"'a;b'"'"' hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "F63: a real separator outside quotes still splits commands (no new overfire)" {
+  # 5차가 지적한 과탐 — 정상 복합 명령이 ask가 되면 F63이 없애려던 마찰이 되돌아온다
+  run run_firewall '{"tool_input":{"command":"sed -n '"'"'1,20p'"'"' README.md; grep -n foo hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+  run run_firewall '{"tool_input":{"command":"awk '"'"'NR<10'"'"' README.md; grep -c x hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
 @test "F63: a quoted semicolon does not cut the protected-path span" {
-  # ASK 패턴의 [^;|&]* 는 인용부호 안의 ; 에서도 끊긴다 — 시작 앵커 변형이 이를 덮는다
-  run run_firewall '{"tool_input":{"command":"sed -n p;w hooks/lib.sh src.txt"}}'
+  # ASK 패턴의 [^;|&]* 는 인용부호 안의 ; 에서도 끊겼다 — 셸은 그것을 구분자로 보지 않는데도.
+  # 정규화 단계가 인용 구간의 ; | & 를 중화해 불일치를 없앤다. 테스트 문자열에 **진짜
+  # 작은따옴표**가 들어가야 의미가 있으므로 '"'"' 관용구로 넣는다.
+  run run_firewall '{"tool_input":{"command":"sed -n '"'"'p;w hooks/lib.sh'"'"' src.txt"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
-  run run_firewall '{"tool_input":{"command":"sed -n p;w progress/feature_list.json src.txt"}}'
+  run run_firewall '{"tool_input":{"command":"sed -n '"'"'p;w progress/feature_list.json'"'"' src.txt"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
-  # 시작 앵커이므로 정상 명령은 걸리지 않는다
+  # 인용부호 밖의 ; 는 진짜 구분자이므로 그대로 끊긴다
   run run_firewall '{"tool_input":{"command":"echo hi; cat hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }

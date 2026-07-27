@@ -12,6 +12,19 @@ CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || echo "
 # Normalize all whitespace (tabs, newlines, multiple spaces) to single space
 NORMALIZED_CMD=$(echo "$CMD" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')
 
+# 작은따옴표 **안**의 명령 구분자를 중화한다. 아래 패턴들의 `[^;|&]*` 스팬은 "여기서 다른
+# 명령이 시작된다"를 뜻하는데, 셸은 인용부호 안의 `;`를 구분자로 보지 않는다. 이 불일치 때문에
+# `sed -n 'p;w <보호경로>' src` 가 allow였다(5차 판정 확인 — main에서도 그랬고 실제로 덮어쓴다).
+# 패턴을 늘리는 대신 **정규화에서 고친다** — cp·mv·tee·인터프리터·egress 등 `[^;|&]`를 쓰는
+# 모든 arm이 한 번에 정합해지고, 인용부호 밖의 진짜 구분자는 그대로 남아 과탐이 생기지 않는다.
+NORMALIZED_CMD=$(printf '%s' "$NORMALIZED_CMD" | awk '
+  { out=""; inq=0
+    for (i=1; i<=length($0); i++) { c=substr($0,i,1)
+      if (c=="\047") { inq=!inq; out=out c; continue }
+      if (inq && (c==";" || c=="|" || c=="&")) { out=out " " } else { out=out c }
+    }
+    print out }')
+
 # F38: 결정 분포 관측(로깅만 — 판정 로직·순서 무변경). 명령 원문은 기록하지 않고(SC2)
 # 결정 종류만 progress/.firewall-stats에 append. 실패는 무시(로깅이 방화벽을 깨지 않음).
 log_decision() {
@@ -152,12 +165,15 @@ ASK_PATTERNS=(
   # 인터프리터(바로 아래)도 그대로다 — python·node·perl은 읽기/쓰기를 구문으로 구분할 수 없다.
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
   '\b(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
-  # 위 패턴의 `[^;|&]*` 스팬은 **인용부호 안의 `;`에서도 끊긴다** — `sed -n 'p;w <보호경로>' src`
-  # 가 그래서 allow였다(4차 판정 별건, F63 이전부터 존재). 명령이 그 도구로 **시작할 때만**
-  # 세미콜론을 넘어 보는 변형을 하나 더 둔다. 시작 앵커가 있으므로 `echo hi; cat <보호경로>`
-  # 같은 정상 명령은 걸리지 않는다. 패턴 문자열은 리터럴로 둔다 — invariant-guard의
-  # count_array가 작은따옴표로 시작하는 줄만 세므로, 변수 보간을 쓰면 가드의 계수에서 빠진다.
-  '^ *(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)\b[^|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json|feature_list\.json)'
+  # 인용부호 안의 `;`가 위 스팬을 끊던 구멍은 **정규화 단계에서** 닫았다(파일 상단 참조) —
+  # cp·mv·tee·인터프리터·egress 등 `[^;|&]`를 쓰는 모든 arm이 함께 정합해진다.
+  # 5차에서는 여기에 세미콜론을 넘어 보는 시작 앵커 변형을 뒀었는데, 그것이
+  # `sed -n '1,20p' README.md; grep -n foo <보호경로>` 같은 **정상 복합 명령을 새로 잡는 과탐**을
+  # 만들었다(F63이 없애려던 마찰 계열). 정규화가 원인을 제거했으므로 이 자리는 시작 앵커를 붙인
+  # 위 패턴의 부분집합으로 좁혀 둔다 — 단독으로 발동하지 않는다.
+  # 줄을 지우지 않는 이유: invariant-guard의 INV-5(add-only)가 패턴 수 감소를 차단하며,
+  # 가드를 우회하지 않는다. count_array가 작은따옴표로 시작하는 줄만 세므로 리터럴로 유지한다.
+  '^ *(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json|feature_list\.json)'
   '>>? *[^ ]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
   '\b(cp|mv|install|rsync|ln|tee|sponge|truncate)\b[^;|&]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
   'git\b[^;|&]*-c[^;|&]*core\.hooksPath'
@@ -198,13 +214,21 @@ ASK_PATTERNS=(
 #   - awk: 인라인 프로그램에 쓰기 수단(-i·-v·print>·system)이 하나도 없다
 SAFE_READ=0
 # 선행 가드 — 셸 문맥에 다른 명령이 섞일 여지가 있으면 화이트리스트를 아예 건너뛴다.
-# 4차 판정: 형태 앵커는 sed/awk의 **인자 형태**만 검사하고 그 인자가 놓인 셸 문맥은 보지
-# 않는다. 파일 슬롯 `[^ ']+$` 는 공백만 없으면 무엇이든 받으므로 `${IFS}` 로 공백을 대신하면
-# 명령 치환이 통째로 파일 인자 자리에 들어간다 — `awk '{print}' $(cp${IFS}/tmp/x${IFS}<보호경로>)`
-# 가 실제로 보호 파일을 덮어썼다. 치환·전개 문자를 여기서 배제한다.
-if [[ "$NORMALIZED_CMD" != *'>'* && "$NORMALIZED_CMD" != *'|'* && "$NORMALIZED_CMD" != *';'* \
-   && "$NORMALIZED_CMD" != *'&'* && "$NORMALIZED_CMD" != *'$('* && "$NORMALIZED_CMD" != *'${'* \
-   && "$NORMALIZED_CMD" != *'`'* ]]; then
+#
+# **배제 문자를 열거하지 않는다.** 4차에서 `$(`·`${`·백틱을 열거했더니 5차 판정이 중괄호 없는
+# `$IFS` + 프로세스 치환으로 빠져나갔다 — `awk '{print}' <(patch$IFS./hooks/lib.sh$IFS./p.diff)`
+# 가 실제로 보호 파일을 덮어썼다. 이 계약이 "쓰기 문법 열거는 수렴하지 않는다"며 방향을 뒤집어
+# 놓고 정작 새 가드를 다시 열거로 만든 것이 원인이다.
+#
+# 대신 **허용 문자를 긍정 열거한다**: 작은따옴표 구간은 셸이 전개하지 않으므로(리터럴 인자)
+# 통째로 제거하고, 남은 부분이 안전 문자 집합에 들어가는지 본다. 여기 없는 문자가 하나라도
+# 있으면 화이트리스트를 건너뛴다 — 새 전개 문법이 생겨도 문자가 집합 밖이면 자동으로 막히고,
+# 안전한 형태를 빠뜨리면 ask로 남을 뿐이다(틀리는 방향이 안전하다).
+#
+# `(`·`)`·`$`·백틱이 집합 밖이므로 명령 치환·프로세스 치환·변수 전개가 구조적으로 배제된다.
+# `<`는 남긴다 — awk의 `NR<10` 같은 인용 없는 프로그램에 필요하고, `<(`는 `(`가 없어 불가능하다.
+UNQUOTED_PART=$(printf '%s' "$NORMALIZED_CMD" | sed "s/'[^']*'//g")
+if printf '%s' "$UNQUOTED_PART" | grep -qE '^[]A-Za-z0-9_@%+=:,./~^!*{}<[ -]*$'; then
   # sed: 출력 전용이 확실한 세 형태만 긍정 열거한다.
   #   sed -n '1,20p' <file>  ·  sed -n 5p <file>  ·  sed -n '/re/p' <file>  ·  sed 's/a/b/' <file>
   # w를 부정 조건으로 쓰지 않는다 — `\bw` 는 /word/의 w를 잡고(과탐) `1w file`은 놓친다
@@ -241,7 +265,8 @@ if [[ "$NORMALIZED_CMD" != *'>'* && "$NORMALIZED_CMD" != *'|'* && "$NORMALIZED_C
   if echo "$NORMALIZED_CMD" | grep -qE "$AWK_FORM" \
      && ! echo "$NORMALIZED_CMD" | grep -qE '(^| )-[a-zA-Z]*i|--in-place|(^| )-v|--assign' \
      && ! echo "$NORMALIZED_CMD" | grep -qE '\b(print|printf)[^;}]*>' \
-     && ! echo "$NORMALIZED_CMD" | grep -qE '\bsystem *\(' ; then
+     && ! echo "$NORMALIZED_CMD" | grep -qE '\bsystem *\(' \
+     && ! echo "$NORMALIZED_CMD" | grep -qE '@(include|load)\b' ; then
     SAFE_READ=1
   fi
 fi

@@ -115,6 +115,22 @@ WRITES=(
   # 4차 판정 별건 — 인용부호 안의 `;`가 ASK 패턴의 [^;|&]* 스팬을 끊는다
   "sed -n 'p;w %s' src.txt"
   "sed 'p;s/a/b/w %s' src.txt"
+  # 5차 판정 — 중괄호 없는 $IFS + 프로세스 치환. 배제 문자를 열거한 4차 가드가 빠뜨린 조합이다.
+  "awk '{print}' <(patch\$IFS./%s\$IFS./p.diff)"
+  "sed -n 5p <(cp\$IFS/tmp/x\$IFS./%s)"
+  "awk 'NR<10' <(tee\$IFS%s)"
+  "sed -n 1p \$IFS%s"
+  # 5차 별건 — 인용 세미콜론이 에디터 arm 밖(cp·tee)에도 남아 있었다
+  "cp 'a;b' %s"
+  "tee 'a;b' %s"
+)
+
+# 읽기지만 화이트리스트가 커버하지 않아 ask로 남는 형태 — 마찰이며 보호 상실이 아니다.
+# 목록으로 남겨 두는 이유: 나중에 화이트리스트를 넓힐 때 무엇을 넓히는지 알기 위해서다.
+KNOWN_FRICTION=(
+  "gsed -n '1,5p' %s"
+  "sed -n '\$=' %s"
+  "awk -f prog.awk %s"
 )
 
 decide() {
@@ -228,6 +244,18 @@ else
     FAILED=1
   fi
 fi
+
+# 알려진 마찰 — 읽기인데 화이트리스트가 커버하지 않아 ask로 남는 형태. 실패로 치지 않고
+# 보고만 한다. 화이트리스트가 하한이라는 사실을 숫자로 남겨, 넓힐 때 무엇을 넓히는지 보이게 한다.
+FRICTION=0
+for t in "${TARGETS[@]}"; do
+  for fmt in "${KNOWN_FRICTION[@]}"; do
+    # shellcheck disable=SC2059
+    [ "$(decide "$(printf "$fmt" "$t")")" != "allow" ] && FRICTION=$((FRICTION+1))
+  done
+done
+printf "  알려진 마찰 : %s / %s (읽기지만 ask — 보호 상실 아님)\n" \
+  "$FRICTION" "$((${#TARGETS[@]} * ${#KNOWN_FRICTION[@]}))"
 
 [ "$FAILED" -eq 0 ] && echo "  배터리 통과"
 exit "$FAILED"
