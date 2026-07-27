@@ -20,7 +20,6 @@ jobs:
           shellcheck scripts/cost-report.sh
           shellcheck scripts/build-golden-set.sh
           shellcheck scripts/verify-caller-copy-guard.sh
-          shellcheck scripts/verify-firewall-rw.sh
 
   json-validate:
     name: JSON Validation
@@ -87,7 +86,3 @@ jobs:
       # 초록이었다. 배터리를 저장소에 두는 것만으로는 상설이 아니며 여기서 불러야 한다.
       - name: Run caller-copy guard mutation battery
         run: bash scripts/verify-caller-copy-guard.sh
-      # F63 방화벽 읽기/쓰기 배터리. 쓰기 술어가 실제 쓰기 집합보다 좁아지는 것을
-      # bats는 보지 못한다 — 구현 중 4건, 1차 판정에서 54건이 열렸을 때 둘 다 전부 초록이었다.
-      - name: Run firewall read/write battery
-        run: bash scripts/verify-firewall-rw.sh

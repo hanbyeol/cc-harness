@@ -26,7 +26,6 @@ NORMALIZED_CMD=$(echo "$CMD" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')
 # 다시 쓰는 것이 아니다. Layer 3.5의 읽기 화이트리스트는 원본으로 판정해야 한다 — 중화본으로
 # 보면 인용부호 안의 `|`가 공백이 되어, awk 프로그램의 `"cmd" | getline`(셸 실행)이 파이프 없는
 # 무해한 프로그램처럼 보인다. 두 계층이 서로의 판단 근거를 지우는 상호작용이며 실측으로 확인했다.
-RAW_CMD="$NORMALIZED_CMD"
 NORMALIZED_CMD=$(printf '%s' "$NORMALIZED_CMD" | awk '
   { out=""; inS=0; inD=0
     for (i=1; i<=length($0); i++) { c=substr($0,i,1)
@@ -124,7 +123,10 @@ fi
 # Layer 3.5의 읽기 화이트리스트가 **면제할 수 있는 유일한 패턴 계열**이며, 아래 두 자리에서만
 # 쓰인다. 변수로 뽑아 둔 이유는 면제 대상 식별과 패턴 정의가 같은 출처를 갖게 하기 위해서다 —
 # 목록이 바뀌면 면제 판정도 함께 바뀐다(어긋나면 면제가 멈춰 읽기가 ask가 될 뿐, 보호는 유지).
-EDITOR_NAME_ARM='(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)'
+# F65: 읽기에도 흔히 쓰는 도구 — 이 이름 목록을 가진 arm만 탐지·복구 배선 시 건너뛴다.
+# 편집 전용 도구(vim·ed·patch·dd·sponge…)와 컨트롤 플레인 arm은 이 목록을 갖지 않으므로
+# 면제 대상이 아니다. 면제 판정과 패턴 정의가 같은 출처를 갖게 하려고 변수로 뽑았다.
+READ_CAPABLE_ARM='(g?sed|g?awk|mawk)'
 ASK_PATTERNS=(
   'git reset[^;|&]*--hard'
   'git clean[^;|&]* -[a-zA-Z]*f'
@@ -150,7 +152,13 @@ ASK_PATTERNS=(
   # `-[a-zA-Z]*i` 로 넓히지 않는다 — 하이픈 뒤 i를 포함한 장옵션(--quiet·--posix·
   # --field-separator=·--lint)까지 in-place로 오인해 새 과탐을 만든다(F63 2차 판정).
   # `-i` 는 --in-place 도 부분 매치하므로 별도 대안이 필요 없다.
-  '\b(g?sed|perl|g?awk|mawk)\b[^;|&]*-i[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  # F65: `-i` 를 **결합 단축옵션까지** 넓힌다. `sed -ni`·`sed -ie`·`awk -iinplace` 는 실제로
+  # 파일을 쓰는데 `-i` 리터럴로는 `-ni` 를 잡지 못한다. 그동안 에디터 이름 arm이 sed·awk를
+  # 통째로 잡아 가려져 있었고, 그 arm을 탐지·복구로 대체하자 드러났다(behavioral 프로브가 검출).
+  # 장옵션 과탐은 생기지 않는다 — 첫 `-` 뒤가 `[a-zA-Z]` 이어야 하므로 `--quiet`·`--posix`·
+  # `--field-separator` 는 두 번째 `-` 에서 걸러진다(F63 2차 판정이 지적한 과탐의 원인 제거).
+  '\b(g?sed|perl|g?awk|mawk)\b[^;|&]*(^| )-[a-zA-Z]*i[a-zA-Z]*[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  '\b(g?sed|perl|g?awk|mawk)\b[^;|&]*--in-place[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
   # sed의 w 명령/s///w 플래그 — 플래그도 리다이렉트도 없이 임의 파일에 쓴다.
   # 실측: sed -n 'w victim' src → victim에 src 내용 · sed 's/x/PWN/w victim2' → victim2=PWN.
   # F63 이전에는 에디터 이름 목록이 sed를 통째로 잡아 가려져 있었다.
@@ -175,7 +183,16 @@ ASK_PATTERNS=(
   #
   # 인터프리터(바로 아래)도 그대로다 — python·node·perl은 읽기/쓰기를 구문으로 구분할 수 없다.
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
-  '\b(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  # F65: 에디터 이름 arm을 **도구 성격으로** 가른다.
+  #
+  # (1) 편집 전용 도구 — 보호 경로에 이 이름들이 나오면 편집 의도로 보는 것이 타당하다.
+  #     읽기 용도로 쓰지 않으므로 마찰이 되지 않으며, 탐지·복구가 배선돼도 건너뛰지 않는다.
+  '\b(ed|ex|vi|vim|nano|emacs|dd|patch|sponge)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
+  # (2) 읽기에도 흔히 쓰는 도구 — 이름만으로는 읽기와 쓰기를 가를 수 없다(그 판정이
+  #     결정 불가능하다는 것이 F63의 결론이다). 쓰기 신호가 명령에 드러나는 경우는 위
+  #     in-place·리다이렉트·복사 arm이 이미 잡으므로, 남는 것은 순수 읽기뿐이다.
+  #     그래서 탐지·복구가 배선돼 있으면 이 arm만 건너뛴다 — 사용자가 보고한 마찰의 출처다.
+  '\b(g?sed|g?awk|mawk)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
   # 인용부호 안의 `;`가 위 스팬을 끊던 구멍은 **정규화 단계에서** 닫았다(파일 상단 참조) —
   # cp·mv·tee·인터프리터·egress 등 `[^;|&]`를 쓰는 모든 arm이 함께 정합해진다.
   # 5차에서는 여기에 세미콜론을 넘어 보는 시작 앵커 변형을 뒀었는데, 그것이
@@ -187,9 +204,13 @@ ASK_PATTERNS=(
   # 경로 목록에서 feature_list.json을 뺀다 — 면제 판정이 "패턴 문자열에 feature_list가 없을 것"을
   # 조건으로 쓰므로(아래 ASK 디스패치), 여기 남겨 두면 보호 파일 **읽기**까지 면제에서 빠져
   # 사용자가 보고한 마찰이 그대로 돌아온다. feature_list 자체의 게이트는 전용 패턴이 담당한다.
-  '^ *(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  '^ *(ed|ex|vi|vim|nano|emacs|dd|patch|sponge)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
   '>>? *[^ ]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
   '\b(cp|mv|install|rsync|ln|tee|sponge|truncate)\b[^;|&]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
+  # 컨트롤 플레인 전용 에디터 arm (F65). 위 데이터 플레인 arm은 탐지·복구가 배선되면
+  # 건너뛰지만 이 줄은 절대 건너뛰지 않는다 — hooks.json·settings*.json 을 바꾸면 탐지 훅의
+  # 배선 자체를 끌 수 있고, settings.json 은 gitignore라 HEAD 복구도 불가능하다.
+  '\b(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)\b[^;|&]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
   'git\b[^;|&]*-c[^;|&]*core\.hooksPath'
   'GIT_CONFIG_(COUNT|KEY|VALUE|GLOBAL|SYSTEM)'
   # S-2(F33): 시크릿 네트워크 유출(egress) — 민감 파일이 네트워크로 나갈 때 ask(무인 exfil 차단).
@@ -211,135 +232,59 @@ ASK_PATTERNS=(
   '\b(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)\b[^;|&]*feature_list\.json'
 )
 
-# === Layer 3.5: 읽기 화이트리스트 (F63) — ASK 검사보다 먼저 ===
+# === Layer 3.5: 데이터 플레인 게이트 (F65) ===
 #
-# 보호 경로의 sed/awk는 위 ASK 목록이 이름으로 전부 잡는다(보호 완전). 그 대가로 순수
-# 읽기까지 프롬프트가 떠서, 같은 파일을 grep·cat으로 읽으면 allow인데 sed -n으로 읽으면
-# ask인 비일관이 생겼다 — 사용자가 겪던 반복 승인의 실제 원인이다.
+# ## 왜 읽기 화이트리스트를 걷어냈는가
 #
-# **방향을 뒤집어 읽기 쪽을 열거한다.** 쓰기 문법을 열거하는 블랙리스트는 전수를 알아야
-# 안전한데, 두 차례 판정이 각각 여섯 형태를 새로 찾아내며 수렴하지 않음을 보였다
-# (in-place 결합 단축옵션·GNU 인자 순열·sed w의 공백/주소 변형·awk 변수 경유 리다이렉트).
-# 반대로 여기서 빠뜨린 읽기 형태는 ask로 남을 뿐 보호를 잃지 않는다 — 틀리는 방향이 안전하다.
+# 이전 설계(F63)는 "이 명령이 보호 파일을 쓸 것인가"를 명령 문자열로 예측했다. 그 질문은
+# 결정 불가능하다 — 셸도, 셸이 부르는 sed·awk·perl·python도 튜링 완전하므로 실행하지 않고
+# 효과를 아는 방법이 없다. 10회전 동안 매번 새 우회 표기가 나왔고(붙여쓴 optarg·중괄호 확장·
+# 명령 치환·프로세스 치환·인용 제거 미수행·이름 변형·경로 표기), 예측이 불가능하니 알려진
+# 형태를 나열하는 수밖에 없었다. 그 나열이 곧 커버리지 상한이 됐고, 동시에 읽기까지 잡아
+# 사용자가 보고한 반복 승인 프롬프트를 만들었다.
 #
-# 허용 조건(전부 만족해야 한다). **대상은 sed뿐이다** — awk는 7차에 제외했다(아래 참조):
-#   - 인용부호 밖 문자가 전부 안전 집합 안에 있다(셸 전개·치환·확장이 구조적으로 불가능)
-#   - 명령 전체가 아래 세 sed 형태 중 하나와 일치한다(끝의 $ 앵커)
-#   - 끝 슬롯은 하이픈으로 시작하지 않는다 — 그 자리를 '파일'이라 부르므로 옵션이 들어오면 안 된다
+# ## 대신 무엇을 하는가
 #
-# 이 목록이 곧 보증의 전부다. 여기 적히지 않은 것은 보증하지 않는다 — 5차·8차 판정이 모두
-# "주석이 코드보다 강하고 그 초과분에 구멍이 있다"를 지적했으므로, 서술을 코드에 맞춰 좁힌다.
-SAFE_READ=0
-# 선행 가드 — 셸 문맥에 다른 명령이 섞일 여지가 있으면 화이트리스트를 아예 건너뛴다.
+# 되돌릴 수 있는 변경은 예측하지 않고 **사후에 탐지·복구**한다
+# (hooks/protected-integrity.sh, PostToolUse:Bash). "파일이 바뀌었는가"는 도구와 무관하게
+# 자명하게 결정되므로, 무엇으로 어떻게 바꿨든 잡힌다 — 한 번도 본 적 없는 방법이라도.
 #
-# **배제 문자를 열거하지 않는다.** 4차에서 `$(`·`${`·백틱을 열거했더니 5차 판정이 중괄호 없는
-# `$IFS` + 프로세스 치환으로 빠져나갔다 — `awk '{print}' <(patch$IFS./hooks/lib.sh$IFS./p.diff)`
-# 가 실제로 보호 파일을 덮어썼다. 이 계약이 "쓰기 문법 열거는 수렴하지 않는다"며 방향을 뒤집어
-# 놓고 정작 새 가드를 다시 열거로 만든 것이 원인이다.
+# 그래서 아래 ASK 패턴 중 **데이터 플레인** 계열은 탐지·복구가 배선돼 있을 때 발동시키지
+# 않는다. 패턴 자체는 지우지 않는다(INV-5 add-only) — 배선이 사라지면 즉시 되살아나는 폴백이다.
 #
-# 대신 **허용 문자를 긍정 열거한다**: 작은따옴표 구간은 셸이 전개하지 않으므로(리터럴 인자)
-# 통째로 제거하고, 남은 부분이 안전 문자 집합에 들어가는지 본다. 여기 없는 문자가 하나라도
-# 있으면 화이트리스트를 건너뛴다 — 새 전개 문법이 생겨도 문자가 집합 밖이면 자동으로 막히고,
-# 안전한 형태를 빠뜨리면 ask로 남을 뿐이다(틀리는 방향이 안전하다).
+# ## 무엇을 계속 예측으로 막는가 (경계)
 #
-# **집합은 "셸이 특별하게 다루지 않는 문자"로만 구성한다.** 6차 판정: 5차의 집합에 남겨 둔
-# `{`·`}`·`,` 와 `*`·`[`·`]` 는 **한 단어를 여러 단어로 만드는** 확장이다. 형태 앵커는
-# "한 토큰 = 한 인자"를 암묵 전제하는데, 중괄호 확장은 그 전제를 사후에 깬다 —
-# `awk {-F,-f}/tmp/evil.awk <보호경로>` 는 앵커에는 인자 두 개로 보이지만 셸이 세 개로 펼쳐
-# `-f`(프로그램 파일)를 awk에 넘긴다. 3차에서 닫은 `awk -f` 우회가 그렇게 부활했고,
-# 하이픈 배제는 **리터럴 첫 글자**에만 걸리므로 확장으로 만들어진 단어를 막지 못했다.
+#  - **컨트롤 플레인**: hooks/hooks.json · .claude/settings*.json
+#    이 둘을 바꾸면 탐지 훅의 배선 자체를 끌 수 있고, settings.json은 gitignore라 복구도 안 된다.
+#  - **되돌릴 수 없는 것**: rm -rf / · mkfs · 시크릿 외부 유출 (Layer 1·2 및 egress arm)
+#    사후 복구가 성립하지 않으므로 예측이 유일한 수단이다. 이 계층은 이번 변경과 무관하다.
 #
-# 그래서 집합을 영숫자와 경로 문자(`_`·`.`·`/`·`-`)와 공백으로 줄인다. 전개·확장·치환에
-# 쓰이는 문자가 하나도 남지 않으므로, "전개 후 단어 수가 보존된다"가 문자 수준에서 보장된다.
-# 인용 없는 awk 프로그램(`/warn/{print}`)은 이제 ask다 — 마찰이지 보호 상실이 아니며,
-# 실제 사용에서 sed/awk 프로그램은 거의 항상 인용된다(사용자가 보고한 형태도 전부 인용형).
-#
-# `:` 만 예외로 남긴다(`awk -F: '{print}'`). `:`가 전개에 관여하는 구문은 `${var:-…}`(중괄호 필요)와
-# 대입 안의 틸데 전개(`~` 필요)뿐이고 둘 다 이 집합 밖 문자를 요구하므로, `:` 단독은 불활성이다.
-# 판단 근거를 적어 두는 이유: 이 집합에 문자를 더할 때마다 같은 수준의 논증을 요구하기 위해서다.
-UNQUOTED_PART=$(printf '%s' "$RAW_CMD" | sed "s/'[^']*'//g")
-if printf '%s' "$UNQUOTED_PART" | grep -qE '^[A-Za-z0-9_.:/ -]*$'; then
-  # === sed 읽기 판정 — **토큰 단위** ===
-  #
-  # 정규식으로 명령 문자열 전체를 훑는 방식을 버린다. 8차와 9차가 같은 축의 **인접 슬롯**을
-  # 각각 뚫었기 때문이다: 8차는 끝(파일) 슬롯에 붙여쓴 optarg `-ew<경로>`, 9차는 스크립트
-  # 슬롯 — `'?` 가 인용을 선택으로 두고 스크립트 클래스가 공백을 배제하지 않아, 인용 없는
-  # 스크립트가 셸에서 여러 단어로 쪼개지고 GNU sed가 그 여분을 옵션으로 파싱했다.
-  #   sed -n /a -ewharness-config.json /p README.md   → 대상 파일 덮어씀
-  #   sed -n /a -f prog.sed /p hooks/lib.sh           → 임의 sed 프로그램 = 임의 명령 실행
-  # 슬롯을 하나씩 막는 방식은 수렴하지 않는다. 정규식이 문자열 전체를 훑으면 **슬롯 경계가
-  # 흐려지고**, 한 슬롯을 좁혀도 옆 슬롯이 같은 역할을 대신 받는다.
-  #
-  # 그래서 **"한 슬롯 = 한 셸 인자"를 구조적으로 강제한다.** 선행 가드가 셸 전개를 전부
-  # 배제했으므로 단어 분리는 공백뿐이고 작은따옴표 구간만 원자적이다 — 즉 훅이 셸과 동일하게
-  # 토큰화할 수 있다. 토큰을 하나씩 분류하고, 분류되지 않는 토큰이 하나라도 있으면 거부한다.
-  # 이렇게 하면 새 옵션·새 붙여쓰기 형태가 나와도 '알려진 안전 옵션'이 아닌 이상 자동으로 막힌다.
-  tokenize_cmd() {
-    printf '%s' "$1" | awk '
-      { tok=""; inq=0
-        for (i=1;i<=length($0);i++) { c=substr($0,i,1)
-          if (c=="\047") { inq=!inq; tok=tok c; continue }
-          if (c==" " && !inq) { if (tok!="") { print tok; tok="" }; continue }
-          tok=tok c
-        }
-        if (tok!="") print tok }'
-  }
+# 배선 확인이 실패하면(파일 없음·jq 없음) 게이트는 **켜진 상태로 남는다** — fail-safe다.
 
-  SED_TOKS=()
-  while IFS= read -r _t; do SED_TOKS+=("$_t"); done < <(tokenize_cmd "$RAW_CMD")
+# 건너뛸 수 있는 것은 **에디터 이름 arm 뿐**이다.
+#
+# 왜 그 arm만인가: 나머지 arm은 전부 쓰기 신호가 명령에 드러난다 — in-place는 `-i`,
+# 리다이렉트는 `>`, 복사 계열은 cp·mv·tee 라는 이름 자체가 쓰기다. 그래서 읽기를 잡지 않는다.
+# 반면 에디터 이름 arm은 도구 이름만 보므로 `sed -n '1,20p' <보호경로>` 같은 순수 읽기까지
+# 잡는다 — 사용자가 보고한 반복 승인 프롬프트의 실제 출처가 정확히 이 arm이다.
+#
+# 그리고 이 arm이 막으려던 것(에디터로 보호 파일을 바꾸는 것)은 되돌릴 수 있는 변경이므로
+# 탐지·복구가 더 넓게 커버한다. 나머지 arm은 손대지 않는다 — 건너뛸 이유가 없다.
 
-  if [ "${#SED_TOKS[@]}" -ge 3 ] && [ "${SED_TOKS[0]}" = "sed" ]; then
-    _ok=1; _quiet=0; _nscript=0; _nfile=0; _script=""; _script_at=-1; _file_at=-1
-    _i=1
-    while [ "$_i" -lt "${#SED_TOKS[@]}" ]; do
-      _t="${SED_TOKS[$_i]}"
-      case "$_t" in
-        -n|--quiet|--silent)                      _quiet=1 ;;
-        --posix|--regexp-extended|-E|-r|-s|-z)    : ;;
-        # 그 밖의 하이픈 토큰은 전부 거부한다 — 붙여쓴 optarg(-ew…·-f…)와 미지의 옵션을
-        # 열거 없이 배제하는 자리다. 안전 옵션은 위에 **완전일치**로만 적는다.
-        -*)                                       _ok=0 ;;
-        # 인용된 스크립트 — 인용은 **필수**다(9차: `'?` 가 선택이면 인용 없는 스크립트가
-        # 셸에서 쪼개져 여분 단어가 옵션이 된다).
-        \'*\')                                    _nscript=$((_nscript+1)); _script="$_t"; _script_at=$_i ;;
-        *)                                        _nfile=$((_nfile+1)); _file_at=$_i ;;
-      esac
-      _i=$((_i+1))
-    done
+integrity_wired() {
+  command -v jq &>/dev/null || return 1
+  local hj
+  for hj in "${CLAUDE_PLUGIN_ROOT:-}/hooks/hooks.json" "$PWD/hooks/hooks.json"; do
+    [[ -f "$hj" ]] || continue
+    jq -e '.hooks.PostToolUse[]? | select((.matcher? // "") | test("Bash")) | .hooks[]?
+             | select(.command | contains("protected-integrity.sh"))' "$hj" &>/dev/null && return 0
+  done
+  return 1
+}
 
-    # 슬롯 수와 순서를 강제한다: 스크립트 정확히 1개, 파일 정확히 1개, 스크립트가 파일보다 앞.
-    if [ "$_ok" -eq 1 ] && [ "$_nscript" -eq 1 ] && [ "$_nfile" -eq 1 ] && [ "$_script_at" -lt "$_file_at" ]; then
-      _body="${_script#\'}"; _body="${_body%\'}"
-      # 스크립트 문법 — 출력 전용이 확실한 세 형태. 공백을 포함할 수 없다(아래 클래스에 없음).
-      #   -n 필요: 주소+p (1,20p · 5p · $p) · /re/p
-      #   -n 불필요: s/x/y/<플래그>  — 플래그 집합에 w(파일 쓰기)와 e(셸 실행)는 없다
-      if { [ "$_quiet" -eq 1 ] && printf '%s' "$_body" | grep -qE '^[0-9,$]+p$'; } \
-         || { [ "$_quiet" -eq 1 ] && printf '%s' "$_body" | grep -qE '^/[^/]*/p$'; } \
-         || printf '%s' "$_body" | grep -qE '^s/[^/]*/[^/]*/[gpIi0-9]*$' ; then
-        SAFE_READ=1
-      fi
-    fi
-  fi
+DATA_PLANE_DETECTED=1
+integrity_wired && DATA_PLANE_DETECTED=0
 
-  # === awk는 화이트리스트에 넣지 않는다 (사용자 결정, 7차) ===
-  #
-  # sed와 awk는 겉보기에 대칭이지만 정적 판정 가능성이 다르다. sed는 앵커가 **인용 스크립트
-  # 슬롯의** 문법을 좁게 묶는다 — 주소+`p`, `/re/p`, `s/x/y/<검증된 플래그>` 세 형태뿐이라
-  # 그 슬롯에 올 수 있는 것이 사실상 열거돼 있다. (8차 판정 정정: 이 보증은 **인용 스크립트
-  # 슬롯에만** 참이다. `-e` 라는 두 번째 스크립트 슬롯은 그 제약 밖에 있었고 실제로 그리로
-  # 뚫렸다 — 그래서 위에서 `-e` 를 SED_SAFEOPT에서 빼고 끝 슬롯의 하이픈을 배제했다.)
-  # 반면 awk의 프로그램 자리는 **완전한 프로그래밍
-  # 언어**이고, 앵커는 그것이 인용돼 있다는 것 외에 아무것도 제약하지 못한다.
-  #
-  # 실제로 이 슬롯은 판정 회전마다 새로운 방식으로 뚫렸다 — `-f`(프로그램을 파일에서 읽기),
-  # `-v`(변수 경유 리다이렉트), `print >`, `system()`, gawk `@include`, 중괄호 확장으로 만든
-  # `-f`, 그리고 `"cmd" | getline`(셸 실행). 일곱 가지가 전부 다른 메커니즘이다.
-  # 부정 조건을 더할 때마다 다음 회전에 새 축이 나왔고, 그 축들은 열거로 수렴하지 않았다.
-  #
-  # 그래서 awk 읽기는 ask로 남긴다. 잃는 것은 마찰 해소의 일부이고 얻는 것은 이 슬롯이
-  # 만들어 온 실패 클래스 전체의 제거다. awk로 보호 파일을 읽어야 하면 `grep`·`cat`·`head`·
-  # `jq`(전부 auto-allow)를 쓰면 된다 — 대체 수단이 있다는 점이 이 절충을 값싸게 만든다.
-fi
 
 if echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then
   for p in "${ASK_PATTERNS[@]}"; do
@@ -353,7 +298,18 @@ if echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; t
       # feature_list arm은 면제하지 않는다(6차 판정 병행 권고). INV-11의 Bash 우회 게이트이므로
       # 여기까지 면제하면 SC-3의 손실 상한 서술이 코드로 거짓이 된다. feature_list.json을
       # sed로 읽는 것은 ask로 남지만 — 그것이 이 게이트가 지키는 값어치에 비해 싼 마찰이다.
-      if [ "$SAFE_READ" -eq 1 ] && [[ "$p" == *"$EDITOR_NAME_ARM"* && "$p" != *feature_list* ]]; then
+      # 탐지·복구가 배선돼 있으면 **에디터 이름 arm만** 건너뛴다.
+      # 판정은 패턴 문자열의 부분일치로 한다 — 패턴은 정규식이므로 정규식으로 다시 매칭하면
+      # 백슬래시 때문에 빗나간다(첫 구현에서 실제로 그렇게 무력화됐다).
+      # 컨트롤 플레인을 덮는 arm은 제외한다: hooks/hooks.json 과 settings*.json 은 이 훅의
+      # 배선 자체를 끌 수 있어 사후 복구가 성립하지 않는다.
+      # 건너뛰는 것은 **읽기에도 쓰는 도구 arm 하나뿐**이다. 판정은 패턴 문자열의 부분일치로
+      # 한다 — 패턴 자체가 정규식이므로 정규식으로 다시 매칭하면 백슬래시 때문에 빗나간다.
+      # READ_CAPABLE_ARM 이 그 arm에만 있고 컨트롤 플레인 arm에는 없으므로, 이 조건은
+      # 데이터 플레인 읽기만 통과시킨다.
+      if [ "$DATA_PLANE_DETECTED" -eq 0 ] \
+         && [[ "$p" == *"$READ_CAPABLE_ARM"* ]] \
+         && [[ "$p" != *'hooks\.json'* && "$p" != *'settings'* && "$p" != *'-i'* ]]; then
         continue
       fi
       log_decision ask

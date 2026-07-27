@@ -89,7 +89,9 @@ Layer 4는 **default-allow**(위험 정의에 걸리지 않은 명령은 통과)
 **allow만** 켜고 끈다 — deny/ask는 이 값과 무관하게 항상 실행된다.
 **왜 불변**: allow를 deny/ask보다 앞에 두거나 토글로 가드를 끄면 안전 회귀다. deny/ask 목록은
 add-only(INV-5)이며 여기엔 **하네스 자기보호**(검증 파일·비밀키에 대한 Bash 쓰기를 ask로 게이트 —
-invariant-guard의 Edit|Write 후킹을 우회하는 경로 차단)가 포함된다. default-allow 확장·위험정의
+invariant-guard의 Edit|Write 후킹을 우회하는 경로 차단)가 포함된다.
+**단 자기보호의 수단은 F65에서 갈렸다** — 되돌릴 수 없는 것만 예측으로 막고, 되돌릴 수 있는
+검증 파일 변경은 사후 탐지·복구가 담당한다(INV-14). default-allow 확장·위험정의
 완화는 사람이 검토(critical 티어)하고, 위험 명령이 allow로 새지 않음은 `tests/pre-bash-firewall.bats`의
 회귀 배터리(rm·sudo·terraform destroy·kubectl delete·git reset --hard 등이 output에
 `permissionDecision:"allow"` 미포함, 하네스 검증파일 쓰기는 `ask`)가 고정한다. → [ADR-004](DECISIONS/ADR-004-firewall-auto-allow.md)
@@ -354,3 +356,33 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
   모든 보호 파일에 해당하는 **클래스**). 기존에 내용이 있던 보호/배선 파일(`is_protected || is_wiring_file`
   + `-s`)의 빈 Write는 truncation으로 차단한다 — 신규·이미 빈 파일은 파괴할 게 없어 통과. '실증된 인스턴스가
   아니라 클래스를 닫는다'는 F52 교훈의 적용. sprint-40 F54 follow-up)
+
+### INV-14. 검증 장치는 예측이 아니라 탐지·복구로 지킨다 (F65)
+
+`hooks/*.sh`·`tests/*.bats`·`harness-config.json`·`INVARIANTS.md`·`feature_list.json`(**데이터 플레인**)의
+내용은 **HEAD와 같거나, 그 변경이 invariant-guard 심사를 거친 것**이어야 한다. Bash 경로로 생긴
+그 밖의 변경은 `hooks/protected-integrity.sh`(PostToolUse:Bash)가 탐지해 HEAD 내용으로 되돌리고
+보고한다.
+
+**왜 바꿨나**: 이전 모델은 "이 Bash 명령이 보호 파일을 쓸 것인가"를 명령 문자열로 예측해 ask로
+막았다. 그 질문은 결정 불가능하다 — 셸도, 셸이 부르는 sed·awk·perl·python도 튜링 완전하므로
+실행하지 않고 효과를 알 수 없다. F63이 10회전 동안 그 방향을 시도했고 매 회전 새 우회 표기가
+나왔다(붙여쓴 optarg · 중괄호 확장 · 명령 치환 · 프로세스 치환 · 인용 제거 미수행 · 이름 변형 ·
+경로 표기). 예측이 불가능하니 알려진 형태를 나열할 수밖에 없었고, 그 나열이 곧 커버리지 상한이
+되는 동시에 **읽기까지 잡아** 사용자가 보고한 반복 승인 프롬프트를 만들었다.
+반면 "파일이 바뀌었는가"는 사후에 자명하게 결정되며 도구·표기와 무관하다 — 한 번도 본 적 없는
+방법이라도 잡힌다.
+
+**경계 — 예측이 계속 유일한 수단인 것**:
+- **컨트롤 플레인**(`hooks/hooks.json`·`.claude/settings*.json`): 이 둘을 바꾸면 탐지 훅의 배선 자체를
+  끌 수 있고, settings.json은 gitignore 대상이라 HEAD 복구도 불가능하다.
+- **되돌릴 수 없는 것**(Layer 1·2의 파괴적 명령, 시크릿 외부 유출): 사후 복구가 성립하지 않는다.
+
+**정직한 약화**: 데이터 플레인의 보장이 "Bash로 쓸 수 없다"에서 "Bash로 **지속적으로** 쓸 수 없다"로
+바뀐다. 한 Bash 호출 안에서 변조와 소비가 함께 일어나면 복구는 그 뒤다. 하네스에서 임계값·훅을
+소비하는 것은 다음 도구 호출이므로 실무 노출은 낮지만, 없는 위험이 아니다. 이 교환으로 얻는 것은
+메커니즘 전수 커버리지와 마찰 제거다.
+
+**배선이 없으면 예측이 되살아난다**: 방화벽은 탐지 훅의 배선을 확인해 데이터 플레인 게이트를 끄고,
+확인에 실패하면 켜진 상태로 남긴다(fail-safe). `tests/protected-integrity.bats`가 이 성질과
+두 설치 경로(hooks.json·settings.json)의 배선 대칭(INV-13)을 함께 고정한다.

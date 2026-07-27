@@ -58,6 +58,16 @@
             "timeout": 30
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/protected-integrity.sh\"",
+            "timeout": 15
+          }
+        ]
       }
     ],
     "Stop": [

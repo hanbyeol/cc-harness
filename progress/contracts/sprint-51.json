@@ -1,0 +1,168 @@
+{
+  "sprint": 51,
+  "title": "검증 장치 보호를 예측에서 탐지·복구로 전환",
+  "feature_id": "F65",
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "_tier_note": "자기보호 모델의 교체이므로 critical. 다만 검증 비용 자체가 F63 실패의 일부였다 — 판정은 1회로 하고, 근거는 실행 증거(탐지·복구 실측 14/14, bats, behavioral)로 갖춘다.",
+  "dependencies": [
+    "F32",
+    "F35",
+    "F52",
+    "F63"
+  ],
+  "problem": "[2026-07-28] 방화벽이 '이 Bash 명령이 보호 파일을 쓸 것인가'를 명령 문자열로 **예측**해 ask로 막고 있었다. 그 질문은 결정 불가능하다 — 셸도, 셸이 부르는 sed·awk·perl·python도 튜링 완전하므로 실행하지 않고 효과를 알 수 없다. F63이 10회전 동안 그 방향을 시도했고 매 회전 새 우회 표기가 나왔다(붙여쓴 optarg·중괄호 확장·명령 치환·프로세스 치환·인용 제거 미수행·이름 변형·경로 표기). 예측이 불가능하니 알려진 형태를 나열할 수밖에 없었고, 그 나열이 곧 커버리지 상한이 되는 동시에 **읽기까지 잡아** 사용자가 보고한 반복 승인 프롬프트를 만들었다(ASK 패턴 39개 중 21개가 경로 기반). 반면 '파일이 바뀌었는가'는 사후에 자명하게 결정되며 도구·표기와 무관하다. **해결**: 보호 대상을 두 평면으로 가른다. 컨트롤 플레인(hooks.json·settings*.json — 탐지 훅의 배선 자체를 끌 수 있고 gitignore라 복구 불가)과 되돌릴 수 없는 것(Layer 1·2·egress)은 예측을 유지하고, 데이터 플레인(hooks/*.sh·tests/*.bats·harness-config.json·INVARIANTS.md·feature_list.json — 전부 git 추적)은 PostToolUse에서 탐지·복구한다. 기준은 '명령 전후'가 아니라 **HEAD** — 그래야 git checkout 같은 정상 워크플로우가 오탐되지 않는다.",
+  "_supersedes": {
+    "F63": "읽기 화이트리스트 접근을 폐기한다. 10회전 판정이 전부 fail이었고 점수가 5→2로 하락했다 — 구현 품질이 아니라 질문이 틀렸다. F63의 쓰기 강화분(gsed·gawk·mawk·sponge 이름 변형, 인용 세미콜론 정규화)은 유지한다.",
+    "F64": "경로 표기 우회(부분 인용·백슬래시·`//`·`/./`)는 F65가 함께 닫는다 — 표기가 무엇이든 파일이 바뀌면 탐지되기 때문이다. F64는 예측 계층을 고치려던 계획이었으므로 불필요해진다."
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "데이터 플레인 파일이 Bash 경로로 바뀌면 HEAD 내용으로 복구되고 그 사실이 보고된다. **도구·표기와 무관해야 한다.**",
+      "verification": "격리 랩에서 서로 다른 메커니즘으로 훼손 후 복구 확인 — 리다이렉트·cp·python(경로 노출/미노출)·perl -i·awk 리다이렉트, 그리고 방화벽이 allow 하는 표기(부분 인용·백슬래시·`//`·`/./`)"
+    },
+    {
+      "id": "AC-2",
+      "criterion": "정상 워크플로우를 오탐하지 않는다.",
+      "verification": "(a) invariant-guard 심사를 거친 편집은 보존 (b) `git checkout <브랜치>`로 HEAD가 함께 움직이면 무동작"
+    },
+    {
+      "id": "AC-3",
+      "criterion": "예측 계층에서 **읽기 마찰이 사라진다.** 데이터 플레인에 대한 sed·awk·gsed 읽기가 allow.",
+      "verification": "`sed -n '1,20p' hooks/lib.sh`·`awk 'NR<10' tests/probes.bats`·`gsed -n '1,5p' hooks/lib.sh`·`awk -F: '{print}' <config>` 가 allow"
+    },
+    {
+      "id": "AC-4",
+      "criterion": "컨트롤 플레인과 되돌릴 수 없는 계층은 그대로 예측으로 막는다.",
+      "verification": "`vim hooks/hooks.json`·`sed -i <settings>`·`mv ~/.ssh/id_rsa`·egress·Layer 1 deny 가 종전과 동일"
+    },
+    {
+      "id": "AC-5",
+      "criterion": "편집 전용 도구는 데이터 플레인에서도 계속 물어본다 — 읽기 용도가 아니므로 마찰이 아니다.",
+      "verification": "`vim -es -c wq <config>`·`patch hooks/lib.sh`·`dd of=hooks/lib.sh` 가 ask"
+    },
+    {
+      "id": "AC-6",
+      "criterion": "배선이 없으면 예측이 되살아난다(fail-safe).",
+      "verification": "방화벽이 탐지 훅 배선을 확인하고, 실패 시 게이트를 켠 상태로 남기는지 코드·테스트로 확인"
+    },
+    {
+      "id": "AC-7",
+      "criterion": "두 설치 경로에 대칭 배선(INV-13).",
+      "verification": "hooks/hooks.json 과 settings.json 양쪽에 PostToolUse:Bash 배선 + hook-wiring-parity 통과"
+    },
+    {
+      "id": "AC-8",
+      "criterion": "폐기 대상을 실제로 제거한다.",
+      "verification": "scripts/verify-firewall-rw.sh(321줄 열거 배터리) 삭제 + CI 배선 제거 + F63 전제 테스트를 F65 모델로 교체(@test 수 비감소)"
+    },
+    {
+      "id": "AC-9",
+      "criterion": "회귀 없음.",
+      "verification": "bats 전체 1회 + behavioral 후보 0건 + BLOCKED·INDIRECT_PATTERNS main과 바이트 동일"
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "게이트·임계값·deny 목록이 불변이다.",
+      "verification": "BLOCKED·INDIRECT_PATTERNS 배열 main과 바이트 동일 + ASK_PATTERNS add-only(39→42) + harness-config.json diff 없음"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "면제 범위가 **읽기에도 쓰는 도구 arm 하나**로 한정된다.",
+      "rationale": "F63 4차의 실패는 면제가 ASK 배열 전체를 건너뛴 것이었다. 면제 범위가 곧 손실 상한이다.",
+      "verification": "면제 조건이 READ_CAPABLE_ARM 부분일치이며 컨트롤 플레인·in-place·시크릿 arm을 제외함을 코드와 테스트로 확인"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "약화를 정직하게 문서화한다 — 보장이 'Bash로 쓸 수 없다'에서 'Bash로 지속적으로 쓸 수 없다'로 바뀐다.",
+      "verification": "INVARIANTS.md INV-14에 한 Bash 호출 내 변조·소비 창을 명시"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "탐지 훅이 정상 편집을 되돌린다",
+      "expected": "invariant-guard 원장(.guarded-edits)으로 심사 통과분을 식별 — AC-2가 고정"
+    },
+    {
+      "id": "ES-2",
+      "scenario": "탐지 훅 자체가 훼손된다",
+      "expected": "hooks/*.sh 는 데이터 플레인이므로 다음 Bash 호출에서 복구된다. 배선(hooks.json)은 컨트롤 플레인이라 예측이 막는다"
+    },
+    {
+      "id": "ES-3",
+      "scenario": "git 저장소가 아닌 프로젝트",
+      "expected": "훅이 조용히 종료(exit 0)하고 방화벽 게이트는 배선 확인과 무관하게 유지 — 보호가 사라지지 않는다"
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": "1. hooks/protected-integrity.sh 신설 (HEAD 기준 탐지·복구)",
+      "verify": "격리 랩 14케이스",
+      "done": true,
+      "covers": [
+        "AC-1",
+        "AC-2"
+      ]
+    },
+    {
+      "step": "2. invariant-guard에 심사 통과 원장 기록",
+      "verify": "정상 편집 보존",
+      "done": true,
+      "covers": [
+        "AC-2"
+      ]
+    },
+    {
+      "step": "3. hooks.json·settings.json 대칭 배선",
+      "verify": "hook-wiring-parity",
+      "done": true,
+      "covers": [
+        "AC-7"
+      ]
+    },
+    {
+      "step": "4. 방화벽: 에디터 arm을 도구 성격으로 분리 + 데이터 플레인 게이트",
+      "verify": "양방향 판정",
+      "done": true,
+      "covers": [
+        "AC-3",
+        "AC-4",
+        "AC-5",
+        "AC-6",
+        "SC-2"
+      ]
+    },
+    {
+      "step": "5. in-place 패턴을 결합 단축옵션까지 확장",
+      "verify": "behavioral 후보 0건",
+      "done": true,
+      "covers": [
+        "AC-4"
+      ]
+    },
+    {
+      "step": "6. 폐기: 열거 배터리 삭제 + F63 전제 테스트 교체",
+      "verify": "bats 비감소",
+      "done": true,
+      "covers": [
+        "AC-8"
+      ]
+    },
+    {
+      "step": "7. INV-14 명문화 + 회귀",
+      "verify": "bats + behavioral + deny 무변경",
+      "done": true,
+      "covers": [
+        "AC-9",
+        "SC-3"
+      ]
+    }
+  ],
+  "_parallelizable": false,
+  "agreed": true,
+  "_agreed_note": "**승인됨 — 2026-07-28 사용자 지시.** '기존에 작성했던 무의미하고 정상적으로 작동하지 않는 코드와 테스트케이스를 제거하고 올바른 방향을 설계하고 진행해.' 근본원인 분석(예측 불가능성)과 해결 방향(탐지·복구 전환)을 제시한 뒤 받은 명시적 진행 지시를 Plan 게이트 승인으로 기록한다."
+}

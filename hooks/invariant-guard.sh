@@ -145,6 +145,21 @@ fi
 
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || echo "")
 [[ -z "$FILE" ]] && exit 0
+
+# === 가드를 통과한 편집을 원장에 남긴다 (F65) ===
+# protected-integrity.sh(PostToolUse:Bash)는 "보호 파일이 HEAD와 다른데 가드를 거치지 않았으면
+# 복구"한다. 그 판단에는 '어떤 변경이 심사를 통과했는가'가 필요하므로 여기서 기록한다.
+# deny()는 exit 2로 끝나므로 기록되지 않는다 — 통과한 편집만 원장에 오른다.
+record_guarded_edit() {
+  local rc=$? root rel
+  [[ $rc -ne 0 ]] && return 0
+  root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
+  [[ -z "$root" || ! -d "$root/progress" ]] && return 0
+  rel="${FILE#"$root"/}"
+  grep -Fxq "$rel" "$root/progress/.guarded-edits" 2>/dev/null && return 0
+  printf '%s\n' "$rel" >> "$root/progress/.guarded-edits" 2>/dev/null || true
+}
+trap record_guarded_edit EXIT
 # 신규 생성은 대개 약화가 아니므로 통과 — 단, feature_list.json은 예외.
 # delete-then-recreate로 passes:true를 주입하면 primary 가드(INV-11)를 우회할 수 있으므로
 # 파일이 없어도 feature_list.json은 아래 브랜치로 내려보내 passes:true 근거를 검증한다 (F-2).
