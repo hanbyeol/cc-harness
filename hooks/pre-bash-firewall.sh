@@ -259,42 +259,68 @@ SAFE_READ=0
 # 판단 근거를 적어 두는 이유: 이 집합에 문자를 더할 때마다 같은 수준의 논증을 요구하기 위해서다.
 UNQUOTED_PART=$(printf '%s' "$RAW_CMD" | sed "s/'[^']*'//g")
 if printf '%s' "$UNQUOTED_PART" | grep -qE '^[A-Za-z0-9_.:/ -]*$'; then
-  # sed: 출력 전용이 확실한 세 형태만 긍정 열거한다.
-  #   sed -n '1,20p' <file>  ·  sed -n 5p <file>  ·  sed -n '/re/p' <file>  ·  sed 's/a/b/' <file>
-  # w를 부정 조건으로 쓰지 않는다 — `\bw` 는 /word/의 w를 잡고(과탐) `1w file`은 놓친다
-  # (보호 상실). 양방향으로 틀리는 부정 조건 대신 형태 전체를 앵커로 고정한다: 치환 형태의
-  # 플래그 문자 집합에 w가 없으므로 `s/x/y/w <file>` 은 일치하지 않고, 끝의 `$` 때문에
-  # `sed 's/a/b/' <file> -i` 처럼 **토큰이 하나 더 붙는** 순열도 일치하지 않는다.
-  # (끝 앵커가 보장하는 것은 '토큰이 더 없다'까지다 — 그 하나가 파일이라는 보장은
-  #  아래 SED_FILE의 하이픈 배제가 별도로 만든다. 8차 판정이 이 두 가지를 혼동한 서술을 지적했다.)
-  # 여기 없는 읽기 형태(예: `sed -n '$=' <file>`)는 ask로 남는다 — 마찰이지 보호 상실이
-  # 아니며, 그것이 이 방향을 택한 이유다.
-  # 치환 플래그 집합에서 **e를 뺐다** — GNU sed의 s///e는 패턴 공간을 셸로 실행한다.
-  # 3차 판정이 실증: `sed 's/.*/rm -rf ~/e' <보호경로>` 는 DENY 패턴이 문자열 안의
-  # payload를 보지 못해 화이트리스트를 타고 allow가 됐다. 읽기 형태 하나를 잘못 넣으면
-  # ask→allow 한 단계가 아니라 임의 명령 실행이 된다.
-  # 8차 판정 — **끝 슬롯을 "파일"이라고 부르면서 옵션을 배제하지 않고 있었다.**
-  # `[^ ']+` 는 하이픈으로 시작하는 토큰을 막지 않으므로, 붙여쓴 optarg `-e<script>` 가
-  # 파일 자리에 그대로 들어간다. `-e` 는 **두 번째 스크립트 슬롯**이고 인용 스크립트 슬롯에
-  # 걸린 제약이 하나도 걸리지 않는다. 게다가 SED_SAFEOPT의 `-[Eersz]+` 가 하필 `-e` 를
-  # '안전 옵션'으로 분류해, 인용 스크립트를 `-e` 로 공급하고 끝 슬롯을 통째로 내줄 수 있었다.
-  #   sed -e 's/a/b/' -ew<보호경로>   → main=ask, HEAD=allow, 대상 파일이 0바이트로 절단
-  # 입력 파일이 없어 stdin이 비어도 잘린다 — sed가 `w` 대상을 **스크립트 컴파일 시점**에
-  # 열어 truncate하기 때문이다.
+  # === sed 읽기 판정 — **토큰 단위** ===
   #
-  # 선행 가드는 이 축을 원리적으로 볼 수 없다. `-ew<경로>` 의 문자는 전부 긍정 집합 안에 있고,
-  # 문제는 셸 전개가 아니라 **sed 자신의 인자 파싱**이다. 그래서 두 곳을 고친다:
-  #   (1) 끝 슬롯을 하이픈 비시작 토큰으로 한정한다 — 이름을 '파일'이라 부르면 실제로 파일만 받게 한다.
-  #   (2) SED_SAFEOPT에서 `-e` 를 뺀다(스크립트 슬롯이지 안전 옵션이 아니다). `-E`·`-r`·`-s`·`-z` 만 남긴다.
-  # GNU sed는 인자를 permute하므로 `sed -n '1p' -ew<경로>` 같은 평문 형태도 같은 축이다.
-  SED_QUIET='(-n|--quiet|--silent)'
-  SED_SAFEOPT='(--posix|--regexp-extended|-[Ersz]+)'
-  SED_FILE="[^-' ][^ ']*"
-  if echo "$RAW_CMD" | grep -qE "^ *sed +($SED_SAFEOPT +)*$SED_QUIET +($SED_SAFEOPT +)*'?[0-9,\$]+p'? +$SED_FILE$" \
-     || echo "$RAW_CMD" | grep -qE "^ *sed +($SED_SAFEOPT +)*$SED_QUIET +($SED_SAFEOPT +)*'?/[^/']*/p'? +$SED_FILE$" \
-     || echo "$RAW_CMD" | grep -qE "^ *sed +($SED_SAFEOPT +)*'?s/[^/']*/[^/']*/[gpIi0-9]*'? +$SED_FILE$" ; then
-    SAFE_READ=1
+  # 정규식으로 명령 문자열 전체를 훑는 방식을 버린다. 8차와 9차가 같은 축의 **인접 슬롯**을
+  # 각각 뚫었기 때문이다: 8차는 끝(파일) 슬롯에 붙여쓴 optarg `-ew<경로>`, 9차는 스크립트
+  # 슬롯 — `'?` 가 인용을 선택으로 두고 스크립트 클래스가 공백을 배제하지 않아, 인용 없는
+  # 스크립트가 셸에서 여러 단어로 쪼개지고 GNU sed가 그 여분을 옵션으로 파싱했다.
+  #   sed -n /a -ewharness-config.json /p README.md   → 대상 파일 덮어씀
+  #   sed -n /a -f prog.sed /p hooks/lib.sh           → 임의 sed 프로그램 = 임의 명령 실행
+  # 슬롯을 하나씩 막는 방식은 수렴하지 않는다. 정규식이 문자열 전체를 훑으면 **슬롯 경계가
+  # 흐려지고**, 한 슬롯을 좁혀도 옆 슬롯이 같은 역할을 대신 받는다.
+  #
+  # 그래서 **"한 슬롯 = 한 셸 인자"를 구조적으로 강제한다.** 선행 가드가 셸 전개를 전부
+  # 배제했으므로 단어 분리는 공백뿐이고 작은따옴표 구간만 원자적이다 — 즉 훅이 셸과 동일하게
+  # 토큰화할 수 있다. 토큰을 하나씩 분류하고, 분류되지 않는 토큰이 하나라도 있으면 거부한다.
+  # 이렇게 하면 새 옵션·새 붙여쓰기 형태가 나와도 '알려진 안전 옵션'이 아닌 이상 자동으로 막힌다.
+  tokenize_cmd() {
+    printf '%s' "$1" | awk '
+      { tok=""; inq=0
+        for (i=1;i<=length($0);i++) { c=substr($0,i,1)
+          if (c=="\047") { inq=!inq; tok=tok c; continue }
+          if (c==" " && !inq) { if (tok!="") { print tok; tok="" }; continue }
+          tok=tok c
+        }
+        if (tok!="") print tok }'
+  }
+
+  SED_TOKS=()
+  while IFS= read -r _t; do SED_TOKS+=("$_t"); done < <(tokenize_cmd "$RAW_CMD")
+
+  if [ "${#SED_TOKS[@]}" -ge 3 ] && [ "${SED_TOKS[0]}" = "sed" ]; then
+    _ok=1; _quiet=0; _nscript=0; _nfile=0; _script=""; _script_at=-1; _file_at=-1
+    _i=1
+    while [ "$_i" -lt "${#SED_TOKS[@]}" ]; do
+      _t="${SED_TOKS[$_i]}"
+      case "$_t" in
+        -n|--quiet|--silent)                      _quiet=1 ;;
+        --posix|--regexp-extended|-E|-r|-s|-z)    : ;;
+        # 그 밖의 하이픈 토큰은 전부 거부한다 — 붙여쓴 optarg(-ew…·-f…)와 미지의 옵션을
+        # 열거 없이 배제하는 자리다. 안전 옵션은 위에 **완전일치**로만 적는다.
+        -*)                                       _ok=0 ;;
+        # 인용된 스크립트 — 인용은 **필수**다(9차: `'?` 가 선택이면 인용 없는 스크립트가
+        # 셸에서 쪼개져 여분 단어가 옵션이 된다).
+        \'*\')                                    _nscript=$((_nscript+1)); _script="$_t"; _script_at=$_i ;;
+        *)                                        _nfile=$((_nfile+1)); _file_at=$_i ;;
+      esac
+      _i=$((_i+1))
+    done
+
+    # 슬롯 수와 순서를 강제한다: 스크립트 정확히 1개, 파일 정확히 1개, 스크립트가 파일보다 앞.
+    if [ "$_ok" -eq 1 ] && [ "$_nscript" -eq 1 ] && [ "$_nfile" -eq 1 ] && [ "$_script_at" -lt "$_file_at" ]; then
+      _body="${_script#\'}"; _body="${_body%\'}"
+      # 스크립트 문법 — 출력 전용이 확실한 세 형태. 공백을 포함할 수 없다(아래 클래스에 없음).
+      #   -n 필요: 주소+p (1,20p · 5p · $p) · /re/p
+      #   -n 불필요: s/x/y/<플래그>  — 플래그 집합에 w(파일 쓰기)와 e(셸 실행)는 없다
+      if { [ "$_quiet" -eq 1 ] && printf '%s' "$_body" | grep -qE '^[0-9,$]+p$'; } \
+         || { [ "$_quiet" -eq 1 ] && printf '%s' "$_body" | grep -qE '^/[^/]*/p$'; } \
+         || printf '%s' "$_body" | grep -qE '^s/[^/]*/[^/]*/[gpIi0-9]*$' ; then
+        SAFE_READ=1
+      fi
+    fi
   fi
+
   # === awk는 화이트리스트에 넣지 않는다 (사용자 결정, 7차) ===
   #
   # sed와 awk는 겉보기에 대칭이지만 정적 판정 가능성이 다르다. sed는 앵커가 **인용 스크립트

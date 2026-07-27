@@ -38,7 +38,7 @@ TARGETS=(
 # awk 읽기는 아래 KNOWN_FRICTION에서 ask임을 확인한다.
 READS=(
   "sed -n '1,20p' %s"
-  "sed -n 5p %s"
+  "sed -n '5p' %s"
   "sed -n '/word/p' %s"
   "sed 's/a/b/' %s"
   "grep -c x %s"
@@ -146,6 +146,12 @@ WRITES=(
   "sed -n '/re/p' -ew%s"
   "sed -e 's/a/b/' -e w%s"
   "sed --posix -n 1p -ew%s"
+  # 9차 판정 — 인용 없는 스크립트가 셸에서 쪼개지고 여분 단어를 GNU sed가 옵션으로 파싱한다.
+  # 8차 페이로드를 파일 슬롯 대신 스크립트 슬롯에 넣은 것뿐이다.
+  "sed -n /a -ew%s /p README.md"
+  "sed s/a/b -ew%s / README.md"
+  "sed -n /a -f prog.sed /p %s"
+  "sed -n /a -ew%s /p"
 )
 
 # 읽기지만 화이트리스트가 커버하지 않아 ask로 남는 형태 — 마찰이며 보호 상실이 아니다.
@@ -154,6 +160,9 @@ KNOWN_FRICTION=(
   "gsed -n '1,5p' %s"
   "sed -n '\$=' %s"
   "sed -n 1,20p %s"
+  "sed -n 5p %s"
+  "sed s/a/b/gI %s"
+  "sed -n /re/p %s"
   # awk는 화이트리스트에서 제외했다(7차, 사용자 결정) — 읽기도 ask다.
   # 여기서 확인하는 것은 "마찰이 있다"가 아니라 **"제외 결정이 유지되고 있다"**이다.
   "awk 'NR<10' %s"

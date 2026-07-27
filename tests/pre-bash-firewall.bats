@@ -811,9 +811,27 @@ run_firewall() {
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
   run run_firewall '{"tool_input":{"command":"sed s/a/b/ge progress/harness-config.json"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
-  # 안전한 치환 플래그는 그대로 읽기다
-  run run_firewall '{"tool_input":{"command":"sed s/a/b/gI hooks/lib.sh"}}'
+  # 안전한 치환 플래그는 그대로 읽기다 — 단 **인용은 필수**다(9차 판정)
+  run run_firewall '{"tool_input":{"command":"sed '"'"'s/a/b/gI'"'"' hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
+  # 인용하지 않은 스크립트는 ask — 셸에서 여러 단어로 쪼개지면 그 여분을 sed가 옵션으로 파싱한다
+  run run_firewall '{"tool_input":{"command":"sed s/a/b/gI hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "F63: one slot is one shell argument (token-level judgment)" {
+  # 9차 판정: 8차가 파일 슬롯을, 9차가 스크립트 슬롯을 뚫었다 — 같은 축의 인접 슬롯이다.
+  # 정규식이 문자열 전체를 훑으면 슬롯 경계가 흐려지므로 토큰 단위로 분류하고,
+  # 분류되지 않는 토큰이 하나라도 있으면 거부한다.
+  run run_firewall '{"tool_input":{"command":"sed -n /a -ewprogress/harness-config.json /p README.md"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"sed s/a/b -ewprogress/harness-config.json / README.md"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"sed -n /a -f prog.sed /p hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  # 슬롯 수가 맞지 않아도 거부한다 — 파일 둘, 스크립트 없음 등
+  run run_firewall '{"tool_input":{"command":"sed -n '"'"'1p'"'"' hooks/lib.sh hooks/invariant-guard.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
 }
 
 @test "F63: a one-token rename does not evade the guard (gsed/gawk/mawk/sponge)" {
