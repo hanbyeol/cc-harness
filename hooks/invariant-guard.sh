@@ -151,13 +151,25 @@ FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || ech
 # 복구"한다. 그 판단에는 '어떤 변경이 심사를 통과했는가'가 필요하므로 여기서 기록한다.
 # deny()는 exit 2로 끝나므로 기록되지 않는다 — 통과한 편집만 원장에 오른다.
 record_guarded_edit() {
-  local rc=$? root rel
+  local rc=$? root rel sha
   [[ $rc -ne 0 ]] && return 0
   root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
   [[ -z "$root" || ! -d "$root/progress" ]] && return 0
+  # 저장소 밖 경로는 티켓을 만들지 않는다 — 테스트가 임시 디렉터리에서 돌 때 실 저장소
+  # 티켓을 오염시키던 원인이다(실제로 209줄까지 쌓였고 그중 160줄이 보호 파일 경로였다).
+  [[ "$FILE" == "$root"/* ]] || return 0
   rel="${FILE#"$root"/}"
-  grep -Fxq "$rel" "$root/progress/.guarded-edits" 2>/dev/null && return 0
-  printf '%s\n' "$rel" >> "$root/progress/.guarded-edits" 2>/dev/null || true
+  # **내용 해시를 함께 적는다.** 경로만 적으면 정당한 편집 한 번이 그 경로를 영구 면제로
+  # 만든다. 해시를 붙이면 티켓은 '이 내용의 이 편집' 하나에만 유효하고, 소비되면 사라진다.
+  # 편집 직후의 파일 내용을 해시해야 하는데 이 훅은 PreToolUse이므로 아직 쓰이지 않았다 —
+  # 그래서 심사에 쓴 NEW_CONTENT(편집 후 예상 내용)를 해시한다. 실제 쓰인 내용이 다르면
+  # 티켓이 맞지 않아 복구되므로, 틀리는 방향이 안전하다.
+  # NEW_CONTENT가 없으면 심사 분기까지 가지 않은 것이다(비보호 파일·신규 생성). 티켓을
+  # 만들지 않는다 — 만들면 비보호 편집마다 무의미한 줄이 쌓여 티켓 파일이 다시 오염된다.
+  [[ -z "${NEW_CONTENT:-}" ]] && return 0
+  sha=$(printf '%s' "$NEW_CONTENT" | git hash-object --stdin 2>/dev/null || echo "")
+  [[ -z "$sha" ]] && return 0
+  printf '%s %s\n' "$sha" "$rel" >> "$root/progress/.guarded-edits" 2>/dev/null || true
 }
 trap record_guarded_edit EXIT
 # 신규 생성은 대개 약화가 아니므로 통과 — 단, feature_list.json은 예외.

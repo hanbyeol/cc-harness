@@ -26,3 +26,5 @@ progress/.firewall-stats
 progress/metrics-history.json
 progress/.guarded-edits
 progress/.integrity-restores
+progress/.integrity-baseline
+progress/.integrity-quarantine/

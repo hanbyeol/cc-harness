@@ -61,6 +61,12 @@
       "id": "AC-9",
       "criterion": "회귀 없음.",
       "verification": "bats 전체 1회 + behavioral 후보 0건 + BLOCKED·INDIRECT_PATTERNS main과 바이트 동일"
+    },
+    {
+      "id": "AC-10",
+      "criterion": "배선 확인이 **실효성**을 본다 — 배선 문자열뿐 아니라 훅 파일의 존재·비어있지 않음까지.",
+      "verification": "훅을 비우거나 배선을 제거하면 방화벽 게이트가 되살아나는지 실행 확인. 1차 판정 지적: 소스 문자열 grep만으로는 '훅이 파괴됐는데 배선됨을 반환'하는 상태를 못 잡는다.",
+      "_origin": "1차 판정 — 이 머신에서 설치 플러그인에 훅이 없는데도 워킹트리 방화벽이 allow를 내던 사례"
     }
   ],
   "security_criteria": [
@@ -79,6 +85,36 @@
       "id": "SC-3",
       "criterion": "약화를 정직하게 문서화한다 — 보장이 'Bash로 쓸 수 없다'에서 'Bash로 지속적으로 쓸 수 없다'로 바뀐다.",
       "verification": "INVARIANTS.md INV-14에 한 Bash 호출 내 변조·소비 창을 명시"
+    },
+    {
+      "id": "SC-4",
+      "criterion": "복구는 **절대 작업을 파괴하지 않는다.**",
+      "rationale": "1차 판정 실측: 무조건 `git checkout HEAD --` 가 `git stash pop` 으로 되살린 작업을 되돌렸고 stash는 이미 버려진 뒤라 비가역 손실이었다. merge·cherry-pick 충돌 마커도 조용히 HEAD로 대체됐다. 마찰을 없애려다 그보다 나쁜 해악을 만든 것이다.",
+      "verification": "(a) git 작업 진행 중(MERGE_HEAD·CHERRY_PICK_HEAD·REVERT_HEAD·rebase-*·BISECT_LOG)이면 복구하지 않고 보고만 한다. (b) 복구하는 경우 되돌릴 내용을 격리 보관하고 그 위치를 보고한다 — 어떤 경로로도 내용이 소실되지 않아야 한다."
+    },
+    {
+      "id": "SC-5",
+      "criterion": "티켓은 **내용에 묶이고 한 번만 쓰인다.**",
+      "rationale": "경로만 적는 원장은 정당한 편집 한 번이 그 경로를 영구 면제로 만들었고, 소비하지 않아 테스트 실행이 실 저장소 원장을 209줄까지 오염시켰다(그중 160줄이 보호 파일 경로).",
+      "verification": "티켓이 `<내용해시> <경로>` 형식이고 일치 시 소비(삭제)되는지 + 저장소 밖 경로는 티켓을 만들지 않는지"
+    },
+    {
+      "id": "SC-6",
+      "criterion": "**탐지기 자신과 그 판단 근거는 컨트롤 플레인이다.**",
+      "rationale": "분류 축이 '되돌릴 수 있는가' 하나면 부족하다 — `protected-integrity.sh` 는 파괴되면 자기를 복구할 수 없고, 티켓 파일은 복구 여부의 근거다. 축을 **'자기를 복구할 수 있는가'**까지 늘려야 한다.",
+      "verification": "protected-integrity.sh·progress/.guarded-edits 에 대한 모든 도구의 쓰기가 ask + 파괴 시 배선 확인이 거짓을 반환"
+    },
+    {
+      "id": "SC-7",
+      "criterion": "**git 메타 조작으로 탐지를 실명시킬 수 없다.**",
+      "rationale": "파일을 바꾸지 않고 추적에서 빼면 탐지가 대상을 잃는다. 도구 이름이 확정적이라 게이트해도 마찰이 없다.",
+      "verification": "`git update-index --assume-unchanged|--skip-worktree`·`git rm --cached` 가 ask + 훼손 후 커밋이 세션 기준선 대조로 보고되는지"
+    },
+    {
+      "id": "SC-8",
+      "criterion": "**PROTECTED_GLOBS ≡ invariant-guard의 is_protected()** — 두 집합이 같아야 한다.",
+      "rationale": "넓으면 편집 시 티켓이 발급되지 않는 파일이 복구 대상에 들어가 **정당한 편집이 되돌려진다**(실측: hooks/lib.sh 가 그랬다). 좁으면 그 경로는 예측도 탐지도 없이 남는다.",
+      "verification": "tests/protected-integrity.bats 가 두 목록을 대조 + hooks/lib.sh 편집이 보존되는지 실행 확인"
     }
   ],
   "error_scenarios": [
@@ -164,5 +200,14 @@
   ],
   "_parallelizable": false,
   "agreed": true,
-  "_agreed_note": "**승인됨 — 2026-07-28 사용자 지시.** '기존에 작성했던 무의미하고 정상적으로 작동하지 않는 코드와 테스트케이스를 제거하고 올바른 방향을 설계하고 진행해.' 근본원인 분석(예측 불가능성)과 해결 방향(탐지·복구 전환)을 제시한 뒤 받은 명시적 진행 지시를 Plan 게이트 승인으로 기록한다."
+  "_agreed_note": "**승인됨 — 2026-07-28 사용자 지시.** '기존에 작성했던 무의미하고 정상적으로 작동하지 않는 코드와 테스트케이스를 제거하고 올바른 방향을 설계하고 진행해.' 근본원인 분석(예측 불가능성)과 해결 방향(탐지·복구 전환)을 제시한 뒤 받은 명시적 진행 지시를 Plan 게이트 승인으로 기록한다.",
+  "_criteria_gap_1st_verdict": "1차 판정이 계약 자체의 결함을 짚었다: 기준이 '탐지가 쓰기를 잡는가'만 묻고 **'탐지를 어떻게 끄는가'를 묻지 않았다**. critical인데 SC 3개가 전부 '기존 보호가 안 줄었는가' 축이었고 새 메커니즘 자신의 위협 모델을 요구하는 기준이 없었다 — F63의 '질문이 틀렸다'와 같은 계열의 실수다. 아래 SC-4~SC-8이 그 공백을 메운다.",
+  "_verdict_1st": {
+    "verdict": "fail",
+    "score": 3,
+    "security": 3,
+    "file": "progress/agent-comms/evaluator-feedback-2026-07-28T09-27-48+0900.json",
+    "confirmed": "설계 방향은 독립 적대 검증을 통과했다 — 판정자가 스스로 고른 15개 메커니즘(ex·ed heredoc·install·tar·unzip·openssl·xxd·심볼릭링크·base64 은닉·git apply 등)으로 15/15 복구. 예측 계층도 온전(BLOCKED·INDIRECT 바이트 동일). 마찰도 실제로 해소.",
+    "rejected_for": "탐지를 끄는 6경로가 전부 무프롬프트(원장 위조·영구면제·커밋 기준선 이동·update-index·rm --cached·훅 파괴) + 복구가 정상 작업 파괴(stash pop 비가역 손실)."
+  }
 }

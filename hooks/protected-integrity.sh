@@ -1,88 +1,152 @@
 #!/usr/bin/env bash
 #
-# protected-integrity.sh — 하네스 검증 장치의 무결성을 **사후 탐지·복구**로 지킨다 (F65)
+# protected-integrity.sh — 검증 장치의 무결성을 사후 탐지·복구로 지킨다 (F65)
 #
-# ## 왜 이 방식인가
+# ## 왜 예측이 아니라 탐지인가
 #
-# 이전 설계는 Bash 명령 **문자열**을 보고 "이 명령이 보호 파일을 쓸 것인가"를 미리 판단했다.
-# 그 질문은 결정 불가능하다 — 셸도, 셸이 부르는 sed·awk·perl·python도 튜링 완전하므로
-# 실행하지 않고 효과를 아는 방법이 없다. 실제로 그 방향으로 10회전을 시도했고 매번
-# 새로운 우회 표기가 나왔다(붙여쓴 optarg · 중괄호 확장 · 명령 치환 · 프로세스 치환 ·
-# 인용 제거 미수행 · 이름 변형 · 경로 표기). 예측이 불가능하니 알려진 형태를 나열하는 수밖에
-# 없었고, 그것이 곧 커버리지 상한이 됐다.
+# 이전 모델은 Bash 명령 **문자열**로 "이 명령이 보호 파일을 쓸 것인가"를 미리 판단했다.
+# 그 질문은 결정 불가능하다 — 셸도, 셸이 부르는 도구도 튜링 완전하므로 실행하지 않고
+# 효과를 알 수 없다. F63이 10회전을 시도했고 매번 새 우회 표기가 나왔다.
+# 반면 "파일이 바뀌었는가"는 사후에 자명하며 도구·표기와 무관하다.
 #
-# 반면 **"파일이 바뀌었는가"는 사후에 자명하게 결정된다.** 해시 하나를 비교하면 끝이고,
-# 무슨 도구로 바꿨는지와 무관하다. 그래서 판정을 예측에서 탐지로 옮긴다.
+# ## 이 훅이 지키는 불변식
 #
-# ## 무엇을 비교하는가 — 명령 전후가 아니라 HEAD
+#   보호 파일의 내용은 HEAD와 같거나, 그 변경이 invariant-guard 심사를 거친 것이어야 한다.
 #
-# "명령 실행 전후 비교"로 하면 `git checkout <브랜치>` 처럼 워킹트리를 정당하게 바꾸는
-# 작업이 전부 오탐된다. 그래서 기준을 **HEAD**로 둔다. 지켜야 할 불변식은 이것이다:
+# ## 복구는 절대 작업을 파괴하지 않는다 (1차 판정 반영)
 #
-#   보호 파일의 내용은 HEAD와 같거나, 그 변경이 invariant-guard를 거친 것이어야 한다.
+# 첫 구현은 무조건 `git checkout HEAD --` 였고, 그것이 `git stash pop` 으로 되살린 작업을
+# 되돌렸다 — stash는 이미 버려진 뒤라 **비가역 손실**이었다. merge·cherry-pick 충돌 마커도
+# 조용히 HEAD로 대체됐다. 마찰을 없애려다 그보다 나쁜 해악을 만든 것이다. 그래서:
 #
-# - `git checkout <브랜치>` → HEAD가 함께 바뀌므로 차이 없음 → 무동작 (오탐 없음)
-# - `sed -i` 로 훅 변조    → HEAD와 다르고 가드 기록 없음 → 복구 + 보고
-# - Edit/Write 로 정당 수정 → invariant-guard가 심사 후 원장에 기록 → 허용
+#   (1) git 작업이 진행 중이면(merge·rebase·cherry-pick·revert·bisect) **복구하지 않고 보고만** 한다.
+#       그 상태에서는 워킹트리가 HEAD와 다른 것이 정상이므로 HEAD 비교 자체가 의미가 없다.
+#   (2) 복구 전에 현재 내용을 **격리 보관**한다. 되돌린 내용은 언제나 되찾을 수 있다.
 #
-# ## 무엇을 다루지 않는가 (정직한 경계)
+# ## 티켓 — 심사를 통과한 편집을 식별하는 방법
 #
-# - **컨트롤 플레인은 여기서 다루지 않는다.** hooks/hooks.json 과 .claude/settings*.json 은
-#   이 훅의 배선 자체를 끌 수 있으므로 예측 계층(pre-bash-firewall.sh)이 계속 막는다.
-#   settings.json 은 gitignore 대상이라 HEAD 기준 복구도 불가능하다.
-# - **되돌릴 수 없는 것은 여기 없다.** rm -rf / · mkfs · 시크릿 외부 유출은 사후 복구가
-#   불가능하므로 예측·차단이 유일한 수단이며 그대로 둔다(Layer 1·2·egress).
-# - **같은 Bash 호출 안에서의 소비는 막지 못한다.** `sed -i s/7/1/ <config> && <그 값을 읽는 명령>`
-#   처럼 한 명령 안에서 변조와 소비가 함께 일어나면 복구는 그 뒤다. 하네스에서 임계값·훅을
-#   소비하는 것은 다음 도구 호출이므로 실무 노출은 낮지만, 없는 위험이라고 적지 않는다.
+# invariant-guard가 편집을 허용할 때 `<sha> <경로>` 티켓을 남긴다. 이 훅은 파일의 현재
+# 내용 해시가 티켓과 일치할 때만 통과시키고 **그 티켓을 소비한다**(줄 삭제).
+#  - 경로만 적는 방식은 정당한 편집 한 번이 그 경로를 **영구 면제**로 만들었다.
+#  - 소비하지 않는 방식은 테스트 실행이 실 저장소 티켓을 오염시켰다(실제로 209줄까지 쌓였다).
+# 티켓 파일 자체는 이 훅이 복구할 수 없으므로 **컨트롤 플레인**이다(방화벽이 예측으로 막는다).
+# 셸을 쥔 상대에게 위조 불가능하지는 않다 — INV-14에 그 한계를 적었다.
 set -uo pipefail
 
 REPO="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 cd "$REPO" 2>/dev/null || exit 0
 command -v git &>/dev/null || exit 0
-git rev-parse --git-dir &>/dev/null || exit 0
+GITDIR=$(git rev-parse --git-dir 2>/dev/null) || exit 0
 
 # 데이터 플레인 — git 추적이라 HEAD로 복구 가능한 검증 장치.
-# 목록의 완전성은 tests/protected-integrity.bats 가 invariant-guard 의 is_protected() 와 대조한다.
+# tests/protected-integrity.bats 가 invariant-guard 의 is_protected() 와 집합 정합성을 검사한다.
+# protected-integrity.sh 자신과 티켓 파일은 여기 **없다** — 자기를 복구할 수 없으므로 컨트롤 플레인이다.
+# **invariant-guard의 is_protected()와 같은 집합이어야 한다.** 넓으면 편집 시 티켓이 발급되지
+# 않는 파일이 복구 대상에 들어가 정당한 편집이 되돌려지고(실측: hooks/lib.sh 가 그랬다),
+# 좁으면 그 경로는 예측도 탐지도 없이 남는다. tests/protected-integrity.bats 가 동등성을 검사한다.
+# pre-bash-firewall.sh·invariant-guard.sh 는 여기 없다 — 자기를 복구할 수 없으므로 컨트롤 플레인이다.
 PROTECTED_GLOBS=(
   'progress/harness-config.json'
   'progress/feature_list.json'
   'docs/INVARIANTS.md'
-  'hooks/*.sh'
   'tests/*.bats'
+  'progress/contracts/sprint-*.json'
+  'skills/change-request/*'
+  'skills/improve/*'
+  'skills/hotfix/*'
+  'agents/evaluator.md'
 )
 
-LEDGER="$REPO/progress/.guarded-edits"
+TICKETS="$REPO/progress/.guarded-edits"
+QUARANTINE="$REPO/progress/.integrity-quarantine"
 
-is_guarded() {
-  [[ -f "$LEDGER" ]] && grep -Fxq "$1" "$LEDGER"
+# git 작업 진행 중이면 워킹트리가 HEAD와 달라야 정상이다 — 복구하지 않는다.
+git_operation_in_progress() {
+  for m in MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD BISECT_LOG rebase-merge rebase-apply; do
+    [[ -e "$GITDIR/$m" ]] && return 0
+  done
+  return 1
 }
 
+file_sha() { git hash-object "$1" 2>/dev/null; }
+
+# 티켓 일치 시 **소비**(줄 삭제)하고 0을 반환한다.
+consume_ticket() {
+  local path="$1" sha line tmp
+  [[ -f "$TICKETS" ]] || return 1
+  sha=$(file_sha "$path") || return 1
+  [[ -n "$sha" ]] || return 1
+  line="$sha $path"
+  grep -Fxq "$line" "$TICKETS" || return 1
+  tmp=$(mktemp) || return 1
+  grep -Fxv "$line" "$TICKETS" > "$tmp" 2>/dev/null || true
+  mv "$tmp" "$TICKETS" 2>/dev/null || rm -f "$tmp"
+  return 0
+}
+
+# 세션 기준선 — HEAD 비교만으로는 **훼손 후 커밋**을 볼 수 없다(1차 판정 지적).
+# `printf evil > <파일>; git add -A; git commit` 을 한 명령으로 하면 HEAD가 훼손을 포함하므로
+# 워킹트리와 HEAD가 같아진다. 세션 첫 실행 때의 내용을 따로 적어 두면 그 변화가 드러난다.
+# 커밋된 변경은 **복구하지 않고 보고만** 한다 — 되돌리면 HEAD와 어긋난 더티 트리를 만들고,
+# 정당한 커밋(내가 Edit로 고친 뒤 커밋한 경우)까지 되돌리게 된다.
+BASELINE="$REPO/progress/.integrity-baseline"
+FILES=()
+while IFS= read -r f; do [[ -n "$f" ]] && FILES+=("$f"); done \
+  < <(for g in "${PROTECTED_GLOBS[@]}"; do git ls-files "$g" 2>/dev/null; done)
+
+if [[ ! -f "$BASELINE" ]]; then
+  for f in "${FILES[@]}"; do printf '%s %s\n' "$(file_sha "$f")" "$f"; done > "$BASELINE" 2>/dev/null || true
+fi
+
+CHANGED=(); COMMITTED=()
+for f in "${FILES[@]}"; do
+  if git diff --quiet HEAD -- "$f" 2>/dev/null; then
+    # HEAD와 같다 — 그래도 세션 시작 시점과 다르면 그 사이에 커밋된 것이다
+    base=$(grep -F " $f" "$BASELINE" 2>/dev/null | head -1 | cut -d' ' -f1)
+    [[ -n "$base" && "$base" != "$(file_sha "$f")" ]] && COMMITTED+=("$f")
+    continue
+  fi
+  consume_ticket "$f" && continue
+  CHANGED+=("$f")
+done
+
+if [[ ${#COMMITTED[@]} -gt 0 ]]; then
+  {
+    echo "cc-harness: 검증 장치가 세션 시작 이후 **커밋으로** 바뀌었습니다(복구하지 않음)."
+    for f in "${COMMITTED[@]}"; do echo "  - $f"; done
+    echo "  의도한 변경이 아니면 git log -p -- <경로> 로 확인하세요."
+  } >&2
+fi
+
+[[ ${#CHANGED[@]} -eq 0 ]] && exit 0
+
+if git_operation_in_progress; then
+  {
+    echo "cc-harness: git 작업 진행 중이라 보호 파일 변경을 **복구하지 않고 보고만** 합니다."
+    for f in "${CHANGED[@]}"; do echo "  - $f"; done
+    echo "  작업을 마친 뒤 의도치 않은 변경이면 git checkout HEAD -- <경로> 로 되돌리세요."
+  } >&2
+  exit 0
+fi
+
+STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+DEST="$QUARANTINE/$STAMP"
 RESTORED=()
-for glob in "${PROTECTED_GLOBS[@]}"; do
-  while IFS= read -r f; do
-    [[ -n "$f" ]] || continue
-    # HEAD와 동일하면 볼 것 없음 — git checkout 등으로 HEAD가 함께 움직인 경우 포함
-    git diff --quiet HEAD -- "$f" 2>/dev/null && continue
-    # invariant-guard 를 거친 편집이면 정당한 변경
-    is_guarded "$f" && continue
-    git checkout HEAD -- "$f" 2>/dev/null && RESTORED+=("$f")
-  done < <(git ls-files "$glob" 2>/dev/null)
+for f in "${CHANGED[@]}"; do
+  mkdir -p "$DEST/$(dirname "$f")" 2>/dev/null
+  cp "$f" "$DEST/$f" 2>/dev/null || true      # 되돌리기 전에 반드시 보관 — 손실 0
+  git checkout HEAD -- "$f" 2>/dev/null && RESTORED+=("$f")
 done
 
 [[ ${#RESTORED[@]} -eq 0 ]] && exit 0
 
-# 복구했으면 조용히 넘어가지 않는다 — 무엇이 왜 되돌려졌는지 알려야 다음 판단이 가능하다.
 {
   echo "cc-harness: 보호 파일이 Bash 경로로 변경되어 HEAD 내용으로 복구했습니다."
   for f in "${RESTORED[@]}"; do echo "  - $f"; done
+  echo "  되돌린 내용은 버리지 않고 보관했습니다: ${DEST#"$REPO"/}"
   echo "  하네스 검증 장치는 Edit/Write(invariant-guard 심사)로만 변경할 수 있습니다."
-  echo "  의도한 변경이라면 같은 편집을 Edit/Write 툴로 다시 수행하세요."
 } >&2
 
-# 기록 — /improve 의 프로브와 세션 핸드오프가 읽는다
-if [[ -d "$REPO/progress" ]]; then
-  printf '%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${RESTORED[*]}" \
-    >> "$REPO/progress/.integrity-restores" 2>/dev/null || true
-fi
+[[ -d "$REPO/progress" ]] && printf '%s\t%s\t%s\n' "$STAMP" "$DEST" "${RESTORED[*]}" \
+  >> "$REPO/progress/.integrity-restores" 2>/dev/null || true
 exit 0

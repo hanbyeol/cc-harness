@@ -207,6 +207,15 @@ ASK_PATTERNS=(
   '^ *(ed|ex|vi|vim|nano|emacs|dd|patch|sponge)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
   '>>? *[^ ]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
   '\b(cp|mv|install|rsync|ln|tee|sponge|truncate)\b[^;|&]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
+  # === 탐지기 자신을 지키는 arm (F65 1차 판정) ===
+  # 분류 축은 "되돌릴 수 있는가" 하나가 아니라 **"자기를 복구할 수 있는가"**까지다.
+  # protected-integrity.sh 는 파괴되면 자기를 복구할 수 없고, 티켓 파일은 복구 대상 판단의
+  # 근거이므로 둘 다 컨트롤 플레인이다. 어떤 도구로 건드리든 물어본다.
+  '[^;|&]*(protected-integrity\.sh|progress/\.guarded-edits)'
+  # git 메타 조작 — 파일을 바꾸지 않고 **탐지를 실명시킨다**. 도구 이름이 확정적이고
+  # 정상 개발에서 거의 쓰지 않으므로 게이트해도 마찰이 없다.
+  'git\b[^;|&]*update-index[^;|&]*(--assume-unchanged|--skip-worktree|--no-assume-unchanged)'
+  'git\b[^;|&]*\brm\b[^;|&]*--cached'
   # 컨트롤 플레인 전용 에디터 arm (F65). 위 데이터 플레인 arm은 탐지·복구가 배선되면
   # 건너뛰지만 이 줄은 절대 건너뛰지 않는다 — hooks.json·settings*.json 을 바꾸면 탐지 훅의
   # 배선 자체를 끌 수 있고, settings.json 은 gitignore라 HEAD 복구도 불가능하다.
@@ -271,13 +280,24 @@ ASK_PATTERNS=(
 # 그리고 이 arm이 막으려던 것(에디터로 보호 파일을 바꾸는 것)은 되돌릴 수 있는 변경이므로
 # 탐지·복구가 더 넓게 커버한다. 나머지 arm은 손대지 않는다 — 건너뛸 이유가 없다.
 
+# 배선 확인은 **실효성**을 본다 — 배선 문자열만 보면 훅이 파괴돼도(빈 파일·실행 불가)
+# "배선됨"을 반환해 예측을 끈 채로 탐지도 없는 상태가 된다(F65 1차 판정 지적).
+# 그래서 (1) 훅 파일이 실제로 존재하고 비어 있지 않으며 (2) 어느 설치 경로든 배선돼 있을 때만
+# 참이다. 둘 중 하나라도 확인되지 않으면 게이트는 켜진 상태로 남는다(fail-safe).
 integrity_wired() {
   command -v jq &>/dev/null || return 1
-  local hj
-  for hj in "${CLAUDE_PLUGIN_ROOT:-}/hooks/hooks.json" "$PWD/hooks/hooks.json"; do
-    [[ -f "$hj" ]] || continue
-    jq -e '.hooks.PostToolUse[]? | select((.matcher? // "") | test("Bash")) | .hooks[]?
-             | select(.command | contains("protected-integrity.sh"))' "$hj" &>/dev/null && return 0
+  local root hook wired=1 f
+  for root in "${CLAUDE_PLUGIN_ROOT:-}" "$PWD/.claude" "$PWD"; do
+    [[ -n "$root" ]] || continue
+    hook="$root/hooks/protected-integrity.sh"
+    [[ -s "$hook" ]] || continue
+    for f in "$root/hooks/hooks.json" "$PWD/settings.json" "$PWD/.claude/settings.json"; do
+      [[ -f "$f" ]] || continue
+      jq -e '.hooks.PostToolUse[]? | select((.matcher? // "") | test("Bash")) | .hooks[]?
+               | select(.command | contains("protected-integrity.sh"))' "$f" &>/dev/null \
+        && { wired=0; break; }
+    done
+    [[ $wired -eq 0 ]] && return 0
   done
   return 1
 }
