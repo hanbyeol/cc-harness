@@ -141,7 +141,10 @@ dirty()     { ( cd "$LAB" && git diff --name-only | wc -l | tr -d ' ' ) }
   new=$( cd "$LAB" && jq '.scoring.pass_threshold = 8' progress/harness-config.json )
   printf '%s' "$new" | jq -Rs --arg p "$f" '{tool_name:"Write", tool_input:{file_path:$p, content:.}}' \
     | ( cd "$LAB" && CLAUDE_PROJECT_DIR="$LAB" bash hooks/invariant-guard.sh ) >/dev/null 2>&1
-  printf '%s' "$new" > "$f"
+  # **후행 개행을 포함해 쓴다.** 이전 픽스처는 `printf '%s'` 로 개행 없이 써서, 티켓 sha가
+  # 개행을 잃은 채 계산되던 결함과 우연히 형태가 같았다 — 그래서 실사용에서는 모든 편집이
+  # 복구되는데 테스트는 통과했다. 실제 파일과 같은 형태로 써야 그 결함이 드러난다.
+  printf '%s\n' "$new" > "$f"
   # 티켓 형식이 <해시> <경로> 인지
   ( cd "$LAB" && head -1 progress/.guarded-edits | grep -qE '^[0-9a-f]{40} progress/harness-config\.json$' )
   # 내용이 그대로인 동안은 몇 번을 검사해도 살아남는다

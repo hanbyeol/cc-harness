@@ -75,7 +75,14 @@ git_operation_in_progress() {
   return 1
 }
 
-file_sha() { git hash-object "$1" 2>/dev/null; }
+# **invariant-guard와 같은 정규화로 해시한다.**
+# guard는 편집 결과를 명령 치환으로 담는데 명령 치환은 후행 개행을 잘라내고, 그 상태에서
+# `printf '%s' | git hash-object --stdin` 으로 티켓을 만든다. 반면 디스크의 파일은 개행으로
+# 끝난다. 그래서 티켓 sha가 **개행으로 끝나는 모든 파일에서** 어긋났고, 심사를 통과한 편집이
+# 매번 복구됐다(격리 저장소 실측: 단순 텍스트·이스케이프 포함·다중 줄 삽입 4/4 MISMATCH).
+# guard 쪽에 개행을 되붙이는 방향은 개행 없이 끝나는 파일에서 다시 어긋나므로, 양쪽이 같은
+# 정규화를 쓰게 맞춘다. 이 정규화로 구분하지 못하는 변경은 후행 개행의 증감뿐이다.
+file_sha() { printf '%s' "$(cat "$1" 2>/dev/null)" | git hash-object --stdin 2>/dev/null; }
 
 # 티켓은 **내용이 그대로인 동안 유효하다** — 일치한다고 그 자리에서 지우지 않는다.
 #
