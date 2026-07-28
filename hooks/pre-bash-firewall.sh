@@ -390,7 +390,10 @@ pure_read_only() {
         ;;
       sed | gsed)
         [[ "$seg" == *'>'* ]] && return 1
+        # `-i`·결합 단축옵션(-ie·-ni)과 **장옵션 `--in-place`** 를 모두 배제한다. 단축옵션
+        # 정규식은 `-` 다음에 바로 글자를 요구하므로 `--in-place` 를 놓친다(회귀 테스트가 검출).
         [[ "$seg" =~ (^|[[:space:]])-[a-zA-Z]*i ]] && return 1
+        [[ "$seg" == *'--in-place'* ]] && return 1
         script=""
         if [[ "$seg" =~ \'([^\']*)\' ]]; then
           script="${BASH_REMATCH[1]}"
@@ -406,6 +409,7 @@ pure_read_only() {
       awk | gawk | mawk)
         [[ "$seg" == *' -f '* ]] && return 1
         [[ "$seg" =~ (^|[[:space:]])-[a-zA-Z]*i ]] && return 1
+        [[ "$seg" == *'--in-place'* ]] && return 1
         # 판정은 **스크립트 원문**으로 한다 — 비교 연산자 `NR>190` 과 출력 리다이렉트
         # `print > "f"` 는 둘 다 `>` 지만, 후자는 반드시 print/printf 뒤에 온다.
         script=""
