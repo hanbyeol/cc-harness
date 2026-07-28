@@ -353,15 +353,26 @@ pure_read_only() {
   esac
   # /dev/null 리다이렉트와 fd 병합은 파일을 만들지 않는다 — 판정 전에 지운다.
   cmd=$(printf '%s' "$cmd" | sed -E 's@[0-9]*&?>>? *(/dev/null|/dev/stderr)@@g; s/[0-9]*>&[0-9]//g')
+  # 세그먼트 분리는 **인용부호를 인식한다.** 단순 tr 분리는 `awk 'NR>1 && /x/ {print}'` 처럼
+  # 스크립트 안에 구분자가 든 정상 읽기를 조각내 첫 토큰 검사에서 떨어뜨렸다(과분리 → 과탐).
+  # 인용부호 **밖**의 `;`·`|`·`&`만 경계로 삼고 안쪽은 원본 그대로 남긴다 — awk의
+  # `print | "cmd"`(셸 실행)를 아래에서 스크립트 원문으로 판정해야 하기 때문이다.
   local seg_list
-  IFS=$'\n' read -r -d '' -a seg_list < <(printf '%s' "$cmd" | tr ';|&\n' '\n\n\n\n'; printf '\0')
+  IFS=$'\n' read -r -d '' -a seg_list < <(printf '%s' "$cmd" | awk '
+    { out=""; inS=0; inD=0
+      for (i=1; i<=length($0); i++) { c=substr($0,i,1)
+        if (c=="\047" && !inD) { inS=!inS; out=out c; continue }
+        if (c=="\042" && !inS) { inD=!inD; out=out c; continue }
+        if (!inS && !inD && (c==";" || c=="|" || c=="&")) { out=out "\n" } else { out=out c }
+      }
+      print out }'; printf '\0')
   for seg in "${seg_list[@]}"; do
     # 변수 대입·셸 키워드는 명령이 아니다 — 벗겨 내고 그 뒤를 본다(본체는 다음 세그먼트로 온다).
     while :; do
       IFS=' ' read -r tok rest <<<"$seg"
       case "$tok" in
         '') break ;;
-        [A-Za-z_]*=* | for | while | until | do | done | if | then | elif | else | fi | case | esac | in | : | '!' | time) seg="$rest" ;;
+        [A-Za-z_]*=* | for | while | until | do | done | if | then | elif | else | fi | case | esac | in | : | time) seg="$rest" ;;
         *) break ;;
       esac
     done
@@ -393,12 +404,25 @@ pure_read_only() {
         [[ "$script" == *w* ]] && return 1
         ;;
       awk | gawk | mawk)
-        [[ "$seg" == *'system('* || "$seg" == *getline* || "$seg" == *' -f '* ]] && return 1
+        [[ "$seg" == *' -f '* ]] && return 1
         [[ "$seg" =~ (^|[[:space:]])-[a-zA-Z]*i ]] && return 1
-        if [[ "$seg" == *print* ]]; then
-          after="${seg#*print}"
-          [[ "$after" == *'>'* ]] && return 1
+        # 판정은 **스크립트 원문**으로 한다 — 비교 연산자 `NR>190` 과 출력 리다이렉트
+        # `print > "f"` 는 둘 다 `>` 지만, 후자는 반드시 print/printf 뒤에 온다.
+        script=""
+        if [[ "$seg" =~ \'([^\']*)\' ]]; then
+          script="${BASH_REMATCH[1]}"
+        elif [[ "$seg" =~ \"([^\"]*)\" ]]; then
+          script="${BASH_REMATCH[1]}"
+        else
+          script="$seg"
         fi
+        [[ "$script" == *'system('* || "$script" == *getline* ]] && return 1
+        if [[ "$script" == *print* ]]; then
+          after="${script#*print}"
+          [[ "$after" == *'>'* || "$after" == *'|'* ]] && return 1
+        fi
+        # 스크립트 밖에 남은 `>` 는 셸 리다이렉트다.
+        [[ "${seg/"$script"/}" == *'>'* ]] && return 1
         ;;
       *) return 1 ;;
     esac
