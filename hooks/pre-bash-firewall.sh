@@ -312,7 +312,104 @@ DATA_PLANE_DETECTED=1
 integrity_wired && DATA_PLANE_DETECTED=0
 
 
-if echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then
+# === Layer 3.4: 순수 읽기 면제 ===
+#
+# ## 무엇을 고치는가
+#
+# 위 arm들은 대부분 **도구 이름 + 보호 경로**로 판정한다. 그래서 파일을 읽기만 하는 명령까지
+# ask가 됐다 — `sed -n '1,60p' hooks/x.sh` · `cat progress/.guarded-edits` ·
+# `awk 'NR>1 {print $0}' hooks/x.sh` 같은 것들이다. 최근 2주 트랜스크립트에서 ask 246건을
+# 뽑아 보니 상위 세 패턴(81·30·23건)의 대부분이 이 계열이었다. 읽는 행위는 그 파일을
+# 훼손할 수 없으므로 이 마찰에는 대응하는 보호 가치가 없다.
+#
+# ## 왜 이 방향은 F63처럼 발산하지 않는가
+#
+# F63은 "이 명령이 쓸 것인가"를 **블랙리스트**로 판정하려다 실패했다(10회전, 매번 새 우회 표기).
+# 여기는 반대 방향의 **화이트리스트**다 — 아래 형태에 들어맞지 않으면 면제되지 않고 기존 판정이
+# 그대로 간다. 새 우회 표기는 화이트리스트에 없으므로 자동으로 ask다. 커버리지 상한이
+# 마찰 쪽에 생길 뿐 보호 쪽에 생기지 않는다는 것이 두 방향의 결정적 차이다.
+#
+# ## 도구별 근거 (왜 이것들은 쓸 수 없는가)
+#
+#  - 순수 리더(cat·grep·jq·wc·ls·diff…): 파일을 쓰는 문법 자체가 없다. 리다이렉트가 붙으면
+#    그때만 쓰기가 되므로 `>`가 남아 있으면 면제하지 않는다(`>/dev/null`·`2>&1`은 먼저 제거).
+#  - sed: 파일을 쓰는 경로는 `-i`와 `w` 명령/`s///w` 플래그뿐이다. **스크립트 안에 `w`가 없고**
+#    `-i`가 없으면 sed는 파일을 만들 수 없다. 경로에 든 w는 무관하므로 스크립트만 본다.
+#  - awk: 쓰기 채널은 출력 리다이렉트(`print > expr`)·파이프(`print | "cmd"`)·`system()`·
+#    `"cmd" | getline` 넷뿐이다. 파이프는 세그먼트 분리에서 이미 걸리고, `system(`·`getline`은
+#    직접 배제하며, 리다이렉트는 **첫 print 이후에 `>`가 있는가**로 판정한다. 그래야
+#    `awk 'NR>190'` 같은 비교 연산자는 통과하고 `awk '{print > "f"}'` 는 막힌다.
+#    `-v` 로 경로를 변수에 담아도 그 쓰기는 결국 print 뒤의 `>` 를 지나야 한다.
+#  - find/sort: 각각 `-exec`·`-delete`·`-fprint` 와 `-o` 가 유일한 쓰기 경로다.
+#  - 인터프리터(python·node·perl…)·에디터·cp·mv·tee 계열은 **넣지 않는다** — 읽기와 쓰기를
+#    구문으로 가를 수 없거나(전자) 이름 자체가 쓰기다(후자).
+#
+# 시크릿 경로·명령 치환·프로세스 치환이 보이면 형태와 무관하게 면제하지 않는다.
+pure_read_only() {
+  local cmd="$1" seg tok rest script after
+  [[ "$cmd" == *'`'* || "$cmd" == *'$('* || "$cmd" == *'<('* ]] && return 1
+  case "$cmd" in
+    *.ssh/* | *.aws/* | *.gnupg/* | *.netrc* | *id_rsa* | *id_ed25519* | *id_dsa* | *id_ecdsa* | *credentials*) return 1 ;;
+  esac
+  # /dev/null 리다이렉트와 fd 병합은 파일을 만들지 않는다 — 판정 전에 지운다.
+  cmd=$(printf '%s' "$cmd" | sed -E 's@[0-9]*&?>>? *(/dev/null|/dev/stderr)@@g; s/[0-9]*>&[0-9]//g')
+  local seg_list
+  IFS=$'\n' read -r -d '' -a seg_list < <(printf '%s' "$cmd" | tr ';|&\n' '\n\n\n\n'; printf '\0')
+  for seg in "${seg_list[@]}"; do
+    # 변수 대입·셸 키워드는 명령이 아니다 — 벗겨 내고 그 뒤를 본다(본체는 다음 세그먼트로 온다).
+    while :; do
+      IFS=' ' read -r tok rest <<<"$seg"
+      case "$tok" in
+        '') break ;;
+        [A-Za-z_]*=* | for | while | until | do | done | if | then | elif | else | fi | case | esac | in | : | '!' | time) seg="$rest" ;;
+        *) break ;;
+      esac
+    done
+    [[ -z "${tok// /}" ]] && continue
+    [[ "$tok" == "rtk" ]] && IFS=' ' read -r tok rest <<<"$rest"
+    case "$tok" in
+      cat | head | tail | nl | wc | ls | stat | file | basename | dirname | realpath | readlink | shasum | sha1sum | sha256sum | md5 | md5sum | cmp | diff | grep | egrep | fgrep | rg | jq | cut | uniq | tr | column | rev | od | xxd | strings | which | type | command | date | env | test | echo | printf | pwd | true | false | cd | shellcheck | bats)
+        [[ "$seg" == *'>'* ]] && return 1
+        ;;
+      sort)
+        [[ "$seg" == *'>'* || "$seg" == *' -o'* || "$seg" == *'--output'* ]] && return 1
+        ;;
+      find)
+        [[ "$seg" == *'>'* || "$seg" == *-exec* || "$seg" == *-delete* || "$seg" == *-ok* || "$seg" == *-fprint* || "$seg" == *-fls* ]] && return 1
+        ;;
+      sed | gsed)
+        [[ "$seg" == *'>'* ]] && return 1
+        [[ "$seg" =~ (^|[[:space:]])-[a-zA-Z]*i ]] && return 1
+        script=""
+        if [[ "$seg" =~ \'([^\']*)\' ]]; then
+          script="${BASH_REMATCH[1]}"
+        elif [[ "$seg" =~ \"([^\"]*)\" ]]; then
+          script="${BASH_REMATCH[1]}"
+        elif [[ "$seg" =~ -n[[:space:]]+([^[:space:]]+) ]]; then
+          script="${BASH_REMATCH[1]}"
+        else
+          return 1
+        fi
+        [[ "$script" == *w* ]] && return 1
+        ;;
+      awk | gawk | mawk)
+        [[ "$seg" == *'system('* || "$seg" == *getline* || "$seg" == *' -f '* ]] && return 1
+        [[ "$seg" =~ (^|[[:space:]])-[a-zA-Z]*i ]] && return 1
+        if [[ "$seg" == *print* ]]; then
+          after="${seg#*print}"
+          [[ "$after" == *'>'* ]] && return 1
+        fi
+        ;;
+      *) return 1 ;;
+    esac
+  done
+  return 0
+}
+
+PURE_READ=0
+pure_read_only "$CMD" && PURE_READ=1
+
+if [ "$PURE_READ" -eq 0 ] && echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then
   for p in "${ASK_PATTERNS[@]}"; do
     if echo "$NORMALIZED_CMD" | grep -qiE "$p"; then
       # 화이트리스트가 **면제할 수 있는 패턴은 이름 기반 에디터 목록뿐이다.**

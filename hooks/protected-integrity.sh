@@ -77,22 +77,41 @@ git_operation_in_progress() {
 
 file_sha() { git hash-object "$1" 2>/dev/null; }
 
-# 티켓 일치 시 **소비**(줄 삭제)하고 0을 반환한다.
-consume_ticket() {
-  local path="$1" sha line tmp
+# 티켓은 **내용이 그대로인 동안 유효하다** — 일치한다고 그 자리에서 지우지 않는다.
+#
+# 왜 소비 시점을 옮겼는가: 1차 설계는 일치 즉시 티켓을 지웠다. 그런데 편집된 파일은
+# **커밋 전까지 계속 HEAD와 다르므로** 다음 Bash 호출에서는 남은 티켓이 없어 정당한 편집이
+# 변조로 판정됐다. 편집 하나가 살아남는 창이 Bash 호출 딱 1회였다는 뜻이고, 그 사이에
+# 테스트 한 번만 돌려도 작업이 사라졌다. 실측(2026-07-28): /change-request가 기록한
+# feature_list.json의 F66 등록이 두 번 연속 HEAD로 되돌려졌다(progress/.integrity-restores).
+# 편집 → 검증 → 커밋이라는 하네스 자신의 워크플로우가 성립하지 않는 상태였다.
+#
+# "경로 영구 면제"로 되돌아가지 않는 이유: 면제 근거가 경로가 아니라 **내용 해시**다.
+# 내용이 한 번 더 바뀌면 sha가 달라져 어떤 티켓과도 일치하지 않고, 그 편집은 invariant-guard
+# 심사를 새로 통과해야 티켓을 얻는다. 심사 없이 바꾼 내용은 여전히 즉시 탐지·복구된다.
+ticket_valid() {
+  local path="$1" sha
   [[ -f "$TICKETS" ]] || return 1
   sha=$(file_sha "$path") || return 1
   [[ -n "$sha" ]] || return 1
-  line="$sha $path"
-  grep -Fxq "$line" "$TICKETS" || return 1
+  grep -Fxq "$sha $path" "$TICKETS"
+}
+
+# 티켓을 **소비**한다(줄 삭제) — 변경이 정착했을 때, 즉 파일이 다시 HEAD와 같아졌을 때
+# 호출한다(커밋했거나 되돌렸거나). 소비하지 않는 설계가 티켓 파일을 209줄까지 불린 문제는
+# 여기서 닫힌다(실측: settings.json 티켓이 33줄 중복돼 있었다).
+consume_ticket() {
+  local path="$1" tmp
+  [[ -f "$TICKETS" ]] || return 1
+  grep -q " $path\$" "$TICKETS" 2>/dev/null || return 1
   tmp=$(mktemp) || return 1
-  grep -Fxv "$line" "$TICKETS" > "$tmp" 2>/dev/null || true
+  grep -v " $path\$" "$TICKETS" > "$tmp" 2>/dev/null || true
   mv "$tmp" "$TICKETS" 2>/dev/null || rm -f "$tmp"
   # **소비를 기록한다** (2차 판정: 우회가 아무 흔적도 남기지 않는다는 지적).
   # 티켓 파일은 셸을 쥔 상대에게 위조 불가능하지 않으므로, 최소한 '무엇이 면제되었는가'는
   # 남아야 사후에 확인할 수 있다. 이 로그는 탐지의 근거가 아니라 감사 추적이다.
-  [[ -d "$REPO/progress" ]] && printf '%s\tconsumed\t%s\t%s\n' \
-    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$sha" "$path" \
+  [[ -d "$REPO/progress" ]] && printf '%s\tconsumed\t%s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$path" \
     >> "$REPO/progress/.integrity-restores" 2>/dev/null || true
   return 0
 }
@@ -125,12 +144,15 @@ fi
 CHANGED=(); COMMITTED=()
 for f in "${FILES[@]}"; do
   if git diff --quiet HEAD -- "$f" 2>/dev/null; then
-    # HEAD와 같다 — 그래도 세션 시작 시점과 다르면 그 사이에 커밋된 것이다
+    # HEAD와 같다 = 변경이 정착했다(커밋했거나 되돌렸거나). 남은 티켓은 여기서 소비한다.
+    consume_ticket "$f" || true
+    # 그래도 세션 시작 시점과 다르면 그 사이에 커밋된 것이다
     base=$(grep -F " $f" "$BASELINE" 2>/dev/null | head -1 | cut -d' ' -f1)
     [[ -n "$base" && "$base" != "$(file_sha "$f")" ]] && COMMITTED+=("$f")
     continue
   fi
-  consume_ticket "$f" && continue
+  # 아직 워킹트리에만 있는 변경 — 내용이 심사를 통과한 그대로면 통과시킨다(티켓 유지).
+  ticket_valid "$f" && continue
   CHANGED+=("$f")
 done
 
