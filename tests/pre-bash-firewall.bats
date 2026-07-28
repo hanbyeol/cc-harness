@@ -1233,6 +1233,13 @@ JSON
 @test "F65: without the detector installed the gate stays on (fail-safe)" {
   # 소스 체크아웃에는 설치본이 없다 — 탐지가 없는데 예측까지 끄면 보호가 사라진다.
   # 이 테스트가 실패하면 릴리스 전 저장소에서 보호가 비어 있다는 뜻이다.
-  run run_firewall '{"tool_input":{"command":"sed -n 1,20p hooks/lib.sh"}}'
+  #
+  # 판정 대상은 **읽기로 확정되지 않은** sed다. 이전에는 `sed -n 1,20p` 를 썼는데 그것은 순수
+  # 읽기이고, Layer 3.4가 탐지 배선과 무관하게 통과시킨다 — 읽는 행위는 탐지기가 있든 없든
+  # 파일을 훼손하지 못하므로 fail-safe가 지킬 대상이 아니다. 아래 두 줄이 그 경계를 고정한다:
+  # 형태가 읽기로 확정되지 않으면 탐지기 없이는 ask, 확정되면 언제나 allow.
+  run run_firewall '{"tool_input":{"command":"sed s/a/b/ hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"sed -n 1,20p hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
