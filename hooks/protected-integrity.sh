@@ -55,6 +55,13 @@ PROTECTED_GLOBS=(
   'skills/improve/*'
   'skills/hotfix/*'
   'agents/evaluator.md'
+  # is_protected()가 이름으로 잡는 훅들 — 2차 판정: 1차에서 hooks/*.sh 를 통째로 뺀 것이
+  # 과잉 교정이었다. 이 셋은 is_protected()에 있으므로 편집 시 티켓이 발급되고, 따라서
+  # 복구 대상에 넣어도 정당한 편집이 되돌려지지 않는다. 실제 불일치는 lib.sh 하나뿐이었다.
+  'hooks/invariant-guard.sh'
+  'hooks/pre-bash-firewall.sh'
+  'hooks/pre-tool-firewall.sh'
+  'hooks/hooks.json'
 )
 
 TICKETS="$REPO/progress/.guarded-edits"
@@ -81,6 +88,12 @@ consume_ticket() {
   tmp=$(mktemp) || return 1
   grep -Fxv "$line" "$TICKETS" > "$tmp" 2>/dev/null || true
   mv "$tmp" "$TICKETS" 2>/dev/null || rm -f "$tmp"
+  # **소비를 기록한다** (2차 판정: 우회가 아무 흔적도 남기지 않는다는 지적).
+  # 티켓 파일은 셸을 쥔 상대에게 위조 불가능하지 않으므로, 최소한 '무엇이 면제되었는가'는
+  # 남아야 사후에 확인할 수 있다. 이 로그는 탐지의 근거가 아니라 감사 추적이다.
+  [[ -d "$REPO/progress" ]] && printf '%s\tconsumed\t%s\t%s\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$sha" "$path" \
+    >> "$REPO/progress/.integrity-restores" 2>/dev/null || true
   return 0
 }
 
@@ -90,9 +103,20 @@ consume_ticket() {
 # 커밋된 변경은 **복구하지 않고 보고만** 한다 — 되돌리면 HEAD와 어긋난 더티 트리를 만들고,
 # 정당한 커밋(내가 Edit로 고친 뒤 커밋한 경우)까지 되돌리게 된다.
 BASELINE="$REPO/progress/.integrity-baseline"
+# **인덱스가 아니라 커밋 트리에서 열거한다** (2차 판정). `git ls-files` 는 인덱스를 읽으므로
+# 인덱스를 건드리는 모든 명령이 탐지를 실명시킨다 — `update-index --assume-unchanged`·
+# `--skip-worktree`·`--force-remove`·`rm --cached`. 1차에서 그 셋을 ASK 패턴으로 열거했더니
+# 2차가 즉시 네 번째(`--force-remove`)를 찾아냈다. 열거로는 닫히지 않는 축이었다.
+# `ls-tree`는 HEAD 커밋 트리를 읽으므로 인덱스 조작과 무관하다 — 클래스가 통째로 닫힌다.
+# (커밋으로 트리 자체를 옮기는 회피는 아래 세션 기준선이 담당한다.)
 FILES=()
 while IFS= read -r f; do [[ -n "$f" ]] && FILES+=("$f"); done \
-  < <(for g in "${PROTECTED_GLOBS[@]}"; do git ls-files "$g" 2>/dev/null; done)
+  < <(git ls-tree -r --name-only HEAD 2>/dev/null | while IFS= read -r p; do
+        for g in "${PROTECTED_GLOBS[@]}"; do
+          # shellcheck disable=SC2053
+          [[ "$p" == $g ]] && { printf '%s\n' "$p"; break; }
+        done
+      done)
 
 if [[ ! -f "$BASELINE" ]]; then
   for f in "${FILES[@]}"; do printf '%s %s\n' "$(file_sha "$f")" "$f"; done > "$BASELINE" 2>/dev/null || true

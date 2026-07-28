@@ -9,6 +9,20 @@ run_firewall() {
   printf '%s' "$1" | bash "$HOOK"
 }
 
+# F65: 데이터 플레인 게이트는 탐지 훅이 실제로 설치·배선돼 있을 때만 꺼진다.
+# 소스 체크아웃(이 저장소)에는 설치본이 없으므로 게이트가 켜져 있는 것이 정상이다 —
+# 그것이 fail-safe다. 마찰 해소를 검증하려면 설치 상태를 명시적으로 만들어야 한다.
+wired_firewall() {
+  local root="$BATS_TEST_TMPDIR/plugin"
+  mkdir -p "$root/hooks"
+  cp "$BATS_TEST_DIRNAME/../hooks/protected-integrity.sh" "$root/hooks/"
+  cat > "$root/hooks/hooks.json" <<'JSON'
+{"hooks":{"PostToolUse":[{"matcher":"Bash","hooks":[{"type":"command",
+  "command":"bash \"${CLAUDE_PLUGIN_ROOT}/hooks/protected-integrity.sh\"","timeout":15}]}]}}
+JSON
+  CLAUDE_PLUGIN_ROOT="$root" run_firewall "$1"
+}
+
 # --- Deny: destructive commands ---
 
 @test "blocks rm -rf /" {
@@ -717,7 +731,7 @@ run_firewall() {
 # in-place가 allow가 되면 보호를 잃는다.
 
 @test "F63: sed -n reading a protected file auto-allows (read is not a write)" {
-  run run_firewall '{"tool_input":{"command":"sed -n '"'"'1,20p'"'"' hooks/lib.sh"}}'
+  run wired_firewall '{"tool_input":{"command":"sed -n '"'"'1,20p'"'"' hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
@@ -725,23 +739,23 @@ run_firewall() {
   # F63은 "이 명령이 쓰는가"를 명령 문자열로 예측하려 했고 10회전 내내 실패했다(결정 불가능).
   # F65는 되돌릴 수 있는 변경을 예측하지 않고 사후에 탐지·복구한다(protected-integrity.sh).
   # 그래서 읽기에도 쓰는 도구(sed·awk·gsed…)는 데이터 플레인에서 프롬프트가 사라진다.
-  run run_firewall '{"tool_input":{"command":"awk '"'"'NR<10'"'"' tests/probes.bats"}}'
+  run wired_firewall '{"tool_input":{"command":"awk '"'"'NR<10'"'"' tests/probes.bats"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
-  run run_firewall '{"tool_input":{"command":"sed -n '"'"'1,20p'"'"' hooks/lib.sh"}}'
+  run wired_firewall '{"tool_input":{"command":"sed -n '"'"'1,20p'"'"' hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
-  run run_firewall '{"tool_input":{"command":"gsed -n '"'"'1,5p'"'"' hooks/lib.sh"}}'
+  run wired_firewall '{"tool_input":{"command":"gsed -n '"'"'1,5p'"'"' hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
 @test "F65: spelling no longer matters — the judgment does not parse the command" {
   # F63의 실패는 전부 "표기가 다르면 판정이 갈린다"였다(인용 유무·붙여쓴 optarg·중괄호 확장…).
   # F65는 명령을 파싱하지 않으므로 표기 변형이 판정을 바꾸지 못한다.
-  run run_firewall '{"tool_input":{"command":"sed -n 1,20p hooks/lib.sh"}}'
+  run wired_firewall '{"tool_input":{"command":"sed -n 1,20p hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
-  run run_firewall '{"tool_input":{"command":"sed -n '"'"'1,20p'"'"' hooks/lib.sh"}}'
+  run wired_firewall '{"tool_input":{"command":"sed -n '"'"'1,20p'"'"' hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
   # 반대로 쓰기 신호가 드러난 형태는 표기와 무관하게 계속 물어본다
-  run run_firewall '{"tool_input":{"command":"sed -ni s/a/b/ hooks/lib.sh"}}'
+  run wired_firewall '{"tool_input":{"command":"sed -ni s/a/b/ hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
 }
 
@@ -785,10 +799,10 @@ run_firewall() {
 
 @test "F63: the w pattern does not swallow normal reads containing w" {
   # /word/·/write/ 같은 정규식은 w로 시작하지만 쓰기가 아니다 — 화이트리스트가 이를 가른다
-  run run_firewall '{"tool_input":{"command":"sed -n '"'"'/word/p'"'"' hooks/lib.sh"}}'
+  run wired_firewall '{"tool_input":{"command":"sed -n '"'"'/word/p'"'"' hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
   # 반대로 진짜 쓰기는 여전히 잡힌다
-  run run_firewall '{"tool_input":{"command":"sed -n '"'"'/re/w hooks/lib.sh'"'"' src.txt"}}'
+  run wired_firewall '{"tool_input":{"command":"sed -n '"'"'/re/w hooks/lib.sh'"'"' src.txt"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
 }
 
@@ -796,10 +810,10 @@ run_firewall() {
   # `awk -f prog.awk <보호경로>` 는 쓰기 수단이 명령행에 전혀 없어 어떤 정적 판정도 볼 수 없다.
   # F63은 이것을 앵커로 막으려다 실패했고, F65는 예측을 포기하고 사후 복구로 덮는다.
   # 따라서 여기서는 allow가 정상이다 — 실제 보호는 tests/protected-integrity.bats 가 검사한다.
-  run run_firewall '{"tool_input":{"command":"awk -f prog.awk hooks/lib.sh"}}'
+  run wired_firewall '{"tool_input":{"command":"awk -f prog.awk hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
   # 단 컨트롤 플레인은 사후 복구가 성립하지 않으므로 계속 예측으로 막는다
-  run run_firewall '{"tool_input":{"command":"vim hooks/hooks.json"}}'
+  run wired_firewall '{"tool_input":{"command":"vim hooks/hooks.json"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
 }
 
@@ -908,14 +922,14 @@ run_firewall() {
 @test "F65: combined short options are still recognized as in-place writes" {
   # 에디터 이름 arm이 sed·awk를 통째로 잡던 동안 in-place 패턴의 `-i` 리터럴이 결합 단축옵션을
   # 놓치는 것이 가려져 있었다. 그 arm을 탐지·복구로 대체하자 behavioral 프로브가 검출했다.
-  run run_firewall '{"tool_input":{"command":"sed -ni s/a/b/ hooks/lib.sh"}}'
+  run wired_firewall '{"tool_input":{"command":"sed -ni s/a/b/ hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
-  run run_firewall '{"tool_input":{"command":"sed -ie s/a/b/ hooks/lib.sh"}}'
+  run wired_firewall '{"tool_input":{"command":"sed -ie s/a/b/ hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
-  run run_firewall '{"tool_input":{"command":"sed --in-place s/a/b/ hooks/lib.sh"}}'
+  run wired_firewall '{"tool_input":{"command":"sed --in-place s/a/b/ hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
   # 장옵션 과탐은 없어야 한다 — --quiet·--posix 의 i 를 in-place 로 오인하지 않는다
-  run run_firewall '{"tool_input":{"command":"sed --quiet 1p hooks/lib.sh"}}'
+  run wired_firewall '{"tool_input":{"command":"sed --quiet 1p hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
@@ -1214,4 +1228,11 @@ run_firewall() {
   run bash -c "printf '%s' '{\"tool_input\":{\"command\":\"rm -rf /\"}}' | CLAUDE_PROJECT_DIR='$D' bash '$HOOK'"
   [ "$status" -eq 2 ]
   rm -rf "$D"
+}
+
+@test "F65: without the detector installed the gate stays on (fail-safe)" {
+  # 소스 체크아웃에는 설치본이 없다 — 탐지가 없는데 예측까지 끄면 보호가 사라진다.
+  # 이 테스트가 실패하면 릴리스 전 저장소에서 보호가 비어 있다는 뜻이다.
+  run run_firewall '{"tool_input":{"command":"sed -n 1,20p hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
 }

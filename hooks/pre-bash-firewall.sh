@@ -211,7 +211,11 @@ ASK_PATTERNS=(
   # 분류 축은 "되돌릴 수 있는가" 하나가 아니라 **"자기를 복구할 수 있는가"**까지다.
   # protected-integrity.sh 는 파괴되면 자기를 복구할 수 없고, 티켓 파일은 복구 대상 판단의
   # 근거이므로 둘 다 컨트롤 플레인이다. 어떤 도구로 건드리든 물어본다.
-  '[^;|&]*(protected-integrity\.sh|progress/\.guarded-edits)'
+  # basename으로 앵커한다 — 경로 표기(`cd progress && … >> .guarded-edits`·`progress//…`)로
+  # 빠져나가던 것을 2차 판정이 실증했다. F-1에서 feature_list.json 에 이미 적용한 방식이다.
+  # 명령행에 경로가 아예 없는 형태(`python3 script.py`)는 여전히 열려 있다 — 예측의 원리적
+  # 한계이며 INV-14에 적었다. 티켓 파일은 셸을 쥔 상대에게 위조 불가능하지 않다.
+  '[^;|&]*(protected-integrity\.sh|\.guarded-edits|\.integrity-baseline)'
   # git 메타 조작 — 파일을 바꾸지 않고 **탐지를 실명시킨다**. 도구 이름이 확정적이고
   # 정상 개발에서 거의 쓰지 않으므로 게이트해도 마찰이 없다.
   'git\b[^;|&]*update-index[^;|&]*(--assume-unchanged|--skip-worktree|--no-assume-unchanged)'
@@ -284,20 +288,22 @@ ASK_PATTERNS=(
 # "배선됨"을 반환해 예측을 끈 채로 탐지도 없는 상태가 된다(F65 1차 판정 지적).
 # 그래서 (1) 훅 파일이 실제로 존재하고 비어 있지 않으며 (2) 어느 설치 경로든 배선돼 있을 때만
 # 참이다. 둘 중 하나라도 확인되지 않으면 게이트는 켜진 상태로 남는다(fail-safe).
+# 배선 확인은 **실제로 실행되는 설치본**만 본다.
+# 2차 판정: 이전 구현이 `$PWD/hooks/` 도 후보에 넣었는데 그건 소스 체크아웃이라 **모든 클론에
+# 존재한다** — 설치도 배선도 안 된 저장소에서 예측을 끄는 fail-open이었다(이 저장소가 그 사례였다).
+# 실행 경로는 둘뿐이다: 플러그인 설치(CLAUDE_PLUGIN_ROOT)와 init.sh 설치(.claude/hooks).
+# 소스 체크아웃은 후보가 아니다. 확인되지 않으면 게이트는 켜진 채로 남는다(fail-safe).
 integrity_wired() {
   command -v jq &>/dev/null || return 1
-  local root hook wired=1 f
-  for root in "${CLAUDE_PLUGIN_ROOT:-}" "$PWD/.claude" "$PWD"; do
-    [[ -n "$root" ]] || continue
-    hook="$root/hooks/protected-integrity.sh"
-    [[ -s "$hook" ]] || continue
-    for f in "$root/hooks/hooks.json" "$PWD/settings.json" "$PWD/.claude/settings.json"; do
+  local root f
+  for root in "${CLAUDE_PLUGIN_ROOT:-}" "$PWD/.claude"; do
+    [[ -n "$root" && -s "$root/hooks/protected-integrity.sh" ]] || continue
+    for f in "$root/hooks/hooks.json" "$PWD/.claude/settings.json" "$PWD/settings.json"; do
       [[ -f "$f" ]] || continue
-      jq -e '.hooks.PostToolUse[]? | select((.matcher? // "") | test("Bash")) | .hooks[]?
-               | select(.command | contains("protected-integrity.sh"))' "$f" &>/dev/null \
-        && { wired=0; break; }
+      jq -e --arg r "$root" '.hooks.PostToolUse[]? | select((.matcher? // "") | test("Bash"))
+               | .hooks[]? | select(.command | contains("protected-integrity.sh"))' "$f" \
+        &>/dev/null && return 0
     done
-    [[ $wired -eq 0 ]] && return 0
   done
   return 1
 }
