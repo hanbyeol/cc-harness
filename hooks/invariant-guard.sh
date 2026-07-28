@@ -32,6 +32,9 @@ is_protected() {
     pre-bash-firewall.sh | \
     pre-tool-firewall.sh | \
     invariant-guard.sh | \
+    protected-integrity.sh | \
+    .guarded-edits | \
+    .integrity-baseline | \
     INVARIANTS.md | \
     hooks.json | \
     feature_list.json | \
@@ -145,6 +148,33 @@ fi
 
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || echo "")
 [[ -z "$FILE" ]] && exit 0
+
+# === 가드를 통과한 편집을 원장에 남긴다 (F65) ===
+# protected-integrity.sh(PostToolUse:Bash)는 "보호 파일이 HEAD와 다른데 가드를 거치지 않았으면
+# 복구"한다. 그 판단에는 '어떤 변경이 심사를 통과했는가'가 필요하므로 여기서 기록한다.
+# deny()는 exit 2로 끝나므로 기록되지 않는다 — 통과한 편집만 원장에 오른다.
+record_guarded_edit() {
+  local rc=$? root rel sha
+  [[ $rc -ne 0 ]] && return 0
+  root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
+  [[ -z "$root" || ! -d "$root/progress" ]] && return 0
+  # 저장소 밖 경로는 티켓을 만들지 않는다 — 테스트가 임시 디렉터리에서 돌 때 실 저장소
+  # 티켓을 오염시키던 원인이다(실제로 209줄까지 쌓였고 그중 160줄이 보호 파일 경로였다).
+  [[ "$FILE" == "$root"/* ]] || return 0
+  rel="${FILE#"$root"/}"
+  # **내용 해시를 함께 적는다.** 경로만 적으면 정당한 편집 한 번이 그 경로를 영구 면제로
+  # 만든다. 해시를 붙이면 티켓은 '이 내용의 이 편집' 하나에만 유효하고, 소비되면 사라진다.
+  # 편집 직후의 파일 내용을 해시해야 하는데 이 훅은 PreToolUse이므로 아직 쓰이지 않았다 —
+  # 그래서 심사에 쓴 NEW_CONTENT(편집 후 예상 내용)를 해시한다. 실제 쓰인 내용이 다르면
+  # 티켓이 맞지 않아 복구되므로, 틀리는 방향이 안전하다.
+  # NEW_CONTENT가 없으면 심사 분기까지 가지 않은 것이다(비보호 파일·신규 생성). 티켓을
+  # 만들지 않는다 — 만들면 비보호 편집마다 무의미한 줄이 쌓여 티켓 파일이 다시 오염된다.
+  [[ -z "${NEW_CONTENT:-}" ]] && return 0
+  sha=$(printf '%s' "$NEW_CONTENT" | git hash-object --stdin 2>/dev/null || echo "")
+  [[ -z "$sha" ]] && return 0
+  printf '%s %s\n' "$sha" "$rel" >> "$root/progress/.guarded-edits" 2>/dev/null || true
+}
+trap record_guarded_edit EXIT
 # 신규 생성은 대개 약화가 아니므로 통과 — 단, feature_list.json은 예외.
 # delete-then-recreate로 passes:true를 주입하면 primary 가드(INV-11)를 우회할 수 있으므로
 # 파일이 없어도 feature_list.json은 아래 브랜치로 내려보내 passes:true 근거를 검증한다 (F-2).
@@ -218,6 +248,28 @@ if [[ -z "$NEW_CONTENT" ]]; then
 fi
 
 BASENAME=$(basename "$FILE")
+
+# === 탐지기의 상태 파일: 도구 경로 쓰기 전면 차단 (F65 2차 판정) ===
+# .guarded-edits(면제 티켓)와 .integrity-baseline(세션 기준선)은 **기계가 관리한다.**
+# 도구로 쓸 정당한 이유가 없고, 쓸 수 있으면 복구를 임의로 면제할 수 있다.
+# 2차 판정이 Write 경로로 임의 티켓을 넣는 것을 실증했다 — 그때는 이 브랜치가 없었다.
+case "$BASENAME" in
+  .guarded-edits | .integrity-baseline)
+    deny "$BASENAME 는 탐지기가 관리하는 상태 파일 — 도구로 쓸 수 없다 (INV-14)" ;;
+esac
+
+# === protected-integrity.sh: 탐지 기능 제거 차단 ===
+# 전면 차단은 하지 않는다(개발 중 정당한 수정이 있다). 다른 훅과 같은 방식으로 **기능 제거만**
+# 막는다 — 복구 호출과 보호 대상 목록이 사라지면 탐지기가 껍데기가 된다.
+if [[ "$BASENAME" == "protected-integrity.sh" ]]; then
+  # 토큰은 **코드에만 나타나는 것**으로 고른다 — 주석에도 있는 문자열을 쓰면 코드를 들어내도
+  # 주석이 남아 검사를 통과한다(실측으로 확인했다).
+  for token in 'RESTORED+=(' 'PROTECTED_GLOBS=(' 'consume_ticket()' 'git_operation_in_progress()' 'ls-tree'; do
+    if grep -qF "$token" "$FILE" 2>/dev/null && ! grep -qF "$token" <<<"$NEW_CONTENT"; then
+      deny "protected-integrity.sh 에서 '$token' 제거 — 탐지 기능 축소 (INV-14)"
+    fi
+  done
+fi
 
 # === settings.json: 훅 배선 무력화 차단 (INV-13) ===
 # cc-harness는 설치 경로가 둘이고 각자 다른 파일로 훅을 배선한다 — 플러그인은 hooks/hooks.json,

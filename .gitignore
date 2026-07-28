@@ -24,3 +24,7 @@ progress/.firewall-stats
 
 # Self-improvement metrics history (per-project trend, regenerated)
 progress/metrics-history.json
+progress/.guarded-edits
+progress/.integrity-restores
+progress/.integrity-baseline
+progress/.integrity-quarantine/

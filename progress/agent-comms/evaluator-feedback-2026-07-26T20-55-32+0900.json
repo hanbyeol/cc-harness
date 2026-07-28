@@ -1,0 +1,136 @@
+{
+  "timestamp": "2026-07-26T20:55:32+09:00",
+  "sprint": 49,
+  "iteration": 2,
+  "features_evaluated": [
+    "F63"
+  ],
+  "security_tier": "critical",
+  "commit_evaluated": "28d6d8b",
+  "prior_verdict": "progress/agent-comms/evaluator-feedback-2026-07-26T20-08-09+0900.json (fail, min-of-5=5)",
+  "branch": "feat/f63-firewall-read-write-split",
+  "scores": {
+    "functionality": 6,
+    "code_quality": 6,
+    "security": 5,
+    "error_handling": 5,
+    "test_coverage": 6
+  },
+  "score": 5,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 5 < 7 (critical tier) — SC-1(탐지 가능한 쓰기 경로 집합 불축소)이 다시 실측으로 위반됨. 쓰기 6형태가 OLD=ask → NEW=allow이며 6형태 전부 이 머신에서 실제로 파일을 쓴다",
+    "score 5 < threshold 7",
+    "AC-3 미충족 — '열거는 하한이지 상한이 아니다'라고 계약을 고쳤으나, 열거를 5건 늘렸을 뿐 형태 축의 클래스는 닫히지 않았다",
+    "AC-4 미충족 — 훅 138-141줄 주석이 implementer 자신이 이번 커밋에서 철회한 주장을 그대로 담고 있다(1차 판정 required_for_pass #4 미이행)"
+  ],
+  "verdict_summary": "1차 지적 5형태는 전부 닫혔고 검증했다. 배터리 상설화·CI 배선·계약 문언 보완도 실측으로 확인된다. 그럼에도 반려하는 이유는 1차와 **같은 클래스**가 여전히 열려 있기 때문이다 — 수정이 '실증된 인스턴스 5개'를 닫는 형태였고 배터리도 그 5개를 인코딩했다. 독립 배터리(78형태 × 대상 9종 = 684건)를 OLD(d060dc3)/NEW(28d6d8b) 훅에 각각 통과시킨 결과 **새로 6형태 50건이 OLD=ask → NEW=allow**로 나왔고, 6형태 전부를 샌드박스에서 실쓰기로 실증했다. 사용자 질문 1('같은 축의 여섯 번째가 있는가')에 대한 답은 **있다, 여섯 번째부터 열한 번째까지**다.",
+  "user_questions_answered": {
+    "q1_sixth_form_exists": "있다. 6형태(아래 issues의 [security] 항목). 축은 셋으로 갈린다 — (a) sed w 계열에서 **공백 없는 파일명**(`wPATH`·`s///wPATH`)과 **주소 접두**(`1w PATH`), (b) **GNU 인자 순열**(`sed 's/a/b/' PATH -i` — 옵션이 피연산자 뒤), (c) **awk 변수 경유 리다이렉트**(`-v f=PATH '{print > f}'` · `BEGIN{f=\"PATH\"; print > f}`). (a)와 (c)는 1차에서 지적한 바로 그 두 축(도구 고유 쓰기 문법 · 토큰화)의 변형이고, (b)는 새 축이다.",
+    "q2_wb_overfire": "과탐을 **새로 만든다 — 다만 좁게**. `\\bw\\b`는 grep -iE 아래에서 sed 스크립트 안의 **독립 토큰 w/W**를 전부 잡는다. 확인한 검증 3건(`/word/p`·`/write/p`·`/warn/{print}`)은 w 뒤에 단어문자가 와서 통과하지만, w가 단독일 때는 읽기도 ask다: `sed -n '/w/p' P`·`sed -n '/^w/p' P`·`sed -n '/ w /p' P`·`sed 's/a/w/' P`·`sed -n '/^W/p' P` 전부 ask(대상 9종). OLD에서도 ask였으므로 회귀는 아니고 잔존 과탐이다. **더 큰 과탐은 `\\bw\\b`가 아니라 `-[a-zA-Z]*i`에서 나온다** — 이 패턴은 하이픈 뒤 letters+i를 매치하므로 **i를 포함한 장옵션 전부**를 in-place로 오인한다: `sed --quiet '1,20p' P`·`sed --silent`·`sed --expression=`·`sed --posix`·`awk --field-separator=:`·`awk --lint` 전부 ask. dbb0a47의 `-i\\b`는 이들을 잡지 않았으므로 **이번 수정이 새로 만든 과탐**이며, 과탐 제거가 목적인 기능에서 자기모순이다.",
+    "q3_31_forms_sufficient": "충분하지 않다. 31형태에 없는 6형태가 실쓰기이면서 allow다. 더 근본적으로 **31이라는 수를 SC-1에 못박은 것이 1차 지적의 재발**이다 — 1차는 '입력 커버리지를 규정하지 않으면 좁은 입력으로 항상 통과한다'였는데, 이번 SC-1은 커버리지를 '9종 × 31형태 × 12형태'라는 **숫자**로 규정했다. 숫자는 열거의 상한을 다시 만든다. 규정해야 할 것은 개수가 아니라 **속성**이다(아래 criteria_gaps)."
+  },
+  "issues": [
+    "[security][high][confirmed] `sed 's/a/b/' <보호경로> -i` → OLD=ask, NEW=**allow**(대상 9종 전부). GNU sed는 getopt 순열로 피연산자 뒤 옵션을 받는다. 실증: `printf 'AAA\\n' > t3; gsed 's/AAA/PWN3/' t3 -i` → t3=PWN3. in-place 패턴이 `(-...i)` **뒤에** 경로를 요구하므로 순서가 뒤집히면 미매치. 이 머신 BSD sed는 미동작이나 리눅스/CI는 실쓰기.",
+    "[security][high][confirmed] `sed -n 'w<보호경로>' src` → OLD=ask, NEW=**allow**(9종 중 7종. `.claude/settings*`만 경로가 `.`으로 시작해 우연히 `\\bw\\b` 경계를 만족). w 명령은 파일명 앞 공백이 필수가 아니다. 실증(BSD·GNU 양쪽): `sed -n 'wvictim1' src1` → victim1=SRC1.",
+    "[security][high][confirmed] `sed 's/x/y/w<보호경로>' src` → OLD=ask, NEW=**allow**(9종 중 7종). s///w 플래그도 공백이 필수가 아니다. 실증: `sed 's/AAA/PWN2/wvictim2' src2` → victim2=PWN2.",
+    "[security][high][confirmed] `sed -n '1w <보호경로>' src` → OLD=ask, NEW=**allow**(대상 9종 전부). 주소 접두가 붙으면 `w` 앞이 단어문자(`1`)라 `\\bw\\b` 경계가 깨진다. 실증: `sed -n '1w vic_1w' s` → vic_1w=L1. 공백 없는 `1wvic`도 동일하게 쓴다.",
+    "[security][high][confirmed] `awk -v f=<보호경로> '{print > f}' src` → OLD=ask, NEW=**allow**(대상 9종 전부, feature_list.json 포함). 리다이렉트 패턴은 `>` 직후에 경로 리터럴을 요구하는데 변수를 거치면 미매치. 실증: `awk -v f=vic_awkv '{print > f}' s3` → vic_awkv=X. OLD은 awk가 에디터 이름 목록에 있어 경로 토큰만으로 잡고 있었다.",
+    "[security][high][confirmed] `awk 'BEGIN{f=\"<보호경로>\"; print \"x\" > f}'` → OLD=ask, NEW=**allow**(대상 9종 전부). 위와 같은 축. 실증: victim5=PWN5. **참고: 이 형태는 훅 138-141줄 주석이 '남는 한계'로 지목한 바로 그것인데, implementer는 그 지목을 이번 커밋에서 '틀렸다'고 철회했다. 철회가 과했다 — 리터럴 리다이렉트(`print > \"path\"`)는 잡히지만 변수 경유는 잡히지 않으며, 그것은 OLD에서 이름 규칙이 덮고 있었다.**",
+    "[security][medium][confirmed] `gsed -i`·`gawk -i inplace` → OLD·NEW 모두 allow(회귀 아닌 기존 구멍). 실증: `gsed -ni 's/AAA/PWN11/p' t11` → t11=PWN11. `\\b(sed|perl|awk)\\b`가 `gsed`·`gawk`를 매치하지 않는다. macOS에서 GNU 동작이 필요할 때 쓰는 표준 이름이고, AC-1이 닫으려는 `-i inplace`는 애초에 **gawk 전용 기능**이라 패턴과 이름이 어긋나 있다. F63의 회귀는 아니므로 반려 사유에 넣지 않았으나, AC-1의 완결성 관점에서 함께 닫는 것이 옳다.",
+    "[overfire][medium][confirmed] `-[a-zA-Z]*i`가 i를 포함한 **장옵션을 in-place로 오인**한다 — `sed --quiet`·`sed --silent`·`sed --expression=`·`sed --posix`·`awk --field-separator=:`·`awk --lint` + 보호경로가 전부 ask. dbb0a47(`-i\\b`)에서는 allow였으므로 이번 수정이 만든 새 과탐이며, 과탐 제거가 목적인 기능에서 방향이 반대다. 배터리 읽기 12형태가 전부 단축옵션이라 이 축을 보지 못한다.",
+    "[overfire][low][confirmed] `\\bw\\b`가 sed 스크립트 안의 독립 토큰 w/W를 읽기에서도 잡는다 — `sed -n '/w/p' P`·`sed -n '/^w/p' P`·`sed -n '/ w /p' P`·`sed 's/a/w/' P`·`sed -n '/^W/p' P` 전부 ask(대상 9종). OLD에서도 ask라 회귀는 아니고, 보수적 방향이라 수용 가능하다. 다만 **문서화도 테스트도 없다** — 훅 주석은 이 잔존 과탐을 언급하지 않고, 신규 bats는 통과하는 3건만 잠근다.",
+    "[doc][high][confirmed] 훅 138-141줄 주석이 이번 커밋이 철회한 주장을 그대로 담고 있다: \"sed/awk 스크립트 내부의 `print > \\\"file\\\"` 쓰기는 여전히 정적으로 잡히지 않으며, 이는 이번 변경으로 생긴 것이 아니라 인터프리터와 공유하는 기존 한계다\". implementer-output의 `limitations_honest[0]`은 같은 문장을 '사실이 아니었다'고 정정했다. 두 산출물이 같은 커밋 안에서 서로를 부정한다 — 1차 판정 required_for_pass #4가 명시적으로 요구한 정정이 코드 쪽에만 누락됐다. (덧붙여 138줄의 '세 곳'은 1차 판정이 네 곳으로 실측 정정한 수치인데 그대로다.)",
+    "[test][medium] 신규 bats 3건은 1차 판정이 **실증한 인스턴스 그대로**를 인코딩한다(`sed -ie`·`sed -ni`·`awk -iinplace`·`sed -n w <path> <src>`·`sed s/x/y/w <path> <src>`). 공백 없는 `w`, 주소 접두 `1w`, 인자 순열, awk 변수 경유는 한 건도 없다. calibration 코퍼스의 F52 가드('열거식 수정은 같은 클래스의 변형을 최소 3개 새로 만들어 재현한다')가 이번에도 적용되지 않았다.",
+    "[test][medium] `scripts/verify-firewall-rw.sh`의 쓰기 31형태가 그대로 SC-1의 커버리지 정의가 됐다. 배터리가 스스로의 충분성을 증명할 수 없는 구조 — 배터리 통과(279/279 ask)와 실제 보호 상실(50건 allow)이 동시에 참이다. 1차와 2차 모두 배터리는 초록이었고 bats도 초록이었다.",
+    "[process][low] AC-7의 CI 배선은 확인된다(.github/workflows/ci.yml:23 shellcheck, :93 실행). 다만 CI가 부르는 것은 '31형태 배터리'이므로, 배터리가 형태를 놓치면 CI도 같이 놓친다. 게이트는 배선됐으나 게이트의 감도는 여전히 열거에 의존한다.",
+    "[style][low] hooks/pre-bash-firewall.sh:202 shellcheck SC2317(unreachable) info — 기존 지적이며 판정에 무관.",
+    "[process][low] 1차 판정이 escaped-defect 환류를 지시했고 progress/lessons.md에는 F63 항목이 기록됐으나 evals/calibration/false-positives.json의 entries는 3건 그대로다. F37 환류 규약은 두 곳 모두를 요구한다."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1: awk in-place 패턴 존재 — `awk -i inplace`·`awk -iinplace`·`awk --in-place` + 보호경로 9종 전부 ask(단 gawk 이름은 미매치, issues 참조)",
+      "AC-2: 보호 경로 읽기 전용 sed/awk가 allow — 독립 배터리의 읽기 14형태 × 9종이 OLD ask → NEW allow로 전환(sed -n 1,20p · sed -n 5p · sed -n /word/p · sed 's/a/b/' · sed -E · sed -n '$=' · sed -e 1d -e 2d · awk NR<10 · awk '{print $1}' · awk -F: · awk /warn/ · awk END · sed -f · diff)",
+      "AC-5: scripts/probes/behavioral.sh → `[]`(후보 0건)",
+      "AC-6: bats tests/ → exit=0, ok=635, not ok=0. F63 신규 7건(#360-366) 전부 통과",
+      "AC-7: scripts/verify-firewall-rw.sh 존재 + 기대 불일치 시 exit 1 + CI 배선 2곳(ci.yml:23 shellcheck, ci.yml:93 실행). 실행 결과 읽기 108/108 allow · 쓰기 279/279 ask · exit=0"
+    ],
+    "security": [
+      "SC-2: OLD/NEW 훅에서 BLOCKED 배열·INDIRECT_PATTERNS 배열을 추출해 diff → 각각 0줄. git diff d060dc3 HEAD -- progress/harness-config.json docs/INVARIANTS.md → 0줄. ask 계층만 변경됨",
+      "SC-3: 단일 커밋 내 순서 유지 — 28d6d8b는 in-place 패턴 확장만 하고 에디터 목록을 추가로 좁히지 않았다. 중간 무방비 상태 없음"
+    ],
+    "error_scenarios": [
+      "ES-3: 인터프리터 패턴(python3|node|nodejs|ruby|perl|php|lua) 무변경. `perl -ne 'print' <보호경로>`는 여전히 ask"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-3: '쓰기 경로는 어느 형태로도 뚫리지 않는다 — 열거는 하한이지 상한이 아니다'. 쓰기 6형태 50건이 allow이며 6형태 전부 실쓰기 실증됨",
+      "AC-4: '126줄 주석을 구현과 일치시킨다'. 138-141줄이 implementer 자신이 철회한 한계 서술을 유지 — 주석과 구현·주석과 산출물이 동시에 어긋난다"
+    ],
+    "security": [
+      "SC-1: '탐지 가능한 쓰기 경로의 집합이 축소되지 않는다'. OLD(d060dc3)/NEW(28d6d8b) 대조에서 쓰기 50건 ask→allow. 대상에는 progress/feature_list.json(INV-11 게이트)이 포함되며 `awk -v f=progress/feature_list.json '{print > f}' src.txt`가 allow다"
+    ],
+    "error_scenarios": [
+      "ES-1: 'sed/awk를 뺐더니 다른 쓰기 형태가 새로 뚫림 → AC-3의 전수 배터리에서 사전 검출'. 배터리가 279/279 통과를 보고하는 동시에 50건이 열려 있었다. 검출 기제가 두 번째로 실패",
+      "ES-2: 'in-place 패턴이 정상 사용까지 잡는 새 과탐'. `-[a-zA-Z]*i`가 i를 포함한 장옵션(--quiet·--silent·--expression·--posix·--field-separator·--lint)을 오인해 정상 읽기를 ask로 만든다. dbb0a47 대비 새로 생긴 과탐"
+    ]
+  },
+  "independent_findings": {
+    "what_improved": "1차 지적 5형태는 전부 닫혔음을 재확인했다 — `sed -ie`·`sed -ni`·`sed -in`·`awk -iinplace`·`sed -n 'w <path>'`·`sed 's/x/y/w <path>'`가 대상 9종에서 ask다. 배터리 상설화(scripts/verify-firewall-rw.sh)와 CI 배선은 F62 지적에 대한 실질적 이행이고, SC-1/AC-3 문언 보완도 방향이 옳다. 1차의 '내 주장이 틀렸다'는 자기정정도 부분적으로 정확하다(리터럴 리다이렉트는 실제로 잡힌다).",
+    "why_it_still_fails": "수정이 **인스턴스 단위**였다. 1차가 실증한 6개를 닫고, bats에 그 6개를 넣고, 배터리에 그 6개를 넣었다. 클래스를 정의하는 질문 — '파일명 앞 공백은 필수인가' '주소 접두가 붙으면 경계는 어떻게 되나' '옵션이 피연산자 뒤에 와도 되는가' '경로가 변수를 거치면' — 은 던져지지 않았다. calibration 코퍼스의 F52 가드가 정확히 이 실패를 예고한다.",
+    "the_structural_point": "이 가드는 **화이트리스트가 아니라 블랙리스트**다. 이름 기반 규칙(`\\bsed\\b + 경로`)은 sed의 쓰기 문법 전체를 모르고도 안전한 쪽으로 틀렸다. 플래그 기반 규칙은 sed의 쓰기 문법을 **전부 알아야** 안전하다. 후자로 옮기는 순간 완전성 부담이 규칙 작성자에게 넘어오고, sed·awk의 쓰기 문법은 그 부담을 감당할 만큼 작지 않다. 두 번의 이터레이션이 각각 6형태를 발견했다는 사실 자체가 열거의 수렴이 느리다는 증거다. **대안 설계를 권고한다**(recommended_direction 참조) — 열거를 계속 늘리는 것은 세 번째 반려로 이어질 가능성이 높다.",
+    "measurement_method": "독립 배터리를 새로 작성했다(구현자 배터리를 재실행하는 것으로는 같은 사각을 물려받는다). 읽기 24형태 + 쓰기 54형태 = 78형태 × 보호대상 9종 = 684건을 OLD 훅(`git show d060dc3:hooks/pre-bash-firewall.sh`)과 NEW 훅에 각각 통과시켜 permissionDecision을 대조하고, 회귀 후보는 전부 샌드박스에서 실쓰기 여부를 확인했다. 형태 설계는 판정 결과가 아니라 **sed/awk 문법 문서와 getopt 동작**에서 역산했다."
+  },
+  "recommended_direction": {
+    "note": "반려 요건은 required_for_pass에 있다. 이 절은 세 번째 이터레이션에서 열거 경쟁을 반복하지 않기 위한 설계 제안이다.",
+    "option_a_narrow_the_read_allowance": "sed·awk를 에디터 목록에서 빼는 대신, **읽기로 확실히 판별되는 좁은 형태만 allow로 예외 처리**하고 나머지는 종전대로 ask로 남긴다. 예: `sed`가 `-i`류 옵션 없이 `-n`/`-e`/`-E`/`-r`/`-s`/`--quiet`/`--silent`만 갖고, 스크립트에 `w`가 없을 때만 allow. 화이트리스트 방향이므로 미지의 쓰기 문법이 나타나도 안전한 쪽으로 틀린다 — 이번 6형태는 전부 자동으로 막힌다.",
+    "option_b_treat_awk_as_interpreter": "awk를 인터프리터 목록(python3|node|ruby|perl|php|lua)으로 옮긴다. awk는 `system()`·`print > expr`·`-v`로 임의 파일을 쓸 수 있어 구문만으로 읽기/쓰기를 가를 수 없다 — 인터프리터와 같은 성질이다. 이 경우 awk 읽기 과탐은 남지만 사용자 보고의 주 원인은 sed였고(permissions.allow: sed 27 · awk 16), option_a와 조합하면 sed 쪽 과탐은 그대로 해소된다.",
+    "if_enumeration_continues": "열거를 유지한다면 최소한 (1) `\\bw\\b` → `w` 뒤 공백 선택·주소 접두 허용(`[0-9$,/}]*w`), (2) 인자 순열 대응(경로가 `-i` 앞에 와도 매치), (3) awk `-v <var>=<보호경로>`와 `<보호경로>` 문자열 리터럴 자체를 awk와 결합할 때 매치, (4) `gsed|gawk|busybox sed` 이름 변형, (5) `-[a-zA-Z]*i`를 `(-[a-zA-Z]*i([a-zA-Z0-9.]*)?( |=|$))`처럼 좁혀 장옵션 오인 제거 — 다섯 축을 함께 닫아야 한다."
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "SC-1의 커버리지가 **숫자**로 규정됐다('최소 대상 9종 × 쓰기 31형태 × 읽기 12형태'). 1차 지적은 '커버리지 미규정'이었는데 그 처방이 다시 열거의 상한을 만들었다. 규정해야 할 것은 개수가 아니라 속성이다 — 제안: (a) 대상 축 = is_protected가 반환하는 경로 계열 전부, (b) 형태 축 = 각 도구의 man page가 문서화한 **쓰기 프리미티브 전부**(sed: -i·w 명령·s///w, awk: -i inplace·print/printf 리다이렉트·system, 공통: 인자 순열·이름 변형), (c) 각 프리미티브마다 공백 유무·구분자 유무·변수 경유의 **토큰화 변형**을 최소 1건씩. 숫자가 아니라 목록의 출처를 규정한다",
+      "'정규식을 좁힐 때 새 패턴의 매치 집합이 옛 패턴의 위험 부분집합을 덮는가'를 확인하는 기준이 여전히 없다. 1차 판정이 같은 항목을 올렸고 계약에 반영되지 않았다. 이번에는 OLD/NEW 차등이 그 역할을 했으나 계약이 요구하지 않아 구현자는 수행하지 않았다 — **차등 대조를 배터리의 기본 모드로 계약에 넣을 것**(현재 verify-firewall-rw.sh는 NEW 단독 판정만 본다)",
+      "과탐 축의 검증 기준이 없다. AC-2는 읽기 allow를 요구하지만 배터리의 읽기 12형태가 전부 단축옵션이라 장옵션 오인을 보지 못한다. 읽기 형태에도 토큰화 변형(장옵션·결합 단축옵션·`--opt=value`)을 요구해야 한다"
+    ],
+    "ambiguous_criteria": [
+      "AC-3의 '열거는 하한이지 상한이 아니다'는 방향은 옳으나 **검증 절차를 바꾸지 않았다** — 판정자가 새 형태를 찾아내야만 위반이 드러나는 구조는 그대로다. 하한임을 실효화하려면 '배터리 밖에서 무작위/문법기반으로 생성한 형태 N건을 매 이터레이션 새로 시도한다' 같은 **탐색 의무**로 적어야 한다"
+    ],
+    "security_criteria_insufficient": [
+      "SC-1이 '축소되지 않는다'만 요구하고 **어느 방향의 규칙 교체가 완전성 부담을 옮기는지**를 묻지 않는다. 이름 기반 → 속성 기반 교체는 그 자체로 리스크 클래스이며, critical 티어에서는 '교체 후 규칙이 도구의 쓰기 문법 전수를 덮는다는 근거'를 요구해야 한다"
+    ],
+    "action_required": "다음 iteration에서 (1) SC-1의 커버리지를 숫자 대신 출처(도구 man page의 쓰기 프리미티브 전수 + 토큰화 변형)로 재작성, (2) verify-firewall-rw.sh에 OLD/NEW 차등 모드를 추가하고 계약이 그것을 요구, (3) 읽기 배터리에 장옵션·`--opt=value` 축 추가, (4) recommended_direction의 option_a/option_b 중 하나를 Plan 게이트에 올려 열거 경쟁을 끝낼 것"
+  },
+  "required_for_pass": [
+    "1. 아래 6형태를 ask로 되돌린다(대상 9종 전부): `sed 's/a/b/' <P> -i` · `sed -n 'w<P>' src` · `sed 's/x/y/w<P>' src` · `sed -n '1w <P>' src` · `awk -v f=<P> '{print > f}' src` · `awk 'BEGIN{f=\"<P>\"; print \"x\" > f}'`. 인스턴스가 아니라 클래스로 닫을 것 — 닫은 뒤 각 축의 **새 변형 3개씩**을 스스로 만들어 재현하고 결과를 보고에 남긴다",
+    "2. `-[a-zA-Z]*i`가 i를 포함한 장옵션을 오인하는 과탐을 제거한다 — 최소 `sed --quiet`·`sed --silent`·`sed --expression=`·`awk --field-separator=:`가 allow로 복귀할 것",
+    "3. 훅 138-141줄 주석을 실측에 맞게 정정한다 — 리터럴 리다이렉트는 잡히고, **변수 경유 리다이렉트는 잡히지 않으며**, 그것은 OLD의 이름 규칙이 덮던 것이다. '세 곳' → '네 곳'도 함께. 1차 required_for_pass #4의 미이행분이다",
+    "4. `scripts/verify-firewall-rw.sh`에 **OLD/NEW 차등 모드**를 추가한다(기준 커밋을 인자로 받아 `git show <ref>:hooks/pre-bash-firewall.sh`와 대조, 쓰기 ask→allow 전환이 1건이라도 있으면 exit 1). 단독 판정만 보는 배터리는 이번처럼 279/279 통과와 50건 보호 상실을 동시에 낼 수 있다",
+    "5. 신규 bats는 닫은 형태가 아니라 **닫은 축**을 잠근다 — 최소 공백 없는 `w`, 주소 접두 `1w`, 인자 순열, awk 변수 경유 4건 + 장옵션 읽기 allow 2건",
+    "6. `gsed`·`gawk`·`busybox sed` 이름 변형은 회귀가 아니므로 이번 pass의 필수 요건은 아니다 — 다만 `-i inplace`가 gawk 전용 문법인데 패턴이 `gawk`를 매치하지 못하는 불일치는 계약(AC-1)에 한 줄로 남길 것"
+  ],
+  "evidence": {
+    "differential_battery": "독립 작성. 읽기 24형태 + 쓰기 54형태 = 78형태 × 보호대상 9종 = 684건을 OLD 훅(git show d060dc3:hooks/pre-bash-firewall.sh)과 NEW 훅(28d6d8b)에 각각 통과시켜 permissionDecision 대조. 결과: 쓰기 회귀(OLD=ask→NEW=allow) 6형태 50건 · 기존구멍(OLD도 allow) 2형태(gsed·gawk) · 읽기 과탐 해소 14형태 126건 · 읽기 잔존 과탐 3형태 27건. 스크립트: /private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/1db2c247-ead1-44b7-870a-1435cb23a726/scratchpad/diffbattery.sh",
+    "per_form_decision_table": "회귀 6형태 × 9종 OLD/NEW 표를 개별 질의로 재확인. `sed 's/a/b/' P -i`·`sed -n '1w P' src`·`awk -v f=P`·`awk BEGIN{f=P}`는 9/9 allow. `sed -n 'wP' src`·`sed 's/x/y/wP' src`는 7/9 allow(.claude/settings.json·.claude/settings.local.json만 ask — 경로가 `.`으로 시작해 우연히 \\bw\\b 경계 충족)",
+    "write_forms_are_real": "샌드박스 실쓰기 실증(macOS BSD sed 20200816 · BWK awk 20200816 · gsed 4.10): `sed -n 'wvictim1' src1`→victim1=SRC1 · `sed 's/AAA/PWN2/wvictim2' src2`→victim2=PWN2 · `sed -n '1w vic_1w' s`→vic_1w=L1 · `sed -n '1wvic_1wns' s2`→L1 · `gsed 's/AAA/PWN3/' t3 -i`→t3=PWN3 · `awk -v f=vic_awkv '{print > f}' s3`→X · `awk 'BEGIN{f=\"vic_beg\"; print \"Y\" > f}'`→Y · `gsed -ni 's/AAA/PWN11/p' t11`→PWN11 · `gsed -n 'W victim6' src6`→W1\\nW2. 스크립트: scratchpad/realwrite.sh · realwrite2.sh",
+    "overfire_probe_wb": "NEW 훅 직접 질의 — ask: `sed -n '/w/p' hooks/lib.sh` · `sed -n '/^w/p' ...` · `sed -n '/ w /p' ...` · `sed 's/a/w/' ...` · `sed -e 's/foo/w/' ...` · `sed -n '/^W/p' ...`. allow: `sed -n '/word/p'` · `sed -n '/write/p'` · `awk '/warn/{print}'` · `sed -n 'p;w /tmp/out' hooks/lib.sh`(세미콜론이 [^;|&] 경계를 끊음)",
+    "overfire_probe_longopts": "NEW 훅 직접 질의 — ask: `sed --quiet '1,20p' hooks/lib.sh` · `sed --silent ...` · `sed --expression='1,20p' ...` · `sed --posix -n 1p ...` · `awk --field-separator=: '{print}' ...` · `awk --lint '{print}' ...`. allow: `sed --regexp-extended 's/a/b/' ...`(i 없음) · `sed -n 1p ...` · `awk -F: ...`",
+    "standing_battery": "bash scripts/verify-firewall-rw.sh → 읽기 108/108 allow · 쓰기 279/279 ask · exit=0. **배터리 통과와 위 50건 보호 상실이 동시에 참** — 배터리의 31형태가 6형태를 포함하지 않는다",
+    "tests": "bats tests/ → exit=0, ok=635, not ok=0. F63 신규 7건(#360 sed -n read allow · #361 awk read allow · #362 awk -i inplace ask · #363 path-list parity · #364 combined short options · #365 sed w command/s///w flag · #366 w pattern vs normal reads)",
+    "probes": "bash scripts/probes/behavioral.sh → `[]`(후보 0건)",
+    "deny_invariance": "OLD/NEW 훅에서 BLOCKED 배열·INDIRECT_PATTERNS 배열을 awk로 추출해 diff → 각각 0줄. git diff d060dc3 HEAD --stat -- progress/harness-config.json docs/INVARIANTS.md INVARIANTS.md → 출력 없음",
+    "lint": "shellcheck scripts/verify-firewall-rw.sh hooks/pre-bash-firewall.sh scripts/probes/behavioral.sh → exit=0. hooks/pre-bash-firewall.sh:202 SC2317(info, unreachable) 1건 — 기존 지적",
+    "ci_wiring": "grep -n verify-firewall-rw .github/workflows/ci.yml → 23(shellcheck) · 93(실행). AC-7 배선 확인",
+    "stale_comment": "grep -n 'print > \\|기존 한계\\|세 곳' hooks/pre-bash-firewall.sh → 138·140·141줄. implementer-output.json의 limitations_honest[0]과 정면으로 배치",
+    "criteria_files": "evals/acceptance-criteria.json의 F63 항목과 progress/feature_list.json의 F63(status=pending, passes=false, security_tier=critical) 확인. 계약 sprint-49.json의 SC-1·AC-3·AC-7 보완 문언 확인"
+  },
+  "notes": {
+    "critical_tier_second_judgment": "security_tier=critical이므로 F37 2차 판정 대상이나, 이번에도 1차(이 판정)가 fail이고 실쓰기까지 실증된 반례가 6형태 있으므로 '자동 pass' 조건에 해당하지 않아 사람 에스컬레이션은 불필요하다. 다음 iteration이 pass 후보가 되면 **독립 컨텍스트 2차 judge를 반드시 배선**할 것 — 두 번 연속 같은 클래스가 열린 이력은 단일 judge 신뢰도를 낮춘다",
+    "credit_where_due": "1차 지적을 전부 재현하고 실쓰기까지 확인한 뒤 고친 것, 자신의 틀린 주장('awk print-redirect가 구멍')을 먼저 정정한 것, 배터리를 저장소와 CI로 옮긴 것은 모두 가점 요인이다. 이번 반려는 성실성이 아니라 **수정의 단위**(인스턴스 vs 클래스)에 대한 것이다",
+    "self_correction_was_slightly_over": "'awk print-redirect는 구멍이 아니었다'는 정정은 리터럴 형태에 대해서만 참이다. 변수 경유(`-v f=` · `BEGIN{f=...}`)는 잡히지 않으며 OLD은 잡았다 — 즉 원래 주석의 취지('awk 스크립트 내부 쓰기가 남는다')는 절반 맞았고, 틀린 부분은 '기존 한계'라는 출처 서술이었다. 정정문을 다시 정정할 것",
+    "reporting_policy": "issues에는 확신·심각도와 무관하게 관측한 모든 항목을 올렸다(style·process 포함). 반려 사유는 fail_reasons의 4건뿐이며 나머지는 판정에 영향을 주지 않는다"
+  }
+}

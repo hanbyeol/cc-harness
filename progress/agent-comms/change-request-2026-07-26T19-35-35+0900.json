@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-07-27T00:00:00+09:00",
+  "type": "modify",
+  "description": "방화벽 과탐 제거 — 보호 경로에 대한 읽기 전용 sed/awk를 쓰기와 구분해 불필요한 승인 프롬프트 제거",
+  "affected_features": ["F63", "F32"],
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": false,
+    "acceptance_criteria_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false
+  },
+  "new_sprint_contract": "progress/contracts/sprint-49.json",
+  "rollback_to_phase": null,
+  "_origin": "사용자가 '일반 bash 명령에도 반복 승인 요청'을 보고. 진단 중 배선 확인 명령(sed -n으로 훅 파일 읽기)이 실제로 프롬프트를 띄워 현상이 재현됐다.",
+  "_tier": "critical — pre-bash-firewall.sh는 F32·F33·F34의 자기보호 경계이며 invariant-guard 보호 대상. 규칙을 좁히는 방향이므로 evaluator + security-auditor + qa-reviewer + F37 2차 판정 전부 거친다. hotfix 부적격.",
+  "_root_cause": "128줄 '(ed|ex|vi|vim|nano|emacs|sed|awk|dd|patch) + 보호경로' 패턴이 읽기/쓰기를 구분하지 않는다. sed·awk는 in-place 플래그가 있을 때만 쓰기인데 도구 이름만으로 판정한다. 같은 파일을 grep·cat으로 읽으면 allow다.",
+  "_key_constraint": "awk -i inplace는 현재 어느 패턴도 잡지 않으므로, 128줄을 좁히기 전에 awk in-place 패턴을 먼저 추가해야 한다. 순서를 뒤집으면 과탐 제거가 아니라 순수 약화가 된다."
+}

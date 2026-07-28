@@ -1,0 +1,152 @@
+{
+  "sprint": 50,
+  "title": "보호 경로 표기 정규화 — 셸이 같은 파일로 해석하는 표기를 게이트가 인식한다",
+  "feature_id": "F64",
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "_tier_note": "INV-11(passes 위조 Bash 우회)과 F32 자기보호 경계를 직접 건드린다. evaluator + security-auditor + qa-reviewer + F37 2차 판정을 모두 거친다. 보안 7/10 미만이면 자동 fail.",
+  "dependencies": [
+    "F32",
+    "F35",
+    "F63"
+  ],
+  "problem": "[2026-07-28, F63 구현 중 발견] 방화벽의 보호 경로 패턴이 **리터럴 표기만** 인식한다. 셸이 동일한 파일로 해석하는 다른 표기는 매치되지 않아 allow가 된다 — 부분 인용(`hooks/\"lib.sh\"`·`hooks/'lib'.sh`·`hooks/lib\".sh\"`), 백슬래시 이스케이프(`hooks/lib\\.sh`), 경로 정규화(`hooks//lib.sh`·`hooks/./lib.sh`). **여섯 형태 전부 샌드박스에서 대상 파일을 실제로 덮어썼다.** main·HEAD 판정이 동일하므로 F63의 회귀가 아니라 이전부터 있던 결함이며, sed -i·cp·mv·echo >·tee·vim·perl -i 등 경로를 인자로 받는 모든 arm에 걸친다. **가장 심각한 것은 INV-11 우회다** — `cp /tmp/forged.json progress/'feature_list'.json` 이 allow이므로 따옴표 하나로 'evaluator만 passes를 바꾼다'는 불변식의 Bash 게이트가 무력화된다. **arm별 강도 비대칭도 함께 드러났다**: `echo x > progress//feature_list.json` 은 ask인데(테스트로 잠겨 있다) `cp /tmp/x hooks//lib.sh` 는 allow다 — 리다이렉트 arm은 `[^ ]*`+basename으로 앵커돼 있고 hooks/*.sh arm은 슬래시 하나를 강제하기 때문이다. 같은 위협에 대해 arm마다 강도가 다르면 약한 arm이 실제 방어선이 된다(F52 패턴).",
+  "_evidence": {
+    "measured": "cp /tmp/x hooks/\"lib.sh\" · hooks/'lib'.sh · hooks/lib\".sh\" · hooks/lib\\.sh · hooks//lib.sh · hooks/./lib.sh 전부 allow(main·HEAD 동일). 같은 형태를 격리 샌드박스에서 실행해 hooks/lib.sh 가 실제로 덮어써지는 것을 6형태 모두 확인했다.",
+    "inv11": "cp /tmp/x progress/'feature_list'.json → allow. feature_list arm은 리터럴 `feature_list\\.json` 부분문자열을 요구하므로 따옴표가 그 문자열을 끊는다.",
+    "asymmetry": "리다이렉트 arm(`>>? *[^ ]*(…|feature_list\\.json)`)은 basename 앵커라 `progress//feature_list.json` 을 잡지만, `hooks/[A-Za-z0-9_.-]+\\.sh` arm은 슬래시 하나를 강제해 `hooks//lib.sh` 를 놓친다.",
+    "not_a_regression": "main에서도 동일하게 allow다. F63이 만든 것이 아니며 F63의 범위도 아니다 — 그래서 별도 기능으로 등록한다."
+  },
+  "_key_constraint": {
+    "finding": "정규화본은 **경로 대조에만** 쓴다.",
+    "detail": "F63 10차에서 두 계층이 서로의 판단 근거를 지운 사례가 있었다 — 인용 구간의 `;`·`|`를 중화한 정규화본을 읽기 화이트리스트가 보는 바람에 awk 프로그램의 `\"cmd\" | getline`(셸 실행)이 파이프 없는 무해한 프로그램처럼 보였다.",
+    "consequence": "경로 정규화본은 ASK 계층의 **경로 패턴 대조**에만 공급하고, Layer 3.5 읽기 화이트리스트는 지금처럼 원본(RAW_CMD)으로 판정한다. 정규화본을 새로 만들 때마다 '어느 계층이 이것을 보는가'를 명시한다."
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "경로 대조 전용 정규화본을 만든다 — 따옴표(작은·큰) 제거, 백슬래시 이스케이프 제거(`\\X`→`X`), `//`→`/`, `/./`→`/`.",
+      "verification": "정규화 함수 단위로 6형태가 전부 `hooks/lib.sh`·`progress/feature_list.json` 으로 접히는지 확인"
+    },
+    {
+      "id": "AC-2",
+      "criterion": "보호 경로 패턴을 **원본과 정규화본 양쪽에** 적용한다. 어느 쪽이든 매치하면 ask다.",
+      "verification": "매치 집합이 원본 단독 대비 **상위집합**임을 확인 — 매치가 늘기만 하므로 보호를 잃을 수 없다는 것이 이 설계의 핵심 근거다",
+      "_why_both": "정규화본만 쓰면 정규화가 잘못됐을 때 원본이 잡던 것을 놓친다. 양쪽에 적용하면 정규화 버그의 최악 결과가 '과탐'이지 '보호 상실'이 아니다."
+    },
+    {
+      "id": "AC-3",
+      "criterion": "실증된 6형태 × 보호 경로 전 계열이 ask. **열거는 하한이지 상한이 아니다** — 판정자가 스스로 만든 변형에서 우회가 나오면 미충족이다.",
+      "verification": "배터리 1단계(판정) + 2단계(격리 샌드박스 실행 후 트리 해시 불변) 양쪽 통과. F63의 AC-8 기구를 재사용한다"
+    },
+    {
+      "id": "AC-4",
+      "criterion": "과탐 회귀가 없다 — 정상 명령이 새로 ask가 되지 않는다.",
+      "verification": "정규화로 우연히 경로처럼 보이는 문자열(인용 안 텍스트·URL·정규식)을 포함한 정상 명령 최소 10종이 allow 유지"
+    },
+    {
+      "id": "AC-5",
+      "criterion": "표기 축을 배터리에 상설화한다.",
+      "verification": "scripts/verify-firewall-rw.sh 의 쓰기 형태에 표기 변형을 추가 + CI 호출 유지"
+    },
+    {
+      "id": "AC-6",
+      "criterion": "기존 테스트가 회귀 없이 통과한다.",
+      "verification": "bats tests/ 전체 1회 + scripts/probes/run-all.sh"
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "탐지 가능한 쓰기 경로의 집합이 축소되지 않는다.",
+      "rationale": "정규화는 매치를 늘리는 방향이므로 구조적으로 축소가 불가능해야 한다.",
+      "verification": "원본 단독 매치 집합 ⊆ 양쪽 적용 매치 집합 임을 배터리로 실증"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "DENY 목록·임계값이 불변이다. 이 변경은 ASK 계층의 경로 대조만 건드린다.",
+      "verification": "BLOCKED·INDIRECT_PATTERNS 배열이 main과 바이트 동일 + harness-config.json·INVARIANTS.md diff 없음"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "정규화본의 **소비 계층을 명시한다** — 경로 대조 전용이며 Layer 3.5 읽기 화이트리스트는 원본으로 판정한다.",
+      "rationale": "_key_constraint 참조. F63 10차에서 정규화본이 화이트리스트의 판단 근거를 지운 사례가 있었다.",
+      "verification": "코드에서 화이트리스트가 RAW_CMD를 쓰는지 확인 + awk `\"cmd\" | getline` 계열이 여전히 ask인지 회귀 확인"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "정규화가 인용 안의 문자열을 경로로 오인해 과탐",
+      "expected": "AC-4의 정상 명령 세트로 사전 검출. 발생 시 정규화 규칙을 좁히되 양쪽 적용은 유지한다"
+    },
+    {
+      "id": "ES-2",
+      "scenario": "정규화본과 원본의 판정이 갈림",
+      "expected": "어느 쪽이든 매치하면 ask — 설계상 갈릴 수 없다(합집합). 갈린다면 구현이 합집합이 아닌 것이다"
+    },
+    {
+      "id": "ES-3",
+      "scenario": "F63의 토큰화·화이트리스트와 상호작용",
+      "expected": "화이트리스트는 RAW_CMD로 판정하므로 영향 없음을 회귀로 확인(SC-3)"
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": "0. 기준선 — 표기 변형 배터리의 현재 판정 기록",
+      "verify": "SC-1 대조 기준 확보",
+      "done": false,
+      "covers": [
+        "SC-1"
+      ]
+    },
+    {
+      "step": "1. AC-1 경로 정규화 함수 + 단위 확인",
+      "verify": "6형태가 리터럴 경로로 접힘",
+      "done": false,
+      "covers": [
+        "AC-1"
+      ]
+    },
+    {
+      "step": "2. AC-2 경로 패턴을 양쪽에 적용",
+      "verify": "매치 집합이 상위집합",
+      "done": false,
+      "covers": [
+        "AC-2",
+        "SC-1"
+      ]
+    },
+    {
+      "step": "3. AC-3·AC-5 배터리 확장 + 2단계 실행 검증",
+      "verify": "exit 0 + 변경 0건",
+      "done": false,
+      "covers": [
+        "AC-3",
+        "AC-5"
+      ]
+    },
+    {
+      "step": "4. AC-4 과탐 확인 + SC-3 계층 분리 회귀",
+      "verify": "정상 명령 10종 allow · 화이트리스트 RAW_CMD 유지",
+      "done": false,
+      "covers": [
+        "AC-4",
+        "SC-3"
+      ]
+    },
+    {
+      "step": "5. AC-6·SC-2 회귀",
+      "verify": "bats 1회 + DENY 무변경",
+      "done": false,
+      "covers": [
+        "AC-6",
+        "SC-2"
+      ]
+    }
+  ],
+  "_parallelizable": false,
+  "_parallel_note": "직렬. AC-1이 AC-2의 선행이다.",
+  "agreed": false,
+  "_agreed_note": "미승인 — Plan 게이트(ExitPlanMode)에서 사용자 승인을 받은 뒤에만 true로 전환한다. F63이 진행 중이므로 착수 시점도 함께 협의한다."
+}

@@ -89,7 +89,9 @@ Layer 4는 **default-allow**(위험 정의에 걸리지 않은 명령은 통과)
 **allow만** 켜고 끈다 — deny/ask는 이 값과 무관하게 항상 실행된다.
 **왜 불변**: allow를 deny/ask보다 앞에 두거나 토글로 가드를 끄면 안전 회귀다. deny/ask 목록은
 add-only(INV-5)이며 여기엔 **하네스 자기보호**(검증 파일·비밀키에 대한 Bash 쓰기를 ask로 게이트 —
-invariant-guard의 Edit|Write 후킹을 우회하는 경로 차단)가 포함된다. default-allow 확장·위험정의
+invariant-guard의 Edit|Write 후킹을 우회하는 경로 차단)가 포함된다.
+**단 자기보호의 수단은 F65에서 갈렸다** — 되돌릴 수 없는 것만 예측으로 막고, 되돌릴 수 있는
+검증 파일 변경은 사후 탐지·복구가 담당한다(INV-14). default-allow 확장·위험정의
 완화는 사람이 검토(critical 티어)하고, 위험 명령이 allow로 새지 않음은 `tests/pre-bash-firewall.bats`의
 회귀 배터리(rm·sudo·terraform destroy·kubectl delete·git reset --hard 등이 output에
 `permissionDecision:"allow"` 미포함, 하네스 검증파일 쓰기는 `ask`)가 고정한다. → [ADR-004](DECISIONS/ADR-004-firewall-auto-allow.md)
@@ -149,7 +151,10 @@ behavioral 프로브 코퍼스가 이 부류의 누출을 감시한다.
 거친다(`progress/approval-queue.json`에 적립):
 - 검증 장치 파일: `harness-config.json`·`hooks/pre-bash-firewall.sh`·`hooks/pre-tool-firewall.sh`·
   `hooks/invariant-guard.sh`·`docs/INVARIANTS.md`·`hooks/hooks.json`·`agents/evaluator.md`·`feature_list.json`·
-  `evaluator-runs.jsonl`·`tests/*.bats`·`skills/change-request/SKILL.md`·`skills/improve/SKILL.md`·`skills/hotfix/SKILL.md`
+  `evaluator-runs.jsonl`·`tests/*.bats`·`skills/change-request/SKILL.md`·`skills/improve/SKILL.md`·`skills/hotfix/SKILL.md`·
+  `hooks/protected-integrity.sh`·`.guarded-edits`·`.integrity-baseline`
+  (뒤 셋은 F65가 추가 — 탐지기 자신과 그 상태 파일이다. 파괴되면 자기를 복구할 수 없으므로
+  데이터 플레인이 아니라 컨트롤 플레인이며, 상태 파일은 도구 경로 쓰기를 전면 차단한다. INV-14 참조.)
 - `security_tier: critical`인 모든 후보
 
 이 목록은 `invariant-guard.sh`의 `is_protected()`(F41) 집합과 정합해야 한다 — 어느 한쪽에만 있는 파일은
@@ -354,3 +359,64 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
   모든 보호 파일에 해당하는 **클래스**). 기존에 내용이 있던 보호/배선 파일(`is_protected || is_wiring_file`
   + `-s`)의 빈 Write는 truncation으로 차단한다 — 신규·이미 빈 파일은 파괴할 게 없어 통과. '실증된 인스턴스가
   아니라 클래스를 닫는다'는 F52 교훈의 적용. sprint-40 F54 follow-up)
+
+### INV-14. 검증 장치는 예측이 아니라 탐지·복구로 지킨다 (F65)
+
+`is_protected()`가 다루는 git 추적 파일(**데이터 플레인** — `tests/*.bats`·`harness-config.json`·
+`INVARIANTS.md`·`feature_list.json`·`contracts/sprint-*.json`·`evaluator.md`·`skills/{change-request,improve,hotfix}/*`
+및 이름으로 지정된 훅들)의
+내용은 **HEAD와 같거나, 그 변경이 invariant-guard 심사를 거친 것**이어야 한다. Bash 경로로 생긴
+그 밖의 변경은 `hooks/protected-integrity.sh`(PostToolUse:Bash)가 탐지해 HEAD 내용으로 되돌리고
+보고한다.
+
+**왜 바꿨나**: 이전 모델은 "이 Bash 명령이 보호 파일을 쓸 것인가"를 명령 문자열로 예측해 ask로
+막았다. 그 질문은 결정 불가능하다 — 셸도, 셸이 부르는 sed·awk·perl·python도 튜링 완전하므로
+실행하지 않고 효과를 알 수 없다. F63이 10회전 동안 그 방향을 시도했고 매 회전 새 우회 표기가
+나왔다(붙여쓴 optarg · 중괄호 확장 · 명령 치환 · 프로세스 치환 · 인용 제거 미수행 · 이름 변형 ·
+경로 표기). 예측이 불가능하니 알려진 형태를 나열할 수밖에 없었고, 그 나열이 곧 커버리지 상한이
+되는 동시에 **읽기까지 잡아** 사용자가 보고한 반복 승인 프롬프트를 만들었다.
+반면 "파일이 바뀌었는가"는 사후에 자명하게 결정되며 도구·표기와 무관하다 — 한 번도 본 적 없는
+방법이라도 잡힌다.
+
+**경계 — 예측이 계속 유일한 수단인 것**:
+- **컨트롤 플레인**(`hooks/hooks.json`·`.claude/settings*.json`): 이 둘을 바꾸면 탐지 훅의 배선 자체를
+  끌 수 있고, settings.json은 gitignore 대상이라 HEAD 복구도 불가능하다.
+- **되돌릴 수 없는 것**(Layer 1·2의 파괴적 명령, 시크릿 외부 유출): 사후 복구가 성립하지 않는다.
+
+**정직한 약화**: 데이터 플레인의 보장이 "Bash로 쓸 수 없다"에서 "Bash로 **지속적으로** 쓸 수 없다"로
+바뀐다. 한 Bash 호출 안에서 변조와 소비가 함께 일어나면 복구는 그 뒤다. 하네스에서 임계값·훅을
+소비하는 것은 다음 도구 호출이므로 실무 노출은 낮지만, 없는 위험이 아니다. 이 교환으로 얻는 것은
+메커니즘 전수 커버리지와 마찰 제거다.
+
+**복구는 작업을 파괴하지 않는다**: git 작업 진행 중(merge·rebase·cherry-pick·revert·bisect)에는 복구하지
+않고 보고만 하며, 복구할 때는 되돌릴 내용을 `progress/.integrity-quarantine/<시각>/` 에 먼저 보관한다.
+1차 판정이 무조건 복구가 `git stash pop` 으로 되살린 작업을 **비가역으로** 지우는 것을 실증했다 —
+마찰을 없애려다 그보다 나쁜 해악을 만들 뻔했다.
+
+**탐지기 자신은 데이터 플레인이 아니다**: 분류 축은 "되돌릴 수 있는가" 하나가 아니라 **"자기를 복구할
+수 있는가"**까지다. `protected-integrity.sh`(파괴되면 자기를 복구할 수 없다)와 티켓 파일
+`progress/.guarded-edits`(복구 여부의 근거)는 컨트롤 플레인이며 예측이 막는다. 파일을 바꾸지 않고
+탐지를 실명시키는 git 메타 조작(`update-index --assume-unchanged|--skip-worktree`, `rm --cached`)도 같다.
+
+**티켓은 내용에 묶이고 한 번만 쓰인다**: invariant-guard가 편집을 허용할 때 `<내용해시> <경로>` 를 남기고,
+탐지기는 일치 시 그 줄을 소비하며 **소비 사실을 `progress/.integrity-restores` 에 기록한다**.
+경로만 적으면 정당한 편집 한 번이 그 경로를 영구 면제로 만든다.
+
+**티켓 파일에 대한 보장의 정확한 범위**: Edit/Write 경로는 invariant-guard가 **전면 차단**한다(상태 파일은
+기계가 관리하므로 도구로 쓸 정당한 이유가 없다). Bash 경로는 basename 앵커로 게이트하므로 경로 표기를
+바꾸는 우회(`cd progress && … >> .guarded-edits`·`progress//…`)는 잡히지만, **명령행에 경로가 나타나지 않는
+형태**(`python3 script.py`)는 잡히지 않는다 — 예측의 원리적 한계다. 즉 티켓 파일은 셸을 쥔 상대에게
+위조 불가능하지 않다. 남는 것은 소비 로그뿐이며, 이 층이 지키는 것은 실수와 지름길이지 결정적 공격자가 아니다.
+
+**열거는 인덱스가 아니라 커밋 트리에서 한다**: `git ls-tree -r HEAD` 를 쓴다. `git ls-files` 는 인덱스를 읽으므로
+인덱스를 건드리는 모든 명령이 탐지를 실명시킨다 — `update-index --assume-unchanged`·`--skip-worktree`·
+`--force-remove`·`rm --cached`. 그 셋을 ASK 패턴으로 열거했더니 네 번째가 즉시 나왔다(2차 판정).
+트리에서 열거하면 이 클래스가 통째로 닫힌다.
+
+**두 집합은 같아야 한다**: `PROTECTED_GLOBS ≡ is_protected()`. 넓으면 편집 시 티켓이 발급되지 않는 파일이
+복구 대상에 들어가 **정당한 편집이 되돌려지고**(실측: `hooks/lib.sh`), 좁으면 그 경로는 예측도 탐지도
+없이 남는다.
+
+**배선이 없으면 예측이 되살아난다**: 방화벽은 탐지 훅의 배선을 확인해 데이터 플레인 게이트를 끄고,
+확인에 실패하면 켜진 상태로 남긴다(fail-safe). `tests/protected-integrity.bats`가 이 성질과
+두 설치 경로(hooks.json·settings.json)의 배선 대칭(INV-13)을 함께 고정한다.
