@@ -157,6 +157,12 @@
       "contract": "progress/contracts/sprint-51.json",
       "security_tier": "critical",
       "summary": "[2026-07-28] 방화벽이 '이 Bash 명령이 보호 파일을 쓸 것인가'를 명령 문자열로 **예측**해 ask로 막고 있었다. 그 질문은 결정 불가능하다 — 셸도, 셸이 부르는 sed·awk·perl·python도 튜링 완전하므로 실행하지 않고 효과를 알 수 없다. F63이 10회전 동안 그 방향을 시도했고 매 회전 새 우회 표기가 나왔다(붙여쓴 optarg·중괄호 확장·명령 치환·프로세스 치환·인용 제거 미수행·이름 변형·경로 표기). 예측이 불가능하니 알려진 형태를 나열할 수밖에 없었고, 그 나열이 곧 커버리지 상한이 되는 동시에 **읽기까지 잡아** 사용자가 보고한 반복 승인 프롬프트를 만들었다(ASK 패턴 39개 중 21개가 경로 기반). 반면 '파일이 바뀌었는가'는 사후에 자명하게 결정되며 도구·표기와 무관하다. **해결**: 보호 대상을 두 평면으로 가른다. 컨트롤 플레인(hooks.json·settings*.json — 탐지 훅의 배선 자체를 끌 수 있고 gitignore라 복구 불가)과 되돌릴 수 없는 것(Layer 1·2·egress)은 예측을 유지하고, 데이터 플레인(hooks/*.sh·tests/*.bats·harness-config.json·INVARIANTS.md·feature_list.json — 전부 git 추적)은 PostToolUse에서 탐지·복구한다. 기준은 '명령 전후'가 아니라 **HEAD** — 그래야 git checkout 같은 정상 워크플로우가 오탐되지 않는다."
+    },
+    {
+      "feature_id": "F66",
+      "contract": "progress/contracts/sprint-52.json",
+      "security_tier": "standard",
+      "summary": "[2026-07-28] 하네스가 어떤 프로젝트에서 실제로 실행되고 있는지를 아무도 확인하지 않는다. `.claude/.cc-harness-installed` 마커는 과거 한 번 돌았다는 사실만 남기고, 훅 배선이 사라져도 '적용됨'으로 읽힌다. inno-infra 실측 — v1.33.0 마커 존재, install 레코드 없음, `.claude/hooks/` 없음, PreToolUse:Bash 훅 73회 전부 rtk-rewrite.sh 단독, pre-bash-firewall.sh 0회. F27 Layer 4가 돌지 않아 내장 권한 엔진이 판정했고 awk·cut 파이프라인과 복합 셸 구문에서 승인 프롬프트가 반복됐다(두 명령 모두 방화벽 직접 주입 시 allow). cleanb-ops는 v1.12.6(Layer 4 이전)에 고정돼 같은 마찰. **해결**: 훅이 없는 곳에서는 자기 탐지가 원리적으로 불가능하므로 두 계층으로 나눈다 — 부재는 진단 프로브(scripts/probes/runtime-presence.sh)가 하네스가 도는 곳에서 바깥을 향해 탐지하고, 스테일은 setup-claudemd.sh가 대상 프로젝트 안에서 실행 버전 대 마켓플레이스 캐시 최신 버전을 비교해 경고한다. 후보에는 basename만 담아 공개 저장소로 사내 경로가 새지 않게 한다."
     }
   ]
 }

@@ -871,6 +871,23 @@
       "assigned_sprint": 51,
       "release_note": "[2026-07-28 릴리스] v1.38.0 에 판정 미통과 상태로 포함됐다 — 사용자 지시. F65는 판정 2회 fail(보안 3→4)이며 2차 지적에 대한 수정은 독립 검증을 받지 않았다. 머지 판단 근거: 독립 판정자가 스스로 고른 15개 메커니즘으로 15/15 복구를 확인했고, 인덱스 조작 4형태·복구의 비파괴성·fail-safe가 실측으로 확인됐다. 미해결(INV-14에 명시): 티켓 파일은 명령행에 경로가 없는 형태로 조작 가능하며, 한 Bash 호출 안의 변조·소비 창이 남는다.",
       "released_in": "v1.38.0"
+    },
+    {
+      "id": "F66",
+      "name": "하네스 런타임 부재·스테일 탐지 — 마커가 아니라 실제 실행 경로를 근거로",
+      "description": "[2026-07-28, 사용자 보고] 하네스가 어떤 프로젝트에서 **실제로 실행되고 있는지**를 아무도 확인하지 않는다. `.claude/.cc-harness-installed` 마커는 '과거 어느 세션에 setup-claudemd.sh가 한 번 돌았다'는 사실만 남기며, 그 뒤 훅 배선이 사라져도 그대로 남아 '적용됨'으로 읽힌다. 실측: inno-infra에 v1.33.0 마커가 있으나 installed_plugins.json에 install 레코드가 없고 `.claude/hooks/`도 없어, 세션 트랜스크립트의 PreToolUse:Bash 훅 73회가 전부 rtk-rewrite.sh 단독이었고 pre-bash-firewall.sh는 0회였다. F27의 Layer 4(default-allow)가 돌지 않으니 내장 권한 엔진이 판정했고, rtk rewrite가 exit 3으로 permissionDecision을 생략한 경우와 내장 파서가 복합 셸 구문을 분해하지 못해 'Parse error'로 떨어진 경우 모두 승인 프롬프트가 떴다. 문제의 두 명령을 방화벽에 직접 주입하면 **둘 다 allow**가 나온다 — 정책이 아니라 부재가 원인이다. cleanb-ops는 v1.12.6(Layer 4 이전)에 고정돼 훅이 돌아도 같은 마찰이 난다. **핵심 제약**: 훅이 로드되지 않는 프로젝트에서는 하네스 코드가 한 줄도 실행되지 않으므로 그 안에서의 자기 탐지는 원리적으로 불가능하다. 따라서 부재 탐지는 하네스가 실제로 도는 곳(진단 프로브)에서 바깥을 향해 수행하고, 스테일 탐지만 대상 프로젝트 안(setup-claudemd.sh)에서 한다.",
+      "security_tier": "standard",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F6",
+        "F13",
+        "F27",
+        "F36",
+        "F52"
+      ],
+      "assigned_sprint": 52
     }
   ]
 }

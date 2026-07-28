@@ -1,7 +1,7 @@
 {
   "current_phase": "implementation",
   "phase_transition_rule": "all criteria == true AND user_approved → auto-advance to next phase",
-  "_comment": "F60(invariant-guard 디렉터리 확장 — sprint-46)·F61(evaluator 보정 코퍼스 갱신 — sprint-47)까지 독립 evaluator pass 후 main 머지 완료(2026-07-26). F60은 critical tier라 F37 2차 판정·security-auditor·qa-reviewer를 모두 거쳤고, 그 과정에서 훅이 설치된 플러그인 캐시에서 실행된다는 런타임 갭이 드러나 v1.34.0을 릴리스했다(F55~F60의 훅 변경이 그때까지 미적용이었다). 남은 미완료는 F59(인터페이스 강등 — sprint-45) 하나이며 선결 조건(플러그인 서브에이전트에서 실제 적용되는 frontmatter 필드 규명)이 권한 분류기에 막혀 미해결이라 implementation phase를 유지한다. 아래 criteria는 phase 전체 기준이므로 F59가 남은 동안 false가 정상이다.",
+  "_comment": "F60(invariant-guard 디렉터리 확장 — sprint-46)·F61(evaluator 보정 코퍼스 갱신 — sprint-47)까지 독립 evaluator pass 후 main 머지 완료(2026-07-26). F60은 critical tier라 F37 2차 판정·security-auditor·qa-reviewer를 모두 거쳤고, 그 과정에서 훅이 설치된 플러그인 캐시에서 실행된다는 런타임 갭이 드러나 v1.34.0을 릴리스했다(F55~F60의 훅 변경이 그때까지 미적용이었다). 남은 미완료는 F59(인터페이스 강등 — sprint-45) 하나이며 선결 조건(플러그인 서브에이전트에서 실제 적용되는 frontmatter 필드 규명)이 권한 분류기에 막혀 미해결이라 implementation phase를 유지한다. 아래 criteria는 phase 전체 기준이므로 F59가 남은 동안 false가 정상이다. [2026-07-28 추가] F66(런타임 부재·스테일 탐지 — sprint-52)을 신규 등록했다. 진단 계층 확장이라 아키텍처 변경이 없어 implementation phase를 유지하며 롤백하지 않는다.",
   "phases": {
     "specification": {
       "status": "complete",
