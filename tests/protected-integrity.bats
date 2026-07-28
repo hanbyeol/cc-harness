@@ -131,8 +131,12 @@ dirty()     { ( cd "$LAB" && git diff --name-only | wc -l | tr -d ' ' ) }
   ( cd "$LAB" && rm -f "$(git rev-parse --git-dir)/MERGE_HEAD" )
 }
 
-@test "F65: 티켓은 내용에 묶이고 한 번만 쓰인다" {
-  # 경로만 적으면 정당한 편집 한 번이 그 경로를 영구 면제로 만든다.
+@test "F65: 티켓은 내용에 묶이고 정착할 때 소비된다" {
+  # 경로만 적으면 정당한 편집 한 번이 그 경로를 영구 면제로 만든다 — 그래서 티켓은 내용 해시에
+  # 묶는다. 다만 **소비 시점**은 일치 즉시가 아니다. 편집된 파일은 커밋 전까지 계속 HEAD와
+  # 다르므로, 일치하자마자 티켓을 지우면 그 편집은 Bash 호출 한 번만 살아남고 다음 호출에서
+  # 되돌려졌다(실측: F66 등록이 두 번 연속 폐기됨). 편집 → 검증 → 커밋이 성립해야 하므로
+  # 내용이 그대로인 동안 유효하고, 변경이 정착(HEAD 일치)할 때 소비한다.
   local f="$LAB/progress/harness-config.json" new
   new=$( cd "$LAB" && jq '.scoring.pass_threshold = 8' progress/harness-config.json )
   printf '%s' "$new" | jq -Rs --arg p "$f" '{tool_name:"Write", tool_input:{file_path:$p, content:.}}' \
@@ -140,12 +144,19 @@ dirty()     { ( cd "$LAB" && git diff --name-only | wc -l | tr -d ' ' ) }
   printf '%s' "$new" > "$f"
   # 티켓 형식이 <해시> <경로> 인지
   ( cd "$LAB" && head -1 progress/.guarded-edits | grep -qE '^[0-9a-f]{40} progress/harness-config\.json$' )
+  # 내용이 그대로인 동안은 몇 번을 검사해도 살아남는다
   integrity
   [ "$( cd "$LAB" && jq -r .scoring.pass_threshold progress/harness-config.json )" = "8" ]
-  # 같은 내용을 다시 써도 티켓이 소비됐으므로 이번엔 복구된다
-  printf '%s' "$new" > "$f"
+  integrity
+  [ "$( cd "$LAB" && jq -r .scoring.pass_threshold progress/harness-config.json )" = "8" ]
+  # 그러나 티켓 없는 **다른 내용**은 면제되지 않는다 — 경로 면제가 아니라 내용 면제다
+  ( cd "$LAB" && jq '.scoring.pass_threshold = 9' progress/harness-config.json > /tmp/hc-9.json \
+      && cp /tmp/hc-9.json progress/harness-config.json && rm -f /tmp/hc-9.json )
   integrity
   [ "$( cd "$LAB" && jq -r .scoring.pass_threshold progress/harness-config.json )" = "7" ]
+  # 정착(HEAD 일치)하면 그 경로의 티켓은 소비된다
+  integrity
+  ( cd "$LAB" && ! grep -q ' progress/harness-config.json$' progress/.guarded-edits )
 }
 
 @test "F65: 저장소 밖 편집은 티켓을 오염시키지 않는다" {
