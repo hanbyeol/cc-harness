@@ -175,6 +175,9 @@ arm_is_exemptable() {
   #  - 탐지기 자신과 티켓 원장: 파괴되면 자기를 복구할 수 없다(F65 SC-6)
   [[ "$p" == *'hooks\.json'* || "$p" == *'settings'* || "$p" == *'-i'* ]] && return 1
   [[ "$p" == *'protected-integrity'* || "$p" == *'guarded-edits'* || "$p" == *'integrity-baseline'* ]] && return 1
+  # F68: 무인 중단 기록도 탐지기의 판단 근거와 같은 성격이다 — 지워지면 "멈췄다"는 사실이
+  # 사라진다. 인터프리터로 읽는 마찰보다 기록이 남는 쪽이 값어치가 크므로 면제하지 않는다.
+  [[ "$p" == *'approval-queue'* ]] && return 1
   for tok in "${EXEMPTABLE_ARM_TOKENS[@]}"; do
     [[ "$p" == *"$tok"* ]] && return 0
   done
@@ -302,6 +305,14 @@ ASK_PATTERNS=(
   '\bof= *[^ ]*feature_list\.json'
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*feature_list\.json'
   '\b(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)\b[^;|&]*feature_list\.json'
+  # F68(INV-12): 무인 중단 기록. invariant-guard는 Edit|Write만 후킹하므로 리다이렉트·복사·
+  # 인터프리터·에디터로 큐를 비우는 bash 경로가 그대로 열려 있었다(1차 판정 실증).
+  # 적립은 Edit|Write 경로에서 append-only 검사를 통과하면 되고, 여기서 막는 것은 셸로
+  # 직접 덮어쓰는 형태다 — 그것이 중단 증거를 지우는 유일한 우회였다.
+  '>>? *[^ ]*approval-queue\.json'
+  '\b(cp|mv|install|rsync|ln|tee|sponge|truncate)\b[^;|&]*approval-queue\.json'
+  '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*approval-queue\.json'
+  '\b(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)\b[^;|&]*approval-queue\.json'
 )
 
 # === Layer 3.5: 데이터 플레인 게이트 (F65) ===

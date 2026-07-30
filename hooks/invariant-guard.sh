@@ -635,6 +635,32 @@ if [[ "$BASENAME" == "feature_list.json" && "$FILE" != *"/templates/"* ]]; then
   exit 0
 fi
 
+# === approval-queue.json: 무인 중단 기록 append-only 보호 (INV-12/F68) ===
+# F68 1차 판정이 실증한 것: `is_protected()`에 이름을 올리는 것만으로는 쓰기가 막히지 않는다 —
+# 그 함수는 fail-closed 판정과 무결성 티켓 발급의 **대상 집합**이지 전면 차단이 아니다.
+# 이 큐는 무인 루프가 "승인 범위 밖을 만나 멈췄다"는 **증거**다. 지울 수 있으면 중단이
+# 없었던 일이 되므로, evaluator-runs.jsonl 과 같은 append-only 규칙을 건다.
+# 적립(항목 추가)은 통과해야 한다 — 그것이 중단 경로 자체이기 때문이다.
+if [[ "$BASENAME" == "approval-queue.json" ]]; then
+  OLD_Q=$(jq '.queued | length' "$FILE" 2>/dev/null || echo 0)
+  NEW_Q=$(printf '%s' "$NEW_CONTENT" | jq '.queued | length' 2>/dev/null || echo "")
+  if [[ -z "$NEW_Q" ]]; then
+    deny "approval-queue.json 이 유효한 JSON이 아니거나 .queued 배열이 없음 — 중단 기록은 파싱 가능해야 한다 (INV-12/F68)"
+  fi
+  if [[ "$NEW_Q" -lt "$OLD_Q" ]]; then
+    deny "approval-queue.json 항목 감소 ($OLD_Q → $NEW_Q) — 무인 중단 기록은 append-only (INV-12/F68)"
+  fi
+  # 기존 항목 불변: OLD 전체가 NEW의 접두여야 한다.
+  if [[ "$OLD_Q" -gt 0 ]]; then
+    OLD_PREFIX=$(jq -cS '.queued' "$FILE" 2>/dev/null || echo "")
+    NEW_PREFIX=$(printf '%s' "$NEW_CONTENT" | jq -cS ".queued[:$OLD_Q]" 2>/dev/null || echo "")
+    if [[ "$OLD_PREFIX" != "$NEW_PREFIX" ]]; then
+      deny "approval-queue.json 기존 항목 변조/삭제/재정렬 — 중단 기록은 append-only(기존 항목 불변) (INV-12/F68)"
+    fi
+  fi
+  exit 0
+fi
+
 # === contracts/sprint-*.json: agreed 전환 구조 검증 (INV-11) ===
 # agreed:false→true는 Plan 게이트 산출물(비어있지 않은 acceptance_criteria·implementation_steps)을
 # 전제한다 — 빈 계약의 무단 합의를 차단. 내용 검증은 Plan 게이트(사람)의 몫.
@@ -647,6 +673,17 @@ if [[ "$FILE" == *"/contracts/"* && "$BASENAME" == sprint-*.json && "$FILE" != *
     ST_N=$(echo "$NEW_CONTENT" | jq -r '.implementation_steps | length' 2>/dev/null || echo 0)
     if [[ "$AC_N" -lt 1 || "$ST_N" -lt 1 ]]; then
       deny "agreed:true 전환에 acceptance_criteria($AC_N)·implementation_steps($ST_N) 필요 — Plan 산출물 없는 합의 금지 (INV-11)"
+    fi
+  fi
+  # F68 SC-4: 이미 합의된 계약의 **배치 승인 범위**는 수정 불가다. 1차 판정 실증 —
+  # agreed 전환만 검사하면 `_batch_approval: {scope:["**/*"], N:99}` 를 사후 주입할 수 있고,
+  # 그러면 무인 루프가 자기 승인 범위를 스스로 다시 쓰는 것과 같다. 범위를 바꾸려면
+  # 새 배치 게이트를 거쳐야 한다(사람이 다시 본다).
+  if [[ "$OLD_AG" == "true" ]]; then
+    OLD_BA=$(jq -cS '._batch_approval // null' "$FILE" 2>/dev/null || echo null)
+    NEW_BA=$(printf '%s' "$NEW_CONTENT" | jq -cS '._batch_approval // null' 2>/dev/null || echo null)
+    if [[ "$OLD_BA" != "$NEW_BA" ]]; then
+      deny "_batch_approval 변경 — 합의된 계약의 배치 승인 범위는 수정 불가. 범위를 바꾸려면 새 배치 게이트를 거친다 (INV-12/F68 SC-4)"
     fi
   fi
   exit 0

@@ -1370,11 +1370,22 @@ JSON
   local read_arm interp_arm
   read_arm=$(grep -m1 '^READ_CAPABLE_ARM=' "$fw" | cut -d"'" -f2)
   interp_arm=$(grep -m1 '^INTERPRETER_ARM=' "$fw" | cut -d"'" -f2)
-  local exempt=0 total=0 p
+  # 배제 조건은 **함수에서 추출한다.** 여기에 다시 적으면 판정 로직이 두 곳에 살고, 한쪽만
+  # 고쳐도 조용히 어긋난다 — F68에서 실제로 그랬다(approval-queue 배제를 함수에만 넣었더니
+  # 이 테스트가 4를 세고 실패했다). 추출하면 함수를 고칠 때 테스트가 따라온다.
+  local -a EXCLUDES
+  mapfile -t EXCLUDES < <(sed -n '/^arm_is_exemptable()/,/^}/p' "$fw" \
+    | grep -oE "\*'[^']+'\*" | sed "s/^\*'//;s/'\*\$//")
+  [ "${#EXCLUDES[@]}" -ge 6 ]   # 추출이 조용히 빈 배열이 되면 모든 arm이 면제로 세어진다
+
+  local exempt=0 total=0 p ex skip_arm
   while IFS= read -r p; do
     total=$((total+1))
-    [[ "$p" == *'hooks\.json'* || "$p" == *'settings'* || "$p" == *'-i'* ]] && continue
-    [[ "$p" == *'protected-integrity'* || "$p" == *'guarded-edits'* || "$p" == *'integrity-baseline'* ]] && continue
+    skip_arm=0
+    for ex in "${EXCLUDES[@]}"; do
+      [[ "$p" == *"$ex"* ]] && { skip_arm=1; break; }
+    done
+    [ "$skip_arm" -eq 1 ] && continue
     if [[ "$p" == *"$read_arm"* || "$p" == *"$interp_arm"* ]]; then
       exempt=$((exempt+1))
       # 면제되는 arm 중 어느 것도 컨트롤 플레인 경로를 담아서는 안 된다

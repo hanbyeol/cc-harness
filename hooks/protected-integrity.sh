@@ -51,6 +51,9 @@ PROTECTED_GLOBS=(
   'docs/INVARIANTS.md'
   'tests/*.bats'
   'progress/contracts/sprint-*.json'
+  # F68: 무인 중단 기록. 예측(firewall·invariant-guard)만 있고 탐지가 없으면 그 경로가
+  # 통제 밖에 남는다 — 이 목록의 자기 규정("좁으면 예측도 탐지도 없이 남는다")대로 편입한다.
+  'progress/approval-queue.json'
   'skills/change-request/*'
   'skills/improve/*'
   'skills/hotfix/*'
