@@ -1343,12 +1343,25 @@ JSON
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
 }
 
-@test "F67: a newline separates commands, exactly like a semicolon" {
-  # 컨트롤 플레인 arm은 예측을 유지하므로 개행 오인식이 그대로 남는다. vim 은 README 를 열 뿐인데
-  # 뒤 명령의 경로와 한 스팬으로 묶여 ask가 됐다 — 면제로는 닫히지 않는 자리다.
+@test "F67: a heredoc body never becomes a command separator (1st verdict regression)" {
+  # F67이 한 번 개행을 `;` 로 바꿨다가 되돌린 자리를 잠근다. heredoc 본문의 개행이 구분자가 되면
+  # `[^;|&]*` 스팬이 끊겨 도구 이름과 경로가 서로 다른 스팬에 놓이고, 컨트롤 플레인 쓰기가
+  # ask에서 allow로 뒤집힌다(1차 판정이 격리 랩에서 파일 교체까지 실증). `.claude/settings*.json`
+  # 은 gitignore 대상이라 PROTECTED_GLOBS에도 없어 **사후 복구가 없는** 자리다.
+  run wired_firewall '{"tool_input":{"command":"python3 - <<'"'"'EOF'"'"'\nopen(.claude/settings.json,w).write(x)\nEOF"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run wired_firewall '{"tool_input":{"command":"python3 <<EOF\nopen(hooks/hooks.json,w).write(x)\nEOF"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run wired_firewall '{"tool_input":{"command":"cat <<'"'"'EOF'"'"' | python3 -\nopen(.claude/settings.local.json,w).write(x)\nEOF"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "F67: newline misreading stays a known gap, not a protection hole" {
+  # 개행을 공백으로 접으므로 무관한 두 명령이 한 스팬으로 묶이는 과탐이 남는다. 스팬이 **길게**
+  # 유지되는 방향이라 비용은 마찰 쪽이고 보호는 약해지지 않는다 — 그 경계를 여기 고정한다.
+  # 전수를 맞추려면 셸 파서가 필요하고 부분 구현은 위 heredoc 같은 구멍을 만든다(1차 판정).
   run wired_firewall '{"tool_input":{"command":"vim README.md\ncat hooks/hooks.json"}}'
-  [[ "$output" == *'"permissionDecision": "allow"'* ]]
-  # 같은 두 명령의 세미콜론 형태와 판정이 일치해야 한다
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
   run wired_firewall '{"tool_input":{"command":"vim README.md; cat hooks/hooks.json"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
