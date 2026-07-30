@@ -1,0 +1,43 @@
+{
+  "timestamp": "2026-07-31T00:00:00+0900",
+  "type": "add",
+  "description": "승인 배치화를 전 워크플로우로 — critical 편입 + evaluator 호출 규약 (F68)",
+  "trigger": "[사용자] '나는 구현/수정/테스트 등 제반 작업이 사용자 개입없이 처리될 수 있게 하네스를 만들고 싶었어.' → 실측 후 '승인 지점을 배치로 묶는 쪽으로 진행해'",
+  "affected_features": [
+    "F68"
+  ],
+  "evidence": [
+    {
+      "claim": "배치 승인이 /improve 에만 있다",
+      "method": "skills/{implement,change-request}/SKILL.md 에서 'auto' 문자열 카운트",
+      "result": "둘 다 0건. /improve 만 --auto N 지원(ADR-006/F39)."
+    },
+    {
+      "claim": "critical 제외 때문에 하네스 자기개선이 배치 대상에서 빠진다",
+      "method": "ADR-006 · INV-12 조문 확인 + feature_list 의 최근 3개 tier",
+      "result": "ADR-006이 critical·검증장치를 무인에서 명시 제외. F63·F65·F67 전부 critical."
+    },
+    {
+      "claim": "검증 비용이 무인 루프를 불가능하게 한다",
+      "method": "이번 세션의 evaluator 3회 실행 관측",
+      "result": "1차 133,622 토큰·2,500초·34 tool use / 2차 600초 무진행 스톨 / 3차 53분 후 사용자 취소."
+    },
+    {
+      "claim": "하네스 훅이 프롬프트의 주범은 아니었다",
+      "method": "세션 트랜스크립트에서 permissionDecision 분포와 확인 프롬프트 출처 집계",
+      "result": "cc-harness firewall: allow 170 · 실제 사용자 프롬프트 2회. 확인 프롬프트 12회 중 10회는 서드파티(context-mode). 마찰의 주된 출처는 사용자 settings.json 의 permissions.ask 규칙이었다(platform 의 kubectl 반복)."
+    }
+  ],
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": "pending — ADR-006 개정이 구현 step 1",
+    "invariants_updated": "pending — INV-12 조건부 확대가 구현 step 1",
+    "acceptance_criteria_updated": true,
+    "feature_list_updated": true,
+    "new_sprint_contract": "progress/contracts/sprint-54.json",
+    "phase_rollback": false
+  },
+  "_f67_disposition": "F67은 구현·회귀 완료(683 ok / 0 fail), 판정 미실시. 브랜치 f67-firewall-exemption-alignment 에 보존. F68 완성 후 첫 적용 대상으로 배치 판정한다 — 규약의 실효를 실측하는 사례가 된다.",
+  "_superseded_proposal": "직전에 제안했던 'ASK_PATTERNS 46개 제거 + PermissionRequest prompt 훅 재건축'은 철회했다. 실측 결과 cc-harness 훅이 프롬프트의 주된 원인이 아니었고(2/12회), 제안한 2단 구조는 Claude Code auto 모드 classifier의 재구현이었다. 예측 계층 축소는 유지보수·오탐 관점에서 여전히 가치가 있으나 자동화 목표와는 무관하므로 별건 백로그로 분리한다.",
+  "next_step": "Plan 게이트 — 승인 시 sprint-54.json 의 agreed 를 true 로 전환"
+}

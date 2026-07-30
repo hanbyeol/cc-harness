@@ -1,0 +1,120 @@
+{
+  "sprint": 54,
+  "title": "승인 배치화를 전 워크플로우로 — critical 편입 + evaluator 호출 규약",
+  "feature_id": "F68",
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "_tier_note": "무인 범위를 critical까지 넓히므로 critical. 게이트 자체는 무약화이지만 승인 지점이 이동하므로 ADR-006과 같은 수준의 검증을 거친다.",
+  "dependencies": ["F14", "F35", "F39", "F48"],
+  "problem": "목표는 '개입 없는 구현·수정·테스트'인데 한 기능(F67)에 개입이 5회 이상 필요했다. (a) 배치 승인 `--auto N` 이 `/improve` 에만 있다(`/implement`·`/change-request` 에 `--auto` 0건). (b) ADR-006이 critical·검증장치를 무인에서 제외하는데 하네스 자기개선은 거의 전부 critical이라 배치 대상이 사실상 없다. (c) evaluator 1회가 133k 토큰·41분이었고 2차 스톨·3차 사용자 취소 — 이 비용으로는 무인 루프가 성립하지 않는다.",
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "`/implement --auto N` 이 배치 Plan 게이트 1회로 한 기능의 전체 사이클(구현 → evaluator → 재작업)을 무인 반복한다.",
+      "verification": "스킬 문서에 배치 게이트가 받는 3항목(범위·N·중단조건)과 무인 반복 절차가 명시되고, `/improve --auto` 와 동일한 구조를 참조한다. 문서 파싱 테스트로 고정."
+    },
+    {
+      "id": "AC-2",
+      "criterion": "`/change-request --auto` 가 산출물 갱신부터 Plan 게이트까지를 배치 승인에 포함한다.",
+      "verification": "스킬 문서의 Step 9(사용자 확인)가 배치 모드에서 어떻게 대체되는지 명시"
+    },
+    {
+      "id": "AC-3",
+      "criterion": "**fail 시 행동이 사전 승인 정책으로 결정된다** — `revert-and-continue`(기본) 또는 `queue-and-stop`.",
+      "verification": "배치 게이트가 이 정책을 받고, evaluator fail 시 정책대로 분기함이 스킬에 절차로 기술된다. F67 사례(개행 변경 되돌리고 계속)가 `revert-and-continue` 로 재현 가능한 형태여야 한다."
+    },
+    {
+      "id": "AC-4",
+      "criterion": "**evaluator 호출 규약**이 명문화되고 모든 검증 디스패치에 적용된다.",
+      "verification": "규약 4항목이 스킬에 명시 — (a) 검증 대상 파일·명령·기대값을 프롬프트에 열거해 탐색 제거 (b) 재현 스크립트를 미리 만들어 경로로 전달 (c) 확인 항목 3개 이하 (d) 중간 판정 금지, 완성 후 1회. 문서 파싱 테스트로 고정."
+    },
+    {
+      "id": "AC-5",
+      "criterion": "중단 조건이 기계로 판정 가능하다.",
+      "verification": "N 소진 · 점수 하락 2연속 · 같은 결함 반복 · 무인 제외 잔여 대상 접촉 · 토큰 예산 초과 — 각각 어떤 파일/값으로 판정하는지 명시"
+    },
+    {
+      "id": "AC-6",
+      "criterion": "배치 승인 이력이 감사 가능하다.",
+      "verification": "배치 게이트에서 승인된 범위·N·정책이 계약 또는 `progress/` 에 기록되고, 각 회전의 판정이 `evaluator-feedback-*.json` 으로 개별 보존된다(F48의 배치 커밋 규칙 계승 — 커밋 개수만 줄이고 판정 기록은 무손실)"
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "**게이트는 매 회전 무약화다.** 배치화는 승인 지점의 이동이지 검증 강도의 변경이 아니다.",
+      "verification": "무인 회전에서도 evaluator min-of-5 · invariant-guard · bats · Stop 게이트가 그대로 실행됨을 절차로 명시 + 임계값(harness-config.json) diff 0건"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "critical 무인 진행은 **배치 게이트에서 명시 승인된 범위 안에서만** 가능하다.",
+      "rationale": "ADR-006은 critical을 전면 제외했다. 그것을 여는 것이므로 '무엇을 승인했는지'가 사후에 확인 가능해야 한다 — 범위 밖 파일을 건드리면 무인이 중단되어야 한다.",
+      "verification": "승인 범위(feature id + 허용 파일 집합)를 기록하고, 회전 중 그 밖의 검증장치 파일을 건드리면 `approval-queue.json` 적립 후 중단하는지 확인"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "INV-12·ADR-006 개정이 **약화가 아니라 조건부 확대**임을 문서가 정확히 서술한다.",
+      "verification": "INV-12에 (a) 무엇이 여전히 무인 금지인지 (b) critical 무인의 전제 조건 (c) 위반 시 동작을 명시 + F45 양방향 대칭 테스트 통과"
+    },
+    {
+      "id": "SC-4",
+      "criterion": "무인 루프가 **자기 승인 범위를 스스로 넓힐 수 없다.**",
+      "rationale": "루프가 배치 게이트 기록이나 정책 파일을 고쳐 범위를 확장하면 승인 의미가 사라진다.",
+      "verification": "배치 승인 기록 파일이 `is_protected()` 대상이거나 무인 회전에서 쓰기 금지임을 확인"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "evaluator가 스톨하거나 실패한다 (이번 세션에서 실제 발생)",
+      "expected": "타임아웃을 두고, 초과 시 재시도 1회 후 `queue-and-stop` 으로 전환. 무한 대기 금지."
+    },
+    {
+      "id": "ES-2",
+      "scenario": "재작업이 같은 결함을 반복한다 (F63이 10회전 겪은 패턴)",
+      "expected": "직전 판정의 `rejected_for` 와 이번 판정이 같은 축이면 중단 조건 발동 — N이 남아 있어도 멈춘다"
+    },
+    {
+      "id": "ES-3",
+      "scenario": "무인 회전이 승인 범위 밖 검증장치 파일을 건드린다",
+      "expected": "invariant-guard가 차단(기존) + 배치 루프가 `approval-queue.json` 적립 후 중단. 두 계층이 독립적으로 막는다"
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": "1. ADR-006 개정 + INV-12 조건부 확대 서술",
+      "verify": "F45 대칭 테스트 + 문서 파싱 테스트",
+      "done": false,
+      "covers": ["SC-2", "SC-3"]
+    },
+    {
+      "step": "2. `/implement --auto N` — 배치 게이트 3항목 + 무인 반복 + fail 정책",
+      "verify": "스킬 문서 파싱 테스트 (배치 게이트 항목·정책·중단조건 존재)",
+      "done": false,
+      "covers": ["AC-1", "AC-3", "AC-5"]
+    },
+    {
+      "step": "3. `/change-request --auto`",
+      "verify": "문서 파싱 테스트",
+      "done": false,
+      "covers": ["AC-2"]
+    },
+    {
+      "step": "4. evaluator 호출 규약 명문화 (4항목) + 기존 검증 디스패치 서술에 반영",
+      "verify": "문서 파싱 테스트 + agents/evaluator.md 정합",
+      "done": false,
+      "covers": ["AC-4"]
+    },
+    {
+      "step": "5. 배치 승인 기록·감사 추적 + 범위 자기확장 차단",
+      "verify": "기록 파일이 보호 대상인지 확인 + 회귀",
+      "done": false,
+      "covers": ["AC-6", "SC-1", "SC-4"]
+    }
+  ],
+  "_parallelizable": false,
+  "_parallel_note": "step 1이 정한 경계를 step 2~5가 참조하므로 직렬.",
+  "_first_application": "F68 완성 후 첫 적용 대상은 미판정 상태로 남은 F67이다 — 배치 모드로 판정을 돌려 규약의 실효(토큰·시간)를 실측한다.",
+  "agreed": true,
+  "_agreed_note": "**승인됨 — 2026-07-31 사용자 지시('승인, 다 구현해').** Plan 게이트에서 배치 승인 확대·critical 편입·fail 정책·evaluator 호출 규약과 안전 기준 4종을 제시하고 승인받았다. 선행 대화에서 사용자가 '승인 지점을 배치로 묶는 쪽으로 진행해'라고 방향을 정했고, 그 근거로 실측(개입 5회·evaluator 133k 토큰/41분·스킬 --auto 0건·ADR-006 critical 제외)을 제시했다."
+}

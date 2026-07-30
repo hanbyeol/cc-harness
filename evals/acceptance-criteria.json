@@ -168,7 +168,14 @@
       "feature_id": "F67",
       "contract": "progress/contracts/sprint-53.json",
       "security_tier": "critical",
+      "_note": "[2026-07-31] F67은 구현·회귀(683 ok)까지 완료했으나 판정 미실시 상태다. evaluator 1회가 133k 토큰·41분이었고 재판정이 스톨·취소되어, F68(승인 배치화 + evaluator 호출 규약) 완성 후 배치 모드로 판정한다.",
       "summary": "[2026-07-29] INV-14는 데이터 플레인(feature_list.json 포함)을 예측이 아니라 탐지·복구로 지킨다고 선언하는데, 방화벽 구현은 데이터 플레인 arm 대부분을 여전히 예측으로 막는다. 실측 — ASK_PATTERNS 45개 중 Layer 3.5 면제를 통과하는 것은 1개(sed/awk + 하네스 파일)뿐이고 feature_list.json 전용 arm 7개는 어떤 도구로도 면제되지 않는다. (a) 읽기 오탐: 인터프리터 arm이 도구 이름만으로 판정해 `python3 -c \"json.load(open(...))\"` 같은 순수 읽기를 ask로 만든다 — 코드 자신이 '인터프리터는 읽기와 쓰기를 구문으로 가를 수 없다'고 인정하며 이미 면제된 에디터 이름 arm과 성질이 동일하다. (b) 명령 경계 오인식: 정규화가 개행을 공백으로 치환하므로 `[^;|&]*` 스팬이 명령 경계를 놓친다 — `python3 --version` ⏎ `wc -l <파일>` 은 ask, 같은 두 명령을 `;` 로 이으면 allow. 표기만 바꿔 판정이 뒤집혀 마찰(과탐)과 우회(한 글자)가 동시에 성립한다. **해결**: 읽기를 잡는 데이터 플레인 arm을 면제 목록에 편입하고(쓰기 신호가 드러나는 리다이렉트·cp·in-place·dd of=·sed w arm은 유지 — 면제해도 마찰이 줄지 않고 손실 상한만 늘어난다), 개행을 명령 구분자로 인식시킨다. 컨트롤 플레인과 되돌릴 수 없는 계층은 무변경. 손실 상한은 protected-integrity.sh의 사후 탐지·복구가 받고(PROTECTED_GLOBS에 이미 포함), 배선이 없으면 예측이 되살아난다."
+    },
+    {
+      "feature_id": "F68",
+      "contract": "progress/contracts/sprint-54.json",
+      "security_tier": "critical",
+      "summary": "[2026-07-31] 목표는 '개입 없는 구현·수정·테스트'인데 한 기능(F67)에 개입이 5회 이상 필요했다. 원인 셋 — (a) 배치 승인 `--auto N` 이 /improve 에만 있다(implement·change-request 에 0건), (b) ADR-006이 critical·검증장치를 무인에서 제외하는데 하네스 자기개선은 거의 전부 critical이라 배치 대상이 사실상 없다, (c) evaluator 1회가 133k 토큰·41분이었고 2차 스톨·3차 취소 — 이 비용으로는 무인 루프가 성립하지 않는다. 해결: `--auto` 를 implement·change-request 로 확대해 한 기능의 전체 사이클을 배치 승인 1회로 묶고, ADR-006/INV-12를 개정해 critical도 범위·정책·중단조건을 명시 승인받으면 무인 진행하게 하며(게이트는 매 회전 무약화 — 승인 지점의 이동이지 검증 완화가 아니다), fail 시 행동을 사전 정책으로 받고(revert-and-continue 기본), evaluator 호출 규약 4항목(탐색 제거·재현 스크립트 선제공·확인항목 3개 이하·완성 후 1회)을 명문화한다."
     }
   ]
 }

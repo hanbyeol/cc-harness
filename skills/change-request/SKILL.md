@@ -12,6 +12,7 @@ description: "기능을 추가, 변경, 삭제할 때 사용. TRIGGER: 사용자
 /change-request 로그인 시 OTP 인증 추가
 /change-request F3 기능 삭제
 /change-request 결제 플로우를 Stripe에서 Toss로 변경
+/change-request --auto {설명}   # 산출물 갱신 → Plan 게이트를 배치 승인 1회로 (§9, ADR-006/F68)
 ```
 
 ## Process
@@ -102,6 +103,13 @@ description: "기능을 추가, 변경, 삭제할 때 사용. TRIGGER: 사용자
 - 모든 변경 사항 요약 출력
 - 사용자 승인 후 파일 저장
 - git commit: `chore: change request — {설명}`
+
+**배치 모드(`--auto`, F68/ADR-006)**: 이 Step의 개별 확인을 배치 Plan 게이트 1회로 대체한다.
+산출물(SPEC·criteria·feature_list·Sprint Contract)을 갱신한 뒤 요약과 함께 범위·N·fail 정책·중단
+조건을 한 번 승인받고, 승인되면 곧바로 `/implement --auto N`으로 이어져 **무인**으로 구현·판정·재작업이
+돈다. 승인된 범위 밖의 검증 장치 파일을 건드리면 중단하고 `progress/approval-queue.json`에 적립한다.
+게이트는 매 회전 무약화이며(evaluator·invariant-guard·bats·Stop), 배치화는 승인 지점의 이동이지
+검증 완화가 아니다. 세부 절차는 `skills/implement/SKILL.md` §9에 있다.
 
 ## Constraints
 - 변경 요청 처리 중 코드 수정 금지 — 산출물 업데이트만

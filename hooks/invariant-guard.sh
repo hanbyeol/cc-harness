@@ -40,6 +40,7 @@ is_protected() {
     feature_list.json | \
     evaluator.md | \
     evaluator-runs.jsonl | \
+    approval-queue.json | \
     *.bats)
       return 0 ;;
   esac

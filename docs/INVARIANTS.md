@@ -152,10 +152,27 @@ behavioral 프로브 코퍼스가 이 부류의 누출을 감시한다.
 - 검증 장치 파일: `harness-config.json`·`hooks/pre-bash-firewall.sh`·`hooks/pre-tool-firewall.sh`·
   `hooks/invariant-guard.sh`·`docs/INVARIANTS.md`·`hooks/hooks.json`·`agents/evaluator.md`·`feature_list.json`·
   `evaluator-runs.jsonl`·`tests/*.bats`·`skills/change-request/SKILL.md`·`skills/improve/SKILL.md`·`skills/hotfix/SKILL.md`·
-  `hooks/protected-integrity.sh`·`.guarded-edits`·`.integrity-baseline`
+  `hooks/protected-integrity.sh`·`.guarded-edits`·`.integrity-baseline`·`approval-queue.json`
+  (F68이 `approval-queue.json`을 추가 — 무인 루프가 자기 승인 범위를 넓히지 못하게 하는 자리다.
+  이 파일을 고칠 수 있으면 "무엇이 무인 제외인가"를 루프가 스스로 다시 쓸 수 있다.)
   (뒤 셋은 F65가 추가 — 탐지기 자신과 그 상태 파일이다. 파괴되면 자기를 복구할 수 없으므로
   데이터 플레인이 아니라 컨트롤 플레인이며, 상태 파일은 도구 경로 쓰기를 전면 차단한다. INV-14 참조.)
 - `security_tier: critical`인 모든 후보
+
+**승인된 범위 안에서의 예외 (F68)**: 위 금지는 **후보를 자동 선정하는** 루프(`/improve --auto`)에
+적용된다. 대상이 배치 게이트에서 **명시 승인**된 경우(`/implement --auto`·`/change-request --auto` —
+사람이 feature 하나를 보고 범위·회전수·fail 정책·중단조건을 승인한다)는 다르다: **승인된 범위
+안에서만** critical도 무인으로 진행할 수 있다. 승인 범위 밖의 검증 장치 파일을 건드리면 무인이
+중단되고 `progress/approval-queue.json`에 적립된다.
+
+두 경로를 가르는 기준은 위험도가 아니라 **사람이 무엇을 보고 승인했는가**다. 자동 선정은 사람이
+대상을 보지 못한 채 루프가 고르므로 critical을 열 수 없고, 명시 승인은 그 대상 하나에 대해 사람이
+범위를 확정했으므로 열 수 있다.
+
+무엇이 바뀌지 않는가: **게이트는 매 회전 그대로다**(독립 evaluator min-of-5 · invariant-guard ·
+bats · Stop 게이트). 배치화는 **승인 지점의 이동**이지 검증 강도의 변경이 아니다. 그리고 무인
+루프는 **자기 승인 범위를 넓힐 수 없다** — 배치 승인 기록과 `approval-queue.json`은 무인 회전에서
+쓰기가 차단된다(그렇지 않으면 루프가 스스로 범위를 확장해 승인의 의미가 사라진다).
 
 이 목록은 `invariant-guard.sh`의 `is_protected()`(F41) 집합과 정합해야 한다 — 어느 한쪽에만 있는 파일은
 무인 루프가 게이트를 약화시킬 비대칭 경로가 된다. 이 정합은 프롬프트 관례가 아니라 **기계 검증된다**:
