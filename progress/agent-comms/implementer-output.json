@@ -93,5 +93,58 @@
     "컨트롤 플레인 arm은 여전히 예측이다. hooks.json·settings*.json 을 인터프리터로 쓰는 형태(`python3 -c open(hooks/hooks.json,w)`)는 어느 arm에도 걸리지 않는데, 이는 F67 이전부터 있던 갭이며 이번 변경이 넓히지 않았다(인터프리터 arm의 경로 목록에 컨트롤 플레인이 없다). 백로그."
   ],
   "self_review_note": "이 산출은 implementer 자기 보고이며 passes를 판정하지 않는다(INV-1). security_tier critical이므로 독립 evaluator 판정 후 F37 2차 판정·security-auditor·qa-reviewer가 함께 필요하다. 판정이 확인해야 할 것: (1) EXEMPTABLE_ARM_TOKENS 확대가 컨트롤 플레인·egress·Layer 1·2로 새지 않는지 — arm_is_exemptable()의 배제 조건이 실제로 먼저 걸리는지 변이로 확인. (2) 개행을 구분자로 바꾼 것이 기존 deny/ask를 느슨하게 하지 않았는지 — SC-5 회귀가 대표 케이스만 덮으므로 더 넓은 코퍼스가 필요할 수 있다. (3) 줄 이음·인용 안 개행 예외가 우회 경로가 되는지(`\\` + 개행으로 스팬을 인위적으로 이어 붙이는 형태). (4) 손실 상한 서술(INV-14)이 코드가 실제로 강제하는 범위를 넘지 않는지 — F63·F65가 매 회전 지적받은 축이다.",
+  "rework_after_1st_verdict": {
+    "verdict_file": "progress/agent-comms/evaluator-feedback-2026-07-30T16-13-35+0900.json",
+    "verdict": "fail (score 3, security 3)",
+    "what_broke": "개행→명령 구분자 변경이 컨트롤 플레인을 열었다. heredoc 본문의 개행이 `;` 가 되면서 `[^;|&]*` 스팬이 끊기고, `python3 - <<'EOF'` 안에서 `.claude/settings.json` 을 쓰는 명령이 ask→allow로 뒤집혔다. 판정을 받고 main 훅과 브랜치 훅으로 직접 대조 재현했다(3형태 전부 ask→allow).",
+    "user_decisions": "1차 판정 보고 후 두 건을 지시받았다 — (1) AC-3 철회, (2) 면제를 데이터 플레인 전체로 확대.",
+    "changes": [
+      {
+        "what": "개행 변경 철회 (커밋 70966db)",
+        "detail": "정규화가 개행을 항상 공백으로 접는 상태로 복귀. 되돌린 상태가 main과 판정 동일함을 5케이스 대조로 확인. 회귀 방지로 heredoc 3형태를 ask로 잠그는 테스트를 추가하고, 개행/세미콜론 판정 차이가 '알려진 갭'임을 별도 테스트로 명시했다.",
+        "why_not_fix_forward": "셸에서 개행이 구분자가 아닌 자리는 인용·줄이음 외에 heredoc 본문·`|`/`&&` 뒤 줄바꿈·`(`/`{` 블록과 절 사이가 더 있다. 전수를 맞추려면 셸 파서가 필요하고 부분 구현은 매번 구멍을 만든다 — F63이 10회전 겪은 열거 실패와 같은 계열이라 기준을 내리는 쪽을 택했다."
+      },
+      {
+        "what": "인터프리터 arm을 평면별로 분리",
+        "detail": "1차 판정이 부수적으로 찾은 갭 — 인터프리터 arm이 데이터 플레인과 컨트롤 플레인 경로를 한 arm에 담고 있어 `settings` 부분일치로 통째 배제됐고, 그래서 면제가 feature_list.json 하나에만 닿았다. 데이터 플레인용(`harness-config.json`·`hooks/*.sh`·`tests/*.bats`·`INVARIANTS.md`)과 컨트롤 플레인용(`hooks/*.json`·`.claude/settings*.json`)으로 쪼갰다. 합집합은 종전과 동일하고 arm 수는 45→46(add-only).",
+        "result": "데이터 플레인 5종 인터프리터 읽기가 allow. 컨트롤 플레인은 인터프리터 읽기도 ask — 사후 복구가 없어 예측이 유일한 통제인데 인터프리터는 읽기임을 확정할 수 없기 때문이다."
+      },
+      {
+        "what": "기준 결함 반영 (criteria_gaps)",
+        "detail": "AC-1에 데이터 플레인 파일 5종 열거 · AC-3 철회 + 근거 · AC-6을 '배열 바이트 동일'에서 **결정 함수 차분**으로 재조작화 · AC-9(면제 결과 집합 스냅샷) 신설 · AC-10(heredoc 잠금) 신설 · ES-2를 양방향 관측으로 교체."
+      },
+      {
+        "what": "INV-14 서술 정합",
+        "detail": "개행 문단을 '알려진 갭 + 되돌린 이유'로 교체. 인터프리터 면제 범위를 실제 코드에 맞춰 정정하고, arm이 평면을 섞으면 안 되는 이유와 컨트롤 플레인이 인터프리터 읽기도 ask인 근거(판정 기준은 도구 이름이 아니라 읽기 확정 가능성)를 추가."
+      }
+    ],
+    "evidence_2nd": [
+      {
+        "gate": "회귀 재현",
+        "command": "main 훅 vs 브랜치 훅 5케이스 대조",
+        "result": "철회 전 3케이스 ask→allow, 철회 후 5/5 main과 동일"
+      },
+      {
+        "gate": "TDD RED (arm 분리)",
+        "command": "bats -f F67",
+        "result": "17개 중 3개 실패 (데이터플레인 전체 읽기·면제 결과집합·결정함수 차분)"
+      },
+      {
+        "gate": "TDD GREEN",
+        "command": "bats tests/pre-bash-firewall.bats",
+        "result": "210 ok / 0 fail"
+      },
+      {
+        "gate": "전체 회귀",
+        "command": "bats tests/",
+        "result": "exit=0, ok=683, not ok=0"
+      },
+      {
+        "gate": "add-only",
+        "command": "ASK_PATTERNS arm 수",
+        "result": "46 (45에서 증가, 삭제 없음)"
+      }
+    ]
+  },
   "ready_for": "evaluator"
 }

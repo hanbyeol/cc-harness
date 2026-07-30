@@ -235,7 +235,13 @@ ASK_PATTERNS=(
   # 쓰기 문법을 열거하는 블랙리스트는 **전수를 알아야** 안전한데 수렴하지 않았다.
   #
   # 인터프리터(바로 아래)도 그대로다 — python·node·perl은 읽기/쓰기를 구문으로 구분할 수 없다.
-  '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  # F67: 인터프리터 arm을 **평면별로 쪼갠다.** 한 arm에 두 평면을 담으면 면제 판정이
+  # `settings` 부분일치로 그 arm을 통째 배제하므로, 데이터 플레인 인터프리터 읽기까지 ask로
+  # 남는다(1차 판정이 찾은 갭 — 면제가 feature_list.json 하나에만 닿고 있었다).
+  # 두 arm의 합집합은 종전과 같다: `hooks/` 아래 json 은 훅 배선 파일이므로 컨트롤 플레인이
+  # 전부 받는다(현재 hooks.json 하나이며, 새 json이 생겨도 배선 계열로 보는 것이 맞다).
+  '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
+  '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*(hooks/[A-Za-z0-9_.-]+\.json|\.claude/settings(\.local)?\.json)'
   # F65: 에디터 이름 arm을 **도구 성격으로** 가른다.
   #
   # (1) 편집 전용 도구 — 보호 경로에 이 이름들이 나오면 편집 의도로 보는 것이 타당하다.

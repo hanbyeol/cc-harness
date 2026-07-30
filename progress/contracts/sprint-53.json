@@ -17,8 +17,8 @@
   "acceptance_criteria": [
     {
       "id": "AC-1",
-      "criterion": "데이터 플레인 파일에 대한 **인터프리터 읽기가 allow**다.",
-      "verification": "`python3 -c \"import json; print(len(json.load(open('progress/feature_list.json'))))\"` · `node -e \"require('./progress/feature_list.json')\"` · `python3 -c` 여러 줄 형태가 모두 allow (방화벽 직접 주입)"
+      "criterion": "**데이터 플레인 전체**에 대한 인터프리터 읽기가 allow다. 대상을 열거한다 — `feature_list.json` · `harness-config.json` · `hooks/*.sh` · `tests/*.bats` · `INVARIANTS.md`. (1차 판정 지적: '데이터 플레인'만 쓰면 한 파일만 통과해도 충족으로 읽힌다.)",
+      "verification": "위 5종 각각에 대해 `python3 -c` · `node -e` · `ruby -e` 형태를 방화벽에 직접 주입해 allow 확인. 인터프리터 arm이 평면별로 쪼개져 있어야 성립한다 — 한 arm에 컨트롤 플레인 경로가 섞이면 면제 판정이 그 arm을 통째 배제한다."
     },
     {
       "id": "AC-2",
@@ -27,8 +27,11 @@
     },
     {
       "id": "AC-3",
-      "criterion": "**개행과 세미콜론의 판정이 일치한다** — 명령 경계 오인식이 사라진다.",
-      "verification": "(a) `python3 --version` ⏎ `wc -l <데이터플레인파일>` 이 allow (현재 ask) (b) 같은 명령을 `;`로 이은 형태와 판정이 동일 (c) 컨트롤 플레인 arm에서는 개행으로 나눠도 여전히 ask — `vim x` ⏎ `cat hooks/hooks.json` 이 아니라 `vim hooks/hooks.json` 만 잡히는지 양방향 확인"
+      "status": "withdrawn",
+      "_withdrawn": "2026-07-30, 1차 판정 후 사용자 결정('AC-3 철회').",
+      "criterion": "**[철회]** 개행을 명령 구분자로 인식시켜 개행과 세미콜론의 판정을 일치시킨다.",
+      "_withdrawal_rationale": "구현했다가 되돌렸다. 1차 판정이 이 변경으로 **컨트롤 플레인이 열리는 것을 실증**했다 — heredoc 본문의 개행이 `;` 가 되면서 `[^;|&]*` 스팬이 끊기고, `python3 - <<'EOF'` 안에서 `.claude/settings.json` 을 쓰는 명령이 ask에서 allow로 뒤집혔다(격리 랩에서 파일 교체 확인). 그 경로는 gitignore라 PROTECTED_GLOBS에도 없어 사후 복구가 없다. 셸에서 개행이 구분자가 아닌 자리는 인용부호 안·줄 이음만이 아니라 heredoc 본문·`|`/`&&` 뒤 줄바꿈·`(`/`{` 블록과 절 사이가 모두 해당하고, 전수를 맞추려면 셸 파서가 필요하다. 부분 구현이 매번 구멍을 만드는 것은 F63이 10회전 겪은 열거 실패와 같은 계열이므로 기준 자체를 내린다.",
+      "verification": "정규화가 개행을 공백으로 접는 상태로 복귀했는지 + heredoc 형태가 ask로 잠겼는지(회귀 테스트) + 개행/세미콜론 판정 차이가 '알려진 갭'으로 테스트와 INV-14에 명시됐는지"
     },
     {
       "id": "AC-4",
@@ -42,8 +45,8 @@
     },
     {
       "id": "AC-6",
-      "criterion": "컨트롤 플레인과 되돌릴 수 없는 계층이 무변경이다.",
-      "verification": "BLOCKED · INDIRECT_PATTERNS 배열이 main과 바이트 동일 + `vim hooks/hooks.json` · `sed -i <settings>` · egress · Layer 1 deny 가 종전과 동일"
+      "criterion": "**결정 함수가** 의도된 차이 밖에서 main과 동일하다. (1차 판정 지적: '배열 바이트 동일 + 대표 케이스'로 조작화하면 배열을 안 건드리고 정규화로 판정을 바꿔도 통과한다 — 실제로 heredoc 구멍이 그렇게 지나갔다. 판정 대상은 배열이 아니라 결정 함수다.)",
+      "verification": "같은 코퍼스를 main 훅과 현재 훅에 모두 주입해 판정을 대조한다. 의도된 차이는 **인터프리터 + 데이터 플레인 경로가 ask→allow** 인 것뿐이고, 그 밖(deny 티어·egress·컨트롤 플레인·쓰기신호 arm·편집도구·순수읽기·heredoc·개행 형태)은 판정이 같아야 한다. 배열 바이트 동일은 보조 근거로만 쓴다."
     },
     {
       "id": "AC-7",
@@ -54,6 +57,18 @@
       "id": "AC-8",
       "criterion": "회귀 없음.",
       "verification": "bats 전체 1회 + behavioral 프로브 후보 0건 + `tests/pre-bash-firewall.bats` 회귀 배터리 통과"
+    },
+    {
+      "id": "AC-9",
+      "criterion": "면제의 **결과 집합**이 고정된다 — 토큰 목록이 아니라 '어느 arm이 실제로 면제되는가'가.",
+      "_origin": "1차 판정 criteria_gap: SC-2가 '목록이 단일 출처'만 요구해 목록→결과 사상이 고정되지 않았다. 경계가 부분일치 우연에 기대고 있어도 통과한다.",
+      "verification": "ASK_PATTERNS를 추출해 면제 조건을 재현하고 면제되는 arm 수를 정확히 센다(현재 3: sed/awk 데이터플레인 · 인터프리터 데이터플레인 · 인터프리터 feature_list). 그중 어느 것도 컨트롤 플레인 경로를 담지 않음을 함께 확인."
+    },
+    {
+      "id": "AC-10",
+      "criterion": "heredoc 본문의 개행이 명령 구분자가 되지 않는다.",
+      "_origin": "1차 판정이 실증한 회귀를 잠근다. AC-3 철회로 원인은 제거됐지만, 같은 유혹(개행을 구분자로)이 재발할 때 이 테스트가 먼저 깨지도록 남긴다.",
+      "verification": "`python3 - <<'EOF'` · `python3 <<EOF` · `cat <<'EOF' | python3 -` 세 형태에서 `.claude/settings.json` · `hooks/hooks.json` · `.claude/settings.local.json` 쓰기가 ask"
     }
   ],
   "security_criteria": [
@@ -94,8 +109,8 @@
     },
     {
       "id": "ES-2",
-      "scenario": "개행을 구분자로 바꾸자 정상 복합 명령이 새로 ask가 된다",
-      "expected": "F63 5차가 겪은 과탐 계열이다. 개행 처리 변경 전후로 회귀 배터리 + behavioral 코퍼스를 돌려 신규 ask 0건을 확인한다"
+      "scenario": "티어 변화를 **양방향**으로 관측하지 못한다 — 신규 ask만 세고 신규 allow·신규 deny를 놓친다",
+      "expected": "1차 판정 지적: 이 시나리오가 신규 ask만 다뤄, 개행 변경이 만든 신규 allow(heredoc 구멍)와 신규 deny(`exec`/`eval` 뒷줄 형태)가 모두 관측 밖이었다. AC-6의 결정 함수 차분이 main 대비 **모든 방향의 판정 변화**를 잡는다 — allow↔ask↔deny 어느 쪽으로 움직여도 의도된 목록에 없으면 실패한다"
     },
     {
       "id": "ES-3",
@@ -116,10 +131,23 @@
       "covers": ["AC-1", "AC-4", "SC-1", "SC-2"]
     },
     {
-      "step": "2. 정규화에서 개행을 명령 구분자로 인식 (AC-3)",
-      "verify": "개행/세미콜론 판정 일치 + 회귀 배터리 개행 변형 주입",
+      "step": "2. [철회] 정규화에서 개행을 명령 구분자로 인식",
+      "verify": "구현했고 12/12 통과했으나 1차 판정이 heredoc 경로로 컨트롤 플레인이 열리는 것을 실증 → 되돌림(커밋 70966db). 되돌린 상태가 main과 판정 동일함을 대조 확인.",
       "done": true,
-      "covers": ["AC-3", "SC-5"]
+      "withdrawn": true,
+      "covers": ["AC-3(철회)", "AC-10"]
+    },
+    {
+      "step": "5. 인터프리터 arm을 평면별로 분리 (데이터 플레인 / 컨트롤 플레인)",
+      "verify": "데이터 플레인 5종 인터프리터 읽기 allow + 컨트롤 플레인 인터프리터 ask + 면제 결과 집합 3개",
+      "done": true,
+      "covers": ["AC-1", "AC-9"]
+    },
+    {
+      "step": "6. 결정 함수 차분 회귀 (main 대비 판정 대조)",
+      "verify": "의도된 3케이스만 ask→allow, 나머지 14케이스 판정 동일",
+      "done": true,
+      "covers": ["AC-6", "ES-2"]
     },
     {
       "step": "3. INV-14 손실 상한 서술 갱신 + F45 대칭 유지",
@@ -136,6 +164,16 @@
   ],
   "_parallelizable": false,
   "_parallel_note": "step 1·2가 같은 파일(hooks/pre-bash-firewall.sh)의 판정 경로를 건드리고 step 2가 step 1의 면제 판정에 영향을 주므로 직렬.",
+  "_verdict_1st": {
+    "verdict": "fail",
+    "score": 3,
+    "security": 3,
+    "file": "progress/agent-comms/evaluator-feedback-2026-07-30T16-13-35+0900.json",
+    "confirmed": "면제 확대(F65 SC-2 완화)는 **변이 실험으로 무죄 확인**됐다 — 면제 집합이 1→2개로만 늘고, 배제 조건을 삭제한 변이에서만 컨트롤 플레인이 샜다(배제가 load-bearing). 국소화 기준을 'arm 개수'에서 '읽기를 잡는가'로 바꾼 논지는 타당하며 되돌릴 필요가 없다고 판정했다.",
+    "rejected_for": "같은 커밋의 개행→구분자 변경이 컨트롤 플레인을 열었다. heredoc 본문의 개행이 `;` 가 되어 스팬이 끊기고 `python3 - <<'EOF'` 안의 `.claude/settings.json` 쓰기가 ask→allow(격리 랩에서 파일 교체 실증). gitignore 대상이라 사후 복구도 없는 자리다.",
+    "criteria_gaps_addressed": "AC-1(데이터 플레인 파일 열거) · AC-3(철회) · AC-6(결정 함수로 재조작화) · AC-9(면제 결과 집합 스냅샷) · AC-10(heredoc 잠금) · ES-2(양방향 관측)"
+  },
+  "_rework_2026_07_30": "1차 판정 후 사용자 결정 두 건을 반영했다 — (1) AC-3 철회(개행 변경을 되돌리고 갭으로 명시), (2) 면제를 데이터 플레인 **전체**로 확대(인터프리터 arm을 평면별로 분리). 계약 변경은 사용자의 명시적 지시('AC-3 철회, 전체로')를 근거로 한다.",
   "agreed": true,
   "_agreed_note": "**승인됨 — 2026-07-30 사용자 지시.** Plan 게이트에서 계획(면제 목록화 → 개행 구분자 인식 → INV-14 손실 상한 갱신 → 회귀 테스트)과 열리는 것/닫히는 것/손대지 않는 것을 제시하고 'ok' 승인을 받았다. 선행 대화에서 사용자가 '이 논리 구조는 오탐이야. 지금 탐지하는 방식을 폐기해' · '문법이나 정규표현식 분해/분석으로 판정을 하지 말고 맥락 기반이어야 한다'고 두 차례 방향을 지시했고, 실측 근거(면제 1/45 arm · 개행↔세미콜론 판정 역전 · 인터프리터 읽기·쓰기 미구분)를 제시한 뒤 받은 승인이다."
 }
