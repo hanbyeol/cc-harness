@@ -1,0 +1,52 @@
+{
+  "timestamp": "2026-07-30T14:50:30+0900",
+  "type": "add",
+  "description": "예측 계층을 INV-14에 정합시킨다 — 읽기를 잡는 데이터 플레인 arm 면제 + 명령 경계 오인식 수정 (F67)",
+  "trigger": "[사용자 지적] `python3 -c \"json.load(open('progress/feature_list.json'))\"` 순수 읽기가 반복 ask. '이 논리 구조는 오탐이다. 지금 탐지하는 방식을 폐기해. 문법이나 정규표현식 분해/분석으로 판정하지 말고 맥락 기반이어야 한다.'",
+  "affected_features": [
+    "F67"
+  ],
+  "related_features": {
+    "F65": "선행 전제. 탐지·복구 메커니즘(protected-integrity.sh·티켓 원장)과 두 평면 분류를 F65가 만들었다. passes:false로 2차 판정 대기 중이며 이번 변경은 그 위에 얹힌다 — F65 계약을 사후 수정하지 않고 별 feature로 등록해 판정 근거를 흔들지 않는다.",
+    "F63": "superseded 상태 유지. 이번 변경은 F63의 '읽기 화이트리스트' 방향이 아니라 F65의 '면제 + 사후 탐지' 방향의 범위 확대다.",
+    "F35": "이 arm이 지키는 불변식(INV-11 Bash 우회 차단)의 출처."
+  },
+  "impact": {
+    "spec_updated": false,
+    "_spec_note": "docs/SPEC.md 가 이 저장소에 없다(SPEC 역할은 docs/INVARIANTS.md + 계약이 담당). 대신 INV-14 갱신을 계약 SC-3으로 요구했다.",
+    "architecture_updated": false,
+    "_architecture_note": "계층 구조(예측/탐지·복구 2계층)는 F65가 이미 확정했다. 이번 변경은 그 안에서 면제 범위를 옮기는 것이므로 새 컴포넌트·API·위협 카테고리가 없다. 위협 모델 변화는 손실 상한 서술(SC-3)로 흡수한다.",
+    "invariants_updated": "pending — 계약 SC-3이 INV-14 손실 상한 갱신을 요구한다(구현 step 3)",
+    "acceptance_criteria_updated": true,
+    "feature_list_updated": true,
+    "new_sprint_contract": "progress/contracts/sprint-53.json",
+    "phase_rollback": false,
+    "_phase_note": "판정 로직 국소 변경이라 architecture phase로 롤백하지 않는다. implementation 유지."
+  },
+  "evidence": [
+    {
+      "claim": "면제는 45개 arm 중 1개에만 적용된다",
+      "method": "ASK_PATTERNS 배열을 추출해 Layer 3.5 면제 조건(READ_CAPABLE_ARM 부분일치 + 컨트롤플레인/in-place 제외)을 각 arm에 평가",
+      "result": "면제 1 / 45. feature_list.json 전용 arm 7개는 전부 미면제."
+    },
+    {
+      "claim": "개행과 세미콜론으로 판정이 뒤집힌다",
+      "method": "무관한 두 명령(`python3 --version` / `wc -l <파일>`)을 개행·세미콜론 두 형태로 pre-bash-firewall.sh에 주입",
+      "result": "개행 → ask, 세미콜론 → allow. 같은 의미의 명령이 표기로 갈린다."
+    },
+    {
+      "claim": "인터프리터 arm은 읽기와 쓰기를 가리지 않는다",
+      "method": "`python3` 읽기 전용 / 쓰기 두 형태 주입",
+      "result": "둘 다 ask. 코드 주석(:344-345)이 '구문으로 가를 수 없다'고 인정."
+    },
+    {
+      "claim": "대체 통제가 이미 배선돼 있다",
+      "method": "PROTECTED_GLOBS 확인 + integrity_wired() 조건 재현",
+      "result": "feature_list.json이 PROTECTED_GLOBS에 포함(:50). PostToolUse:Bash 배선이 플러그인 캐시 hooks.json과 저장소 settings.json 양쪽에서 확인 → DATA_PLANE_DETECTED=0."
+    }
+  ],
+  "verification_tier": "critical",
+  "_verification_note": "security_tier critical + 방화벽 면제 확대이므로 독립 evaluator 판정 + F37 critical 2차 판정. 경량 티어 대상이 아니다.",
+  "rollback_to_phase": null,
+  "next_step": "Plan 게이트(ExitPlanMode) — 사용자 승인 시에만 sprint-53.json 의 agreed 를 true 로 전환한다"
+}

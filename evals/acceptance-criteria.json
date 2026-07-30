@@ -163,6 +163,12 @@
       "contract": "progress/contracts/sprint-52.json",
       "security_tier": "standard",
       "summary": "[2026-07-28] 하네스가 어떤 프로젝트에서 실제로 실행되고 있는지를 아무도 확인하지 않는다. `.claude/.cc-harness-installed` 마커는 과거 한 번 돌았다는 사실만 남기고, 훅 배선이 사라져도 '적용됨'으로 읽힌다. inno-infra 실측 — v1.33.0 마커 존재, install 레코드 없음, `.claude/hooks/` 없음, PreToolUse:Bash 훅 73회 전부 rtk-rewrite.sh 단독, pre-bash-firewall.sh 0회. F27 Layer 4가 돌지 않아 내장 권한 엔진이 판정했고 awk·cut 파이프라인과 복합 셸 구문에서 승인 프롬프트가 반복됐다(두 명령 모두 방화벽 직접 주입 시 allow). cleanb-ops는 v1.12.6(Layer 4 이전)에 고정돼 같은 마찰. **해결**: 훅이 없는 곳에서는 자기 탐지가 원리적으로 불가능하므로 두 계층으로 나눈다 — 부재는 진단 프로브(scripts/probes/runtime-presence.sh)가 하네스가 도는 곳에서 바깥을 향해 탐지하고, 스테일은 setup-claudemd.sh가 대상 프로젝트 안에서 실행 버전 대 마켓플레이스 캐시 최신 버전을 비교해 경고한다. 후보에는 basename만 담아 공개 저장소로 사내 경로가 새지 않게 한다."
+    },
+    {
+      "feature_id": "F67",
+      "contract": "progress/contracts/sprint-53.json",
+      "security_tier": "critical",
+      "summary": "[2026-07-29] INV-14는 데이터 플레인(feature_list.json 포함)을 예측이 아니라 탐지·복구로 지킨다고 선언하는데, 방화벽 구현은 데이터 플레인 arm 대부분을 여전히 예측으로 막는다. 실측 — ASK_PATTERNS 45개 중 Layer 3.5 면제를 통과하는 것은 1개(sed/awk + 하네스 파일)뿐이고 feature_list.json 전용 arm 7개는 어떤 도구로도 면제되지 않는다. (a) 읽기 오탐: 인터프리터 arm이 도구 이름만으로 판정해 `python3 -c \"json.load(open(...))\"` 같은 순수 읽기를 ask로 만든다 — 코드 자신이 '인터프리터는 읽기와 쓰기를 구문으로 가를 수 없다'고 인정하며 이미 면제된 에디터 이름 arm과 성질이 동일하다. (b) 명령 경계 오인식: 정규화가 개행을 공백으로 치환하므로 `[^;|&]*` 스팬이 명령 경계를 놓친다 — `python3 --version` ⏎ `wc -l <파일>` 은 ask, 같은 두 명령을 `;` 로 이으면 allow. 표기만 바꿔 판정이 뒤집혀 마찰(과탐)과 우회(한 글자)가 동시에 성립한다. **해결**: 읽기를 잡는 데이터 플레인 arm을 면제 목록에 편입하고(쓰기 신호가 드러나는 리다이렉트·cp·in-place·dd of=·sed w arm은 유지 — 면제해도 마찰이 줄지 않고 손실 상한만 늘어난다), 개행을 명령 구분자로 인식시킨다. 컨트롤 플레인과 되돌릴 수 없는 계층은 무변경. 손실 상한은 protected-integrity.sh의 사후 탐지·복구가 받고(PROTECTED_GLOBS에 이미 포함), 배선이 없으면 예측이 되살아난다."
     }
   ]
 }

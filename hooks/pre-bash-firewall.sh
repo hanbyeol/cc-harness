@@ -9,10 +9,19 @@ fi
 CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || echo "")
 [[ -z "$CMD" ]] && exit 0
 
-# Normalize all whitespace (tabs, newlines, multiple spaces) to single space
-NORMALIZED_CMD=$(echo "$CMD" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')
-
-# 작은따옴표 **안**의 명령 구분자를 중화한다. 아래 패턴들의 `[^;|&]*` 스팬은 "여기서 다른
+# 개행은 셸에서 `;` 와 동등한 명령 구분자다. 예전에는 모든 공백류와 함께 공백으로 접었는데,
+# 그러면 아래 패턴들의 `[^;|&]*` 스팬이 명령 경계를 놓쳐 **무관한 두 명령이 한 스팬으로 묶인다**.
+# F67 실측: `python3 --version` ⏎ `wc -l <보호경로>` 는 ask인데 같은 두 명령을 `;` 로 이으면
+# allow였다 — 표기 한 글자로 판정이 뒤집혔고, 그래서 마찰(과탐)과 우회가 동시에 성립했다.
+# 개행을 구분자로 보존해 둘 다 닫는다. 예외 둘은 개행이 구분자가 **아닌** 자리다:
+#  - 인용부호 안의 개행은 리터럴이다(공백으로 접는다 — 스팬을 끊으면 보호가 약해진다)
+#  - 줄 이음(`\` + 개행)은 한 명령이다(공백으로 접는다 — 끊으면 in-place 게이트가 뚫린다)
+#
+# 개행 전달에 \034(FS 제어문자)를 쓰는 이유: awk의 `RS` 는 POSIX에서 단일 문자만 보장되므로
+# 개행을 그대로 넘기면 레코드가 줄 단위로 쪼개져 인용부호 상태 추적이 줄을 넘지 못한다.
+# 명령 문자열에 이 제어문자가 들어올 일은 없다.
+#
+# 같은 순회에서 작은따옴표 **안**의 명령 구분자를 중화한다. 아래 패턴들의 `[^;|&]*` 스팬은 "여기서 다른
 # 명령이 시작된다"를 뜻하는데, 셸은 인용부호 안의 `;`를 구분자로 보지 않는다. 이 불일치 때문에
 # `sed -n 'p;w <보호경로>' src` 가 allow였다(5차 판정 확인 — main에서도 그랬고 실제로 덮어쓴다).
 # 패턴을 늘리는 대신 **정규화에서 고친다** — cp·mv·tee·인터프리터·egress 등 `[^;|&]`를 쓰는
@@ -26,14 +35,21 @@ NORMALIZED_CMD=$(echo "$CMD" | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')
 # 다시 쓰는 것이 아니다. Layer 3.5의 읽기 화이트리스트는 원본으로 판정해야 한다 — 중화본으로
 # 보면 인용부호 안의 `|`가 공백이 되어, awk 프로그램의 `"cmd" | getline`(셸 실행)이 파이프 없는
 # 무해한 프로그램처럼 보인다. 두 계층이 서로의 판단 근거를 지우는 상호작용이며 실측으로 확인했다.
-NORMALIZED_CMD=$(printf '%s' "$NORMALIZED_CMD" | awk '
-  { out=""; inS=0; inD=0
+NORMALIZED_CMD=$(printf '%s' "$CMD" | tr '\n' '\034' | awk '
+  { out=""; inS=0; inD=0; prev=""
     for (i=1; i<=length($0); i++) { c=substr($0,i,1)
-      if (c=="\047" && !inD) { inS=!inS; out=out c; continue }
-      if (c=="\042" && !inS) { inD=!inD; out=out c; continue }
+      if (c=="\047" && !inD) { inS=!inS; out=out c; prev=c; continue }
+      if (c=="\042" && !inS) { inD=!inD; out=out c; prev=c; continue }
+      if (c=="\034") {
+        if (inS || inD)      { out=out " " }   # 인용 안 개행 — 리터럴이지 구분자가 아니다
+        else if (prev=="\\") { out=out " " }   # 줄 이음 — 한 명령이다
+        else                 { out=out ";" }   # 진짜 명령 구분자
+        prev=c; continue
+      }
       if ((inS || inD) && (c==";" || c=="|" || c=="&")) { out=out " " } else { out=out c }
+      prev=c
     }
-    print out }')
+    print out }' | tr -s '[:space:]' ' ' | sed 's/^ //;s/ $//')
 
 # F38: 결정 분포 관측(로깅만 — 판정 로직·순서 무변경). 명령 원문은 기록하지 않고(SC2)
 # 결정 종류만 progress/.firewall-stats에 append. 실패는 무시(로깅이 방화벽을 깨지 않음).
@@ -127,6 +143,38 @@ fi
 # 편집 전용 도구(vim·ed·patch·dd·sponge…)와 컨트롤 플레인 arm은 이 목록을 갖지 않으므로
 # 면제 대상이 아니다. 면제 판정과 패턴 정의가 같은 출처를 갖게 하려고 변수로 뽑았다.
 READ_CAPABLE_ARM='(g?sed|g?awk|mawk)'
+# F67: 인터프리터도 **도구 이름만으로** 판정하는 arm이다 — 위 에디터 이름 arm과 성질이 같아
+# 순수 읽기까지 잡는다. Layer 3.4(pure_read_only)에는 넣을 수 없다: `-c` 뒤가 임의 프로그램이라
+# 읽기·쓰기를 가르려면 대상 언어의 파서가 필요하다(아래 도구별 근거 주석이 그렇게 적어 두었다).
+# 그래서 에디터 arm과 같은 방식으로 처리한다 — 탐지·복구가 배선돼 있으면 면제한다.
+INTERPRETER_ARM='(python3?|node|nodejs|ruby|perl|php|lua)'
+# 면제 대상 arm의 판별 토큰 — **단일 출처**(F67 SC-2). 부분일치 조건을 판정부에만 두면 패턴
+# 문자열을 고칠 때 면제 범위가 조용히 바뀐다. 여기 없는 토큰을 가진 arm은 면제되지 않는다.
+#
+# 넣는 기준은 하나다: **그 arm이 읽기를 잡는가.** 쓰기 신호가 명령에 드러나는 arm
+# (리다이렉트 `>` · cp/mv/tee/install/rsync 이름 · in-place `-i` · `dd of=` · `sed w`)은
+# 읽기를 잡지 않으므로 면제해도 마찰이 줄지 않고 손실 상한만 늘어난다 — 넣지 않는다.
+EXEMPTABLE_ARM_TOKENS=(
+  "$READ_CAPABLE_ARM"
+  "$INTERPRETER_ARM"
+)
+
+# 이 arm을 탐지·복구에 넘길 수 있는가. 판정은 **패턴 문자열의 부분일치**로 한다 — 패턴 자체가
+# 정규식이므로 정규식으로 다시 매칭하면 백슬래시 때문에 빗나간다(첫 구현에서 실제로 그렇게
+# 무력화됐다).
+arm_is_exemptable() {
+  local p="$1" tok
+  # 토큰이 일치해도 아래는 절대 면제하지 않는다 — 사후 복구가 성립하지 않는 자리다.
+  #  - hooks.json·settings*.json: 이 훅의 배선 자체를 끄고, settings는 gitignore라 HEAD 복구 불가
+  #  - in-place(`-i`): 쓰기 신호가 명령에 드러나므로 애초에 읽기를 잡지 않는다
+  #  - 탐지기 자신과 티켓 원장: 파괴되면 자기를 복구할 수 없다(F65 SC-6)
+  [[ "$p" == *'hooks\.json'* || "$p" == *'settings'* || "$p" == *'-i'* ]] && return 1
+  [[ "$p" == *'protected-integrity'* || "$p" == *'guarded-edits'* || "$p" == *'integrity-baseline'* ]] && return 1
+  for tok in "${EXEMPTABLE_ARM_TOKENS[@]}"; do
+    [[ "$p" == *"$tok"* ]] && return 0
+  done
+  return 1
+}
 ASK_PATTERNS=(
   'git reset[^;|&]*--hard'
   'git clean[^;|&]* -[a-zA-Z]*f'
@@ -440,27 +488,21 @@ pure_read_only "$CMD" && PURE_READ=1
 if [ "$PURE_READ" -eq 0 ] && echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then
   for p in "${ASK_PATTERNS[@]}"; do
     if echo "$NORMALIZED_CMD" | grep -qiE "$p"; then
-      # 화이트리스트가 **면제할 수 있는 패턴은 이름 기반 에디터 목록뿐이다.**
-      # 4차 판정 이전에는 SAFE_READ=1이 ASK 배열 전체를 건너뛰었고, 그 때문에 화이트리스트의
+      # 면제할 수 있는 것은 **읽기를 잡는 arm**이다 — 목록은 EXEMPTABLE_ARM_TOKENS 한 곳에 있고
+      # 판정은 arm_is_exemptable()이 한다(F67 SC-2: 어느 arm이 면제되는지 코드에서 읽힌다).
+      #
+      # 4차 판정 이전에는 SAFE_READ=1이 ASK 배열 **전체**를 건너뛰었고, 그 때문에 화이트리스트의
       # 결함 하나가 sed/awk 마찰을 넘어 egress 티어(`$(curl -T ~/.ssh/id_rsa …)`)와
       # INV-11 Bash 우회 게이트(`$(cp /tmp/x progress/feature_list.json)`)까지 열었다.
       # 3차에서 내가 'ASK 앞에 두었으니 최악도 ask→allow 한 단계'라고 주장한 손실 상한은
-      # **면제 범위를 국소화해야 비로소 참이 된다.** 이제 다른 패턴이 하나라도 걸리면 ask다.
-      # feature_list arm은 면제하지 않는다(6차 판정 병행 권고). INV-11의 Bash 우회 게이트이므로
-      # 여기까지 면제하면 SC-3의 손실 상한 서술이 코드로 거짓이 된다. feature_list.json을
-      # sed로 읽는 것은 ask로 남지만 — 그것이 이 게이트가 지키는 값어치에 비해 싼 마찰이다.
-      # 탐지·복구가 배선돼 있으면 **에디터 이름 arm만** 건너뛴다.
-      # 판정은 패턴 문자열의 부분일치로 한다 — 패턴은 정규식이므로 정규식으로 다시 매칭하면
-      # 백슬래시 때문에 빗나간다(첫 구현에서 실제로 그렇게 무력화됐다).
-      # 컨트롤 플레인을 덮는 arm은 제외한다: hooks/hooks.json 과 settings*.json 은 이 훅의
-      # 배선 자체를 끌 수 있어 사후 복구가 성립하지 않는다.
-      # 건너뛰는 것은 **읽기에도 쓰는 도구 arm 하나뿐**이다. 판정은 패턴 문자열의 부분일치로
-      # 한다 — 패턴 자체가 정규식이므로 정규식으로 다시 매칭하면 백슬래시 때문에 빗나간다.
-      # READ_CAPABLE_ARM 이 그 arm에만 있고 컨트롤 플레인 arm에는 없으므로, 이 조건은
-      # 데이터 플레인 읽기만 통과시킨다.
-      if [ "$DATA_PLANE_DETECTED" -eq 0 ] \
-         && [[ "$p" == *"$READ_CAPABLE_ARM"* ]] \
-         && [[ "$p" != *'hooks\.json'* && "$p" != *'settings'* && "$p" != *'-i'* ]]; then
+      # **면제 범위를 국소화해야 비로소 참이 된다.** 지금도 목록 밖 패턴이 하나라도 걸리면 ask다.
+      #
+      # F67이 feature_list arm 중 인터프리터 계열을 목록에 넣었다. F65 6차는 그것을 보류하며
+      # '읽기 마찰은 게이트가 지키는 값어치에 비해 싸다'고 적었는데, 실측이 그 전제를 무너뜨렸다:
+      # (a) 이 arm은 도구 이름만 보므로 순수 읽기를 잡고, (b) 개행으로 나눈 **무관한 두 명령**까지
+      # 한 스팬으로 묶으며, (c) 같은 명령을 `;` 로 이으면 통과한다 — 표기 한 글자로 판정이 뒤집혀
+      # 보호도 마찰도 실패하고 있었다. 사후 탐지·복구는 그 세 결함을 모두 갖지 않는다.
+      if [ "$DATA_PLANE_DETECTED" -eq 0 ] && arm_is_exemptable "$p"; then
         continue
       fi
       log_decision ask

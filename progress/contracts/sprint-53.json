@@ -1,0 +1,141 @@
+{
+  "sprint": 53,
+  "title": "예측 계층을 INV-14에 정합시킨다 — 읽기를 잡는 데이터 플레인 arm 면제 + 명령 경계 오인식 수정",
+  "feature_id": "F67",
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "_tier_note": "방화벽 면제 범위를 넓히므로 critical. F65 SC-2가 명시적으로 제한한 범위를 확대하는 변경이라 손실 상한을 새로 서술하고 독립 evaluator + F37 critical 2차 판정을 거친다.",
+  "dependencies": [
+    "F35",
+    "F63",
+    "F65"
+  ],
+  "problem": "[2026-07-29, 사용자 지적] INV-14는 데이터 플레인(feature_list.json 포함)을 예측이 아니라 탐지·복구로 지킨다고 선언하는데, 방화벽 구현은 데이터 플레인 arm 대부분을 여전히 예측으로 막는다. 실측: ASK_PATTERNS 45개 중 Layer 3.5 면제를 통과하는 것은 1개(sed/awk + 하네스 파일)뿐이고, feature_list.json 전용 arm 7개(:239-245)는 어떤 도구로도 면제되지 않는다. (a) 읽기 오탐 — 인터프리터 arm(:244)이 도구 이름만으로 판정해 순수 읽기(`python3 -c \"json.load(open(...))\"`)를 ask로 만든다. 코드 자신이 :344-345에서 '인터프리터는 읽기와 쓰기를 구문으로 가를 수 없다'고 인정하며, 이미 면제된 에디터 이름 arm과 성질이 동일하다. pure_read_only()에는 넣을 수 없다(파이썬 파서가 필요하다). (b) 명령 경계 오인식 — 정규화(:13)가 개행을 공백으로 치환하므로 `[^;|&]*` 스팬이 명령 경계를 놓친다. `python3 --version` + 개행 + `wc -l <파일>`은 ask, 같은 두 명령을 `;`로 이으면 allow. 표기만 바꿔 판정이 뒤집히므로 마찰(과탐)과 우회(한 글자)가 동시에 성립한다.",
+  "_supersedes": {
+    "F65-SC-2": "'면제 범위가 읽기에도 쓰는 도구 arm 하나로 한정된다'를 '읽기를 잡는 데이터 플레인 arm으로 한정된다'로 교체한다. F65 SC-2의 취지(면제 범위가 곧 손실 상한이므로 국소화한다)는 유지하되, 국소화의 기준을 'arm 개수'에서 '그 arm이 읽기를 잡는가'로 바꾼다. F63 4차의 실패는 ASK 배열 **전체**를 건너뛴 것이었고 — 컨트롤 플레인까지 열렸다 — 이번 확대는 데이터 플레인 안에서도 쓰기 신호가 드러나지 않는 arm에만 적용되므로 같은 실패가 아니다."
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "데이터 플레인 파일에 대한 **인터프리터 읽기가 allow**다.",
+      "verification": "`python3 -c \"import json; print(len(json.load(open('progress/feature_list.json'))))\"` · `node -e \"require('./progress/feature_list.json')\"` · `python3 -c` 여러 줄 형태가 모두 allow (방화벽 직접 주입)"
+    },
+    {
+      "id": "AC-2",
+      "criterion": "같은 도구로 **쓰면 사후에 탐지·복구된다.**",
+      "verification": "격리 랩에서 `python3`·`node`·`ruby`로 데이터 플레인 파일을 훼손 후 PostToolUse 실행 → HEAD 복구 + `.integrity-restores` 기록 + 격리 보관(SC-4 경로) 확인"
+    },
+    {
+      "id": "AC-3",
+      "criterion": "**개행과 세미콜론의 판정이 일치한다** — 명령 경계 오인식이 사라진다.",
+      "verification": "(a) `python3 --version` ⏎ `wc -l <데이터플레인파일>` 이 allow (현재 ask) (b) 같은 명령을 `;`로 이은 형태와 판정이 동일 (c) 컨트롤 플레인 arm에서는 개행으로 나눠도 여전히 ask — `vim x` ⏎ `cat hooks/hooks.json` 이 아니라 `vim hooks/hooks.json` 만 잡히는지 양방향 확인"
+    },
+    {
+      "id": "AC-4",
+      "criterion": "쓰기 신호가 드러나는 arm은 **면제하지 않는다.**",
+      "verification": "리다이렉트(`> feature_list.json`) · cp/mv/tee 계열 · `sed -i` · `dd of=` · `sed w` 가 종전과 동일하게 ask"
+    },
+    {
+      "id": "AC-5",
+      "criterion": "편집 전용 도구는 데이터 플레인에서도 계속 물어본다 (F65 AC-5 계승).",
+      "verification": "`vim -es -c wq <데이터플레인파일>` · `patch` · `dd of=` 가 ask"
+    },
+    {
+      "id": "AC-6",
+      "criterion": "컨트롤 플레인과 되돌릴 수 없는 계층이 무변경이다.",
+      "verification": "BLOCKED · INDIRECT_PATTERNS 배열이 main과 바이트 동일 + `vim hooks/hooks.json` · `sed -i <settings>` · egress · Layer 1 deny 가 종전과 동일"
+    },
+    {
+      "id": "AC-7",
+      "criterion": "배선이 없으면 예측이 되살아난다 (fail-safe).",
+      "verification": "탐지 훅을 비우거나 PostToolUse 배선을 제거하면 인터프리터 arm이 다시 ask를 내는지 실행 확인"
+    },
+    {
+      "id": "AC-8",
+      "criterion": "회귀 없음.",
+      "verification": "bats 전체 1회 + behavioral 프로브 후보 0건 + `tests/pre-bash-firewall.bats` 회귀 배터리 통과"
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "ASK_PATTERNS는 **add-only를 유지한다** — 패턴을 지우지 않고 면제 조건만 넓힌다 (INV-5).",
+      "verification": "arm 수 45 이상 + invariant-guard 통과 + 배선이 사라지면 패턴이 폴백으로 되살아나는지 확인"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "면제 범위가 **'읽기를 잡는 데이터 플레인 arm'으로 명시적으로 열거된다** — 조건이 아니라 목록으로.",
+      "rationale": "F65 SC-2의 취지는 '면제 범위가 곧 손실 상한'이다. 부분일치 조건(`$p == *READ_CAPABLE_ARM*`)은 패턴 문자열을 고치면 조용히 범위가 바뀌므로, 어느 arm이 면제되는지를 코드에서 읽을 수 있게 한다.",
+      "verification": "면제 대상 arm 목록이 단일 출처로 존재하고, 테스트가 그 목록과 실제 면제 결과를 대조 + 컨트롤 플레인·in-place·시크릿 arm이 목록에 없음을 확인"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "손실 상한을 **INV-14에 갱신한다** — 무엇이 예측에서 빠졌고 무엇이 대신 잡는지.",
+      "verification": "INV-14에 (a) 데이터 플레인 인터프리터·에디터 쓰기가 사전에 막히지 않음 (b) protected-integrity.sh가 담당함 (c) 배선 부재 시 폴백 을 명시 + F45 양방향 대칭 테스트 통과"
+    },
+    {
+      "id": "SC-4",
+      "criterion": "`PROTECTED_GLOBS ≡ is_protected()` 정합이 유지된다 (F65 SC-8 계승).",
+      "rationale": "면제를 넓히면 그 파일의 유일한 보호가 사후 탐지가 된다. 두 목록이 어긋나면 예측도 탐지도 없는 경로가 생긴다.",
+      "verification": "`tests/protected-integrity.bats` 의 두 목록 대조 테스트 통과 + 면제 대상 arm이 다루는 모든 경로가 PROTECTED_GLOBS에 있음을 기계 확인"
+    },
+    {
+      "id": "SC-5",
+      "criterion": "명령 경계 수정이 **기존 보호를 느슨하게 하지 않는다.**",
+      "rationale": "개행을 구분자로 인식시키면 `[^;|&]*` 스팬이 짧아진다 — 지금 잡히던 진짜 위험이 빠질 수 있다.",
+      "verification": "회귀 배터리의 모든 deny/ask 케이스를 개행 구분 형태로도 주입해 판정이 유지되는지 확인 + BLOCKED·INDIRECT 바이트 동일"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "면제 확대가 컨트롤 플레인으로 새어 든다",
+      "expected": "면제 대상이 목록으로 열거되고 컨트롤 플레인 arm은 목록에 없다 — SC-2가 고정하고 테스트가 대조한다"
+    },
+    {
+      "id": "ES-2",
+      "scenario": "개행을 구분자로 바꾸자 정상 복합 명령이 새로 ask가 된다",
+      "expected": "F63 5차가 겪은 과탐 계열이다. 개행 처리 변경 전후로 회귀 배터리 + behavioral 코퍼스를 돌려 신규 ask 0건을 확인한다"
+    },
+    {
+      "id": "ES-3",
+      "scenario": "탐지 배선이 없는 저장소에서 면제가 적용된다",
+      "expected": "`integrity_wired()`가 거짓이면 `DATA_PLANE_DETECTED=1` 이므로 면제가 발동하지 않고 예측이 유지된다 — AC-7이 실행으로 확인한다"
+    },
+    {
+      "id": "ES-4",
+      "scenario": "인터프리터가 한 명령 안에서 쓰고 그 결과를 곧바로 소비한다",
+      "expected": "INV-14가 이미 서술한 알려진 약화다(한 Bash 호출 내 변조·소비 창). 복구는 다음 도구 호출에서 일어나며 감사 로그가 남는다. SC-3이 이 창을 인터프리터까지 확장해 명시한다"
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": "1. 면제 대상 arm을 단일 출처 목록으로 뽑고 인터프리터 arm을 편입 (SC-2)",
+      "verify": "면제 판정 실측 — 목록 대조 테스트",
+      "done": true,
+      "covers": ["AC-1", "AC-4", "SC-1", "SC-2"]
+    },
+    {
+      "step": "2. 정규화에서 개행을 명령 구분자로 인식 (AC-3)",
+      "verify": "개행/세미콜론 판정 일치 + 회귀 배터리 개행 변형 주입",
+      "done": true,
+      "covers": ["AC-3", "SC-5"]
+    },
+    {
+      "step": "3. INV-14 손실 상한 서술 갱신 + F45 대칭 유지",
+      "verify": "invariant-guard.bats 양방향 대칭",
+      "done": true,
+      "covers": ["SC-3", "SC-4"]
+    },
+    {
+      "step": "4. 회귀 테스트 추가 (인터프리터 읽기 allow / 쓰기 사후 복구 / 배선 부재 폴백)",
+      "verify": "bats 1회 + behavioral 후보 0건",
+      "done": true,
+      "covers": ["AC-2", "AC-5", "AC-6", "AC-7", "AC-8"]
+    }
+  ],
+  "_parallelizable": false,
+  "_parallel_note": "step 1·2가 같은 파일(hooks/pre-bash-firewall.sh)의 판정 경로를 건드리고 step 2가 step 1의 면제 판정에 영향을 주므로 직렬.",
+  "agreed": true,
+  "_agreed_note": "**승인됨 — 2026-07-30 사용자 지시.** Plan 게이트에서 계획(면제 목록화 → 개행 구분자 인식 → INV-14 손실 상한 갱신 → 회귀 테스트)과 열리는 것/닫히는 것/손대지 않는 것을 제시하고 'ok' 승인을 받았다. 선행 대화에서 사용자가 '이 논리 구조는 오탐이야. 지금 탐지하는 방식을 폐기해' · '문법이나 정규표현식 분해/분석으로 판정을 하지 말고 맥락 기반이어야 한다'고 두 차례 방향을 지시했고, 실측 근거(면제 1/45 arm · 개행↔세미콜론 판정 역전 · 인터프리터 읽기·쓰기 미구분)를 제시한 뒤 받은 승인이다."
+}
