@@ -176,12 +176,19 @@ record_guarded_edit() {
   printf '%s %s\n' "$sha" "$rel" >> "$root/progress/.guarded-edits" 2>/dev/null || true
 }
 trap record_guarded_edit EXIT
-# 신규 생성은 대개 약화가 아니므로 통과 — 단, feature_list.json은 예외.
+# 신규 생성은 대개 약화가 아니므로 통과 — 단, 아래 둘은 예외.
 # delete-then-recreate로 passes:true를 주입하면 primary 가드(INV-11)를 우회할 수 있으므로
 # 파일이 없어도 feature_list.json은 아래 브랜치로 내려보내 passes:true 근거를 검증한다 (F-2).
+# F68 6차 판정: `contracts/sprint-*.json` 에 같은 arm 이 없어 **같은 우회가 그대로 열려 있었다** —
+# `rm <계약>` (firewall allow) 후 한 번의 Write 로 `_batch_approval` 이 교체됐다. 커밋도,
+# 히스토리 재작성도, `git rm --cached`(ask) 도 필요 없는 가장 싼 경로였다. 세 줄 위가 이미
+# 이 클래스를 닫아 두었는데 계약만 빠져 있었다.
 if [[ ! -e "$FILE" ]]; then
   case "$(basename "$FILE")" in
     feature_list.json) [[ "$FILE" == *"/templates/"* ]] && exit 0 ;;  # templates 스캐폴딩만 면제
+    sprint-*.json)
+      # 계약 디렉터리 밖(예: 임의 위치의 동명 파일)과 templates 스캐폴딩은 면제
+      [[ "$FILE" == *"/templates/"* || "$FILE" != *"/contracts/"* ]] && exit 0 ;;
     *) exit 0 ;;
   esac
 fi

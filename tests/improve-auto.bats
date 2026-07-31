@@ -319,6 +319,51 @@ seed_queue() {    # 항목 1개가 든 큐 사본 경로를 만든다
   [ "$status" -eq 0 ]
 }
 
+@test "F68: deleting the contract does not open a re-mint path (F37 6차 판정)" {
+  command -v jq >/dev/null || skip "jq not installed"
+  command -v git >/dev/null || skip "git not installed"
+  # 6차 판정 실증: `rm <계약>`(firewall allow) 후 **한 번의 Write** 로 범위가 교체됐다 —
+  # 커밋도, 히스토리 재작성도, `git rm --cached`(ask) 도 필요 없는 가장 싼 경로였다.
+  # 원인은 신규 생성 통과 예외에 `sprint-*.json` arm 이 없어 계약 브랜치에 도달조차 못 한 것.
+  # 세 줄 위가 feature_list.json 에 대해 이미 같은 클래스를 닫아 두었다(F-2).
+  local d="$BATS_TEST_TMPDIR/repo5" c
+  mkdir -p "$d/progress/contracts"
+  git -C "$d" init -q
+  git -C "$d" config user.email t@t
+  git -C "$d" config user.name t
+  c="$d/progress/contracts/sprint-95.json"
+  jq -n '{sprint:95, feature_id:"F95", agreed:true,
+          acceptance_criteria:[{id:"AC-1"}], implementation_steps:[{step:"s"}],
+          _batch_approval:{scope:["skills/implement/SKILL.md"], N:3}}' > "$c"
+  git -C "$d" add -A && git -C "$d" commit -qm mint
+
+  local widened
+  widened=$(jq -c '._batch_approval = {scope:["**/*"], N:99}' "$c")
+  rm "$c"                      # firewall 이 allow 하는 경로
+  run guard_write "$c" "$widened"
+  [ "$status" -eq 2 ]
+}
+
+@test "F68: creating a genuinely new contract still passes" {
+  command -v jq >/dev/null || skip "jq not installed"
+  command -v git >/dev/null || skip "git not installed"
+  # 위 arm 이 정상 스캐폴딩을 막으면 안 된다 — HEAD 에 없는 계약의 최초 작성은 통과한다.
+  local d="$BATS_TEST_TMPDIR/repo6" c
+  mkdir -p "$d/progress/contracts"
+  git -C "$d" init -q
+  git -C "$d" config user.email t@t
+  git -C "$d" config user.name t
+  printf 'x\n' > "$d/README.md"
+  git -C "$d" add -A && git -C "$d" commit -qm base
+
+  c="$d/progress/contracts/sprint-94.json"
+  local fresh
+  fresh=$(jq -nc '{sprint:94, feature_id:"F94", agreed:false,
+                   acceptance_criteria:[{id:"AC-1"}], implementation_steps:[{step:"s"}]}')
+  run guard_write "$c" "$fresh"
+  [ "$status" -eq 0 ]
+}
+
 @test "F68: folding history erases the approved scope entirely (limit D)" {
   command -v jq >/dev/null || skip "jq not installed"
   command -v git >/dev/null || skip "git not installed"

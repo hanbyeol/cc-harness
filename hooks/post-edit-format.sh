@@ -53,7 +53,7 @@ case "$FILE" in
     # 같아야 한다. tests/protected-integrity.bats 가 두 목록의 정합을 검사한다.
     REL="${REAL_FILE#"$REAL_PROJECT"/}"
     case "$REL" in
-      progress/harness-config.json | progress/feature_list.json | progress/contracts/sprint-*.json | hooks/hooks.json)
+      progress/harness-config.json | progress/feature_list.json | progress/contracts/sprint-*.json | progress/approval-queue.json | hooks/hooks.json)
         exit 0
         ;;
     esac
