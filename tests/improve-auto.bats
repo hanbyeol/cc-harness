@@ -199,12 +199,12 @@ seed_queue() {    # 항목 1개가 든 큐 사본 경로를 만든다
   [ "$status" -ne 2 ]
 }
 
-@test "F68: a committed approval scope survives any write order (F37 3차 판정)" {
+@test "F68: a committed approval scope resists re-minting without an intervening commit" {
   command -v jq >/dev/null || skip "jq not installed"
   command -v git >/dev/null || skip "git not installed"
-  # 3차 판정 실증: "범위를 들고 내려가는 것"만 막으면 **지우고 내려갔다 새로 발행하며 올라오기**가
-  # 그대로 남는다 — 쓰기 2회로 동일해 우회 비용 증분이 0이다. 단위 케이스로 성질을 주장한 것이
-  # 이 저장소에서 다섯 번째 같은 실패였으므로, 여기서는 **순서 전체**를 고정한다.
+  # **이 테스트가 덮는 범위를 정확히 적는다.** 이전 주석은 "순서 전체를 고정한다"였는데 실제로는
+  # 커밋 없는 [쓰기,쓰기]만 모델링해, 성립하지 않는 성질을 초록으로 보증했다(F37 4차 판정 지적).
+  # 커밋을 끼운 순서는 아래 별도 테스트가 **통과함을** 고정한다 — 알려진 한계이기 때문이다.
   local d="$BATS_TEST_TMPDIR/repo" c
   mkdir -p "$d/progress/contracts"
   git -C "$d" init -q
@@ -258,12 +258,54 @@ seed_queue() {    # 항목 1개가 든 큐 사본 경로를 만든다
   grep -q '_batch_approval' "$CR_SKILL"
 }
 
-@test "F68: the mint rule appears in all three normative documents" {
-  # 3차 판정: 9eb1a82 가 ADR 만 고쳐 INV-12·SKILL §9 가 반대로 어긋났다 — 지연이 문서 사이를
-  # 옮겨 다녔다. 세 곳이 함께 움직이는지 본다.
-  grep -qE '커밋되면 고정|커밋된 승인' "$INV"
-  grep -qE '커밋되면 고정|커밋된 승인' "$IMPL_SKILL"
-  grep -qE '커밋되면 고정|커밋된 승인' "$ADR"
+@test "F68: all three documents state the limit instead of promising a guarantee" {
+  # 3차: 9eb1a82 가 ADR 만 고쳐 나머지 둘이 어긋났다(지연이 문서 사이를 옮겨 다녔다).
+  # 4차: 셋이 함께 움직인 뒤에도 **셋 다 코드를 넘어섰다** — "어떤 순서로도 차단된다"는 단정이
+  # 커밋을 끼운 순서로 반증됐다. 이제 강제 수준과 한계를 함께 적는다.
+  local d
+  for d in "$INV" "$IMPL_SKILL" "$ADR"; do
+    grep -qE '단일 쓰기' "$d"
+    ! grep -qE '어떤 순서로도 차단' "$d"
+  done
+  # 한계의 출구(F69)도 셋 다 가리켜야 한다 — 없으면 "못 막는다"만 남고 계획이 사라진다
+  for d in "$INV" "$IMPL_SKILL" "$ADR"; do
+    grep -q 'F69' "$d"
+  done
+}
+
+@test "F68: the commit-in-between order passes — a documented limit, not a promise" {
+  command -v jq >/dev/null || skip "jq not installed"
+  command -v git >/dev/null || skip "git not installed"
+  # F37 4차 판정이 실증한 순서다. 코드가 막지 못하므로 **통과함을 고정**한다.
+  # 통과를 테스트로 적는 이유: (a) 문서의 한계 서술과 코드가 일치함을 기계로 묶고,
+  # (b) F69(ExitPlanMode 이력 대조)가 이것을 막으면 이 테스트가 먼저 깨져 신호가 된다.
+  local d="$BATS_TEST_TMPDIR/repo3" c
+  mkdir -p "$d/progress/contracts"
+  git -C "$d" init -q
+  git -C "$d" config user.email t@t
+  git -C "$d" config user.name t
+  c="$d/progress/contracts/sprint-97.json"
+  jq -n '{sprint:97, feature_id:"F97", agreed:true,
+          acceptance_criteria:[{id:"AC-1"}], implementation_steps:[{step:"s"}],
+          _batch_approval:{scope:["skills/implement/SKILL.md"], N:3}}' > "$c"
+  git -C "$d" add -A
+  git -C "$d" commit -qm init
+
+  # 쓰기1: Step 6이 지시하는 정상 리셋
+  local step1; step1=$(jq -c '.agreed = false | del(._batch_approval)' "$c")
+  run guard_write "$c" "$step1"
+  [ "$status" -ne 2 ]
+  printf '%s' "$step1" > "$c"
+
+  # 중간 커밋 — 공격 수단이 아니라 정상 절차다. 여기서 HEAD 의 승인 기록이 사라진다.
+  git -C "$d" add -A
+  git -C "$d" commit -qm reset
+
+  # 쓰기2: 새 범위로 재발행 — "최초 발행"과 구분되지 않아 통과한다
+  local step2
+  step2=$(jq -c '.agreed = true | ._batch_approval = {scope:["**/*"], N:99}' <<<"$step1")
+  run guard_write "$c" "$step2"
+  [ "$status" -ne 2 ]
 }
 
 @test "F68: ADR-006 no longer claims the queue is write-blocked" {

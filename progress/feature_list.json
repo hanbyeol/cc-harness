@@ -919,6 +919,22 @@
         "F48"
       ],
       "assigned_sprint": 54
+    },
+    {
+      "id": "F69",
+      "name": "배치 승인을 위조 불가능한 지점에 묶는다 — ExitPlanMode 실행 이력 대조",
+      "description": "[2026-07-31, F68 4회 판정의 귀결] F68의 SC-4('무인 루프가 자기 승인 범위를 스스로 넓힐 수 없다')가 **네 번 연속 반증**됐다 — (1) `is_protected()`를 쓰기 장벽으로 오독 (2) `agreed` 플립으로 범위를 들고 이동 (3) 지우고 내려갔다 새로 발행 (4) 두 쓰기 사이에 커밋. 매번 직전 판정이 지목한 순서만 닫혔고 우회 비용 증분은 사실상 0이었다. 특히 (4)의 중간 커밋은 공격 수단이 아니라 `/change-request` Step 6이 지시하는 정상 흐름이라 **문서가 규정한 절차 자체가 세탁 경로**다. **근본 원인**: 승인의 증거가 계약 파일과 git 히스토리 안에만 있다 — 둘 다 루프의 권한 안이므로 어떤 기준점(직전 값·HEAD·워킹트리)을 잡아도 루프가 그것을 움직인다. 순서를 하나씩 막는 접근은 F63이 10회전 겪은 열거 실패와 같은 계열이다. **해결**: 위조 불가능한 지점에 묶는다. ExitPlanMode는 사용자에게 프롬프트가 뜨는 도구라 루프가 만들어낼 수 없으므로, 그 실행을 PostToolUse 훅으로 append-only 기록하고(F54가 SubagentStop으로 `evaluator-runs.jsonl`에 한 것과 같은 방식) `_batch_approval` 발행·변경 시 시간창 안의 실행 이력이 있어야 통과시킨다. F35(INV-11)가 `passes` 전환에 건 통제를 `agreed`·배치 승인 전환에 적용하는 것이다. **선결 확인**: ExitPlanMode에 PostToolUse 훅이 실제로 걸리는지, 훅 입력에서 승인/거부를 구분할 수 있는지를 구현 전에 실측한다 — 걸리지 않으면 이 접근 자체가 성립하지 않으므로 대안(승인 append-only 원장)으로 전환한다.",
+      "security_tier": "critical",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F35",
+        "F39",
+        "F54",
+        "F68"
+      ],
+      "assigned_sprint": 55
     }
   ]
 }

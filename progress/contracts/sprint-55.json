@@ -1,0 +1,100 @@
+{
+  "sprint": 55,
+  "title": "배치 승인을 위조 불가능한 지점에 묶는다 — ExitPlanMode 실행 이력 대조",
+  "feature_id": "F69",
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "dependencies": ["F35", "F39", "F54", "F68"],
+  "problem": "F68 SC-4가 4회 연속 반증됐다(is_protected 오독 · agreed 플립 · 지우고 재발행 · 두 쓰기 사이 커밋). 매번 직전이 지목한 순서만 닫혔고 우회 비용 증분은 0이었다. 근본 원인은 승인의 증거가 계약 파일과 git 히스토리 안에만 있다는 것 — 둘 다 루프의 권한 안이라 어떤 기준점을 잡아도 루프가 움직인다. F68은 기준을 '단일 쓰기 교체 차단 + 감사 가능성'으로 내려 정직하게 닫았고, 진짜 강제를 이 feature로 분리했다.",
+  "acceptance_criteria": [
+    {
+      "id": "AC-0",
+      "criterion": "**선결 확인** — ExitPlanMode에 PostToolUse 훅이 실제로 걸리고, 훅 입력에서 승인/거부를 구분할 수 있는가.",
+      "verification": "실측한다. 걸리지 않거나 결과를 구분할 수 없으면 이 접근은 성립하지 않으므로 계약을 대안(승인 append-only 원장 + 원장 항목 대응 검사)으로 재작성하고 Plan 게이트를 다시 거친다. **구현 전에 이 항목부터 확인한다.**"
+    },
+    {
+      "id": "AC-1",
+      "criterion": "ExitPlanMode 실행이 append-only 로그에 기록된다.",
+      "verification": "`evaluator-runs.jsonl`(F54) 패턴을 따른다 — 훅이 한 줄 append, invariant-guard가 라인 수 감소·기존 라인 변조를 차단. 훅을 직접 실행해 기록을 확인."
+    },
+    {
+      "id": "AC-2",
+      "criterion": "`_batch_approval` 발행·변경이 **시간창 안의 실행 이력**을 요구한다.",
+      "verification": "이력 없이 발행하면 deny, 이력이 있으면 통과. F68이 남긴 4번째 순서(리셋 → 커밋 → 재발행)가 이력 없이는 막히는지 종단으로 확인."
+    },
+    {
+      "id": "AC-3",
+      "criterion": "정상 워크플로우가 깨지지 않는다.",
+      "verification": "배치 게이트를 실제로 거친 발행은 통과. 배치 승인이 없는 평범한 계약의 `agreed` 전환은 이 검사를 타지 않는다."
+    },
+    {
+      "id": "AC-4",
+      "criterion": "**F68이 남긴 한계 서술이 갱신된다.**",
+      "verification": "INV-12·`skills/implement/SKILL.md` §9·ADR-006·`skills/change-request/SKILL.md` Step 6의 '단일 쓰기만 차단' 서술이 새 강제 수준으로 함께 이동하는지. 네 곳을 한 커밋에서 맞춘다(F68에서 지연이 문서 사이를 옮겨 다닌 실패 재발 방지)."
+    },
+    {
+      "id": "AC-5",
+      "criterion": "회귀 없음.",
+      "verification": "bats 전체 1회 + F68이 '통과함을 고정'한 테스트(commit-in-between)가 이제 **막히는 쪽으로 뒤집히는지** 확인 — 그 테스트가 깨지는 것이 이 feature의 성공 신호다."
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "실행 이력은 루프가 위조할 수 없다.",
+      "rationale": "이 feature의 전제 전체가 여기 걸려 있다. 기록이 위조 가능하면 F68과 같은 자리로 돌아간다.",
+      "verification": "훅이 유일한 기록자인지(도구 경로 쓰기가 append-only 검사에 걸리는지) + F54의 `evaluator-runs.jsonl` 보호와 대칭인지"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "**강제 수준을 정확히 서술한다.** 남는 한계가 있으면 그것도 적는다.",
+      "rationale": "F52·F63·F65·F68에서 다섯 번 반복된 축이다. '차단한다'고 쓰기 전에 종단으로 반증을 시도한다.",
+      "verification": "문서의 각 단정문에 대해 반증 시나리오를 하나씩 시도한 기록이 구현 보고에 있는지"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "게이트는 매 회전 무약화(F68 SC-1 계승).",
+      "verification": "harness-config.json diff 0건 + `/improve --auto` critical 제외 유지"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "ExitPlanMode에 훅이 걸리지 않는다",
+      "expected": "AC-0에서 걸러진다. 계약을 대안으로 재작성하고 Plan 게이트를 다시 거친다 — 구현을 진행하지 않는다"
+    },
+    {
+      "id": "ES-2",
+      "scenario": "시간창이 너무 좁아 정상 발행이 막힌다",
+      "expected": "AC-3이 고정한다. F54의 시간창 값을 출발점으로 삼고 실측으로 조정"
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": "0. 선결 확인 — ExitPlanMode PostToolUse 훅 가능성 실측",
+      "verify": "훅 입력 캡처",
+      "done": false,
+      "covers": ["AC-0"]
+    },
+    {
+      "step": "1. 실행 이력 훅 + append-only 보호",
+      "verify": "훅 직접 실행 + invariant-guard 판정",
+      "done": false,
+      "covers": ["AC-1", "SC-1"]
+    },
+    {
+      "step": "2. `_batch_approval` 발행에 이력 요구",
+      "verify": "종단 — 4번째 순서가 막히는지",
+      "done": false,
+      "covers": ["AC-2", "AC-3"]
+    },
+    {
+      "step": "3. 문서 네 곳 동시 갱신 + F68 한계 테스트 뒤집기",
+      "verify": "bats 전체 1회",
+      "done": false,
+      "covers": ["AC-4", "AC-5", "SC-2", "SC-3"]
+    }
+  ],
+  "_parallelizable": false,
+  "agreed": false
+}
