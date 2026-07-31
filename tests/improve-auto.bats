@@ -262,15 +262,25 @@ seed_queue() {    # 항목 1개가 든 큐 사본 경로를 만든다
   # 3차: 9eb1a82 가 ADR 만 고쳐 나머지 둘이 어긋났다(지연이 문서 사이를 옮겨 다녔다).
   # 4차: 셋이 함께 움직인 뒤에도 **셋 다 코드를 넘어섰다** — "어떤 순서로도 차단된다"는 단정이
   # 커밋을 끼운 순서로 반증됐다. 이제 강제 수준과 한계를 함께 적는다.
-  local d
-  for d in "$INV" "$IMPL_SKILL" "$ADR"; do
+  # 5차 판정: `.md` 만 검사하면 doc-code 일치가 **doc-doc 일치로 축소된다.** 철회한 주장이
+  # 훅의 deny 메시지와 주석에 그대로 살아 있었고 이 테스트가 놓쳤다. 코드도 대상에 넣는다.
+  local d guard="$PLUGIN_ROOT/hooks/invariant-guard.sh"
+  for d in "$INV" "$IMPL_SKILL" "$ADR" "$guard"; do
     grep -qE '단일 쓰기' "$d"
-    ! grep -qE '어떤 순서로도 차단' "$d"
+    ! grep -qE '어떤 순서로도 차단|어떤 쓰기 순서로도 재발행 불가' "$d"
   done
-  # 한계의 출구(F69)도 셋 다 가리켜야 한다 — 없으면 "못 막는다"만 남고 계획이 사라진다
-  for d in "$INV" "$IMPL_SKILL" "$ADR"; do
+  # 한계의 출구(F69)도 넷 다 가리켜야 한다 — 없으면 "못 막는다"만 남고 계획이 사라진다
+  for d in "$INV" "$IMPL_SKILL" "$ADR" "$guard"; do
     grep -q 'F69' "$d"
   done
+}
+
+@test "F68: the limits list covers every order known to pass" {
+  # 5차 판정: 4차가 '순서 D'(히스토리 접기)를 넘겨줬는데 한계 목록에 넣지 않았다.
+  # 알려진 통과 순서가 목록에 없으면 그 다음 판정이 같은 것을 다시 찾는다.
+  grep -qE 'reset --soft|히스토리를 접' "$INV"
+  grep -qE 'ls-files' "$INV"
+  grep -qE 'acceptance_criteria.*단일 쓰기|단일 쓰기로 교체' "$INV"
 }
 
 @test "F68: the commit-in-between order passes — a documented limit, not a promise" {
@@ -301,11 +311,52 @@ seed_queue() {    # 항목 1개가 든 큐 사본 경로를 만든다
   git -C "$d" add -A
   git -C "$d" commit -qm reset
 
-  # 쓰기2: 새 범위로 재발행 — "최초 발행"과 구분되지 않아 통과한다
+  # 쓰기2: 새 범위로 재발행 — "최초 발행"과 구분되지 않아 통과한다.
+  # `-eq 0` 으로 단언한다(5차 판정): `-ne 2` 는 훅이 죽어도 "한계가 유지된다"로 읽힌다.
   local step2
   step2=$(jq -c '.agreed = true | ._batch_approval = {scope:["**/*"], N:99}' <<<"$step1")
   run guard_write "$c" "$step2"
-  [ "$status" -ne 2 ]
+  [ "$status" -eq 0 ]
+}
+
+@test "F68: folding history erases the approved scope entirely (limit D)" {
+  command -v jq >/dev/null || skip "jq not installed"
+  command -v git >/dev/null || skip "git not installed"
+  # 5차 판정 실증. 위 순서보다 **강한** 통과 경로다 — firewall 이 allow 하는 git 명령만으로
+  # 승인 범위가 저장소 어디에도 남지 않는다. 약한 쪽만 고정하면 이 경로가 목록 밖에 남는다.
+  # F69(ExitPlanMode 이력 대조)가 이것을 막으면 이 테스트가 먼저 깨져 신호가 된다.
+  local d="$BATS_TEST_TMPDIR/repo4" c base
+  mkdir -p "$d/progress/contracts"
+  git -C "$d" init -q
+  git -C "$d" config user.email t@t
+  git -C "$d" config user.name t
+  c="$d/progress/contracts/sprint-96.json"
+
+  jq -n '{sprint:96, feature_id:"F96", agreed:false,
+          acceptance_criteria:[{id:"AC-1"}], implementation_steps:[{step:"s"}]}' > "$c"
+  git -C "$d" add -A && git -C "$d" commit -qm base
+  base=$(git -C "$d" rev-parse HEAD)
+
+  jq -c '.agreed = true | ._batch_approval = {scope:["skills/implement/SKILL.md"], N:3}' "$c" > "$c.new"
+  mv "$c.new" "$c"
+  git -C "$d" add -A && git -C "$d" commit -qm mint
+
+  local step1; step1=$(jq -c '.agreed = false | del(._batch_approval)' "$c")
+  run guard_write "$c" "$step1"
+  [ "$status" -eq 0 ]
+  printf '%s' "$step1" > "$c"
+
+  # 발행 커밋을 접는다 — reset --soft · commit 모두 firewall allow 다
+  git -C "$d" reset --soft "$base"
+  git -C "$d" add -A && git -C "$d" commit -qm folded
+
+  local step2; step2=$(jq -c '.agreed = true | ._batch_approval = {scope:["**/*"], N:99}' <<<"$step1")
+  run guard_write "$c" "$step2"
+  [ "$status" -eq 0 ]
+
+  # 승인 범위가 히스토리 어디에도 남지 않는다 — "재발행은 감사에 남는다"가 거짓인 근거
+  run bash -c "git -C '$d' log -p --all 2>/dev/null | grep -c 'skills/implement/SKILL.md' || echo 0"
+  [ "${output//[^0-9]/}" -eq 0 ]
 }
 
 @test "F68: ADR-006 no longer claims the queue is write-blocked" {

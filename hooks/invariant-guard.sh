@@ -687,16 +687,20 @@ if [[ "$FILE" == *"/contracts/"* && "$BASENAME" == sprint-*.json && "$FILE" != *
   # 우회 비용 증분이 0이었다(종단 재현으로 실증됨: 사람이 승인한 범위가 두 번의 통과 쓰기로
   # `scope:["**/*"]` 이 되고 `_agreed_note` 는 그대로 남아 감사 기록이 오도했다).
   #
-  # 그래서 순서가 아니라 **값**을 고정한다: 승인 기록은 커밋되면 바뀔 수 없다.
+  # 그래서 순서가 아니라 **값**을 고정한다 — 다만 이것은 **단일 쓰기 교체를 막을 뿐**이다.
   # 최초 발행(HEAD 에 값 없음)은 통과한다 — 배치 게이트의 정상 산출이다.
-  # 범위를 바꾸려면 새 계약을 만든다(사람이 다시 본다).
+  # **막지 못하는 것**(INV-12 "알려진 한계" 참조, F37 4·5차 판정 실증):
+  #  - 리셋 → 커밋 → 재발행 순서. 중간 커밋은 /change-request Step 6 이 지시하는 정상 흐름이다.
+  #  - `git reset --soft` 등으로 히스토리를 접으면 승인 범위가 저장소 어디에도 남지 않는다.
+  #  - `git ls-files` 가 비면(추적 해제) 이 블록 전체를 건너뛴다.
+  # 위조 불가능한 강제는 ExitPlanMode 실행 이력 대조뿐이며 F69 가 담당한다.
   if [[ "$NEW_BA" != "null" ]]; then
     CDIR=$(dirname "$FILE")
     REL=$(git -C "$CDIR" ls-files --full-name -- "$FILE" 2>/dev/null || echo "")
     if [[ -n "$REL" ]]; then
       HEAD_BA=$(git -C "$CDIR" show "HEAD:$REL" 2>/dev/null | jq -cS '._batch_approval // null' 2>/dev/null || echo null)
       if [[ "$HEAD_BA" != "null" && "$HEAD_BA" != "$NEW_BA" ]]; then
-        deny "_batch_approval 이 커밋된 승인과 다름 — 배치 승인 범위는 커밋되면 고정된다(어떤 쓰기 순서로도 재발행 불가). 범위를 바꾸려면 새 계약을 만든다 (INV-12/F68 SC-4)"
+        deny "_batch_approval 이 커밋된 승인과 다름 — 단일 쓰기로는 교체할 수 없다. 범위를 바꾸려면 새 계약을 만든다 (INV-12/F68 SC-4). 완전한 차단은 아니다: 알려진 한계는 INV-12 참조, 위조 불가능한 강제는 F69"
       fi
     fi
   fi

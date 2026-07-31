@@ -30,7 +30,7 @@
     {
       "id": "AC-4",
       "criterion": "**F68이 남긴 한계 서술이 갱신된다.**",
-      "verification": "INV-12·`skills/implement/SKILL.md` §9·ADR-006·`skills/change-request/SKILL.md` Step 6의 '단일 쓰기만 차단' 서술이 새 강제 수준으로 함께 이동하는지. 네 곳을 한 커밋에서 맞춘다(F68에서 지연이 문서 사이를 옮겨 다닌 실패 재발 방지)."
+      "verification": "INV-12·`skills/implement/SKILL.md` §9·ADR-006·`skills/change-request/SKILL.md` Step 6, **그리고 `hooks/invariant-guard.sh` 의 deny 메시지와 주석**의 '단일 쓰기만 차단' 서술이 새 강제 수준으로 함께 이동하는지. 다섯 곳을 한 커밋에서 맞춘다. 훅을 목록에 넣는 이유: F68 5차 판정이 `.md` 만 검사하는 일관성 테스트로는 **doc-code 일치가 doc-doc 일치로 축소된다**고 지적했고, 실제로 철회한 주장이 훅의 deny 메시지에 살아남아 있었다."
     },
     {
       "id": "AC-5",
