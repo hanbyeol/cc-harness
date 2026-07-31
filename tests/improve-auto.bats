@@ -319,6 +319,25 @@ seed_queue() {    # 항목 1개가 든 큐 사본 경로를 만든다
   [ "$status" -eq 0 ]
 }
 
+@test "F68: the formatter skip list and PROTECTED_GLOBS json entries are the same set" {
+  # `post-edit-format.sh` 주석은 "이 목록은 PROTECTED_GLOBS 중 .json 확장자를 갖는 것 전부와
+  # 같아야 한다"고 규정하고 "tests/protected-integrity.bats 가 두 목록의 정합을 검사한다"고
+  # 적었다 — **그 테스트는 없었다.** 그래서 approval-queue.json 을 PROTECTED_GLOBS 에만 넣은
+  # 비대칭을 아무도 잡지 못했다(F68 실측). 어긋나면 재포맷이 무결성 티켓을 깨고
+  # protected-integrity 가 정당한 편집을 되돌린다 — F66 등록이 그렇게 조용히 사라진 적이 있다.
+  local pi="$PLUGIN_ROOT/hooks/protected-integrity.sh"
+  local pef="$PLUGIN_ROOT/hooks/post-edit-format.sh"
+  local globs skips
+  globs=$(sed -n '/^PROTECTED_GLOBS=(/,/^)/p' "$pi" | grep -oE "'[^']*\.json'" | tr -d "'" | sort -u)
+  skips=$(grep -oE '[A-Za-z0-9_./*-]+\.json' "$pef" | sort -u)
+  [ -n "$globs" ]
+  [ -n "$skips" ]
+  # 보호 대상 .json 중 포맷 제외 목록에 없는 것이 있으면 실패
+  local missing
+  missing=$(comm -23 <(printf '%s\n' "$globs") <(printf '%s\n' "$skips"))
+  [ -z "$missing" ]
+}
+
 @test "F68: deleting the contract does not open a re-mint path (F37 6차 판정)" {
   command -v jq >/dev/null || skip "jq not installed"
   command -v git >/dev/null || skip "git not installed"

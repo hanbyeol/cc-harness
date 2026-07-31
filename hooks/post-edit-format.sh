@@ -50,7 +50,9 @@ case "$FILE" in
     # HEAD로 되돌린다 — 실측: feature_list.json 티켓 f23259d… vs 실제 89f29b2…(= jq 재포맷본),
     # F66 등록이 조용히 폐기됐다. 포맷은 편의이고 무결성은 게이트다. 충돌하면 게이트를 살린다.
     # 아래 목록은 protected-integrity.sh의 PROTECTED_GLOBS 중 **.json 확장자를 갖는 것 전부**와
-    # 같아야 한다. tests/protected-integrity.bats 가 두 목록의 정합을 검사한다.
+    # 같아야 한다. **tests/improve-auto.bats** 가 두 목록의 정합을 검사한다.
+    # (F68까지 이 주석은 protected-integrity.bats 를 가리켰으나 그 테스트는 존재하지 않았고,
+    #  그 사이 approval-queue.json 이 한쪽에만 들어간 비대칭을 아무도 잡지 못했다.)
     REL="${REAL_FILE#"$REAL_PROJECT"/}"
     case "$REL" in
       progress/harness-config.json | progress/feature_list.json | progress/contracts/sprint-*.json | progress/approval-queue.json | hooks/hooks.json)
