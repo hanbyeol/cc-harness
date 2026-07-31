@@ -682,8 +682,16 @@ if [[ "$FILE" == *"/contracts/"* && "$BASENAME" == sprint-*.json && "$FILE" != *
   if [[ "$OLD_AG" == "true" ]]; then
     OLD_BA=$(jq -cS '._batch_approval // null' "$FILE" 2>/dev/null || echo null)
     NEW_BA=$(printf '%s' "$NEW_CONTENT" | jq -cS '._batch_approval // null' 2>/dev/null || echo null)
-    if [[ "$OLD_BA" != "$NEW_BA" ]]; then
+    if [[ "$NEW_AG" == "true" && "$OLD_BA" != "$NEW_BA" ]]; then
       deny "_batch_approval 변경 — 합의된 계약의 배치 승인 범위는 수정 불가. 범위를 바꾸려면 새 배치 게이트를 거친다 (INV-12/F68 SC-4)"
+    fi
+    # F37 2차 판정이 실증한 우회: `agreed` 를 false 로 내렸다가 다시 올리면서 범위를 교체하면
+    # 두 쓰기가 모두 통과했다 — 단일 쓰기만 보고 **전이**를 보지 않은 탓이다.
+    # 승인을 내리는 것 자체는 정상 워크플로우다(/change-request 가 계약 수정 시 리셋한다).
+    # 그래서 전이를 막는 대신 **승인 기록을 함께 무효화**하도록 강제한다: 범위를 들고
+    # 내려갔다 올라오는 경로가 닫히고, 새 범위는 새 배치 게이트를 거쳐 들어와야 한다.
+    if [[ "$NEW_AG" != "true" && "$NEW_BA" != "null" ]]; then
+      deny "agreed 해제 시 _batch_approval 이 남아 있음 — 합의를 내리면 배치 승인도 무효화해야 한다(범위 세탁 차단). 계약 재작성 시 이 필드를 제거하라 (INV-12/F68 SC-4)"
     fi
   fi
   exit 0

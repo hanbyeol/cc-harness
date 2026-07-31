@@ -59,8 +59,8 @@
     {
       "id": "SC-4",
       "criterion": "무인 루프가 **자기 승인 범위를 스스로 넓힐 수 없다.**",
-      "rationale": "루프가 배치 게이트 기록이나 정책 파일을 고쳐 범위를 확장하면 승인 의미가 사라진다.",
-      "verification": "배치 승인 기록 파일이 `is_protected()` 대상이거나 무인 회전에서 쓰기 금지임을 확인"
+      "rationale": "루프가 배치 게이트 기록이나 정책 파일을 고쳐 범위를 확장하면 승인 의미가 사라진다. **판정 기준을 강제 지점으로 적는다** — 1차 반려 사유가 `is_protected()` 를 쓰기 장벽으로 읽은 것이었는데, 그 함수는 fail-closed 판정과 무결성 티켓 발급의 대상 집합일 뿐이다. 실제로 막는 것은 `invariant-guard.sh` 의 전용 분기와 firewall 패턴이다.",
+      "verification": "**훅을 실행해 판정을 읽는다.** (a) `approval-queue.json` 이 append-only 인지: 적립 통과, 삭제·비우기·기존 항목 변조·길이보존 치환 deny. (b) `_batch_approval` 이 `agreed:true` 유지 상태에서 변경 불가이고, `agreed` 해제 시 함께 제거되지 않으면 deny 인지(범위 세탁 차단 — F37 2차 판정). (c) bash 경로(리다이렉트·복사·인터프리터·에디터)가 ask 인지."
     }
   ],
   "error_scenarios": [

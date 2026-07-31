@@ -175,6 +175,47 @@ seed_queue() {    # 항목 1개가 든 큐 사본 경로를 만든다
   [ "$status" -eq 2 ]
 }
 
+@test "F68: laundering the scope through an agreed flip is denied (F37 2차 판정)" {
+  command -v jq >/dev/null || skip "jq not installed"
+  # 2차 판정 실증: agreed:true 를 false 로 내렸다가 다시 올리면서 _batch_approval 을 교체하면
+  # 두 쓰기가 모두 통과했다. 단일 쓰기만 막고 **전이**를 안 본 탓이다.
+  # 승인을 내리는 것은 정상 워크플로우(/change-request 가 계약 수정 시 리셋한다)이므로 전이
+  # 자체는 막을 수 없다. 대신 **승인 기록을 함께 무효화**하도록 강제한다 — 범위를 들고
+  # 내려갔다 올라오는 경로를 닫는다.
+  local c="$BATS_TEST_TMPDIR/sprint-99.json"
+  mkdir -p "$BATS_TEST_TMPDIR/contracts" && c="$BATS_TEST_TMPDIR/contracts/sprint-99.json"
+  jq -n '{sprint:99, feature_id:"F99", agreed:true,
+          acceptance_criteria:[{id:"AC-1"}], implementation_steps:[{step:"s"}],
+          _batch_approval:{scope:["hooks/x.sh"], N:2}}' > "$c"
+
+  # 범위를 들고 내려가는 것 → deny
+  local carried; carried=$(jq -c '.agreed = false' "$c")
+  run guard_write "$c" "$carried"
+  [ "$status" -eq 2 ]
+
+  # 승인 기록을 함께 지우고 내려가는 것 → 통과 (정상 재작성 경로)
+  local cleared; cleared=$(jq -c '.agreed = false | del(._batch_approval)' "$c")
+  run guard_write "$c" "$cleared"
+  [ "$status" -ne 2 ]
+}
+
+@test "F68: ADR-006 no longer claims the queue is write-blocked" {
+  # c516c37 이 INVARIANTS·SKILL 만 좁히고 권위 기록인 ADR 을 빠뜨렸다(2차 판정 지적).
+  ! grep -qE 'approval-queue\.json.*쓰기가 차단' "$ADR"
+  grep -qE 'append-only' "$ADR"
+}
+
+@test "F68: SC-4 verification does not cite is_protected as the enforcement point" {
+  # 계약의 판정 기준이 1차 반려 사유였던 오독을 그대로 담고 있으면, 문자 그대로 읽을 때
+  # SC-4 가 자동 충족된다(2차 판정 지적).
+  command -v jq >/dev/null || skip "jq not installed"
+  local v
+  v=$(jq -r '.security_criteria[] | select(.id=="SC-4") | .verification' \
+      "$PLUGIN_ROOT/progress/contracts/sprint-54.json")
+  [[ "$v" != *'is_protected'* ]]
+  [[ "$v" == *'append-only'* || "$v" == *'전용 분기'* ]]
+}
+
 @test "F68: the bash path to the approval queue is gated too" {
   # invariant-guard 는 Edit|Write 만 후킹한다 — 리다이렉트로 우회되면 보호가 없는 것과 같다
   run fw_verdict "echo {} > progress/approval-queue.json"
