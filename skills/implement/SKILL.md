@@ -194,10 +194,13 @@ implementer agent 프로세스를 한 컨텍스트에서 따른다:
 커밋 개수만 줄이고 판정 기록은 무손실).
 
 **기록과 감사**: 배치 승인의 범위·N·fail 정책·중단조건은 Sprint Contract의 `_batch_approval`에
-기록한다 — 계약(`contracts/sprint-*.json`)은 이미 `is_protected()` 대상이라 루프가 고칠 수 없다.
-`approval-queue.json`도 보호 대상이며(INV-12), 여기에 적립하는 것은 **중단 동작의 일부**이지 루프가
-진행 중에 임의로 쓰는 경로가 아니다. 두 파일이 함께 잠겨 있어야 "무엇을 승인했는가"를 루프가 사후에
-다시 쓸 수 없다.
+기록한다. 이 필드는 `agreed:true` 이후 변경이 `invariant-guard.sh`의 전용 분기로 차단된다 —
+계약의 다른 필드는 설계상 편집되고, `is_protected()`는 쓰기 금지가 아니라 fail-closed 판정과
+무결성 티켓 발급의 **대상 집합**이다(이 둘을 혼동한 것이 F68 1차 판정의 반려 사유였다).
+`approval-queue.json`은 **append-only**로 보호된다 — 적립은 통과하고(그것이 중단 경로 자체다)
+삭제·비우기·기존 항목 변조는 차단된다. 두 불변이 함께 있어야 "무엇을 승인했는가"를 루프가 사후에
+다시 쓸 수 없다. 다만 새 계약을 처음부터 넓은 범위로 만드는 경로는 아직 열려 있다(INV-12 "알려진
+한계").
 
 ## Constraints
 - Sprint Contract는 구현 전에 작성 — **Plan 게이트에서 사용자 승인(ExitPlanMode)을 받은 뒤에만 `agreed: true`로 전환**

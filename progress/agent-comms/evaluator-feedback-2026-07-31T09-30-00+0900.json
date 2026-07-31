@@ -1,0 +1,100 @@
+{
+  "timestamp": "2026-07-31T09:30:00+0900",
+  "sprint": 54,
+  "iteration": 2,
+  "features_evaluated": [
+    "F68"
+  ],
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "commit_evaluated": "dd40891",
+  "prior_verdict": "evaluator-feedback-2026-07-31T01-10-58+0900.json (fail, score 5, security 5) — 대상 커밋 5274c24",
+  "scores": {
+    "functionality": 8,
+    "code_quality": 8,
+    "security": 7,
+    "error_handling": 8,
+    "test_coverage": 8
+  },
+  "score": 7,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "pass",
+  "pass_basis": "1차 판정이 fail 사유로 든 세 경로가 모두 실행으로 닫혔음이 확인됐고(판별력 있는 프로브 7/7 + firewall ask + 사후 탐지), 1차 required_for_pass 4항목이 전부 반영됐다. 전체 회귀 699 ok / 0 fail 완주.",
+  "issues": [
+    "[security][medium] SC-4의 잔여 경로 — 루프가 **새 승인 기록을 만들어** 범위를 자기 부여할 수 있다. `_batch_approval` 불변은 `agreed == true` 인 계약에만 걸리므로, (a) 신규 계약을 `agreed:true` + `_batch_approval {scope:[\"**/*\"], N:99}` 로 바로 생성 → PASS, (b) `agreed:false` 계약을 `agreed:true` 로 전환하며 넓은 범위를 동시 주입 → PASS. INV-11의 agreed 전환 검사는 구조(비어 있지 않은 acceptance_criteria·implementation_steps)만 보므로 루프가 쉽게 충족한다. 실제 승인 이벤트(ExitPlanMode)는 위조할 수 없지만 **기록은 위조 가능**하므로, 사후에 '사람이 이 범위를 봤다'를 기계로 확인할 수 없다. 이것이 critical 무인을 정당화하는 근거 자체다. 다만 이 축은 F68이 만든 회귀가 아니라 INV-11이 이미 '완전 방지가 아니라 위조 난이도 상향'으로 문서화한 한계 계열이고, `_batch_approval` 은 런타임 게이트가 읽는 값이 아니라 감사 기록이므로 기계적 게이트 강도(min-of-5·INV-3 add-only·INV-6 bats add-only·INV-14)는 영향받지 않는다. → 다음 기능으로 승격 권고(F54가 passes에 건 '최근 evaluator 실행 캡처' 같은 진정성 검사를 agreed/_batch_approval 전환에 적용).",
+    "[doc][medium] INV-12 L173~175의 '배치 승인 기록과 `approval-queue.json`은 무인 회전에서 **쓰기가 차단된다**'가 여전히 강제 범위보다 넓다. 실제는 append-only(적립 통과·감소/변조 deny)이고, 적립이 통과하는 것은 설계상 필수다. 과대 주장 방향의 부정확이며 1차 지적 문장 그대로 남아 있다.",
+    "[doc][medium] `skills/implement/SKILL.md` §9 '계약(`contracts/sprint-*.json`)은 이미 `is_protected()` 대상이라 루프가 고칠 수 없다'가 그대로 남아 있다. 지금 `_batch_approval` 을 막는 것은 전용 분기이지 `is_protected()` 가 아니고, 계약의 다른 필드는 설계상 편집 가능하다(프로브 (c): agreed:true 계약의 acceptance_criteria 수정 → PASS). 재작업 커밋 메시지가 스스로 'I had read is_protected() as a write barrier. It is not' 이라고 적었는데, **그 오독을 심는 문장이 규범 문서에 남아 있다** — 다음 에이전트가 같은 추론을 다시 할 자리다. 한 줄 정정으로 끝나는 사안이라 반려 사유로 삼지 않고 필수 후속으로 올린다.",
+    "[error][low] ES-3의 '두 계층이 독립적으로 막는다' 중 1계층 서술('invariant-guard가 차단(기존)')은 큐에 한해서는 이제 정확하지만, 승인 범위 밖 **일반 검증장치 파일**에 대해서는 여전히 부정확하다 — invariant-guard는 그 파일들을 일괄 차단하지 않고 내용 기반 규칙과 도구 결핍 fail-closed만 적용한다.",
+    "[quality][low] append-only 검사가 `.queued` 의 **타입**을 확인하지 않는다. 빈 큐(OLD=0) 상태에서 `{\"queued\": null}` 은 `null|length == 0` 이라 통과한다. 다음 적립이 `null[:0]` 실패로 deny되므로 fail-closed 방향이지만, 큐가 조용히 비정상 형태가 될 수 있다. `.queued | type == \"array\"` 한 줄이면 닫힌다.",
+    "[quality][low] firewall의 인터프리터·에디터 arm이 approval-queue를 면제에서 배제하므로 `python3 -c \"...approval-queue.json...\"` 형태의 **읽기**도 ask가 된다. 의도된 트레이드오프로 문서화돼 있고, 일반 읽기(`cat`·`jq`·`sed -n`·`grep`)는 Layer 3.5 읽기 화이트리스트로 여전히 allow임을 확인했다 — 마찰 회귀 없음.",
+    "[info] `PROTECTED_GLOBS` 편입이 정당한 적립을 되돌리지 않는지 확인했다. 티켓 발급은 `trap record_guarded_edit EXIT` 이므로 새 분기의 조기 `exit 0` 에도 발급된다 — 복구기가 적립을 되돌리는 가용성 회귀는 없다."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1: `/implement --auto N` 배치 게이트 3항목 + 무인 반복 절차 (§9)",
+      "AC-2: `/change-request --auto` Step 9 대체 명시",
+      "AC-3: fail 정책 2값(revert-and-continue 기본 / queue-and-stop)",
+      "AC-4: evaluator 호출 규약 4항목 (§8.5) — 이 판정 자체가 규약의 실효를 재확인했다",
+      "AC-5: 중단조건 5종 전부 기계 판정 가능 — 1차 지적 2건 해소(조건 3은 실재 스키마 필드 `failed_criteria` 의 교집합, 조건 5는 900초 확정 + 근거 서술)",
+      "AC-6: 배치 승인 기록(`_batch_approval`)이 합의 후 불변이 되어 감사 추적이 강화됨 + 회전별 판정 개별 보존 규칙 유지"
+    ],
+    "security": [
+      "SC-1: harness-config.json 무변경(dd40891 diff 미포함), 전체 회귀 699 ok / 0 fail — 게이트 무약화",
+      "SC-2: 승인 범위 예외에서 `tests/*.bats` 를 명시적으로 제외해 1차가 지적한 과잉 개방을 좁혔다(INV-12 + §9 양쪽에 기술, 테스트로 고정)",
+      "SC-3: INV-12가 (a) 자동 선정 경로 금지 유지 (b) 명시 승인 전제 (c) 위반 시 중단+적립을 서술하고 F45 양방향 대칭 통과",
+      "SC-4: 1차가 실증한 세 경로가 모두 닫혔다 — 큐 append-only(감소·변조·재정렬·치환·스키마 파괴 전부 deny, 적립만 통과), 합의된 계약의 `_batch_approval` 변경 deny, bash 경로 4패턴 ask + 면제 배제, `PROTECTED_GLOBS` 편입으로 사후 탐지 확보"
+    ],
+    "error_scenarios": [
+      "ES-1: evaluator 무응답 900초 + 재시도 1회 → queue-and-stop (임계값 확정, 근거 서술)",
+      "ES-2: 같은 결함 반복 판정이 실재 필드(`failed_criteria`) 교집합으로 정의됨",
+      "ES-3: 중단 경로 생존 확인 — 적립(항목 추가)은 통과하고 삭제·변조만 막힌다. 도구 경로·bash 경로·사후 탐지 3계층이 독립적으로 큐를 덮는다"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "승인 **기록의 진정성** 기준이 없다 — 현행 SC-4는 '기존 기록의 변조 불가'만 요구하고 '기록의 생성이 사람의 승인에 대응하는가'는 묻지 않는다. F54가 passes 전환에 건 '최근 evaluator 실행이 SubagentStop 훅에 캡처됨' 시간창 검사와 같은 형태의 통제를 `agreed:false→true` 및 `_batch_approval` 최초 기입에 적용하는 것이 자연스러운 다음 단계다.",
+      "`approval-queue.json` 의 `.queued` 스키마(배열·항목 필수 키) 기준이 없다"
+    ],
+    "ambiguous_criteria": [
+      "SC-4 verification('배치 승인 기록 파일이 is_protected() 대상이거나 …')은 1차 판정에서 지적한 대로 강제 수준을 과대 표현한다. 이번에는 구현이 그 문구를 넘어섰지만, 기준 문구 자체는 다음 기능에서 다시 갭을 통과시킬 수 있으므로 '어느 계층이 어떤 조건에서 무엇을 막는가'로 재작성해야 한다."
+    ],
+    "security_criteria_insufficient": [],
+    "action_required": "다음 iteration/기능에서 (1) 아래 required_followups 2건의 문서 정정 (2) 승인 기록 진정성 기준 신설 (3) SC-4 verification 문구 재작성"
+  },
+  "required_followups": [
+    "INV-12 L173~175의 'approval-queue.json은 무인 회전에서 쓰기가 차단된다' → 실제 강제(append-only: 적립 허용, 감소·변조 차단)로 정정. 선택 사항이 아니다 — 규범 문서의 과대 주장은 이 저장소가 F52·F63·F65·F68 1차에서 반복 지적받은 축이다.",
+    "`skills/implement/SKILL.md` §9의 '계약은 이미 is_protected() 대상이라 루프가 고칠 수 없다' → '합의(`agreed:true`) 이후 `_batch_approval` 변경은 전용 분기가 거부한다. `is_protected()` 는 fail-closed 판정·티켓 발급의 대상 집합이지 쓰기 장벽이 아니다' 로 정정."
+  ],
+  "not_evaluated": [
+    "F67(커밋 d5a4036·70966db·d183712) — 별도 판정 대기, 이번에도 제외",
+    "배치 모드의 런타임 동작 — 실행 사례 없음(문서의 기계 판정 가능성만 평가)"
+  ],
+  "evidence": {
+    "full_suite": "bats tests/ → `1..699`, `^ok` 699건, `^not ok` 0건, skip 1건, exit=0. 코디네이터가 '이 커밋 이후 한 번도 완주하지 않았다'고 밝힌 부분을 완주로 확인. (1차 실행분은 `tail -40` 으로 잘려 실패 라인 확인이 불가능해 전체 출력을 보존해 1회 재실행했다: scratchpad/full-bats.txt)",
+    "probe_append_only": "scratchpad/eval_f68_probe2.py — 항목 1~2개를 시드한 큐 사본으로 판별. [적립 2→3] PASS / [삭제 2→1] DENY / [비우기 2→0] DENY / [기존 항목 변조] DENY / [재정렬] DENY / [치환] DENY / [queued 배열 제거] DENY = 7/7 기대와 일치. **저장소 큐가 비어 있어 '비우기'가 0→0 no-op이 되므로 실 파일 대상 프로브는 판별력이 없다** — 시드 사본으로 검증했다(훅이 basename으로 분기하므로 같은 분기를 탄다).",
+    "probe_first_round_paths": "scratchpad/eval_f68_probe.py(1차 판정 중 작성) 재실행 — [도구경로] agreed 계약에 `_batch_approval{scope:[\"**/*\"],N:99}` 주입 → **DENY**(1차 PASS에서 반전) / [bash경로] `echo '{\"queued\": []}' > progress/approval-queue.json` → **ask**(1차 allow에서 반전), `python3 -c open(...,'w')` → **ask**. 큐 비우기 케이스는 위 사유로 no-op이라 probe2가 대체한다.",
+    "probe_residual": "scratchpad/eval_f68_probe3.py — (a) 신규 계약 agreed:true + 넓은 범위 생성 PASS / (b) agreed:false→true 전환 + 넓은 범위 주입 PASS / (c) 대조군 agreed:true 계약의 AC 수정 PASS(설계상) / (d) 대조군 `_batch_approval` N=99→999 DENY",
+    "probe_read_friction": "pre-bash-firewall — `cat`·`jq`·`sed -n '1,5p'`·`grep` 으로 approval-queue.json 읽기 4종 전부 allow (마찰 회귀 없음)",
+    "repro_queue_write": "scratchpad/check_queue_write.py(구현 측 제공) → 적립 2건 통과 / 대조군 harness-config 임계값 하향 DENY",
+    "source_reads": "hooks/invariant-guard.sh L157~177(`trap record_guarded_edit EXIT` — 조기 exit 0에도 티켓 발급), L638~663(append-only 분기), L675~686(`_batch_approval` 불변 분기); hooks/pre-bash-firewall.sh L175~178(면제 배제)·L305~313(ASK 4패턴); hooks/protected-integrity.sh L51~56(PROTECTED_GLOBS 편입); docs/INVARIANTS.md L165~200; skills/implement/SKILL.md §9",
+    "test_quality_check": "tests/improve-auto.bats F68 8건이 전부 훅을 실제 실행하는 형태로 교체됐음을 diff로 확인(1차의 `grep -qE 'approval-queue' \"$guard\"` 단언 제거). tests/pre-bash-firewall.bats의 면제 집합 테스트가 배제 목록을 함수에서 추출하도록 바뀌어 이중 관리가 제거됨 + 추출 실패 시 빈 배열로 조용히 통과하지 않도록 `-ge 6` 하한 존재",
+    "harness_config_untouched": "git show dd40891 --stat → harness-config.json 미포함"
+  },
+  "f37_second_judgment": {
+    "required": true,
+    "status": "pending",
+    "note": "security_tier critical의 pass 판정이므로 F37에 따라 **독립 컨텍스트의 2차 judge 재판정이 필요하다.** 이번 판정은 1차 판정과 같은 컨텍스트에서 수행됐으므로 교차검증으로 셀 수 없다. 메인 루프는 별도 evaluator를 디스패치해 verdict를 대조하고, 불일치 시 자동 pass 없이 사람에게 에스컬레이션할 것. 2차 디스패치에는 위 evidence의 프로브 3종 경로와 확인 항목 3개(세 경로 차단·중단 경로 생존·문서/코드 정합)를 그대로 넘기면 된다(§8.5 규약)."
+  },
+  "positives": [
+    "1차 판정의 (A) 경로를 택한 판단이 옳다. SC-4는 critical 무인 편입의 근거 자체이므로 문장을 낮추는 쪽이었다면 F68의 안전 핵심이 사라졌을 것이다.",
+    "append-only 구현이 감소뿐 아니라 **접두 일치(`jq -cS '.queued[:N]'`)** 로 변조·재정렬·동수 치환까지 잡는다. 길이만 봤다면 '2건 지우고 2건 넣기'가 통과했을 텐데 막힌다.",
+    "테스트를 문자열 grep에서 훅 구동으로 전면 교체했고, 면제 목록 이중 관리를 함수 추출로 제거해 이번 실패의 **근본 원인**(같은 판정 로직이 두 곳에 사는 것)을 닫았다. 증상이 아니라 계열을 고친 수정이다.",
+    "1차가 부수로 지적한 3건(rejected_for·타임아웃·bats 승인범위)을 전부 반영했고, bats 제외는 오히려 F68 원안보다 개방 범위를 좁혔다."
+  ]
+}

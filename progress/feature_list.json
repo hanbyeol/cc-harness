@@ -909,9 +909,9 @@
       "name": "승인 배치화를 전 워크플로우로 — critical 편입 + evaluator 호출 규약",
       "description": "[2026-07-31, 사용자 요구] 목표는 '구현·수정·테스트가 사용자 개입 없이 처리되는 하네스'인데 실제로는 한 기능(F67)에 개입이 5회 이상 필요했다 — Plan 게이트 1회, evaluator fail 후 방향 결정 2회, 재판정 취소 1회, 범위 재확인 1회. **원인은 두 가지다.** (a) 배치 승인(`--auto N`, ADR-006/F39)이 `/improve` 에만 있다 — `/implement`·`/change-request` 에는 `--auto` 문자열이 0건이다. (b) ADR-006이 `security_tier: critical` 과 검증 장치 대상을 무인에서 **명시적으로 제외**하는데, 하네스 자기개선 작업은 거의 전부 critical이라(F63·F65·F67 모두) 배치화 혜택을 받는 후보가 사실상 없다. **셋째 원인은 검증 비용이다**: evaluator 1회가 133k 토큰·41분·34 tool use였고 2차는 600초 무진행으로 스톨, 3차는 53분에 사용자가 취소했다. 프롬프트가 '보고를 믿지 말고 직접 검증하라 + 확인 항목 5개'로 열려 있어 저장소를 매번 재탐색했다. 이 비용으로는 무인 루프가 성립하지 않는다. **해결**: (1) `--auto N` 을 `/implement`·`/change-request` 로 확대해 한 기능의 전체 사이클(구현→판정→재작업)을 배치 승인 1회로 묶는다. (2) ADR-006/INV-12를 개정해 critical도 **배치 게이트에서 범위·정책·중단조건을 명시 승인받은 경우** 무인 진행할 수 있게 한다 — 게이트(evaluator·invariant-guard·bats)는 매 회전 무약화이므로 이는 게이트 완화가 아니라 승인 지점의 이동이다. (3) fail 시 행동을 사전 승인 정책으로 받는다(`revert-and-continue` 기본 | `queue-and-stop`) — F67에서 사람이 내린 판단이 '보수적으로 되돌리고 계속'이었고 그것이 옳았다. (4) **evaluator 호출 규약**을 스킬에 명문화한다: 검증 대상 파일·명령·기대값을 프롬프트에 명시해 탐색을 제거하고, 재현 스크립트를 미리 만들어 넘기며, 확인 항목은 3개 이하로 좁힌다. 규약 없이는 무인 루프가 토큰으로 붕괴한다.",
       "security_tier": "critical",
-      "status": "pending",
-      "passes": false,
-      "iteration": 0,
+      "status": "completed",
+      "passes": true,
+      "iteration": 2,
       "dependencies": [
         "F14",
         "F35",
