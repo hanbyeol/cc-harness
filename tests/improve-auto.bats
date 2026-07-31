@@ -199,6 +199,73 @@ seed_queue() {    # 항목 1개가 든 큐 사본 경로를 만든다
   [ "$status" -ne 2 ]
 }
 
+@test "F68: a committed approval scope survives any write order (F37 3차 판정)" {
+  command -v jq >/dev/null || skip "jq not installed"
+  command -v git >/dev/null || skip "git not installed"
+  # 3차 판정 실증: "범위를 들고 내려가는 것"만 막으면 **지우고 내려갔다 새로 발행하며 올라오기**가
+  # 그대로 남는다 — 쓰기 2회로 동일해 우회 비용 증분이 0이다. 단위 케이스로 성질을 주장한 것이
+  # 이 저장소에서 다섯 번째 같은 실패였으므로, 여기서는 **순서 전체**를 고정한다.
+  local d="$BATS_TEST_TMPDIR/repo" c
+  mkdir -p "$d/progress/contracts"
+  git -C "$d" init -q
+  git -C "$d" config user.email t@t
+  git -C "$d" config user.name t
+  c="$d/progress/contracts/sprint-99.json"
+  jq -n '{sprint:99, feature_id:"F99", agreed:true,
+          acceptance_criteria:[{id:"AC-1"}], implementation_steps:[{step:"s"}],
+          _batch_approval:{scope:["skills/implement/SKILL.md"], N:3}}' > "$c"
+  git -C "$d" add -A
+  git -C "$d" commit -qm init
+
+  # 1단계: 승인 기록을 지우고 내려가기 — 정상 리셋이므로 통과한다
+  local step1; step1=$(jq -c '.agreed = false | del(._batch_approval)' "$c")
+  run guard_write "$c" "$step1"
+  [ "$status" -ne 2 ]
+  printf '%s' "$step1" > "$c"   # 실제 순서대로 잇기 위해 워킹트리에 반영
+
+  # 2단계: 새 범위로 다시 올리기 — 여기서 막혀야 한다.
+  # 커밋된 승인이 있는 계약에서 범위가 바뀌면, 어떤 경로로 왔든 사람이 그 범위를 본 적이 없다.
+  local step2
+  step2=$(jq -c '.agreed = true | ._batch_approval = {scope:["**/*","tests/*.bats"], N:99}' <<<"$step1")
+  run guard_write "$c" "$step2"
+  [ "$status" -eq 2 ]
+}
+
+@test "F68: minting an approval record for the first time is allowed" {
+  command -v jq >/dev/null || skip "jq not installed"
+  command -v git >/dev/null || skip "git not installed"
+  # 최초 발행은 배치 게이트의 정상 산출이다 — 막으면 배치 모드 자체가 성립하지 않는다.
+  local d="$BATS_TEST_TMPDIR/repo2" c
+  mkdir -p "$d/progress/contracts"
+  git -C "$d" init -q
+  git -C "$d" config user.email t@t
+  git -C "$d" config user.name t
+  c="$d/progress/contracts/sprint-98.json"
+  jq -n '{sprint:98, feature_id:"F98", agreed:false,
+          acceptance_criteria:[{id:"AC-1"}], implementation_steps:[{step:"s"}]}' > "$c"
+  git -C "$d" add -A
+  git -C "$d" commit -qm init
+
+  local minted
+  minted=$(jq -c '.agreed = true | ._batch_approval = {scope:["hooks/x.sh"], N:2}' "$c")
+  run guard_write "$c" "$minted"
+  [ "$status" -ne 2 ]
+}
+
+@test "F68: change-request Step 6 tells the caller to drop _batch_approval" {
+  # 3차 판정: 절차를 문자 그대로 따르면 배치 승인이 걸린 계약에서 DENY 가 나고,
+  # --auto 회전에서는 하드 스톱이 된다.
+  grep -q '_batch_approval' "$CR_SKILL"
+}
+
+@test "F68: the mint rule appears in all three normative documents" {
+  # 3차 판정: 9eb1a82 가 ADR 만 고쳐 INV-12·SKILL §9 가 반대로 어긋났다 — 지연이 문서 사이를
+  # 옮겨 다녔다. 세 곳이 함께 움직이는지 본다.
+  grep -qE '커밋되면 고정|커밋된 승인' "$INV"
+  grep -qE '커밋되면 고정|커밋된 승인' "$IMPL_SKILL"
+  grep -qE '커밋되면 고정|커밋된 승인' "$ADR"
+}
+
 @test "F68: ADR-006 no longer claims the queue is write-blocked" {
   # c516c37 이 INVARIANTS·SKILL 만 좁히고 권위 기록인 ADR 을 빠뜨렸다(2차 판정 지적).
   ! grep -qE 'approval-queue\.json.*쓰기가 차단' "$ADR"

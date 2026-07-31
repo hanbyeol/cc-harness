@@ -194,7 +194,9 @@ implementer agent 프로세스를 한 컨텍스트에서 따른다:
 커밋 개수만 줄이고 판정 기록은 무손실).
 
 **기록과 감사**: 배치 승인의 범위·N·fail 정책·중단조건은 Sprint Contract의 `_batch_approval`에
-기록한다. 이 필드는 `agreed:true` 이후 변경이 `invariant-guard.sh`의 전용 분기로 차단된다 —
+기록한다. 이 필드는 **커밋되면 고정**된다 — `HEAD`의 값과 달라지는 쓰기가 어떤 순서로도 차단되므로,
+`agreed`를 내렸다 올리며 범위를 재발행할 수 없다. 최초 발행만 통과하고, 범위를 실제로 바꾸려면
+새 계약을 만든다. 이 강제는 `invariant-guard.sh`의 전용 분기가 한다 —
 계약의 다른 필드는 설계상 편집되고, `is_protected()`는 쓰기 금지가 아니라 fail-closed 판정과
 무결성 티켓 발급의 **대상 집합**이다(이 둘을 혼동한 것이 F68 1차 판정의 반려 사유였다).
 `approval-queue.json`은 **append-only**로 보호된다 — 적립은 통과하고(그것이 중단 경로 자체다)

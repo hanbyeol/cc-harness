@@ -679,9 +679,29 @@ if [[ "$FILE" == *"/contracts/"* && "$BASENAME" == sprint-*.json && "$FILE" != *
   # agreed 전환만 검사하면 `_batch_approval: {scope:["**/*"], N:99}` 를 사후 주입할 수 있고,
   # 그러면 무인 루프가 자기 승인 범위를 스스로 다시 쓰는 것과 같다. 범위를 바꾸려면
   # 새 배치 게이트를 거쳐야 한다(사람이 다시 본다).
+  OLD_BA=$(jq -cS '._batch_approval // null' "$FILE" 2>/dev/null || echo null)
+  NEW_BA=$(printf '%s' "$NEW_CONTENT" | jq -cS '._batch_approval // null' 2>/dev/null || echo null)
+
+  # F37 3차 판정: 아래 두 검사는 `agreed` 를 내릴 때 범위를 **들고 가는 것**만 막았고,
+  # 지우고 내려갔다 **새로 발행하며** 올라오는 경로는 그대로였다 — 쓰기 2회로 동일해서
+  # 우회 비용 증분이 0이었다(종단 재현으로 실증됨: 사람이 승인한 범위가 두 번의 통과 쓰기로
+  # `scope:["**/*"]` 이 되고 `_agreed_note` 는 그대로 남아 감사 기록이 오도했다).
+  #
+  # 그래서 순서가 아니라 **값**을 고정한다: 승인 기록은 커밋되면 바뀔 수 없다.
+  # 최초 발행(HEAD 에 값 없음)은 통과한다 — 배치 게이트의 정상 산출이다.
+  # 범위를 바꾸려면 새 계약을 만든다(사람이 다시 본다).
+  if [[ "$NEW_BA" != "null" ]]; then
+    CDIR=$(dirname "$FILE")
+    REL=$(git -C "$CDIR" ls-files --full-name -- "$FILE" 2>/dev/null || echo "")
+    if [[ -n "$REL" ]]; then
+      HEAD_BA=$(git -C "$CDIR" show "HEAD:$REL" 2>/dev/null | jq -cS '._batch_approval // null' 2>/dev/null || echo null)
+      if [[ "$HEAD_BA" != "null" && "$HEAD_BA" != "$NEW_BA" ]]; then
+        deny "_batch_approval 이 커밋된 승인과 다름 — 배치 승인 범위는 커밋되면 고정된다(어떤 쓰기 순서로도 재발행 불가). 범위를 바꾸려면 새 계약을 만든다 (INV-12/F68 SC-4)"
+      fi
+    fi
+  fi
+
   if [[ "$OLD_AG" == "true" ]]; then
-    OLD_BA=$(jq -cS '._batch_approval // null' "$FILE" 2>/dev/null || echo null)
-    NEW_BA=$(printf '%s' "$NEW_CONTENT" | jq -cS '._batch_approval // null' 2>/dev/null || echo null)
     if [[ "$NEW_AG" == "true" && "$OLD_BA" != "$NEW_BA" ]]; then
       deny "_batch_approval 변경 — 합의된 계약의 배치 승인 범위는 수정 불가. 범위를 바꾸려면 새 배치 게이트를 거친다 (INV-12/F68 SC-4)"
     fi

@@ -69,6 +69,10 @@ description: "기능을 추가, 변경, 삭제할 때 사용. TRIGGER: 사용자
   - 변경된 acceptance_criteria/security_criteria/error_scenarios 반영
   - `agreed: false`로 리셋 — 기존 contract와의 차이점을 표시하고, 재합의는
     `/implement`의 Plan 게이트(ExitPlanMode)에서 받는다
+  - **배치 승인이 걸린 계약이면 `_batch_approval`도 함께 제거한다.** 합의를 내리면 그 승인도
+    무효다 — 남겨 두면 invariant-guard가 차단하고(범위 세탁 방지, INV-12) `--auto` 회전에서는
+    하드 스톱이 된다. 새 범위는 새 배치 게이트에서 받되, **커밋된 승인 기록은 바꿀 수 없으므로**
+    범위를 실제로 바꾸려면 새 sprint 계약을 만든다
 - `remove`: 해당 contract 삭제 또는 status: "cancelled"로 변경
 - acceptance_criteria + security_criteria + error_scenarios 포함
 
