@@ -46,6 +46,10 @@ is_protected() {
   esac
   case "$f" in
     */tests/*.bats) return 0 ;;
+    # F67 판정: 방화벽 면제 arm 이 훅 스크립트 전체를 덮으므로 탐지 대상도 같아야 한다.
+    # PROTECTED_GLOBS 와 **함께** 넓힌다 — 한쪽만이면 티켓 미발급으로 정당한 편집이
+    # 되돌려진다(F65 회귀). 실행되는 훅은 전부 git 추적이라 복구 가능하다.
+    */hooks/*.sh | hooks/*.sh) return 0 ;;
     */contracts/sprint-*.json) return 0 ;;  # agreed 전환 보호(INV-11) — jq-존재 브랜치 9번째와 정합
     */skills/change-request/SKILL.md | skills/change-request/SKILL.md | \
     */skills/improve/SKILL.md | skills/improve/SKILL.md | \

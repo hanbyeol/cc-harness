@@ -1448,6 +1448,34 @@ JSON
   done
 }
 
+@test "F67: every file an exempted arm covers is under post-hoc detection (SC-4)" {
+  command -v git >/dev/null || skip "git not installed"
+  # F67 판정 실증: 면제 arm 이 `hooks/[A-Za-z0-9_.-]+\.sh` 로 **모든 훅**을 덮는데
+  # PROTECTED_GLOBS 는 4개만 담아, 여덟 훅이 예측도 탐지도 없는 갭에 빠졌다 —
+  # `python3 -c "open('hooks/lib.sh','w')…"` 가 main 에서 ask 인데 allow 가 됐고,
+  # 격리 랩에서 훼손 후 PostToolUse 를 돌려도 그 파일만 복구되지 않았다.
+  # **SC-4 가 이 검사를 명시했으나 구현된 적이 없어** 아무도 잡지 못했다. 여기서 구현한다.
+  local pi="$BATS_TEST_DIRNAME/../hooks/protected-integrity.sh"
+  local root="$BATS_TEST_DIRNAME/.."
+  local -a GLOBS
+  mapfile -t GLOBS < <(sed -n '/^PROTECTED_GLOBS=(/,/^)/p' "$pi" | grep -oE "'[^']+'" | tr -d "'")
+  [ "${#GLOBS[@]}" -ge 5 ]
+
+  # 면제 arm 이 덮는 경로 계열의 실제 파일들 — 이 전부가 탐지 대상이어야 한다
+  local f g covered uncovered=""
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    covered=0
+    for g in "${GLOBS[@]}"; do
+      # shellcheck disable=SC2053
+      [[ "$f" == $g ]] && { covered=1; break; }
+    done
+    [ "$covered" -eq 1 ] || uncovered="$uncovered $f"
+  done < <(git -C "$root" ls-files 'hooks/*.sh' 'tests/*.bats' 'docs/INVARIANTS.md' \
+                                  'progress/harness-config.json' 'progress/feature_list.json' 2>/dev/null)
+  [ -z "$uncovered" ]
+}
+
 @test "F67: without the detector the interpreter arm comes back (fail-safe)" {
   # 배선이 없으면 유일한 보호가 사라지므로 예측이 되살아나야 한다.
   run run_firewall '{"tool_input":{"command":"python3 -c json.load(open(progress/feature_list.json))"}}'

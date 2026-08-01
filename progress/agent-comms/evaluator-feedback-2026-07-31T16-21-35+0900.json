@@ -1,0 +1,120 @@
+{
+  "timestamp": "2026-07-31T16:21:35+09:00",
+  "sprint": 53,
+  "iteration": 2,
+  "features_evaluated": [
+    "F67"
+  ],
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "branch": "f67-firewall-exemption-alignment",
+  "commits_judged": [
+    "d5a4036",
+    "70966db",
+    "d183712"
+  ],
+  "out_of_scope": "F68 (5274c24 이후) — 별도 판정 중. 다만 아래 결함은 브랜치 HEAD(91eb82e)에서도 그대로 재현되므로 F68이 가리거나 고치지 않았다.",
+  "scores": {
+    "functionality": 8,
+    "code_quality": 7,
+    "security": 6,
+    "error_handling": 7,
+    "test_coverage": 6
+  },
+  "score": 6,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 6 < 7 (critical tier 자동 fail) — SC-4 미충족. 면제 대상 arm의 경로 스팬(`hooks/[A-Za-z0-9_.-]+\\.sh` = 모든 훅 스크립트)이 PROTECTED_GLOBS보다 넓다. 실행 중인 훅 스크립트 8개가 **예측도 탐지도 없는** 상태가 된다(격리 랩 end-to-end 실증). SC-4의 rationale이 정확히 이 상황을 금지한다.",
+    "SC-3 부분 미충족 — INV-14는 면제로 예측에서 빠진 것을 protected-integrity.sh가 담당한다고 서술하는데, 위 8개 경로에 대해서는 담당하지 않는다. 서술이 코드가 강제하는 범위를 넘는다.",
+    "score 6 < threshold 7 (min-of-5)"
+  ],
+  "_headline": "**1차 판정의 반려 사유는 전부 해소됐다 — 새 결함은 다른 자리다.** 개행 변경 철회는 완전하고(755입력 차분에서 미배선 diff 0건), arm 분리는 커버리지를 잃지 않았으며(합집합 동일), 컨트롤 플레인 heredoc 구멍은 닫혔다(48/48 ask). 반려 사유는 **면제 arm의 경로 스팬이 복구 집합보다 넓다는 것** — `python3 -c \"open('hooks/lib.sh','w')...\"` 가 main ask → F67 allow가 되는데 `hooks/lib.sh` 는 PROTECTED_GLOBS에 없어 복구되지 않는다. 그리고 그 파일은 Stop·SessionStart·PreCompact·SubagentStop 훅 5개가 source하는 실행 코드다.",
+  "issues": [
+    "[security][high][confidence:high] **면제 arm의 경로 스팬 ⊄ PROTECTED_GLOBS — 예측도 탐지도 없는 경로 8개.** 면제되는 데이터 플레인 arm 2개의 경로 대안은 `hooks/[A-Za-z0-9_.-]+\\.sh` 로 **모든** 훅 스크립트를 포함하는데, PROTECTED_GLOBS는 `invariant-guard.sh`·`pre-bash-firewall.sh`·`pre-tool-firewall.sh`·`hooks.json` 만 담는다. 남는 8개: `lib.sh`·`post-edit-format.sh`·`pre-commit-gate.sh`·`pre-compact.sh`·`session-context.sh`·`session-handoff.sh`·`setup-claudemd.sh`·`subagent-evaluator-log.sh`. 측정: `python3 -c \"open('hooks/lib.sh','w').write('PWNED')\"` 가 main=ask → F67=allow(무프롬프트), 배선 유무와 무관하게 wired에서 재현. 격리 랩에서 5개 파일을 인터프리터로 훼손하고 PostToolUse를 돌렸더니 4개는 HEAD 복구 + 격리 보관 + 원장 기록이 됐고 `hooks/lib.sh` 만 ` M` 인 채 **보고조차 없이** 남았다. `templates/progress/{feature_list,harness-config}.json` 2개도 같은 계열(중요도는 낮다).",
+    "[security][high][confidence:high] **그 8개는 실행 코드이며 그중 하나는 게이트다.** `hooks/lib.sh` 는 `pre-commit-gate.sh`(Stop) · `session-handoff.sh`(Stop) · `pre-compact.sh`(PreCompact) · `setup-claudemd.sh`(SessionStart) · `subagent-evaluator-log.sh`(SubagentStop) 다섯이 `source` 한다 — 전부 hooks.json에 배선된 훅이다. 덮어쓰면 다음 Stop에 하네스 자신의 훅 컨텍스트에서 임의 코드가 돌고 Stop 시점 커밋 게이트가 조용히 꺼진다. 설치본 경로(`.claude/hooks/lib.sh`)도 같은 arm에 걸려 allow이며 git 추적 대상이 아니라 복구가 원리적으로 불가능하다.",
+    "[security][medium][confidence:high] **SC-3의 손실 상한 서술이 코드보다 넓다 (방향이 위험한 쪽).** INV-14 도입부는 데이터 플레인을 `is_protected()` 집합으로 정의하고 'Bash 경로로 생긴 그 밖의 변경은 protected-integrity.sh가 탐지해 HEAD 내용으로 되돌리고 보고한다'고 단정한다. F67 신규 문단은 면제 예외를 '컨트롤 플레인 · 탐지기 자신 · 티켓 원장' 셋으로만 열거한다. 그러면 나머지 면제 대상은 복구된다고 읽히는데 위 8개는 아니다. 1차 판정은 'AC-1·INV-14가 코드보다 넓다(보수적 방향)'를 지적했고, 코드를 넓혀 맞추는 과정에서 같은 불일치가 **반대 방향**으로 생겼다 — F52·F63·F65·F68이 반복 지적받은 축 그대로다.",
+    "[test][medium][confidence:high] **SC-4가 명시한 기계 검증이 구현되지 않았다.** SC-4 verification은 '면제 대상 arm이 다루는 모든 경로가 PROTECTED_GLOBS에 있음을 기계 확인'을 요구하는데 해당 단언이 없다. 존재하는 것은 `tests/protected-integrity.bats:199` 의 `F65: PROTECTED_GLOBS가 is_protected()보다 넓지 않다` 뿐이고, 이는 (a) 다른 관계를 보며 (b) 한 방향만 본다. 위 결함은 이 테스트 하나로 자동 검출된다 — 실제로 이번 판정이 그 방법으로 찾았다(면제 arm의 경로 대안을 추출해 `git ls-files` 와 PROTECTED_GLOBS에 대조).",
+    "[security][low][confidence:high] **면제 경계는 여전히 `settings` 부분일치라는 우연에 기대지만, 이제 트립와이어가 있다.** 변이 실험: `settings` 배제 절을 지우면 면제 집합이 3→4로 늘고 새는 것은 정확히 새 컨트롤 플레인 arm이다 — 배제가 load-bearing임을 확인했다(1차 판정 지적 해소). 잔여 취약점은 누군가 그 arm을 `hooks/*.json` 전용으로 더 쪼개면 `settings`·`hooks\\.json`·`-i` 어느 배제에도 안 걸려 면제된다는 것인데, 신규 테스트 `F67: the exemption result set is pinned` 의 `[ \"$exempt\" -eq 3 ]` 이 그 순간 깨진다. **1차 판정의 SC-2 지적은 이것으로 실질 해소됐다고 본다.**",
+    "[code][low][confidence:high] **`arm_is_exemptable()` 의 배제 절 4개 중 3개가 현재 dead code다.** 변이로 확인 — `hooks\\.json` 배제 삭제 → 면제 3개 불변, `-i` 배제 삭제 → 3개 불변, 탐지기·원장 배제 삭제 → 3개 불변. 살아 있는 것은 `settings` 하나뿐이다. 무해한 다중 방어지만, 이 줄들에 기대는 주장(F65 SC-6 계승)은 현재 실행 경로로 뒷받침되지 않는다. 1차 판정이 탐지기·원장 줄에 대해 같은 지적을 했고 그대로 남아 있다.",
+    "[test][low][confidence:medium] **`F67: the decision function matches main outside the intended change` 의 SAME 코퍼스는 여전히 얇다.** 14건 중 스팬 절단 클래스를 건드리는 것은 heredoc 1형태와 개행 1형태뿐이고, `|`/`&&` 뒤 줄바꿈·블록/절 사이 개행·백슬래시 짝수 개는 없다. 다만 그 클래스는 형제 테스트 3개(heredoc 3형태 · 줄 이음 · 인용 안 개행)와 known-gap 테스트가 함께 덮으므로 **AC-6의 취지는 충족된다** — 반려 사유가 아니다. 개선하려면 SAME에 `|`/`&&` 뒤 줄바꿈과 `{`/`(` 블록 형태를 3~4건 추가하면 된다.",
+    "[test][low][confidence:medium] 위 테스트가 `git -C .. show main:hooks/pre-bash-firewall.sh` 에 의존한다. 로컬 `main` ref가 없는 체크아웃(예: 브랜치만 클론)에서는 `[ -s \"$main_hook\" ]` 에서 실패한다 — 이번 판정에서도 격리 클론에 `main` 브랜치를 만들어 준 뒤에야 통과했다. CI 환경 가정을 주석에 남기거나 ref 부재 시 skip 처리를 권고한다.",
+    "[security][low][confidence:high] **선재 갭 — F67이 만든 것 아님(main과 판정 동일):** 경로 표기 변형이 arm을 빠져나간다. `hooks//pre-bash-firewall.sh` · `hooks/./pre-bash-firewall.sh` · `hooks/sub/x.sh` · `hooks/'hooks.json'` · `hooks/hooks\".json\"` 은 읽기·쓰기·vim·cp 전 형태에서 main·F67 모두 allow다. `cp /tmp/x hooks/x.JSON` 도 양쪽 allow(컨트롤 플레인 cp arm이 `hooks/hooks\\.json` 리터럴만 본다). 백로그 권고.",
+    "[docs][info][confidence:high] 계약 `_supersedes.F65-SC-2` 의 논지(국소화 기준을 'arm 개수'에서 '읽기를 잡는가'로 교체)는 이번에도 실측으로 타당함이 재확인됐다 — 면제 집합은 3/46이고 컨트롤 플레인은 어느 arm도 담지 않는다. 되돌릴 필요 없다."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1 — 데이터 플레인 5종(feature_list.json·harness-config.json·hooks/*.sh·tests/*.bats·INVARIANTS.md) × 인터프리터 8종 × 2형태 = 80입력이 wired에서 **80/80 allow**, unwired에서 80/80 ask. 1차 판정이 지적한 '면제가 feature_list.json 하나에만 닿는다'가 해소됐다",
+      "AC-2 — 격리 클론에서 end-to-end 실행 확인. python3·node·ruby로 4개 파일 훼손 → PostToolUse 1회 → 전부 HEAD 복구 + `progress/.integrity-restores` 기록 + `progress/.integrity-quarantine/20260731T062828Z/` 격리 보관(SC-4 경로)",
+      "AC-3 — 철회. 정규화가 개행을 공백으로 접는 상태로 복귀했고 heredoc 3형태 잠금 테스트가 있으며 갭이 INV-14에 명시됐다. 사용자 결정이므로 반려 사유로 세지 않았다",
+      "AC-4 — 쓰기 신호 arm 160입력(리다이렉트·append·cp·mv·tee·sed -i·sed -ni·--in-place·sed w·dd of=·perl -i·awk -iinplace·install·rsync·ln·truncate × 데이터/컨트롤 플레인 8경로) **160/160 ask**, main과 동일",
+      "AC-5 — 편집 전용 도구(vim·patch·ed·sponge·dd) 데이터 플레인 ask 유지",
+      "AC-6 — **755입력 × {main, F67} × {wired, unwired} = 3020회 주입.** diff 201건이 전부 wired·ask→allow이고 전부 '인터프리터 + 데이터 플레인 경로, 컨트롤 플레인·시크릿 토큰 없음' 클래스다. 의도 밖 판정 이동 0건 — deny↔ask↔allow 어느 방향으로도",
+      "AC-7 — **unwired diff 0건.** 배선을 없애면 면제가 전부 꺼지고 판정이 main과 완전히 일치한다. 인터프리터 데이터 플레인 읽기 80/80이 unwired에서 ask로 되살아난다",
+      "AC-8 — `bats tests/` at d183712 → `1..683`, ok=683, not ok=0, exit 0. 브랜치 HEAD(91eb82e) → `1..712`, ok=712, not ok=0, exit 0. `bats tests/pre-bash-firewall.bats` → 210 ok / 0 fail",
+      "AC-9 — ASK_PATTERNS 46개를 추출해 `arm_is_exemptable()` 을 재현: 면제 arm **정확히 3개**(sed/awk 데이터플레인 · 인터프리터 데이터플레인 · 인터프리터 feature_list). 어느 것도 컨트롤 플레인 경로를 담지 않는다. 신규 테스트가 이 수를 스냅샷으로 고정한다",
+      "AC-10 — heredoc 4형태(`- <<'EOF'` · `<<EOF` · `cat <<'EOF' | i -` · `- <<-EOF`) × 인터프리터 4종 × 컨트롤 플레인 3경로 = **48/48 ask**. 1차 판정이 실증한 구멍이 닫혔다"
+    ],
+    "security": [
+      "SC-1 — arm 45→46, 삭제 0건(add-only). 배선이 사라지면 46개 전부 폴백으로 되살아남을 unwired 차분으로 확인",
+      "SC-2 — `EXEMPTABLE_ARM_TOKENS` 단일 출처 + **결과 집합 핀 테스트**가 둘 다 존재한다. 1차 판정이 지적한 '목록→결과 사상이 고정되지 않는다'가 해소됐다. 변이 확인: `settings` 배제를 지우면 면제 3→4로 늘고 새는 것이 정확히 새 컨트롤 플레인 arm이다(배제가 load-bearing)",
+      "SC-5 — **철회가 완전하다.** 스팬 절단 클래스를 넓게 대조했다: heredoc 4형태 · `|`/`&&`/`||` 뒤 줄바꿈 · `{}`·`()` 블록 · `for`/`if`/`while` 절 사이 · 백슬래시 이음(짝수/홀수) · 탭 · CR · 인용 안 개행. 정규화 구현은 main과 다르지만(`tr '\\n' '\\034'` → awk → `tr -s`) 결정 함수는 동일하다 — unwired 755/755 일치. 1차 판정이 만든 신규 deny 3형태(`exec`/`eval` 뒷줄)도 사라져 main과 같아졌다"
+    ],
+    "error_scenarios": [
+      "ES-1 — 면제는 컨트롤 플레인으로 새지 않는다. 인터프리터 컨트롤 플레인 24/24 ask, heredoc 컨트롤 플레인 48/48 ask, 변이로 배제 절의 load-bearing 확인",
+      "ES-2 — 양방향 관측 완료. allow↔ask↔deny 전 방향에서 의도 밖 이동 0건",
+      "ES-3 — 미배선 시 예측 100% 복원(unwired diff 0건)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [
+      "SC-4 — '면제 대상 arm이 다루는 모든 경로가 PROTECTED_GLOBS에 있음' 미충족. 기계 대조 결과 면제 arm이 잡는 추적 파일 중 11개가 PROTECTED_GLOBS 밖이며(그중 `protected-integrity.sh` 는 별도 비면제 arm이 담당하므로 실질 10개, 실행 훅 8 + 템플릿 2), end-to-end로 복구되지 않음을 확인했다. 해당 기계 검증 테스트도 없다",
+      "SC-3 (부분) — INV-14가 '면제로 예측에서 빠진 것은 protected-integrity.sh가 담당한다'고 서술하나 위 경로에 대해 거짓. 손실 상한 서술이 코드가 강제하는 범위를 넘는다"
+    ],
+    "error_scenarios": [
+      "ES-3 (부분) — '배선이 있으면 탐지가 담당한다'는 전제가 위 8개 경로에서 성립하지 않는다. 미배선 폴백 자체는 완전하다"
+    ]
+  },
+  "required_fixes": [
+    "1. **면제의 경로 스팬을 복구 집합에 맞춘다.** 셋 중 하나를 택한다 — (a) 면제되는 두 데이터 플레인 arm의 `hooks/[A-Za-z0-9_.-]+\\.sh` 를 복구 가능한 셋(`invariant-guard\\.sh|pre-bash-firewall\\.sh|pre-tool-firewall\\.sh`)으로 좁힌다. 나머지 훅은 예측이 유지되므로 손실이 늘지 않는다. (b) 8개 훅을 `PROTECTED_GLOBS` **와** `is_protected()` 양쪽에 넣는다 — 한쪽만 넣으면 F65 2차가 실증한 '티켓 없는 파일이 복구돼 정당한 편집이 되돌려지는' 회귀가 난다(protected-integrity.sh:44-46 주석이 lib.sh를 그 사례로 적고 있다). (c) 잔여를 수용한다면 INV-14에 '이 8개는 예측도 탐지도 없다'를 **명시**하고 아래 2의 스냅샷으로 고정한다. (a)가 가장 작고 되돌리기 쉽다.",
+    "2. **SC-4의 기계 검증을 테스트로 고정한다.** 면제되는 arm의 경로 대안을 추출해 `git ls-files` 에 매칭하고, 그 집합이 `PROTECTED_GLOBS` 에 포함됨을(또는 명시적으로 허용된 예외 목록과 정확히 일치함을) 단언한다. 면제가 넓어지거나 PROTECTED_GLOBS가 좁아지면 그 순간 깨진다. 이번 결함은 이 테스트 하나로 검출된다.",
+    "3. **INV-14를 코드에 맞춘다.** '토큰이 일치해도 면제되지 않는 것' 목록 옆에 '면제되지만 복구되지도 않는 것'이 있는지를 서술한다 — 1에서 (a)/(b)를 택하면 '없다'로 적을 수 있고, (c)를 택하면 8개를 열거해야 한다.",
+    "4. (선택) `arm_is_exemptable()` 의 dead 배제 절 3개를 주석으로 '현재 어느 arm도 이 절에 걸리지 않는다(다중 방어)'라고 표시하거나, 각 절이 살아 있음을 요구하는 테스트를 붙인다.",
+    "5. (선택) SAME 코퍼스에 `|`/`&&` 뒤 줄바꿈과 `{`/`(` 블록 형태를 추가하고, `main` ref 부재 시 skip 처리를 넣는다."
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [
+      "**면제의 경로 스팬과 복구 집합의 포함 관계**를 요구하는 기준이 arm 단위가 아니라 **파일 단위**로 서술돼야 한다. SC-4는 'PROTECTED_GLOBS ≡ is_protected()' 라는 두 목록의 관계를 criterion으로 두고 세 번째 집합(면제 arm의 경로 스팬)은 verification 문장에만 넣었다. 그래서 criterion만 보면 통과처럼 보인다 — 실제로 그렇게 지나갔다. 세 집합의 관계(면제 스팬 ⊆ 복구 집합)를 criterion 본문으로 승격할 것."
+    ],
+    "ambiguous_criteria": [
+      "AC-1의 '`hooks/*.sh`' — 어느 훅 스크립트인지 열거되지 않아 정규식이 모든 훅을 잡는 것과 복구 집합이 4개만 담는 것 사이의 간극이 기준에서 보이지 않는다. 1차 판정이 AC-1에 파일 5종을 열거하게 한 것과 같은 이유로, `hooks/*.sh` 도 개별 열거가 필요하다."
+    ],
+    "security_criteria_insufficient": [
+      "critical 티어인데 '**면제된 경로 전부가 사후 복구 대상인가**'를 기계로 확인하는 기준이 없었다. SC-4 verification의 후반부가 그 취지였으나 criterion 본문이 아니어서 강제되지 않았다. 이번 결함은 그 검증 하나로 자동 검출된다."
+    ],
+    "criteria_backfill_review": "재작업의 계약 변경(AC-3 철회 · AC-1 파일 열거 · AC-6 재조작화 · AC-9/AC-10 신설 · ES-2 교체)은 전부 사용자 명시 지시 또는 1차 판정 지적의 반영이며, 범위 과도 확장이나 요건 완화가 아니다. AC-3 철회만이 요건 축소지만 사용자의 명시적 결정이고 갭이 INV-14·테스트에 명시됐다. 3건 기준의 'spec/architecture 재검토 권고'에는 해당하지 않는다.",
+    "action_required": "다음 iteration에서 sprint-53.json SC-4의 criterion 본문을 '면제 arm의 경로 스팬 ⊆ PROTECTED_GLOBS' 로 승격하고, AC-1에 `hooks/*.sh` 의 대상 훅을 열거할 것."
+  },
+  "evidence": {
+    "isolation": "모든 재현은 격리 클론에서만 수행했다 — `git clone --no-hardlinks` 두 벌(`scratchpad/f67v2/repo` @d183712, `scratchpad/f67v2/repo-head` @91eb82e). 실제 저장소는 `git show` 읽기만 했고 훅 실행 시 `CLAUDE_PROJECT_DIR`·`CLAUDE_PLUGIN_ROOT` 를 랩 디렉터리로 고정해 `.firewall-stats` 등 부작용이 저장소에 닿지 않게 했다.",
+    "differential_corpus": "755입력 × {main(7cc52c5), F67(d183712)} × {wired, unwired} = 3020회 주입. 스크립트 scratchpad/f67v2/{diff.py,run.py}, 원시 결과 scratchpad/f67v2/results-main-vs-f67.json. 결과: diff 201건, **전부 wired·ask→allow**, 전부 '인터프리터 + 데이터 플레인, 컨트롤 플레인·시크릿 토큰 없음'. **unwired diff 0건.** 코퍼스 클래스: A 인터프리터 데이터플레인 읽기(80) · B 컨트롤 플레인 인터프리터(24) · C heredoc 4형태(128) · D `|`/`&&`/`||` 뒤 줄바꿈(40) · E `{}`·`()`·for·if·while 블록(40) · F 백슬래시 이음 짝/홀(40) · G 쓰기신호 arm(160) · H 경로 표기 변형(88) · I deny 티어 × {단독, 개행, 파이프개행, heredoc}(60) · J egress(21) · K 순수읽기(40) · L 탐지기·원장(12) · M 정규화 엣지(27).",
+    "verdict_tally_wired_f67": "컨트롤 플레인 인터프리터 24/24 ask · heredoc 컨트롤 플레인 48/48 ask · heredoc 데이터 플레인 80/80 allow · 쓰기신호 arm 160/160 ask · 블록/절 40/40 ask · 순수읽기 40/40 allow · deny 58/60 deny(나머지 2는 main도 allow인 선재 케이스)",
+    "arm_enumeration_and_mutation": "ASK_PATTERNS 46개를 파싱해 `arm_is_exemptable()` 을 재현. 기준선 면제 3개. 변이 A(`settings` 배제 삭제) → 4개, 새는 것은 `\\b(python3?|node|…)\\b[^;|&]*(hooks/[A-Za-z0-9_.-]+\\.json|\\.claude/settings(\\.local)?\\.json)` = 새 컨트롤 플레인 arm → 배제가 load-bearing. 변이 B(`hooks\\.json`) · C(`-i`) · D(탐지기·원장) → 전부 3개 불변 = dead code. 가설 변이(arm을 `hooks/*.json` 전용으로 재분할) → 면제 가능해지나 핀 테스트 `[ \"$exempt\" -eq 3 ]` 이 깨진다.",
+    "sc4_machine_check": "면제 arm의 경로 대안 3개를 추출해 `git ls-files` 전체와 PROTECTED_GLOBS(13 glob)에 대조 → 면제 스팬에 걸리면서 PROTECTED_GLOBS 밖인 추적 파일 11개: hooks/{lib,post-edit-format,pre-commit-gate,pre-compact,protected-integrity,session-context,session-handoff,setup-claudemd,subagent-evaluator-log}.sh + templates/progress/{feature_list,harness-config}.json. protected-integrity.sh는 별도 비면제 arm이 담당함을 실측(ask)으로 확인했으므로 실질 10개.",
+    "exploitability_lab": "격리 클론에서 python3/node/ruby로 progress/feature_list.json · progress/harness-config.json · docs/INVARIANTS.md · hooks/pre-bash-firewall.sh · hooks/lib.sh 를 훼손하고 `protected-integrity.sh` 를 PostToolUse:Bash 입력으로 1회 실행 → 앞의 4개는 복구·보고·격리(progress/.integrity-quarantine/20260731T062828Z)·원장 기록, `hooks/lib.sh` 는 ` M` 인 채 무보고 잔존. 훅 판정 실측: `python3 -c \"open('hooks/lib.sh','w').write('PWNED')\"` → main=ask, F67=allow, HEAD=allow, unwired=ask. 동일 결과가 node 및 8개 훅 전부에서 재현.",
+    "privilege_chain": "`grep -rn lib\\.sh hooks/*.sh` → pre-compact.sh:17 · subagent-evaluator-log.sh:24 · session-handoff.sh:12 · pre-commit-gate.sh:6 · setup-claudemd.sh:27 이 `source` 한다. hooks.json 파싱 결과 다섯 모두 배선돼 있다(Stop×2 · SessionStart · PreCompact · SubagentStop).",
+    "preexisting_baseline": "main도 같은 파일에 예측·탐지가 모두 없는 경로를 이미 갖고 있었다 — `awk -v f=hooks/lib.sh 'BEGIN{print \"x\" > f}'` 와 `awk 'BEGIN{f=\"hooks/lib.sh\"; print \"x\" > f}'` 가 main·F67 모두 allow. 또 `python3 script.py`(명령행에 경로 없음)는 언제나 allow였다. 따라서 F67은 **새 공격 능력을 만들지 않고** 기존 갭을 난해한 형태에서 표준 형태로 넓힌다 — 그래서 security를 3이 아니라 6으로 매겼다.",
+    "full_regression": "`bats tests/` @d183712(격리 클론) → `1..683`, ok=683, not ok=0, exit=0 / @91eb82e(브랜치 HEAD, 별도 클론) → `1..712`, ok=712, not ok=0, exit=0. `bats tests/pre-bash-firewall.bats` @d183712 → 210 ok / 0 fail. implementer 보고(683)와 일치.",
+    "same_corpus_review": "`F67: the decision function matches main outside the intended change` 의 SAME 14건 중 스팬 절단 클래스는 heredoc 1형태(`python3 - <<EOF`)와 개행 1형태(`vim README.md`⏎`cat hooks/hooks.json`) 둘뿐이다. 그 클래스는 형제 테스트 3개(heredoc 3형태 · 줄 이음 · 인용 안 개행)가 함께 덮으므로 1차 판정의 지적은 아슬하게 충족되나, SAME 자체는 여전히 얇다."
+  },
+  "unverified": [],
+  "f37_second_judgment": {
+    "required": true,
+    "status": "not_needed_for_this_verdict",
+    "note": "F37은 critical 기능의 **자동 pass**를 단일 judge에 맡기지 않기 위한 교차검증이다. 이번 2차 iteration 판정도 fail이므로 자동 pass 위험이 없어 교차검증 없이 반려한다. **단, 이 판정의 유일한 반려 사유는 SC-4의 해석(면제 스팬 ⊆ 복구 집합을 criterion으로 읽는가)에 걸려 있다.** 사용자가 그 축을 선재 조건으로 보고 pass로 뒤집으려 한다면 그 순간 pass 후보가 되므로 독립 컨텍스트 2차 judge가 **필수**다. 그 judge에게는 evidence의 `sc4_machine_check` 와 `exploitability_lab` 을 근거가 아니라 **재현 대상**으로 넘길 것 — 특히 `python3 -c \"open('hooks/lib.sh','w')...\"` 의 main=ask / F67=allow 와 PostToolUse 후 미복구 두 가지."
+  },
+  "passes_updated": false,
+  "_passes_note": "verdict=fail이므로 progress/feature_list.json의 F67 passes는 false 유지. INV-11 근거 레코드로 이 파일이 남는다."
+}

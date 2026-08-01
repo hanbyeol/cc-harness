@@ -58,7 +58,14 @@ dirty()     { ( cd "$LAB" && git diff --name-only | wc -l | tr -d ' ' ) }
 }
 
 @test "F65: invariant-guard를 거친 편집은 보존된다 (오탐 없음)" {
-  ( cd "$LAB" && printf '\n# legit\n' >> hooks/lib.sh && echo "hooks/lib.sh" > progress/.guarded-edits )
+  # 티켓 형식은 `<내용해시> <경로>` 다(F65 SC-5) — 경로만 적으면 어떤 편집과도 일치하지 않는다.
+  # F67 전에는 hooks/lib.sh 가 PROTECTED_GLOBS 밖이라 검사 자체를 받지 않아 이 낡은 형식으로도
+  # 통과했다. 면제 arm 이 덮는 훅 전체를 탐지 대상에 넣으면서 드러났다.
+  # 해시는 훅의 file_sha() 와 같은 방식으로 계산해야 한다 — `$(cat …)` 가 후행 개행을 떨어뜨리므로
+  # `git hash-object <파일>` 과 값이 다르다.
+  ( cd "$LAB" && printf '\n# legit\n' >> hooks/lib.sh && \
+    printf '%s hooks/lib.sh\n' "$(printf '%s' "$(cat hooks/lib.sh)" | git hash-object --stdin)" \
+      > progress/.guarded-edits )
   integrity
   ( cd "$LAB" && grep -q 'legit' hooks/lib.sh )
 }
@@ -196,14 +203,21 @@ dirty()     { ( cd "$LAB" && git diff --name-only | wc -l | tr -d ' ' ) }
   done
 }
 
-@test "F65: PROTECTED_GLOBS가 is_protected()보다 넓지 않다" {
-  # 넓으면 티켓이 발급되지 않는 파일이 복구 대상이 되어 정당한 편집이 되돌려진다.
-  # hooks/lib.sh 가 실제로 그랬다 — hooks/*.sh 글롭에는 있고 is_protected()에는 없었다.
+@test "F65: PROTECTED_GLOBS와 is_protected()는 hooks/*.sh 에 대해 대칭이다" {
+  # 한쪽만 넓으면 티켓이 발급되지 않는 파일이 복구 대상이 되어 정당한 편집이 되돌려진다 —
+  # F65 때 hooks/lib.sh 가 실제로 그랬다(글롭에는 있고 is_protected()에는 없었다).
+  # F65 는 글롭에서 빼는 쪽으로 풀었고, **F67 은 양쪽에 함께 넣는 쪽으로 풀었다** —
+  # 방화벽 면제 arm 이 훅 스크립트 전체를 덮으므로 탐지 대상도 같아야 했기 때문이다.
+  # 어느 방향이든 **대칭**이 지켜지는지가 이 테스트가 지키는 것이다.
   local ig="$BATS_TEST_DIRNAME/../hooks/protected-integrity.sh"
-  ! grep -qE "^  'hooks/\*\.sh'" "$ig"
-  # hooks/lib.sh 는 is_protected()에 없으므로 복구 대상이 아니어야 한다 —
-  # 대상이면 편집 시 티켓이 없어 정당한 편집이 되돌려진다.
-  ( cd "$LAB" && printf '\n# legit\n' >> hooks/lib.sh )
+  local guard="$BATS_TEST_DIRNAME/../hooks/invariant-guard.sh"
+  if grep -qE "^  'hooks/\*\.sh'" "$ig"; then
+    grep -qE 'hooks/\*\.sh\) return 0' "$guard"
+  fi
+  # invariant-guard 심사를 거친 편집(티켓 있음)은 보존된다 — 대칭이 지켜지면 오탐이 없다
+  ( cd "$LAB" && printf '\n# legit\n' >> hooks/lib.sh && \
+    printf '%s hooks/lib.sh\n' "$(printf '%s' "$(cat hooks/lib.sh)" | git hash-object --stdin)" \
+      > progress/.guarded-edits )
   integrity
   ( cd "$LAB" && grep -q 'legit' hooks/lib.sh )
 }

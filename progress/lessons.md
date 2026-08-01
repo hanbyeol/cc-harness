@@ -557,3 +557,31 @@ deny 메시지의 "어떤 쓰기 순서로도 재발행 불가"와 690-692행 �
 부수 발견: 계약의 `_batch_approval`만 핀이 걸려 있고 `security_criteria`·`acceptance_criteria`·
 `security_tier`는 agreed:true 상태에서 **단일 쓰기로 교체·비우기가 가능**하다. 승인 범위보다
 판정 기준 쪽이 더 직접적인 자기확장 통로인데 어떤 한계 목록에도 없다.
+
+## F68 7차 판정 (2026-07-31) — 경로 **문자열**로 게이트를 걸면 철자 수만큼 구멍이 남는다
+6차가 닫은 `rm <계약>` + Write 는 확인했다(deny). 그런데 같은 클래스가 **철자만 바꿔** 다시 열린다:
+macOS APFS는 기본 대소문자 무시라 `progress/contracts/SPRINT-54.json`은 `sprint-54.json`과 동일
+inode인데, `invariant-guard.sh`의 세 판정(`case $(basename)`, `BASENAME == sprint-*.json`,
+`is_protected()`)이 모두 대소문자 구분이다 — **쓰기 1회로, rm 도 git 도 없이** 승인 범위가
+`{scope:["**/*"],N:99}`로 교체되고 가드는 무출력이다. `rm -rf progress/contracts`(firewall allow)
++ 쓰기 1회도 통과한다(`git -C <사라진 dir>` 실패 → HEAD 대조 skip). 교훈: 보호 판정을 경로
+문자열 비교로 하는 한 다음 회전마다 새 철자가 나온다. 판정 기준을 **파일 동일성(realpath/inode)**
+으로 올리면 클래스가 한 번에 닫힌다 — 개별 경로를 하나씩 닫는 방식이 6·7차 연속 실패했다.
+
+또 하나: 2계층이라 적었지만 `protected-integrity.sh`는 PostToolUse:**Bash** 에만 배선돼 있다.
+Write 경로에는 무결성 계층이 없고, 다음 Bash 호출이 커밋이면(=/change-request Step 6이 지시하는
+정상 흐름) 훅은 커밋 후에 돌아 무출력이다. "두 계층이 독립적으로 막는다"는 Write 경로에서 거짓.
+
+- **[2026-07-31] F67/sprint-53 2차 evaluator (fail — security 6, min-of-5 6)** — 1차 반려 사유(개행→구분자
+변경이 연 heredoc 컨트롤 플레인 구멍)는 철회로 완전히 해소됐다. 755입력 × {main, 브랜치} × {배선, 미배선}
+차분에서 **미배선 diff 0건**, 배선 diff 201건이 전부 의도된 클래스(인터프리터 + 데이터 플레인). 새 반려
+사유는 **면제의 경로 스팬이 복구 집합보다 넓다**는 것 — 면제 arm의 `hooks/[A-Za-z0-9_.-]+\.sh` 는 모든 훅
+스크립트를 잡는데 `PROTECTED_GLOBS` 는 4개만 담아, 실행 중인 훅 8개(`lib.sh` 포함, Stop·SessionStart·
+PreCompact·SubagentStop 훅 5개가 source)가 예측도 탐지도 없이 남는다. **반복 패턴 — 예측을 끄는 변경은
+'무엇이 대신 잡는가'를 arm이 아니라 파일 단위로 대조해야 한다.** 면제를 arm 단위로만 세면(F65 SC-2·F67
+AC-9 모두 arm 개수를 셌다) arm의 정규식이 복구 집합 밖 파일까지 잡는 것을 놓친다. **판정 습관**: 면제
+계열 변경은 면제 arm의 경로 대안을 추출해 `git ls-files` × `PROTECTED_GLOBS` 로 기계 대조할 것 — 이번
+결함은 그 한 줄로 검출됐고, 계약 SC-4가 그 검증을 verification 문장에만 두고 criterion 본문에 두지 않아
+강제되지 않았다. **또 하나**: 1차가 '문서가 코드보다 넓다(보수적 방향)'를 지적했고 코드를 넓혀 맞추자 같은
+불일치가 **반대 방향**(문서가 보호를 과대 서술)으로 재발했다 — 불일치를 고칠 때 어느 쪽을 움직이는지가
+손실 상한을 바꾼다는 것을 다음 판정에서 먼저 물을 것.

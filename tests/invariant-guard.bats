@@ -240,7 +240,7 @@ exit 0'
 # --- unrelated files pass through ---
 
 @test "allows edits to unrelated files" {
-  run run_write "$(mk_write_input "$WORK/hooks/post-edit-format.sh" "echo hello")"
+  run run_write "$(mk_write_input "$WORK/src/unrelated.sh" "echo hello")"
   [ "$status" -eq 0 ]
 }
 
@@ -744,14 +744,14 @@ _nojq_run() {
 }
 
 @test "F41: jq absent — Edit to an unrelated file passes (availability preserved)" {
-  run _nojq_run "$(mk_write_input "$WORK/hooks/post-edit-format.sh" 'echo hi')"
+  run _nojq_run "$(mk_write_input "$WORK/src/unrelated.sh" 'echo hi')"
   [ "$status" -eq 0 ]
 }
 
 @test "F41: jq absent — content mentioning a protected path does not false-block unrelated file" {
   # tool_input.file_path(비보호)가 첫 매치 — content 안의 가짜 file_path는 무시된다
   poison='{"file_path": "progress/harness-config.json"}'
-  run _nojq_run "$(mk_write_input "$WORK/hooks/post-edit-format.sh" "$poison")"
+  run _nojq_run "$(mk_write_input "$WORK/src/unrelated.sh" "$poison")"
   [ "$status" -eq 0 ]
 }
 
@@ -1030,7 +1030,7 @@ _noawk_run() {
 }
 
 @test "F50: awk absent — Edit to an unrelated (unprotected) file still passes (availability preserved)" {
-  run _noawk_run "$(mk_edit_input "$WORK/hooks/post-edit-format.sh" 'a' 'b')"
+  run _noawk_run "$(mk_edit_input "$WORK/src/unrelated.sh" 'a' 'b')"
   [ "$status" -eq 0 ]
 }
 
@@ -1059,7 +1059,7 @@ _noawk_run() {
 }
 
 @test "F51: awk absent — Write to an unrelated (unprotected) file still passes (availability preserved)" {
-  run _noawk_run "$(mk_write_input "$WORK/hooks/post-edit-format.sh" "echo hi")"
+  run _noawk_run "$(mk_write_input "$WORK/src/unrelated.sh" "echo hi")"
   [ "$status" -eq 0 ]
 }
 

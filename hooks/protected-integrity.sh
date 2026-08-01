@@ -65,6 +65,12 @@ PROTECTED_GLOBS=(
   'hooks/pre-bash-firewall.sh'
   'hooks/pre-tool-firewall.sh'
   'hooks/hooks.json'
+  # F67 판정: 면제 arm 이 `hooks/[A-Za-z0-9_.-]+\.sh` 로 **모든 훅**을 덮는데 위 셋만 탐지
+  # 대상이라, 나머지 여덟이 예측도 탐지도 없는 갭에 빠졌다(격리 랩 실증: `hooks/lib.sh` 만
+  # 훼손된 채 남았고 그 파일은 Stop 훅 둘을 포함해 다섯 훅이 source 한다).
+  # `is_protected()` 에 같은 arm 을 함께 넣는다 — 한쪽만 넣으면 티켓이 발급되지 않아
+  # 정당한 편집이 되돌려지는 F65 회귀가 난다.
+  'hooks/*.sh'
 )
 
 TICKETS="$REPO/progress/.guarded-edits"

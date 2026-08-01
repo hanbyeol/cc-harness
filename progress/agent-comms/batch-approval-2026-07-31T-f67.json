@@ -1,0 +1,35 @@
+{
+  "timestamp": "2026-07-31T15:00:00+0900",
+  "target": "F67",
+  "contract": "progress/contracts/sprint-53.json",
+  "mode": "batch (ADR-006/F68 §9)",
+  "_why_not_in_contract": "F68은 배치 승인을 계약의 `_batch_approval`에 기록하도록 정했으나, sprint-53.json은 이미 일반 Plan 게이트로 `agreed:true`가 된 계약이라 그 필드를 넣을 수 없다 — F68 SC-4 강제(합의된 계약의 배치 승인 범위 변경 차단)가 정확히 그것을 막는다. 이미 합의된 계약을 사후에 배치 모드로 돌리는 경우를 F68이 다루지 않았고, 이것이 배치 모드 첫 적용에서 드러난 갭이다. F69 또는 F68 후속으로 처리한다. 그때까지 승인 기록은 이 파일이다.",
+  "approved": {
+    "scope": {
+      "feature": "F67",
+      "files": [
+        "hooks/pre-bash-firewall.sh",
+        "tests/pre-bash-firewall.bats",
+        "docs/INVARIANTS.md",
+        "progress/feature_list.json",
+        "progress/contracts/sprint-53.json",
+        "evals/acceptance-criteria.json"
+      ],
+      "_out_of_scope_action": "이 밖의 검증 장치 파일을 건드리면 approval-queue.json 적립 후 중단"
+    },
+    "N": 2,
+    "_n_rationale": "F67은 1차 판정 fail 후 재작업을 마쳤고 남은 것은 재판정이다. 판정 1회 + fail 시 재작업 1회면 충분하다.",
+    "on_fail": "revert-and-continue",
+    "_policy_rationale": "F67 1차에서 사람이 내린 판단이 '개행 변경을 보수적으로 되돌리고 계속'이었고 그것이 옳았다(evaluator가 컨트롤 플레인 구멍을 실증했고 되돌림이 맞는 대응이었다).",
+    "stop_conditions": [
+      "N(2) 소진",
+      "점수 하락 2연속",
+      "직전 판정의 failed_criteria 와 이번 것의 교집합이 비지 않음",
+      "승인 범위 밖 검증 장치 파일 접촉 → approval-queue.json 적립 후 중단",
+      "evaluator 900초 초과 → 재시도 1회 후 queue-and-stop"
+    ]
+  },
+  "_approval_evidence": "사용자가 배치 게이트 4항목(범위·N·fail 정책·중단조건)을 제시받은 뒤 'F67도 배치 모드로 판정 돌려'로 두 번 지시했다. 첫 지시 때 제시한 항목에 이견이 없었고 두 번째 지시를 승인으로 기록한다.",
+  "_known_state_at_approval": "F68은 미판정이다(7차 판정 진행 중, 1~6차 모두 fail). 즉 배치 승인 범위를 강제하는 장치 자체가 확정되지 않은 상태에서 첫 배치를 돌린다 — 순서상 뒤바뀐 것이며 사용자에게 그 사실을 보고하고 지시를 받았다. 이 배치의 안전은 기계 강제가 아니라 (a) 범위가 좁고(파일 6개) (b) evaluator 게이트가 무약화이며 (c) 각 회전이 커밋으로 남아 롤백 가능하다는 데 의존한다.",
+  "rounds": []
+}

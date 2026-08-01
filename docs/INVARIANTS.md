@@ -152,7 +152,10 @@ behavioral 프로브 코퍼스가 이 부류의 누출을 감시한다.
 - 검증 장치 파일: `harness-config.json`·`hooks/pre-bash-firewall.sh`·`hooks/pre-tool-firewall.sh`·
   `hooks/invariant-guard.sh`·`docs/INVARIANTS.md`·`hooks/hooks.json`·`agents/evaluator.md`·`feature_list.json`·
   `evaluator-runs.jsonl`·`tests/*.bats`·`skills/change-request/SKILL.md`·`skills/improve/SKILL.md`·`skills/hotfix/SKILL.md`·
-  `hooks/protected-integrity.sh`·`.guarded-edits`·`.integrity-baseline`·`approval-queue.json`
+  `hooks/protected-integrity.sh`·`.guarded-edits`·`.integrity-baseline`·`approval-queue.json`·`hooks/*.sh`
+  (F67이 `hooks/*.sh` 를 추가 — 방화벽 면제 arm 이 훅 스크립트 전체를 덮는데 탐지 대상은 셋뿐이라
+  여덟이 예측도 탐지도 없이 남아 있었다. 두 목록을 함께 넓혀야 한다: 한쪽만이면 티켓 미발급으로
+  정당한 편집이 되돌려진다(F65 회귀).)
   (F68이 `approval-queue.json`을 추가 — 무인 루프가 자기 승인 범위를 넓히지 못하게 하는 자리다.
   이 파일을 고칠 수 있으면 "무엇이 무인 제외인가"를 루프가 스스로 다시 쓸 수 있다.)
   (뒤 셋은 F65가 추가 — 탐지기 자신과 그 상태 파일이다. 파괴되면 자기를 복구할 수 없으므로
