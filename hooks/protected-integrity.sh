@@ -71,6 +71,12 @@ PROTECTED_GLOBS=(
   # `is_protected()` 에 같은 arm 을 함께 넣는다 — 한쪽만 넣으면 티켓이 발급되지 않아
   # 정당한 편집이 되돌려지는 F65 회귀가 난다.
   'hooks/*.sh'
+  # F67 5차 판정: `templates/progress/*` 는 HEAD 추적인데 탐지 대상이 아니어서, 면제된 명령으로
+  # 신규 프로젝트 seed 의 `pass_threshold` 를 1 로 낮춰도 복구·기록·격리가 전부 없었다(격리 랩 실증).
+  # INV-11 이 `templates/` 를 제외하는 것은 **passes/agreed 전환 검사**이지 보호 자체가 아니다
+  # (invariant-guard 의 그 제외는 별도 조건으로 남아 있어 스캐폴딩 편집이 막히지 않는다).
+  # 탐지에 넣으면 `cd templates && …` 처럼 표기 층을 빠져나간 쓰기도 되돌릴 수 있다.
+  'templates/progress/*.json'
 )
 
 TICKETS="$REPO/progress/.guarded-edits"

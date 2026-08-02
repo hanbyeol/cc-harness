@@ -152,7 +152,11 @@ behavioral 프로브 코퍼스가 이 부류의 누출을 감시한다.
 - 검증 장치 파일: `harness-config.json`·`hooks/pre-bash-firewall.sh`·`hooks/pre-tool-firewall.sh`·
   `hooks/invariant-guard.sh`·`docs/INVARIANTS.md`·`hooks/hooks.json`·`agents/evaluator.md`·`feature_list.json`·
   `evaluator-runs.jsonl`·`tests/*.bats`·`skills/change-request/SKILL.md`·`skills/improve/SKILL.md`·`skills/hotfix/SKILL.md`·
-  `hooks/protected-integrity.sh`·`.guarded-edits`·`.integrity-baseline`·`approval-queue.json`·`hooks/*.sh`
+  `hooks/protected-integrity.sh`·`.guarded-edits`·`.integrity-baseline`·`approval-queue.json`·`hooks/*.sh`·`templates/progress/*.json`
+  (F67 5차 판정이 `templates/progress/*.json` 를 추가 — 신규 프로젝트가 상속하는 seed 이고, 면제된 명령으로
+  그 `pass_threshold` 를 1 로 낮춰도 복구·기록·격리가 전부 없었다(격리 랩 실증). INV-11 이 `templates/` 를
+  제외하는 것은 **passes/agreed 전환 검사**이지 보호 자체가 아니며, 그 제외는 별도 조건으로 남아 있어
+  스캐폴딩 편집이 막히지 않는다.)
   (F67이 `hooks/*.sh` 를 추가 — 방화벽 면제 arm 이 훅 스크립트 전체를 덮는데 탐지 대상은 셋뿐이라
   여덟이 예측도 탐지도 없이 남아 있었다. 두 목록을 함께 넓혀야 한다: 한쪽만이면 티켓 미발급으로
   정당한 편집이 되돌려진다(F65 회귀).)
@@ -447,11 +451,22 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
 부분 대응은 그 열거 실패를 재현한다. `tests/pre-bash-firewall.bats`가 이 형태들을 **알려진 갭으로
 고정**해 판정이 조용히 뒤집히지 않게 한다.
 
-그 갭이 여기서 받아들여지는 이유는 값이 싸서가 아니라 **F67이 그것을 넓히지 않기 때문**이다. 위
-형태들에는 전부 **토큰 하나 짧은 형제 명령이 있고 그것은 main에서도 이미 allow**다
-(`cd .claude/hooks && python3 -c "open('lib.sh','w')"`). 즉 예측 계층이 이 클래스를 잡은 적이 없다 —
-main의 ask는 쓰기를 이해해서가 아니라 데이터 플레인 표기가 우연히 명령에 남아 있었기 때문이고,
-그 우연이 곧 보호라고 부를 수 있는 것은 아니었다.
+**그 갭의 대가는 두 가지로 상쇄된다.**
+- **탐지 집합 안의 파일**: 표기 층을 빠져나간 쓰기도 사후 복구된다. `cd templates && python3 -c
+  "open('progress/harness-config.json','w')"`는 예측을 빠져나가지만 `templates/progress/*.json`이
+  `PROTECTED_GLOBS`에 있으므로 되돌려진다 — 탐지는 명령이 어떻게 적혔는지와 무관하게 **파일이
+  바뀌었는가**만 보기 때문이다. (5차 판정이 이 자리를 실측했다: 편입 전에는 신규 프로젝트 seed의
+  `pass_threshold`를 1로 낮춰도 복구·기록·격리가 전부 없었다.)
+- **복구가 원리적으로 불가능한 `.claude/**`**: 여기서는 상쇄가 아니라 **예측 계층이 이 클래스를
+  잡은 적이 없다**는 사실이 근거다. `cd .claude && …` 형태에는 토큰 하나 짧은 형제
+  (`cd .claude/hooks && python3 -c "open('lib.sh','w')"`)가 있고 **그것은 main에서도 allow**다.
+  main의 ask는 쓰기를 이해해서가 아니라 데이터 플레인 표기가 우연히 명령에 남아 있었기 때문이고,
+  그 우연을 보호라고 부를 수는 없다.
+
+**표기 층 안에서의 반증은 갭이 아니라 결함이다.** 5차 판정이 그 예를 찾았다 — 토큰 추출에 우측
+앵커가 없어 `progress/feature_list.json.bak`이 `progress/feature_list.json`으로 잘려 면제됐다.
+인터프리터 의미론이 전혀 필요 없는 순수 문자열 층이므로 "결정 불가능해서 남긴 갭"으로 덮이지
+않는다. 경로 토큰을 통째로 받아 글롭에 **정확히** 대조하도록 고쳤다.
 
 **왜 바꿨나**: 이전 모델은 "이 Bash 명령이 보호 파일을 쓸 것인가"를 명령 문자열로 예측해 ask로
 막았다. 그 질문은 결정 불가능하다 — 셸도, 셸이 부르는 sed·awk·perl·python도 튜링 완전하므로

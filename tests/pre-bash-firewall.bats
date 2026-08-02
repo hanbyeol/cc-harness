@@ -1599,8 +1599,6 @@ load_firewall_fns() {
   for c in "python3 -c open(.claude/hooks/lib.sh,w)" \
            "python3 -c open(.claude/plugins/cache/x/hooks/lib.sh,w)" \
            "python3 -c open(hooks/../.claude/hooks/lib.sh,w)" \
-           "python3 -c open(templates/progress/feature_list.json,w)" \
-           "python3 -c open(templates/progress/harness-config.json,w)" \
            "node build.js --out dist/hooks/app.sh" \
            "python3 -c open(vendor/x/progress/feature_list.json,w)" \
            "python3 -c open(feature_list.json,w)" \
@@ -1616,7 +1614,9 @@ load_firewall_fns() {
            "python3 -c open(./hooks/lib.sh)" \
            "python3 -c open(progress//feature_list.json)" \
            "sed -n 1p tests/lib.bats" \
-           "ruby -e read(docs/INVARIANTS.md)"; do
+           "ruby -e read(docs/INVARIANTS.md)" \
+           "python3 -c open(templates/progress/feature_list.json)" \
+           "python3 -c open(templates/progress/harness-config.json)"; do
     run exempt_paths_are_detected "$c"
     [ "$status" -eq 0 ] || { echo "탐지 대상을 면제에서 뺐다: $c"; false; }
   done
@@ -1640,6 +1640,26 @@ load_firewall_fns() {
   # 배선 상태에서도 같은 결론이어야 한다 — 함수 단위 통과가 판정을 보증하지는 않는다
   run wired_firewall '{"tool_input":{"command":"python3 -c open(HOOKS/LIB.SH,w).write(x)"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "F67: a longer path is not truncated into a detected one (5차 판정)" {
+  # 토큰 추출 정규식에 우측 앵커가 없어, 명령에 **적힌** 더 긴 경로가 탐지 대상으로 잘렸다 —
+  # `progress/feature_list.json.bak` 이 `progress/feature_list.json` 으로 뽑혀 면제됐다.
+  # 인터프리터 의미론이 전혀 필요 없는 **순수 문자열 층**의 반례이므로 "결정 불가능해서 남긴 갭"
+  # 으로 덮이지 않는다. 경로 토큰을 통째로 받아 글롭에 정확히 대조하도록 고쳤다.
+  local c
+  for c in "progress/feature_list.json.bak" \
+           "progress/feature_list.jsonx" \
+           "hooks/lib.sh.orig" \
+           "docs/INVARIANTS.md.bak" \
+           "tests/lib.bats.tmp"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"python3 -c open($c,w).write(x)\"}}"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "더 긴 경로가 탐지 대상으로 잘려 면제됐다: $c"; false; }
+  done
+  # 정확히 일치하는 이름은 그대로 면제여야 한다(과잉 교정 방지)
+  run wired_firewall '{"tool_input":{"command":"python3 -c open(progress/feature_list.json).read()"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
 @test "F67: glob membership alone is not detection — HEAD tracking is required (3차 판정)" {
@@ -1684,37 +1704,53 @@ load_firewall_fns() {
   [ "$status" -eq 0 ]
 }
 
-@test "F67: the exemption is a notation-layer check — the cd class is a known gap" {
+@test "F67: the notation-layer gap is never wider on this branch than on main" {
   # SC-4 는 **표기 층**으로 확정됐다(2026-08-02 사용자 결정, 4차 판정). 면제 판정은 명령 문자열을
   # 정규식으로 읽는데 면제 대상은 인터프리터 호출 전체라, 명령이 **적는** 경로와 명령이 **여는**
-  # 파일이 갈리면 대조가 결과를 구속하지 못한다. 그 경계를 여기 고정한다 — 값이 싸서 받아들이는
-  # 것이 아니라 이 클래스를 예측이 잡은 적이 없기 때문이며(아래 형제 명령이 main 에서도 allow),
-  # 효과 층까지 요구하면 대상 언어의 실행 의미론이 필요해 결정 불가능하다(F63 10회전과 같은 계열).
+  # 파일이 갈릴 수 있다. 그 층을 완결하려면 대상 언어의 실행 의미론이 필요해 결정 불가능하다.
   #
-  # **이 테스트가 깨지면 판정이 바뀐 것이다** — 우연히 바뀐 것인지 의도한 것인지 확인하고,
-  # 의도했다면 INV-14 의 손실 상한 문단과 계약 SC-4 의 `_layer` 를 함께 고쳐라.
-  local c
-  for c in "cd .claude && python3 -c open(hooks/lib.sh,w).write(x)" \
-           "cd templates && python3 -c open(progress/feature_list.json,w).write(x)" \
-           "cd .claude; python3 -c open(hooks/lib.sh,w).write(x)" \
-           "(cd .claude && python3 -c open(hooks/lib.sh,w).write(x))" \
-           "python3 -c import os; os.chdir(.claude); open(hooks/lib.sh,w).write(x)"; do
-    run wired_firewall "{\"tool_input\":{\"command\":\"$c\"}}"
-    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
-      || { echo "알려진 갭의 판정이 바뀌었다(고쳐졌다면 INV-14·SC-4 도 함께): $c"; false; }
-  done
-  # 갭이 F67 고유가 아님을 같은 자리에 고정한다 — 토큰 하나 짧은 형제는 main 에서도 allow 다.
+  # 앞선 판본은 이 형태들의 판정을 **고정값(allow)으로** 단언했는데, 그러면 갭이 **넓어지는**
+  # 변이에는 반응하지 못한다(5차 판정 지적: 면제를 확대해도 초록으로 남았다). 그래서 단언을
+  # main 대조로 바꾼다 — **F67 이 이 클래스에서 예측을 걷어냈는가**가 물어야 할 것이고,
+  # 그 질문은 브랜치 훅과 main 훅을 같은 입력에 돌려야만 답할 수 있다.
   command -v git >/dev/null || skip "git not installed"
   git -C "$BATS_TEST_DIRNAME/.." rev-parse --verify main >/dev/null 2>&1 \
     || skip "local 'main' ref not available"
-  local main_hook="$BATS_TEST_TMPDIR/main-fw.sh"
+  local main_hook="$BATS_TEST_TMPDIR/main-fw-gap.sh"
   git -C "$BATS_TEST_DIRNAME/.." show main:hooks/pre-bash-firewall.sh > "$main_hook" 2>/dev/null
   [ -s "$main_hook" ]
-  for c in "cd .claude/hooks && python3 -c open(lib.sh,w).write(x)" \
-           "python3 -c import os; os.chdir(.claude); open(hooks/lib.sh,w).write(x)"; do
-    run bash -c "printf '%s' '{\"tool_input\":{\"command\":\"$c\"}}' | bash '$main_hook' 2>/dev/null"
-    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
-      || { echo "main 이 이 형태를 잡는다면 F67 이 갭을 넓힌 것이다: $c"; false; }
+  # 배선된 설치본 — wired_firewall 과 같은 조건에서 양쪽을 돌린다
+  local wired="$BATS_TEST_TMPDIR/wired-gap"
+  mkdir -p "$wired/hooks"
+  cp "$BATS_TEST_DIRNAME/../hooks/protected-integrity.sh" "$wired/hooks/"
+  cat > "$wired/hooks/hooks.json" <<'JSON'
+{"hooks":{"PostToolUse":[{"matcher":"Bash","hooks":[{"type":"command",
+  "command":"bash \"${CLAUDE_PLUGIN_ROOT}/hooks/protected-integrity.sh\"","timeout":15}]}]}}
+JSON
+  verdict_of() {
+    printf '%s' "{\"tool_input\":{\"command\":\"$2\"}}" \
+      | CLAUDE_PLUGIN_ROOT="$wired" bash "$1" 2>/dev/null \
+      | grep -o '"permissionDecision": "[a-z]*"' | head -1
+  }
+  # 인용부호가 있는 **현실 형태**를 함께 넣는다 — 앞선 판본은 인용을 뗀 형태만 써서,
+  # 인용이 붙으면 main 이 ask 인 경우를 보지 못했다(5차 판정 지적).
+  local c m b
+  for c in "cd .claude && python3 -c open(hooks/lib.sh,w).write(x)" \
+           "cd templates && python3 -c open(progress/harness-config.json,w).write(x)" \
+           "cd .claude; python3 -c open(hooks/lib.sh,w).write(x)" \
+           "(cd .claude && python3 -c open(hooks/lib.sh,w).write(x))" \
+           "python3 -c import os; os.chdir(.claude); open(hooks/lib.sh,w).write(x)" \
+           "python3 -c \\\"import os; os.chdir('.claude'); open('hooks/lib.sh','w')\\\"" \
+           "cd .claude/hooks && python3 -c open(lib.sh,w).write(x)"; do
+    m=$(verdict_of "$main_hook" "$c")
+    b=$(verdict_of "$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh" "$c")
+    [ "$m" = "$b" ] || {
+      echo "표기 층 갭에서 판정이 갈렸다 — F67 이 예측을 걷어냈는지 확인하라."
+      echo "  명령: $c"; echo "  main=$m  branch=$b"
+      echo "  넓힌 것이라면 exempt_paths_are_detected() 의 전제 파기 검사를 보라."
+      echo "  의도한 변경이라면 INV-14 손실 상한 문단과 계약 SC-4 의 _layer 도 함께 고쳐라."
+      false
+    }
   done
 }
 

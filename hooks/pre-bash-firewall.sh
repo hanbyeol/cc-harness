@@ -182,8 +182,9 @@ arm_is_exemptable() {
   # **"그 arm이 덮는 모든 경로를 사후 탐지가 담당하는가"**까지다. 아래 둘은 탐지 집합 밖이다.
   #  - `.claude/**/hooks/*.sh`: init.sh 배선(`settings.json`)이 실제로 실행하는 설치본인데
   #    `.claude/`는 gitignore 대상이라 HEAD 복구가 원리적으로 불가능하다.
-  #  - `templates/**/{harness-config,feature_list}.json`: 신규 프로젝트가 상속하는 스캐폴딩인데
-  #    INV-11이 `templates/`를 가드에서 명시 제외하므로 PROTECTED_GLOBS에도 넣지 않는다.
+  #  - `templates/**/{harness-config,feature_list}.json`: 신규 프로젝트가 상속하는 seed 다.
+  #    5차 판정 뒤 `templates/progress/*.json`을 PROTECTED_GLOBS·is_protected에 편입해 **복구는
+  #    가능해졌지만**, seed 는 새 프로젝트 전부에 퍼지므로 예측도 함께 남긴다(다중 방어).
   # 아래 두 arm(경로 앵커)이 그 클래스의 예측을 되살리고, 이 줄이 그 arm을 면제에서 뺀다.
   [[ "$p" == *'\.claude/'* || "$p" == *'templates/'* ]] && return 1
   for tok in "${EXEMPTABLE_ARM_TOKENS[@]}"; do
@@ -197,8 +198,8 @@ arm_is_exemptable() {
 # 예측을 끌 수 있는 유일한 근거는 **그 파일을 사후 탐지·복구가 담당한다**는 사실이기 때문이다.
 # arm의 경로 대안은 무앵커라 저장소 사본 말고도 복구 집합 밖 파일을 함께 잡는다:
 #   `.claude/hooks/lib.sh`(init.sh 설치본 — gitignore라 HEAD 복구 불가) ·
-#   `templates/progress/feature_list.json`(스캐폴딩 — INV-11이 가드에서 명시 제외) ·
-#   `dist/hooks/app.sh`(저장소의 훅이 아예 아닌 남의 파일).
+#   `dist/hooks/app.sh`(저장소의 훅이 아예 아닌 남의 파일) ·
+#   `hooks/newfile.sh`(글롭에는 맞지만 HEAD에 없어 되돌릴 내용이 없다).
 # 2차 판정이 `hooks/lib.sh`에서 실증한 것이 이 클래스이며, 그때의 교정(탐지 목록 확대)은
 # **열거된 여덟 개만** 덮었다. 여기서는 방향을 뒤집는다 — 경로를 열거해 막는 대신
 # **탐지 집합에 있는 경로만 면제한다.** 손실 상한이 내 상상력이 아니라 탐지 집합에서 나온다.
@@ -211,15 +212,33 @@ DETECTED_LOCATIONS=(
   'docs/INVARIANTS.md'
   'hooks/*.sh'
   'tests/*.bats'
+  'templates/progress/*.json'
 )
 exempt_paths_are_detected() {
-  local tok stripped dir g hit root seen=0
+  local tok stripped dir g hit root lower seen=0
   # 복구 집합은 글롭만으로 정해지지 않는다 — 탐지기는 `git ls-tree HEAD` 를 열거하므로
   # **HEAD 에 없는 파일은 글롭에 맞아도 되돌릴 것이 없다**(3차 판정 실측: `hooks/newfile.sh` 가
   # allow 인데 PostToolUse 가 보고도 복구도 하지 않았다). 그래서 소속과 추적을 함께 본다.
   root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+  # 이 대조는 **표기가 저장소 루트 기준으로 해석된다**는 전제 위에 있다. 명령이 작업 디렉터리를
+  # 옮기면 그 전제가 깨진다 — `cd .claude && python3 -c "open('hooks/lib.sh','w')"` 는 표기가
+  # 탐지 대상인데 실제로 열리는 것은 설치본이다(4차 판정). 전제가 성립하지 않으면 대조 결과도
+  # 근거가 되지 못하므로 면제하지 않는다. **우회 형태를 열거하는 것이 아니라 전제의 파기를
+  # 탐지하는 것**이며, 그래서 `cd` 의 표기 변형을 쫓아다닐 필요가 없다.
+  [[ "$1" =~ (^|[;\&\|\(]|[[:space:]])cd[[:space:]] ]] && return 1
+  [[ "$1" == *chdir* ]] && return 1
   while IFS= read -r tok; do
     [[ -n "$tok" ]] || continue
+    # **경로 토큰 전체**를 받아 심사한다. 이전에는 보호 파일명 계열로 끝나는 부분만 뽑았는데,
+    # 정규식에 우측 앵커가 없어 명령에 적힌 더 긴 경로가 탐지 대상으로 **잘렸다** —
+    # `progress/feature_list.json.bak` 이 `progress/feature_list.json` 으로 뽑혀 면제됐다
+    # (5차 판정 실증: `.bak`·`.orig`·`.jsonx` 5형태가 main-ask → allow). 토큰을 통째로 보면
+    # 아래 글롭 대조가 정확히 그 차이를 잡는다.
+    lower=$(printf '%s' "$tok" | tr '[:upper:]' '[:lower:]')
+    case "$lower" in
+      *harness-config.json* | *feature_list.json* | *invariants.md* | *hooks/*.sh* | *tests/*.bats*) ;;
+      *) continue ;;   # 보호 파일과 무관한 토큰(`python3`·`-c`·`README.md`)은 심사 대상이 아니다
+    esac
     seen=1
     stripped="${tok#./}"
     while [[ "$stripped" == *//* ]]; do stripped="${stripped//\/\///}"; done
@@ -240,13 +259,13 @@ exempt_paths_are_detected() {
     # 글롭에 맞아도 HEAD 에 없으면 복구 대상이 아니다. git 이 없거나 조회가 실패하면
     # "탐지된다"고 단정할 근거가 없으므로 면제하지 않는다(fail-closed).
     git -C "$root" cat-file -e "HEAD:$stripped" 2>/dev/null || return 1
-  done < <(printf '%s\n' "$1" | grep -oiE \
-    '[A-Za-z0-9_./-]*(harness-config\.json|feature_list\.json|INVARIANTS\.md|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats)' \
+  done < <(printf '%s\n' "$1" | grep -oE \
+    '[A-Za-z0-9_./-]+' \
     2>/dev/null)
-  # 토큰이 하나도 안 나왔는데 여기까지 왔다면 추출과 arm 매칭이 어긋난 것이다 — arm 은
-  # `grep -qiE` 로 잡았는데 추출이 못 뽑는 상태이며, 그대로 두면 **공허한 참**이 되어 면제가
-  # 무조건 성립한다(3차 판정 실측: 대소문자 변형 8형태가 main-ask → allow). 추출을 `-oiE` 로
-  # 맞췄고, 그래도 어긋나는 미지의 표기가 있으면 면제하지 않는다.
+  # 보호 파일처럼 보이는 토큰이 하나도 없는데 여기까지 왔다면 추출과 arm 매칭이 어긋난 것이다 —
+  # arm 은 `grep -qiE` 로 잡았는데 추출이 못 뽑는 상태이며, 그대로 두면 **공허한 참**이 되어
+  # 면제가 무조건 성립한다(3차 판정 실측: 대소문자 변형 8형태가 main-ask → allow).
+  # 대소문자는 위 `tr` 로 맞췄고, 그래도 어긋나는 미지의 표기가 있으면 면제하지 않는다.
   [[ "$seen" -eq 1 ]] || return 1
   return 0
 }
@@ -314,10 +333,11 @@ ASK_PATTERNS=(
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*(hooks/[A-Za-z0-9_.-]+\.json|\.claude/settings(\.local)?\.json)'
   # === 복구가 원리적으로 불가능한 두 위치 (F67 2차 판정) ===
   # 일반 규칙은 exempt_paths_are_detected() 다 — 탐지 집합에 있는 경로만 면제한다. 아래 두 arm은
-  # 그 규칙이 이미 덮는 자리를 **이름으로 한 번 더 못박은** 것이며, 두 위치가 다른 미탐지 경로와
-  # 성질이 다르기 때문에 남긴다: 되돌릴 수 없다. `.claude/**/hooks/*.sh` 는 init.sh 배선
-  # (`settings.json`)이 실제로 실행하는 설치본인데 `.claude/` 가 gitignore라 HEAD 복구가 없고,
-  # `templates/**/{harness-config,feature_list}.json` 은 신규 프로젝트 전부가 상속하는 스캐폴딩이다.
+  # 그 규칙이 이미 덮는 자리를 **이름으로 한 번 더 못박은** 것이며, 두 위치가 다른 경로와 성질이
+  # 다르기 때문에 남긴다. `.claude/**/hooks/*.sh` 는 init.sh 배선(`settings.json`)이 실제로 실행하는
+  # 설치본인데 `.claude/` 가 gitignore라 **HEAD 복구가 원리적으로 없다.**
+  # `templates/**/{harness-config,feature_list}.json` 은 5차 판정 뒤 탐지 대상이 되어 복구는
+  # 가능해졌지만, 신규 프로젝트 **전부**가 상속하는 seed 라 예측도 함께 남긴다.
   # 탐지 목록을 나중에 잘못 넓혀도 이 둘은 예측에 남는다. (INV-5 add-only라 삭제도 차단된다.)
   # 도구 앵커를 유지하는 이유는 main과의 판정 동일성(AC-6)이다 — 앵커 없는 경로 arm은
   # `git diff <설치본>` 처럼 main이 allow하던 명령까지 새로 ask로 만든다.

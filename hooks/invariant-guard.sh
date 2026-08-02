@@ -50,6 +50,10 @@ is_protected() {
     # PROTECTED_GLOBS 와 **함께** 넓힌다 — 한쪽만이면 티켓 미발급으로 정당한 편집이
     # 되돌려진다(F65 회귀). 실행되는 훅은 전부 git 추적이라 복구 가능하다.
     */hooks/*.sh | hooks/*.sh) return 0 ;;
+    # F67 5차 판정: 신규 프로젝트가 상속하는 seed 다. PROTECTED_GLOBS 와 **함께** 넓힌다
+    # (한쪽만이면 티켓 미발급으로 정당한 편집이 되돌려진다 — F65 회귀). passes/agreed 전환의
+    # `templates/` 제외는 아래 별도 조건으로 남으므로 스캐폴딩 편집 자체는 막히지 않는다.
+    */templates/progress/*.json | templates/progress/*.json) return 0 ;;
     */contracts/sprint-*.json) return 0 ;;  # agreed 전환 보호(INV-11) — jq-존재 브랜치 9번째와 정합
     */skills/change-request/SKILL.md | skills/change-request/SKILL.md | \
     */skills/improve/SKILL.md | skills/improve/SKILL.md | \

@@ -91,9 +91,12 @@
     },
     {
       "id": "SC-4",
-      "criterion": "`PROTECTED_GLOBS ≡ is_protected()` 정합이 유지된다 (F65 SC-8 계승).",
+      "criterion": "`PROTECTED_GLOBS ≡ is_protected()` 정합이 유지되고, **면제가 실제로 allow를 내는 경로 표기는 전부 `PROTECTED_GLOBS ∩ (HEAD 추적 파일)` 안**이다 (F65 SC-8 계승).",
       "rationale": "면제를 넓히면 그 파일의 유일한 보호가 사후 탐지가 된다. 두 목록이 어긋나면 예측도 탐지도 없는 경로가 생긴다.",
-      "verification": "`tests/protected-integrity.bats` 의 두 목록 대조 테스트 통과 + 면제 대상 arm이 다루는 모든 경로가 PROTECTED_GLOBS에 있음을 기계 확인"
+      "_layer": "표기 층 (notation layer) — 2026-08-02 사용자 결정, 4차 판정 권고. 이 기준은 **명령에 적힌 경로 표기**에 대해 성립한다.",
+      "_layer_rationale": "면제 판정은 정규식으로 명령 문자열을 읽는데 면제 대상은 인터프리터 호출 전체다. 그래서 작업 디렉터리를 옮기거나(`cd`) 경로를 런타임에 조립하면(`os.chdir`·문자열 연결) 표기와 실제로 열리는 파일이 갈린다. 그 층까지 요구하면 대상 언어의 실행 의미론이 필요해 결정 불가능하며(F63이 10회전에 걸쳐 확인한 계열), 셸 `cd`만 막는 부분 대응은 그 열거 실패를 재현한다. **표기 층을 택한 대가는 두 가지 방식으로 상쇄한다** — (a) 표기 층을 빠져나간 쓰기도 대상이 탐지 집합 안이면 사후 복구된다(5차 판정이 실증한 `templates/` 손실은 이 경로로 닫았다: `templates/progress/*.json`을 PROTECTED_GLOBS·is_protected에 편입해 `cd templates && …`도 되돌려진다), (b) 복구가 원리적으로 불가능한 `.claude/**`는 예측이 원래 이 클래스를 잡은 적이 없다(토큰 하나 짧은 형제가 main에서도 allow).",
+      "_layer_limits": "표기 층 안에서의 반증은 결함이지 갭이 아니다. 5차 판정이 그 예를 찾았다 — 토큰 추출에 우측 앵커가 없어 `progress/feature_list.json.bak`이 `progress/feature_list.json`으로 잘려 면제됐다(순수 문자열 층). 경로 토큰을 통째로 받아 글롭에 **정확히** 대조하는 방식으로 고쳤다.",
+      "verification": "`tests/protected-integrity.bats`의 두 목록 대조 + 면제 arm의 경로 대안을 정규식에서 뽑아 저장소 전체를 주입했을 때 **allow가 나온 파일이 전부 PROTECTED_GLOBS 안**임을 기계 확인 + `DETECTED_LOCATIONS ⊆ PROTECTED_GLOBS` 파싱 대조 + 접미사 변형(`.bak`·`.orig`·`.jsonx`)이 ask + 표기 층 밖 형태(`cd`·`os.chdir`)를 알려진 갭으로 고정하는 회귀 테스트(갭이 **넓어지는** 변이에도 반응해야 한다)"
     },
     {
       "id": "SC-5",
