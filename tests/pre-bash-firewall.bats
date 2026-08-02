@@ -1250,37 +1250,43 @@ JSON
 # 1개(sed/awk + 하네스 파일)에만 적용돼 있었다. feature_list.json 전용 arm 7개는 어떤 도구로도
 # 면제되지 않아 인터프리터 순수 읽기가 ask였다.
 
-@test "F67: an interpreter reading a data-plane file auto-allows" {
-  # 인터프리터 arm은 **도구 이름만으로** 판정하므로 순수 읽기까지 잡는다 — 이미 면제된
-  # 에디터 이름 arm과 성질이 같다. pure_read_only()에는 넣을 수 없다: `-c` 뒤가 임의
-  # 프로그램이라 읽기·쓰기를 가르려면 파이썬 파서가 필요하다(방화벽 :344-345가 인정).
+@test "F67: an interpreter touching a data-plane file stays predicted (면제 철회)" {
+  # **F67의 인터프리터 면제는 철회됐다(2026-08-02).** 여섯 회전에 걸쳐 그 손실 상한을 경로로
+  # 구속하려 했고 매번 한 층 아래에서 같은 결함이 나왔다 — 명령 문자열로 실제 대상을 확정하는
+  # 것이 결정 불가능하기 때문이다(F63의 결론). 마지막 상태에서는 상한에 복구 불가능한 설치본
+  # 훅까지 들어왔고, 그 대가로 사는 것은 읽기 프롬프트 하나였다. 교환이 성립하지 않는다.
+  # 여기서 그 철회를 고정한다 — 인터프리터는 읽기 형태여도 ask 다(main 과 동일).
   run wired_firewall '{"tool_input":{"command":"python3 -c json.load(open(progress/feature_list.json))"}}'
-  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
   run wired_firewall '{"tool_input":{"command":"node -e require(./progress/feature_list.json)"}}'
-  [[ "$output" == *'"permissionDecision": "allow"'* ]]
-  # 사용자가 실제로 거부당한 형태 — 작은따옴표가 든 진짜 명령
-  run wired_firewall '{"tool_input":{"command":"python3 -c import json; fl=json.load(open('"'"'progress/feature_list.json'"'"')); print(len(fl))"}}'
-  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run wired_firewall '{"tool_input":{"command":"ruby -e File.read(hooks/lib.sh)"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
 }
 
-@test "F67: newline-separated unrelated commands do not overfire" {
-  # 정규화가 개행을 공백으로 접으므로 `[^;|&]*` 스팬이 명령 경계를 놓친다. 아래 두 명령은
-  # 무관하고 python은 그 파일 근처도 가지 않는데 한 스팬으로 묶여 ask였다. 같은 두 명령을
-  # `;` 로 이으면 allow였다 — 표기만 바꿔 판정이 뒤집히던 자리다.
+@test "F67: the newline overfire is a known gap again, same as main" {
+  # 정규화가 개행을 공백으로 접으므로 `[^;|&]*` 스팬이 명령 경계를 놓친다 — 무관한 두 명령이
+  # 한 스팬으로 묶여 ask 가 되고, 같은 두 명령을 `;` 로 이으면 allow 다. 면제 철회로 이 과탐이
+  # 되돌아왔다. 비용은 마찰 쪽이고 보호는 약해지지 않으므로 갭으로 남긴다(main 과 동일).
   run wired_firewall '{"tool_input":{"command":"python3 --version\nwc -l progress/feature_list.json"}}'
-  [[ "$output" == *'"permissionDecision": "allow"'* ]]
-  # 세미콜론 형태와 판정이 같아야 한다
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
   run wired_firewall '{"tool_input":{"command":"python3 --version; wc -l progress/feature_list.json"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
-@test "F67: interpreter writes are no longer predicted — detection covers them" {
-  # **정직한 손실 상한**: 면제는 읽기만 통과시키는 것이 아니라 그 arm 전체를 끈다. 인터프리터로
-  # 쓰는 것도 사전에 막히지 않는다. 대신 protected-integrity.sh(PostToolUse:Bash)가 티켓 대조로
-  # 사후 탐지·복구하며 feature_list.json은 이미 PROTECTED_GLOBS에 있다. 이 테스트는 그 교환을
-  # 코드로 고정한다 — allow가 나오는 것이 버그가 아니라 설계임을 문서화한다.
-  run wired_firewall '{"tool_input":{"command":"python3 -c open(progress/feature_list.json,w).write(evil)"}}'
-  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+@test "F67: interpreter writes are predicted again (the withdrawal's point)" {
+  # 철회의 실익이 여기 있다. 인터프리터로 보호 파일을 쓰는 형태가 다시 예측에 걸린다 —
+  # 사후 탐지가 닿지 않는 경로(설치본·미추적 신규 파일·저장소 밖)까지 한 번에 덮인다.
+  local c
+  for c in "progress/feature_list.json" \
+           ".claude/hooks/lib.sh" \
+           "hooks/newfile.sh" \
+           "dist/hooks/app.sh" \
+           "progress/feature_list.json.bak"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"python3 -c open($c,w).write(evil)\"}}"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "인터프리터 면제가 되살아났다 — 되살릴 의도였다면 INV-14·SC-4 도 함께 고쳐라: $c"; false; }
+  done
 }
 
 @test "F67: arms whose write signal is in the command are not exempted" {
@@ -1337,18 +1343,19 @@ JSON
   done
 }
 
-@test "F67: interpreter reads across the whole data plane auto-allow" {
-  # 1차 판정이 찾은 갭: 인터프리터 arm이 데이터 플레인과 컨트롤 플레인 경로를 **한 arm에** 담고
-  # 있어 `settings` 부분일치로 통째 배제됐고, 그래서 면제가 feature_list.json 하나에만 닿았다.
-  # arm을 평면별로 쪼개 데이터 플레인 전체가 면제되게 한다.
-  run wired_firewall '{"tool_input":{"command":"python3 -c open(hooks/lib.sh).read()"}}'
+@test "F67: sed/awk stay exempt — the withdrawal is scoped to interpreters" {
+  # F65 의 sed/awk 면제는 유지된다. 두 도구는 `-i`·`w`·리다이렉트 부재로 **읽기가 구문으로
+  # 확정**되므로 면제 근거가 도구 이름이 아니라 확정 가능성에 있다. 인터프리터는 `-c` 뒤가
+  # 임의 프로그램이라 그 확정이 원리적으로 불가능하고, 그 차이가 이번 철회의 경계다.
+  run wired_firewall '{"tool_input":{"command":"sed -n 1,5p hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
-  run wired_firewall '{"tool_input":{"command":"python3 -c json.load(open(progress/harness-config.json))"}}'
+  run wired_firewall '{"tool_input":{"command":"awk NR==1 progress/feature_list.json"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
-  run wired_firewall '{"tool_input":{"command":"node -e read(tests/pre-bash-firewall.bats)"}}'
-  [[ "$output" == *'"permissionDecision": "allow"'* ]]
-  run wired_firewall '{"tool_input":{"command":"ruby -e read(docs/INVARIANTS.md)"}}'
-  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+  # 쓰기 신호가 드러나면 sed/awk 도 예측 대상이다(면제가 도구 이름만 보지 않는다는 증거)
+  run wired_firewall '{"tool_input":{"command":"sed -i s/a/b/ progress/feature_list.json"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run wired_firewall '{"tool_input":{"command":"awk {print} x > hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
 }
 
 @test "F67: the control plane stays predicted even for interpreters" {
@@ -1419,18 +1426,11 @@ JSON
   # wired_firewall 이 쓰는 설치본을 만들어 둔다
   wired_firewall '{"tool_input":{"command":"true"}}' >/dev/null
 
-  # 의도된 차이: 다섯 도구(python·node·ruby·sed·awk 계열)가 하네스 파일 표기를 담은 명령을
-  # **경로와 무관하게** allow 한다. 2026-08-02 사용자 결정으로 경로 조건을 철회한 결과이며,
-  # 아래 뒷줄 넷이 그 확대분이다 — 손실 상한은 INV-14 에 적혀 있다.
-  local -a INTENDED=(
-    '{"tool_input":{"command":"python3 -c open(hooks/lib.sh).read()"}}'
-    '{"tool_input":{"command":"python3 -c json.load(open(progress/feature_list.json))"}}'
-    '{"tool_input":{"command":"node -e read(progress/harness-config.json)"}}'
-    '{"tool_input":{"command":"cd .claude && python3 -c open(hooks/lib.sh,w).write(x)"}}'
-    '{"tool_input":{"command":"python3 -c open(hooks/newfile.sh,w).write(x)"}}'
-    '{"tool_input":{"command":"python3 -c open(progress/feature_list.json.bak,w).write(x)"}}'
-    '{"tool_input":{"command":"node build.js --out dist/hooks/app.sh"}}'
-  )
+  # **의도된 차이는 이제 없다.** 인터프리터 면제 철회(2026-08-02)로 방화벽의 결정 함수가
+  # main 과 같아졌다 — F67 이 브랜치에 남긴 것은 방화벽 판정이 아니라 탐지·가드 쪽 개선이다.
+  # 목록을 비워 두면 아래 루프가 공허하게 통과하므로, 비었음을 **명시적으로** 단언한다.
+  local -a INTENDED=()
+  [ "${#INTENDED[@]}" -eq 0 ]
   # 그 밖: 판정이 main 과 같아야 한다
   local -a SAME=(
     '{"tool_input":{"command":"rm -rf /"}}'
@@ -1453,17 +1453,26 @@ JSON
     '{"tool_input":{"command":"if true; then\n  cp /tmp/x hooks/hooks.json\nfi"}}'
     '{"tool_input":{"command":"( cd /tmp\n  dd of=hooks/lib.sh )"}}'
     '{"tool_input":{"command":"printf a \\\\\\\\\nsed -i s/a/b/ .claude/settings.json"}}'
-    # 경로 arm 으로 따로 못박은 두 위치는 **직접 표기**면 면제 대상이 아니므로 main 과 같이 ask 다
+    # 면제 철회로 인터프리터 계열이 전부 main 과 같아졌다 — 여섯 회전이 다툰 형태들이다
     '{"tool_input":{"command":"python3 -c open(templates/progress/feature_list.json,w).write(x)"}}'
     '{"tool_input":{"command":"python3 -c open(.claude/hooks/lib.sh,w).write(x)"}}'
+    '{"tool_input":{"command":"cd .claude && python3 -c open(hooks/lib.sh,w).write(x)"}}'
+    '{"tool_input":{"command":"python3 -c open(hooks/newfile.sh,w).write(x)"}}'
+    '{"tool_input":{"command":"python3 -c open(progress/feature_list.json.bak,w).write(x)"}}'
+    '{"tool_input":{"command":"node build.js --out dist/hooks/app.sh"}}'
+    '{"tool_input":{"command":"python3 -c json.load(open(progress/feature_list.json))"}}'
+    '{"tool_input":{"command":"python3 -c open(HOOKS/LIB.SH,w).write(x)"}}'
   )
+  # 코퍼스가 조용히 비면 아래 루프가 무의미해진다 — 크기를 먼저 단언한다
+  [ "${#SAME[@]}" -ge 20 ]
   local c
   for c in "${INTENDED[@]}"; do
     [ "$(judge_with "$main_hook" "$c")" = ask ]
     [ "$(judge_with "$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh" "$c")" = allow ]
   done
   for c in "${SAME[@]}"; do
-    [ "$(judge_with "$main_hook" "$c")" = "$(judge_with "$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh" "$c")" ]
+    [ "$(judge_with "$main_hook" "$c")" = "$(judge_with "$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh" "$c")" ] \
+      || { echo "main 과 판정이 갈렸다: $c"; false; }
   done
 }
 
@@ -1593,7 +1602,8 @@ load_firewall_fns() {
   eval "$(sed -n '/^arm_is_exemptable()/,/^}/p' "$fw")"
   eval "$(sed -n '/^exempt_paths_are_detected()/,/^}/p' "$fw")"
   [ -n "$READ_CAPABLE_ARM" ] && [ -n "$INTERPRETER_ARM" ]
-  [ "${#EXEMPTABLE_ARM_TOKENS[@]}" -ge 2 ] && [ "${#DETECTED_LOCATIONS[@]}" -ge 5 ]
+  # 면제 토큰은 1개다 — 인터프리터 면제 철회(2026-08-02) 후 sed/awk arm 하나만 남는다.
+  [ "${#EXEMPTABLE_ARM_TOKENS[@]}" -ge 1 ] && [ "${#DETECTED_LOCATIONS[@]}" -ge 5 ]
 }
 
 @test "F67: the path check alone closes the undetected classes (general rule)" {
@@ -1639,22 +1649,22 @@ load_firewall_fns() {
     run exempt_paths_are_detected "$c"
     [ "$status" -ne 0 ] || { echo "함수가 이 경로를 탐지 대상으로 본다(전제가 바뀜): $c"; false; }
   done
-  # 그런데도 배선 상태의 판정은 allow 다 — 게이트가 배선에서 빠졌다는 뜻이다
+  # 그런데도 판정은 ask 다 — 인터프리터 면제가 철회됐으므로 이 함수를 볼 일 자체가 없다
   for c in "python3 -c open(hooks/newfile.sh,w).write(x)" \
            "python3 -c open(progress/feature_list.json.bak,w).write(x)"; do
     run wired_firewall "{\"tool_input\":{\"command\":\"$c\"}}"
-    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
-      || { echo "경로 게이트가 되살아났다 — 되살릴 의도였다면 SC-4·INV-14 도 함께 고쳐라: $c"; false; }
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "인터프리터 면제가 되살아났다 — 되살릴 의도였다면 SC-4·INV-14 도 함께 고쳐라: $c"; false; }
   done
   # 판정부에 조건이 다시 붙지 않았는지 소스로도 확인한다(주석은 세지 않는다)
   run grep -c 'EXEMPT_PATHS_OK' "$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh"
   [ "$output" -eq 0 ]
 }
 
-@test "F67: suffix variants are exempt too — a direct consequence of dropping the path condition" {
-  # 5차 판정이 `progress/feature_list.json.bak` 을 결함으로 지적했고 6차가 문자 클래스 밖
-  # 접미사 12형태를 더 찾았다. 경로 조건 철회로 **이 클래스 전체가 면제로 확정**된다 —
-  # 더는 결함이 아니라 선언된 손실 상한이다. 확정된 상태를 여기 고정한다.
+@test "F67: suffix variants are predicted — the class the judgments kept reopening" {
+  # 5·6차 판정이 이 클래스를 두 번 찾았다(`feature_list.json.bak`·`json~`·`json,v` …).
+  # 경로 검사로 닫으려던 시도가 매번 문자 하나 옆에서 다시 열렸고, 인터프리터 면제 철회로
+  # **클래스 전체가 예측으로 돌아왔다** — 표기를 볼 필요가 없어졌기 때문이다.
   local c
   for c in "progress/feature_list.json.bak" \
            "progress/feature_list.jsonx" \
@@ -1662,26 +1672,22 @@ load_firewall_fns() {
            "docs/INVARIANTS.md.bak" \
            "tests/lib.bats.tmp"; do
     run wired_firewall "{\"tool_input\":{\"command\":\"python3 -c open($c,w).write(x)\"}}"
-    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
-      || { echo "판정이 바뀌었다 — 의도했다면 INV-14 손실 상한도 함께 고쳐라: $c"; false; }
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "판정이 바뀌었다 — 인터프리터 면제가 되살아났는지 확인하라: $c"; false; }
   done
-  # 배선이 없으면 예측이 되살아난다(fail-safe 는 이 확대와 무관하게 유지된다)
-  run run_firewall '{"tool_input":{"command":"python3 -c open(progress/feature_list.json.bak,w).write(x)"}}'
-  [[ "$output" == *'"permissionDecision": "ask"'* ]]
 }
 
-@test "F67: untracked files under a protected glob are exempt (declared loss)" {
-  # 탐지기는 `git ls-tree HEAD` 를 열거하므로 HEAD 에 없는 파일은 복구되지 않는다. 3차 판정은
-  # 이것을 결함으로 봤고 그때는 맞았다(기준이 경로 조건을 포함했으므로). 경로 조건 철회 후에는
-  # **선언된 손실**이다 — 신규 훅 스크립트를 쓰는 동안은 예측도 탐지도 없다.
+@test "F67: untracked files under a protected glob are predicted too" {
+  # 탐지기는 `git ls-tree HEAD` 를 열거하므로 HEAD 에 없는 파일은 복구되지 않는다 —
+  # 3차 판정이 이것을 결함으로 지적했고, 면제 철회로 예측이 그 자리를 다시 덮는다.
   command -v git >/dev/null || skip "git not installed"
   local c
   for c in "hooks/newfile.sh" "tests/newfile.bats" "hooks/does-not-exist.sh"; do
     run wired_firewall "{\"tool_input\":{\"command\":\"python3 -c open($c,w).write(x)\"}}"
-    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
-      || { echo "판정이 바뀌었다 — 의도했다면 INV-14 손실 상한도 함께 고쳐라: $c"; false; }
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "미추적 파일이 면제됐다: $c"; false; }
   done
-  # 추적되는 파일은 여전히 탐지·복구 대상이다 — 손실이 '전부'가 아님을 같은 자리에 고정한다
+  # 추적되는 파일은 탐지·복구 대상이다 — 두 계층이 함께 있음을 같은 자리에 고정한다
   local pi="$BATS_TEST_DIRNAME/../hooks/protected-integrity.sh"
   local root="$BATS_TEST_DIRNAME/.."
   run bash -c "git -C '$root' ls-tree -r --name-only HEAD | grep -c '^hooks/lib\.sh$'"
@@ -1709,22 +1715,20 @@ load_firewall_fns() {
     run arm_is_exemptable "$a"
     [ "$status" -ne 0 ] || { echo "배제가 뚫린다: $a"; false; }
   done
-  # 배제가 과도하면 면제가 통째로 멈춰 마찰이 되돌아온다 — 진짜 데이터 플레인 arm 은 통과해야 한다
+  # 인터프리터 토큰은 면제 목록에서 빠졌으므로 그 arm 은 이제 무조건 비면제다(철회 확인)
   run arm_is_exemptable "\\b$INTERPRETER_ARM\\b[^;|&]*(harness-config\\.json|hooks/[A-Za-z0-9_.-]+\\.sh)"
-  [ "$status" -eq 0 ]
+  [ "$status" -ne 0 ]
+  # 배제가 과도하면 sed/awk 면제까지 멈춰 F65 가 없앤 마찰이 되돌아온다 — 그쪽은 통과해야 한다
   run arm_is_exemptable "\\b$READ_CAPABLE_ARM\\b[^;|&]*(harness-config\\.json|INVARIANTS\\.md)"
   [ "$status" -eq 0 ]
 }
 
-@test "F67: the notation-layer gap is never wider on this branch than on main" {
-  # SC-4 는 **표기 층**으로 확정됐다(2026-08-02 사용자 결정, 4차 판정). 면제 판정은 명령 문자열을
-  # 정규식으로 읽는데 면제 대상은 인터프리터 호출 전체라, 명령이 **적는** 경로와 명령이 **여는**
-  # 파일이 갈릴 수 있다. 그 층을 완결하려면 대상 언어의 실행 의미론이 필요해 결정 불가능하다.
-  #
-  # 앞선 판본은 이 형태들의 판정을 **고정값(allow)으로** 단언했는데, 그러면 갭이 **넓어지는**
-  # 변이에는 반응하지 못한다(5차 판정 지적: 면제를 확대해도 초록으로 남았다). 그래서 단언을
-  # main 대조로 바꾼다 — **F67 이 이 클래스에서 예측을 걷어냈는가**가 물어야 할 것이고,
-  # 그 질문은 브랜치 훅과 main 훅을 같은 입력에 돌려야만 답할 수 있다.
+@test "F67: the cwd-detour class is identical to main (no prediction removed)" {
+  # 2~6차 판정이 이 클래스로 F67 을 다섯 번 반려했다 — `cd`·`pushd`·`os.chdir` 로 작업
+  # 디렉터리를 옮기면 명령이 **적는** 경로와 **여는** 파일이 갈리고, 그 층을 완결하려면 대상
+  # 언어의 실행 의미론이 필요해 결정 불가능하다. 인터프리터 면제 철회로 F67 은 이 클래스에서
+  # 예측을 **걷어내지 않는다** — 즉 갭은 main 이 원래 갖던 것 그대로이고 F67 의 책임이 아니다.
+  # 여기서 그 동일성을 main 대조로 고정한다. 어느 한쪽으로든 갈리면 전제가 바뀐 것이다.
   command -v git >/dev/null || skip "git not installed"
   git -C "$BATS_TEST_DIRNAME/.." rev-parse --verify main >/dev/null 2>&1 \
     || skip "local 'main' ref not available"
@@ -1746,30 +1750,25 @@ JSON
   }
   # 인용부호가 있는 **현실 형태**를 함께 넣는다 — 앞선 판본은 인용을 뗀 형태만 써서,
   # 인용이 붙으면 main 이 ask 인 경우를 보지 못했다(5차 판정 지적).
-  # 경로 조건 철회 후 이 클래스는 **선언된 손실**이다. 그래도 main 대조를 유지하는 이유는,
-  # 손실이 어디까지인지를 숫자가 아니라 **판정 차이의 목록**으로 남기기 위해서다 —
-  # 아래는 전부 main=ask / branch=allow 여야 하고, 그 밖의 조합이 나오면 전제가 바뀐 것이다.
-  local c m b
+  local c m b n=0
   for c in "cd .claude && python3 -c open(hooks/lib.sh,w).write(x)" \
            "cd templates && python3 -c open(progress/harness-config.json,w).write(x)" \
            "cd .claude; python3 -c open(hooks/lib.sh,w).write(x)" \
            "(cd .claude && python3 -c open(hooks/lib.sh,w).write(x))" \
            "pushd .claude && python3 -c open(hooks/lib.sh,w).write(x)" \
            "python3 -c import os; os.chdir(.claude); open(hooks/lib.sh,w).write(x)" \
+           "python3 -c \\\"import os; os.chdir('.claude'); open('hooks/lib.sh','w')\\\"" \
            "cd .claude/hooks && python3 -c open(lib.sh,w).write(x)"; do
     m=$(verdict_of "$main_hook" "$c")
     b=$(verdict_of "$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh" "$c")
-    # main 이 이미 allow 인 형태(예측이 잡은 적 없는 것)는 그대로 allow 여야 한다
-    if [ "$m" = '"permissionDecision": "allow"' ]; then
-      [ "$b" = "$m" ] || { echo "main 이 allow 인 형태에서 브랜치가 갈렸다: $c ($m vs $b)"; false; }
-      continue
-    fi
-    [ "$b" = '"permissionDecision": "allow"' ] || {
-      echo "선언된 손실 목록의 판정이 바뀌었다 — 좁힌 것이라면 INV-14·SC-4 도 함께 고쳐라."
+    [ -n "$m" ] && n=$((n+1))
+    [ "$m" = "$b" ] || {
+      echo "cwd 우회 클래스에서 main 과 판정이 갈렸다 — F67 이 예측을 걷어냈는지 확인하라."
       echo "  명령: $c"; echo "  main=$m  branch=$b"
       false
     }
   done
+  [ "$n" -ge 8 ]   # 판정이 비어 돌아오면 대조가 공허해진다
 }
 
 @test "F67: the two enumerated path arms still hold for direct spellings" {
@@ -1785,21 +1784,25 @@ JSON
     [[ "$output" == *'"permissionDecision": "ask"'* ]] \
       || { echo "경로 arm 이 사라졌다 — INV-5 add-only 위반 여부를 확인하라: $c"; false; }
   done
-  # 그 밖의 미탐지 경로는 면제된다(선언된 손실) — 두 arm 의 범위가 이것뿐임을 대조로 보인다
-  for c in "dist/hooks/app.sh" "vendor/x/progress/feature_list.json"; do
-    run wired_firewall "{\"tool_input\":{\"command\":\"python3 -c open($c,w).write(x)\"}}"
-    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
-      || { echo "판정이 바뀌었다 — 의도했다면 INV-14 손실 상한도 함께 고쳐라: $c"; false; }
-  done
+  # 두 arm 은 **추가**된 것이고 인터프리터 면제 철회와 독립이다 — 면제가 다시 붙어도 이 자리는
+  # 남는다. 그 독립성을 소스로 확인한다(arm 이 EXEMPTABLE 토큰을 갖지 않는다).
+  local fw="$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh"
+  run grep -c "templates/\[A-Za-z0-9_./-\]\*(harness-config|feature_list)" "$fw"
+  [ "$output" -ge 1 ]
+  run grep -c '\\.claude/\[A-Za-z0-9_./-\]\*hooks/' "$fw"
+  [ "$output" -ge 1 ]
 }
 
-@test "F67: the detected locations themselves still auto-allow (no over-correction)" {
-  # 위 교정이 F67의 본래 목적을 되돌리지 않았음을 같은 자리에 고정한다.
+@test "F67: F65's sed/awk read relief survives the withdrawal" {
+  # 철회는 인터프리터에만 적용된다. F65 가 없앤 sed/awk 읽기 마찰이 되돌아오면 그것은
+  # 과잉 교정이므로, 데이터 플레인 전체에 대해 같은 자리에서 확인한다.
   local c
   for c in "progress/feature_list.json" "progress/harness-config.json" \
            "hooks/lib.sh" "tests/lib.bats" "docs/INVARIANTS.md" "./progress/feature_list.json"; do
-    run wired_firewall "{\"tool_input\":{\"command\":\"python3 -c open($c).read()\"}}"
-    [[ "$output" == *'"permissionDecision": "allow"'* ]] || { echo "마찰이 되돌아왔다: $c"; false; }
+    run wired_firewall "{\"tool_input\":{\"command\":\"sed -n 1,3p $c\"}}"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] || { echo "sed 읽기 마찰이 되돌아왔다: $c"; false; }
+    run wired_firewall "{\"tool_input\":{\"command\":\"awk NR==1 $c\"}}"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] || { echo "awk 읽기 마찰이 되돌아왔다: $c"; false; }
   done
 }
 
