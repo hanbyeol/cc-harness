@@ -193,7 +193,18 @@ arm_is_exemptable() {
   return 1
 }
 
-# === 면제가 성립하는 경로 (F67 2차 판정) ===
+# === [은퇴] 면제가 성립하는 경로 (F67 2~6차 판정) ===
+# **이 함수는 더 이상 호출되지 않는다** (2026-08-02 사용자 결정). 아래 판정부는 경로를 보지 않고
+# 다섯 도구(python·node·ruby·sed·awk 계열)를 무조건 면제한다. 여섯 회전 동안 이 함수를 고쳐
+# 경로를 구속하려 했고 매번 한 층 아래에서 같은 결함이 나왔다 — 경로 열거 → 대소문자·HEAD 추적 →
+# `cd` 형태 → 정규식 우측 앵커 → 문자 클래스 경계 + `cd` 열거. 명령 문자열로 실제 대상을 확정하는
+# 것은 F63이 열 회전에 걸쳐 확인한 결정 불가능 축이고, 부분 구현은 닫힌 것으로 오인하게 만든다.
+# 코드를 지우지 않는 이유는 INV-5(패턴 총수 add-only)가 따옴표로 시작하는 줄의 감소를 차단하기
+# 때문이다 — 삭제하려면 사용자가 직접 편집·승인해야 한다. 되살리려면 판정부에
+# `&& exempt_paths_are_detected "$NORMALIZED_CMD"` 를 다시 붙이면 되지만, 그 전에 위 여섯 회전의
+# 기록(progress/lessons.md)을 읽을 것.
+#
+# --- 아래는 은퇴 시점의 원래 설명 ---
 # arm이 읽기를 잡는다는 것만으로는 면제 근거가 되지 않는다 — 면제는 예측을 끄는 것이고,
 # 예측을 끌 수 있는 유일한 근거는 **그 파일을 사후 탐지·복구가 담당한다**는 사실이기 때문이다.
 # arm의 경로 대안은 무앵커라 저장소 사본 말고도 복구 집합 밖 파일을 함께 잡는다:
@@ -605,9 +616,6 @@ pure_read_only() {
 PURE_READ=0
 pure_read_only "$CMD" && PURE_READ=1
 
-EXEMPT_PATHS_OK=0
-exempt_paths_are_detected "$NORMALIZED_CMD" && EXEMPT_PATHS_OK=1
-
 if [ "$PURE_READ" -eq 0 ] && echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then
   for p in "${ASK_PATTERNS[@]}"; do
     if echo "$NORMALIZED_CMD" | grep -qiE "$p"; then
@@ -625,9 +633,14 @@ if [ "$PURE_READ" -eq 0 ] && echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns
       # (a) 이 arm은 도구 이름만 보므로 순수 읽기를 잡고, (b) 개행으로 나눈 **무관한 두 명령**까지
       # 한 스팬으로 묶으며, (c) 같은 명령을 `;` 로 이으면 통과한다 — 표기 한 글자로 판정이 뒤집혀
       # 보호도 마찰도 실패하고 있었다. 사후 탐지·복구는 그 세 결함을 모두 갖지 않는다.
-      # 면제의 두 조건: (1) 그 arm이 읽기를 잡는가 (2) 명령이 가리키는 경로를 탐지가 담당하는가.
-      # (2)는 2차 판정이 실증한 클래스를 닫는다 — 자세한 근거는 exempt_paths_are_detected() 주석.
-      if [ "$DATA_PLANE_DETECTED" -eq 0 ] && arm_is_exemptable "$p" && [ "$EXEMPT_PATHS_OK" -eq 1 ]; then
+      # 면제 조건은 하나다: **그 arm이 읽기를 잡는가.** 경로 조건은 2026-08-02 사용자 결정으로
+      # 철회했다 — 경로를 표기로 구속하려는 시도가 여섯 회전 연속 같은 결함을 냈고(경로 열거 →
+      # 대소문자·추적 → `cd` 형태 → 정규식 앵커 → 문자 클래스 경계), 매 회전 "이번엔 원리적"이라고
+      # 적고서 한 층 아래에서 같은 것이 나왔다. 명령 문자열로 경로를 확정하는 것은 F63이 열 회전에
+      # 걸쳐 확인한 결정 불가능 축이며, 부분 구현은 닫힌 것으로 오인하게 만들어 오히려 나쁘다.
+      # 그래서 다섯 도구(python·node·ruby·sed·awk 계열)는 **경로와 무관하게** 면제하고,
+      # 보호는 전적으로 사후 탐지·복구에 맡긴다. 손실 상한은 INV-14에 그대로 적었다.
+      if [ "$DATA_PLANE_DETECTED" -eq 0 ] && arm_is_exemptable "$p"; then
         continue
       fi
       log_decision ask

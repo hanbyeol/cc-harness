@@ -103,7 +103,24 @@
       ],
       "_scope": "이번 회전의 변경은 코드가 아니라 **기준·문서·회귀 테스트**다. 판정 대상은 (a) 표기 층 확정이 기준 완화인지 정당한 층 고정인지 (b) INV-14 손실 상한이 이제 코드와 정확히 일치하는지 (c) 알려진 갭 고정 테스트에 이빨이 있는지.",
       "_n_note": "N(2) 소진 후 사용자가 회전마다 개별 승인해 진행 중이다. 이번 승인은 2026-08-02 \"진행해\".",
-      "stop_condition_watch": "이번에도 SC-4 축이면 5회차다. 그 경우 표기 층 확정 자체가 반증된 것이므로 F67 범위 재정의(효과 층 = 인터프리터 면제 철회)가 다음 수순이다."
+      "verdict": "fail",
+      "score": 4,
+      "feedback": "progress/agent-comms/evaluator-feedback-2026-08-02T19-02-12+0900.json",
+      "fail_axis": "SC-4·SC-3 5회차. 셋 — (1) 계약 변경이 **존재하지 않았다**(python 히어독으로 고쳐 티켓 미발급 → protected-integrity 가 HEAD 로 복구). 층 확정이 커밋 메시지·문서·테스트 주석에만 있었고 판정 기준인 SC-4 는 옛 문장. (2) 표기 층 **안**의 반증 — 토큰 추출에 우측 앵커가 없어 `progress/feature_list.json.bak` 이 잘려 면제(순수 문자열 층). (3) 층 선택의 면책 근거가 `templates/` 에서 거짓 — 짧은 형제가 main 에서도 ask 이고, 격리 랩에서 seed 의 `pass_threshold` 를 낮춰도 복구·기록·격리 전무.",
+      "resolution_commits": [
+        "c442305"
+      ],
+      "resolution_note": "(1) SC-4 에 `_layer`·`_layer_rationale`·`_layer_limits` 를 **Edit 툴로** 반영(티켓 발급 확인). (2) 경로 토큰을 통째로 받아 글롭에 정확 대조 — `.bak`·`.orig`·`.jsonx`·`.tmp` 차단. (3) `templates/progress/*.json` 을 PROTECTED_GLOBS·is_protected 에 편입(어떻게 적히든 복구) + `cd`/`chdir` 은 **대조의 전제 파기**로 보아 면제 거부 — 우회 열거가 아니라 전제 탐지이며, 그 결과 `cd` 5형태가 전부 main 과 동일해져 F67 이 이 클래스에서 예측을 걷어낸 자리가 사라졌다. 알려진 갭 테스트는 고정값 단언 → main 대조로 전환(넓어지는 변이에도 반응)."
+    },
+    {
+      "round": 5,
+      "status": "in_progress",
+      "started": "2026-08-02",
+      "judging_commits": [
+        "c442305"
+      ],
+      "_n_note": "사용자 개별 승인(2026-08-02 \"ok\").",
+      "stop_condition_watch": "6회차다. 이번에도 SC-4 축이면 개별 결함을 닫는 방식이 수렴하지 않는다는 증거로 보고, 다음 수순은 F67 범위 재정의(효과 층 = 인터프리터 면제 철회)로 확정한다."
     }
   ]
 }

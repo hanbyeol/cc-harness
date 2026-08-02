@@ -55,7 +55,7 @@ case "$FILE" in
     #  그 사이 approval-queue.json 이 한쪽에만 들어간 비대칭을 아무도 잡지 못했다.)
     REL="${REAL_FILE#"$REAL_PROJECT"/}"
     case "$REL" in
-      progress/harness-config.json | progress/feature_list.json | progress/contracts/sprint-*.json | progress/approval-queue.json | hooks/hooks.json)
+      progress/harness-config.json | progress/feature_list.json | progress/contracts/sprint-*.json | progress/approval-queue.json | hooks/hooks.json | templates/progress/*.json)
         exit 0
         ;;
     esac

@@ -1,0 +1,140 @@
+{
+  "timestamp": "2026-08-02T21:41:59+09:00",
+  "sprint": 53,
+  "iteration": 6,
+  "features_evaluated": [
+    "F67"
+  ],
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "commits_judged": [
+    "d682e3a",
+    "05b2ebf",
+    "6fda20a",
+    "3eaad5b",
+    "7cdbaff",
+    "e27dfd7",
+    "c442305"
+  ],
+  "head": "c442305",
+  "scores": {
+    "functionality": 5,
+    "code_quality": 5,
+    "security": 4,
+    "error_handling": 7,
+    "test_coverage": 5
+  },
+  "score": 4,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "**SC-4 가 표기 층 **안에서** 또 반증된다 — 같은 축 6회차, 같은 메커니즘(토큰 절단), 다른 문자.** 5차는 우측 미앵커 정규식이 `progress/feature_list.json.bak` 을 잘라 면제한 것을 찾았고, 이번 교정은 토큰을 통째로 뽑아 글롭에 정확 대조하도록 바꿨다. 그런데 토큰 문자 클래스가 `[A-Za-z0-9_./-]` 여서 **그 클래스 밖 문자로 끝나는 경로는 여전히 잘린다.** 12형태 실측(branch allow / main ask): `progress/feature_list.json~` · `…json%` · `…json+bak` · `…json,v` · `…json@` · `…json#` · `hooks/lib.sh~` · `docs/INVARIANTS.md~` · `progress/harness-config.json~` · `@progress/feature_list.json` · node·ruby 판. 명령이 **적은** 표기가 PROTECTED_GLOBS 에도 HEAD 에도 없으므로 SC-4 문장이 그대로 거짓이고, 계약의 `_layer_limits` 가 **'표기 층 안에서의 반증은 갭이 아니라 결함이다'** 라고 스스로 규정한 바로 그 부류다. 5차가 닫은 것은 `.bak`·`.orig`·`.jsonx`·`.tmp`(전부 문자 클래스 **안**)뿐이고 경계 문제는 정규식에서 문자 클래스로 한 겹 옮겨갔을 뿐이다.",
+    "**`cd`/`chdir` 거부는 '전제 탐지' 가 아니라 또 하나의 열거다 — 계약 자신이 예고한 실패.** 계약 `_layer_rationale` 은 **'셸 `cd`만 막는 부분 대응은 그 열거 실패를 재현한다'** 고 명시하는데, 구현은 정확히 셸 `cd` + 리터럴 `chdir` 만 막았다. 같은 전제(표기가 저장소 루트 기준으로 해석된다)를 깨면서 검사를 빠져나가는 형태를 4가지 실측했다 — `pushd .claude && …`(branch allow / main ask) · `\\cd .claude && …`(allow/ask) · `cd$IFS.claude && …`(allow/ask) · `bash -c 'cd .claude && …'`(allow/ask). 커밋 메시지의 '5개 `cd` 형태가 전부 main 과 같아졌다' 는 열거된 다섯에 대해서만 참이다.",
+    "**그 열거 누락이 복구 불가 대상에 실보호 손실을 만든다(critical).** 위 세 형태(`pushd`·`\\cd`·`cd$IFS`)의 대상은 `.claude/hooks/lib.sh` — init.sh 배선(`settings.json`)이 실제로 실행하는 설치본이고 `.claude/` 는 gitignore 라 HEAD 복구가 원리적으로 없다. 격리 랩 실증: 그 경로를 덮어쓴 뒤 PostToolUse 를 돌려도 내용이 `PWNED` 로 남고 복구·기록·격리가 전무하다. main 은 이 표기들을 ask 로 잡고 있었으므로 F67 이 걷어낸 예측이다. (완화 요인은 확인했다 — INV-14 가 든 형제 면책은 이 대상에 한해 **참**이다: `cd .claude/hooks && python3 -c \"open('lib.sh','w')\"` 는 main 도 allow. 그래도 '이미 새는 곳이니 더 열어도 된다' 는 논거는 critical 티어에서 받아들이지 않는다.)",
+    "**AC-8(회귀 없음) 미충족 — 그리고 구현자 근거가 사실과 다르다.** 구현자는 `bats 724/724` 를 보고했으나 실측은 **723 ok / 1 not ok** 다: `not ok 121 F68: the formatter skip list and PROTECTED_GLOBS json entries are the same set`. 두 커밋 전(`91eb82e`)에 바로 이 비대칭을 잡으려고 추가된 테스트가 이번 변경으로 빨개졌다.",
+    "**그 빨간 테스트는 실제 동작 파손이다 — 정당한 스캐폴딩 편집이 조용히 되돌려진다.** `templates/progress/*.json` 을 PROTECTED_GLOBS·is_protected 에만 넣고 `post-edit-format.sh` 의 포맷 제외 목록에는 넣지 않았다. A/B 실증(격리 클론, PreToolUse→Write→formatter→PostToolUse 전 체인): `progress/harness-config.json`(제외 목록 **안**)은 `pass_threshold=8` 이 살아남고, `templates/progress/harness-config.json`(제외 목록 **밖**)은 포맷터가 재작성해 티켓 해시가 어긋나고(`1bdc6252…`→`bf379a30…`) protected-integrity 가 **HEAD 로 되돌린 뒤 격리**한다(8→7). INV-14 는 바로 이 위 문단에서 '두 목록을 함께 넓혀야 한다 — 한쪽만이면 티켓 미발급으로 정당한 편집이 되돌려진다(F65 회귀)' 고 적어 두고, 세 번째 목록을 빠뜨려 같은 회귀를 재생산했다. 이것은 5차 판정에서 계약 변경이 사라진 것과 **같은 고장 방식**이다.",
+    "**SC-3(INV-14 정합) 미충족 — 6회차.** 신규 문단은 절단 클래스를 '고쳤다' 고 단정하는데 12형태가 남아 있고, 문단이 든 예시 `cd templates && python3 -c \"open('progress/harness-config.json','w')\"` 는 이제 branch·main 모두 ask 라 '예측을 빠져나간다' 는 서술 자체가 틀렸다(실제로 빠져나가는 것은 `pushd templates && …`). 같은 축에서 문서가 코드보다 강한 주장을 하는 6회차다.",
+    "score 4 < threshold 7 (min-of-5), security 4 < 7 (critical tier 자동 fail)"
+  ],
+  "issues": [
+    "[security][high] 토큰 문자 클래스 밖 문자로 끝나는 경로가 탐지 대상으로 잘려 면제된다 — 12형태 branch allow / main ask (`~`·`%`·`+`·`,`·`@`·`#` 접미, `@` 접두). 직접 피해는 작지만(쓰이는 파일이 보호 대상이 아님) SC-4 가 배제하려는 메커니즘이 표기 층에서 그대로 살아 있다. 5차 교정은 이 경계를 정규식에서 문자 클래스로 옮겼을 뿐이다.",
+    "[security][high] `pushd .claude && python3 -c \"open('hooks/lib.sh','w').write('x')\"` → branch allow / main ask. 대상은 실행되는 설치본이고 gitignore 라 사후 복구가 없다(랩 실증: PostToolUse 후에도 `PWNED` 잔존, 로그·격리 없음).",
+    "[security][high] `\\cd .claude && …` · `cd$IFS.claude && …` · `bash -c 'cd .claude && …'` 도 같은 결과(branch allow / main ask). `cd` 거부 정규식 `(^|[;&|(]|[[:space:]])cd[[:space:]]` 이 백슬래시 이스케이프·`$IFS` 치환·인용부호 뒤 `cd` 를 놓친다.",
+    "[security][medium] `pushd templates && python3 -c \"open('progress/harness-config.json','w')\"` → branch allow / main ask. 대상이 이제 PROTECTED_GLOBS 안이라 복구는 확인됐지만(랩: HEAD 복구 + `.integrity-restores` + 격리 `20260802T120214Z`), 예측 제거 자체는 남는다.",
+    "[security][low] `python3 -c \"import os; getattr(os,'ch'+'dir')('.claude'); open('hooks/lib.sh','w')\"` → branch allow / main ask. 런타임 조립이라 계약이 선언한 갭에 속하지만, 리터럴 `chdir` 검사가 한 글자 연결로 무력화된다는 사실은 그 검사의 성격(열거)을 보여준다.",
+    "[functionality][high] `templates/progress/*.json` 에 대한 정당한 Edit/Write 가 포맷터 재작성 → 티켓 해시 불일치 → HEAD 복구로 **조용히 되돌려진다**(A/B 실증). `post-edit-format.sh` 의 제외 목록에 `templates/progress/*.json` 이 없다.",
+    "[test][high] `bats tests/` 실측 723 ok / **1 not ok**(F68 포맷터 제외 목록 대칭). 구현자 보고 `724/724` 는 사실과 다르다.",
+    "[test][medium] `cd`/`chdir` 검사 제거 변이(M1)는 로컬 `main` ref 가 **있을 때만** 잡힌다 — ref 가 없으면 갭 테스트가 `ok … # skip` 으로 초록이고 변이가 통과한다(실측: skip 상태에서 실패 0건, ref 복원 후 1건). 5차가 지적한 skip 위험이 그대로다.",
+    "[test][medium] 새 main-대조 갭 테스트의 코퍼스 7건이 **전부 `cd`/`chdir` 을 포함**해 전제 검사에서 먼저 걸러지므로, `DETECTED_LOCATIONS` 를 넓히는 변이는 이 테스트로 관측할 수 없다(실측: `progress/contracts/sprint-*.json` 추가 → 실패 0건). 다만 PROTECTED_GLOBS 밖으로 넓히는 변이는 별도 부분집합 테스트가 잡는다(`agents/*.md` 추가 → `not ok … trusts only locations`), 그래서 5차가 본 것만큼 이빨이 없지는 않다.",
+    "[test][medium] 새 절단 테스트(`a longer path is not truncated…`)의 코퍼스가 `.bak`·`.jsonx`·`.orig`·`.tmp` 뿐이라 문자 클래스 밖 접미(`~`·`%`·`#`·`@`·`,`·`+`)를 한 건도 담지 않는다 — 실제로 열려 있는 12형태가 테스트 밖이다.",
+    "[doc][high] INV-14 신규 문단이 절단 클래스를 '고쳤다' 고 단정하나 12형태가 남는다. 같은 축 6회차 doc-vs-code 불일치이며 이번에도 문서가 갭을 **좁게** 서술하는 방향이다.",
+    "[doc][medium] INV-14 가 상쇄 근거로 든 예시(`cd templates && …` 가 예측을 빠져나간다)가 이제 거짓이다 — 그 형태는 branch·main 모두 ask 다. 실제로 빠져나가는 것은 `pushd templates && …` 이다.",
+    "[doc][medium] INV-12 목록(`templates/progress/*.json` 추가)을 넓히면서 같은 문단이 경고한 '두 목록을 함께' 를 세 번째 목록(포맷터 제외)에 적용하지 않았다. 경고문과 회귀가 같은 커밋 안에 있다.",
+    "[criteria][medium] 계약 `_layer_rationale` 은 셸 `cd` 만 막는 대응을 명시적으로 배격하는데 구현은 그것을 채택했다 — 계약과 구현이 서로를 부정한다. 어느 쪽이 맞는지가 산출물에서 결정되지 않은 채 남아 있다.",
+    "[process][low] `progress/agent-comms/batch-approval-2026-07-31T-f67.json` 이 커밋되지 않은 채 워크트리에만 수정돼 있다(round 5 in_progress 항목 추가). 승인 원장은 커밋되어야 감사 추적이 성립한다.",
+    "[process][low] 구현자 self-check 의 세 수치(`bats 724/724`, `main 대조 20입력 불일치 0`) 중 첫째는 반증됐고 둘째는 코퍼스가 좁아 재현되지 않는다(본 판정 코퍼스 ~90입력에서 의도 밖 불일치 17건)."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1: 데이터 플레인 5종(`progress/feature_list.json`·`progress/harness-config.json`·`docs/INVARIANTS.md`·`hooks/*.sh`·`tests/*.bats`) 인터프리터 읽기가 `python3 -c`·`node -e`·`ruby -e` 전부 allow (11형태 실측, main 은 전부 ask)",
+      "AC-2: 격리 클론에서 `python3 -c \"os.remove('progress/feature_list.json')\"` 삭제 후 PostToolUse → 파일 복원. `templates/progress/harness-config.json` 훼손 → HEAD 복구 + `.integrity-restores` 1행 + 격리 `20260802T120214Z`. 대조군 `README.md` 는 수정된 채 잔존",
+      "AC-4: `> progress/feature_list.json` · `cp /tmp/x hooks/lib.sh` · `sed -i` · `dd of=` · `tee` · `sed w` 가 main 과 동일하게 ask",
+      "AC-5: `vim -es -c wq` · `dd of=` · `patch` 계열이 main 과 동일하게 ask",
+      "AC-7: 미배선 CLAUDE_PLUGIN_ROOT 에서 인터프리터 쓰기·읽기 모두 ask 로 복귀 (실측)",
+      "AC-9: 면제 대상이 `EXEMPTABLE_ARM_TOKENS` 단일 출처로 열거되고 컨트롤 플레인 arm 을 담지 않음 (bats 469 green + 컨트롤 플레인 4형태 실측 ask)",
+      "AC-10: heredoc 3형태(`python3 - <<'EOF'` · `python3 <<EOF` · `cat <<'EOF' | python3 -`)에서 `.claude/settings.json`·`hooks/hooks.json`·`.claude/settings.local.json` 쓰기가 branch·main 모두 ask",
+      "AC-3: 철회(2026-07-30 사용자 결정) — 판정 대상 아님"
+    ],
+    "security": [
+      "SC-1: ASK_PATTERNS 52 arm(≥45) · add-only 유지 · invariant-guard 테스트 통과 · 배선 부재 시 폴백 복귀",
+      "SC-2: 면제 대상 arm 목록이 `EXEMPTABLE_ARM_TOKENS` 단일 출처로 존재하고 in-place·시크릿·컨트롤 플레인·`.claude/`·`templates/` arm 이 목록에서 배제됨",
+      "SC-5: deny/ask 회귀 배터리가 개행 형태 포함 전부 유지 (corpus F·G·H 에서 branch=main, bats SC-5 테스트 green)",
+      "5차 지적 (1) 해소 확인: SC-4 층 확정(`_layer`·`_layer_rationale`·`_layer_limits`)이 `progress/contracts/sprint-53.json` 에 **실제로** 반영되고 `c442305` 로 커밋됨 (계약 파일 직접 확인 + `git log -- progress/contracts/sprint-53.json` 최신 = c442305)",
+      "5차 지적 (2) 부분 해소: 문자 클래스 **안**의 접미 변형 6형태(`.bak`·`.orig`·`.jsonx`·`.tmp`·`node` 판)는 이제 ask"
+    ],
+    "error_scenarios": [
+      "ES-1: 컨트롤 플레인 4종(`.claude/settings.json`·`.claude/settings.local.json`·`hooks/hooks.json`·`.claude/hooks/lib.sh`)이 branch·main 모두 ask",
+      "ES-2: allow↔ask↔deny 전 방향 대조 수행. **신규 ask 는 0건**(branch=ask & main=allow 인 입력 없음) — 역방향 마찰은 생기지 않았다. 모든 불일치는 ask→allow 방향이다",
+      "ES-3: 미배선 저장소에서 면제 미발동 (AC-7 과 동일 근거)",
+      "fail-closed 재확인: `hooks/newfile.sh`(HEAD 미추적) · `tests/newtest.bats`(미추적) · `HOOKS/LIB.SH`(대소문자) · `hooks/../.claude/hooks/lib.sh`(상위 참조) 전부 branch·main ask"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-6: 결정 함수가 의도된 차이 밖에서 main 과 갈린다. ~90입력 대조에서 불일치 43건 중 **의도 밖 17건** — 절단 클래스 12 · cwd 전제 파기 4 · 런타임 조립 chdir 1. 의도된 26건은 인터프리터 + `PROTECTED_GLOBS ∩ HEAD` 표기(읽기 11 · 쓰기/삭제/이동 등)",
+      "AC-8: `bats tests/` 723 ok / **1 not ok** (`F68: the formatter skip list and PROTECTED_GLOBS json entries are the same set`). behavioral 프로브는 `[]` 로 후보 0건"
+    ],
+    "security": [
+      "SC-4: 표기 층 **안**에서 미충족 — 면제가 allow 를 내는 경로 표기 중 PROTECTED_GLOBS ∩ HEAD 밖인 것이 12형태 실재(토큰 문자 클래스 밖 접미·접두). 계약 `_layer_limits` 가 이 부류를 '갭이 아니라 결함' 으로 규정한다",
+      "SC-4(부수): 층 밖 상쇄 근거도 부분적으로만 성립 — `templates/**` 는 PROTECTED_GLOBS 편입으로 복구가 실증됐으나(상쇄 (a) 충족), `.claude/hooks/lib.sh` 는 `pushd`·`\\cd`·`cd$IFS` 로 main-ask → branch-allow 가 되고 복구가 없다. 상쇄 (b)(형제가 main 에서도 allow)는 이 대상에 한해 실측으로 **참**이나, critical 티어에서 '이미 새던 자리' 를 새 allow 의 근거로 삼을 수는 없다",
+      "SC-3: INV-14 손실 상한 서술이 코드와 불일치 — 6회차. 절단 클래스 '고쳤다' 단정이 거짓, 상쇄 예시가 거짓, INV-12 확대 시 포맷터 제외 목록 누락으로 문단이 경고한 회귀를 같은 커밋에서 재생산"
+    ],
+    "error_scenarios": [
+      "ES-4: INV-14 가 인터프리터 호출의 손실 상한을 수용 가능하다고 본 근거 중 절단 클래스 관련 부분이 여전히 거짓이라 시나리오의 결론이 성립하지 않는다"
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "'면제 근거 토큰이 명령에 적힌 경로 표기와 **완전히 일치**해야 한다' 가 여전히 기준으로 없다. 5차 판정이 신설을 권고했고 구현은 문자 클래스 확장으로 대응했으나, 기준이 없으니 '어디까지가 경로 문자인가' 가 매 회전 재협상된다.",
+      "PROTECTED_GLOBS 를 넓힐 때 **함께 넓혀야 하는 목록의 전체 집합**(is_protected · DETECTED_LOCATIONS · post-edit-format 제외 목록 · INV-12 문서)이 어느 기준에도 없다. 이번 회귀가 정확히 그 누락에서 나왔다.",
+      "4차가 요구한 '예측을 끄는 검사는 fail-closed 여야 한다' 가 여전히 SC 로 계약에 없다(구현은 그렇게 돼 있고 이번에도 실측 확인)."
+    ],
+    "ambiguous_criteria": [
+      "계약 `_layer_rationale` 이 셸 `cd` 만 막는 대응을 배격하는데 구현이 그것을 채택했다 — 계약과 코드가 서로를 부정하므로, 이 검사를 유지할지 철회할지가 기준 상 미정이다."
+    ],
+    "security_criteria_insufficient": [
+      "SC-4 가 '경로 표기' 단위로만 쓰여 있어 면제 단위(인터프리터 호출 1회가 갖는 권한)를 서술하지 못한다 — 4차·5차 지적이 그대로 남아 있다."
+    ],
+    "criteria_backfill_review": "이번 회전의 계약 변경 1건(SC-4 `_layer`·`_layer_rationale`·`_layer_limits` 추가). 5차가 요구한 것이므로 정당한 backfill 이며 범위 확장·요건 완화가 아니다. 3건 기준의 spec/architecture 재검토 권고에는 해당하지 않으나 — **같은 축 6회차** 라는 별도 사유로 재정의를 권고한다.",
+    "action_required": "**SC-4 축 6회차 반려. 개별 결함을 하나씩 닫는 방식이 수렴하지 않는다는 증거로 본다.** 6회전 동안 같은 결함이 표기만 바꿔 재출현했다 — 2차: 경로 열거 → 3차: 대소문자·미추적 → 4차: `cd` 형태 → 5차: 정규식 우측 미앵커 → 6차: 토큰 문자 클래스 경계 + `cd` 열거 누락(`pushd`·`\\cd`·`cd$IFS`). 매번 '이번엔 원리적 수정' 이라 서술되고 매번 한 겹 아래에서 같은 열거가 드러난다. **다음 수순은 효과 층(옵션 B — 인터프리터 면제 철회)이다.** 표기 층을 유지하려면 (1) 인용된 문자열 리터럴 자체를 파싱해 경로를 얻고 토큰 경계를 문자 클래스가 아니라 인용 경계로 정하고, (2) `cd` 검사를 철회하거나 cwd 를 바꿀 수 있는 모든 수단(`pushd`·`env -C`·이스케이프·변수 치환)을 전제 파기로 처리하고, (3) `post-edit-format.sh` 제외 목록을 함께 넓혀 F68 회귀를 닫아야 하는데, 그렇게 좁히고 나면 남는 면제 범위가 sed/awk 읽기 arm 에 근접해 옵션 B 와 실질 차이가 크지 않다. 사용자 결정을 받기 전에는 7차 구현을 시작하지 않기를 권고한다."
+  },
+  "backfill_judgment_F56": {
+    "evaluator_recommended_the_narrowing": "충족 — 5차가 요구한 세 가지 중 (1) 계약 SC-4 문장 확정과 (3) `templates/**` 의 PROTECTED_GLOBS 편입은 이행됐다. (2) 토큰 완전일치는 부분 이행(문자 클래스 안까지만).",
+    "transferred_items_have_a_contract": "부분 충족 — 표기 층 아래로 이관된 손실이 이제 `_layer_rationale`·`_layer_limits` 로 계약에 적혔다. 다만 상쇄 근거 (b) 가 `.claude/**` 에 대해서만 서술돼 있고 `pushd` 계열이 그 서술 밖에 있다.",
+    "no_unwound_delivery_code": "충족 — 되돌린 코드 없음. 순증(면제 거부 조건 2줄 + 토큰 심사 + 탐지·보호 목록 1항목).",
+    "plan_gate_reapproval": "미확인 — 계약 `agreed` 는 true 이고 층 확정이 이제 계약에 있으나, `cd`/`chdir` 거부 도입은 계약이 명시적으로 배격한 방식이라 별도 승인 근거가 산출물에 없다.",
+    "conclusion": "**완화가 아니라 정당한 층 고정 쪽에 가깝다** — 5차 판정의 결론을 이번 회전에 한해 뒤집는다. 계약에 문장이 남았고, 포기한 것 중 검증 가능했던 `templates/**` 는 탐지 편입으로 실제 복구됨을 실증했다. 반려 사유는 완화가 아니라 **층 안의 미충족과 신규 회귀**다."
+  },
+  "evidence": {
+    "contract_landed": "progress/contracts/sprint-53.json:96-98 에 `_layer`·`_layer_rationale`·`_layer_limits` 존재. `git log --oneline -3 -- progress/contracts/sprint-53.json` → 최신 `c442305`. `git show --stat c442305` 파일 목록에 계약 포함. 5차 지적 (1) 해소 확인.",
+    "tests": "bats tests/ 1회 실행 → **723 ok / 1 not ok / 1 skip**. 실패: `not ok 121 F68: the formatter skip list and PROTECTED_GLOBS json entries are the same set` (tests/improve-auto.bats:338). 출력 보존: /private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/86566820-59c1-40ea-9fea-c2f4028672c5/scratchpad/bats-run.txt",
+    "behavioral_probe": "bash scripts/probes/behavioral.sh → `[]` (후보 0건)",
+    "main_parity_probe": "격리 랩(CLAUDE_PLUGIN_ROOT 배선 + CLAUDE_PROJECT_DIR=repo)에서 브랜치 훅과 `git show main:hooks/pre-bash-firewall.sh` 를 같은 입력에 주입해 대조. 스크립트 /private/tmp/…/scratchpad/probe6.py, 코퍼스 cases6.json·cases6b.json·cases6c.json (~90입력). 불일치 43건, 그중 의도 밖 17건.",
+    "falsification_truncation_charclass": "branch=allow / main=ask 12형태 — `python3 -c \"open('progress/feature_list.json~','w').write('x')\"` · `…json%` · `…json+bak` · `…json,v` · `…json@` · `…json#` · `open('hooks/lib.sh~','w')` · `open('docs/INVARIANTS.md~','w')` · `open('progress/harness-config.json~','w')` · `open('@progress/feature_list.json','w')` · `node -e \"…writeFileSync('hooks/lib.sh~','x')\"` · `ruby -e \"File.write('progress/harness-config.json~','x')\"`. 문자 클래스 **안**의 변형(`.bak`·`.orig`·`.jsonx`·`.tmp`)은 정상적으로 ask.",
+    "falsification_cwd_premise": "branch=allow / main=ask — `pushd .claude && python3 -c \"open('hooks/lib.sh','w').write('x')\"` · `\\cd .claude && …` · `cd$IFS.claude && …` · `bash -c 'cd .claude && python3 -c \"open(\\\"hooks/lib.sh\\\",\\\"w\\\")\"'` · `pushd templates && python3 -c \"open('progress/harness-config.json','w')\"` · `python3 -c \"import os; getattr(os,'ch'+'dir')('.claude'); open('hooks/lib.sh','w')\"`. 잡히는 형태(branch=main=ask): `cd …` · `(cd …)` · `{ cd …}` · `if cd …` · `os.chdir(…)` · 개행 `cd` · `builtin cd` · `command cd` · `cd\\t` · `cd -P` · `perl chdir` · `os.fchdir`.",
+    "lab_templates_recovery_works": "격리 클론 + PostToolUse 배선: `templates/progress/harness-config.json` 의 `pass_threshold` 를 1 로 낮춘 뒤 protected-integrity 실행 → 7 로 복구 + `.integrity-restores` 1행 + 격리 `20260802T120214Z`. 대조군 `README.md` 수정은 잔존. **5차의 실보호 손실은 닫혔다.**",
+    "lab_claude_hooks_unrecoverable": "같은 랩에서 `.claude/hooks/lib.sh` 를 `PWNED` 로 덮은 뒤 PostToolUse → 내용 그대로, 복구·로그·격리 없음. `pushd .claude && …` 가 allow 이므로 이 경로가 실제로 도달 가능하다.",
+    "lab_f68_asymmetry_ab": "PreToolUse(invariant-guard)→Write→post-edit-format→protected-integrity 전 체인 A/B. 동일한 비-jq-정규 형식(indent=4) 내용으로 `pass_threshold=8` 을 쓴 결과: `progress/harness-config.json`(포맷터 제외 목록 안) → written_hash=1bdc6252 after_format=1bdc6252 final=8 (유지). `templates/progress/harness-config.json`(목록 밖) → written_hash=1bdc6252 after_format=**bf379a30** final=**7** (되돌려짐 + 격리 `20260802T120428Z`). 스크립트 /private/tmp/…/scratchpad/lab6b.sh",
+    "mutation_M1_cd_check_removed": "`cd`/`chdir` 거부 2줄 제거 → 로컬 `main` ref 있을 때 `not ok F67: the notation-layer gap is never wider on this branch than on main` (1건). **`main` ref 없을 때는 실패 0건**(테스트가 `ok … # skip` 으로 초록) — skip 위험 미해소.",
+    "mutation_M2_old_partial_extract": "토큰 추출을 5차 이전의 우측 미앵커 정규식으로 되돌림 → `not ok F67: a longer path is not truncated into a detected one (5차 판정)` (1건). 반응함.",
+    "mutation_M3_templates_glob_removed": "protected-integrity 의 PROTECTED_GLOBS 에서 `templates/progress/*.json` 제거 → `not ok F67: the exemption trusts only locations the detector covers (SC-4)` (1건). 반응함.",
+    "mutation_M4_widen_detected": "DETECTED_LOCATIONS 에 `agents/*.md`(PROTECTED_GLOBS 밖) 추가 → `not ok … trusts only locations` 로 검출. `progress/contracts/sprint-*.json`(PROTECTED_GLOBS 안) 추가 → 실패 0건 — 새 main-대조 갭 테스트의 코퍼스가 전부 `cd`/`chdir` 을 포함해 전제 검사에서 먼저 걸러지므로 이 방향은 관측 불가.",
+    "ac7_failsafe": "미배선 CLAUDE_PLUGIN_ROOT 로 `python3 -c \"open('progress/feature_list.json','w')\"` · 읽기 형태 모두 ask 로 복귀 (실측).",
+    "arm_count": "ASK_PATTERNS 파싱 → 52 arm (SC-1 의 45 이상 충족).",
+    "es2_reverse_direction": "branch=ask & main=allow 인 입력은 ~90입력 코퍼스에서 0건 — `cd` 거부가 새 마찰을 만들지 않았다(면제 경로에서만 동작하고 그 경로는 main 이 이미 ask 이기 때문). `abcd `·`ascd`·인용 안 `'cd '` 등 과탐 후보도 전부 allow 유지."
+  },
+  "f37_note": "verdict 가 fail 이므로 critical 2차 판정 샘플링은 발동하지 않는다. pass 로 전환될 때는 독립 컨텍스트 2차 judge 가 필수다.",
+  "passes_updated": false,
+  "_passes_note": "verdict=fail 이므로 progress/feature_list.json 의 F67.passes 를 건드리지 않았다."
+}
