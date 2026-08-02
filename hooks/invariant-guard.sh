@@ -163,6 +163,10 @@ record_guarded_edit() {
   [[ $rc -ne 0 ]] && return 0
   root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
   [[ -z "$root" || ! -d "$root/progress" ]] && return 0
+  # root 도 **물리 경로**로 맞춘다 — `$FILE` 은 canon_file() 이 `pwd -P` 로 정규화했으므로
+  # 논리 경로와 비교하면 어긋난다. macOS 에서 `/tmp` 는 `/private/tmp` 의 심볼릭 링크라
+  # 저장소가 그 아래 있으면 아래 접두 검사가 항상 실패해 티켓이 생기지 않았다(F68 실측).
+  root=$(cd "$root" 2>/dev/null && pwd -P) || return 0
   # 저장소 밖 경로는 티켓을 만들지 않는다 — 테스트가 임시 디렉터리에서 돌 때 실 저장소
   # 티켓을 오염시키던 원인이다(실제로 209줄까지 쌓였고 그중 160줄이 보호 파일 경로였다).
   [[ "$FILE" == "$root"/* ]] || return 0
