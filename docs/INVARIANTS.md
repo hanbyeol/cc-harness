@@ -434,6 +434,11 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
 그 밖의 변경은 `hooks/protected-integrity.sh`(PostToolUse:Bash)가 탐지해 HEAD 내용으로 되돌리고
 보고한다.
 
+**복구가 닿는 범위는 정확히 `PROTECTED_GLOBS ∩ (HEAD 추적 파일)`이다.** 탐지기는 `git ls-tree HEAD`를
+열거하므로 gitignore 대상(`.claude/**`)과 미추적 파일은 원리적으로 복구할 수 없다. 그래서 예측을
+끄는 면제는 이 범위 안에서만 성립하며, 그 조건은 아래 "면제의 두 번째 조건"이 강제한다 — 범위 밖
+경로는 면제되지 않고 예측이 유지된다.
+
 **왜 바꿨나**: 이전 모델은 "이 Bash 명령이 보호 파일을 쓸 것인가"를 명령 문자열로 예측해 ask로
 막았다. 그 질문은 결정 불가능하다 — 셸도, 셸이 부르는 sed·awk·perl·python도 튜링 완전하므로
 실행하지 않고 효과를 알 수 없다. F63이 10회전 동안 그 방향을 시도했고 매 회전 새 우회 표기가
@@ -461,6 +466,19 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
 반대로 쓰기 신호가 명령에 드러나는 arm(리다이렉트 `>` · `cp`/`mv`/`tee` 이름 · in-place `-i` ·
 `dd of=` · `sed w`)은 읽기를 잡지 않으므로 목록에 넣지 않는다 — 면제해도 마찰이 줄지 않고
 손실 상한만 늘어난다.
+
+**면제의 두 번째 조건 — 탐지가 닿는 경로여야 한다 (F67 2차 판정)**: arm이 읽기를 잡는다는 것만으로는
+면제 근거가 되지 않는다. 면제는 예측을 끄는 일이고, 예측을 끌 수 있는 유일한 근거는 그 파일을
+사후 탐지·복구가 담당한다는 사실이기 때문이다. arm의 경로 대안은 무앵커라 저장소 사본 말고도
+복구 집합 밖 파일을 함께 잡는다 — `.claude/hooks/lib.sh`(init.sh 설치본, gitignore라 HEAD 복구
+불가) · `templates/progress/feature_list.json`(스캐폴딩, INV-11이 가드에서 명시 제외) ·
+`dist/hooks/app.sh`(이 저장소의 훅이 아닌 남의 파일). 그래서 `exempt_paths_are_detected()`가 명령의
+경로 토큰을 뽑아 `DETECTED_LOCATIONS`와 대조하고, **하나라도 그 밖이면 면제하지 않는다.**
+손실 상한이 열거가 아니라 탐지 집합에서 나온다. `DETECTED_LOCATIONS ⊆ PROTECTED_GLOBS`는
+`tests/pre-bash-firewall.bats`가 두 파일을 파싱해 기계 대조하며, 같은 파일의 SC-4 테스트가
+"allow가 나온 파일은 전부 `PROTECTED_GLOBS` 안"임을 저장소 전체 코퍼스로 확인한다.
+(2차 판정이 실증한 결함이 이 조건의 부재였다: `hooks/lib.sh` 쓰기가 allow인데 그 파일은 복구
+집합 밖이었고, Stop·SessionStart·PreCompact·SubagentStop 훅 다섯이 그것을 `source` 한다.)
 
 토큰이 일치해도 면제되지 않는 것: 컨트롤 플레인 · 탐지기 자신 · 티켓 원장. 그래서 **arm은
 평면을 섞지 않아야 한다** — 한 arm에 두 평면을 담으면 컨트롤 플레인 배제가 그 arm을 통째로

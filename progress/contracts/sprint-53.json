@@ -5,6 +5,7 @@
   "security_tier": "critical",
   "verification_tier": "critical",
   "_tier_note": "방화벽 면제 범위를 넓히므로 critical. F65 SC-2가 명시적으로 제한한 범위를 확대하는 변경이라 손실 상한을 새로 서술하고 독립 evaluator + F37 critical 2차 판정을 거친다.",
+  "_rework_2026_08_02": "2차 판정(security 6, SC-4 미충족) 반영. 판정의 결함은 '면제 arm의 경로 스팬이 복구 집합보다 넓다'였고 1차 교정(d682e3a)은 탐지 목록에 `hooks/*.sh`를 더해 **열거된 여덟 개만** 덮었다. 그 방식은 같은 축에서 다시 새는 것이 실측됐다 — `.claude/hooks/lib.sh`(init.sh 설치본, gitignore라 복구 원리적 불가) · `templates/progress/{harness-config,feature_list}.json`(INV-11이 가드에서 제외) · `dist/hooks/app.sh`(남의 파일). 그래서 방향을 뒤집었다: 경로를 열거해 막는 대신 `exempt_paths_are_detected()`가 **탐지 집합에 있는 경로만 면제한다**(손실 상한이 열거가 아니라 탐지 집합에서 나온다). 더해 복구가 원리적으로 불가능한 두 위치는 arm으로도 한 번 더 못박았다. SC-4의 기계 검증은 arm 정규식에서 경로 대안을 뽑아 저장소 전체를 주입하고 'allow가 나온 파일은 전부 PROTECTED_GLOBS 안'을 확인하는 형태로 구현했다 — 2차 판정이 지적한 '탐지 글롭으로 코퍼스를 만드는 동어반복'을 피한다. 변이 검증: 새 조건을 제거하면 `dist/hooks/app.sh`가 allow로 돌아가고, 탐지 목록에서 `hooks/*.sh`를 빼면 훅 9개가 SC-4 테스트에 걸린다.",
   "dependencies": [
     "F35",
     "F63",

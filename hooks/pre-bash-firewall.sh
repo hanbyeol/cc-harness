@@ -178,10 +178,64 @@ arm_is_exemptable() {
   # F68: 무인 중단 기록도 탐지기의 판단 근거와 같은 성격이다 — 지워지면 "멈췄다"는 사실이
   # 사라진다. 인터프리터로 읽는 마찰보다 기록이 남는 쪽이 값어치가 크므로 면제하지 않는다.
   [[ "$p" == *'approval-queue'* ]] && return 1
+  # F67 2차 판정: 면제가 성립하는 조건은 "읽기를 잡는 arm인가" 하나가 아니라
+  # **"그 arm이 덮는 모든 경로를 사후 탐지가 담당하는가"**까지다. 아래 둘은 탐지 집합 밖이다.
+  #  - `.claude/**/hooks/*.sh`: init.sh 배선(`settings.json`)이 실제로 실행하는 설치본인데
+  #    `.claude/`는 gitignore 대상이라 HEAD 복구가 원리적으로 불가능하다.
+  #  - `templates/**/{harness-config,feature_list}.json`: 신규 프로젝트가 상속하는 스캐폴딩인데
+  #    INV-11이 `templates/`를 가드에서 명시 제외하므로 PROTECTED_GLOBS에도 넣지 않는다.
+  # 아래 두 arm(경로 앵커)이 그 클래스의 예측을 되살리고, 이 줄이 그 arm을 면제에서 뺀다.
+  [[ "$p" == *'\.claude/'* || "$p" == *'templates/'* ]] && return 1
   for tok in "${EXEMPTABLE_ARM_TOKENS[@]}"; do
     [[ "$p" == *"$tok"* ]] && return 0
   done
   return 1
+}
+
+# === 면제가 성립하는 경로 (F67 2차 판정) ===
+# arm이 읽기를 잡는다는 것만으로는 면제 근거가 되지 않는다 — 면제는 예측을 끄는 것이고,
+# 예측을 끌 수 있는 유일한 근거는 **그 파일을 사후 탐지·복구가 담당한다**는 사실이기 때문이다.
+# arm의 경로 대안은 무앵커라 저장소 사본 말고도 복구 집합 밖 파일을 함께 잡는다:
+#   `.claude/hooks/lib.sh`(init.sh 설치본 — gitignore라 HEAD 복구 불가) ·
+#   `templates/progress/feature_list.json`(스캐폴딩 — INV-11이 가드에서 명시 제외) ·
+#   `dist/hooks/app.sh`(저장소의 훅이 아예 아닌 남의 파일).
+# 2차 판정이 `hooks/lib.sh`에서 실증한 것이 이 클래스이며, 그때의 교정(탐지 목록 확대)은
+# **열거된 여덟 개만** 덮었다. 여기서는 방향을 뒤집는다 — 경로를 열거해 막는 대신
+# **탐지 집합에 있는 경로만 면제한다.** 손실 상한이 내 상상력이 아니라 탐지 집합에서 나온다.
+#
+# 아래 목록은 protected-integrity.sh의 PROTECTED_GLOBS 부분집합이어야 하며,
+# tests/pre-bash-firewall.bats가 두 파일을 파싱해 기계 대조한다(F45 양방향 대조 패턴).
+DETECTED_LOCATIONS=(
+  'progress/harness-config.json'
+  'progress/feature_list.json'
+  'docs/INVARIANTS.md'
+  'hooks/*.sh'
+  'tests/*.bats'
+)
+exempt_paths_are_detected() {
+  local tok stripped dir g hit
+  while IFS= read -r tok; do
+    [[ -n "$tok" ]] || continue
+    stripped="${tok#./}"
+    while [[ "$stripped" == *//* ]]; do stripped="${stripped//\/\///}"; done
+    # 상위 참조가 있으면 어디로든 갈 수 있다 — 정규화 없이 "탐지 대상"이라 단정하지 않는다.
+    # (`hooks/../.claude/hooks/lib.sh` 는 글롭으로는 `hooks/*.sh` 에 걸리지만 설치본을 가리킨다.)
+    [[ "$stripped" == *..* ]] && return 1
+    dir="${stripped%/*}"
+    [[ "$dir" == "$stripped" ]] && dir=""   # 디렉터리 없는 표기는 어느 위치인지 확정할 수 없다
+    hit=0
+    for g in "${DETECTED_LOCATIONS[@]}"; do
+      # 디렉터리가 **정확히** 같아야 한다. bash 의 `==` 글롭에서 `*` 는 `/` 를 넘으므로
+      # `hooks/*.sh` 가 `hooks/sub/x.sh` 까지 잡는데, 그것은 HEAD 에 없어 복구 대상이 아니다.
+      [[ "${g%/*}" == "$dir" ]] || continue
+      # shellcheck disable=SC2053
+      [[ "$stripped" == $g ]] && { hit=1; break; }
+    done
+    [[ "$hit" -eq 1 ]] || return 1
+  done < <(printf '%s\n' "$1" | grep -oE \
+    '[A-Za-z0-9_./-]*(harness-config\.json|feature_list\.json|INVARIANTS\.md|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats)' \
+    2>/dev/null)
+  return 0
 }
 ASK_PATTERNS=(
   'git reset[^;|&]*--hard'
@@ -245,6 +299,17 @@ ASK_PATTERNS=(
   # 전부 받는다(현재 hooks.json 하나이며, 새 json이 생겨도 배선 계열로 보는 것이 맞다).
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*(hooks/[A-Za-z0-9_.-]+\.json|\.claude/settings(\.local)?\.json)'
+  # === 복구가 원리적으로 불가능한 두 위치 (F67 2차 판정) ===
+  # 일반 규칙은 exempt_paths_are_detected() 다 — 탐지 집합에 있는 경로만 면제한다. 아래 두 arm은
+  # 그 규칙이 이미 덮는 자리를 **이름으로 한 번 더 못박은** 것이며, 두 위치가 다른 미탐지 경로와
+  # 성질이 다르기 때문에 남긴다: 되돌릴 수 없다. `.claude/**/hooks/*.sh` 는 init.sh 배선
+  # (`settings.json`)이 실제로 실행하는 설치본인데 `.claude/` 가 gitignore라 HEAD 복구가 없고,
+  # `templates/**/{harness-config,feature_list}.json` 은 신규 프로젝트 전부가 상속하는 스캐폴딩이다.
+  # 탐지 목록을 나중에 잘못 넓혀도 이 둘은 예측에 남는다. (INV-5 add-only라 삭제도 차단된다.)
+  # 도구 앵커를 유지하는 이유는 main과의 판정 동일성(AC-6)이다 — 앵커 없는 경로 arm은
+  # `git diff <설치본>` 처럼 main이 allow하던 명령까지 새로 ask로 만든다.
+  '\b(python3?|node|nodejs|ruby|perl|php|lua|g?sed|g?awk|mawk)\b[^;|&]*\.claude/[A-Za-z0-9_./-]*hooks/[A-Za-z0-9_.-]+\.sh'
+  '\b(python3?|node|nodejs|ruby|perl|php|lua|g?sed|g?awk|mawk)\b[^;|&]*templates/[A-Za-z0-9_./-]*(harness-config|feature_list)\.json'
   # F65: 에디터 이름 arm을 **도구 성격으로** 가른다.
   #
   # (1) 편집 전용 도구 — 보호 경로에 이 이름들이 나오면 편집 의도로 보는 것이 타당하다.
@@ -507,6 +572,9 @@ pure_read_only() {
 PURE_READ=0
 pure_read_only "$CMD" && PURE_READ=1
 
+EXEMPT_PATHS_OK=0
+exempt_paths_are_detected "$NORMALIZED_CMD" && EXEMPT_PATHS_OK=1
+
 if [ "$PURE_READ" -eq 0 ] && echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then
   for p in "${ASK_PATTERNS[@]}"; do
     if echo "$NORMALIZED_CMD" | grep -qiE "$p"; then
@@ -524,7 +592,9 @@ if [ "$PURE_READ" -eq 0 ] && echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns
       # (a) 이 arm은 도구 이름만 보므로 순수 읽기를 잡고, (b) 개행으로 나눈 **무관한 두 명령**까지
       # 한 스팬으로 묶으며, (c) 같은 명령을 `;` 로 이으면 통과한다 — 표기 한 글자로 판정이 뒤집혀
       # 보호도 마찰도 실패하고 있었다. 사후 탐지·복구는 그 세 결함을 모두 갖지 않는다.
-      if [ "$DATA_PLANE_DETECTED" -eq 0 ] && arm_is_exemptable "$p"; then
+      # 면제의 두 조건: (1) 그 arm이 읽기를 잡는가 (2) 명령이 가리키는 경로를 탐지가 담당하는가.
+      # (2)는 2차 판정이 실증한 클래스를 닫는다 — 자세한 근거는 exempt_paths_are_detected() 주석.
+      if [ "$DATA_PLANE_DETECTED" -eq 0 ] && arm_is_exemptable "$p" && [ "$EXEMPT_PATHS_OK" -eq 1 ]; then
         continue
       fi
       log_decision ask

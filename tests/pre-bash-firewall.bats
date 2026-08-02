@@ -1400,6 +1400,10 @@ JSON
   # AC-6 재조작화(1차 판정): '배열 바이트 동일 + 대표 케이스'로는 정규화 변경이 판정을 바꿔도
   # 통과한다 — 실제로 그렇게 heredoc 구멍이 지나갔다. 판정 대상은 배열이 아니라 **결정 함수**여야
   # 하므로, 같은 코퍼스에 대해 main 과 판정을 대조하고 의도된 차이만 허용한다.
+  # 로컬에 main ref 가 없는 체크아웃(브랜치만 클론한 CI 등)에서는 대조 기준이 없다 —
+  # 실패가 아니라 skip 이다(2차 판정 권고). 기준이 있으면 아래는 그대로 강제된다.
+  git -C "$BATS_TEST_DIRNAME/.." rev-parse --verify main >/dev/null 2>&1 \
+    || skip "local 'main' ref not available — nothing to compare against"
   local main_hook="$BATS_TEST_TMPDIR/main-firewall.sh"
   git -C "$BATS_TEST_DIRNAME/.." show main:hooks/pre-bash-firewall.sh > "$main_hook" 2>/dev/null
   [ -s "$main_hook" ]
@@ -1437,6 +1441,16 @@ JSON
     '{"tool_input":{"command":"kubectl delete namespace prod"}}'
     '{"tool_input":{"command":"python3 - <<EOF\nopen(.claude/settings.json,w)\nEOF"}}'
     '{"tool_input":{"command":"vim README.md\ncat hooks/hooks.json"}}'
+    # 스팬 절단 클래스 보강(2차 판정 권고) — 개행이 `|`·`&&` 뒤·블록 안·백슬래시 뒤에 올 때
+    '{"tool_input":{"command":"cat foo |\npython3 -c open(hooks/hooks.json,w)"}}'
+    '{"tool_input":{"command":"true &&\nvim hooks/hooks.json"}}'
+    '{"tool_input":{"command":"if true; then\n  cp /tmp/x hooks/hooks.json\nfi"}}'
+    '{"tool_input":{"command":"( cd /tmp\n  dd of=hooks/lib.sh )"}}'
+    '{"tool_input":{"command":"printf a \\\\\\\\\nsed -i s/a/b/ .claude/settings.json"}}'
+    # 탐지 밖 경로 — main 과 같이 ask 여야 한다(면제가 여기 닿으면 이 줄이 깨진다)
+    '{"tool_input":{"command":"python3 -c open(.claude/hooks/lib.sh,w).write(x)"}}'
+    '{"tool_input":{"command":"python3 -c open(templates/progress/feature_list.json,w).write(x)"}}'
+    '{"tool_input":{"command":"node build.js --out dist/hooks/app.sh"}}'
   )
   local c
   for c in "${INTENDED[@]}"; do
@@ -1474,6 +1488,188 @@ JSON
   done < <(git -C "$root" ls-files 'hooks/*.sh' 'tests/*.bats' 'docs/INVARIANTS.md' \
                                   'progress/harness-config.json' 'progress/feature_list.json' 2>/dev/null)
   [ -z "$uncovered" ]
+}
+
+@test "F67: no file the exemption actually reaches is outside detection (SC-4)" {
+  command -v git >/dev/null || skip "git not installed"
+  # 위 테스트는 코퍼스를 **탐지 글롭으로** 만든다 — 탐지 대상만 모아 놓고 탐지 대상인지 묻는
+  # 동어반복이라, 면제 arm이 탐지 밖 파일을 잡는 경우를 원리적으로 볼 수 없다(2차 판정 지적).
+  # 여기서는 면제 arm의 **경로 대안을 정규식에서 뽑아** 저장소 전체와 대조한다. 이 방법이
+  # `templates/progress/{harness-config,feature_list}.json` 둘을 실제로 찾아냈다.
+  #
+  # 단언 대상은 arm의 **스팬**이 아니라 **판정**이다. arm 정규식은 일부러 넓고
+  # (그래야 예측이 새 경로를 놓치지 않는다), 좁히는 일은 exempt_paths_are_detected()가 한다.
+  # 그러므로 물어야 할 것은 "arm이 무엇을 덮는가"가 아니라 **"면제가 무엇에 실제로 닿는가"** —
+  # allow가 나온 파일은 반드시 PROTECTED_GLOBS 안에 있어야 한다. 원래 결함(`hooks/lib.sh` 가
+  # allow인데 복구 집합 밖)이 이 형태로 정확히 검출된다.
+  local fw="$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh"
+  local pi="$BATS_TEST_DIRNAME/../hooks/protected-integrity.sh"
+  local root="$BATS_TEST_DIRNAME/.."
+  local -a GLOBS ARMS EXCLUDES
+  mapfile -t GLOBS < <(sed -n '/^PROTECTED_GLOBS=(/,/^)/p' "$pi" | grep -oE "'[^']+'" | tr -d "'")
+  mapfile -t ARMS < <(awk "/^ASK_PATTERNS=\(/{b=1;next} b&&/^\)/{b=0} b&&/^[[:space:]]*'/{sub(/^[[:space:]]*'/,\"\");sub(/'[[:space:]]*\$/,\"\");print}" "$fw")
+  mapfile -t EXCLUDES < <(sed -n '/^arm_is_exemptable()/,/^}/p' "$fw" \
+    | grep -oE '\*'"'"'[^'"'"']+'"'"'\*' | tr -d "*'")
+  local read_tok interp_tok
+  read_tok=$(grep -m1 '^READ_CAPABLE_ARM=' "$fw" | cut -d"'" -f2)
+  interp_tok=$(grep -m1 '^INTERPRETER_ARM=' "$fw" | cut -d"'" -f2)
+  [ -n "$read_tok" ] && [ -n "$interp_tok" ] && [ "${#ARMS[@]}" -ge 45 ]
+
+  # 배선된 상태를 한 번만 만들고 그 안에서 코퍼스 전체를 주입한다(파일당 재구성은 느리다)
+  local wired="$BATS_TEST_TMPDIR/wired"
+  mkdir -p "$wired/hooks"
+  cp "$pi" "$wired/hooks/"
+  cat > "$wired/hooks/hooks.json" <<'JSON'
+{"hooks":{"PostToolUse":[{"matcher":"Bash","hooks":[{"type":"command",
+  "command":"bash \"${CLAUDE_PLUGIN_ROOT}/hooks/protected-integrity.sh\"","timeout":15}]}]}}
+JSON
+
+  local arm ex skip_arm tail alt f g hit verdict leaked="" checked=0
+  local -a alts
+  local -A seen=()
+  for arm in "${ARMS[@]}"; do
+    skip_arm=0
+    for ex in "${EXCLUDES[@]}"; do [[ "$arm" == *"$ex"* ]] && { skip_arm=1; break; }; done
+    [ "$skip_arm" -eq 1 ] && continue
+    [[ "$arm" == *"$read_tok"* || "$arm" == *"$interp_tok"* ]] || continue
+    # arm의 마지막 `[^;|&]*` 뒤가 경로 대안이다 — 괄호를 벗기고 `|` 로 가른다
+    tail=$(printf '%s' "$arm" | sed 's/.*\[\^;|&\]\*//; s/^(//; s/)$//')
+    IFS='|' read -r -a alts <<< "$tail"
+    for alt in "${alts[@]}"; do
+      [ -n "$alt" ] || continue
+      while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        [ -n "${seen[$f]:-}" ] && continue
+        seen[$f]=1
+        checked=$((checked+1))
+        verdict=$(printf '%s' "{\"tool_input\":{\"command\":\"python3 -c open($f,w).write(x)\"}}" \
+                  | CLAUDE_PLUGIN_ROOT="$wired" bash "$fw" 2>/dev/null)
+        [[ "$verdict" == *'"permissionDecision": "allow"'* ]] || continue
+        hit=0
+        for g in "${GLOBS[@]}"; do
+          # shellcheck disable=SC2053
+          [[ "$f" == $g ]] && { hit=1; break; }
+        done
+        [ "$hit" -eq 1 ] || leaked="$leaked $f"
+      done < <(git -C "$root" ls-files | grep -E "$alt" 2>/dev/null)
+    done
+  done
+  [ "$checked" -ge 20 ]   # 코퍼스가 조용히 비면 검사가 무의미해진다
+  [ -z "$leaked" ] || { echo "면제가 탐지 밖 파일에 allow를 냈다:$leaked"; false; }
+}
+
+@test "F67: the exemption trusts only locations the detector covers (SC-4)" {
+  # 면제 판정의 두 번째 조건(exempt_paths_are_detected)이 신뢰하는 위치 목록은
+  # PROTECTED_GLOBS의 부분집합이어야 한다 — 어긋나면 예측도 탐지도 없는 경로가 다시 생긴다.
+  # F45가 is_protected()↔INV-12에 쓴 양방향 파싱 대조와 같은 형태다.
+  local fw="$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh"
+  local pi="$BATS_TEST_DIRNAME/../hooks/protected-integrity.sh"
+  local -a LOC GLOBS
+  mapfile -t LOC < <(sed -n '/^DETECTED_LOCATIONS=(/,/^)/p' "$fw" | grep -oE "'[^']+'" | tr -d "'")
+  mapfile -t GLOBS < <(sed -n '/^PROTECTED_GLOBS=(/,/^)/p' "$pi" | grep -oE "'[^']+'" | tr -d "'")
+  [ "${#LOC[@]}" -ge 5 ]
+  local l g hit
+  for l in "${LOC[@]}"; do
+    hit=0
+    for g in "${GLOBS[@]}"; do [ "$l" = "$g" ] && { hit=1; break; }; done
+    [ "$hit" -eq 1 ] || { echo "면제가 신뢰하는 위치가 탐지 목록에 없다: $l"; false; }
+  done
+}
+
+# 방화벽의 판정 함수를 **원본 그대로** 테스트 셸에 들여온다. 재구현해서 대조하면 재구현이
+# 맞는지를 검증하게 된다 — 형제 테스트(:1366)가 배제 절을 재구현하다 실제 함수와 어긋날 수 있는
+# 자리를 여기서는 만들지 않는다.
+load_firewall_fns() {
+  local fw="$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh"
+  eval "$(grep -m1 '^READ_CAPABLE_ARM=' "$fw")"
+  eval "$(grep -m1 '^INTERPRETER_ARM=' "$fw")"
+  eval "$(sed -n '/^EXEMPTABLE_ARM_TOKENS=(/,/^)/p' "$fw")"
+  eval "$(sed -n '/^DETECTED_LOCATIONS=(/,/^)/p' "$fw")"
+  eval "$(sed -n '/^arm_is_exemptable()/,/^}/p' "$fw")"
+  eval "$(sed -n '/^exempt_paths_are_detected()/,/^}/p' "$fw")"
+  [ -n "$READ_CAPABLE_ARM" ] && [ -n "$INTERPRETER_ARM" ]
+  [ "${#EXEMPTABLE_ARM_TOKENS[@]}" -ge 2 ] && [ "${#DETECTED_LOCATIONS[@]}" -ge 5 ]
+}
+
+@test "F67: the path check alone closes the undetected classes (general rule)" {
+  # 열거된 arm 둘이 같은 자리를 한 번 더 막고 있으므로, 행위 테스트만으로는 **일반 규칙**이
+  # 실제로 작동하는지 알 수 없다. 여기서는 그 규칙 하나만 떼어 직접 묻는다.
+  load_firewall_fns
+  local c
+  for c in "python3 -c open(.claude/hooks/lib.sh,w)" \
+           "python3 -c open(.claude/plugins/cache/x/hooks/lib.sh,w)" \
+           "python3 -c open(hooks/../.claude/hooks/lib.sh,w)" \
+           "python3 -c open(templates/progress/feature_list.json,w)" \
+           "python3 -c open(templates/progress/harness-config.json,w)" \
+           "node build.js --out dist/hooks/app.sh" \
+           "python3 -c open(vendor/x/progress/feature_list.json,w)" \
+           "python3 -c open(feature_list.json,w)"; do
+    run exempt_paths_are_detected "$c"
+    [ "$status" -ne 0 ] || { echo "탐지 밖 경로를 면제로 통과시켰다: $c"; false; }
+  done
+  # 반대 방향 — 탐지 대상은 막지 않는다(과잉 교정 방지)
+  for c in "python3 -c open(progress/feature_list.json)" \
+           "python3 -c open(progress/harness-config.json)" \
+           "python3 -c open(./hooks/lib.sh)" \
+           "python3 -c open(hooks//lib.sh)" \
+           "sed -n 1p tests/lib.bats" \
+           "ruby -e read(docs/INVARIANTS.md)" \
+           "python3 --version"; do
+    run exempt_paths_are_detected "$c"
+    [ "$status" -eq 0 ] || { echo "탐지 대상을 면제에서 뺐다: $c"; false; }
+  done
+}
+
+@test "F67: the arm exclusions hold against a plausible arm split (not dead code)" {
+  # 2차 판정: 배제 절 4개 중 3개가 현재 arm 목록에 대한 변이로는 불변이라 dead code 라는 지적.
+  # 배제가 지키는 것은 **현재 목록**이 아니라 **앞으로 있을 법한 편집**이다 — arm 을 도구 계열별로
+  # 쪼개면 토큰이 리터럴로 일치하게 되고, 그 순간 배제만이 면제를 막는다. 그 편집을 여기서
+  # 만들어 각 배제 절이 실제로 판정을 뒤집는지 확인한다.
+  load_firewall_fns
+  local a
+  for a in "\\b$INTERPRETER_ARM\\b[^;|&]*hooks/hooks\\.json" \
+           "\\b$INTERPRETER_ARM\\b[^;|&]*\\.claude/settings(\\.local)?\\.json" \
+           "\\b$READ_CAPABLE_ARM\\b[^;|&]*--in-place[^;|&]*harness-config\\.json" \
+           "\\b$INTERPRETER_ARM\\b[^;|&]*hooks/protected-integrity\\.sh" \
+           "\\b$INTERPRETER_ARM\\b[^;|&]*progress/\\.guarded-edits" \
+           "\\b$INTERPRETER_ARM\\b[^;|&]*progress/\\.integrity-baseline" \
+           "\\b$INTERPRETER_ARM\\b[^;|&]*progress/approval-queue\\.json" \
+           "\\b$INTERPRETER_ARM\\b[^;|&]*\\.claude/hooks/[A-Za-z0-9_.-]+\\.sh" \
+           "\\b$INTERPRETER_ARM\\b[^;|&]*templates/progress/feature_list\\.json"; do
+    run arm_is_exemptable "$a"
+    [ "$status" -ne 0 ] || { echo "배제가 뚫린다: $a"; false; }
+  done
+  # 배제가 과도하면 면제가 통째로 멈춰 마찰이 되돌아온다 — 진짜 데이터 플레인 arm 은 통과해야 한다
+  run arm_is_exemptable "\\b$INTERPRETER_ARM\\b[^;|&]*(harness-config\\.json|hooks/[A-Za-z0-9_.-]+\\.sh)"
+  [ "$status" -eq 0 ]
+  run arm_is_exemptable "\\b$READ_CAPABLE_ARM\\b[^;|&]*(harness-config\\.json|INVARIANTS\\.md)"
+  [ "$status" -eq 0 ]
+}
+
+@test "F67: paths outside the detection set stay predicted even when wired" {
+  # 2차 판정이 `hooks/lib.sh` 로 실증한 클래스 전체. 앞의 둘은 **복구가 원리적으로 불가능**하고
+  # (`.claude/` 는 gitignore, `templates/` 는 INV-11이 가드에서 제외), 뒤의 둘은 애초에 이
+  # 저장소의 검증 파일이 아니다 — 어느 쪽도 사후 복구가 없으므로 예측이 유지돼야 한다.
+  local c
+  for c in ".claude/hooks/lib.sh" \
+           ".claude/plugins/cache/cc-harness/hooks/lib.sh" \
+           "templates/progress/harness-config.json" \
+           "templates/progress/feature_list.json" \
+           "dist/hooks/app.sh" \
+           "vendor/x/progress/feature_list.json"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"python3 -c open($c,w).write(x)\"}}"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] || { echo "면제가 탐지 밖 경로에 닿았다: $c"; false; }
+  done
+}
+
+@test "F67: the detected locations themselves still auto-allow (no over-correction)" {
+  # 위 교정이 F67의 본래 목적을 되돌리지 않았음을 같은 자리에 고정한다.
+  local c
+  for c in "progress/feature_list.json" "progress/harness-config.json" \
+           "hooks/lib.sh" "tests/lib.bats" "docs/INVARIANTS.md" "./progress/feature_list.json"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"python3 -c open($c).read()\"}}"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] || { echo "마찰이 되돌아왔다: $c"; false; }
+  done
 }
 
 @test "F67: without the detector the interpreter arm comes back (fail-safe)" {
