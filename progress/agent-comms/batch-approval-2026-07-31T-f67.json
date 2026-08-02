@@ -31,5 +31,43 @@
   },
   "_approval_evidence": "사용자가 배치 게이트 4항목(범위·N·fail 정책·중단조건)을 제시받은 뒤 'F67도 배치 모드로 판정 돌려'로 두 번 지시했다. 첫 지시 때 제시한 항목에 이견이 없었고 두 번째 지시를 승인으로 기록한다.",
   "_known_state_at_approval": "F68은 미판정이다(7차 판정 진행 중, 1~6차 모두 fail). 즉 배치 승인 범위를 강제하는 장치 자체가 확정되지 않은 상태에서 첫 배치를 돌린다 — 순서상 뒤바뀐 것이며 사용자에게 그 사실을 보고하고 지시를 받았다. 이 배치의 안전은 기계 강제가 아니라 (a) 범위가 좁고(파일 6개) (b) evaluator 게이트가 무약화이며 (c) 각 회전이 커밋으로 남아 롤백 가능하다는 데 의존한다.",
-  "rounds": []
+  "_scope_extension_2026_08_02": {
+    "trigger": "중단조건 '승인 범위 밖 검증 장치 파일 접촉'이 d682e3a(2026-08-01)에서 발동했어야 했다 — 그 커밋이 hooks/protected-integrity.sh 와 hooks/invariant-guard.sh 를 수정했고 둘 다 승인 범위 6파일 밖의 검증 장치다. 발동 시점에 중단·적립되지 않았고, 후속 커밋(05b2ebf·6fda20a)도 invariant-guard.sh 를 추가로 수정했다.",
+    "why_it_happened": "2차 판정의 반려 사유 자체가 '탐지 집합을 넓히라'였고 탐지 집합(PROTECTED_GLOBS)은 protected-integrity.sh 안에 있다. 즉 판정을 따르는 유일한 방법이 범위 밖 파일을 건드리는 것이었다 — 승인 범위를 정할 때 '판정이 요구할 수 있는 파일'을 고려하지 않은 것이 원인이다.",
+    "user_decision": "2026-08-02, 사용자가 상황을 보고받고 '배치 계속 (범위 확장 승인)'을 선택했다. 위 세 커밋의 범위 이탈을 사후 승인하고, 승인 범위에 hooks/protected-integrity.sh · hooks/invariant-guard.sh · progress/lessons.md 를 추가한다.",
+    "added_to_scope": [
+      "hooks/protected-integrity.sh",
+      "hooks/invariant-guard.sh",
+      "progress/lessons.md"
+    ],
+    "_lesson": "배치 승인 범위는 '구현자가 고칠 계획인 파일'이 아니라 '판정이 요구할 수 있는 파일'까지 포함해야 한다. 게이트를 넓히라는 판정은 게이트 정의 파일을 건드리게 되어 있다."
+  },
+  "rounds": [
+    {
+      "round": 1,
+      "verdict": "fail",
+      "score": 6,
+      "feedback": "progress/agent-comms/evaluator-feedback-2026-07-31T16-21-35+0900.json",
+      "fail_axis": "SC-4 — 면제 arm 의 경로 스팬이 복구 집합보다 넓다",
+      "rework_commits": [
+        "d682e3a",
+        "05b2ebf",
+        "6fda20a",
+        "3eaad5b"
+      ],
+      "rework_note": "d682e3a 는 지적된 여덟 파일을 탐지 목록에 넣는 열거식 대응이었고 같은 축에서 다시 샜다(.claude 설치본 · templates 스캐폴딩 · 남의 hooks 디렉터리). 3eaad5b 가 면제 근거를 arm 의 성질에서 탐지 집합으로 옮겨 클래스를 닫았다."
+    },
+    {
+      "round": 2,
+      "status": "in_progress",
+      "started": "2026-08-02",
+      "judging_commits": [
+        "d682e3a",
+        "05b2ebf",
+        "6fda20a",
+        "3eaad5b"
+      ],
+      "stop_condition_watch": "직전 판정의 failed_criteria(SC-3·SC-4)와 이번 것의 교집합이 비지 않으면 중단 — 같은 축 3회차이므로 기준 재협상(사람)이 다음 수순이다."
+    }
+  ]
 }

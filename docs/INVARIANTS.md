@@ -474,6 +474,12 @@ invariant-guard.sh는 자기 자신도 프로젝트 워크트리의 **수정 가
 불가) · `templates/progress/feature_list.json`(스캐폴딩, INV-11이 가드에서 명시 제외) ·
 `dist/hooks/app.sh`(이 저장소의 훅이 아닌 남의 파일). 그래서 `exempt_paths_are_detected()`가 명령의
 경로 토큰을 뽑아 `DETECTED_LOCATIONS`와 대조하고, **하나라도 그 밖이면 면제하지 않는다.**
+대조는 두 가지를 함께 본다 — 글롭 소속과 **HEAD 추적 여부**(`git cat-file -e HEAD:<path>`)다.
+탐지기가 `git ls-tree HEAD`를 열거하므로 글롭에 맞아도 HEAD에 없으면 되돌릴 것이 없다
+(3차 판정 실측: `hooks/newfile.sh` 쓰기가 allow 인데 PostToolUse가 보고도 복구도 하지 않았다).
+그리고 **토큰이 하나도 안 뽑히면 면제하지 않는다** — arm은 `grep -qiE`로 잡는데 추출이 못 뽑으면
+루프가 한 번도 돌지 않아 함수가 공허하게 참이 되고, 그 순간 면제가 무조건 성립한다
+(3차 판정 실측: 대소문자 변형 8형태가 main-ask → allow). 추출도 `-oiE`로 맞췄다.
 손실 상한이 열거가 아니라 탐지 집합에서 나온다. `DETECTED_LOCATIONS ⊆ PROTECTED_GLOBS`는
 `tests/pre-bash-firewall.bats`가 두 파일을 파싱해 기계 대조하며, 같은 파일의 SC-4 테스트가
 "allow가 나온 파일은 전부 `PROTECTED_GLOBS` 안"임을 저장소 전체 코퍼스로 확인한다.

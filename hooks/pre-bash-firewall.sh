@@ -213,9 +213,14 @@ DETECTED_LOCATIONS=(
   'tests/*.bats'
 )
 exempt_paths_are_detected() {
-  local tok stripped dir g hit
+  local tok stripped dir g hit root seen=0
+  # 복구 집합은 글롭만으로 정해지지 않는다 — 탐지기는 `git ls-tree HEAD` 를 열거하므로
+  # **HEAD 에 없는 파일은 글롭에 맞아도 되돌릴 것이 없다**(3차 판정 실측: `hooks/newfile.sh` 가
+  # allow 인데 PostToolUse 가 보고도 복구도 하지 않았다). 그래서 소속과 추적을 함께 본다.
+  root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
   while IFS= read -r tok; do
     [[ -n "$tok" ]] || continue
+    seen=1
     stripped="${tok#./}"
     while [[ "$stripped" == *//* ]]; do stripped="${stripped//\/\///}"; done
     # 상위 참조가 있으면 어디로든 갈 수 있다 — 정규화 없이 "탐지 대상"이라 단정하지 않는다.
@@ -232,9 +237,17 @@ exempt_paths_are_detected() {
       [[ "$stripped" == $g ]] && { hit=1; break; }
     done
     [[ "$hit" -eq 1 ]] || return 1
-  done < <(printf '%s\n' "$1" | grep -oE \
+    # 글롭에 맞아도 HEAD 에 없으면 복구 대상이 아니다. git 이 없거나 조회가 실패하면
+    # "탐지된다"고 단정할 근거가 없으므로 면제하지 않는다(fail-closed).
+    git -C "$root" cat-file -e "HEAD:$stripped" 2>/dev/null || return 1
+  done < <(printf '%s\n' "$1" | grep -oiE \
     '[A-Za-z0-9_./-]*(harness-config\.json|feature_list\.json|INVARIANTS\.md|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats)' \
     2>/dev/null)
+  # 토큰이 하나도 안 나왔는데 여기까지 왔다면 추출과 arm 매칭이 어긋난 것이다 — arm 은
+  # `grep -qiE` 로 잡았는데 추출이 못 뽑는 상태이며, 그대로 두면 **공허한 참**이 되어 면제가
+  # 무조건 성립한다(3차 판정 실측: 대소문자 변형 8형태가 main-ask → allow). 추출을 `-oiE` 로
+  # 맞췄고, 그래도 어긋나는 미지의 표기가 있으면 면제하지 않는다.
+  [[ "$seen" -eq 1 ]] || return 1
   return 0
 }
 ASK_PATTERNS=(

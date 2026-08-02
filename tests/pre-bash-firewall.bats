@@ -1603,7 +1603,10 @@ load_firewall_fns() {
            "python3 -c open(templates/progress/harness-config.json,w)" \
            "node build.js --out dist/hooks/app.sh" \
            "python3 -c open(vendor/x/progress/feature_list.json,w)" \
-           "python3 -c open(feature_list.json,w)"; do
+           "python3 -c open(feature_list.json,w)" \
+           "python3 -c open(hooks/newfile.sh,w)" \
+           "python3 -c open(tests/newfile.bats,w)" \
+           "python3 --version"; do
     run exempt_paths_are_detected "$c"
     [ "$status" -ne 0 ] || { echo "탐지 밖 경로를 면제로 통과시켰다: $c"; false; }
   done
@@ -1611,13 +1614,48 @@ load_firewall_fns() {
   for c in "python3 -c open(progress/feature_list.json)" \
            "python3 -c open(progress/harness-config.json)" \
            "python3 -c open(./hooks/lib.sh)" \
-           "python3 -c open(hooks//lib.sh)" \
+           "python3 -c open(progress//feature_list.json)" \
            "sed -n 1p tests/lib.bats" \
-           "ruby -e read(docs/INVARIANTS.md)" \
-           "python3 --version"; do
+           "ruby -e read(docs/INVARIANTS.md)"; do
     run exempt_paths_are_detected "$c"
     [ "$status" -eq 0 ] || { echo "탐지 대상을 면제에서 뺐다: $c"; false; }
   done
+}
+
+@test "F67: the path check is fail-closed, not vacuously true (3차 판정)" {
+  # arm 매칭은 `grep -qiE`(대소문자 무시)인데 추출이 `grep -oE`(구분)였다 — 대소문자 변형이면
+  # 토큰이 0개가 되고 while 루프가 한 번도 안 돌아 함수가 **공허하게 참**을 반환했다.
+  # 그 결과 면제가 무조건 성립해 8형태가 main-ask → allow 로 뒤집혔다(3차 판정 실측).
+  # 추출을 `-oiE` 로 맞추고, 그래도 토큰이 0개면 면제하지 않는다.
+  load_firewall_fns
+  local c
+  for c in "python3 -c open(HOOKS/LIB.SH,w)" \
+           "python3 -c open(Progress/Feature_List.json,w)" \
+           "python3 -c open(TESTS/LIB.BATS,w)" \
+           "python3 -c open(DOCS/INVARIANTS.MD,w)" \
+           "python3 -c print(1)"; do
+    run exempt_paths_are_detected "$c"
+    [ "$status" -ne 0 ] || { echo "공허한 참으로 면제가 성립했다: $c"; false; }
+  done
+  # 배선 상태에서도 같은 결론이어야 한다 — 함수 단위 통과가 판정을 보증하지는 않는다
+  run wired_firewall '{"tool_input":{"command":"python3 -c open(HOOKS/LIB.SH,w).write(x)"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "F67: glob membership alone is not detection — HEAD tracking is required (3차 판정)" {
+  # 탐지기는 `git ls-tree HEAD` 를 열거하므로 HEAD 에 없는 파일은 글롭에 맞아도 되돌릴 것이 없다.
+  # 실측: `hooks/newfile.sh` 가 allow 인데 PostToolUse 가 보고도 복구도 격리도 하지 않았다.
+  command -v git >/dev/null || skip "git not installed"
+  local c
+  for c in "hooks/newfile.sh" "tests/newfile.bats" "hooks/does-not-exist.sh"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"python3 -c open($c,w).write(x)\"}}"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] || { echo "미추적 파일이 면제됐다: $c"; false; }
+  done
+  # 추적되는 같은 계열은 그대로 면제여야 한다(과잉 교정 방지)
+  run wired_firewall '{"tool_input":{"command":"python3 -c open(hooks/lib.sh).read()"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+  run wired_firewall '{"tool_input":{"command":"python3 -c open(tests/lib.bats).read()"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
 @test "F67: the arm exclusions hold against a plausible arm split (not dead code)" {
