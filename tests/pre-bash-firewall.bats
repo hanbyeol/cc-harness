@@ -1684,6 +1684,40 @@ load_firewall_fns() {
   [ "$status" -eq 0 ]
 }
 
+@test "F67: the exemption is a notation-layer check — the cd class is a known gap" {
+  # SC-4 는 **표기 층**으로 확정됐다(2026-08-02 사용자 결정, 4차 판정). 면제 판정은 명령 문자열을
+  # 정규식으로 읽는데 면제 대상은 인터프리터 호출 전체라, 명령이 **적는** 경로와 명령이 **여는**
+  # 파일이 갈리면 대조가 결과를 구속하지 못한다. 그 경계를 여기 고정한다 — 값이 싸서 받아들이는
+  # 것이 아니라 이 클래스를 예측이 잡은 적이 없기 때문이며(아래 형제 명령이 main 에서도 allow),
+  # 효과 층까지 요구하면 대상 언어의 실행 의미론이 필요해 결정 불가능하다(F63 10회전과 같은 계열).
+  #
+  # **이 테스트가 깨지면 판정이 바뀐 것이다** — 우연히 바뀐 것인지 의도한 것인지 확인하고,
+  # 의도했다면 INV-14 의 손실 상한 문단과 계약 SC-4 의 `_layer` 를 함께 고쳐라.
+  local c
+  for c in "cd .claude && python3 -c open(hooks/lib.sh,w).write(x)" \
+           "cd templates && python3 -c open(progress/feature_list.json,w).write(x)" \
+           "cd .claude; python3 -c open(hooks/lib.sh,w).write(x)" \
+           "(cd .claude && python3 -c open(hooks/lib.sh,w).write(x))" \
+           "python3 -c import os; os.chdir(.claude); open(hooks/lib.sh,w).write(x)"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"$c\"}}"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "알려진 갭의 판정이 바뀌었다(고쳐졌다면 INV-14·SC-4 도 함께): $c"; false; }
+  done
+  # 갭이 F67 고유가 아님을 같은 자리에 고정한다 — 토큰 하나 짧은 형제는 main 에서도 allow 다.
+  command -v git >/dev/null || skip "git not installed"
+  git -C "$BATS_TEST_DIRNAME/.." rev-parse --verify main >/dev/null 2>&1 \
+    || skip "local 'main' ref not available"
+  local main_hook="$BATS_TEST_TMPDIR/main-fw.sh"
+  git -C "$BATS_TEST_DIRNAME/.." show main:hooks/pre-bash-firewall.sh > "$main_hook" 2>/dev/null
+  [ -s "$main_hook" ]
+  for c in "cd .claude/hooks && python3 -c open(lib.sh,w).write(x)" \
+           "python3 -c import os; os.chdir(.claude); open(hooks/lib.sh,w).write(x)"; do
+    run bash -c "printf '%s' '{\"tool_input\":{\"command\":\"$c\"}}' | bash '$main_hook' 2>/dev/null"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "main 이 이 형태를 잡는다면 F67 이 갭을 넓힌 것이다: $c"; false; }
+  done
+}
+
 @test "F67: paths outside the detection set stay predicted even when wired" {
   # 2차 판정이 `hooks/lib.sh` 로 실증한 클래스 전체. 앞의 둘은 **복구가 원리적으로 불가능**하고
   # (`.claude/` 는 gitignore, `templates/` 는 INV-11이 가드에서 제외), 뒤의 둘은 애초에 이
