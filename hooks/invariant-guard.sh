@@ -158,6 +158,45 @@ fi
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || echo "")
 [[ -z "$FILE" ]] && exit 0
 
+# === 보호 판정은 경로 **철자**에 의존하지 않는다 (F68 6~8차 판정) ===
+# 정규화와 대소문자 설정은 **모든 소비자보다 앞**에 있어야 한다. 8차 판정이 그 순서를 지적했다 —
+# 정규화가 신규 생성 예외·awk fail-closed·truncation 게이트보다 뒤에 있어 그 셋이 생 경로로
+# 판정했다. 아래 두 장치를 여기(FILE 추출 직후)에 둔다.
+#
+# (1) canon_file: 디렉터리를 물리 경로로, 파일명을 **FS 가 인식하는 실제 철자**로 바꾼다.
+#     `hooks//x.sh`·`hooks/./x.sh`·`/tmp`↔`/private/tmp` 심볼릭 링크 계열을 닫는다.
+# (2) nocasematch: canon_file 은 실제 철자를 **FS 에 물어보므로 파일이 존재할 때만** 성립한다.
+#     삭제 후 재생성 경로에는 물어볼 대상이 없다 — 실측(8차): `rm progress/feature_list.json`
+#     (방화벽 allow) + `PROGRESS/FEATURE_LIST.JSON` 쓰기 1회로 `passes:true` 가 evaluator-feedback
+#     조회·evaluator-runs 확인·min-of-5·보안 임계값 **전부 없이** 통과했다(exit 0). `pwd -P` 도
+#     디렉터리 대소문자를 정규화하지 않는다(bash 실측). 철자를 하나씩 닫는 방식이 6·7·8차
+#     연속 실패했으므로, 대소문자 무시 FS 에서는 **판정 자체를 대소문자 무시로 돌린다.**
+#     내용 검사는 grep/jq/awk 가 하므로 이 설정에 영향받지 않는다.
+canon_file() {
+  local p="$1" d b real
+  d=$(dirname "$p"); b=$(basename "$p")
+  # 디렉터리가 아직 없으면(신규 스캐폴딩) 정규화할 것이 없다 — 원본을 그대로 쓴다.
+  d=$(cd "$d" 2>/dev/null && pwd -P) || { printf '%s' "$p"; return 0; }
+  if [[ -e "$d/$b" ]]; then
+    real=$(ls -1 "$d" 2>/dev/null | grep -ixF -- "$b" | head -1)
+    [[ -n "$real" ]] && b="$real"
+  fi
+  printf '%s/%s' "$d" "$b"
+}
+# FS 판정은 **쓰지 않고** 한다: 디렉터리 이름의 대소문자를 뒤집어 접근 가능한지 본다.
+fs_is_case_insensitive() {
+  local d="$1" parent base flipped
+  [[ -d "$d" ]] || return 1
+  parent=$(dirname "$d"); base=$(basename "$d")
+  flipped=$(printf '%s' "$base" | tr '[:upper:][:lower:]' '[:lower:][:upper:]')
+  [[ "$flipped" == "$base" ]] && return 1   # 뒤집을 글자가 없다 — 보수적으로 '구분함'
+  [[ -e "$parent/$flipped" ]]
+}
+FILE=$(canon_file "$FILE")
+if fs_is_case_insensitive "$(dirname "$FILE")"; then
+  shopt -s nocasematch
+fi
+
 # === 가드를 통과한 편집을 원장에 남긴다 (F65) ===
 # protected-integrity.sh(PostToolUse:Bash)는 "보호 파일이 HEAD와 다른데 가드를 거치지 않았으면
 # 복구"한다. 그 판단에는 '어떤 변경이 심사를 통과했는가'가 필요하므로 여기서 기록한다.
@@ -276,20 +315,6 @@ fi
 # 여기서 디렉터리를 물리 경로로 정규화하고 파일명을 **FS 가 인식하는 실제 철자**로 바꾸면
 # 그 클래스가 한 번에 닫힌다 — 이후의 모든 판정(is_protected·신규생성 예외·계약 브랜치)이
 # 같은 값을 본다.
-canon_file() {
-  local p="$1" d b real
-  d=$(dirname "$p"); b=$(basename "$p")
-  # 디렉터리가 아직 없으면(신규 스캐폴딩) 정규화할 것이 없다 — 원본을 그대로 쓴다.
-  d=$(cd "$d" 2>/dev/null && pwd -P) || { printf '%s' "$p"; return 0; }
-  # 대소문자 무시 FS: 입력 철자와 실제 파일명이 다를 수 있다. 존재하면 실제 철자를 취한다.
-  if [[ -e "$d/$b" ]]; then
-    real=$(ls -1 "$d" 2>/dev/null | grep -ixF -- "$b" | head -1)
-    [[ -n "$real" ]] && b="$real"
-  fi
-  printf '%s/%s' "$d" "$b"
-}
-FILE=$(canon_file "$FILE")
-
 BASENAME=$(basename "$FILE")
 
 # === 탐지기의 상태 파일: 도구 경로 쓰기 전면 차단 (F65 2차 판정) ===
@@ -710,6 +735,22 @@ if [[ "$FILE" == *"/contracts/"* && "$BASENAME" == sprint-*.json && "$FILE" != *
   # 주의: `.agreed // empty`는 false를 삼킨다(jq alternative) — tostring으로 false 보존
   OLD_AG=$(jq -r '.agreed | if . == null then "" else tostring end' "$FILE" 2>/dev/null || echo "")
   NEW_AG=$(echo "$NEW_CONTENT" | jq -r '.agreed | if . == null then "" else tostring end' 2>/dev/null || echo "")
+  # F68 8차 판정 후속 — **삭제 후 재생성**. 파일이 없으면 `OLD_*` 를 읽을 수 없어 아래 전환
+  # 검사가 전부 무발화가 된다. 실측: `rm progress/contracts/sprint-54.json`(방화벽 allow) 후
+  # Write 한 번으로 `_batch_approval: {scope:["**/*"],N:99}` 가 근거 없이 들어갔다(exit 0).
+  # 6차 판정이 지적하고 9ea285e 가 닫았다고 한 경로인데, 닫힌 것은 `agreed` 쪽뿐이었다.
+  # **신규 생성 계약은 합의도 배치 승인도 담을 수 없다** — 둘 다 기존 상태로부터의 전환이고,
+  # 전환의 근거는 삭제로 사라지지 않는다.
+  if [[ ! -e "$FILE" ]]; then
+    NEW_AG0=$(printf '%s' "$NEW_CONTENT" | jq -r '.agreed // false' 2>/dev/null || echo false)
+    NEW_BA0=$(printf '%s' "$NEW_CONTENT" | jq -cS '._batch_approval // null' 2>/dev/null || echo null)
+    if [[ "$NEW_AG0" == "true" ]]; then
+      deny "신규 계약이 agreed:true 로 생성됨 — 합의는 Plan 게이트를 거친 전환이어야 한다. 삭제 후 재생성으로 그 게이트를 건너뛸 수 없다 (INV-11/F68)"
+    fi
+    if [[ "$NEW_BA0" != "null" ]]; then
+      deny "신규 계약이 _batch_approval 을 담고 생성됨 — 배치 승인 범위는 사람이 본 전환이어야 한다. 삭제 후 재생성으로 주입할 수 없다 (INV-12/F68 SC-4)"
+    fi
+  fi
   if [[ "$OLD_AG" == "false" && "$NEW_AG" == "true" ]]; then
     AC_N=$(echo "$NEW_CONTENT" | jq -r '.acceptance_criteria | length' 2>/dev/null || echo 0)
     ST_N=$(echo "$NEW_CONTENT" | jq -r '.implementation_steps | length' 2>/dev/null || echo 0)

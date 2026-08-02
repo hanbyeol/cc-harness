@@ -710,3 +710,36 @@ HEAD로 되돌렸다(원장에 복구·격리 기록이 남아 있다). `.claude
 **종결 처리**: 면제를 도구로만 정의하고(python·node·ruby·sed·awk), 손실을 INV-14 에 **열거로**
 선언한 뒤 회귀 테스트로 목록째 고정했다. 경로 검사 함수는 INV-5 가 삭제를 막아 코드에 남으나
 호출되지 않으며, 그 은퇴 상태 자체를 테스트가 확인한다.
+
+## F68 8차 판정 (2026-08-02, fail — security 2, min-of-5 2) — "파일 동일성으로 올렸다"고 적었는데 올린 것은 **마지막 경로 성분의 철자**였다
+7차가 준 지시는 "판정 기준을 파일 동일성(realpath/inode)으로 올려 클래스를 한 번에 닫으라"였다.
+`canon_file()` 은 그렇게 하지 않는다. **디렉터리 성분의 철자는 그대로 통과한다** — `pwd -P` 가
+대소문자를 정규화한다는 전제가 틀렸기 때문이다. bash 의 `cd` 는 새 PWD 를 문자열 결합으로 만들고
+same-file 검사만 하므로, 대소문자만 다른 디렉터리는 검사를 통과하고 원래 철자가 살아남는다.
+실측: `canon_file "<repo>/Progress/Contracts/SPRINT-54.json"` → `<repo>/Progress/Contracts/sprint-54.json`.
+결과는 7차와 **같은 한 줄**이다 — `rm` 없이 **쓰기 1회**로 `_batch_approval` 이 `{scope:["**/*"],N:99}`
+가 되고 `agreed:true` 는 그대로다. 게다가 `canon_file` 은 디렉터리가 없으면 **원본 문자열을 반환하며
+fail-open** 하는데 그 자리가 정확히 delete-then-recreate 경로이고, 호출 지점(291행)이 **신규 생성
+예외(198행)·awk fail-closed(210행)·truncation 게이트(263행)보다 뒤**라 그 셋은 여전히 생 경로로 판정한다.
+
+**한 줄 진단**: 사전-사후 대조가 전부다. 재작업 전 훅(`d682e3a`)과 현재 훅에 같은 네 케이스를 걸면
+바뀐 결과는 **정확히 하나**다(basename 대소문자 ALLOW→DENY). 디렉터리 대소문자·INV-11 재생성 누출·
+truncation 누출은 바이트 동일하게 열려 있다. 6·7·8차가 각각 **직전 판정이 시연한 그 인스턴스 하나만**
+닫았다. 다음 판정은 재작업을 받으면 먼저 이 대조부터 돌릴 것 — 커밋 메시지가 클래스를 닫았다고 말해도
+바뀐 결과의 개수가 답한다.
+
+**F68 밖으로 번지는 것(더 심각)**: 같은 축이 INV-11 을 뚫는다. `rm progress/feature_list.json`
+(firewall allow) + `progress/FEATURE_LIST.JSON` 로 **쓰기 1회** → critical 기능의 `passes:true` 가
+evaluator-feedback 조회·evaluator-runs 확인·min-of-5·보안 임계값 **전부 없이** 들어간다. INV-7
+truncation 도 같다 — `tests/invariant-guard.BATS` 에 빈 Write 로 실제 파일이 1070줄에서 0줄이 됐다.
+둘 다 재작업 이전부터 열려 있던 **선재 결함**이며 F68 범위가 아니다. 승인 범위 확장(SC-4)보다
+`passes` 위조가 큰 노출이므로 F68 의 운명과 무관하게 별건으로 닫아야 한다.
+
+**테스트의 이빨**: `FILE=$(canon_file "$FILE")` 을 no-op 으로 만들고 전체를 돌리면 724 중 2건만
+깨진다 — 그 하나가 7차가 시연한 `SPRINT-93.json` 인스턴스이고, **대소문자 구분 FS 에서는 skip** 한다.
+Linux CI 는 이 축에 커버리지가 0이다. 인스턴스를 고정하는 테스트는 클래스를 고정하지 않는다.
+
+**권고**: 9차 코드 회전을 열지 말 것. 동일성 판정을 한 번에 제대로 넣거나(존재하면 device+inode,
+없으면 realpath(부모)+FS 철자 basename — `FILE` 추출 직후, 모든 소비자보다 **앞에서**), SC-4 를
+F69(ExitPlanMode 이력 대조 — 계약이 이미 유일한 위조 불가 지점이라 적어 둔 곳)로 넘기고 F68 은
+AC-1~6 + SC-1~3 로 출하하되 INV-12 가 쓰기 경로 철자 클래스가 열려 있음을 정직하게 적을 것.

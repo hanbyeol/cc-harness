@@ -324,6 +324,17 @@ ASK_PATTERNS=(
   # F63 이전에는 에디터 이름 목록이 sed를 통째로 잡아 가려져 있었다.
   '\bg?sed\b[^;|&]*\bw\b *[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
   '\bof= *[^ ]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
+  # === 계약 파일 (F68 8차 판정 후속) ===
+  # `progress/contracts/sprint-*.json` 은 `is_protected()`·`PROTECTED_GLOBS` 에 둘 다 있는데
+  # **예측 계층에는 어느 arm에도 없었다.** 그래서 `cp`·리다이렉트·`dd of=`·에디터로 승인 범위
+  # (`_batch_approval`·`agreed`)를 바꾸는 것이 무프롬프트였다. 탐지가 되돌리는 것은 실측으로
+  # 확인했지만(격리 랩: `_batch_approval` 주입 → PostToolUse → 원상복구), INV-14 가 인정하는
+  # "한 Bash 호출 안에서 변조와 소비가 함께 일어나는 창"이 그대로 남는다. 승인 범위는 그 창에서
+  # 소비되는 값이므로 두 계층의 대상 집합을 맞춘다 — 예측이 먼저 묻고, 탐지가 나머지를 되돌린다.
+  '>>? *[^ ]*contracts/[A-Za-z0-9_.-]+\.json'
+  '\b(cp|mv|install|rsync|ln|tee|sponge|truncate)\b[^;|&]*contracts/[A-Za-z0-9_.-]+\.json'
+  '\bof= *[^ ]*contracts/[A-Za-z0-9_.-]+\.json'
+  '\b(ed|ex|vi|vim|nano|emacs|dd|patch|sponge)\b[^;|&]*contracts/[A-Za-z0-9_.-]+\.json'
   # 민감 파일(비밀키·크리덴셜) 이동/복사/덮어쓰기
   '\b(cp|mv|rsync|install|tee|scp)\b[^;|&]*(\.ssh/|\.aws/|\.gnupg/)'
   '>>? *[^ ]*(\.ssh/|\.aws/|\.gnupg/)'

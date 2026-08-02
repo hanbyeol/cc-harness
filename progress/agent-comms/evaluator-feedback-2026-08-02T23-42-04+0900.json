@@ -1,0 +1,115 @@
+{
+  "timestamp": "2026-08-02T23:42:04+0900",
+  "sprint": 53,
+  "iteration": 7,
+  "features_evaluated": [
+    "F67"
+  ],
+  "security_tier": "critical",
+  "head": "e1434d6",
+  "branch": "f67-firewall-exemption-alignment",
+  "_judgment_character": "이번 회전은 기능 철회다. 2~6차가 반려한 축(인터프리터 면제의 손실 상한)은 면제 자체가 제거되어 소멸했고, 변경 방향은 게이트 강화다. 그래서 판정한 것은 셋이다 — (1) 철회가 완전한가 (2) 과잉 교정이 없는가 (3) 철회되지 않은 보호 개선이 실제로 작동하는가.",
+  "scores": {
+    "functionality": 8,
+    "code_quality": 7,
+    "security": 8,
+    "error_handling": 8,
+    "test_coverage": 7
+  },
+  "score": 7,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_threshold_critical": 7,
+  "verdict": "pass",
+  "pass_reasons": [
+    "min-of-5 = 7 ≥ pass_threshold 7",
+    "security 8 ≥ 7 (critical tier)",
+    "철회가 완전하다: 706 케이스 × 2 조건(wired/unwired) 차분에서 main이 게이트한 것을 브랜치가 allow하는 케이스 0건",
+    "과잉 교정 없음: F65 sed/awk 면제가 살아 있고 실제로 동작하며(배선 유무로 판정이 뒤집힘), main 대비 새 ask 16건은 전부 F68 arm에서 나온 더 엄격한 방향",
+    "철회되지 않은 보호 개선 전부가 격리 랩에서 종단 동작 확인됨(복구·기록·격리·티켓·포매터)"
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1b: 인터프리터 × 하네스 경로 243 케이스(9 도구 형태 × 27 경로)가 전부 ask. 설치본 `.claude/hooks/lib.sh`·`.claude/plugins/cc-harness/hooks/lib.sh`, 미추적 `hooks/newfile.sh`·`tests/newfile.bats`, 접미사 6종(`.bak`·`.orig`·`~`·`,v`·`%`·`.sh.bak`), 저장소 밖 `dist/hooks/app.sh`·`/tmp/x/hooks/app.sh`·`vendor/x/...`, 대소문자 4종, templates seed 2종, 컨트롤 플레인 3종 포함. `cd`/`pushd`/`os.chdir` 우회 24 케이스 중 인터프리터 형태 20건 전부 ask(나머지 4건은 sed 순수 읽기로 main과 동일 allow).",
+      "AC-2: 격리 랩 종단 — `templates/progress/{feature_list,harness-config}.json`·`hooks/lib.sh`·`hooks/post-edit-format.sh`·`progress/feature_list.json`를 훼손 후 PostToolUse 1회 → 5개 전부 HEAD 복구 + `.integrity-restores` 1줄 기록 + `progress/.integrity-quarantine/20260802T142009Z/` 에 훼손본 5개 보관.",
+      "AC-4: 쓰기 신호가 드러나는 arm 비면제 — 리다이렉트·cp·mv·tee·dd·`sed -i`가 데이터 플레인에서 전부 ask. 정적 시뮬레이션(52 arm 전수)에서 면제되는 arm은 1개뿐.",
+      "AC-5: 편집 전용 도구(vim)는 데이터 플레인 27 경로 전부 ask.",
+      "AC-6: 결정 함수 차분 706 케이스 — fail-open 0건, 방향 무관 기타 차이 0건. (단서: 새 ask 16건은 F68 arm에서 나오며 AC-6의 INTENDED 목록이 비어 있다 — 아래 criteria_gaps 참조.)",
+      "AC-7: fail-safe 실측 — `sed -n '1,5p' hooks/lib.sh > /tmp/out` 이 배선 시 allow, 미배선 시 ask. main도 동일하게 움직인다. 미배선 조건에서 706 케이스 재실행 시에도 fail-open 0건.",
+      "AC-8: 회귀 없음 — `bats tests/` 1회 실행을 파일로 받아 계수: plan `1..724`, `^ok` 724, `^not ok` 0, skip 1건(v1.4.0 플러그인 캐시 부재 — F67 무관).",
+      "AC-9: 면제 결과 집합이 실제로 1개(sed/awk 데이터 플레인 arm)로 고정되어 있고 main의 집합과 **동일한 arm**이다. 되살리는 변이(M1)를 F67 테스트 9개가 검출한다. **단, 이 기준을 구현한 전용 테스트는 그 변이를 통과시킨다** — 아래 issues·criteria_gaps 참조. 계약의 verification 문구를 7차 판정이 갱신했다.",
+      "AC-10: heredoc 3형태(`python3 - <<'EOF'`·`python3 <<EOF`·`cat <<'EOF' | python3 -`)에서 `.claude/settings.json`·`hooks/hooks.json`·`.claude/settings.local.json` 쓰기가 브랜치·main 모두 ask."
+    ],
+    "security": [
+      "SC-1: ASK arm 45 → 52 (add-only 계수 유지). 삭제로 보이는 arm 1개는 **둘로 쪼갠 것**이며 합집합이 main과 동일함을 행위로 확인했다(`hooks/*.sh`·`hooks/*.json`·`.claude/settings*.json` 전 케이스 판정 일치).",
+      "SC-2: `EXEMPTABLE_ARM_TOKENS` 단일 출처 유지, 현재 항목 1개(`READ_CAPABLE_ARM`). 판정은 `arm_is_exemptable()` 한 곳.",
+      "SC-3: INV-14가 손실 상한을 갱신된 상태로 서술한다 — 면제는 sed/awk 하나뿐, 복구 범위는 `PROTECTED_GLOBS ∩ HEAD 추적`, 철회 후 main과 동일, 은퇴 함수는 호출되지 않음. (한 문장이 철회 전 서술로 남아 있다 — issues 참조.)",
+      "SC-4: `PROTECTED_GLOBS ≡ is_protected()` 정합 유지. 인터프리터 면제 철회 확인 — 방화벽 판정이 이 축에서 main과 동일. 두 목록 편입(`hooks/*.sh`·`templates/progress/*.json`)이 load-bearing 임을 변이로 확인(M2·M3).",
+      "SC-5: 명령 경계 관련 기존 보호 불변 — deny(`rm -rf /`)·egress(`curl -T ~/.ssh/id_rsa`)·명령치환(`$(cp /tmp/x progress/feature_list.json)`) 전부 main과 동일, 개행/줄이음/인용 내 개행 케이스 포함 724 테스트 green."
+    ],
+    "error_scenarios": [
+      "ES-1: 면제 대상이 목록으로 열거되고 컨트롤 플레인 arm은 목록 밖 — 52 arm 전수 시뮬레이션에서 면제 arm 1개, 그 arm에 컨트롤 플레인 경로 없음.",
+      "ES-2: 판정 변화가 allow↔ask↔deny 어느 방향이든 관측되도록 차분을 방향별로 분류 — fail-open 0 / new-ask 16 / other 0.",
+      "ES-3: `integrity_wired()` 거짓 → 예측 유지. 미배선 706 케이스 재실행으로 확인.",
+      "ES-4: 한 Bash 호출 내 변조·소비 창은 INV-14에 서술된 알려진 약화이며, 철회로 그 창이 sed/awk로 좁아졌다."
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "issues": [
+    "[test][medium][confidence:high] **AC-9 전용 테스트가 자기가 고정한다고 주장하는 회귀를 통과시킨다.** `tests/pre-bash-firewall.bats` \"the exemption result set is pinned, not just the token list\" 는 면제 여부를 `EXEMPTABLE_ARM_TOKENS`가 아니라 `READ_CAPABLE_ARM ∪ INTERPRETER_ARM` 으로 재현하고 기대값을 3으로 둔다. 실제 면제 arm은 1개다. 변이 M1(`EXEMPTABLE_ARM_TOKENS`에 `INTERPRETER_ARM` 재추가 = 철회 취소)에서 F67 테스트 9개가 빨개지는 동안 **이 테스트만 초록**이었다. 고칠 것: 배열을 파싱해 그 토큰들로만 면제를 재현하고 기대값 1. (게이트 자체는 다른 9개가 잡으므로 열려 있지 않다.)",
+    "[test][medium][confidence:high] **main 대조 테스트 둘이 CI 형태 체크아웃에서 조용히 skip 된다.** 이 브랜치를 새로 clone 하면 로컬 `main` ref 가 없다(실측: ABSENT). 그 상태에서 `bats -f F67` 은 28개 중 2개(\"the decision function matches main outside the intended change\", \"the cwd-detour class is identical to main\")를 `# skip` 으로 보고하며 여전히 초록이다. INV-14는 '`tests/pre-bash-firewall.bats`가 main 대조로 그 동일성을 고정한다'고 적었는데 그 고정이 CI에서는 성립하지 않는다. 고칠 것: `main` 부재 시 `origin/main`·`refs/remotes/origin/main`로 폴백하고, 둘 다 없을 때만 skip.",
+    "[docs][medium][confidence:high] **철회 전 서술이 세 곳에 현재형으로 남아 코드와 모순된다.** (a) `hooks/pre-bash-firewall.sh:204-206` \"아래 판정부는 경로를 보지 않고 다섯 도구(python·node·ruby·sed·awk 계열)를 무조건 면제한다\" (b) 같은 파일 `:643-649` \"그래서 다섯 도구(...)는 **경로와 무관하게** 면제하고, 보호는 전적으로 사후 탐지·복구에 맡긴다\" (c) `docs/INVARIANTS.md` INV-14 \"그 대가로 위 '한 Bash 호출 안의 변조·소비 창'이 `sed`·`awk` 뿐 아니라 `python3 -c` 로도 열린다\". 셋 다 같은 파일의 권위 문단(`EXEMPTABLE_ARM_TOKENS` 정의부 주석 `:163-169`, INV-14 '철회 후 상태')과 정면으로 어긋난다. 방향은 보수적(실제보다 넓은 손실을 선언)이라 보안 영향은 없으나, **손실 상한을 정확히 적는 것이 이 문서의 존재 이유**이므로 내부 모순은 결함이다. 되살리려는 사람이 (b)를 읽고 '이것이 의도된 상태'라 오독할 수 있다.",
+    "[criteria][medium][confidence:high] AC-1·AC-9가 면제의 존재를 전제해 철회와 모순됐다. 7차 판정이 계약을 갱신했다 — AC-1을 `status: withdrawn` 으로 내리고 그 자리에 AC-1b(반대 방향 기준: 인터프리터는 읽기든 쓰기든 ask이며 main과 동일)를 세웠으며, AC-9의 기대값을 3에서 1로 고치고 테스트 결함을 `_correction_2026_08_02_7th` 에 적었다. 판단 근거는 아래 criteria_issues 에 있다.",
+    "[criteria][low][confidence:high] `progress/feature_list.json` 의 F67 description 이 철회된 계획을 해결책으로 서술한다 — \"읽기를 잡는 데이터 플레인 arm을 면제 대상에 편입하고 ... 개행은 명령 구분자로 인식시킨다\". 둘 다 철회됐다(후자는 AC-3, 2026-07-30). passes 를 true 로 올리며 `_shipped_2026_08_02` 노트를 같은 항목에 남겼다.",
+    "[code][low][confidence:high] `arm_is_exemptable()` 의 배제 절 중 `approval-queue`·`\\.claude/`·`templates/` 는 현재 토큰 목록(sed/awk 하나)에 대해서는 **사문**이다 — 그 마커를 가진 arm들은 `(g?sed|g?awk|mawk)` 를 리터럴 부분문자열로 갖지 않아 애초에 면제 후보가 아니다. 다만 테스트 \"the arm exclusions hold against a plausible arm split\" 이 '앞으로 있을 법한 arm 분할'에 대해 각 절이 판정을 뒤집는지 확인하므로, 의도된 심층 방어로 본다. 결함이 아니라 관측으로 기록한다.",
+    "[process][low][confidence:medium] `progress/agent-comms/implementer-output.json` 에 `security_self_check` 필드가 없다(`security` 필드로 대체돼 있다). evaluator 스키마가 참조하는 이름과 어긋나 자동 대조가 불가능하다. 이번 판정은 self-check 를 근거로 쓰지 않았으므로(독립 재검증) 영향은 없다."
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [
+      "AC-6('결정 함수가 의도된 차이 밖에서 main과 동일')이 **브랜치가 여러 스프린트를 싣고 있다는 사실을 다루지 않는다.** 이 브랜치에는 F68의 `approval-queue` arm 4개가 함께 있고, 그 때문에 main 대비 새 ask 16건이 실재한다. AC-6의 INTENDED 목록은 비어 있고 그 비어 있음을 단언까지 하므로, 문자 그대로 읽으면 AC-6은 미충족이다. 실제로 통과하는 이유는 테스트 코퍼스에 approval-queue 명령이 없어서다. 고칠 것: AC-6의 대조 범위를 'F67이 건드린 축'으로 한정하거나, INTENDED 대신 '브랜치에 실린 다른 feature 의 arm 목록'을 명시적으로 예외 처리한다.",
+      "`templates/progress/*.json` 을 `PROTECTED_GLOBS` 에 넣을 때 **함께 넓혀야 하는 목록의 전체 집합**(is_protected · post-edit-format skip · INV-12 문서 · DETECTED_LOCATIONS)이 여전히 어느 기준에도 열거돼 있지 않다. 5차 판정이 같은 지적을 했고 이번에는 네 곳이 모두 맞춰져 있으나(실측), 그것을 강제하는 것은 규율이지 기준이 아니다."
+    ],
+    "ambiguous_criteria": [
+      "SC-1('패턴을 지우지 않고')이 **arm 재작성**을 다루지 않는다. 이번 브랜치는 main의 인터프리터 arm 1개를 둘로 쪼갰다 — 문자열로는 삭제 1 + 추가 2 이고, INV-5의 기계 검사(따옴표 줄 계수)는 통과한다. 합집합이 같음을 이번 판정이 행위로 확인했으나, 기준이 요구한 것은 계수뿐이라 **합집합 보존을 확인하지 않는 재작성도 통과한다.**"
+    ],
+    "security_criteria_insufficient": [],
+    "action_required": "issues 의 test/docs 3건은 이 브랜치에서 정리 가능하다(테스트 2건은 로직 수정, 문서 1건은 문장 교체). AC-6·SC-1의 갭은 다음 스프린트 계약에 반영할 것."
+  },
+  "criteria_issues": [
+    "**계약 갱신을 evaluator가 수행했다 — 사용자 확인 요망.** AC-1을 철회 처리하고 AC-9의 기대값을 고쳤다. 통상 기준 완화는 반려 사유이지만, 이번 건은 (a) 사용자 지시에 따른 기능 철회의 결과이고 (b) 변경 방향이 게이트 **강화**(면제 제거)이며 (c) 남겨 두면 '충족 불가능한 기준 미충족'을 결함으로 세게 되어 판정이 왜곡되므로 기준 역전파로 처리했다. AC-1은 삭제하지 않고 `status: withdrawn` + 철회 근거를 남겼으며, 그 자리에 **반대 방향의 기준 AC-1b**(인터프리터는 읽기든 쓰기든 ask, main과 동일)를 세워 커버리지가 비지 않게 했다. AC-9는 완화가 아니라 사실 정정(3→1)이며 미충족 부분을 명시적으로 적어 남겼다.",
+    "이번 스프린트의 criteria_backfill 은 3건 미만이므로 spec/architecture 재검토 권고는 발동하지 않는다."
+  ],
+  "evidence": {
+    "differential_corpus_wired": "probe7.py — 브랜치 훅 vs `git show main:hooks/pre-bash-firewall.sh`, 양쪽 모두 PostToolUse 배선된 격리 플러그인 루트로 실행. corpus=706 (10 읽기 도구 + 10 쓰기 도구 × 27 경로 = 540, cd/chdir 우회 24, heredoc/개행 5, 기타 티어 17, 나머지 조합). 결과: diffs=16, **FAIL-OPEN(main gated → branch allow) = 0**, OTHER = 0.",
+    "differential_corpus_unwired": "같은 코퍼스를 `CLAUDE_PLUGIN_ROOT` 제거 + `$PWD/.claude/hooks/protected-integrity.sh` 부재 상태로 재실행. 결과 동일 — diffs=16, fail-open 0. 배선이 판정을 바꾸는 케이스: 브랜치 0 / main 0 (코퍼스 내 sed 형태가 전부 Layer 3.4 pure_read_only 로 먼저 처리되기 때문).",
+    "exemption_liveness": "Layer 3.5 면제가 실제로 동작함을 별도 확인 — `sed -n '1,5p' hooks/lib.sh > /tmp/out7` : wired=allow / unwired=ask / main-wired=allow. `awk '{print $1}' progress/harness-config.json > …` · `gsed -n '1,5p' docs/INVARIANTS.md > …` · `awk -f /tmp/s.awk tests/pre-bash-firewall.bats > …` 동일. `sed 's/a/b/' progress/feature_list.json > …` 는 wired 에서도 ask(쓰기 신호).",
+    "new_asks_attribution": "새 ask 16건은 전부 `progress/.approval-queue.jsonl` 한 경로이며, 브랜치에만 있는 F68 arm 4개(`>>? *[^ ]*approval-queue\\.json`, cp/mv/install 계열, 에디터 계열, 인터프리터 계열)에서 나온다. F67이 추가한 경로 앵커 arm 둘(`.claude/**hooks/*.sh`·`templates/**{harness-config,feature_list}.json`)은 main의 더 넓은 arm 이 이미 같은 자리를 잡고 있어 차분 0.",
+    "arm_set_analysis": "ASK_PATTERNS 파싱 대조 — main 45 arm / 브랜치 52 arm. 브랜치에만 있는 arm 8개, main 에만 있는 arm 1개(둘로 쪼개진 원본). `arm_is_exemptable()` 규칙을 52 arm 전수에 적용 → 면제 arm **정확히 1개**: `(g?sed|g?awk|mawk)[^;|&]*(harness-config\\.json|hooks/…\\.sh|tests/…\\.bats|INVARIANTS\\.md)`. main 규칙을 main 45 arm 에 적용 → 면제 **1개, 같은 arm**.",
+    "retired_code": "`exempt_paths_are_detected()`·`DETECTED_LOCATIONS` 의 호출부 0 — 저장소 전체 grep 에서 정의부(227·235·269)와 주석(211·353)만 나온다. 테스트가 `grep -c EXEMPT_PATHS_OK == 0` 으로 판정부 재부착을 차단한다.",
+    "isolation_lab_detection": "lab7repo(HEAD 클론) — 보호 파일 5개 훼손 후 PostToolUse 1회: 5개 전부 HEAD 복구, `progress/.integrity-restores` 1줄, `progress/.integrity-quarantine/20260802T142009Z/` 에 훼손본 5개 보존. 미추적 `hooks/newfile.sh` 는 복구되지 않음(INV-14가 서술한 `PROTECTED_GLOBS ∩ HEAD 추적` 경계 — 그 자리는 이제 예측이 덮는다).",
+    "isolation_lab_guard": "canon_file — 같은 파일을 4가지 표기(`progress/feature_list.json`, `./…`, `sub/../…`, `/tmp` 심링크 경유)로 INV-11 위반 Write 주입 → **4형태 모두 exit=2 로 동일 차단**, 메시지 동일. `CLAUDE_PROJECT_DIR` 를 심링크 경로로 준 경우도 동일. 티켓 발급도 심링크 루트에서 정상(`<sha> progress/feature_list.json` — 저장소 상대 경로로 기록).",
+    "isolation_lab_ticket": "승인된 편집 종단 — invariant-guard 가 티켓 발급 → 편집 반영 → PostToolUse 실행 후 편집이 **되돌려지지 않음**(F65 회귀 부재).",
+    "formatter": "post-edit-format skip 목록 = `PROTECTED_GLOBS` 의 .json 멤버 6개와 일치(`harness-config`·`feature_list`·`contracts/sprint-*`·`approval-queue`·`hooks/hooks.json`·`templates/progress/*`). 실행 확인: 3개 파일에 Edit 이벤트 주입 후 해시 불변(UNTOUCHED). 정합 검사는 `tests/improve-auto.bats:322`.",
+    "full_suite": "`bats tests/ > full7.txt` (파이프 없이 파일로 수신 후 계수) — plan `1..724`, `^ok` 724, `^not ok` 0, `# skip` 1(v1.4.0 플러그인 캐시 부재, F67 무관). 코퍼스 크기 ≥700 선단언 충족.",
+    "mutation_M1_undo_withdrawal": "`EXEMPTABLE_ARM_TOKENS` 에 `INTERPRETER_ARM` 재추가 → `bats -f F67` 28개 중 **9개 실패**(interpreter stays predicted / newline overfire / interpreter writes predicted / matches main / retired path check / suffix variants / untracked files / arm exclusions / cwd-detour). **\"the exemption result set is pinned\" 는 초록 유지 — 이 테스트가 자기 주장을 검사하지 않는다는 증거.**",
+    "mutation_M2_drop_templates_glob": "`PROTECTED_GLOBS` 에서 `templates/progress/*.json` 제거 → 전체 스위트에서 **1건 검출**(`F67: the exemption trusts only locations the detector covers (SC-4)`). 별도로 격리 랩에서 seed 훼손이 복구되지 않음을 확인 — 항목이 load-bearing.",
+    "mutation_M3_drop_hooks_glob": "`PROTECTED_GLOBS` 에서 `hooks/*.sh` 제거 → **3건 검출**(SC-4 두 건 + untracked files).",
+    "mutation_M4_drop_anchor_arms": "새 경로 앵커 arm 둘 제거(52→50) → **1건 검출**(`the two enumerated path arms still hold for direct spellings`).",
+    "ci_shaped_checkout": "브랜치를 새로 clone → 로컬 `main` ref **ABSENT**. 그 상태의 `bats -f F67`: ok 28 / not ok 0 / **skip 2**(main 대조 테스트 둘). `git branch -f main origin/main` 후 skip 0.",
+    "inv14_vs_code": "INV-14 문장 단위 대조 — '면제 토큰은 EXEMPTABLE_ARM_TOKENS 한 곳, 현재 항목은 sed·awk·mawk 하나뿐'(코드 일치) · '철회 후 결정 함수는 main과 동일'(706 케이스 일치) · '은퇴 함수는 호출되지 않음'(grep 일치) · 'F67이 남긴 것' 4항목(전부 격리 랩 확인) · '복구 범위는 PROTECTED_GLOBS ∩ HEAD 추적'(미추적 파일 실측 일치). 어긋난 문장 1개는 issues 에 기록."
+  },
+  "f37_second_judgment": {
+    "status": "required_not_yet_performed",
+    "note": "security_tier 가 critical 이므로 F37에 따라 **독립 컨텍스트의 2차 판정이 남아 있다.** 이 1차 판정은 pass 이지만, 2차 판정과 verdict 가 불일치하면 자동 pass 가 아니라 사람 에스컬레이션이다. 메인 루프가 별도 evaluator 를 디스패치해 교차검증할 것."
+  },
+  "recommendations": [
+    "1. (테스트) \"the exemption result set is pinned\" 이 `EXEMPTABLE_ARM_TOKENS` 를 파싱해 면제를 재현하도록 고치고 기대값을 1로. 지금은 철회를 되돌리는 변이를 통과시킨다.",
+    "2. (테스트) main 대조 테스트 둘에 `origin/main` 폴백을 추가. 지금은 CI 형태 체크아웃에서 조용히 skip 되어 INV-14가 주장하는 '테스트가 동일성을 고정한다'가 성립하지 않는다.",
+    "3. (문서) 철회 전 서술 3곳을 과거형/무효 표기로 교체 — `pre-bash-firewall.sh:204-206`, `:643-649`, INV-14의 `python3 -c` 문장.",
+    "4. (다음 스프린트) AC-6의 대조 범위를 'F67 축'으로 한정하거나 브랜치에 실린 타 feature arm 을 명시 예외로. SC-1에 '재작성 시 합집합 보존' 조항 추가."
+  ]
+}
