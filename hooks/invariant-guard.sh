@@ -259,6 +259,29 @@ if [[ -z "$NEW_CONTENT" ]]; then
   exit 0
 fi
 
+# === 보호 판정은 경로 문자열이 아니라 **파일 동일성**으로 한다 (F68 6·7차 판정) ===
+# 문자열 비교는 같은 파일을 가리키는 다른 표기에 뚫린다. 실측된 둘:
+#  - macOS APFS 는 기본 대소문자 무시 — `progress/contracts/SPRINT-54.json` 은
+#    `sprint-54.json` 과 **동일 inode** 인데 `case` 매칭은 갈린다(Write 1회로 우회됐다).
+#  - `hooks//x.sh` · `hooks/./x.sh` · `../contracts/…` 같은 경로 표기 변형.
+# 철자를 하나씩 닫는 방식은 일곱 번 실패했다(F63 의 10회전 열거 실패와 같은 계열).
+# 여기서 디렉터리를 물리 경로로 정규화하고 파일명을 **FS 가 인식하는 실제 철자**로 바꾸면
+# 그 클래스가 한 번에 닫힌다 — 이후의 모든 판정(is_protected·신규생성 예외·계약 브랜치)이
+# 같은 값을 본다.
+canon_file() {
+  local p="$1" d b real
+  d=$(dirname "$p"); b=$(basename "$p")
+  # 디렉터리가 아직 없으면(신규 스캐폴딩) 정규화할 것이 없다 — 원본을 그대로 쓴다.
+  d=$(cd "$d" 2>/dev/null && pwd -P) || { printf '%s' "$p"; return 0; }
+  # 대소문자 무시 FS: 입력 철자와 실제 파일명이 다를 수 있다. 존재하면 실제 철자를 취한다.
+  if [[ -e "$d/$b" ]]; then
+    real=$(ls -1 "$d" 2>/dev/null | grep -ixF -- "$b" | head -1)
+    [[ -n "$real" ]] && b="$real"
+  fi
+  printf '%s/%s' "$d" "$b"
+}
+FILE=$(canon_file "$FILE")
+
 BASENAME=$(basename "$FILE")
 
 # === 탐지기의 상태 파일: 도구 경로 쓰기 전면 차단 (F65 2차 판정) ===

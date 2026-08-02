@@ -338,6 +338,35 @@ seed_queue() {    # 항목 1개가 든 큐 사본 경로를 만든다
   [ -z "$missing" ]
 }
 
+@test "F68: a case-variant path is the same file (F37 7차 판정)" {
+  command -v jq >/dev/null || skip "jq not installed"
+  command -v git >/dev/null || skip "git not installed"
+  # 7차 판정 실증: macOS APFS 는 기본 대소문자 무시라 `SPRINT-…json` 이 `sprint-…json` 과
+  # **동일 inode** 인데 가드의 판정은 case 매칭이라 갈렸다 — Write 1회로 승인 범위가 교체됐고
+  # rm 도 커밋도 필요 없었다. 판정을 파일 동일성으로 올려 이 클래스를 닫는다.
+  local d="$BATS_TEST_TMPDIR/repo7" c
+  mkdir -p "$d/progress/contracts"
+  git -C "$d" init -q
+  git -C "$d" config user.email t@t
+  git -C "$d" config user.name t
+  c="$d/progress/contracts/sprint-93.json"
+  jq -n '{sprint:93, feature_id:"F93", agreed:true,
+          acceptance_criteria:[{id:"AC-1"}], implementation_steps:[{step:"s"}],
+          _batch_approval:{scope:["skills/implement/SKILL.md"], N:3}}' > "$c"
+  git -C "$d" add -A && git -C "$d" commit -qm mint
+
+  # 대소문자만 바꾼 경로로 범위 교체 시도 — 같은 파일이므로 막혀야 한다.
+  # 대소문자 구분 FS 에서는 별개 파일이라 이 시나리오가 성립하지 않는다.
+  if [ -e "$d/progress/contracts/SPRINT-93.json" ]; then
+    local widened
+    widened=$(jq -c '._batch_approval = {scope:["**/*"], N:99}' "$c")
+    run guard_write "$d/progress/contracts/SPRINT-93.json" "$widened"
+    [ "$status" -eq 2 ]
+  else
+    skip "case-sensitive filesystem — variant is a distinct file"
+  fi
+}
+
 @test "F68: deleting the contract does not open a re-mint path (F37 6차 판정)" {
   command -v jq >/dev/null || skip "jq not installed"
   command -v git >/dev/null || skip "git not installed"
