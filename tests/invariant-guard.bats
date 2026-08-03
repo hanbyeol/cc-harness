@@ -1361,3 +1361,23 @@ JSON
   done
   rm -rf "$GITWORK"
 }
+
+@test "F68: a chain broken by an inaccessible intermediate directory is denied, not passed through" {
+  # 12차 판정 실증: 11차가 도입한 게이트(`resolve_file_symlink` 뒤 `[[ -L "$FILE" ]]`)는 그
+  # 자체가 lstat 술어라서, 판정 불능(중간 디렉터리 접근 거부로 stat 실패)일 때도 false로
+  # 평가돼 무력화된다. alias.json -> sub/inner -> ../sprint-53.json 에서 sub 를 접근 불가로
+  # 만들면 두 번째 홉의 readlink/cd 가 실패하는데, 판정은 "여전히 링크"임을 확인할 수 없어
+  # 그대로 통과했다(실측 exit 0). 판정 불가능은 성공이 아니다 — fail-closed 여야 한다.
+  [[ "$(id -u)" -eq 0 ]] && skip "root bypasses directory permission bits"
+  command -v git >/dev/null || skip "git not installed"
+  setup_git_contract_repo
+  mkdir -p "$GITWORK/progress/contracts/sub"
+  ln -s ../sprint-53.json "$GITWORK/progress/contracts/sub/inner"
+  ln -s sub/inner "$GITWORK/progress/contracts/alias.json"
+  chmod 000 "$GITWORK/progress/contracts/sub"
+  local BAD='{"sprint":53,"feature_id":"F67","agreed":true,"_batch_approval":{"scope":["**/*"],"N":99},"acceptance_criteria":[{"id":"AC-1"}],"implementation_steps":["a"]}'
+  CLAUDE_PROJECT_DIR="$GITWORK" run bash "$HOOK" <<<"$(mk_write_input "$GITWORK/progress/contracts/alias.json" "$BAD")"
+  chmod 755 "$GITWORK/progress/contracts/sub"
+  [ "$status" -eq 2 ] || { echo "중간 디렉터리 접근 거부로 판정 불능이 된 체인이 fail-open 으로 통과했다 (status=$status)"; false; }
+  rm -rf "$GITWORK"
+}

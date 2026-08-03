@@ -1,0 +1,99 @@
+{
+  "timestamp": "2026-08-03T19:46:08+09:00",
+  "sprint": 54,
+  "iteration": 12,
+  "features_evaluated": [
+    "F68"
+  ],
+  "security_tier": "critical",
+  "commit_under_review": "2d0852a",
+  "scope": "커밋 2d0852a 단독 (심볼릭 링크 깊이 한도 fail-closed 수정). 11차가 backlog로 이관한 2건(계약 디렉터리 자체가 심볼릭 링크, 방화벽 `ln -s` 연쇄 비대칭)은 이번 범위 밖이며 재판정하지 않았다.",
+  "scores": {
+    "functionality": 8,
+    "code_quality": 6,
+    "security": 7,
+    "error_handling": 6,
+    "test_coverage": 7
+  },
+  "score": 6,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "score 6 < pass_threshold 7 (min-of-5: error_handling 6, code_quality 6)",
+    "11차 issue #6('두 비정상 종료 경로가 모두 fail-open')를 이 커밋이 '둘 다 닫았다'고 기록했으나 실측상 한 레그만 닫혔다 — 해석이 stat 실패로 중단되는 경로는 여전히 exit 0(probe C/G). 보안 영향은 실증되지 않았으나(같은 조건에서 실제 쓰기도 EACCES로 실패) 기록이 코드보다 강하다는 이 저장소의 반복 패턴이 같은 파일·같은 주석 자리에서 재발했다."
+  ],
+  "verified_fix_summary": "지정된 핵심 수정은 실측으로 닫혔다. 부모 커밋(adaa6e7) 훅과 HEAD 훅에 동일 입력을 넣어 비교: 10·11·12·20홉 체인 모두 OLD=exit 0(우회 성립) → NEW=exit 2(fail-closed). 1~9홉은 양쪽 모두 SC-4로 exit 2. 이 판정은 그 수정을 되돌리라는 것이 아니라, 같은 커밋이 '함께 닫았다'고 적은 두 번째 레그가 열려 있다는 것이다.",
+  "issues": [
+    "[error][medium][confidence:high] **해석이 stat 실패로 중단되는 경로가 fail-open이다.** 실측(probe C/G): `alias.json -> sub/inner -> ../sprint-53.json`에서 `sub`를 chmod 000으로 두면 `[[ -L contracts/sub/inner ]]`이 lstat 실패로 false가 되어 루프가 중간에서 종료하고, `$FILE`은 `contracts/sub/inner`(BASENAME=`inner`)로 남아 SC-4가 무발화 → 훅 exit 0. 권한 복구 후 같은 입력은 exit 2. 즉 '판정 불가 → 통과'이며, 같은 파일이 jq 부재·awk 실패·file_path 추출 실패에서 일관되게 취하는 fail-closed 자세(line 139/152/161)와 어긋난다.",
+    "[quality][medium][confidence:high] **새 검사가 자신이 커버한다고 주장한 레그를 구조적으로 커버할 수 없다.** line 238의 `[[ -L \"$FILE\" ]]`은 그 자체가 lstat이므로, stat이 실패하는 바로 그 조건에서 false가 된다 — 루프를 중단시킨 원인이 검사도 무력화한다. 올바른 형태는 `resolve_file_symlink()`가 종료 사유를 반환값으로 알리고(한도 소진·해석 도중 stat 불가) 호출부가 `-L` 재검사가 아니라 그 반환값으로 판정하는 것이다. 덧붙여 주석이 지목한 `cd`/`readlink` 실패(`|| break`)는 실제로는 거의 도달 불가하다 — 루프 진입 조건 `-L`이 참이려면 디렉터리 x 권한이 이미 필요하고, 그 권한이면 `cd`도 성공한다. 즉 주석은 도달 불가한 레그를 커버한다고 적고, 도달 가능한 레그(stat 불가)는 다루지 않는다.",
+    "[quality][medium][confidence:high] 커밋 메시지가 'cap exhausted, **or readlink/cd failed partway through** — the hook denies outright'라고 단언한다. 11차 판정의 교훈이 정확히 '주석이 없는 검사를 있다고 적었다'였고, 그 자리를 대체한 새 주석이 같은 종류의 초과 주장을 담았다. 다음 유지보수자가 이 서술을 근거로 판단하면 열린 레그를 닫힌 것으로 취급한다.",
+    "[doc][low][confidence:high] docs/INVARIANTS.md의 유지된 문장 '보호와 무관한 대상을 가리키는 링크는 그대로 통과하고'가 이번 커밋 이후 사실이 아니다. 실측(probe E): 비보호 파일(`notes/real.md`)을 가리키는 11홉 양성 체인 쓰기가 exit 2로 거부된다. 편집이 새 문단만 추가하고 기존 문장의 유효성을 재검토하지 않았다.",
+    "[doc][low][confidence:high] 가드가 이제 **비보호 파일 쓰기까지 거부**한다(한도 초과 체인에 한해). line 165의 설계 서술 '비보호 파일: 가용성 우선 통과 — 가드는 검증 파일에만 관여'와 범위가 어긋난다. 10홉 초과 체인은 실무에서 사실상 없으므로 fail-closed 트레이드오프 자체는 타당하나, 문서화되지 않은 범위 확대다.",
+    "[doc][low][confidence:high] '**파일 심볼릭 링크도 닫혔다**' 소제목이 무조건 단언으로 남아 있다. 바로 아래 새 문단이 깊이 한도 경계를 정직하게 명시하므로 함께 읽으면 오해가 적지만, 위 issue의 stat-불가 레그를 감안하면 소제목 단독으로는 여전히 실제보다 강하다.",
+    "[doc][low][confidence:medium] 홉 세는 단위가 산출물마다 다르다. 커밋 메시지는 'nine hops denied, ten allowed'(대상 인덱스 기준), INVARIANTS.md와 sprint-54.json은 '10홉 deny·11홉 allow'(따라간 링크 개수 기준), 새 테스트 주석은 한 문단 안에서 두 관례를 섞는다('9~12홉 경계' + '10홉 deny·11홉 allow'). 각각 자기 관례 안에서는 맞으나 단위가 명시되지 않아 대조 검증을 어렵게 한다. 실측 확인: 대상 인덱스 기준 9 deny/10 allow = 링크 개수 기준 10 deny/11 allow — 두 서술은 같은 사실이다.",
+    "[test][low][confidence:high] stat 불가로 해석이 중단되는 경로에 테스트가 없다 — 11차가 issue #6으로 명시 보고했고 이 커밋이 닫았다고 기록한 레그다. 11차의 교훈 '한도를 도입하면 한도 ±1을 고정하라'는 지켜졌으나, '해석 실패 경로'는 여전히 미커버.",
+    "[test][low][confidence:high] 비보호 파일 대상 체인이 한도 초과 시 거부된다는 **행동 변화**가 테스트로 고정되지 않았다. 과잉차단 방지 대조(test 262)는 단일 홉 양성 링크만 본다 — 향후 누군가 이 fail-closed를 완화해도 스위트는 녹색이다.",
+    "[record][low][confidence:high] sprint-54.json의 SC-4 `_closed_2026_08_03`이 'bats 741/741 → (이번 수정 후 재측정) 예정'으로 남아 있다. 실측 742/742이며 커밋 메시지는 이미 742를 적었다 — 계약 기록만 갱신되지 않았다."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "SC-4 예방 계층이 심볼릭 링크 체인 길이 1~20 전 구간에서 유지된다 — 어떤 길이로도 단일 쓰기로 `_batch_approval`을 교체할 수 없다 (실측)",
+      "수정이 도구·파일 종류에 일반화된다 — Write/Edit × sprint-*.json/feature_list.json/harness-config.json 6조합 모두 11홉 체인에서 exit 2 (실측)",
+      "정상 편집 과잉차단 없음 — 링크 아닌 계약 파일의 정당한 편집 exit 0, 비보호 대상 단일 홉 양성 링크 exit 0 (실측)"
+    ],
+    "security": [
+      "깊이 한도 초과 fail-open(11차 핵심 지적) 폐쇄 — OLD 훅 대비 10/11/12/20홉 전부 exit 0 → exit 2로 역전 (실측 대조)",
+      "10차·11차에서 닫은 단일 홉 우회 회귀 없음 — `alias.json -> sprint-53.json` 여전히 exit 2 (실측)",
+      "신규 검사가 모든 분류·실체화 로직보다 앞(line 238)에 위치해 우회 순서 문제가 없다 (코드 추적)"
+    ],
+    "error_scenarios": [
+      "한도 초과 시 거부 메시지가 원인과 대상 파일을 함께 출력한다 (실측 stderr)",
+      "순환 링크가 무한 루프 없이 종료하며 이제 exit 2를 단언한다 — 이전 판본은 종료 사실만 확인해 이번 결함에 무감했다 (테스트 262/263 실행)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": [
+      "'해석이 끝까지 가지 못한 모든 경로는 fail-closed' (11차 issue #6이 요구하고 이 커밋이 충족했다고 기록) — 한도 소진 레그만 충족, stat 불가 레그는 여전히 exit 0"
+    ],
+    "documentation": [
+      "SC-3('문서가 정확히 서술한다') 부분 충족 — 깊이 한도 경계는 정직하게 명시되었으나, 유지된 '비보호 대상 링크는 그대로 통과' 문장과 커밋 메시지의 'readlink/cd 실패도 거부' 단언이 실측과 어긋난다"
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "가드가 비보호 파일 쓰기를 거부할 수 있는 조건(한도 초과 체인)에 대한 기준이 없다 — 현재 line 165의 '비보호는 가용성 우선 통과' 서술과 충돌하므로 어느 쪽이 의도인지 기준으로 확정 필요"
+    ],
+    "ambiguous_criteria": [
+      "'홉' 단위가 산출물마다 다르게 쓰인다 — 기준·테스트·문서에서 '따라간 링크 개수'로 통일할 것"
+    ],
+    "security_criteria_insufficient": [],
+    "action_required": "다음 iteration에서 (1) resolve_file_symlink 종료 사유 기반 fail-closed로 전환, (2) stat 불가 레그 회귀 테스트 추가, (3) INVARIANTS.md 잔존 문장·소제목 정정 및 비보호 파일 거부 범위 명시"
+  },
+  "required_for_pass": [
+    "resolve_file_symlink()이 '실제 파일에 도달하지 못한 채 종료'를 반환값으로 알리고, 호출부가 `-L` 재검사가 아닌 그 반환값으로 거부하도록 변경 — `-L`은 stat이 실패하는 조건에서 스스로 false가 되므로 해당 레그를 구조적으로 커버할 수 없다. (댕글링 링크를 통한 정당한 신규 생성은 과잉차단하지 않도록, '대상 부재'와 '대상 판정 불가(상위 디렉터리 접근 불가)'를 구분할 것)",
+    "위 레그의 회귀 테스트 추가 — 중간 홉 디렉터리 접근 불가 상태에서 exit 2 단언",
+    "커밋 메시지·코드 주석에서 실제로 커버하지 않는 레그를 커버한다고 적지 말 것. 도달 불가한 `cd`/`readlink` 실패 대신 실제 레그(stat 불가)를 명명할 것",
+    "docs/INVARIANTS.md의 '보호와 무관한 대상을 가리키는 링크는 그대로 통과' 문장 정정 + 한도 초과 시 비보호 파일도 거부됨을 명시",
+    "sprint-54.json SC-4 기록의 'bats 741/741 → 재측정 예정'을 실측값 742/742로 갱신"
+  ],
+  "evidence": {
+    "full_suite": "bats tests/ (1회 실행, 파일 리다이렉트) — 1..742, ok 742 / not ok 0 / skip 1. 유일한 skip 사유 'v1.4.0 plugin cache not available'는 환경 의존(플러그인 캐시 부재)으로 타당. 커밋이 주장한 742/742와 일치.",
+    "new_tests_green": "ok 261 F68: writing through a file symlink to a contract still enforces SC-4 / ok 262 F68: file-symlink resolution does not block unrelated links or cyclic ones / ok 263 F68: a symlink chain exceeding the resolution depth is denied, not judged by the last hop",
+    "probe_A_depth_boundary_old_vs_new": "훅 직접 호출(테스트 하네스 밖 독립 재현). 체인 c0->sprint-53.json, c1..cn, 대상 c_n, 입력은 `_batch_approval`을 {scope:[\"**/*\"],N:99}로 교체하는 Write. 결과 hops=1/8/9: NEW=2 OLD=2 (SC-4 발화) | hops=10/11/12/20: NEW=2 OLD=0. NEW의 거부 메시지='INVARIANT 위반: 심볼릭 링크 연쇄가 해석 한도(10단계)를 넘겨 종료 시점에도 링크로 남음 (fail-closed)'. 즉 테스트 263은 비어 있지 않다 — 부모 커밋 훅에서는 실패한다.",
+    "probe_B_kernel_follows": "11홉 체인의 c11에 직접 쓰면 sprint-53.json이 실제로 덮어써진다 — 커널은 한도 10과 무관하게 끝까지 따라가므로 가드의 한도가 곧 우회 비용이었다는 11차 분석을 재확인.",
+    "probe_C_G_stat_failure_leg": "`alias.json -> sub/inner -> ../sprint-53.json`, `chmod 000 sub`: 훅 exit 0(거부 메시지 없음). 같은 창에서 실제 쓰기는 EACCES로 실패하고 sprint-53.json은 무사 → **이 구성에서 우회는 실증되지 않는다**(커널 탐색과 훅 lstat이 같은 x 권한을 요구하므로 대칭). chmod 755 복구 후 같은 입력은 exit 2. 따라서 결함의 성격은 '실증된 우회'가 아니라 '판정 불가 → 통과'와 그것을 닫았다고 적은 기록이다. 잔여 위험은 훅 실행과 실제 쓰기 사이에 권한이 복구되는 TOCTOU 경합(별도 백그라운드 프로세스 필요, 실증 안 함).",
+    "probe_F_generality": "Write/Edit × {sprint-53.json, feature_list.json, harness-config.json} 11홉 체인 6조합 전부 status=2.",
+    "probe_E_over_block": "비보호 파일 대상 단일 홉 양성 링크 exit 0(정상), 11홉 양성 체인 exit 2(거부) — 가드 범위가 비보호 파일까지 확대됨을 실측.",
+    "probe_H_no_false_positive": "링크가 아닌 계약 파일에 `_batch_approval`을 그대로 둔 정상 편집 exit 0.",
+    "code_trace": "grep -n -- '-L \"' hooks/invariant-guard.sh → 207(주석), 211(루프 조건), 238(신규 검사) 3곳. 신규 검사는 canon_file/resolve_file_symlink 직후·모든 분류와 HEAD 실체화보다 앞. `|| break`(213행)는 루프 진입 조건 `-L`이 이미 디렉터리 x 권한을 요구하므로 사실상 도달 불가하고, 실제로 도달하는 비정상 종료는 while 조건의 lstat 실패다.",
+    "not_verified_this_round": "커밋 메시지가 언급한 'behavioral probe 0 candidates'는 이번 판정에서 실행하지 않았다 — 지정된 3개 확인 항목 밖. AC-1~AC-6 등 F68의 비-심볼릭 영역도 이번 범위가 아니며 이전 회차 판정을 대체하지 않는다."
+  },
+  "notes": {
+    "backlog_untouched": "11차가 이관한 2건(계약 디렉터리 자체가 심볼릭 링크, 방화벽 `ln -s` 연쇄 생성 비대칭)은 재판정하지 않았고 fail 사유에 포함하지 않았다.",
+    "f37_second_judgment": "security_tier가 critical이므로, 향후 pass 판정이 나올 때는 독립 컨텍스트의 2차 judge 교차검증(F37)을 메인 루프가 배선해야 한다. 이번 회차는 fail이므로 에스컬레이션 대상 아님.",
+    "passes_field": "verdict=fail이므로 progress/feature_list.json의 F68 passes는 false 유지(변경 없음)."
+  }
+}
