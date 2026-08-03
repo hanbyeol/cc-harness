@@ -156,7 +156,7 @@
       "feature_id": "F65",
       "contract": "progress/contracts/sprint-51.json",
       "security_tier": "critical",
-      "summary": "[2026-07-28] 방화벽이 '이 Bash 명령이 보호 파일을 쓸 것인가'를 명령 문자열로 **예측**해 ask로 막고 있었다. 그 질문은 결정 불가능하다 — 셸도, 셸이 부르는 sed·awk·perl·python도 튜링 완전하므로 실행하지 않고 효과를 알 수 없다. F63이 10회전 동안 그 방향을 시도했고 매 회전 새 우회 표기가 나왔다(붙여쓴 optarg·중괄호 확장·명령 치환·프로세스 치환·인용 제거 미수행·이름 변형·경로 표기). 예측이 불가능하니 알려진 형태를 나열할 수밖에 없었고, 그 나열이 곧 커버리지 상한이 되는 동시에 **읽기까지 잡아** 사용자가 보고한 반복 승인 프롬프트를 만들었다(ASK 패턴 39개 중 21개가 경로 기반). 반면 '파일이 바뀌었는가'는 사후에 자명하게 결정되며 도구·표기와 무관하다. **해결**: 보호 대상을 두 평면으로 가른다. 컨트롤 플레인(hooks.json·settings*.json — 탐지 훅의 배선 자체를 끌 수 있고 gitignore라 복구 불가)과 되돌릴 수 없는 것(Layer 1·2·egress)은 예측을 유지하고, 데이터 플레인(hooks/*.sh·tests/*.bats·harness-config.json·INVARIANTS.md·feature_list.json — 전부 git 추적)은 PostToolUse에서 탐지·복구한다. 기준은 '명령 전후'가 아니라 **HEAD** — 그래야 git checkout 같은 정상 워크플로우가 오탐되지 않는다."
+      "summary": "[2026-07-28] 방화벽이 '이 Bash 명령이 보호 파일을 쓸 것인가'를 명령 문자열로 **예측**해 ask로 막고 있었다. 그 질문은 결정 불가능하다 — 셸도, 셸이 부르는 sed·awk·perl·python도 튜링 완전하므로 실행하지 않고 효과를 알 수 없다. F63이 10회전 동안 그 방향을 시도했고 매 회전 새 우회 표기가 나왔다(붙여쓴 optarg·중괄호 확장·명령 치환·프로세스 치환·인용 제거 미수행·이름 변형·경로 표기). 예측이 불가능하니 알려진 형태를 나열할 수밖에 없었고, 그 나열이 곧 커버리지 상한이 되는 동시에 **읽기까지 잡아** 사용자가 보고한 반복 승인 프롬프트를 만들었다(ASK 패턴 39개 중 21개가 경로 기반). 반면 '파일이 바뀌었는가'는 사후에 자명하게 결정되며 도구·표기와 무관하다. **해결**: 보호 대상을 두 평면으로 가른다. 컨트롤 플레인(hooks.json·settings*.json — 탐지 훅의 배선 자체를 끌 수 있고 gitignore라 복구 불가)과 되돌릴 수 없는 것(Layer 1·2·egress)은 예측을 유지하고, 데이터 플레인(hooks/*.sh·tests/*.bats·harness-config.json·INVARIANTS.md·feature_list.json — 전부 git 추적)은 PostToolUse에서 탐지·복구한다. 기준은 '명령 전후'가 아니라 **HEAD** — 그래야 git checkout 같은 정상 워크플로우가 오탐되지 않는다. [2026-08-03 추가, F68 검증 라운드 security-auditor 실측] AC-4가 검증 목록에 편집 명령(vim·sed -i·mv)만 넣고 순수 삭제 명령을 빠뜨렸다 -- 실제로 settings.json 삭제는 firewall allow(ask조차 아님)이고 이어지는 배선-뺀 재생성 Write가 invariant-guard에서도 exit 0이었다. AC-11·SC-9로 계약에 명문화하고 agreed를 false로 되돌려 재합의를 받는다."
     },
     {
       "feature_id": "F66",
@@ -176,6 +176,12 @@
       "contract": "progress/contracts/sprint-54.json",
       "security_tier": "critical",
       "summary": "[2026-07-31] 목표는 '개입 없는 구현·수정·테스트'인데 한 기능(F67)에 개입이 5회 이상 필요했다. 원인 셋 — (a) 배치 승인 `--auto N` 이 /improve 에만 있다(implement·change-request 에 0건), (b) ADR-006이 critical·검증장치를 무인에서 제외하는데 하네스 자기개선은 거의 전부 critical이라 배치 대상이 사실상 없다, (c) evaluator 1회가 133k 토큰·41분이었고 2차 스톨·3차 취소 — 이 비용으로는 무인 루프가 성립하지 않는다. 해결: `--auto` 를 implement·change-request 로 확대해 한 기능의 전체 사이클을 배치 승인 1회로 묶고, ADR-006/INV-12를 개정해 critical도 범위·정책·중단조건을 명시 승인받으면 무인 진행하게 하며(게이트는 매 회전 무약화 — 승인 지점의 이동이지 검증 완화가 아니다), fail 시 행동을 사전 정책으로 받고(revert-and-continue 기본), evaluator 호출 규약 4항목(탐색 제거·재현 스크립트 선제공·확인항목 3개 이하·완성 후 1회)을 명문화한다."
+    },
+    {
+      "feature_id": "F70",
+      "contract": "progress/contracts/sprint-56.json",
+      "security_tier": "critical",
+      "summary": "[2026-08-03, security-auditor F68 검증 라운드 실측] hooks/invariant-guard.sh의 canon_file() 안 대소문자 무시 파일명 매칭이 is_protected()의 nocasematch와 달리 FS_CI(fs_is_case_insensitive) 게이팅 없이 무조건 실행된다. 대소문자 구분 FS(이 프로젝트 실제 CI인 ubuntu-latest 포함)에서 디코이 파일(예: progress/FEATURE_LIST.json)이 있으면 canon_file이 원본 대신 디코이로 FILE을 재바인딩해 보호 판정이 엉뚱한 파일에 적용된다. 실측: passes 주입·threshold 하향·batch_approval 교체·테스트 삭제·두 훅 배선 언와이어링·가드 자신의 deny() 무력화까지 7가지가 디코이 있을 때 전부 exit 0. macOS(en_US 로케일)에서는 미재현이나 이 프로젝트 CI에서는 발동 가능. 수정: 이 lookup도 is_protected()처럼 FS_CI 게이팅."
     }
   ]
 }

@@ -870,7 +870,8 @@
       ],
       "assigned_sprint": 51,
       "release_note": "[2026-07-28 릴리스] v1.38.0 에 판정 미통과 상태로 포함됐다 — 사용자 지시. F65는 판정 2회 fail(보안 3→4)이며 2차 지적에 대한 수정은 독립 검증을 받지 않았다. 머지 판단 근거: 독립 판정자가 스스로 고른 15개 메커니즘으로 15/15 복구를 확인했고, 인덱스 조작 4형태·복구의 비파괴성·fail-safe가 실측으로 확인됐다. 미해결(INV-14에 명시): 티켓 파일은 명령행에 경로가 없는 형태로 조작 가능하며, 한 Bash 호출 안의 변조·소비 창이 남는다.",
-      "released_in": "v1.38.0"
+      "released_in": "v1.38.0",
+      "_gap_2026_08_03": "F68 검증 라운드의 security-auditor가 이 계약(progress/contracts/sprint-51.json)이 한 번도 검증한 적 없는 구체적 반례를 실측했다: settings.json 삭제가 firewall allow(ask조차 아님)이고 이어지는 배선-뺀 재생성 Write가 invariant-guard에서도 exit 0이었다(HEAD에 없거나 프로젝트 루트 밖이라 신규-파일 예외 경로로 빠짐). AC-4는 vim·sed -i·mv 같은 편집 명령만 검증 목록에 넣었고 순수 삭제를 넣지 않았다. AC-11·SC-9로 계약에 명문화하고 agreed를 false로 되돌렸다 — 다음 재작업·재판정에서 이미 2회 fail한 기존 갭들과 함께 닫아야 한다."
     },
     {
       "id": "F66",
@@ -936,6 +937,19 @@
         "F68"
       ],
       "assigned_sprint": 55
+    },
+    {
+      "id": "F70",
+      "name": "canon_file() 대소문자 무시 매칭을 FS_CI로 게이팅",
+      "description": "[2026-08-03, F68 검증 라운드 security-auditor 실측] hooks/invariant-guard.sh의 canon_file()(F67 '보호 판정의 파일 동일성 기반 전환'으로 도입) 안 대소문자 무시 파일명 매칭이 `ls -1 \"$d\" | grep -ixF -- \"$b\" | head -1`인데, is_protected()의 nocasematch(fs_is_case_insensitive()로 게이팅됨)와 달리 실제 파일시스템이 대소문자를 구분하는지 확인하지 않고 무조건 실행된다. 대소문자 구분 FS(리눅스 C/C.UTF-8 로케일 — 이 프로젝트의 실제 CI인 ubuntu-latest 포함)에서 progress/FEATURE_LIST.json 같은 디코이 파일(무방비 Write로 생성 가능)을 만들면 head -1이 원본 대신 디코이를 골라 FILE이 엉뚱한 파일로 재바인딩된다 — 보호 판정이 실제로 쓰여질 파일과 다른 파일을 대상으로 이뤄진다. 실측(C/C.UTF-8 로케일): 디코이가 있으면 디코이 없이는 전부 막히던 7가지(passes:true 주입, pass_threshold 7→1, _batch_approval 교체, @test 삭제, hooks.json/settings.json 언와이어링, 가드 자신의 deny()에서 exit 2 제거)가 전부 exit 0. macOS(en_US 로케일)에서는 정렬 순서상 미재현이라 로컬에서는 안 보이지만, en_US 로케일이 아닌 CI 환경에서는 지금도 열려 있을 수 있다. 수정 방향: 이 lookup을 is_protected()처럼 fs_is_case_insensitive()로 게이팅 — 대소문자 구분 FS에서는 정확 일치만 신뢰한다.",
+      "security_tier": "critical",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F67"
+      ],
+      "assigned_sprint": 56
     }
   ]
 }
