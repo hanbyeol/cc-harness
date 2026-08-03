@@ -2007,4 +2007,118 @@ JSON
       || { echo "삭제 arm 이 면제 토큰을 갖고 있다: $arm"; false; }
   done
   [ "$found" -ge 2 ] || { echo "삭제 arm 을 찾지 못했다 — 패턴이 사라졌는지 확인하라"; false; }
+
+  # 12차 판정 [test][low]: 위 선별은 arm **리터럴**에 묶여 있어 표기를 바꾸면 조용히 0건을 센다.
+  # 실판정을 담당하는 것은 Layer 3.3 의 경로 토큰 게이트이므로 그쪽도 소스로 본다 —
+  # 게이트가 존재하고, 배선 상태(DATA_PLANE_DETECTED)나 면제 판정을 근거로 쓰지 않아야 한다.
+  local gate
+  gate=$(sed -n '/=== Layer 3.3:/,/join_patterns/p' "$fw")
+  [ -n "$gate" ]
+  [[ "$gate" == *"scan_control_plane_delete"* ]] \
+    || { echo "컨트롤 플레인 삭제 토큰 게이트가 사라졌다"; false; }
+  [[ "$gate" != *"DATA_PLANE_DETECTED"* && "$gate" != *"arm_is_exemptable"* ]] \
+    || { echo "삭제 토큰 게이트가 배선 상태에 따라 면제된다"; false; }
+}
+
+# === 표기 변형 배터리 (F65 AC-11 / SC-9, 12차 판정 재작업) ===
+#
+# 12차 판정이 실측한 것: 위 세 테스트가 전부 통과하는 상태에서도 같은 대상에 도달하는 **다른
+# 표기**가 allow 였다(glob `.claude/*` · 장문 옵션 `--recursive` · 인용 `'.claude'` · `cd` 이동).
+# 판정의 표현대로 "구현이 아는 것만 물어서" 갭을 못 잡은 것이다. 그래서 아래 배터리는 대상이
+# 아니라 **표기 축**으로 짠다 — 축마다 실패했던 실제 문자열을 그대로 넣는다.
+#
+# 인용부호가 든 명령이 있으므로 JSON 은 jq 로 만든다(문자열 보간은 따옴표에서 깨진다).
+delete_decision() {
+  local json
+  json=$(printf '%s' "$1" | jq -Rs '{tool_input:{command:.}}')
+  wired_firewall "$json"
+}
+
+@test "F65 AC-11: notation variants of the same deletion are gated (12차 판정 반례)" {
+  local c
+  for c in "rm -rf .claude/*" \
+           "rm -rf .claude/plugins/*" \
+           "rm -rf ~/.claude/plugins/*" \
+           "rm -rf ~/.claude/plugins/cc-harness/*" \
+           "rm -rf .claude/*.json" \
+           "rm -rf '.claude'" \
+           'rm -rf ".claude"' \
+           "rm -rf '~/.claude/plugins/cc-harness'" \
+           "rm --recursive .claude" \
+           "rm --recursive --force .claude" \
+           "rm --recursive ~/.claude/plugins/cc-harness" \
+           "rm -rf .claude;" \
+           "rm .claude/./settings.json" \
+           "rm ./.claude/./settings.json" \
+           "rm .claude//settings.json" \
+           "rmdir .claude/hooks" \
+           "find .claude -delete" \
+           "mv .claude /tmp/gone" \
+           "rm -rf *" \
+           "rm -rf .clau*" \
+           "rm -rf .cla*/settings.json" \
+           '\rm -rf .claude' \
+           "env rm -rf .claude" \
+           "rm -rf .cl'aude'" \
+           'rm -rf ".claude"/plugins' \
+           'rm -rf $HOME/.claude' \
+           "rm -rf ../cc-harness/.claude" ; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "표기를 바꾼 컨트롤 플레인 삭제가 무프롬프트다: $c"; false; }
+  done
+}
+
+@test "F65 AC-11: quoted and long-option notations of file deletion are gated" {
+  local c
+  for c in "rm -f '.claude/settings.json'" \
+           'rm "hooks/hooks.json"' \
+           "unlink './.claude/settings.json'" \
+           "shred --remove .claude/settings.json" \
+           "rm --force --recursive .claude/plugins/cc-harness"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "인용·장문 옵션 표기의 컨트롤 플레인 삭제가 무프롬프트다: $c"; false; }
+  done
+}
+
+@test "F65 AC-2: directories merely named hooks gain no friction" {
+  # 12차 판정 지적: 디렉터리 앵커가 이름이 `hooks` 인 **모든** 디렉터리에 걸렸다. cc-harness 는
+  # 다른 저장소에 설치되는 플러그인이고 React/Vue 계열에서 `src/hooks` 는 흔한 이름이다.
+  # 앵커는 이름이 아니라 **그 디렉터리가 실제로 배선을 담고 있는가**여야 한다.
+  local c
+  for c in "rm -rf src/hooks" \
+           "rm -rf web/src/hooks" \
+           "rm -rf /tmp/foo/hooks" \
+           "rm -rf app/hooks/" \
+           "rm -rf packages/ui/src/hooks"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "무관한 hooks 디렉터리 삭제에 마찰이 생겼다: $c"; false; }
+  done
+}
+
+@test "F65 AC-11: glob deletions outside the control plane stay frictionless" {
+  # glob 을 잡되 **어디의 glob 인지**를 본다 — 컨트롤 플레인 디렉터리 안을 비우는 glob 만 걸린다.
+  local c
+  for c in "rm -rf .claude/worktrees/*" \
+           "rm -rf node_modules/*" \
+           "rm -rf dist/* build/*" \
+           "rm -f target/debug/*.d" \
+           "rm -rf ~/.cache/myapp/*"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "컨트롤 플레인 밖 glob 삭제에 마찰이 생겼다: $c"; false; }
+  done
+}
+
+@test "F65 SC-9: the delete-token gate holds with detection unwired too" {
+  # 컨트롤 플레인에는 사후 복구가 없다 — 배선 상태와 무관하게 같은 판정이어야 한다.
+  local c json
+  for c in "rm -rf .claude/*" "rm --recursive .claude" "rm -rf '.claude'"; do
+    json=$(printf '%s' "$c" | jq -Rs '{tool_input:{command:.}}')
+    run run_firewall "$json"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "배선 없는 상태에서 컨트롤 플레인 삭제가 무프롬프트다: $c"; false; }
+  done
 }
