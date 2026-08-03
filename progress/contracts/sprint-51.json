@@ -70,9 +70,9 @@
     },
     {
       "id": "AC-11",
-      "criterion": "컨트롤 플레인 파일의 **순수 삭제**(재생성 없이도)가 최소 ask다 — AC-4의 검증 목록(vim·sed -i·mv)에 `rm`이 빠져 있었다.",
-      "verification": "`rm .claude/settings.json`·`rm hooks/hooks.json`(init.sh/플러그인 설치 경로 포함)이 ask 이상. 이어서 배선을 뺀 내용으로 재생성하는 Write가 invariant-guard에서도 exit 2 이거나, 최소한 그 앞의 삭제 단계에서 사람 확인을 반드시 거친다.",
-      "_origin": "2026-08-03, F68 검증 라운드 security-auditor 실측 — F-1"
+      "criterion": "컨트롤 플레인 파일을 **지우는** 경로(재생성 여부와 무관하게)가 최소 ask다 — 덮어쓰기만 막던 예측 계층의 공백을 닫는다. AC-4의 검증 목록(vim·sed -i·mv)에 순수 삭제가 빠져 있었다.",
+      "verification": "`rm .claude/settings.json`·`rm hooks/hooks.json`(in-repo·init.sh 외부 설치 경로 포함)·`unlink`·`shred`·`git rm`·`find … -delete`·`rm -rf .claude`가 ask 이상. 이어지는 배선 뺀 재생성 Write가 invariant-guard에서도 exit 2 이거나, 최소한 그 앞의 삭제 단계에서 사람 확인을 반드시 거친다(OR). 정상 삭제(`rm -rf node_modules`·`rm -rf .claude/worktrees/…`)에는 마찰이 없어야 한다.",
+      "_origin": "2026-08-03, F68 검증 라운드 security-auditor 실측 — F-1. `rm .claude/settings.json`이 firewall allow(ask조차 아님) → 배선 뺀 내용으로 재생성하는 Write → invariant-guard도 exit 0으로, 무프롬프트 체인이 끝까지 성립했다."
     }
   ],
   "security_criteria": [
@@ -124,11 +124,21 @@
     },
     {
       "id": "SC-9",
-      "criterion": "HEAD에 없는 컨트롤 플레인 파일(gitignored `.claude/settings.json`·`settings.local.json`, 프로젝트 루트 밖에 설치된 `hooks/hooks.json`)도 AC-4/AC-6이 약속하는 '예측으로 막는다'가 실제로 성립한다.",
-      "rationale": "2026-08-03 F68 검증 라운드의 security-auditor가 `rm .claude/settings.json`이 firewall allow(ask조차 아님)이고, 이어지는 배선-뺀 재생성 Write가 invariant-guard(HEAD 사본 실체화 방어, `:303-332`)에서도 exit 0임을 실측했다 — HEAD에 없거나 프로젝트 루트 밖이라는 이유로 신규-파일 예외 경로(`:387-400`)로 빠진다. 두 번의 도구 호출로 init.sh 설치의 훅이 영구 제거된다. protected-integrity.sh의 PROTECTED_GLOBS도 이 경로들을 감시하지 않는다 — 설계상 당연하다(F65가 컨트롤 플레인은 탐지·복구가 아니라 예측이 담당하기로 정했으므로), 그런데 그 예측 담당의 실제 커버리지가 이 세 파일 클래스에 대해 검증된 적이 없었다.",
-      "verification": "설치 경로별 hooks.json 2종(in-repo·init.sh 외부 설치) + settings.json + settings.local.json, 총 4가지에 대해 delete-then-recreate를 종단 재현 — 전부 최소 ask에서 걸리는지 확인."
+      "criterion": "**예측이 실제로 성립한다** — 컨트롤 플레인은 예측이 유일한 통제이므로, 그 계층에 동사 하나만큼의 공백도 남기지 않는다. HEAD에 없는 파일 클래스(gitignored `.claude/settings.json`·`settings.local.json`, 프로젝트 루트 밖에 설치된 `hooks/hooks.json`)도 AC-4/AC-6이 약속하는 '예측으로 막는다'가 실제로 성립해야 한다.",
+      "rationale": "F65의 설계는 '컨트롤 플레인 = 예측, 데이터 플레인 = 탐지·복구'다. 컨트롤 플레인에 사후 복구가 없는 이상 예측에 뚫린 구멍은 곧바로 무프롬프트 경로가 된다. 기존 arm은 전부 **덮어쓰기**만 잡았고(에디터·cp/mv·리다이렉트는 쓰기 신호가 명령에 드러난다), 삭제 동사가 정확히 그 구멍이었다 — 2026-08-03 F68 검증 라운드 security-auditor가 `rm .claude/settings.json`(firewall allow, ask조차 아님) → 배선-뺀 재생성 Write → invariant-guard도 exit 0임을 실측했다.",
+      "verification": "삭제 arm이 어떤 배선 상태에서도 면제되지 않음을 소스로 확인(tests) + ASK_PATTERNS add-only(60→64) + BLOCKED·INDIRECT_PATTERNS 바이트 동일 + harness-config.json 무변경. 설치 경로별 hooks.json 2종(in-repo·init.sh 외부 설치)·settings.json·settings.local.json, 총 4가지에 대해 delete-then-recreate를 종단 재현 — 전부 최소 ask에서 걸리는지 확인(잔여 위험은 `_residual_risk_AC11` 참조)."
     }
   ],
+  "_residual_risk_AC11": {
+    "decision": "이번 라운드는 예측 계층(방화벽)만 고치고 invariant-guard 는 건드리지 않는다.",
+    "measured": {
+      "hooks/hooks.json (git 추적)": "삭제 후 배선 뺀 재생성 Write → invariant-guard exit 2. HEAD 실체화가 동작하므로 체인이 **이미** 닫혀 있었다. 새 삭제 arm 은 이쪽에는 다중 방어다.",
+      ".claude/settings.json (gitignore)": "파일이 있는 채로 배선을 뺀 Write → exit 2 (deny). `rm` 뒤의 같은 Write → **exit 0 (통과)**. 삭제가 배선 비교의 OLD 집합을 없애기 때문이며, 이 파일은 HEAD 기준선이 원리적으로 없어 HEAD 기반 가드로는 닫을 수 없다.",
+      "fail-safe 백스톱": "배선이 사라지면 `integrity_wired()` 가 거짓이 되어 **데이터 플레인 예측 게이트가 되살아난다**(실측: 배선 제거·파일 삭제 두 경우 모두 allow→ask). 즉 공격 성공 후의 상태는 '예측 전면 가동 + 탐지 없음'(F65 이전 자세)이지 무방비가 아니다."
+    },
+    "judgment": "AC-11 의 OR 중 **뒷가지(삭제 단계에서 사람 확인)**로 충족한다. `settings.json` 앞가지를 닫으려면 기대 콘텐츠(배선 행)를 git 추적 파일에 별도 기록해 invariant-guard 가 HEAD 없이도 대조하게 해야 하는데, 이번 라운드에서 하지 않는다: (a) 그 기준선 파일 자체가 새 컨트롤 플레인 산출물이 되어 SC-6 의 '자기를 복구할 수 있는가' 축을 한 겹 더 만든다 — 보안 수정 라운드에서 새 공격면을 여는 교환이다. (b) invariant-guard 의 settings.json 분기는 같은 함정을 세 번(basename → command 튜플 → 형제 필드) 겪은 자리라 위험이 크고, 단일 반례를 닫는 라운드에 섞으면 판정이 두 변경에 분리 귀속되지 않는다. (c) 남는 잔여 위험은 'ask 를 사람이 승인했다'이며, 이는 모든 ask 티어 통제가 공유하는 성질이다 — SC-9 는 사람 동의로도 못 뚫는 보장을 요구하지 않는다.",
+    "recommendation": "`.claude/settings.json` 의 배선 행 기준선(예: 저장소 추적 `settings.json` 을 OLD 폴백으로 삼기)은 **별도 change-request + Plan 게이트**로 다룰 것. 이번 변경과 독립이며, 그 자체로 위협 모델 재검토가 필요하다."
+  },
   "error_scenarios": [
     {
       "id": "ES-1",
@@ -207,6 +217,15 @@
       "covers": [
         "AC-9",
         "SC-3"
+      ]
+    },
+    {
+      "step": "8. 컨트롤 플레인 삭제 동사 게이트 (rm·unlink·shred·git rm·find -delete·디렉터리 삭제) — ASK_PATTERNS add-only 확장",
+      "verify": "bats tests/pre-bash-firewall.bats --filter 'F65 AC-11|F65 SC-9' + bats 전체 + behavioral 후보 0건",
+      "done": true,
+      "covers": [
+        "AC-11",
+        "SC-9"
       ]
     }
   ],
