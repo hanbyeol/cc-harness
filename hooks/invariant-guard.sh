@@ -194,6 +194,26 @@ canon_file() {
   fi
   printf '%s/%s' "$d" "$b"
 }
+# `canon_file`은 디렉터리는 `pwd -P`로 풀지만 **파일 자신이 심볼릭 링크**인 경우는 남는다
+# (F68 8차 판정이 발견하고 10차 판정이 정직한 한계로 문서화한 자리를 여기서 닫는다).
+# `progress/contracts/alias.json -> sprint-54.json` 에 쓰면 OS는 링크를 따라가 실제로
+# `sprint-54.json` 을 수정하는데, `BASENAME` 은 여전히 `alias.json` 이라 `sprint-*.json` 전용
+# 검사(SC-4의 `_batch_approval` 불변성 등)가 발화하지 않았다(실측: exit 0, `_batch_approval`
+# 이 근거 없이 주입됨). 마지막 성분이 링크면 그 대상을 따라가 **실제로 바뀔 경로**로 판정을
+# 옮긴다. 상대 링크는 링크가 있는 디렉터리 기준으로 해석하고, 순환·과도한 연쇄는 얕은 한도로
+# 막는다(무한 루프 방지 — fail-closed 대신 마지막 상태로 판정한다: 링크가 남으면 이후의
+# `[[ -L ]]` 검사가 계속 참이므로 아래 보호 판정에서 걸린다).
+resolve_file_symlink() {
+  local f="$1" d b tgt depth=0
+  while [[ -L "$f" && "$depth" -lt 10 ]]; do
+    d=$(dirname "$f"); b=$(basename "$f")
+    tgt=$(cd "$d" 2>/dev/null && readlink "$b" 2>/dev/null) || break
+    [[ -z "$tgt" ]] && break
+    if [[ "$tgt" == /* ]]; then f="$tgt"; else f="$d/$tgt"; fi
+    depth=$((depth + 1))
+  done
+  printf '%s' "$f"
+}
 # FS 판정은 **쓰지 않고** 한다: 디렉터리 이름의 대소문자를 뒤집어 접근 가능한지 본다.
 fs_is_case_insensitive() {
   local d="$1" parent base flipped
@@ -203,6 +223,9 @@ fs_is_case_insensitive() {
   [[ "$flipped" == "$base" ]] && return 1   # 뒤집을 글자가 없다 — 보수적으로 '구분함'
   [[ -e "$parent/$flipped" ]]
 }
+FILE=$(canon_file "$FILE")
+FILE=$(resolve_file_symlink "$FILE")
+# 링크 대상이 상대 경로거나 표기가 다를 수 있으므로 한 번 더 정규화한다.
 FILE=$(canon_file "$FILE")
 
 # 이 파일시스템이 대소문자를 구분하지 않는가 — **경로 분류 술어**만 이 값을 본다.

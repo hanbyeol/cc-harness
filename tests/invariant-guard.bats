@@ -1292,3 +1292,52 @@ JSON
   [ "$status" -eq 0 ] || { echo "삭제 없는 정당한 임계값 상향이 막혔다"; false; }
   rm -rf "$GITWORK"
 }
+
+# === F68 마지막 알려진 한계 — 계약 디렉터리 안 파일 심볼릭 링크 ===
+# `canon_file()`은 디렉터리를 `pwd -P`로 풀지만 **경로의 마지막 성분 자체가 링크**인 경우는
+# 남아 있었다(8차 판정이 발견, 10차 판정이 완화 두 겹으로 medium 격하하며 INV-12에 문서화).
+# `progress/contracts/alias.json -> sprint-53.json`에 쓰면 OS는 링크를 따라가 실제로
+# sprint-53.json을 수정하지만, `BASENAME`이 여전히 `alias.json`이라 SC-4의 `_batch_approval`
+# 불변성 검사가 발화하지 않았다(실측: exit 0, 승인 범위가 근거 없이 교체됨).
+
+setup_git_contract_repo() {
+  GITWORK=$(mktemp -d)
+  git -C "$GITWORK" init -q
+  git -C "$GITWORK" config user.email t@t
+  git -C "$GITWORK" config user.name t
+  mkdir -p "$GITWORK/progress/contracts"
+  cat > "$GITWORK/progress/contracts/sprint-53.json" <<'JSON'
+{"sprint":53,"feature_id":"F67","agreed":true,"_batch_approval":{"scope":["hooks/pre-bash-firewall.sh"],"N":3},"acceptance_criteria":[{"id":"AC-1"}],"implementation_steps":["a"]}
+JSON
+  git -C "$GITWORK" add -A
+  git -C "$GITWORK" commit -q -m baseline
+}
+
+@test "F68: writing through a file symlink to a contract still enforces SC-4" {
+  command -v git >/dev/null || skip "git not installed"
+  setup_git_contract_repo
+  ln -s sprint-53.json "$GITWORK/progress/contracts/alias.json"
+  local BAD='{"sprint":53,"feature_id":"F67","agreed":true,"_batch_approval":{"scope":["**/*"],"N":99},"acceptance_criteria":[{"id":"AC-1"}],"implementation_steps":["a"]}'
+  CLAUDE_PROJECT_DIR="$GITWORK" run bash "$HOOK" <<<"$(mk_write_input "$GITWORK/progress/contracts/alias.json" "$BAD")"
+  [ "$status" -eq 2 ] || { echo "심볼릭 링크를 통한 계약 쓰기가 SC-4 를 우회했다"; false; }
+  rm -rf "$GITWORK"
+}
+
+@test "F68: file-symlink resolution does not block unrelated links or cyclic ones" {
+  # 과잉 차단 방지 — 보호와 무관한 대상을 가리키는 링크는 그대로 통과하고, 순환 링크는
+  # 얕은 한도(10단계)에서 종료해 무한 루프가 되지 않는다.
+  command -v git >/dev/null || skip "git not installed"
+  setup_git_contract_repo
+  ln -s ../../README.md "$GITWORK/progress/contracts/readme-link.md" 2>/dev/null || true
+  touch "$GITWORK/README.md"
+  CLAUDE_PROJECT_DIR="$GITWORK" run bash "$HOOK" <<<"$(mk_write_input "$GITWORK/progress/contracts/readme-link.md" "# hi")"
+  [ "$status" -eq 0 ] || { echo "보호와 무관한 링크 대상 쓰기가 막혔다"; false; }
+
+  ln -s loopb "$GITWORK/progress/contracts/loopa"
+  ln -s loopa "$GITWORK/progress/contracts/loopb"
+  CLAUDE_PROJECT_DIR="$GITWORK" run bash "$HOOK" <<<"$(mk_write_input "$GITWORK/progress/contracts/loopa" "{}")"
+  # 순환은 깊이 한도에서 빠져나온다 — 어느 쪽 판정이든(링크 자체가 sprint-*.json 이 아니므로
+  # 보통 통과) 무한 루프 없이 종료하는 것이 이 테스트의 목적이다. bats 의 `run` 이 반환했다는
+  # 사실 자체가 그 증거다.
+  rm -rf "$GITWORK"
+}
