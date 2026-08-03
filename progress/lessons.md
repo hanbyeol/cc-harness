@@ -17,6 +17,8 @@ evaluator·QA가 통과시킨 뒤 발견된 결함(escaped defect), 오판(false
 
 - **[2026-07-07] F48/sprint-34** — hooks/invariant-guard.sh의 apply_replace()(awk substring 재구성)가 macOS one-true-awk+UTF-8 로케일에서 멀티바이트가 앞선 위치의 치환을 오계산할 수 있음(구현 중 false-deny 1회 재현, Write 툴 우회로 착지). F48 스코프 밖·투명 공개라 통과는 정당하나, **잠재적으로 jq-존재 경로의 harness-config/firewall/bats 내용검사 Edit 재구성에 영향** 가능(false-allow 이론적 여지). 다음 판정 반영: 보호 파일의 Edit/MultiEdit 검증을 다루는 기능은 apply_replace 경유 여부를 확인하고, 최종 커밋 코드를 라이브 실행(hook 직접 구동)으로 재검증한다. 자기보호 장치 자체의 결함이므로 별도 /improve backlog 후보.
 
+<!-- QA-REVIEW 2026-08-03: F68 integration test — Edit workflow on protected file passes through hook cleanly -->
+
 - **[2026-07-07] F49/sprint-35 (위 F48 우려 해소·근본원인 정정)** — 위 misdiagnosis('macOS awk+UTF-8 멀티바이트')를 evaluator 재현으로 정정: 진짜 원인은 `awk -v var=value`가 값을 **awk 문자열-리터럴 소스로 처리**하는 것(로케일/멀티바이트/OS 무관). 두 증상이 동일 근본원인에서 나옴 — (1) 백슬래시 이스케이프 소거(`printf 'A\\\nB'` 4바이트 → `-v` length 3, `ENVIRON[]` length 4), (2) one-true-awk의 '리터럴 개행 거부'(`awk: newline in string`)로 **멀티라인 old_string 전체 실패** → 함수 fallback이 원본 반환 → 약화검사 '변경 없음' 오판 = false-allow. 기존 라이브 self-protection 테스트가 이걸 못 잡은 이유: 전부 단일라인 old_string 또는 Write 경로라 escape/개행 경로를 안 탐. 수정=ENVIRON[] 경유(양 facet 모두 해소), 독립 재현으로 pre-fix false-allow / post-fix deny 실증. **판정 습관**: 근본원인 주장은 evaluator가 pre/post 코드 양쪽을 직접 실행(격리 source)해 mutation-proven RED→GREEN으로 재확인 — implementer의 진단 서술을 그대로 신뢰하지 않는다. **다음 회전 후보**: apply_replace의 라이브-훅 end-to-end false-allow 테스트(멀티라인/백슬래시 old_string으로 deny 제거 시 run_write 경유 deny) 추가 — 현재는 함수-단위 커버리지.
 
 - **[2026-07-20] F52/sprint-38 (pass, 잔존 구멍 기록)** — 반복 패턴: **같은 불변식을 검사하는 추출기가 두 벌 존재하고 강도가 다르면, 약한 쪽이 실제 방어선이 되는 경로가 생긴다**. F52는 배선 대칭을 (1) CI 테스트 `.hooks|.[]|.[]|.hooks[]|.command`(구조 앵커)와 (2) 런타임 가드 `..|objects|.command`(비앵커) 두 벌로 검사한다. 저장소는 (1)이 지키지만 **설치된 프로젝트에는 CI가 없어 (2)가 유일한 층**이고, evaluator 직접 재현 결과 (2)는 matcher 무력화·hooks 키 구조 이동·미끼 문자열 3종을 모두 통과시켰다(exit 0) — F52가 닫으려던 '게이트가 조용히 실행되지 않는' 실패 클래스가 그 경로에 잔존. **판정 습관**: 방어가 CI+런타임 2층이면 각 층을 **독립적으로** mutation 테스트한다. 전체 스위트 green은 '약한 층이 무엇을 놓치는지'를 알려주지 않는다. **기준 습관**: 보호 대상이 '집합'인 SC는 집합 보존이 곧 실효성 보존인지 확인 — basename 부분집합 보존은 게이트 실행 도달성을 보장하지 않는다.
@@ -788,3 +790,24 @@ x 권한을 요구하므로 사실상 도달 불가하다 — **도달 불가한
 '보호와 무관한 대상을 가리키는 링크는 그대로 통과' 가 이번 fail-closed 로 거짓이 됐다(실측: 비보호
 대상 11홉 양성 체인 exit 2). 가드가 비보호 파일까지 거부하게 된 **범위 확대**도 미문서화다. 정직성
 수정은 문단을 더하는 일이 아니라 같은 절의 모든 단언을 코드에 다시 맞추는 일이다.
+
+## F68 13차 판정 (2026-08-03, ad654cc — pass, min-of-5 7 / security 8, 2차 판정도 pass)
+
+**세 회전을 끈 결함을 끝낸 것은 검사를 하나 더 얹는 대신 판정을 옮긴 것이었다.** 11차는 호출부에
+`-L` 재확인을 얹었고 12차는 그 재확인이 같은 lstat 모호성을 물려받음을 보였다. 이번에는
+`resolve_file_symlink()` 가 **자기 종료 사유를 반환값으로** 알리고(0=확정 해석, 1=한도 초과·판정
+불가) 호출부는 그 값만 믿는다. 규칙: 거부 조건을 '거부해야 할 상황에서 똑같이 실패하는 술어' 로
+쓰지 말 것 — 판정 주체를 그 상황을 실제로 관측한 지점으로 옮겨야 조건이 자기를 무력화하지 않는다.
+
+**같은 모양이 한 층 위에 남았고, 이번엔 그것을 숨기지 않았다**: 직계 부모만 접근 확인하므로 조부모
+`chmod 000` 은 `! -e && ! -L` 레그를 타고 여전히 성공 반환이다(실측: old·new 모두 exit 0, 단 실제
+쓰기도 EACCES). `canon_file()` 에도 동일한 '진입 불가 → 조용히 성공' 레그가 그대로 있다. **정직히
+적힌 한계는 fail 사유가 아니다** — 이 저장소가 F52·F63·F65·F68 내내 반복한 '문서가 코드보다 강함'
+패턴이 이번에 처음으로 뒤집혔고(네 산출물의 모든 단언을 실측과 대조: 초과 주장 0건), 그것이 통과의
+실질적 근거였다.
+
+**테스트가 exit 코드만 보면 '왜 막혔는가' 를 잃는다**: 9~12홉 경계 4케이스가 전부 exit 2 인데 실측하면
+해석 성공 후 SC-4 발화(≤10 readlink)와 깊이 한도 fail-closed(≥11)로 **원인이 갈린다**. 해석 로직이
+통째로 죽어도 넷 다 초록이다 — 11차 결함이 자기 테스트를 살아남은 것과 같은 사각이다. 경계를
+고정할 때는 결과가 아니라 **판정 경로**를 단언하라. 문서화된 한계(조부모)도 현재 동작을 고정하는
+characterization 테스트가 없으면 양방향으로 조용히 흐른다.

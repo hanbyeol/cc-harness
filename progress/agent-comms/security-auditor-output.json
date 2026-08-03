@@ -1,73 +1,173 @@
 {
-  "timestamp": "2026-07-08T00:00:00+09:00",
-  "feature": "F51",
-  "commit": "ea525ea14f3efc77b7e318e50cd67d3c9d78facb",
+  "timestamp": "2026-08-03T22:05:00+09:00",
+  "sprint": 54,
+  "feature": "F68",
   "security_tier": "critical",
-  "scope": "Independent security audit of F51 has_awk() global fail-closed gate (diff-only: hooks/invariant-guard.sh ea525ea^..ea525ea, +15 lines; tests +4 @test). Evaluator 1st/2nd pass (min-of-5 8/8, security 9/9) NOT trusted as substitute — all pass/fail judgments grounded in commands executed this session. F51 is the follow-up to the medium finding this auditor raised in the F50 audit (Write-path awk-absent fail-open on INV-3/INV-11); this run re-verifies that finding is closed.",
+  "commit_under_review": "ad654cc",
+  "scope": "Independent security audit of F68 after the 13th evaluator judgment (pass, min-of-5 7, security 8, F37 cross-check agreeing). Per the dispatch brief this audit did not re-litigate criteria the evaluator passed; it targeted the residual items the judgment recorded but did not treat as fail reasons, and the round's file scope for regressions. All verdicts below are grounded in commands executed this session, in an isolated clone and on a purpose-built case-sensitive volume; no test wrote to the live repository.",
   "scan_tools": [
-    "git-diff-review (ea525ea^..ea525ea)",
-    "empirical-repro: awk-excluded PATH shim (jq/ls/sort present), pre-fix vs post-fix, Write+Edit",
-    "empirical-repro: C1 (harness-config Write threshold downgrade) + D (feature_list Write unearned passes)",
-    "empirical-repro: D-nosort control (proves sort must be in shim or D denies for the wrong reason)",
-    "empirical-repro: layering boundary — awk present-but-fails-at-runtime (Edit=F50 handler vs Write=residual)",
-    "edge cases: MultiEdit empty edits[], Write no-content, unknown tool, feature_list delete-then-recreate, unprotected file",
-    "shellcheck + full bats suite (tests/invariant-guard.bats 97/97)",
-    "secret/injection grep scan of diff additions"
+    "differential hook harness (isolated git clone, synthetic PreToolUse payloads, OLD/NEW comparison)",
+    "live end-to-end probes through the real Claude Code Edit/Write tool chain",
+    "case-sensitive APFS volume (hdiutil) for the filesystem-dependent legs",
+    "bats 743 re-run independently in an isolated clone: 1..743, 743 ok, 0 failures, exit 0",
+    "jq structural diffing, git history secret scan",
+    "manual review of hooks/invariant-guard.sh, hooks/pre-bash-firewall.sh, hooks/protected-integrity.sh"
   ],
   "supply_chain": {
     "vulnerable_deps": 0,
     "outdated_critical": 0,
     "details": [
-      "Diff introduces no new dependencies, no network calls, no new external binaries. package.json/plugin.json/marketplace.json are version bumps (1.29.0->1.30.0); README is a test-count doc update. No go.mod/npm lockfile changes; govulncheck/npm audit not applicable to this bash-hook diff. progress/*.json + contracts/sprint-37.json are harness bookkeeping."
+      "package.json declares no dependencies and no devDependencies; there is no package-lock.json and no node_modules. npm audit / govulncheck / dart pub outdated are not applicable — there is no dependency graph to audit.",
+      "Runtime dependencies are system binaries: bash, jq, awk, git, bats. The guard already fails closed when jq or awk is absent (hooks/invariant-guard.sh:151-163, :404-414).",
+      "engines.node >= 16 is declared but no JavaScript is executed by the harness; init.sh is a bash bootstrapper delivered through the npm bin entry."
     ]
   },
+  "secrets_scan": {
+    "commits_scanned": 20,
+    "findings": 0,
+    "note": "All matches for api_key/secret/token/private-key patterns in the last 20 commits are documentation prose about the firewall's own SECRET_PATHS arm, not credentials."
+  },
   "checklist_compliance": {
-    "total_items": 8,
-    "passed": 8,
-    "failed": 0,
-    "failed_items": [],
-    "notes": "Checklist derived from F51's stated scope (close the awk-ABSENT Write fail-open = auditor's F50 medium finding). (1) has_awk() added, mirrors has_jq(): VERIFIED. (2) C1 Write harness-config 7->4 closed: pre-fix exit0 -> post-fix exit2. (3) D Write feature_list passes:true min-of-5=3 closed: pre-fix exit0 -> post-fix exit2. (4) gate placed after FILE-resolution & non-existent-file branch, BEFORE TOOL dispatch — applies to Write/Edit/MultiEdit uniformly: VERIFIED (edge cases all exit2). (5) availability-first for unprotected files with awk absent: VERIFIED (exit0). (6) awk-present control path unchanged: raise 7->9 exit0, lower 7->3 exit2. (7) INV-6 add-only: @test 93->97, no test removed (only _noawk_run shim tool-list modified to add ls/sort). (8) no new secret/injection/supply-chain surface: VERIFIED."
+    "source": "progress/contracts/sprint-54.json security_criteria (SC-1..SC-4) + docs/INVARIANTS.md (INV-1..INV-14). No docs/SECURITY-CHECKLIST.md exists in this repository; INVARIANTS.md is the operative checklist.",
+    "total_items": 18,
+    "passed": 16,
+    "failed": 2,
+    "failed_items": [
+      "SC-4 (무인 루프의 승인 범위 조작이 단일 쓰기로는 불가능하다) — violated on two independent paths, both measured. Structurally identical to the 6th judgment's `rm <contract>` + one Write, which was ruled an SC-4 violation: one firewall-allowed preparatory action plus one Write.",
+      "INV-13 (설치 경로 간 훅 배선은 대칭이다) — wiring files with no HEAD blob (.claude/settings.json, and any hooks.json outside the project root) can be deleted and recreated unwired with the guard returning exit 0, and nothing restores them."
+    ]
   },
   "threat_model_coverage": {
-    "threats_identified": 5,
-    "mitigations_verified": 4,
-    "gaps": [
-      "T5 (narrow residual, NOT in F51 scope): the Write path's direct numeric awk comparisons (INV-3 harness-config line 187; INV-11 feature_list lines 348 & 359) run as `if awk ...; then deny` with NO runtime-failure detection. F50's fail_closed_on_apply_failure only wraps apply_replace (Edit/MultiEdit). has_awk() closes 'awk entirely absent'. What remains open: 'awk present at command -v but that specific numeric invocation fails at runtime' + tool=Write -> the if reads false -> deny never fires -> fail-OPEN on the two most important invariants. Empirically reproduced (C1'/D' exit0). Precondition is contrived (corrupt/non-zero-exit awk that command -v still finds, or fork/OOM/ulimit hitting exactly that awk call) -> LOW severity. The commit narrative's claim that \"F50's mechanism still covers awk present but a specific invocation fails at runtime\" is INACCURATE for the Write path (F50 covers only apply_replace)."
+    "threats_identified": 11,
+    "mitigations_verified": 7,
+    "verified": [
+      "path spelling variants (//, ./, case-variant on a case-insensitive FS) — canon_file normalizes; verified live, a Write to tests/ZZ-PROBE.BATS was denied with the message naming the real spelling zz-probe.bats",
+      "directory symlink in the prefix — pwd -P resolves it",
+      "final-component symlink — verified live through the real tool: a Write to the symlink alias.bats was denied by the @test-count check on its target zz-probe.bats. Claude Code does NOT resolve symlinks before the hook, so this round's resolve_file_symlink is genuinely load-bearing",
+      "symlink cycle / depth cap exhausted — rc 1 then deny",
+      "mid-chain EACCES (immediate parent chmod 000) — rc 1 then deny, exit 2 measured; this is the leg the 13th round closed and it works",
+      "delete-then-recreate for HEAD-tracked in-repo files — HEAD materialization holds (hooks/hooks.json deleted then recreated unwired gives exit 2)",
+      "truncation by empty Write on an existing protected file — deny"
     ],
-    "detail": [
-      "T1 auditor's F50 medium (Write+awk-ABSENT fail-open on INV-3/INV-11) — MITIGATED by F51 (mutation-proven: C1 pre exit0->post exit2; D pre exit0->post exit2).",
-      "T2 gate-placement bypass (a TOOL path reaching an awk-dependent check without passing the gate) — NOT PRESENT for existing files: gate sits after FILE resolution and before TOOL dispatch, so Write/Edit/MultiEdit/unknown-tool all hit it (edge cases exit2). Only non-existent NON-feature_list protected files skip it via the [[ ! -e FILE ]] new-file exemption — but that path has no OLD value to downgrade and behaves identically with awk present (pre-existing new-file design, orthogonal to awk).",
-      "T3 F50/F51 double-handling or conflict — NOT PRESENT: layering is clean and non-overlapping. awk absent -> has_awk gate (exit2 before any awk call). awk present-but-fails at apply_replace -> F50 handler (Edit/MultiEdit exit2, proven). The two mechanisms partition the failure space; no path triggers both incorrectly.",
-      "T4 awk-program code injection via file/old/new content — NOT PRESENT (F49 ENVIRON[] mechanism unchanged; new code has no input interpolation — only command -v awk and echo-to-stderr of $FILE).",
-      "T5 Write-path numeric-compare runtime-failure fail-open — PARTIALLY open (see gaps): narrow residual, LOW."
+    "gaps": [
+      "canon_file's case-insensitive filename rebind is not gated on the filesystem actually being case-insensitive — on a case-sensitive FS a decoy file redirects the guard's judgment to a different real file (F-2)",
+      "delete-then-recreate remains open for control-plane files with no HEAD blob: .claude/settings.json (gitignored) and any wiring file outside the project root (F-1)",
+      "canon_file returns the raw path when it cannot enter the parent directory instead of failing closed (F-3)",
+      "grandparent-and-above directory inaccessibility still conflates 'cannot judge' with 'not a link' (F-4, disclosed by the round itself)"
     ]
   },
   "findings": [
     {
+      "id": "F-1",
+      "severity": "high",
+      "confidence": "high",
+      "file": "hooks/invariant-guard.sh",
+      "line": 303,
+      "title": "Delete-then-recreate is still open for wiring files that have no HEAD blob — two tool calls unwire every hook, with no recovery",
+      "issue": "The 10th round closed delete-then-recreate by materializing the HEAD copy of a missing protected file (:303-332). That block is gated on `[[ -n \"$__root\" && \"$FILE\" == \"$__root\"/* ]]` and on `git show HEAD:$__rel` succeeding. Both conditions fail for exactly the files the design calls unrecoverable control plane: .claude/settings.json sits inside the root but is gitignored (no HEAD blob), and a plugin- or init.sh-installed hooks/hooks.json is outside the root entirely. When materialization does not happen the path falls through to the new-file arm at :387-400, whose `*)` case exits 0.",
+      "reproduction": [
+        "control, file present: Write .claude/settings.json with the hooks key deleted -> exit 2 (배선 무력화 denied)",
+        "pre-bash-firewall verdict for `rm .claude/settings.json` -> allow (not even ask)",
+        "after deletion: the same Write recreating .claude/settings.json without hooks -> exit 0 (ALLOWED)",
+        "case-variant recreate on a case-insensitive FS: .claude/SETTINGS.json -> exit 0 (is_wiring_file at :97 is the case-sensitive literal `[[ \"$b\" == \"settings.json\" ]]`, unlike is_protected which honours FS_CI)",
+        "out-of-repo wiring file: a hooks.json under a simulated plugin dir — present -> exit 2; deleted then recreated unwired -> exit 0",
+        "in-repo control: hooks/hooks.json deleted then recreated unwired -> exit 2 (materialization works where a HEAD blob exists)",
+        "recovery: protected-integrity.sh run after the tamper leaves .claude/settings.json STILL UNWIRED — it is not in PROTECTED_GLOBS (hooks/protected-integrity.sh:48) and the file list is enumerated from the HEAD tree, which does not contain it"
+      ],
+      "impact": "For init.sh-installed projects .claude/settings.json is the live wiring. Two tool calls — one firewall-allowed rm and one Write — remove every PreToolUse/PostToolUse/Stop hook permanently. After that no gate runs at all, so every other invariant (INV-3/6/7/11/12) falls with it. Platform-independent; measured on case-insensitive APFS.",
+      "recommendation": "Do not key materialization on HEAD alone. For a missing protected or wiring file with no HEAD blob, fail closed rather than treating it as a legitimate new file, and drop the `$FILE == $__root/*` precondition for the wiring-file class. Also make is_wiring_file honour FS_CI the way is_protected does."
+    },
+    {
+      "id": "F-2",
+      "severity": "high",
+      "confidence": "high",
+      "file": "hooks/invariant-guard.sh",
+      "line": 191,
+      "title": "canon_file()'s case-insensitive filename lookup is not gated on the filesystem being case-insensitive — a decoy file makes the guard judge a different real file",
+      "issue": "`real=$(ls -1 \"$d\" | grep -ixF -- \"$b\" | head -1)` runs unconditionally, while is_protected()'s nocasematch is correctly gated on FS_CI (the 9th and 10th rounds' lesson). The two disagree exactly when the filesystem is case-sensitive: there, two distinct files can match case-insensitively, and `head -1` silently rebinds the guard's FILE to whichever spelling ls lists first. Every downstream predicate (is_protected, is_wiring_file, the per-file branches) then judges the decoy, while Claude Code writes the path it was actually given — it normalizes . / .. / ~ but never case-folds.",
+      "reproduction": [
+        "on a real case-sensitive APFS volume, control with no decoy: feature_list passes:true, harness-config .scoring.pass_threshold 7->1, sprint-54 _batch_approval replacement, tests/*.bats @test 133->0, hooks.json unwiring, settings.json unwiring, and removing `exit 2` from the guard's own deny() — all exit 2",
+        "planting each decoy is itself unguarded: Write progress/FEATURE_LIST.json, tests/INVARIANT-GUARD.BATS, hooks/HOOKS.json, SETTINGS.json, .claude/SETTINGS.json -> exit 0",
+        "identical weakening writes with the decoy present, LC_ALL=C -> exit 0 for all seven targets",
+        "locale dependence measured: LC_ALL=C picks FEATURE_LIST.json, LC_ALL=C.UTF-8 picks FEATURE_LIST.json, LC_ALL=en_US.UTF-8 picks feature_list.json (not exploitable under glibc en_US collation)",
+        "FS_CI computed as 0 on that volume, so is_protected's nocasematch is off and the decoy spelling matches no arm"
+      ],
+      "impact": "On case-sensitive filesystems under a C-family locale — Linux/ext4, Docker images with no LANG, GitHub Actions ubuntu-latest (LANG=C.UTF-8), which is this project's own CI — INV-3, INV-6, INV-7, INV-11 and INV-13 are all bypassable with one decoy plus one Write. For HEAD-tracked PROTECTED_GLOBS members the damage is transient: protected-integrity.sh (PostToolUse:Write|Edit|MultiEdit) restored hooks/hooks.json, tests/invariant-guard.bats and progress/harness-config.json in the same measurement. It is terminal for settings.json and .claude/settings.json, which the detection layer does not cover (see F-1). macOS APFS default installs are unaffected: two case variants cannot coexist and FS_CI=1 restores case-insensitive classification (verified live — a Write to tests/ZZ-PROBE.BATS was denied).",
+      "recommendation": "Prefer an exact-spelling hit: if `ls -1 \"$d\" | grep -qxF -- \"$b\"` succeeds, keep $b unchanged, and fall back to the case-insensitive lookup only when no exact entry exists (optionally also gating on fs_is_case_insensitive \"$d\"). That preserves the case-insensitive-FS behaviour the 6th to 8th rounds needed while making the rebind impossible on a case-sensitive FS."
+    },
+    {
+      "id": "F-3",
+      "severity": "medium",
+      "confidence": "high",
+      "file": "hooks/invariant-guard.sh",
+      "line": 190,
+      "title": "canon_file() treats 'cannot normalize' as 'nothing to normalize' and passes the raw path through — the same fail-open shape the round eliminated from resolve_file_symlink",
+      "issue": "`d=$(cd \"$d\" 2>/dev/null && pwd -P) || { printf '%s' \"$p\"; return 0; }` returns success with an unnormalized path whenever the parent cannot be entered (absent, permission-denied, ELOOP). This is the identical conflation the 12th judgment forced out of resolve_file_symlink, which now signals failure by return code; canon_file kept the old contract, and the caller cannot distinguish 'already canonical' from 'could not canonicalize'.",
+      "reproduction": [
+        "against the guard as a program: file_path `<repo>/tests/NOPE/../invariant-guard.bats` with NOPE absent -> cd fails -> raw path -> `-e` false -> `git show HEAD:tests/NOPE/../invariant-guard.bats` fails so no materialization -> new-file arm :397 -> exit 0, where the canonical path gives exit 2. Same result for hooks/hooks.json, settings.json and hooks/invariant-guard.sh",
+        "NOT reachable through Claude Code today: measured that the harness lexically normalizes tool_input.file_path before the hook. A live Write to `<dir>/NOPE/../zz-probe.bats` was denied and the guard's own message printed the collapsed path; `~/...` likewise arrived expanded to /Users/hanbyeol/...",
+        "bash cd refuses a nonexistent intermediate even with a following .., confirming canon_file cannot recover the path itself",
+        "the Write tool writes to the lexically-resolved target (probe: wt/NOPE/../probe.txt landed at wt/probe.txt and wt/NOPE was never created)"
+      ],
+      "impact": "Latent rather than live. The only known trigger is removed upstream by a Claude Code behaviour that is external, undocumented, unversioned and unpinned by any test in this repository — and only partial, since the same upstream does NOT resolve symlinks, which is precisely why this round's work was necessary. Any other invocation path (a different client, the Agent SDK, a future harness change) reopens it for four protected classes.",
+      "recommendation": "Give canon_file the contract resolve_file_symlink now has: return non-zero when the path could not be canonicalized, and have the caller deny. The round already established this pattern one function away; applying it here removes the dependence on an upstream guarantee the harness cannot see or test."
+    },
+    {
+      "id": "F-4",
       "severity": "low",
       "confidence": "high",
       "file": "hooks/invariant-guard.sh",
-      "line": 187,
-      "issue": "Write-path INV-3/INV-11 numeric awk comparisons fail-OPEN when awk is present at `command -v` but the specific `if awk ...; then deny` invocation fails at runtime. has_awk() (F51) closes the dominant 'awk entirely absent' case; F50's fail_closed_on_apply_failure closes runtime awk failures ONLY on the Edit/MultiEdit apply_replace path. The Write path never calls apply_replace, and its direct numeric compares (line 187 harness-config threshold-downgrade INV-3; lines 348 & 359 feature_list min-of-5 / critical-security INV-11) have no runtime-failure guard: a non-zero awk exit is read as 'no violation' so deny never fires. Empirically reproduced with a present-but-exit1 awk shim: C1' Write harness-config pass_threshold 7->4 -> exit 0 (INV-3 bypass); D' Write feature_list passes:true with evaluator min-of-5=3 -> exit 0 (INV-11 bypass). The identical broken awk on an Edit path is correctly denied (exit 2) by F50, confirming the hole is Write-path-specific. Precondition (awk found by command -v yet failing on a trivial BEGIN comparison — corrupt binary, PATH-poisoned non-zero-exit shim, or fork/OOM/ulimit exhaustion at that call) is contrived, hence LOW; impact-if-triggered is HIGH (defeats the two most important invariants). This is a strict-subset residual of the auditor's F50 medium: F51 narrowed it from 'awk absent OR failing' to 'awk present but that invocation fails'. NOT introduced or regressed by F51 (strict improvement) and OUT OF F51's stated scope, but the commit message's 'F50's mechanism still covers awk present but a specific invocation fails at runtime' overstates coverage for the Write path. Recommended fix (backlog): make the Write-path numeric compares distinguish 'awk ran, result=false' from 'awk failed to run' — e.g., awk prints an explicit LT/GE sentinel to stdout and the shell treats empty/unexpected output as failure -> deny for protected files (symmetric to F50).",
-      "introduced_by_f51": false,
-      "in_f51_scope": false,
-      "reachable": "Write tool to harness-config.json or feature_list.json while awk is present (command -v awk succeeds) but the numeric BEGIN-comparison invocation fails at runtime. Edit/MultiEdit paths are covered by F50; awk-entirely-absent is covered by F51.",
-      "backlog": true
+      "line": 225,
+      "title": "Grandparent-and-above inaccessibility is genuinely open, and confirmed not exploitable for writes",
+      "issue": "`[[ ! -e \"$d\" && ! -L \"$d\" ]]` returns success (treated as new-path scaffolding) when the parent is merely unstattable because an ancestor denies traversal, reproducing one level up the conflation the round closed for the immediate parent. Disclosed in the function comment, in INVARIANTS.md and by the 13th judgment.",
+      "reproduction": [
+        "grandparent chmod 000 with a link to progress/harness-config.json -> guard exit 0 with the chain unresolved",
+        "a real write through the same path in the same window is refused by the kernel (EACCES) and the protected target was unchanged afterwards",
+        "grandparent chmod 111 (traversable, unreadable) -> resolves normally and the real checks fire",
+        "immediate parent chmod 000 -> exit 2 (the leg this round closed)"
+      ],
+      "impact": "No write bypass: the permission wall that blinds the guard blinds the writing tool identically, since both resolve the same path string as the same uid. This confirms the evaluator's assessment. One addition to their low-confidence TOCTOU note — the primitive is available, because plain chmod on a repository directory is firewall-allowed (only sudo chmod and chmod inside command substitution are denied), so a concurrent restore between the guard's allow and the tool's write is stageable; it still requires precise timing and a second running process.",
+      "recommendation": "Fold into the F69 follow-up together with F-3: one shared 'can I trust stat on this path' helper that walks to the nearest accessible ancestor and fails closed otherwise, used by both canon_file and resolve_file_symlink."
+    },
+    {
+      "id": "F-5",
+      "severity": "low",
+      "confidence": "medium",
+      "file": "hooks/invariant-guard.sh",
+      "line": 447,
+      "title": "Tools other than Write/Edit/MultiEdit reach the dispatch and exit 0 unconditionally",
+      "issue": "hooks.json wires invariant-guard for `mcp__.*` as well, but the TOOL dispatch ends with `*) exit 0`. An MCP tool that writes a file through a file_path input passes without any content check, so INV-3/6/7/11/13 are not enforced on that path.",
+      "impact": "Mitigated in practice by pre-tool-firewall's MCP read-verb allowlist — write-verb MCP tools are not auto-allowed and require user approval — so this is a defence-in-depth gap rather than an open bypass. Outside this round's scope but adjacent to its path-identity work.",
+      "recommendation": "Either narrow the guard's matcher to the tools it actually inspects, or fail closed for unknown tools whose tool_input names a protected path."
+    },
+    {
+      "id": "F-6",
+      "severity": "low",
+      "confidence": "high",
+      "file": "hooks/pre-bash-firewall.sh",
+      "line": 0,
+      "title": "Layer 1 rm pattern matches inside quoted strings (availability-only over-detection)",
+      "issue": "An audit command that merely contained the literal `rm ~/.claude/...` inside a quoted jq argument was BLOCKED by the Layer 1 destructive-rm pattern. The quote-neutralization pass normalizes separators inside single quotes, but the BLOCKED tier still matches the quoted text.",
+      "impact": "False positive only; fails in the safe direction. Consistent with the documented known gap about newline and quote span handling.",
+      "recommendation": "No action required for security. Recorded so it is not mistaken for a real blocked attack when transcripts are reviewed."
     }
   ],
-  "fix_verification": {
-    "auditor_f50_finding_closed": true,
-    "evidence": {
-      "C1_write_harness_config": "awk-excluded PATH shim (jq/ls/sort present): pre-fix (ea525ea^) Write pass_threshold 7->4 -> exit 0 (fail-open confirmed); post-fix -> exit 2 (has_awk gate). CLOSED.",
-      "D_write_feature_list": "same shim: pre-fix Write passes:true with evaluator feedback min-of-5=3 -> exit 0 (fail-open confirmed); post-fix -> exit 2. CLOSED.",
-      "D_nosort_control": "dropping sort from the shim makes pre-fix deny for the WRONG reason (feedback-file glob/sort breaks -> 'no evidence' deny, exit 2) instead of via the awk compare — confirms sort must be present for a valid D repro; the F51 commit correctly fixed the same ls/sort gap in the bats _noawk_run shim.",
-      "gate_placement": "gate is after FILE resolution and the [[ ! -e FILE ]] new-file branch, before TOOL dispatch. Edge cases (awk absent, protected): MultiEdit empty edits[] -> 2; Write no-content -> 2; unknown tool NotebookEdit -> 2; feature_list delete-then-recreate (file absent) min-of-5=3 -> 2. Unprotected Write -> 0. No TOOL path reaches an awk check without passing the gate for existing files.",
-      "layering_f50_vs_f51": "awk present-but-exit1 shim: Edit harness-config 7->4 -> exit 2 via F50 fail_closed_on_apply_failure ('apply_replace 실패' message); awk-absent -> exit 2 via F51 gate ('awk 부재' message). Non-overlapping partition confirmed. Residual (Write path + present-but-failing) is neither, see finding.",
-      "availability": "awk absent + unprotected file -> exit 0 (pre and post). Availability preserved; guard confined to validation files.",
-      "awk_present_control": "post-fix, awk present: Write raise 7->9 exit 0; Write lower 7->3 exit 2; normal path unchanged.",
-      "regression": "shellcheck hooks/invariant-guard.sh -> only pre-existing SC2012 info at line 337 (feature_list ls|sort, unrelated to F51, present since before F50). bats tests/invariant-guard.bats -> 97/97 pass incl. new F51 ok 94-97 and F50 ok 90-93. @test count 93->97 (add-only, INV-6 satisfied).",
-      "no_new_injection_or_secret": "added code (has_awk + gate) has no untrusted-input interpolation (command -v awk; echo $FILE to stderr; is_protected basename/case). Secret grep of diff additions: none."
-    }
+  "regression_check": {
+    "question": "Were files outside the round's declared scope (hooks/invariant-guard.sh, docs/INVARIANTS.md, tests/invariant-guard.bats, progress/contracts/sprint-54.json) disturbed, and did the interaction with pre-bash-firewall.sh or protected-integrity.sh change?",
+    "result": "No unintended change found.",
+    "evidence": [
+      "The three symlink commits (adaa6e7, 2d0852a, ad654cc) touch only hooks/invariant-guard.sh, docs/INVARIANTS.md, tests/invariant-guard.bats, progress/contracts/sprint-54.json, progress/lessons.md and an evaluator-feedback file.",
+      "hooks/pre-bash-firewall.sh was last touched at 99a337e and hooks/protected-integrity.sh at c442305 — both earlier in the sprint (the nocasematch withdrawal and the firewall layer work), neither during the symlink rounds.",
+      "Cross-hook set consistency (is_protected <-> PROTECTED_GLOBS <-> firewall exempt paths <-> formatter skip list) is machine-checked by the suite; re-run independently in an isolated clone: 1..743, 743 ok, 0 failures, exit 0.",
+      "The round's scope widening — unresolvable chains are denied for non-protected targets too — is intentional, documented, and costs availability only.",
+      "deny() exits 2 before the EXIT trap's rc check, so the new fail-closed path issues no .guarded-edits ticket; no stale-ticket interaction with protected-integrity's exemption logic.",
+      "No over-blocking regression observed: ordinary new files, ordinary existing non-protected files, and a benign non-weakening edit to harness-config.json all pass (exit 0)."
+    ]
   },
-  "summary": "0 high, 0 medium, 1 low. F51's scoped fix is CORRECT and mutation-proven: the auditor's own F50 medium finding (Write-path awk-ABSENT fail-open on INV-3 threshold-downgrade and INV-11 unearned passes:true) is CLOSED — C1 and D both flip pre-fix exit0 -> post-fix exit2 under an awk-excluded PATH shim. The has_awk() gate mirrors has_jq(), is placed correctly (after FILE resolution, before TOOL dispatch, so Write/Edit/MultiEdit/unknown-tool and feature_list delete-then-recreate all hit it), preserves availability for unprotected files, and layers cleanly with F50 (awk absent -> F51 gate; awk present-but-fails at apply_replace -> F50 handler; verified non-overlapping). Tests are add-only (93->97), all green; no new injection/secret/supply-chain surface. The single LOW finding is a strict-subset residual F51 does not claim to fix: the Write path's DIRECT numeric awk compares (INV-3 line 187, INV-11 lines 348/359) still fail-open in the contrived case where awk is present at command -v but that specific invocation fails at runtime (F50's runtime-failure guard covers only apply_replace/Edit/MultiEdit). Empirically reproduced (C1'/D' exit0), impact-if-triggered HIGH but precondition unusual -> LOW; out of F51 scope, not a regression (strict improvement), flagged for backlog. F51 verification gate: PASS (checklist_compliance.failed == 0). Approved from a security standpoint; the LOW residual is a follow-up ticket, not a block."
+  "verification_gate": {
+    "passes": false,
+    "reason": "checklist_compliance.failed > 0 (SC-4, INV-13). F-1 is platform-independent and unrecovered; F-2 is live on the project's own CI platform. Both belong to the class this round has been working in — protection judged on something other than the file that will actually change — rather than to a new line of work.",
+    "note": "This does not contradict the 13th evaluator judgment. That judgment verified the designated fix (mid-chain EACCES) and confirmed it works; this audit re-ran that verification independently and agrees. F-1 and F-2 lie outside the three confirmation items the evaluator protocol allowed and were not visible from them."
+  },
+  "summary": "2 high, 1 medium, 3 low. The round's designated fix is correct and load-bearing, verified end to end through the real tool chain — including the finding that Claude Code does not resolve symlinks, so the guard's own resolution is what stops the alias attack. Two new bypasses were found in the same class the round was working in: (F-1) delete-then-recreate is still open for wiring files with no HEAD blob (.claude/settings.json and any out-of-repo hooks.json), so a firewall-allowed rm plus one Write removes every hook with no recovery, on any platform; (F-2) canon_file's case-insensitive filename rebind is not gated on filesystem case-sensitivity, so on Linux and CI under a C-family locale a decoy file makes the guard judge a different file than the one being written, defeating INV-3/6/7/11/13. Both residual items the 13th judgment disclosed but did not fail on were re-checked: the grandparent leg is genuinely open but not write-exploitable because the kernel refuses in the same window, and canon_file's cd fail-open is real but currently unreachable because Claude Code normalizes . / .. / ~ upstream — an external guarantee nothing in this repository tests."
 }
