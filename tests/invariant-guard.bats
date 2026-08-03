@@ -1103,6 +1103,40 @@ JSON
   [ "$status" -eq 0 ] || { echo "배선 추가(강화)가 차단됐다 — 과잉 차단"; false; }
 }
 
+@test "F68: case-insensitive matching is scoped to path classification, not content" {
+  # 9차 판정이 전역 `nocasematch` 로 게이트 둘이 열린 것을 실증했다. 10차는 분류 술어 안에서만
+  # 켠다 — 그 경계가 실제로 지켜지는지를 **양쪽에서** 확인한다. 대소문자 구분 FS(Linux CI)에서는
+  # 분류 쪽 단언이 무의미해지므로 건너뛰되, **내용 쪽 단언은 항상 돌린다**(그쪽이 회귀 축이다).
+  #
+  # (1) 내용·구조 비교는 대소문자를 구분해야 한다 — FS 와 무관하게 성립한다.
+  mkdir -p "$WORK/.claude" "$WORK/progress/agent-comms"
+  cat > "$WORK/.claude/settings.json" <<'JSON'
+{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"bash x.sh"}]}]}}
+JSON
+  local LOWER='{"hooks":{"PreToolUse":[{"matcher":"bash","hooks":[{"type":"command","command":"bash x.sh"}]}]}}'
+  run run_write "$(mk_write_input "$WORK/.claude/settings.json" "$LOWER")"
+  [ "$status" -eq 2 ] || { echo "분류용 설정이 배선 동등비교까지 무디게 했다 (9차 회귀 재발)"; false; }
+
+  local LOG="$WORK/progress/agent-comms/evaluator-runs.jsonl"
+  printf '%s\n' '{"ts":"2026-08-01T00:00:00Z","agent_id":"a1","epoch":1}' > "$LOG"
+  local UP; UP=$(tr '[:lower:]' '[:upper:]' < "$LOG")
+  run run_write "$(mk_write_input "$LOG" "$UP")"
+  [ "$status" -eq 2 ] || { echo "분류용 설정이 append-only 비교까지 무디게 했다 (9차 회귀 재발)"; false; }
+
+  # (2) 분류는 대소문자를 무시해야 한다 — 대소문자 무시 FS 에서만 의미가 있다.
+  local probe="$WORK/CiProbe"; mkdir -p "$probe"
+  if [[ ! -e "$WORK/ciprobe" ]]; then skip "case-sensitive filesystem — 분류 축은 이 FS 에서 발화하지 않는다"; fi
+  # 삭제 후 다른 철자로 재생성해도 passes 전환 근거는 요구돼야 한다
+  mkdir -p "$WORK/progress"
+  cat > "$WORK/progress/feature_list.json" <<'JSON'
+{"features":[{"id":"F1","passes":false}]}
+JSON
+  local NEWFL='{"features":[{"id":"F1","passes":true}]}'
+  rm -f "$WORK/progress/feature_list.json"
+  run run_write "$(mk_write_input "$WORK/PROGRESS/FEATURE_LIST.JSON" "$NEWFL")"
+  [ "$status" -eq 2 ] || { echo "철자를 바꿔 삭제 후 재생성하면 passes 게이트가 열린다"; false; }
+}
+
 @test "F68: the guard sets no global nocasematch" {
   # 도구의 사정거리가 문제의 사정거리보다 넓으면 그 초과분이 그대로 회귀가 된다.
   # 경로 분류 술어 몇 개에만 필요한 것을 셸 전역 옵션으로 켜지 않는다.

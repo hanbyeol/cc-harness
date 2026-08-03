@@ -25,6 +25,16 @@ has_awk() { command -v awk &>/dev/null; }
 # 하드코딩 중복 drift를 막기 위해 보호 대상 목록을 이 함수 하나로 정의한다.
 # 주 사용처: jq 부재 시 fail-closed 판정(내용 검사 불가 시 보호 파일 편집을 보수적으로 차단).
 is_protected() {
+  # **경로 분류에 한해** 대소문자 무시로 판정한다 (F68 10차). 대소문자 무시 FS 에서는
+  # `PROGRESS/FEATURE_LIST.JSON` 과 `progress/feature_list.json` 이 같은 파일인데, 대상이
+  # 존재하지 않으면(삭제 후 재생성) `canon_file` 이 실제 철자를 물어볼 수 없어 판정이 갈렸다.
+  # 9차에서 이것을 전역 `shopt -s nocasematch` 로 고치려다 내용·구조 동등비교까지 무뎌져
+  # 게이트 둘을 열었다 — 그래서 **분류 술어 안에서만** 켜고 즉시 되돌린다. 함수 밖의 비교
+  # (배선 동등성·append-only·verdict)는 영향받지 않는다.
+  # 서브셸로 감싼다 — `shopt` 가 밖으로 새지 않으므로 저장·복원이 필요 없고, 함수가 하나로
+  # 유지되어 `is_protected()` 를 통째로 추출해 대조하는 테스트들(F45 대칭 등)도 그대로 돈다.
+  (
+  [[ "${FS_CI:-0}" == 1 ]] && shopt -s nocasematch
   local f="$1" b
   b=$(basename "$f" 2>/dev/null || echo "")
   case "$b" in
@@ -68,6 +78,7 @@ is_protected() {
     */skills/hotfix/* | skills/hotfix/*) return 0 ;;
   esac
   return 1
+  )
 }
 
 # is_wiring_file: 훅 배선을 정의하는 파일인가? (F52 / INV-13)
@@ -193,6 +204,20 @@ fs_is_case_insensitive() {
   [[ -e "$parent/$flipped" ]]
 }
 FILE=$(canon_file "$FILE")
+# 이 파일시스템이 대소문자를 구분하지 않는가 — **경로 분류 술어**만 이 값을 본다.
+# 판정 불가(디렉터리 부재·글자 없는 이름)일 때는 1(무시)로 둔다: 분류에서 대소문자를 무시하는
+# 쪽이 **보호 방향**이기 때문이다. 9차 판정이 반대 방향(끄는 쪽)을 '보수적'이라 적은 주석의
+# 오류를 지적했고, 그 지적이 맞다.
+FS_CI=1
+if [[ -d "$(dirname "$FILE")" ]]; then
+  fs_is_case_insensitive "$(dirname "$FILE")" || FS_CI=0
+fi
+# 분류 술어를 감쌀 때만 쓴다 — 조건에만 걸고 **본문에는 걸지 않는다.** 9차 판정의 회귀가
+# 정확히 본문(내용·구조 동등비교)까지 무뎌진 데서 나왔다.
+# `shopt -p <opt>` 는 옵션이 꺼져 있으면 **exit 1** 을 낸다 — `set -e` 아래에서 그대로 두면
+# 가드가 조용히 죽는다(실측). 저장·복원 모두 상태를 삼킨다.
+ci_on()  { _CI_SAVED=$(shopt -p nocasematch || true); [[ "${FS_CI:-0}" == 1 ]] && shopt -s nocasematch; return 0; }
+ci_off() { eval "${_CI_SAVED:-:}" || true; return 0; }
 # **전역 `shopt -s nocasematch` 는 철회했다 (F68 9차 판정).** 대소문자 무시 FS 에서 모든 경로
 # 매칭을 대소문자 무시로 돌렸더니 경로 분류만이 아니라 **내용·구조 판정까지** 함께 무뎌져
 # 게이트 둘이 새로 열렸다(대조군 대비 귀속 확인):
@@ -248,13 +273,18 @@ trap record_guarded_edit EXIT
 # 히스토리 재작성도, `git rm --cached`(ask) 도 필요 없는 가장 싼 경로였다. 세 줄 위가 이미
 # 이 클래스를 닫아 두었는데 계약만 빠져 있었다.
 if [[ ! -e "$FILE" ]]; then
+  # 여기가 **삭제 후 재생성 우회의 입구**다 — 대상이 없으니 `canon_file` 이 실제 철자를 물어볼
+  # 수 없고, 철자가 다르면 아래 분기를 빠져나가 `*)` 로 통과했다(F68 8·9차 실증). 분류만
+  # 대소문자 무시로 판정한다. 본문의 내용 검사는 이 설정을 보지 않는다.
+  ci_on
   case "$(basename "$FILE")" in
-    feature_list.json) [[ "$FILE" == *"/templates/"* ]] && exit 0 ;;  # templates 스캐폴딩만 면제
+    feature_list.json) [[ "$FILE" == *"/templates/"* ]] && { ci_off; exit 0; } ;;  # templates 스캐폴딩만 면제
     sprint-*.json)
       # 계약 디렉터리 밖(예: 임의 위치의 동명 파일)과 templates 스캐폴딩은 면제
-      [[ "$FILE" == *"/templates/"* || "$FILE" != *"/contracts/"* ]] && exit 0 ;;
-    *) exit 0 ;;
+      [[ "$FILE" == *"/templates/"* || "$FILE" != *"/contracts/"* ]] && { ci_off; exit 0; } ;;
+    *) ci_off; exit 0 ;;
   esac
+  ci_off
 fi
 
 # awk 부재 = 이 스크립트 대부분의 기계 검증(임계값·카운트 비교, apply_replace 등)의 단일
@@ -647,7 +677,9 @@ fi
 # 해당 id를 평가한 최신 레코드가 verdict pass, 5차원 완비, min-of-5 ≥ pass_threshold,
 # critical 티어는 scores.security ≥ security_thresholds.critical.
 # evaluator를 대체하지 않는다 — 판정의 존재와 산술만 재검증한다(speed-bump, INVARIANTS 위협모델).
-if [[ "$BASENAME" == "feature_list.json" && "$FILE" != *"/templates/"* ]]; then
+IS_FEATURE_LIST=0
+ci_on; [[ "$BASENAME" == "feature_list.json" && "$FILE" != *"/templates/"* ]] && IS_FEATURE_LIST=1; ci_off
+if [[ "$IS_FEATURE_LIST" == 1 ]]; then
   if ! echo "$NEW_CONTENT" | jq -e '.' &>/dev/null; then
     deny "feature_list.json이 유효한 JSON이 아닙니다 (INV-11)"
   fi
@@ -765,7 +797,9 @@ fi
 # === contracts/sprint-*.json: agreed 전환 구조 검증 (INV-11) ===
 # agreed:false→true는 Plan 게이트 산출물(비어있지 않은 acceptance_criteria·implementation_steps)을
 # 전제한다 — 빈 계약의 무단 합의를 차단. 내용 검증은 Plan 게이트(사람)의 몫.
-if [[ "$FILE" == *"/contracts/"* && "$BASENAME" == sprint-*.json && "$FILE" != *"/templates/"* ]]; then
+IS_CONTRACT=0
+ci_on; [[ "$FILE" == *"/contracts/"* && "$BASENAME" == sprint-*.json && "$FILE" != *"/templates/"* ]] && IS_CONTRACT=1; ci_off
+if [[ "$IS_CONTRACT" == 1 ]]; then
   # 주의: `.agreed // empty`는 false를 삼킨다(jq alternative) — tostring으로 false 보존
   OLD_AG=$(jq -r '.agreed | if . == null then "" else tostring end' "$FILE" 2>/dev/null || echo "")
   NEW_AG=$(echo "$NEW_CONTENT" | jq -r '.agreed | if . == null then "" else tostring end' 2>/dev/null || echo "")

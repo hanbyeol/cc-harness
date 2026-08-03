@@ -172,22 +172,28 @@ behavioral 프로브 코퍼스가 이 부류의 누출을 감시한다.
 안에서만** critical도 무인으로 진행할 수 있다. 승인 범위 밖의 검증 장치 파일을 건드리면 무인이
 중단되고 `progress/approval-queue.json`에 적립된다.
 
-**알려진 한계 — 경로 철자 클래스 (F68 8·9차 판정, 미해결)**: 대소문자를 구분하지 않는 파일시스템
-(macOS APFS 기본)에서 **대상을 먼저 지운 뒤 다른 철자로 재생성**하면 이 절의 게이트들을 빠져나간다.
-`invariant-guard.sh`의 `canon_file()`은 실제 철자를 파일시스템에 물어보는데, 지워진 뒤에는 물어볼
-대상이 없기 때문이다. 실측된 형태 둘 —
-- `progress/feature_list.json` 삭제 후 `PROGRESS/FEATURE_LIST.JSON` 쓰기 → `passes:true`가
-  evaluator-feedback 조회·실행 기록 확인·min-of-5·보안 임계값 없이 통과(INV-11 우회).
-- `progress/contracts/`가 아직 없는 상태에서 `progress/CONTRACTS/sprint-1.json`에 `agreed:true` +
-  `_batch_approval` 쓰기 → 통과. 신규 파일이라 `protected-integrity.sh`가 되돌릴 HEAD 원본도 없다.
+**경로 철자 클래스 — 분류 술어에 한해 대소문자를 무시한다 (F68 8~10차 판정)**: 대소문자를 구분하지
+않는 파일시스템(macOS APFS 기본)에서 `PROGRESS/FEATURE_LIST.JSON`과 `progress/feature_list.json`은
+같은 파일인데, **대상을 먼저 지운 뒤 다른 철자로 재생성**하면 `canon_file()`이 실제 철자를
+파일시스템에 물어볼 대상을 잃어 판정이 갈렸다. 실측됐던 형태 둘 — `feature_list.json` 삭제 후
+대문자 경로 쓰기로 `passes:true`가 근거 없이 통과(INV-11 우회), `progress/contracts/`가 없는 상태에서
+`progress/CONTRACTS/sprint-1.json`에 `agreed:true` + `_batch_approval` 쓰기로 통과. 둘 다 신규 파일이라
+`protected-integrity.sh`가 되돌릴 HEAD 원본도 없었다.
 
-**한 번 시도했다가 되돌렸다.** 전역 `shopt -s nocasematch`로 판정을 대소문자 무시로 돌렸더니 경로
-분류만이 아니라 **내용·구조 동등비교까지** 무뎌져, `.claude/settings.json`의 matcher를 소문자로 내려
-PreToolUse 훅 전체를 없애는 쓰기와 `evaluator-runs.jsonl`의 기존 라인 대문자 재작성이 통과했다
-(9차 판정이 대조군 귀속으로 실증). **닫으려던 것보다 연 것이 컸다.** 올바른 해법은 판정을 파일
-동일성으로 올리는 것이다 — 존재하면 device+inode, 없으면 realpath(최근접 상위) + 나머지 성분을
-**경로 분류 술어에 한해서만** 대소문자 무시. 전역 셸 옵션으로 대신하지 않는다.
-`tests/invariant-guard.bats`가 전역 설정의 재유입과 위 두 회귀를 잠근다.
+**해법의 경계가 이 항목의 핵심이다.** 9차에서 전역 `shopt -s nocasematch`로 고치려다 경로 분류만이
+아니라 **내용·구조 동등비교까지** 무뎌져, `.claude/settings.json`의 matcher를 소문자로 내려 PreToolUse
+훅 전체를 없애는 쓰기와 `evaluator-runs.jsonl`의 기존 라인 대문자 재작성이 통과했다 — 닫으려던 것보다
+연 것이 컸다. 10차는 **분류 술어 안에서만** 켠다: `is_protected()`는 서브셸로 감싸 `shopt`가 밖으로
+새지 않게 하고, 신규 생성 예외·`feature_list.json` 판정·계약 경로 판정은 **조건에만** 걸고 본문에는
+걸지 않는다. 그래서 배선 동등성·append-only·`verdict` 비교는 종전대로 대소문자를 구분한다.
+`FS_CI`가 판정 불가일 때는 무시하는 쪽(=보호 방향)으로 둔다.
+`tests/invariant-guard.bats`가 두 축을 함께 잠근다 — 분류가 철자를 무시하는지, 그리고 내용 비교가
+여전히 구분하는지. 전역 설정의 재유입을 막는 테스트도 남아 있다.
+
+**남은 것**: 계약 디렉터리 안의 **파일 심볼릭 링크**(`alias.json -> sprint-54.json`)는 여전히 실제
+계약을 가리킨다 — `canon_file()`이 디렉터리는 `pwd -P`로 풀지만 파일 레그는 풀지 않는다. 완화는
+두 겹이다: 링크 생성(`ln -s`)이 방화벽 `ask`이고, 이후 임의 Bash 호출에서 `protected-integrity.sh`가
+되돌린다(실측).
 
 **승인 범위에 넣을 수 없는 것**: `tests/*.bats`는 명시 승인이어도 무인 편집 대상이 아니다 — 아래에서
 못박듯 count 기반 검사는 `@test` 본문의 `skip` 주입을 잡지 못하므로, 범위에 넣으면 그 제외 근거가
