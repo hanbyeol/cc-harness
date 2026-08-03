@@ -417,9 +417,12 @@ ASK_PATTERNS=(
   # (`hooks/hooks.json` 은 git 추적이라 같은 체인이 이미 exit 2 로 막힌다 — 아래 arm 은 그쪽에는
   #  다중 방어이고, `settings.json` 쪽에는 유일한 예측 통제다.)
   #
-  # 삭제는 덮어쓰기와 성질이 다르다: 도구 이름이 확정적이고 표기 변형의 여지가 거의 없어
-  # **열거가 수렴한다.** F63 이 열 회전을 쓴 "이 명령이 쓸 것인가"와 달리 "이 명령이 지우는가"는
-  # 동사 몇 개로 닫힌다. 경로 토큰이 있을 때만 발동하므로 `rm -rf node_modules` 는 그대로 allow 다.
+  # **아래 arm 들은 표기 변형에 뚫린다 — 그것을 12차 판정이 실측했다.**
+  # 이전 버전의 이 주석은 "삭제는 표기 변형의 여지가 거의 없어 열거가 수렴한다"고 적었고,
+  # 판정자가 `rm -rf .claude/*`·`rm --recursive .claude`·`rm -rf '.claude'` 로 그 문장을 반증했다.
+  # 실제 판정은 아래 리터럴 arm 이 아니라 **Layer 3.3 의 경로 토큰 대조**가 담당한다. 이 arm 들은
+  # 지우지 않고 남긴다(INV-5 add-only) — 같은 대상을 다른 축(문자열)으로 한 번 더 덮는 다중 방어다.
+  # 경로 토큰이 있을 때만 발동하므로 `rm -rf node_modules` 는 그대로 allow 다.
   '\b(rm|unlink|shred)\b[^;|&]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
   # `git rm <경로>` 는 위 arm 의 `\brm\b` 가 이미 잡는다(`--cached` 는 별도 arm 이 담당).
   # `find` 는 경로가 `-name <basename>` 으로 들어와 위 arm 의 디렉터리 앵커에 걸리지 않는다.
@@ -436,7 +439,14 @@ ASK_PATTERNS=(
   # 앵커는 **토큰이 그 위치에서 끝날 때**다 — `.claude/worktrees/…` 처럼 다른 하위 경로가 이어지면
   # 발동하지 않는다. 그래야 워크트리·캐시 정리 같은 일상 삭제에 마찰이 생기지 않는다
   # (이 저장소에서 워크트리 정리는 bash `rm` 으로 하지 않는다 — 확인함).
-  '\brm\b[^;|&]*(^| )-[a-zA-Z]*[rR][^;|&]*(^| )[^ ;|&]*(\.claude/plugins(/[A-Za-z0-9_.-]+)?|\.claude|hooks)/?( |$)'
+  #
+  # 12차 판정 수정: 마지막 대안이 `hooks` 라 **이름이 hooks 인 모든 디렉터리**에 걸렸다 —
+  # `rm -rf src/hooks`·`rm -rf web/src/hooks` 가 ask 였다. cc-harness 는 다른 저장소에 설치되는
+  # 플러그인이고 React/Vue 계열에서 `src/hooks` 는 흔한 이름이라 실사용 마찰이 된다. 그래서
+  # 이 arm 의 디렉터리 대안을 `.claude` 하위로 좁히고(`\.claude/**/hooks`), 프로젝트 루트·설치
+  # 루트의 `hooks/` 는 Layer 3.3 이 **이름이 아니라 실체**(그 디렉터리가 hooks.json 을 담는가)로 잡는다.
+  # 좁아진 것은 컨트롤 플레인이 아닌 자리뿐이고, 컨트롤 플레인 자리는 두 축 모두가 덮는다.
+  '\brm\b[^;|&]*(^| )-[a-zA-Z]*[rR][^;|&]*(^| )[^ ;|&]*(\.claude/plugins(/[A-Za-z0-9_.-]+)?|\.claude(/[A-Za-z0-9_./-]*hooks)?)/?( |$)'
   # === 탐지기 자신을 지키는 arm (F65 1차 판정) ===
   # 분류 축은 "되돌릴 수 있는가" 하나가 아니라 **"자기를 복구할 수 있는가"**까지다.
   # protected-integrity.sh 는 파괴되면 자기를 복구할 수 없고, 티켓 파일은 복구 대상 판단의
@@ -690,6 +700,172 @@ pure_read_only() {
 
 PURE_READ=0
 pure_read_only "$CMD" && PURE_READ=1
+
+# === Layer 3.3: 컨트롤 플레인 삭제 — 문자열 앵커가 아니라 경로 토큰으로 판정 (F65 AC-11/SC-9) ===
+#
+# 판정 순서: Layer 3.4(순수 읽기 면제)를 먼저 계산하고 → **이 게이트** → 그다음 ASK arm 루프.
+# 순수 읽기로 확정된 명령(`grep rm <경로>` 처럼 동사가 인자로만 등장하는 것)은 여기서도 건너뛴다 —
+# 화이트리스트가 첫 토큰이 리더임을 확인했으므로 그 명령은 지울 수 없다. ASK 루프보다 앞에 두는
+# 이유는 이 판정이 arm 면제(Layer 3.5)와 무관하게 성립해야 하기 때문이다.
+#
+# ## 왜 이 자리를 정규식으로 두지 않는가
+#
+# 위 ASK 배열의 삭제 arm 들은 명령 **문자열**에서 `.claude`·`hooks/hooks.json` 같은 리터럴을
+# 찾는다. 12차 판정이 그 방식의 반례를 실측했다 — 같은 대상에 도달하는 다른 표기가 전부 allow 였다:
+#   `rm -rf .claude/*`(glob 이 토큰 종료 앵커를 깬다) · `rm --recursive .claude`(플래그 매처가
+#   단문자만 본다) · `rm -rf '.claude'`(따옴표가 앵커를 깬다) · `rm -rf .claude;`(구분자).
+# 표기를 하나 더 열거해 닫으면 다음 표기가 남는다 — F63 이 열 회전에 걸쳐 확인한 실패 형태다.
+#
+# 그래서 판정 축을 바꾼다: **명령에서 삭제 동사의 피연산자 토큰을 뽑아 정규화한 뒤 위치와 대조**한다.
+# 따옴표 제거·`./` 정규화·`//` 접기·후행 `/` 절단·후행 글로브 절단을 거치고 나면 위 네 표기가
+# 같은 토큰(`.claude`)으로 수렴한다. 플래그는 매칭 대상이 아니므로 `-rf` 든 `--recursive` 든
+# 상관이 없다 — 12차 판정이 지적한 플래그 매처 자체가 사라진다.
+#
+# ## 무엇이 닫히지 않는가 (측정한 것만 적는다)
+#
+#  - `cd .claude && rm settings.json` — 경로 토큰이 명령에서 사라진다. 방화벽은 CMD 문자열만
+#    보고 cwd 를 추적하지 않으므로 **문자열 예측으로는 닫을 수 없다.** 판정자도 같은 결론이었다.
+#    잔여 위험으로 계약(`_residual_risk_AC11`)에 명시했다.
+#  - `xargs rm < list.txt` 처럼 경로가 명령문에 없는 간접 삭제, `$(...)`·백틱으로 만들어 낸 경로.
+#  - 여기 적힌 동사(`rm`·`rmdir`·`unlink`·`shred`·`mv`·`find -delete`) 밖의 삭제 수단.
+# 이번 변경이 확인한 것은 **위 배터리(tests/pre-bash-firewall.bats 의 표기 변형 배터리)가
+# 통과한다**는 것뿐이다. 열거가 수렴했다는 주장은 하지 않는다 — 12차 판정이 정확히 그 주장을
+# 반증했고, 같은 문장을 다시 쓰는 것이 F63·F67 에서 반복된 실패다.
+
+# 토큰 하나를 셸이 보는 형태에 가깝게 정규화한다. 결과는 NORM_TOK — 토큰마다 서브셸을 띄우지 않는다.
+NORM_TOK=""
+normalize_path_token() {
+  local t="$1" sl='/' dsl='//' dot='/./'
+  t=${t//\'/}; t=${t//\"/}; t=${t//\\/}          # 따옴표·백슬래시 제거 (`'.claude'`·`\rm`)
+  while [[ "$t" == *"$dsl"* ]]; do t=${t//"$dsl"/"$sl"}; done
+  while [[ "$t" == *"$dot"* ]]; do t=${t//"$dot"/"$sl"}; done
+  while [[ "$t" == ./* ]]; do t=${t#./}; done
+  while [[ "$t" == */ && ${#t} -gt 1 ]]; do t=${t%/}; done
+  NORM_TOK="$t"
+}
+
+# 정규화된 토큰이 컨트롤 플레인 위치인가 (0 = 그렇다).
+# 대상은 열거가 아니라 **구조적 위치**다: 배선 파일 자신, 그 파일을 담는 `.claude` 하위 디렉터리,
+# 그리고 실제로 배선을 담고 있는 `hooks/` 디렉터리.
+CONTROL_PLANE_NAMES=(
+  # 글로브 토큰이 이 이름들 중 하나를 덮을 수 있으면 컨트롤 플레인 삭제로 본다(아래 설명 참조).
+  '.claude'
+  '.claude/settings.json'
+  '.claude/settings.local.json'
+  '.claude/hooks'
+  '.claude/plugins'
+  'hooks/hooks.json'
+)
+control_plane_location() {
+  local t="$1" rest pd cand
+  # 글로브가 남은 토큰 — 셸이 무엇으로 펼칠지 실행 전에는 모른다. 그래서 **패턴이 컨트롤 플레인
+  # 이름을 덮을 수 있는가**를 본다(`rm -rf .clau*` 는 `.claude` 를 덮는다 — 이 라운드의 자체
+  # 프로브가 잡은 반례다). `dir/<패턴>` 형태는 이 지점에 오기 전에 디렉터리로 접히므로 여기 남는
+  # 것은 이름 자체가 패턴인 경우뿐이다 — `dist/*`·`node_modules/*` 에 마찰이 없는 이유다.
+  case "$t" in
+    *'*'*|*'?'*|*'['*)
+      for cand in "${CONTROL_PLANE_NAMES[@]}"; do
+        # shellcheck disable=SC2053  # 오른쪽이 패턴이다 — 토큰이 그 이름을 덮는지 본다
+        if [[ "$cand" == $t ]]; then return 0; fi
+      done
+      # shellcheck disable=SC2053
+      if [[ "hooks" == $t ]]; then
+        pd="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+        if [[ -f "${pd%/}/hooks/hooks.json" ]]; then return 0; fi
+      fi
+      ;;
+  esac
+  # (a) 배선 파일 자신
+  case "$t" in
+    hooks/hooks.json|*/hooks/hooks.json) return 0 ;;
+    .claude/settings.json|*/.claude/settings.json) return 0 ;;
+    .claude/settings.local.json|*/.claude/settings.local.json) return 0 ;;
+  esac
+  # (b) `.claude` 를 성분으로 갖는 경로 — 그 뒤에 남는 꼬리로 판정한다.
+  #     꼬리가 비었거나(`.claude`), 플러그인 설치 루트(`plugins`·`plugins/<이름>`)이거나,
+  #     `hooks` 로 끝나면(`\.claude/**/hooks`) 그 디렉터리를 지우는 것이 배선을 지우는 것이다.
+  #     `.claude/worktrees/…` 처럼 다른 꼬리가 남으면 발동하지 않는다 — 일상 정리에 마찰을 만들지 않는다.
+  case "$t" in
+    .claude|*/.claude) return 0 ;;
+    .claude/*|*/.claude/*)
+      rest=${t##*.claude/}
+      case "$rest" in
+        plugins) return 0 ;;
+        plugins/*) if [[ "${rest#plugins/}" != */* ]]; then return 0; fi ;;
+      esac
+      case "$rest" in
+        hooks|*/hooks) return 0 ;;
+      esac
+      ;;
+  esac
+  # (c) 배선을 담고 있는 `hooks/` 디렉터리.
+  #     **이름이 아니라 실체로 앵커한다.** 12차 판정 지적: 이름만 보면 `rm -rf src/hooks` 처럼
+  #     무관한 프로젝트 코드까지 걸린다(cc-harness 는 다른 저장소에 설치되는 플러그인이고
+  #     React/Vue 계열에서 `src/hooks` 는 흔한 이름이다). 걸어야 하는 것은 세 자리뿐이다 —
+  #     플러그인 설치 루트, 프로젝트 루트, 그리고 실제로 `hooks.json` 을 담고 있는 디렉터리.
+  case "$t" in
+    hooks|*/hooks)
+      if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" && "$t" == "${CLAUDE_PLUGIN_ROOT%/}/hooks" ]]; then return 0; fi
+      pd="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+      pd="${pd%/}"
+      if [[ "$t" == "$pd/hooks" ]]; then return 0; fi
+      # 상대 토큰은 cwd 를 알 수 없다 — 그 자리에 배선 파일이 실제로 있을 때만 잡는다.
+      if [[ "$t" == "hooks" && -f "$pd/hooks/hooks.json" ]]; then return 0; fi
+      if [[ -f "$t/hooks.json" ]]; then return 0; fi
+      ;;
+  esac
+  return 1
+}
+
+# 명령을 세그먼트로 나눠 삭제 동사 뒤의 피연산자 토큰을 판정한다.
+# 동사는 세그먼트 **어디에 있어도** 무장한다 — `sudo rm …`·`time rm …` 같은 접두 명령을 열거하지
+# 않기 위해서다(열거하면 접두 한 단어로 게이트가 무력해진다 — F67 2차 판정이 `env` 로 실증했다).
+CP_DELETE_HIT=""
+scan_control_plane_delete() {
+  local seg tok base armed
+  local -a toks
+  # 마지막 세그먼트에는 개행이 없다 — `read` 의 종료 상태만 보면 그 세그먼트를 통째로 흘린다
+  # (첫 구현이 그랬고, 배터리가 전부 allow 로 나와 즉시 드러났다).
+  while IFS= read -r seg || [[ -n "$seg" ]]; do
+    [[ -z "$seg" ]] && continue
+    read -r -a toks <<<"$seg"
+    armed=0
+    # `find … -delete` 는 동사가 술어로 온다. `-exec … rm` 은 아래 동사 검사가 무장한다.
+    if [[ "$seg" == *"-delete"* ]]; then
+      for tok in "${toks[@]}"; do
+        normalize_path_token "$tok"
+        if [[ "${NORM_TOK##*/}" == "find" ]]; then armed=1; break; fi
+      done
+    fi
+    for tok in "${toks[@]}"; do
+      normalize_path_token "$tok"
+      case "${NORM_TOK##*/}" in
+        rm|rmdir|unlink|shred|mv) armed=1; continue ;;
+      esac
+      [[ "$armed" -eq 1 ]] || continue
+      [[ -z "$NORM_TOK" || "$NORM_TOK" == -* ]] && continue
+      # 후행 글로브는 **그 디렉터리 안**을 비운다 — 디렉터리로 접어 판정한다.
+      base=${NORM_TOK##*/}
+      case "$base" in
+        *'*'*|*'?'*|*'['*)
+          if [[ "$NORM_TOK" == */* ]]; then NORM_TOK=${NORM_TOK%/*}; fi
+          ;;
+      esac
+      if control_plane_location "$NORM_TOK"; then CP_DELETE_HIT="$tok"; return 0; fi
+    done
+  done < <(printf '%s' "$NORMALIZED_CMD" | tr ';|&' '\n\n\n')
+  return 1
+}
+
+# 삭제 동사가 아예 없는 명령(대부분)은 토큰 순회를 건너뛴다.
+if [ "$PURE_READ" -eq 0 ] \
+   && [[ "$NORMALIZED_CMD" =~ (^|[^A-Za-z0-9_])(rm|rmdir|unlink|shred|mv|find)([^A-Za-z0-9_]|$) ]] \
+   && scan_control_plane_delete; then
+  log_decision ask
+  jq -n --arg reason "컨트롤 플레인(배선 파일·설치 디렉터리)을 지우는 명령입니다 (pattern: control-plane-delete → $CP_DELETE_HIT). 실행 전 확인이 필요합니다." \
+    '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "ask", permissionDecisionReason: $reason}}'
+  exit 0
+fi
 
 if [ "$PURE_READ" -eq 0 ] && echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then
   for p in "${ASK_PATTERNS[@]}"; do

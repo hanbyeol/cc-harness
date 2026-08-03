@@ -1,113 +1,85 @@
 {
-  "feature_id": "F70",
-  "sprint": 56,
-  "title": "canon_file() 의 대소문자 무시 lookup 을 fs_is_case_insensitive() 로 게이팅",
+  "feature_id": "F65",
+  "sprint": 51,
+  "title": "AC-11/SC-9 재작업 — 컨트롤 플레인 삭제 판정을 문자열 앵커에서 경로 토큰 정규화로 교체",
   "security_tier": "critical",
-  "timestamp": "2026-08-03T23:15:40+0900",
-  "_supersedes_note": "이 슬롯의 직전 내용은 F67 sprint-53 보고였다. 그 보고는 git 히스토리에 남아 있다.",
+  "timestamp": "2026-08-04T02:10:00+0900",
+  "iteration": 4,
+  "_supersedes_note": "이 슬롯의 직전 내용은 F70 sprint-56 보고였다(git 히스토리에 남아 있다).",
   "mode": "serial",
-  "_mode_note": "계약이 _parallelizable:false — step 1(게이팅)과 step 2(회귀 테스트)가 같은 두 파일의 같은 판정 경로를 건드리고, step 2 는 step 1 이 고른 술어에 직접 의존한다.",
-  "summary": "canon_file() 은 대상이 존재하면 `ls -1 | grep -ixF` 로 'FS 가 인식하는 실제 철자' 를 물어봤는데, 그 물음이 FS 가 실제로 대소문자를 무시하는지와 무관하게 무조건 실행됐다. 대소문자를 구분하는 FS(이 저장소의 CI 인 ubuntu-latest 포함)에서는 원본과 디코이가 두 파일로 공존하므로 grep 이 둘 다 매치하고 head -1 이 정렬 순서대로 하나를 골라, 무방비 Write 로 심은 디코이가 판정 대상을 통째로 대체했다. is_protected() 가 nocasematch 를 게이팅할 때 쓰는 같은 술어(fs_is_case_insensitive)를 이 lookup 에도 적용해 닫았다.",
-  "ac0_decision": {
-    "question": "canon_file 은 라인 229·232 에서 호출되는데 FS_CI 는 라인 249 에서야 계산된다 — 이 순서를 어떻게 풀 것인가.",
-    "measured_before_deciding": [
-      "canon_file 본문에 프로브를 심어 두 호출 모두에서 `FS_CI=[<UNSET>]` 을 관측했다 — 추측이 아니라 실행 결과다.",
-      "순진한 수정(canon_file 안에서 `${FS_CI:-0}` 참조)을 실제로 적용해 돌렸다: 항상 기본값 0 으로 굳어 lookup 이 영구히 꺼지고, 존재하는 progress/harness-config.json 을 `HARNESS-CONFIG.JSON` 철자로 임계값 7→1 낮추는 쓰기가 deny(exit 2) → allow(exit 0) 로 **열렸다**. 즉 순진한 수정은 게이팅에 실패할 뿐 아니라 macOS 에서 새 구멍을 낸다.",
-      "옵션 (a)(FS_CI 계산을 앞으로 이동)도 실측으로 기각했다: 그 시점의 FILE 은 아직 생 경로여서 `progress/./harness-config.json` 의 dirname 은 `progress/.` 이고, basename `.` 은 뒤집을 글자가 없어 술어가 '구분함'(FS_CI=0)을 반환한다. 이 경로 형태는 가드 자신의 주석이 위협 모델로 명시한 것이고, FS_CI=0 이 되면 is_protected() 의 분류까지 함께 무뎌진다 — F68 10차 판정이 세운 분류 게이팅의 회귀다."
-    ],
-    "decision": "옵션 (b) — canon_file() 이 전역 FS_CI 를 읽지 않고, 자기가 지금 훑는 디렉터리 `$d` 에 대해 fs_is_case_insensitive() 를 직접 호출한다.",
-    "rationale": [
-      "순서 의존을 없앤다: 전역이 언제 계산되든 무관해지므로 (a)/(순진한 수정)이 밟은 함정이 원리적으로 사라진다.",
-      "앵커가 더 정확하다: `$d` 는 이미 `pwd -P` 로 물리 경로가 확정된 뒤이고, 심볼릭 링크가 대상을 다른 마운트(대소문자 정책이 다를 수 있는)로 옮겨도 호출마다 그 디렉터리를 직접 묻는다.",
-      "같은 판단 근거를 재사용한다: is_protected() 의 nocasematch 와 **동일한 술어**다 — 새 판단축을 만들지 않는다.",
-      "기존 전역 FS_CI 의 위치·입력·의미를 건드리지 않는다. F68 9·10차 판정이 그 위치(삭제 후 재생성 실체화보다 앞)를 의도적으로 고른 자리이므로 재검토 대상을 늘리지 않는다."
-    ],
-    "side_change": "fs_is_case_insensitive() 정의를 canon_file() 앞으로 옮겼다(본문 무변경, 순수 이동). 뒤에 두면 '정의 전 호출'이 exit 127 로 새는 자리가 남는다 — 현재 호출부는 모두 아래이지만 그 순서에 기대지 않는다."
-  },
-  "test_strategy_decision": {
-    "question": "대소문자 구분 FS 버그를 macOS(대소문자 무시 기본) 개발 환경에서 어떻게 회귀 고정할 것인가.",
-    "rejected": {
-      "option": "FS_CI 를 테스트에서 오버라이드하는 환경변수를 운영 코드에 추가",
-      "reason": "이 게이트에서 '대소문자 무시' 방향이 곧 **취약한 방향**이다. 환경변수로 그 방향을 켤 수 있게 만들면, 가드가 도는 환경(에이전트가 env 를 설정할 수 있는 곳)에서 오버라이드 자체가 이번에 닫은 우회로를 되여는 스위치가 된다. 테스트 편의를 위해 운영 경로에 켤 수 있는 우회 스위치를 두지 않는다."
-    },
-    "chosen": [
-      "유닛: 저장소의 기존 관행(`source <(sed -n '/^is_protected()/,/^}/p' \"$HOOK\")`)대로 canon_file() 을 원본에서 추출하고, **술어를 스텁으로 갈아끼워** 게이팅을 직접 확인한다. 운영 코드에 손댈 필요가 없고, lookup 이 fs_is_case_insensitive 가 아닌 다른 축에 걸려 있으면 스텁이 무시돼 테스트가 깨지므로 '같은 근거 재사용' 까지 행동으로 고정된다. 두 분기의 픽스처는 FS 에 맞춰 고르되 단언은 양쪽에서 동일하다.",
-      "종단: 디코이 공존이 필요한 E2E 테스트는 FS 를 런타임에 프로브해 대소문자 무시 FS 에서는 skip 한다(저장소에 이미 있는 skip 관행과 동일). 실제 CI(ubuntu-latest)에서는 그대로 돈다.",
-      "AC-2 앵커: 파일이 **그대로 있는 채** 변형 철자로 닿는 경로를 새로 고정했다. 기존 F68 테스트들은 삭제 후 재생성(HEAD 실체화) 경로만 덮고 있어서, 게이팅을 조금만 넓게 걸어도 여기가 조용히 열렸다(순진한 수정에서 실제로 열렸다)."
-    ],
-    "local_verification_of_the_skipped_leg": "skip 되는 종단 테스트를 검증하지 않은 채 두지 않았다. hdiutil 로 대소문자 구분 볼륨(Case-sensitive APFS)을 만들고, setup() 의 mktemp 만 그 볼륨으로 바꾼 미러 사본(모든 @test 본문 바이트 동일, @test 개수 동일 확인)으로 F70 3건을 실제로 돌려 수정 전 RED / 수정 후 GREEN 을 관측했다. macOS 의 mktemp 는 TMPDIR 을 따르지 않아(실측) 미러가 필요했다."
-  },
-  "features_implemented": [
-    "F70"
-  ],
+  "_mode_note": "단일 판정 경로(방화벽 삭제 게이트) 하나를 고치는 작업이라 병렬 분할 대상이 아니다.",
+  "input_verdict": "progress/agent-comms/evaluator-feedback-2026-08-04T00-33-58+0900.json (12차, fail — security 5, min-of-5 5)",
+  "summary": "판정이 확인한 전제(삭제가 delete-then-recreate 체인에서 값을 하는 단계)는 그대로 두고, 그 전제를 구현한 arm 의 커버리지만 고쳤다. 삭제 arm 이 명령 **문자열**에서 리터럴(`.claude`·`hooks/hooks.json`)을 찾던 것을 → **삭제 동사의 피연산자 토큰을 뽑아 정규화한 뒤 구조적 위치와 대조**하는 방식(Layer 3.3)으로 바꿨다. 따옴표 제거·`./` 정규화·`//` 접기·후행 `/` 절단·후행 글로브 절단을 거치면 판정이 실증한 표기 변형들이 같은 토큰으로 수렴한다. 플래그 매처(`-[a-zA-Z]*[rR]`)는 확장한 것이 아니라 **없앴다** — 옵션 토큰은 판정 대상이 아니므로 `-rf`·`--recursive`·`--force` 를 구분할 이유가 사라진다.",
+  "features_implemented": [],
+  "_features_note": "F65 는 evaluator 만 passes 를 바꾼다. 이번 라운드는 AC-11/SC-9/AC-2 재작업분만 구현했다.",
   "files_changed": [
-    "hooks/invariant-guard.sh"
+    "hooks/pre-bash-firewall.sh",
+    "tests/pre-bash-firewall.bats",
+    "progress/contracts/sprint-51.json",
+    "progress/lessons.md"
   ],
   "tests_added": [
-    "tests/invariant-guard.bats"
+    "tests/pre-bash-firewall.bats: F65 AC-11 notation variants of the same deletion are gated (12차 판정 반례) — 31케이스",
+    "tests/pre-bash-firewall.bats: F65 AC-11 quoted and long-option notations of file deletion are gated — 5케이스",
+    "tests/pre-bash-firewall.bats: F65 AC-2 directories merely named hooks gain no friction — 5케이스",
+    "tests/pre-bash-firewall.bats: F65 AC-11 glob deletions outside the control plane stay frictionless — 5케이스",
+    "tests/pre-bash-firewall.bats: F65 SC-9 the delete-token gate holds with detection unwired too — 3케이스",
+    "tests/pre-bash-firewall.bats: 기존 'F65 SC-9 deletion arms can never be exempted' 에 Layer 3.3 소스 검사 추가(리터럴 결합도 완화 — 12차 판정 [test][low])"
   ],
-  "iteration": 1,
-  "tdd": {
-    "red": [
-      "macOS(무시 FS): 'F70: canon_file's case-insensitive lookup is gated by fs_is_case_insensitive' 실패 — `구분 FS 에서 판정 대상이 'FEATURE_LIST.JSON' -> 'feature_list.json' 로 재바인딩됐다`",
-      "대소문자 구분 볼륨: 같은 테스트 실패 — `'feature_list.json' -> 'FEATURE_LIST.json' 로 재바인딩됐다`(디코이가 원본을 밀어냄) + 'F70: a case-variant decoy does not rebind the guard's target' 실패 — `디코이가 있으면 임계값 하향이 통과한다`"
-    ],
-    "green": [
-      "macOS: F70 3건 — ok 2, skip 1(구분 FS 전용 종단)",
-      "대소문자 구분 볼륨: F70 3건 — ok 2, skip 1(무시 FS 전용 AC-2 앵커)"
-    ]
-  },
-  "evidence": {
-    "tests": "bats tests/ — 1회 실행(재실행 없음): 745 ok, 0 not ok, 2 skip. skip 2건은 (1) F70 구분 FS 전용 종단 테스트(이 머신이 무시 FS), (2) 기존 'migration: pristine v1.4.0 copies removed via legacy hash'(v1.4.0 플러그인 캐시 없음) — 둘 다 이번 변경과 무관한 환경 조건이다. F70 3건: ok 264 / 265(skip) / 266.",
-    "lint": "bash -n hooks/invariant-guard.sh — syntax OK",
-    "behavioral_probe": "bash scripts/probes/behavioral.sh → `[]` (0건), exit 0",
-    "ac1_end_to_end_all_seven": {
-      "method": "hdiutil Case-sensitive APFS 볼륨 위에 git 저장소를 만들고, 각 시나리오마다 '이미 통과할 모양'의 디코이(임계값이 이미 낮고, passes 가 이미 참이고, @test 가 이미 하나 …)를 심은 뒤, 수정 전 가드(git show HEAD:hooks/invariant-guard.sh)와 수정 후 가드(작업 트리)에 동일 입력을 넣어 종료 코드를 비교했다. LC_ALL=C 로 ls 정렬을 고정해 디코이가 head -1 에 걸리는 것을 결정론적으로 만들었다.",
-      "pre_fix_exit_codes": {
-        "1_passes_injection": 0,
-        "2_pass_threshold_7_to_1": 0,
-        "3_batch_approval_widened": 0,
-        "4_test_count_2_to_1": 0,
-        "5_hooks_json_unwiring": 0,
-        "6_settings_json_unwiring": 0,
-        "7_guard_own_deny_neutered": 0
-      },
-      "post_fix_exit_codes": {
-        "1_passes_injection": 2,
-        "2_pass_threshold_7_to_1": 2,
-        "3_batch_approval_widened": 2,
-        "4_test_count_2_to_1": 2,
-        "5_hooks_json_unwiring": 2,
-        "6_settings_json_unwiring": 2,
-        "7_guard_own_deny_neutered": 2
-      },
-      "conclusion": "security-auditor 가 재현한 7가지가 전부 exit 0 → exit 2 로 닫혔다."
-    },
-    "tdd_exceptions": []
+  "what_changed": {
+    "layer_3_3_new": "삭제 동사(rm·rmdir·unlink·shred·mv, 그리고 find -delete)의 피연산자 토큰을 세그먼트 단위로 뽑아 normalize_path_token() → control_plane_location() 으로 판정. 동사는 세그먼트 어디에 있어도 무장한다(접두 명령 `sudo`·`env`·`time` 을 열거하지 않기 위해 — 열거하면 접두 한 단어로 게이트가 무력해진다는 것을 F67 2차 판정이 `env` 로 실증했다).",
+    "structural_targets": "대상은 열거가 아니라 구조다 — (a) 배선 파일 자신(`hooks/hooks.json`·`.claude/settings(.local).json`), (b) `.claude` 성분 뒤 꼬리가 비었거나 `plugins`·`plugins/<이름>`·`**/hooks` 인 경로, (c) 실제로 hooks.json 을 담는 `hooks/` 디렉터리(CLAUDE_PLUGIN_ROOT·프로젝트 루트·파일 존재 확인).",
+    "glob_rule": "토큰의 마지막 성분이 글로브면 그 디렉터리로 접어 판정한다(`dir/*` 는 dir 안을 비운다). 접은 뒤에도 글로브가 남으면(`.clau*`) **패턴이 컨트롤 플레인 이름을 덮을 수 있는가**를 본다.",
+    "regex_arm_narrowed": "기존 디렉터리 arm 의 마지막 대안 `hooks` → `\\.claude(/[A-Za-z0-9_./-]*hooks)?`. ASK_PATTERNS 개수는 64 그대로이고 이 한 줄만 바뀐다.",
+    "comment_and_claim_fix": "'삭제는 표기 변형의 여지가 거의 없어 열거가 수렴한다'는 주석을 삭제하고, 그 문장이 12차 판정에 반증됐다는 사실과 남은 축(cd 이동·간접 피연산자·미열거 동사)을 그 자리에 적었다."
   },
   "security_self_check": {
     "checklist_items": 6,
     "checklist_passed": 6,
-    "notes": "(1) INV-5 add-only: diff 는 술어 정의의 순수 이동 + lookup 게이팅 + 주석뿐이다 — deny/exit 2/ask 를 제거하거나 조건을 넓힌 곳이 없다(diff 전문 확인). (2) harness-config.json 무변경(git status 에 없음). (3) INV-1: progress/feature_list.json 미수정 — F70 passes 는 evaluator 만 바꾼다. (4) 테스트 삭제·약화 없음: @test 순증(+3), 기존 단언 무수정. (5) 운영 경로에 테스트용 우회 스위치를 추가하지 않았다(환경변수 오버라이드 기각). (6) 전역 nocasematch 미도입 — 기존 'F68: the guard sets no global nocasematch' 그대로 green."
+    "notes": "(1) INV-5 add-only: BLOCKED(13)·INDIRECT_PATTERNS(15) 배열 본문 HEAD 와 **바이트 동일**, ASK_PATTERNS 64→64(리터럴 diff 1건 = 문서화한 hooks 앵커 축소), 파일 전체 패턴 라인 102→109. (2) harness-config.json 무변경(git diff --quiet). (3) 새 게이트는 배선 상태(DATA_PLANE_DETECTED)·면제 판정(arm_is_exemptable)을 참조하지 않는다 — 소스 검사 테스트가 고정. (4) 게이트는 ask 티어이며 deny 를 새로 만들지 않는다. (5) 새 코드가 파일을 쓰지 않고 명령을 실행하지 않는다(판정만). (6) shellcheck -S warning: 신규 경고 0건(기존 2건 SC2034/SC1010 은 이번 변경 밖 라인)."
   },
   "error_scenarios_tested": [
-    "ES-1 (술어 판정 불가): canon_file 안에서는 `$d` 가 이미 `cd` 로 존재가 확인된 물리 경로이므로 '디렉터리 부재' 분기에 도달하지 않는다 — 기존 기본값을 뒤집지 않았다. 남는 판정 불가 케이스(디렉터리 이름에 뒤집을 글자가 없음)는 술어가 '구분함' 을 반환해 lookup 을 건너뛰므로 재바인딩이 일어나지 않는 안전한 방향이고, 같은 술어를 쓰는 is_protected() 와 답이 갈리지 않는다.",
-    "ES-2 (디코이가 정렬상 항상 앞서는 경우): LC_ALL=C 로 대문자가 먼저 오도록 고정해 디코이가 head -1 에 확실히 걸리는 조건에서 검증했다 — 게이팅 후에는 lookup 자체가 스킵되므로 정렬 순서와 무관하게 원본 basename 이 유지된다(테스트 2 및 7시나리오 표 전부).",
-    "과잉 차단 방지: 대소문자 무시 FS 에서 정당한 철자 변형 인식이 유지되는지 — 기존 F68 테스트 2건(삭제 후 재생성 경로) + 신규 AC-2 앵커 1건(파일 존재 경로) 모두 green.",
-    "정말 신규인 파일·디렉터리 부재 경로: canon_file 의 조기 반환 분기 무변경, 기존 'F68: materialization does not block a genuinely new file or a legitimate edit' green."
+    "개행 없는 마지막 세그먼트 — `while read` 만 쓰면 통째로 흘린다(첫 구현의 실제 결함, `|| [[ -n \"$seg\" ]]` 로 수정)",
+    "글로브 토큰이 확장 전이라 파일이 존재하지 않는 경우 — 존재 여부에 의존하지 않고 패턴 대조로 판정",
+    "CLAUDE_PLUGIN_ROOT 미설정 / git 저장소 아님 — `git rev-parse` 실패 시 `pwd` 로 폴백, 판정은 계속된다",
+    "순수 읽기 명령에 삭제 동사가 인자로만 등장(`grep -rn rm hooks/lib.sh`) — Layer 3.4 면제로 allow 유지(기존 동작과 동일)",
+    "배선 없는 상태(unwired) — 같은 판정(ask). 컨트롤 플레인에는 사후 복구가 없으므로 배선과 무관해야 한다"
   ],
+  "evidence": {
+    "tdd": "RED 먼저 확인: 새 테스트 5개 중 4개가 구현 전 실패(`rm -rf .claude/*`·`rm --force --recursive .claude/plugins/cc-harness`·`rm -rf src/hooks`·unwired 케이스). 구현 후 5/5 GREEN.",
+    "tests": "bats tests/ — 1회 실행(재실행 없음). 1..755, ok 755, not ok 0, skip 2, exit 0. 직전 baseline 750 → 755(신규 5). 원본: /private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/7f24bf90-5267-4e5f-9518-028fbc223df3/scratchpad/bats-full.txt",
+    "firewall_file": "bats tests/pre-bash-firewall.bats — 1..233, ok 233, not ok 0 (@test 228→233).",
+    "behavioral_probe": "bash scripts/probes/behavioral.sh → [] (후보 0건). scripts/probes/run-all.sh 는 기존 low 후보만 반환(README 숫자 부패·의존 passes 불일치·기존 shellcheck 2건 등) — behavioral leak 0건.",
+    "bypass_probe": "12차 판정의 우회 목록 + 내가 추가한 변형까지 43종 전수 재측정: 전부 ask(단 `sudo rm -rf .claude` 는 Layer 2 deny). 마찰 대조군 25종은 전부 allow. 원본 스크립트: /private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/7f24bf90-5267-4e5f-9518-028fbc223df3/scratchpad/probe.sh",
+    "self_found_counterexample": "판정 목록 밖에서 내가 찾은 반례 1건 — `rm -rf .clau*`(이름 자체가 글로브)가 첫 구현에서 allow 였다. 패턴↔이름 대조 규칙을 추가해 닫고 회귀 테스트에 넣었다.",
+    "lint": "shellcheck -S warning hooks/pre-bash-firewall.sh — 신규 경고 0건(기존 SC2034:155, SC1010:623 은 이번 변경 밖).",
+    "latency": "훅 호출 1회 기준 136ms(삭제 동사 없음) → 148ms(rm 피연산자 5개로 스캐너 발동). 삭제 동사가 없는 명령은 정규식 사전 검사에서 토큰 순회를 건너뛴다.",
+    "invariants": "BLOCKED·INDIRECT 배열 바이트 동일, ASK 64→64, 총 패턴 라인 102→109, @test 228→233, harness-config.json 무변경.",
+    "tdd_exceptions": []
+  },
   "criteria_backfill": {
-    "acceptance_criteria_added": [],
+    "acceptance_criteria_added": [
+      "AC-11.verification_axes_2026_08_04 — 검증 축을 '대상 파일 4종'에서 '표기 축 7종 × 대상'으로 닫힌 집합으로 정의(glob·이름 글로브·장문 옵션·인용·경로 표기·구분자/접두·동사).",
+      "AC-2._added_2026_08_04 — '이름만 같은 일반 디렉터리(src/hooks 류)에 마찰이 없다'를 오탐 검증 축으로 추가."
+    ],
     "error_scenarios_added": [],
-    "test_scenarios_added": [
-      "대소문자 무시 FS 에서 **존재하는** 보호 파일에 변형 철자로 쓰는 경로 (기존 테스트는 삭제 후 재생성/HEAD 실체화 경로만 덮었다)"
+    "security_criteria_changed": [
+      "SC-9 기준문을 '동사 하나만큼의 공백도 남기지 않는다'(판정 불가·원리적으로 미충족)에서 '명시된 표기 축 전수에서 최소 ask + 닫히지 않는 축은 명시'로 **정직하게 낮췄다**. 원문은 `_superseded_criterion_2026_08_04` 에 근거와 함께 보존했다. 게이트 강도(최소 ask)·임계값은 변경하지 않았다."
+    ],
+    "residual_risk_added": [
+      "_residual_risk_AC11.open_axes_2026_08_04 — cwd 이동(`cd .claude && rm settings.json`), 간접 피연산자(`xargs rm < list`·명령 치환), 미열거 동사. 각 축에 '왜 닫지 않았는가'와 보상 통제를 적었다."
     ],
     "spec_updated": false,
     "security_checklist_updated": false,
-    "contract_updated": false,
-    "reason": "구현 중 발견: AC-2('기존 동작 유지')를 실제로 지탱하는 테스트가 삭제 후 재생성 경로에만 있었다. 파일이 그대로 있는 채 변형 철자로 닿는 경로는 canon_file 의 lookup 만이 닫는데 그 경로에 단언이 없어, 게이팅을 조금만 넓게 걸면 조용히 열렸다(순진한 수정에서 실제로 deny→allow 로 열리는 것을 관측). 회귀 테스트로 고정했다.",
-    "_scope_note": "progress/contracts/sprint-56.json 은 이 격리 worktree 에 존재하지 않는다(메인 저장소에만 미커밋 상태로 있다). 부모가 지정한 편집 범위(hooks/invariant-guard.sh, tests/invariant-guard.bats, 이 파일)를 지키기 위해 implementation_steps 의 done 표시와 위 test_scenarios_added 의 계약 반영은 하지 않았다 — 병합 시 부모가 접어 넣어야 한다."
+    "reason": "12차 판정의 criteria_gaps.action_required(검증 축 보완)와 recommendation.priority_2(닫히지 않는 축은 정직하게 낮출 것)를 반영. 기존 기준을 삭제하지 않고 축을 추가하는 방향이며, SC-9 문구 하향은 게이트가 아니라 **주장 범위**의 정정이다.",
+    "not_updated_and_why": "evals/acceptance-criteria.json 의 F65 항목에는 AC-11 개별 검증문이 없고 요약(summary)만 있어 이번 축 추가와 중복되지 않는다. 파일 범위 제약(하네스 보호 파일 최소 변경)도 있어 손대지 않았다 — 다음 라운드에서 계약과 동기화가 필요하면 evaluator 가 지적할 수 있도록 여기 적어 둔다."
   },
-  "self_notes": "AC-1 의 7시나리오 종단 확인은 대소문자 구분 볼륨에서 스크립트로 수행했고 bats 에는 그중 3건(임계값·passes·@test)만 상시 테스트로 남겼다. 일곱이 하나의 근본 원인(canon_file 의 FILE 재바인딩)을 공유하고 그 근본 원인 자체를 유닛 테스트가 직접 고정하므로, 나머지 넷을 상시 테스트로 늘리는 대신 대표 3건 + 근본 원인 1건 구성을 골랐다. 이 판단은 evaluator 가 뒤집을 수 있다.",
-  "ready_for": "evaluation"
+  "claims_i_am_not_making": [
+    "'이번엔 정말 닫았다'·'열거가 수렴한다'는 주장을 하지 않는다. 12차 판정이 정확히 그 주장을 반증했고, 같은 문장을 다시 쓰는 것이 F63·F67 에서 반복된 실패다.",
+    "확인한 것은 위 43종 프로브 + 233개 방화벽 테스트가 통과한다는 사실뿐이다. 아직 보지 못한 표기가 없다는 뜻이 아니다.",
+    "`cd <dir> && rm <file>` 축은 닫으려 시도하지 않았다 — 문자열 예측으로 원리적으로 닫히지 않으며 계약에 잔여 위험으로 명시했다."
+  ],
+  "self_notes": "판정의 [security][low] 두 건 중 `rmdir` 는 동사 목록에 넣어 닫혔고, `xargs rm < list.txt` 는 예측의 원리적 한계라 계약의 open_axes 에 적었다. `mv` 를 삭제 동사에 포함한 것은 판정 목록 밖의 확장이다 — '지우기'와 '옮겨서 없애기'는 컨트롤 플레인 관점에서 같은 결과이고, `mv src/hooks src/hooks2` 류에 마찰이 없음을 프로브로 확인했다.",
+  "ready_for": "evaluation",
+  "next_step": "독립 evaluator 재판정(AC-11/SC-9/AC-2 범위). security_tier critical 이므로 F37 2차 판정 병행 권고 — 12차 판정의 next_step 과 동일."
 }
