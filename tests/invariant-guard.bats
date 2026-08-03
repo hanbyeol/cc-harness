@@ -1336,8 +1336,28 @@ JSON
   ln -s loopb "$GITWORK/progress/contracts/loopa"
   ln -s loopa "$GITWORK/progress/contracts/loopb"
   CLAUDE_PROJECT_DIR="$GITWORK" run bash "$HOOK" <<<"$(mk_write_input "$GITWORK/progress/contracts/loopa" "{}")"
-  # 순환은 깊이 한도에서 빠져나온다 — 어느 쪽 판정이든(링크 자체가 sprint-*.json 이 아니므로
-  # 보통 통과) 무한 루프 없이 종료하는 것이 이 테스트의 목적이다. bats 의 `run` 이 반환했다는
-  # 사실 자체가 그 증거다.
+  # 11차 판정 지적: 이전 판본은 판정을 확인하지 않아 "종료했다"는 사실만 보고 있었다 —
+  # 무한 루프가 아니라는 것과 **한도 초과를 안전한 방향으로 처리하는가**는 다른 질문이다.
+  # 종료 시점에도 여전히 링크이므로 fail-closed(deny)여야 한다.
+  [ "$status" -eq 2 ] || { echo "순환 링크가 한도 초과 후 fail-open 으로 통과했다"; false; }
+  rm -rf "$GITWORK"
+}
+
+@test "F68: a symlink chain exceeding the resolution depth is denied, not judged by the last hop" {
+  # 11차 판정 실증: 10단계에서 멈춘 뒤 마지막 상태로 판정하면 그 마지막이 여전히 링크일 때
+  # `BASENAME` 이 링크 이름이라 SC-4 가 다시 발화하지 않는다 — 실측으로 10홉은 deny·11홉은
+  # allow가 나왔다(프로그램에겐 11홉이 1홉보다 싸다). 한도 초과는 예외가 아니라 fail-closed
+  # 대상이어야 한다. 9~12홉 경계를 전부 고정해 어느 길이에서도 우회가 열리지 않게 한다.
+  command -v git >/dev/null || skip "git not installed"
+  setup_git_contract_repo
+  local n i
+  for n in 9 10 11 12; do
+    rm -f "$GITWORK"/progress/contracts/c[0-9]*
+    ln -s sprint-53.json "$GITWORK/progress/contracts/c0"
+    for i in $(seq 1 "$n"); do ln -s "c$((i - 1))" "$GITWORK/progress/contracts/c$i"; done
+    local BAD='{"sprint":53,"feature_id":"F67","agreed":true,"_batch_approval":{"scope":["**/*"],"N":99},"acceptance_criteria":[{"id":"AC-1"}],"implementation_steps":["a"]}'
+    CLAUDE_PROJECT_DIR="$GITWORK" run bash "$HOOK" <<<"$(mk_write_input "$GITWORK/progress/contracts/c$n" "$BAD")"
+    [ "$status" -eq 2 ] || { echo "${n}홉 체인이 승인 범위 확대를 통과시켰다"; false; }
+  done
   rm -rf "$GITWORK"
 }
