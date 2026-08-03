@@ -1,150 +1,113 @@
 {
-  "feature_id": "F67",
-  "sprint": 53,
-  "title": "예측 계층을 INV-14에 정합시킨다 — 읽기를 잡는 데이터 플레인 arm 면제 + 명령 경계 오인식 수정",
+  "feature_id": "F70",
+  "sprint": 56,
+  "title": "canon_file() 의 대소문자 무시 lookup 을 fs_is_case_insensitive() 로 게이팅",
   "security_tier": "critical",
-  "timestamp": "2026-07-30T15:20:00+09:00",
-  "_supersedes_note": "이 슬롯의 직전 내용은 F63 sprint-49 10차 보고였다. F63은 F65가 supersede했고(sprint-51 _supersedes) 그 보고는 git 히스토리에 남아 있다.",
+  "timestamp": "2026-08-03T23:15:40+0900",
+  "_supersedes_note": "이 슬롯의 직전 내용은 F67 sprint-53 보고였다. 그 보고는 git 히스토리에 남아 있다.",
   "mode": "serial",
-  "_mode_note": "계약이 _parallelizable:false — step 1·2가 hooks/pre-bash-firewall.sh 의 같은 판정 경로를 건드리고, step 2가 step 1의 면제 판정 결과에 영향을 준다.",
-  "summary": "INV-14는 데이터 플레인을 예측이 아니라 탐지·복구로 지킨다고 선언하는데 방화벽 면제는 45개 arm 중 1개에만 적용돼 있었다. 그 결과 인터프리터로 보호 파일을 **읽기만** 해도 ask였고, 개행으로 나눈 무관한 두 명령이 한 스팬으로 묶였으며, 같은 명령을 `;` 로 이으면 통과했다 — 표기 한 글자로 판정이 뒤집혀 보호와 마찰이 동시에 실패하고 있었다. 면제 대상을 단일 출처 목록으로 뽑아 인터프리터 arm을 편입하고, 정규화가 개행을 명령 구분자로 인식하게 했다.",
-  "achieved": {
-    "AC-1": "완료. 인터프리터가 데이터 플레인 파일을 읽는 3형태(python3 -c · node -e · 사용자가 실제로 거부당한 작은따옴표 형태)가 배선 상태에서 allow.",
-    "AC-2": "완료. 인터프리터 쓰기는 예측에서 빠지고 protected-integrity.sh 사후 탐지·복구가 담당한다. 테스트가 이 교환을 명시적으로 고정한다 — allow가 버그가 아니라 설계임을 코드로 문서화.",
-    "AC-3": "완료. `python3 --version` ⏎ `wc -l <파일>` 이 allow가 되고 세미콜론 형태와 판정이 일치. 컨트롤 플레인 arm(`vim README.md` ⏎ `cat hooks/hooks.json`)에서도 동일.",
-    "AC-4": "완료. 리다이렉트·cp·sed -i·dd of= 는 종전대로 ask — 쓰기 신호가 명령에 드러나 읽기를 잡지 않으므로 목록에 넣지 않았다.",
-    "AC-5": "완료. vim·patch 는 데이터 플레인에서도 ask 유지(F65 AC-5 계승).",
-    "AC-6": "완료. BLOCKED·INDIRECT_PATTERNS 배열 미수정. vim hooks/hooks.json · sed -i .claude/settings.json · egress · 탐지기 자신 경로 전부 ask 유지.",
-    "AC-7": "완료. 미배선 상태(run_firewall)에서 인터프리터 읽기가 ask로 되돌아옴을 실행 확인.",
-    "AC-8": "완료. bats tests/ exit=0, ok=678, not ok=0."
+  "_mode_note": "계약이 _parallelizable:false — step 1(게이팅)과 step 2(회귀 테스트)가 같은 두 파일의 같은 판정 경로를 건드리고, step 2 는 step 1 이 고른 술어에 직접 의존한다.",
+  "summary": "canon_file() 은 대상이 존재하면 `ls -1 | grep -ixF` 로 'FS 가 인식하는 실제 철자' 를 물어봤는데, 그 물음이 FS 가 실제로 대소문자를 무시하는지와 무관하게 무조건 실행됐다. 대소문자를 구분하는 FS(이 저장소의 CI 인 ubuntu-latest 포함)에서는 원본과 디코이가 두 파일로 공존하므로 grep 이 둘 다 매치하고 head -1 이 정렬 순서대로 하나를 골라, 무방비 Write 로 심은 디코이가 판정 대상을 통째로 대체했다. is_protected() 가 nocasematch 를 게이팅할 때 쓰는 같은 술어(fs_is_case_insensitive)를 이 lookup 에도 적용해 닫았다.",
+  "ac0_decision": {
+    "question": "canon_file 은 라인 229·232 에서 호출되는데 FS_CI 는 라인 249 에서야 계산된다 — 이 순서를 어떻게 풀 것인가.",
+    "measured_before_deciding": [
+      "canon_file 본문에 프로브를 심어 두 호출 모두에서 `FS_CI=[<UNSET>]` 을 관측했다 — 추측이 아니라 실행 결과다.",
+      "순진한 수정(canon_file 안에서 `${FS_CI:-0}` 참조)을 실제로 적용해 돌렸다: 항상 기본값 0 으로 굳어 lookup 이 영구히 꺼지고, 존재하는 progress/harness-config.json 을 `HARNESS-CONFIG.JSON` 철자로 임계값 7→1 낮추는 쓰기가 deny(exit 2) → allow(exit 0) 로 **열렸다**. 즉 순진한 수정은 게이팅에 실패할 뿐 아니라 macOS 에서 새 구멍을 낸다.",
+      "옵션 (a)(FS_CI 계산을 앞으로 이동)도 실측으로 기각했다: 그 시점의 FILE 은 아직 생 경로여서 `progress/./harness-config.json` 의 dirname 은 `progress/.` 이고, basename `.` 은 뒤집을 글자가 없어 술어가 '구분함'(FS_CI=0)을 반환한다. 이 경로 형태는 가드 자신의 주석이 위협 모델로 명시한 것이고, FS_CI=0 이 되면 is_protected() 의 분류까지 함께 무뎌진다 — F68 10차 판정이 세운 분류 게이팅의 회귀다."
+    ],
+    "decision": "옵션 (b) — canon_file() 이 전역 FS_CI 를 읽지 않고, 자기가 지금 훑는 디렉터리 `$d` 에 대해 fs_is_case_insensitive() 를 직접 호출한다.",
+    "rationale": [
+      "순서 의존을 없앤다: 전역이 언제 계산되든 무관해지므로 (a)/(순진한 수정)이 밟은 함정이 원리적으로 사라진다.",
+      "앵커가 더 정확하다: `$d` 는 이미 `pwd -P` 로 물리 경로가 확정된 뒤이고, 심볼릭 링크가 대상을 다른 마운트(대소문자 정책이 다를 수 있는)로 옮겨도 호출마다 그 디렉터리를 직접 묻는다.",
+      "같은 판단 근거를 재사용한다: is_protected() 의 nocasematch 와 **동일한 술어**다 — 새 판단축을 만들지 않는다.",
+      "기존 전역 FS_CI 의 위치·입력·의미를 건드리지 않는다. F68 9·10차 판정이 그 위치(삭제 후 재생성 실체화보다 앞)를 의도적으로 고른 자리이므로 재검토 대상을 늘리지 않는다."
+    ],
+    "side_change": "fs_is_case_insensitive() 정의를 canon_file() 앞으로 옮겼다(본문 무변경, 순수 이동). 뒤에 두면 '정의 전 호출'이 exit 127 로 새는 자리가 남는다 — 현재 호출부는 모두 아래이지만 그 순서에 기대지 않는다."
   },
-  "security": {
-    "SC-1": "충족. ASK_PATTERNS 배열 항목을 하나도 삭제하지 않았다 — 면제 조건만 넓혔다. invariant-guard의 count_array 검사(BLOCKED·INDIRECT_PATTERNS·ASK_PATTERNS)를 통과했고 편집이 차단되지 않았다. 배선이 사라지면 패턴이 폴백으로 되살아난다(AC-7).",
-    "SC-2": "충족. 면제 대상을 EXEMPTABLE_ARM_TOKENS 배열 한 곳에 열거하고 판정을 arm_is_exemptable()로 분리했다. 테스트가 (a) 목록이 단일 출처인지 (b) 각 토큰이 살아 있는 ASK arm과 문자열로 일치하는지 (c) 편집 전용 도구·컨트롤 플레인 경로가 토큰에 섞이지 않았는지를 대조한다. **F65 SC-2의 'arm 하나' 제약을 대체하되 국소화 기준을 'arm 개수'에서 '그 arm이 읽기를 잡는가'로 바꿨다** — F63 4차의 실패는 ASK 배열 전체 면제(컨트롤 플레인 포함)였고 이번 확대는 데이터 플레인 안에서도 쓰기 신호가 드러나지 않는 arm에만 적용된다.",
-    "SC-3": "충족. INV-14에 두 문단 추가 — '어느 arm이 예측에서 빠졌나(F67)'와 '개행은 명령 구분자다(F67)'. 손실 상한이 sed·awk에서 python3 -c 까지 넓어진 사실, 컨트롤 플레인·탐지기 자신은 토큰이 일치해도 면제되지 않는다는 사실을 명시.",
-    "SC-4": "충족. PROTECTED_GLOBS·is_protected() 정합 테스트 통과 (invariant-guard.bats + protected-integrity.bats 134 ok / 0 fail). 보호 파일 목록 자체는 수정하지 않았다.",
-    "SC-5": "충족. 개행을 구분자로 바꾸면 스팬이 짧아져 기존 보호가 빠질 수 있으므로, 대표 deny/ask 케이스(rm -rf / · egress · settings in-place · feature_list cp)를 전부 개행 형태로 재주입해 판정 유지를 확인했다. 인용부호 안 개행과 줄 이음은 구분자로 바꾸지 않는다 — 각각 리터럴과 한 명령이므로 끊으면 보호가 약해진다."
+  "test_strategy_decision": {
+    "question": "대소문자 구분 FS 버그를 macOS(대소문자 무시 기본) 개발 환경에서 어떻게 회귀 고정할 것인가.",
+    "rejected": {
+      "option": "FS_CI 를 테스트에서 오버라이드하는 환경변수를 운영 코드에 추가",
+      "reason": "이 게이트에서 '대소문자 무시' 방향이 곧 **취약한 방향**이다. 환경변수로 그 방향을 켤 수 있게 만들면, 가드가 도는 환경(에이전트가 env 를 설정할 수 있는 곳)에서 오버라이드 자체가 이번에 닫은 우회로를 되여는 스위치가 된다. 테스트 편의를 위해 운영 경로에 켤 수 있는 우회 스위치를 두지 않는다."
+    },
+    "chosen": [
+      "유닛: 저장소의 기존 관행(`source <(sed -n '/^is_protected()/,/^}/p' \"$HOOK\")`)대로 canon_file() 을 원본에서 추출하고, **술어를 스텁으로 갈아끼워** 게이팅을 직접 확인한다. 운영 코드에 손댈 필요가 없고, lookup 이 fs_is_case_insensitive 가 아닌 다른 축에 걸려 있으면 스텁이 무시돼 테스트가 깨지므로 '같은 근거 재사용' 까지 행동으로 고정된다. 두 분기의 픽스처는 FS 에 맞춰 고르되 단언은 양쪽에서 동일하다.",
+      "종단: 디코이 공존이 필요한 E2E 테스트는 FS 를 런타임에 프로브해 대소문자 무시 FS 에서는 skip 한다(저장소에 이미 있는 skip 관행과 동일). 실제 CI(ubuntu-latest)에서는 그대로 돈다.",
+      "AC-2 앵커: 파일이 **그대로 있는 채** 변형 철자로 닿는 경로를 새로 고정했다. 기존 F68 테스트들은 삭제 후 재생성(HEAD 실체화) 경로만 덮고 있어서, 게이팅을 조금만 넓게 걸어도 여기가 조용히 열렸다(순진한 수정에서 실제로 열렸다)."
+    ],
+    "local_verification_of_the_skipped_leg": "skip 되는 종단 테스트를 검증하지 않은 채 두지 않았다. hdiutil 로 대소문자 구분 볼륨(Case-sensitive APFS)을 만들고, setup() 의 mktemp 만 그 볼륨으로 바꾼 미러 사본(모든 @test 본문 바이트 동일, @test 개수 동일 확인)으로 F70 3건을 실제로 돌려 수정 전 RED / 수정 후 GREEN 을 관측했다. macOS 의 mktemp 는 TMPDIR 을 따르지 않아(실측) 미러가 필요했다."
   },
-  "evidence": [
-    {
-      "gate": "면제 범위 실측 (변경 전 기준선)",
-      "command": "ASK_PATTERNS 배열을 추출해 면제 조건을 각 arm에 평가",
-      "result": "45개 arm 중 면제 1개(sed/awk + 하네스 파일). feature_list.json 전용 arm 7개는 전부 미면제 — F67의 출발점."
-    },
-    {
-      "gate": "판정 역전 실측 (문제 재현)",
-      "command": "`python3 --version` + 개행 + `wc -l <파일>` 을 개행·세미콜론 두 형태로 훅에 주입",
-      "result": "개행 → ask, 세미콜론 → allow. 표기 한 글자로 판정이 뒤집힘."
-    },
-    {
-      "gate": "TDD RED (step 1)",
-      "command": "bats tests/pre-bash-firewall.bats -f F67",
-      "result": "8개 중 4개 실패(인터프리터 읽기·개행 오탐·인터프리터 쓰기 면제·면제목록 단일출처). 유지되어야 할 4개(쓰기신호 arm·편집도구·컨트롤플레인·폴백)는 구현 전에도 통과 — 테스트가 변경을 실제로 요구함을 확인."
-    },
-    {
-      "gate": "TDD GREEN (step 1)",
-      "command": "bats tests/pre-bash-firewall.bats -f F67",
-      "result": "8/8 통과"
-    },
-    {
-      "gate": "TDD RED (step 2)",
-      "command": "bats tests/pre-bash-firewall.bats -f F67",
-      "result": "12개 중 1개 실패(개행/세미콜론 판정 불일치 — 컨트롤 플레인 arm). 줄 이음·인용 안 개행·SC-5 회귀 3개는 구현 전에도 통과."
-    },
-    {
-      "gate": "TDD GREEN (step 2)",
-      "command": "bats tests/pre-bash-firewall.bats -f F67",
-      "result": "12/12 통과"
-    },
-    {
-      "gate": "전체 회귀 (AC-8)",
-      "command": "bats tests/ (출력 파일 저장 후 파싱)",
-      "result": "exit=0, ok=678, not ok=0"
-    },
-    {
-      "gate": "INVARIANTS 편집 후 대칭 (SC-3·SC-4)",
-      "command": "bats tests/invariant-guard.bats tests/protected-integrity.bats",
-      "result": "exit=0, ok=134, not ok=0"
-    }
+  "features_implemented": [
+    "F70"
   ],
   "files_changed": [
-    "hooks/pre-bash-firewall.sh — INTERPRETER_ARM·EXEMPTABLE_ARM_TOKENS·arm_is_exemptable() 신설, 면제 판정을 목록 기반으로 교체, 정규화가 개행을 명령 구분자로 인식 (보호 파일, Edit 툴)",
-    "tests/pre-bash-firewall.bats — F67 테스트 12건 추가 (보호 파일, Edit 툴)",
-    "docs/INVARIANTS.md — INV-14에 손실 상한 2문단 추가 (보호 파일, Edit 툴)",
-    "progress/feature_list.json — F67 등록 (passes:false)",
-    "progress/contracts/sprint-53.json — 신규 계약, Plan 게이트 승인 후 agreed:true, steps done:true",
-    "evals/acceptance-criteria.json — F67 엔트리",
-    "progress/phase-gate.json — _comment에 등록 사유"
+    "hooks/invariant-guard.sh"
   ],
-  "design_notes": [
-    "**면제 여부를 가르는 기준은 '그 arm이 읽기를 잡는가' 하나다.** 쓰기 신호가 명령에 드러나는 arm(리다이렉트·cp·in-place·dd of=·sed w)은 애초에 읽기를 잡지 않으므로 면제해도 마찰이 줄지 않고 손실 상한만 늘어난다. 반대로 도구 이름만으로 판정하는 arm(에디터·인터프리터)은 순수 읽기까지 잡으면서 그 판정을 구문으로 고칠 수 없다 — 인터프리터는 `-c` 뒤가 임의 프로그램이라 대상 언어 파서가 필요하다. F65가 에디터 arm에만 적용한 논리가 인터프리터 arm에도 그대로 성립한다.",
-    "**F65 6차의 보류 근거가 실측으로 무너졌다.** '읽기 마찰은 게이트가 지키는 값어치에 비해 싸다'는 전제는 그 게이트가 실제로 무언가를 지킬 때만 참이다. 이 arm은 `;` 한 글자로 우회되므로 지키는 값어치가 애초에 낮았고, 동시에 개행으로 나눈 무관한 명령까지 잡아 비용은 높았다. 보호와 마찰을 함께 실측하지 않으면 이런 교환은 보이지 않는다.",
-    "**개행을 공백으로 접은 것이 두 결함의 공통 원인이었다.** `[^;|&]*` 스팬은 '같은 명령 안'을 표현하려는 장치인데 가장 흔한 명령 경계인 개행을 놓쳤다. 증상이 과탐(무관한 명령 묶임)과 우회(`;`로 통과) 양쪽에 나타났고, arm을 하나씩 고치는 대신 공통 입력인 정규화를 고쳤다 — F63 6차가 인용 세미콜론에서 배운 것과 같은 패턴이다.",
-    "**awk의 RS는 POSIX에서 단일 문자만 보장된다.** 개행을 그대로 넘기면 레코드가 줄 단위로 쪼개져 인용부호 상태 추적이 줄을 넘지 못하고, 그러면 여러 줄에 걸친 인용 안 개행을 구분자로 오인한다. \\034 제어문자로 전달해 전체를 한 레코드로 다룬다."
+  "tests_added": [
+    "tests/invariant-guard.bats"
   ],
-  "criteria_backfill": [
-    "계약 AC-3(개행/세미콜론 일치)의 필요성을 step 1 완료 후 실측으로 재확인했다. step 1(면제 편입)만으로 인터프리터 arm의 개행 오탐은 해소됐으나, 예측을 유지하는 컨트롤 플레인 arm에는 오인식이 남는 것을 테스트로 확인해(`vim README.md` ⏎ `cat hooks/hooks.json` → ask) step 2를 계약대로 진행했다. 기준 축소 없음."
-  ],
-  "limitations_honest": [
-    "**데이터 플레인 인터프리터 쓰기가 사전에 막히지 않는다.** protected-integrity.sh 사후 탐지·복구가 유일한 보호이며, INV-14가 서술한 '한 Bash 호출 안의 변조·소비 창'이 sed·awk에서 python3 -c 까지 넓어진다. 이 창은 없는 위험이 아니라 알려진 교환이다.",
-    "티켓 원장은 셸을 쥔 상대에게 위조 불가능하지 않다(F65가 이미 인정한 한계). 면제를 넓히면 그 원장에 의존하는 범위도 함께 넓어진다.",
-    "명령행에 보호 경로가 전혀 없는 형태(`python3 script.py` — 경로가 스크립트 안에 있다)는 예측이 원리적으로 볼 수 없다. F65가 INV-14에 적은 기존 한계이며 F67이 만든 것도 닫는 것도 아니다.",
-    "개행 처리에서 줄 이음 판정은 직전 문자가 백슬래시인지만 본다. 백슬래시가 짝수 개로 이어진 경우(`\\\\` + 개행 = 리터럴 백슬래시 + 진짜 구분자)는 구분자로 보지 않는다 — 보수적인 방향(스팬을 길게 유지)이므로 보호는 약해지지 않고 과탐 가능성만 남는다.",
-    "컨트롤 플레인 arm은 여전히 예측이다. hooks.json·settings*.json 을 인터프리터로 쓰는 형태(`python3 -c open(hooks/hooks.json,w)`)는 어느 arm에도 걸리지 않는데, 이는 F67 이전부터 있던 갭이며 이번 변경이 넓히지 않았다(인터프리터 arm의 경로 목록에 컨트롤 플레인이 없다). 백로그."
-  ],
-  "self_review_note": "이 산출은 implementer 자기 보고이며 passes를 판정하지 않는다(INV-1). security_tier critical이므로 독립 evaluator 판정 후 F37 2차 판정·security-auditor·qa-reviewer가 함께 필요하다. 판정이 확인해야 할 것: (1) EXEMPTABLE_ARM_TOKENS 확대가 컨트롤 플레인·egress·Layer 1·2로 새지 않는지 — arm_is_exemptable()의 배제 조건이 실제로 먼저 걸리는지 변이로 확인. (2) 개행을 구분자로 바꾼 것이 기존 deny/ask를 느슨하게 하지 않았는지 — SC-5 회귀가 대표 케이스만 덮으므로 더 넓은 코퍼스가 필요할 수 있다. (3) 줄 이음·인용 안 개행 예외가 우회 경로가 되는지(`\\` + 개행으로 스팬을 인위적으로 이어 붙이는 형태). (4) 손실 상한 서술(INV-14)이 코드가 실제로 강제하는 범위를 넘지 않는지 — F63·F65가 매 회전 지적받은 축이다.",
-  "rework_after_1st_verdict": {
-    "verdict_file": "progress/agent-comms/evaluator-feedback-2026-07-30T16-13-35+0900.json",
-    "verdict": "fail (score 3, security 3)",
-    "what_broke": "개행→명령 구분자 변경이 컨트롤 플레인을 열었다. heredoc 본문의 개행이 `;` 가 되면서 `[^;|&]*` 스팬이 끊기고, `python3 - <<'EOF'` 안에서 `.claude/settings.json` 을 쓰는 명령이 ask→allow로 뒤집혔다. 판정을 받고 main 훅과 브랜치 훅으로 직접 대조 재현했다(3형태 전부 ask→allow).",
-    "user_decisions": "1차 판정 보고 후 두 건을 지시받았다 — (1) AC-3 철회, (2) 면제를 데이터 플레인 전체로 확대.",
-    "changes": [
-      {
-        "what": "개행 변경 철회 (커밋 70966db)",
-        "detail": "정규화가 개행을 항상 공백으로 접는 상태로 복귀. 되돌린 상태가 main과 판정 동일함을 5케이스 대조로 확인. 회귀 방지로 heredoc 3형태를 ask로 잠그는 테스트를 추가하고, 개행/세미콜론 판정 차이가 '알려진 갭'임을 별도 테스트로 명시했다.",
-        "why_not_fix_forward": "셸에서 개행이 구분자가 아닌 자리는 인용·줄이음 외에 heredoc 본문·`|`/`&&` 뒤 줄바꿈·`(`/`{` 블록과 절 사이가 더 있다. 전수를 맞추려면 셸 파서가 필요하고 부분 구현은 매번 구멍을 만든다 — F63이 10회전 겪은 열거 실패와 같은 계열이라 기준을 내리는 쪽을 택했다."
-      },
-      {
-        "what": "인터프리터 arm을 평면별로 분리",
-        "detail": "1차 판정이 부수적으로 찾은 갭 — 인터프리터 arm이 데이터 플레인과 컨트롤 플레인 경로를 한 arm에 담고 있어 `settings` 부분일치로 통째 배제됐고, 그래서 면제가 feature_list.json 하나에만 닿았다. 데이터 플레인용(`harness-config.json`·`hooks/*.sh`·`tests/*.bats`·`INVARIANTS.md`)과 컨트롤 플레인용(`hooks/*.json`·`.claude/settings*.json`)으로 쪼갰다. 합집합은 종전과 동일하고 arm 수는 45→46(add-only).",
-        "result": "데이터 플레인 5종 인터프리터 읽기가 allow. 컨트롤 플레인은 인터프리터 읽기도 ask — 사후 복구가 없어 예측이 유일한 통제인데 인터프리터는 읽기임을 확정할 수 없기 때문이다."
-      },
-      {
-        "what": "기준 결함 반영 (criteria_gaps)",
-        "detail": "AC-1에 데이터 플레인 파일 5종 열거 · AC-3 철회 + 근거 · AC-6을 '배열 바이트 동일'에서 **결정 함수 차분**으로 재조작화 · AC-9(면제 결과 집합 스냅샷) 신설 · AC-10(heredoc 잠금) 신설 · ES-2를 양방향 관측으로 교체."
-      },
-      {
-        "what": "INV-14 서술 정합",
-        "detail": "개행 문단을 '알려진 갭 + 되돌린 이유'로 교체. 인터프리터 면제 범위를 실제 코드에 맞춰 정정하고, arm이 평면을 섞으면 안 되는 이유와 컨트롤 플레인이 인터프리터 읽기도 ask인 근거(판정 기준은 도구 이름이 아니라 읽기 확정 가능성)를 추가."
-      }
+  "iteration": 1,
+  "tdd": {
+    "red": [
+      "macOS(무시 FS): 'F70: canon_file's case-insensitive lookup is gated by fs_is_case_insensitive' 실패 — `구분 FS 에서 판정 대상이 'FEATURE_LIST.JSON' -> 'feature_list.json' 로 재바인딩됐다`",
+      "대소문자 구분 볼륨: 같은 테스트 실패 — `'feature_list.json' -> 'FEATURE_LIST.json' 로 재바인딩됐다`(디코이가 원본을 밀어냄) + 'F70: a case-variant decoy does not rebind the guard's target' 실패 — `디코이가 있으면 임계값 하향이 통과한다`"
     ],
-    "evidence_2nd": [
-      {
-        "gate": "회귀 재현",
-        "command": "main 훅 vs 브랜치 훅 5케이스 대조",
-        "result": "철회 전 3케이스 ask→allow, 철회 후 5/5 main과 동일"
-      },
-      {
-        "gate": "TDD RED (arm 분리)",
-        "command": "bats -f F67",
-        "result": "17개 중 3개 실패 (데이터플레인 전체 읽기·면제 결과집합·결정함수 차분)"
-      },
-      {
-        "gate": "TDD GREEN",
-        "command": "bats tests/pre-bash-firewall.bats",
-        "result": "210 ok / 0 fail"
-      },
-      {
-        "gate": "전체 회귀",
-        "command": "bats tests/",
-        "result": "exit=0, ok=683, not ok=0"
-      },
-      {
-        "gate": "add-only",
-        "command": "ASK_PATTERNS arm 수",
-        "result": "46 (45에서 증가, 삭제 없음)"
-      }
+    "green": [
+      "macOS: F70 3건 — ok 2, skip 1(구분 FS 전용 종단)",
+      "대소문자 구분 볼륨: F70 3건 — ok 2, skip 1(무시 FS 전용 AC-2 앵커)"
     ]
   },
-  "ready_for": "evaluator"
+  "evidence": {
+    "tests": "bats tests/ — 1회 실행(재실행 없음): 745 ok, 0 not ok, 2 skip. skip 2건은 (1) F70 구분 FS 전용 종단 테스트(이 머신이 무시 FS), (2) 기존 'migration: pristine v1.4.0 copies removed via legacy hash'(v1.4.0 플러그인 캐시 없음) — 둘 다 이번 변경과 무관한 환경 조건이다. F70 3건: ok 264 / 265(skip) / 266.",
+    "lint": "bash -n hooks/invariant-guard.sh — syntax OK",
+    "behavioral_probe": "bash scripts/probes/behavioral.sh → `[]` (0건), exit 0",
+    "ac1_end_to_end_all_seven": {
+      "method": "hdiutil Case-sensitive APFS 볼륨 위에 git 저장소를 만들고, 각 시나리오마다 '이미 통과할 모양'의 디코이(임계값이 이미 낮고, passes 가 이미 참이고, @test 가 이미 하나 …)를 심은 뒤, 수정 전 가드(git show HEAD:hooks/invariant-guard.sh)와 수정 후 가드(작업 트리)에 동일 입력을 넣어 종료 코드를 비교했다. LC_ALL=C 로 ls 정렬을 고정해 디코이가 head -1 에 걸리는 것을 결정론적으로 만들었다.",
+      "pre_fix_exit_codes": {
+        "1_passes_injection": 0,
+        "2_pass_threshold_7_to_1": 0,
+        "3_batch_approval_widened": 0,
+        "4_test_count_2_to_1": 0,
+        "5_hooks_json_unwiring": 0,
+        "6_settings_json_unwiring": 0,
+        "7_guard_own_deny_neutered": 0
+      },
+      "post_fix_exit_codes": {
+        "1_passes_injection": 2,
+        "2_pass_threshold_7_to_1": 2,
+        "3_batch_approval_widened": 2,
+        "4_test_count_2_to_1": 2,
+        "5_hooks_json_unwiring": 2,
+        "6_settings_json_unwiring": 2,
+        "7_guard_own_deny_neutered": 2
+      },
+      "conclusion": "security-auditor 가 재현한 7가지가 전부 exit 0 → exit 2 로 닫혔다."
+    },
+    "tdd_exceptions": []
+  },
+  "security_self_check": {
+    "checklist_items": 6,
+    "checklist_passed": 6,
+    "notes": "(1) INV-5 add-only: diff 는 술어 정의의 순수 이동 + lookup 게이팅 + 주석뿐이다 — deny/exit 2/ask 를 제거하거나 조건을 넓힌 곳이 없다(diff 전문 확인). (2) harness-config.json 무변경(git status 에 없음). (3) INV-1: progress/feature_list.json 미수정 — F70 passes 는 evaluator 만 바꾼다. (4) 테스트 삭제·약화 없음: @test 순증(+3), 기존 단언 무수정. (5) 운영 경로에 테스트용 우회 스위치를 추가하지 않았다(환경변수 오버라이드 기각). (6) 전역 nocasematch 미도입 — 기존 'F68: the guard sets no global nocasematch' 그대로 green."
+  },
+  "error_scenarios_tested": [
+    "ES-1 (술어 판정 불가): canon_file 안에서는 `$d` 가 이미 `cd` 로 존재가 확인된 물리 경로이므로 '디렉터리 부재' 분기에 도달하지 않는다 — 기존 기본값을 뒤집지 않았다. 남는 판정 불가 케이스(디렉터리 이름에 뒤집을 글자가 없음)는 술어가 '구분함' 을 반환해 lookup 을 건너뛰므로 재바인딩이 일어나지 않는 안전한 방향이고, 같은 술어를 쓰는 is_protected() 와 답이 갈리지 않는다.",
+    "ES-2 (디코이가 정렬상 항상 앞서는 경우): LC_ALL=C 로 대문자가 먼저 오도록 고정해 디코이가 head -1 에 확실히 걸리는 조건에서 검증했다 — 게이팅 후에는 lookup 자체가 스킵되므로 정렬 순서와 무관하게 원본 basename 이 유지된다(테스트 2 및 7시나리오 표 전부).",
+    "과잉 차단 방지: 대소문자 무시 FS 에서 정당한 철자 변형 인식이 유지되는지 — 기존 F68 테스트 2건(삭제 후 재생성 경로) + 신규 AC-2 앵커 1건(파일 존재 경로) 모두 green.",
+    "정말 신규인 파일·디렉터리 부재 경로: canon_file 의 조기 반환 분기 무변경, 기존 'F68: materialization does not block a genuinely new file or a legitimate edit' green."
+  ],
+  "criteria_backfill": {
+    "acceptance_criteria_added": [],
+    "error_scenarios_added": [],
+    "test_scenarios_added": [
+      "대소문자 무시 FS 에서 **존재하는** 보호 파일에 변형 철자로 쓰는 경로 (기존 테스트는 삭제 후 재생성/HEAD 실체화 경로만 덮었다)"
+    ],
+    "spec_updated": false,
+    "security_checklist_updated": false,
+    "contract_updated": false,
+    "reason": "구현 중 발견: AC-2('기존 동작 유지')를 실제로 지탱하는 테스트가 삭제 후 재생성 경로에만 있었다. 파일이 그대로 있는 채 변형 철자로 닿는 경로는 canon_file 의 lookup 만이 닫는데 그 경로에 단언이 없어, 게이팅을 조금만 넓게 걸면 조용히 열렸다(순진한 수정에서 실제로 deny→allow 로 열리는 것을 관측). 회귀 테스트로 고정했다.",
+    "_scope_note": "progress/contracts/sprint-56.json 은 이 격리 worktree 에 존재하지 않는다(메인 저장소에만 미커밋 상태로 있다). 부모가 지정한 편집 범위(hooks/invariant-guard.sh, tests/invariant-guard.bats, 이 파일)를 지키기 위해 implementation_steps 의 done 표시와 위 test_scenarios_added 의 계약 반영은 하지 않았다 — 병합 시 부모가 접어 넣어야 한다."
+  },
+  "self_notes": "AC-1 의 7시나리오 종단 확인은 대소문자 구분 볼륨에서 스크립트로 수행했고 bats 에는 그중 3건(임계값·passes·@test)만 상시 테스트로 남겼다. 일곱이 하나의 근본 원인(canon_file 의 FILE 재바인딩)을 공유하고 그 근본 원인 자체를 유닛 테스트가 직접 고정하므로, 나머지 넷을 상시 테스트로 늘리는 대신 대표 3건 + 근본 원인 1건 구성을 골랐다. 이 판단은 evaluator 가 뒤집을 수 있다.",
+  "ready_for": "evaluation"
 }

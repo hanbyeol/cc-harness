@@ -183,12 +183,43 @@ FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || ech
 #     디렉터리 대소문자를 정규화하지 않는다(bash 실측). 철자를 하나씩 닫는 방식이 6·7·8차
 #     연속 실패했으므로, 대소문자 무시 FS 에서는 **판정 자체를 대소문자 무시로 돌린다.**
 #     내용 검사는 grep/jq/awk 가 하므로 이 설정에 영향받지 않는다.
+# FS 판정은 **쓰지 않고** 한다: 디렉터리 이름의 대소문자를 뒤집어 접근 가능한지 본다.
+# `canon_file` 이 이 술어를 쓰므로 그보다 **앞**에 둔다 — 뒤에 두면 정의 전 호출이 exit 127 로
+# 새는 자리가 남는다(현재 호출부는 모두 아래에 있지만 그 순서에 기대지 않는다).
+fs_is_case_insensitive() {
+  local d="$1" parent base flipped
+  [[ -d "$d" ]] || return 1
+  parent=$(dirname "$d"); base=$(basename "$d")
+  flipped=$(printf '%s' "$base" | tr '[:upper:][:lower:]' '[:lower:][:upper:]')
+  [[ "$flipped" == "$base" ]] && return 1   # 뒤집을 글자가 없다 — 보수적으로 '구분함'
+  [[ -e "$parent/$flipped" ]]
+}
 canon_file() {
   local p="$1" d b real
   d=$(dirname "$p"); b=$(basename "$p")
   # 디렉터리가 아직 없으면(신규 스캐폴딩) 정규화할 것이 없다 — 원본을 그대로 쓴다.
   d=$(cd "$d" 2>/dev/null && pwd -P) || { printf '%s' "$p"; return 0; }
-  if [[ -e "$d/$b" ]]; then
+  # "FS 가 인식하는 실제 철자" 를 물어보는 아래 lookup 은 **FS 가 대소문자를 무시할 때만**
+  # 뜻이 있다 (F70). 구분하는 FS(이 저장소의 CI 인 ubuntu-latest 포함)에서는
+  # `feature_list.json` 과 `FEATURE_LIST.json` 이 서로 다른 두 파일로 공존하고, `grep -ixF` 는
+  # 둘 다 매치해 `head -1` 이 정렬 순서대로 하나를 고른다 — 공격자가 무방비 Write 로 심어 둔
+  # **디코이가 원본을 밀어내고 판정 대상이 된다**(security-auditor 실측, C 로케일: 디코이 하나로
+  # passes 주입·임계값 하향·`_batch_approval` 교체·`@test` 삭제·hooks.json 과 settings.json
+  # 언와이어링·가드 자신의 deny() 무력화가 전부 exit 0). 그래서 `is_protected()` 의 nocasematch 와
+  # **같은 술어**로 게이팅한다 — 새 판단축을 만들지 않는다.
+  #
+  # 전역 `FS_CI` 를 읽지 않고 여기서 직접 부르는 이유 둘:
+  #  (1) `FS_CI` 는 이 함수의 **호출보다 뒤에서** 계산된다(실측: canon_file 진입 시점에 미설정).
+  #      `${FS_CI:-0}` 로 참조하면 항상 기본값 0 으로 굳어 lookup 이 영구히 꺼지고, 대소문자
+  #      무시 FS 에서 변형 철자로 임계값을 낮추는 쓰기가 deny(2) → allow(0) 로 열린다(실측).
+  #      계산을 앞으로 옮기는 것도 답이 아니다 — 그 시점의 `FILE` 은 아직 생 경로여서
+  #      `progress/./harness-config.json` 의 dirname 은 `progress/.` 이고, 뒤집을 글자가 없어
+  #      '구분함' 으로 잘못 판정된다(실측). 그러면 `is_protected()` 의 분류까지 함께 무뎌진다.
+  #  (2) 판정은 **지금 훑고 있는 그 디렉터리**의 성질이어야 한다. 심볼릭 링크를 따라가면 대상이
+  #      대소문자 정책이 다른 마운트일 수 있으므로 호출마다 `$d` 를 직접 묻는 편이 옳다.
+  # 여기서 `$d` 는 이미 존재가 확인된 물리 경로다 — 술어의 '판정 불가(디렉터리 부재)' 분기는
+  # 이 자리에 도달하지 않으므로 그 기존 기본값을 뒤집지 않는다.
+  if [[ -e "$d/$b" ]] && fs_is_case_insensitive "$d"; then
     real=$(ls -1 "$d" 2>/dev/null | grep -ixF -- "$b" | head -1)
     [[ -n "$real" ]] && b="$real"
   fi
@@ -216,15 +247,6 @@ resolve_file_symlink() {
     depth=$((depth + 1))
   done
   printf '%s' "$f"
-}
-# FS 판정은 **쓰지 않고** 한다: 디렉터리 이름의 대소문자를 뒤집어 접근 가능한지 본다.
-fs_is_case_insensitive() {
-  local d="$1" parent base flipped
-  [[ -d "$d" ]] || return 1
-  parent=$(dirname "$d"); base=$(basename "$d")
-  flipped=$(printf '%s' "$base" | tr '[:upper:][:lower:]' '[:lower:][:upper:]')
-  [[ "$flipped" == "$base" ]] && return 1   # 뒤집을 글자가 없다 — 보수적으로 '구분함'
-  [[ -e "$parent/$flipped" ]]
 }
 FILE=$(canon_file "$FILE")
 FILE=$(resolve_file_symlink "$FILE")
