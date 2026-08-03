@@ -1381,3 +1381,91 @@ JSON
   [ "$status" -eq 2 ] || { echo "중간 디렉터리 접근 거부로 판정 불능이 된 체인이 fail-open 으로 통과했다 (status=$status)"; false; }
   rm -rf "$GITWORK"
 }
+
+# === F70: canon_file() 의 대소문자 무시 lookup 을 FS 의 실제 성질로 게이팅한다 ===
+# `canon_file()` 은 대상이 존재하면 `ls -1 | grep -ixF` 로 "FS 가 인식하는 실제 철자" 를 물어봤다.
+# 그 물음은 **FS 가 실제로 대소문자를 무시할 때만** 뜻이 있다. 구분하는 FS(이 저장소의 CI 인
+# ubuntu-latest 포함)에서는 `feature_list.json` 과 `FEATURE_LIST.json` 이 서로 다른 두 파일로
+# 공존하고, `grep -ixF` 는 둘 다 매치해 `head -1` 이 정렬 순서대로 하나를 고른다 — 공격자가
+# 무방비 Write 로 만든 **디코이가 원본을 밀어내고 판정 대상이 된다.** security-auditor 실측:
+# 디코이 하나로 일곱 게이트(passes 주입·임계값 하향·_batch_approval 교체·@test 삭제·hooks.json
+# 과 settings.json 언와이어링·가드 자신의 deny() 무력화)가 전부 exit 0 이 됐다.
+# `is_protected()` 가 nocasematch 를 `fs_is_case_insensitive()` 로 게이팅하는 것과 **같은 근거**를
+# 이 lookup 에도 적용한다 — 새 판단축을 만들지 않는다.
+
+@test "F70: canon_file's case-insensitive lookup is gated by fs_is_case_insensitive" {
+  # 두 분기는 각각 한쪽 FS 에서만 자연히 성립한다(디코이 공존은 구분 FS 에서만 가능하고,
+  # 변형 철자로 기존 파일에 닿는 것은 무시 FS 에서만 가능하다). 그래서 픽스처는 FS 에 맞춰
+  # 고르되 **단언은 양쪽에서 동일**하게 둔다 — 게이트가 술어를 따르는가만 본다.
+  # 술어를 스텁으로 갈아끼우므로, lookup 이 `fs_is_case_insensitive` 가 아닌 다른 축에
+  # 걸려 있으면 스텁이 무시돼 이 테스트가 깨진다(같은 근거 재사용을 행동으로 고정).
+  source <(sed -n '/^canon_file()/,/^}/p' "$HOOK")
+  export LC_ALL=C   # ls 정렬을 고정해 어느 철자가 head -1 에 걸리는지 결정론적으로 만든다
+  local D="$WORK/progress" req got
+  : > "$D/feature_list.json"
+  mkdir -p "$WORK/CiProbe"
+  if [[ -e "$WORK/ciprobe" ]]; then
+    req="FEATURE_LIST.JSON"          # 무시 FS: 두 철자가 공존 불가 — 변형 철자로 요청한다
+  else
+    : > "$D/FEATURE_LIST.json"       # 구분 FS: 디코이를 실제로 만든다 (원본과 공존)
+    req="feature_list.json"
+  fi
+  rmdir "$WORK/CiProbe" 2>/dev/null || rm -rf "$WORK/CiProbe"
+
+  # (1) FS 가 대소문자를 구분하면 lookup 을 하지 않는다 — 요청한 철자가 그대로 유지된다.
+  fs_is_case_insensitive() { return 1; }
+  got=$(canon_file "$D/$req")
+  [ "$(basename "$got")" = "$req" ] || {
+    echo "구분 FS 에서 판정 대상이 '$req' -> '$(basename "$got")' 로 재바인딩됐다"; false; }
+
+  # (2) FS 가 대소문자를 무시하면 기존대로 실제 철자를 물어본다 (정당한 철자 변형 인식).
+  fs_is_case_insensitive() { return 0; }
+  got=$(canon_file "$D/$req")
+  [ "$(basename "$got")" != "$req" ] || {
+    echo "무시 FS 에서 lookup 이 돌지 않았다 — 정당한 철자 변형 인식이 깨진다"; false; }
+}
+
+@test "F70: a case-variant decoy does not rebind the guard's target (case-sensitive FS)" {
+  # 종단 확인 — 디코이는 **이미 통과할 모양**으로 만든다(임계값이 낮고, passes 가 참이고,
+  # @test 가 이미 하나). 그래야 판정이 디코이로 옮겨간 순간 "약화 없음" 으로 보여 exit 0 이
+  # 된다. 원본 기준으로 판정하면 셋 다 약화이므로 deny 여야 한다.
+  mkdir -p "$WORK/CiProbe"
+  if [[ -e "$WORK/ciprobe" ]]; then
+    rmdir "$WORK/CiProbe" 2>/dev/null || rm -rf "$WORK/CiProbe"
+    skip "case-insensitive filesystem — 두 철자가 공존할 수 없어 디코이를 만들 수 없다"
+  fi
+  export LC_ALL=C   # 대문자가 먼저 정렬돼 디코이가 head -1 에 걸리는 것을 고정한다
+
+  # (1) harness-config.json — 임계값 하향
+  printf '%s\n' '{ "scoring": { "pass_threshold": 1, "security_thresholds": { "critical": 1, "standard": 1, "low": 1 } } }' > "$WORK/progress/HARNESS-CONFIG.json"
+  local BAD='{ "scoring": { "pass_threshold": 1, "security_thresholds": { "critical": 1, "standard": 1, "low": 1 } } }'
+  run run_write "$(mk_write_input "$WORK/progress/harness-config.json" "$BAD")"
+  [ "$status" -eq 2 ] || { echo "디코이가 있으면 임계값 하향이 통과한다"; false; }
+
+  # (2) feature_list.json — passes 주입
+  printf '%s\n' '{"features":[{"id":"F1","passes":true}]}' > "$WORK/progress/FEATURE_LIST.json"
+  printf '%s\n' '{"features":[{"id":"F1","passes":false}]}' > "$WORK/progress/feature_list.json"
+  run run_write "$(mk_write_input "$WORK/progress/feature_list.json" '{"features":[{"id":"F1","passes":true}]}')"
+  [ "$status" -eq 2 ] || { echo "디코이가 있으면 passes 주입이 통과한다"; false; }
+
+  # (3) tests/*.bats — @test 삭제
+  printf '@test "a" {\n  true\n}\n' > "$WORK/tests/SAMPLE.bats"
+  printf '@test "a" {\n  true\n}\n@test "b" {\n  true\n}\n' > "$WORK/tests/sample.bats"
+  run run_write "$(mk_write_input "$WORK/tests/sample.bats" '@test "a" {
+  true
+}
+')"
+  [ "$status" -eq 2 ] || { echo "디코이가 있으면 @test 삭제가 통과한다"; false; }
+}
+
+@test "F70: on a case-insensitive FS a variant spelling of an existing protected file is still gated" {
+  # AC-2 의 앵커 — 과잉 게이팅 방지. 기존 F68 테스트들은 **삭제 후 재생성**(HEAD 실체화) 경로를
+  # 덮는다. 파일이 **그대로 있는 채** 변형 철자로 닿는 경로는 canon_file 의 lookup 만이 닫으므로,
+  # 게이팅을 너무 넓게 걸면 여기서 조용히 열린다.
+  mkdir -p "$WORK/CiProbe"
+  if [[ ! -e "$WORK/ciprobe" ]]; then skip "case-sensitive filesystem — 이 축은 이 FS 에서 발화하지 않는다"; fi
+  rmdir "$WORK/CiProbe" 2>/dev/null || rm -rf "$WORK/CiProbe"
+  local BAD='{ "scoring": { "pass_threshold": 1, "security_thresholds": { "critical": 1, "standard": 1, "low": 1 } } }'
+  run run_write "$(mk_write_input "$WORK/progress/HARNESS-CONFIG.JSON" "$BAD")"
+  [ "$status" -eq 2 ] || { echo "존재하는 harness-config.json 을 변형 철자로 쓰면 임계값 게이트가 열린다"; false; }
+}
