@@ -1075,6 +1075,34 @@ _noawk_run() {
 # 되돌렸고, 아래 셋이 재발을 막는다. 이 회전은 08ed589 가 테스트를 하나도 바꾸지 않아
 # 네 변이가 전부 생존했다는 지적(test 2점)의 직접 대응이기도 하다.
 
+@test "INV-7: hooks.json wiring is compared as a set, not by command substring" {
+  # 이전 판본은 `invariant-guard.sh` 가 command 로 어딘가 남아 있는지만 봤다. 그래서
+  # **이벤트 키를 대문자로 바꾸는 쓰기 하나로 훅 전체가 등록에서 사라지는데 통과**했다
+  # (F68 9차 판정 실증). command 는 그대로라 이름 기반 검사에는 보이지 않는다. 더 나쁜 것은
+  # 가드가 통과시키면 티켓이 발급되어 protected-integrity 도 되돌리지 않는다는 점이다.
+  cat > "$WORK/hooks/hooks.json" <<'JSON'
+{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"bash ${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash-firewall.sh"}]},
+{"matcher":"Edit|Write","hooks":[{"type":"command","command":"bash ${CLAUDE_PLUGIN_ROOT}/hooks/invariant-guard.sh"}]}],
+"Stop":[{"matcher":"","hooks":[{"type":"command","command":"bash ${CLAUDE_PLUGIN_ROOT}/hooks/pre-commit-gate.sh"}]}]}}
+JSON
+  # (a) 이벤트 키 대문자화 — 등록이 통째로 사라진다
+  local UP='{"hooks":{"PRETOOLUSE":[{"matcher":"Bash","hooks":[{"type":"command","command":"bash ${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash-firewall.sh"}]},{"matcher":"Edit|Write","hooks":[{"type":"command","command":"bash ${CLAUDE_PLUGIN_ROOT}/hooks/invariant-guard.sh"}]}],"STOP":[{"matcher":"","hooks":[{"type":"command","command":"bash ${CLAUDE_PLUGIN_ROOT}/hooks/pre-commit-gate.sh"}]}]}}'
+  run run_write "$(mk_write_input "$WORK/hooks/hooks.json" "$UP")"
+  [ "$status" -eq 2 ] || { echo "이벤트 키 대문자화로 배선이 사라졌는데 통과했다"; false; }
+  # (b) matcher 만 소문자로 — 도달성이 줄어든다
+  local LM='{"hooks":{"PreToolUse":[{"matcher":"bash","hooks":[{"type":"command","command":"bash ${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash-firewall.sh"}]},{"matcher":"Edit|Write","hooks":[{"type":"command","command":"bash ${CLAUDE_PLUGIN_ROOT}/hooks/invariant-guard.sh"}]}],"Stop":[{"matcher":"","hooks":[{"type":"command","command":"bash ${CLAUDE_PLUGIN_ROOT}/hooks/pre-commit-gate.sh"}]}]}}'
+  run run_write "$(mk_write_input "$WORK/hooks/hooks.json" "$LM")"
+  [ "$status" -eq 2 ] || { echo "matcher 축소가 통과했다"; false; }
+  # (c) 이벤트 하나 제거
+  local RM='{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"bash ${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash-firewall.sh"}]},{"matcher":"Edit|Write","hooks":[{"type":"command","command":"bash ${CLAUDE_PLUGIN_ROOT}/hooks/invariant-guard.sh"}]}]}}'
+  run run_write "$(mk_write_input "$WORK/hooks/hooks.json" "$RM")"
+  [ "$status" -eq 2 ] || { echo "이벤트 제거가 통과했다"; false; }
+  # (d) 대조 — 추가는 강화이므로 통과해야 한다(add-only)
+  local ADD='{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"bash ${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash-firewall.sh"}]},{"matcher":"Edit|Write","hooks":[{"type":"command","command":"bash ${CLAUDE_PLUGIN_ROOT}/hooks/invariant-guard.sh"}]}],"Stop":[{"matcher":"","hooks":[{"type":"command","command":"bash ${CLAUDE_PLUGIN_ROOT}/hooks/pre-commit-gate.sh"}]}],"Notification":[{"matcher":"*","hooks":[{"type":"command","command":"bash new.sh"}]}]}}'
+  run run_write "$(mk_write_input "$WORK/hooks/hooks.json" "$ADD")"
+  [ "$status" -eq 0 ] || { echo "배선 추가(강화)가 차단됐다 — 과잉 차단"; false; }
+}
+
 @test "F68: the guard sets no global nocasematch" {
   # 도구의 사정거리가 문제의 사정거리보다 넓으면 그 초과분이 그대로 회귀가 된다.
   # 경로 분류 술어 몇 개에만 필요한 것을 셸 전역 옵션으로 켜지 않는다.

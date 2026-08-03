@@ -532,6 +532,27 @@ fi
 # === hooks.json: invariant-guard 실제 실행 등록 보존 (INV-7) ===
 # 텍스트 substring이 아니라 jq로 실제 hook command를 추출해 검사한다 (미끼 필드·rename 우회 차단).
 if [[ "$BASENAME" == "hooks.json" ]]; then
+  # **배선은 (이벤트 | matcher | command) 튜플 집합으로 본다.** 이전 판본은 command 문자열이
+  # 어딘가 남아 있는지만 봤고, 그래서 **이벤트 키를 대문자로 바꾸는 쓰기 하나로 훅 전체가
+  # 등록에서 사라지는데 통과**했다(F68 9차 판정 실증: 여섯 이벤트가 전부 `PRETOOLUSE` 류가
+  # 되고 하네스 배선이 소실됐다). command 는 그대로이므로 이름 기반 검사로는 보이지 않는다.
+  # 더 나쁜 것은 가드가 통과시키면 `.guarded-edits` 티켓이 발급되어 protected-integrity 도
+  # 되돌리지 않는다는 점이다 — 두 계층이 함께 눈을 감는다.
+  # `settings.json` 브랜치(INV-13)가 이미 쓰는 방식과 같게 맞춘다: **사라진 등록이 있으면 deny.**
+  # 추가는 자유다(add-only 강화).
+  wiring_set() {
+    jq -r '(.hooks // {}) | to_entries[]? | .key as $ev | (.value // [])[]?
+           | (.matcher // "") as $m | (.hooks // [])[]?
+           | "\($ev)|\($m)|\(.command // "")"' <<<"$1" 2>/dev/null | sort -u
+  }
+  OLD_W=$(wiring_set "$(cat "$FILE")")
+  if [[ -n "$OLD_W" ]]; then
+    NEW_W=$(wiring_set "$NEW_CONTENT")
+    MISSING=$(comm -23 <(printf '%s\n' "$OLD_W") <(printf '%s\n' "$NEW_W") 2>/dev/null)
+    if [[ -n "${MISSING//[$' \t\n']/}" ]]; then
+      deny "hooks.json 배선 소실 (event|matcher|command): $(printf '%s' "$MISSING" | tr '\n' ' ' | cut -c1-300) — 훅 등록의 실행 도달성 축소는 게이트 약화 (INV-7)"
+    fi
+  fi
   # OLD가 invariant-guard.sh를 PreToolUse command로 등록하고 있었는가?
   guard_registered() {
     jq -r '[.. | objects | .command? // empty] | .[]' <<<"$1" 2>/dev/null \
