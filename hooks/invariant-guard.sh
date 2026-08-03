@@ -193,9 +193,22 @@ fs_is_case_insensitive() {
   [[ -e "$parent/$flipped" ]]
 }
 FILE=$(canon_file "$FILE")
-if fs_is_case_insensitive "$(dirname "$FILE")"; then
-  shopt -s nocasematch
-fi
+# **전역 `shopt -s nocasematch` 는 철회했다 (F68 9차 판정).** 대소문자 무시 FS 에서 모든 경로
+# 매칭을 대소문자 무시로 돌렸더니 경로 분류만이 아니라 **내용·구조 판정까지** 함께 무뎌져
+# 게이트 둘이 새로 열렸다(대조군 대비 귀속 확인):
+#   - `.claude/settings.json` 의 matcher·이벤트 키를 대소문자만 바꿔 쓰면 배선 무력화 검사가
+#     통과한다 — 쓰기 하나로 PreToolUse 훅 전체가 사라지는데 가드가 승인했다 (INV-13).
+#   - `evaluator-runs.jsonl` 의 기존 라인을 대문자로 재작성하면 append-only 검사가 통과한다.
+# 커밋이 근거로 든 "내용 검사는 grep/jq/awk 가 하므로 영향받지 않는다" 가 다섯 사례로 반증됐다.
+# **닫으려던 것보다 연 것이 컸으므로 되돌린다.** 정규화 위치 이동·신규 계약 제한·방화벽 arm 은
+# 정규 철자에서 그대로 작동하므로 유지한다.
+#
+# 남은 한계(선재, INV-12 '알려진 한계'): 대소문자 무시 FS 에서 **삭제 후** 다른 철자로 재생성하는
+# 경로는 여전히 열려 있다 — `canon_file` 이 실제 철자를 FS 에 물어보는데 그때 물어볼 대상이 없다.
+# 올바른 해법은 판정을 **파일 동일성**으로 한 번에 올리는 것이다(존재하면 device+inode, 없으면
+# realpath(최근접 상위) + 나머지 성분을 **경로 분류 술어에 한해서만** 대소문자 무시). 전역 설정으로
+# 대신하지 말 것 — 그것이 이번에 실패한 방법이다.
+# `fs_is_case_insensitive` 는 그 후속 구현이 쓸 수 있도록 남겨 둔다.
 
 # === 가드를 통과한 편집을 원장에 남긴다 (F65) ===
 # protected-integrity.sh(PostToolUse:Bash)는 "보호 파일이 HEAD와 다른데 가드를 거치지 않았으면

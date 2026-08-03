@@ -335,6 +335,12 @@ ASK_PATTERNS=(
   '\b(cp|mv|install|rsync|ln|tee|sponge|truncate)\b[^;|&]*contracts/[A-Za-z0-9_.-]+\.json'
   '\bof= *[^ ]*contracts/[A-Za-z0-9_.-]+\.json'
   '\b(ed|ex|vi|vim|nano|emacs|dd|patch|sponge)\b[^;|&]*contracts/[A-Za-z0-9_.-]+\.json'
+  # 위 넷은 셸 모양의 쓰기만 잡는다 — 인터프리터와 sed in-place/`w` 는 별도 arm 이 필요하다
+  # (F68 9차 판정 부수 관찰: `python3 -c "open('<계약>','w')"` 과 `sed -i` 가 allow 였다).
+  '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*contracts/[A-Za-z0-9_.-]+\.json'
+  '\b(g?sed|perl|g?awk|mawk)\b[^;|&]*(^| )-[a-zA-Z]*i[a-zA-Z]*[^;|&]*contracts/[A-Za-z0-9_.-]+\.json'
+  '\b(g?sed|perl|g?awk|mawk)\b[^;|&]*--in-place[^;|&]*contracts/[A-Za-z0-9_.-]+\.json'
+  '\bg?sed\b[^;|&]*\bw\b *[^;|&]*contracts/[A-Za-z0-9_.-]+\.json'
   # 민감 파일(비밀키·크리덴셜) 이동/복사/덮어쓰기
   '\b(cp|mv|rsync|install|tee|scp)\b[^;|&]*(\.ssh/|\.aws/|\.gnupg/)'
   '>>? *[^ ]*(\.ssh/|\.aws/|\.gnupg/)'
@@ -570,13 +576,29 @@ pure_read_only() {
       case "$tok" in
         '') break ;;
         [A-Za-z_]*=* | for | while | until | do | done | if | then | elif | else | fi | case | esac | in | : | time) seg="$rest" ;;
+        # `env`·`command` 는 **접두 명령**이다 — 인자를 그대로 exec 한다. 이름만으로 읽기라
+        # 판정하면 접두 한 단어로 ASK 계층 전체가 무력화된다(F67 F37 2차 판정 실측:
+        # `env cp /tmp/x progress/feature_list.json`(INV-11 게이트) · `env python3 -c
+        # "open('hooks/hooks.json','w')"`(이 방화벽의 배선) · `env git reset --hard` 가 전부
+        # allow 였고, 접두를 떼면 셋 다 ask 다). `time` 과 같은 계열이므로 같은 자리에서
+        # 벗겨 내고 **그 뒤**를 판정한다 — `env -i cp …` 처럼 옵션이 붙으면 아래 `*)` 로
+        # 떨어져 읽기 확정에 실패하므로 ask 가 된다(보수적 방향).
+        # 예외 하나: `command -v/-V` 는 실행하지 않고 경로만 출력하므로 그대로 읽기다.
+        env | command)
+          # `command -v/-V` 는 실행하지 않고 경로만 출력한다 — `true` 로 바꿔 읽기로 흘려보내되
+          # **나머지 인자는 유지**해 리다이렉트 검사(`$seg` 안의 `>`)가 그대로 작동하게 한다.
+          if [[ "$tok" == "command" && "$rest" =~ ^-[vV]([[:space:]]|$) ]]; then seg="true $rest"; continue; fi
+          seg="$rest" ;;
         *) break ;;
       esac
     done
     [[ -z "${tok// /}" ]] && continue
     [[ "$tok" == "rtk" ]] && IFS=' ' read -r tok rest <<<"$rest"
     case "$tok" in
-      cat | head | tail | nl | wc | ls | stat | file | basename | dirname | realpath | readlink | shasum | sha1sum | sha256sum | md5 | md5sum | cmp | diff | grep | egrep | fgrep | rg | jq | cut | uniq | tr | column | rev | od | xxd | strings | which | type | command | date | env | test | echo | printf | pwd | true | false | cd | shellcheck | bats)
+      # `env`·`command` 는 여기 없다 — 인자를 exec 하는 접두 명령이라 위 벗겨내기 분기가 담당한다.
+      # 이 목록에 접두 명령이 들어오면 단어 하나로 ASK 계층 전체가 꺼진다(F67 F37 2차 판정 실측).
+      # `tests/pre-bash-firewall.bats` 가 목록 자체를 검사해 재유입을 막는다.
+      cat | head | tail | nl | wc | ls | stat | file | basename | dirname | realpath | readlink | shasum | sha1sum | sha256sum | md5 | md5sum | cmp | diff | grep | egrep | fgrep | rg | jq | cut | uniq | tr | column | rev | od | xxd | strings | which | type | date | test | echo | printf | pwd | true | false | cd | shellcheck | bats)
         [[ "$seg" == *'>'* ]] && return 1
         ;;
       sort)

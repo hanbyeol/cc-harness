@@ -1068,3 +1068,66 @@ _noawk_run() {
   run run_write "$(mk_write_input "$WORK/progress/harness-config.json" "$NEW")"
   [ "$status" -eq 0 ]
 }
+
+# === F68 9차 판정 — 전역 nocasematch 철회를 잠근다 ===
+# 대소문자 무시 FS 의 철자 우회를 닫으려고 `shopt -s nocasematch` 를 전역으로 켰더니,
+# 경로 분류만이 아니라 **내용·구조 동등비교까지** 무뎌져 게이트 둘이 새로 열렸다(9차 실증).
+# 되돌렸고, 아래 셋이 재발을 막는다. 이 회전은 08ed589 가 테스트를 하나도 바꾸지 않아
+# 네 변이가 전부 생존했다는 지적(test 2점)의 직접 대응이기도 하다.
+
+@test "F68: the guard sets no global nocasematch" {
+  # 도구의 사정거리가 문제의 사정거리보다 넓으면 그 초과분이 그대로 회귀가 된다.
+  # 경로 분류 술어 몇 개에만 필요한 것을 셸 전역 옵션으로 켜지 않는다.
+  run grep -c '^[[:space:]]*shopt -s nocasematch' "$HOOK"
+  [ "$output" -eq 0 ] || { echo "전역 nocasematch 가 되살아났다 — 9차 판정의 회귀 둘을 먼저 읽어라"; false; }
+}
+
+@test "F68: settings.json wiring gate rejects a case-only matcher rewrite" {
+  # nocasematch 아래에서 `[[ "$om" == "$nm" ]]` 가 대소문자 무시 동등비교가 되어,
+  # matcher 를 소문자로 내리는 쓰기 하나로 PreToolUse 훅 전체가 사라지는데 통과했다.
+  mkdir -p "$WORK/.claude"
+  cat > "$WORK/.claude/settings.json" <<'JSON'
+{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"bash x.sh"}]}]}}
+JSON
+  local NEW='{"hooks":{"PreToolUse":[{"matcher":"bash","hooks":[{"type":"command","command":"bash x.sh"}]}]}}'
+  run run_write "$(mk_write_input "$WORK/.claude/settings.json" "$NEW")"
+  [ "$status" -eq 2 ] || { echo "matcher 대소문자만 바꾼 배선 축소가 통과했다 (INV-13)"; false; }
+  # 이벤트 키 대문자화도 같은 클래스다
+  local NEW2='{"hooks":{"PRETOOLUSE":[{"matcher":"Bash","hooks":[{"type":"command","command":"bash x.sh"}]}]}}'
+  run run_write "$(mk_write_input "$WORK/.claude/settings.json" "$NEW2")"
+  [ "$status" -eq 2 ] || { echo "이벤트 키 대문자화로 배선이 사라졌는데 통과했다 (INV-13)"; false; }
+  # 대조 — 배선을 보존하는 정당한 편집은 통과해야 한다(과잉 차단 방지)
+  local OK='{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"bash x.sh"}]}]},"env":{"A":"1"}}'
+  run run_write "$(mk_write_input "$WORK/.claude/settings.json" "$OK")"
+  [ "$status" -eq 0 ]
+}
+
+@test "F68: evaluator-runs append-only rejects a case-only rewrite of existing lines" {
+  mkdir -p "$WORK/progress/agent-comms"
+  local LOG="$WORK/progress/agent-comms/evaluator-runs.jsonl"
+  printf '%s\n' '{"ts":"2026-08-01T00:00:00Z","agent_id":"a1","epoch":1}' \
+                '{"ts":"2026-08-02T00:00:00Z","agent_id":"a2","epoch":2}' > "$LOG"
+  local UP; UP=$(tr '[:lower:]' '[:upper:]' < "$LOG")
+  run run_write "$(mk_write_input "$LOG" "$UP")"
+  [ "$status" -eq 2 ] || { echo "기존 라인 대문자 재작성이 append-only 를 통과했다"; false; }
+  # 대조 — 진짜 append 는 통과한다
+  local APP; APP=$(cat "$LOG"; printf '%s\n' '{"ts":"2026-08-03T00:00:00Z","agent_id":"a3","epoch":3}')
+  run run_write "$(mk_write_input "$LOG" "$APP")"
+  [ "$status" -eq 0 ]
+}
+
+@test "F68: a contract created from nothing carries neither agreed nor a batch approval" {
+  # 파일이 없으면 OLD_* 를 읽을 수 없어 전환 검사가 전부 무발화가 된다 — 삭제 후 재생성으로
+  # 승인 범위를 주입하던 경로다(8차 지적, 9ea285e 는 agreed 쪽만 닫았다).
+  mkdir -p "$WORK/progress/contracts"
+  local BAD='{"sprint":99,"feature_id":"F99","agreed":true,"acceptance_criteria":[{"id":"AC-1"}],"implementation_steps":["a"]}'
+  run run_write "$(mk_write_input "$WORK/progress/contracts/sprint-99.json" "$BAD")"
+  [ "$status" -eq 2 ] || { echo "신규 계약이 agreed:true 로 생성됐는데 통과했다"; false; }
+  local BAD2='{"sprint":99,"feature_id":"F99","agreed":false,"_batch_approval":{"scope":["**/*"],"N":99},"acceptance_criteria":[{"id":"AC-1"}],"implementation_steps":["a"]}'
+  run run_write "$(mk_write_input "$WORK/progress/contracts/sprint-99.json" "$BAD2")"
+  [ "$status" -eq 2 ] || { echo "신규 계약이 _batch_approval 을 담고 생성됐는데 통과했다"; false; }
+  # 대조 — 정상 신규 계약(agreed:false, 배치 없음)은 통과해야 한다
+  local OK='{"sprint":99,"feature_id":"F99","agreed":false,"acceptance_criteria":[{"id":"AC-1"}],"implementation_steps":["a"]}'
+  run run_write "$(mk_write_input "$WORK/progress/contracts/sprint-99.json" "$OK")"
+  [ "$status" -eq 0 ]
+}

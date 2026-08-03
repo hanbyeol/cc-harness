@@ -1373,10 +1373,17 @@ JSON
 @test "F67: the exemption result set is pinned, not just the token list" {
   # SC-2 보강(1차 판정): '목록이 단일 출처'만으로는 목록→결과 사상이 고정되지 않아, 경계가
   # 부분일치 우연에 기대고 있어도 통과한다. 어느 arm이 **실제로** 면제되는지를 여기서 센다.
+  # **면제 토큰은 `EXEMPTABLE_ARM_TOKENS` 에서 읽는다.** 이전 판본은 `READ_CAPABLE_ARM ∪
+  # INTERPRETER_ARM` 으로 면제를 재구성했는데, 그러면 실제 면제 목록과 무관한 값을 세게 되어
+  # **면제를 되살리는 변이를 통과시킨다** — F67 1차 판정이 결함으로 기록했고 F37 2차 판정이
+  # 변이로 재확인했다(그 변이에 다른 9개 테스트만 반응했다). 판정 로직의 단일 출처를 본다.
   local fw="$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh"
-  local read_arm interp_arm
-  read_arm=$(grep -m1 '^READ_CAPABLE_ARM=' "$fw" | cut -d"'" -f2)
-  interp_arm=$(grep -m1 '^INTERPRETER_ARM=' "$fw" | cut -d"'" -f2)
+  local -a TOKENS
+  mapfile -t TOKENS < <(sed -n '/^EXEMPTABLE_ARM_TOKENS=(/,/^)/p' "$fw" \
+    | grep -oE '\$\{?[A-Z_]+\}?' | tr -d '${}' \
+    | while IFS= read -r v; do grep -m1 "^$v=" "$fw" | cut -d"'" -f2; done)
+  [ "${#TOKENS[@]}" -ge 1 ]
+  local t; for t in "${TOKENS[@]}"; do [ -n "$t" ]; done
   # 배제 조건은 **함수에서 추출한다.** 여기에 다시 적으면 판정 로직이 두 곳에 살고, 한쪽만
   # 고쳐도 조용히 어긋난다 — F68에서 실제로 그랬다(approval-queue 배제를 함수에만 넣었더니
   # 이 테스트가 4를 세고 실패했다). 추출하면 함수를 고칠 때 테스트가 따라온다.
@@ -1393,14 +1400,18 @@ JSON
       [[ "$p" == *"$ex"* ]] && { skip_arm=1; break; }
     done
     [ "$skip_arm" -eq 1 ] && continue
-    if [[ "$p" == *"$read_arm"* || "$p" == *"$interp_arm"* ]]; then
-      exempt=$((exempt+1))
-      # 면제되는 arm 중 어느 것도 컨트롤 플레인 경로를 담아서는 안 된다
-      [[ "$p" != *'hooks/hooks'* && "$p" != *'settings'* ]]
-    fi
+    for t in "${TOKENS[@]}"; do
+      if [[ "$p" == *"$t"* ]]; then
+        exempt=$((exempt+1))
+        # 면제되는 arm 중 어느 것도 컨트롤 플레인 경로를 담아서는 안 된다
+        [[ "$p" != *'hooks/hooks'* && "$p" != *'settings'* ]]
+        break
+      fi
+    done
   done < <(awk "/^ASK_PATTERNS=\(/{b=1;next} b&&/^\)/{b=0} b&&/^[[:space:]]*'/{sub(/^[[:space:]]*'/,\"\");sub(/'[[:space:]]*\$/,\"\");print}" "$fw")
   [ "$total" -ge 45 ]
-  [ "$exempt" -eq 3 ]   # sed/awk 데이터플레인 · 인터프리터 데이터플레인 · 인터프리터 feature_list
+  # 인터프리터 면제 철회(2026-08-02) 후 남는 것은 sed/awk 데이터 플레인 arm 하나뿐이다.
+  [ "$exempt" -eq 1 ] || { echo "면제 arm 수가 1이 아니다: $exempt — 면제가 되살아났는지 확인하라"; false; }
 }
 
 @test "F67: the decision function matches main outside the intended change" {
@@ -1857,4 +1868,52 @@ JSON
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
   run wired_firewall '{"tool_input":{"command":"echo hi\ncp /tmp/x progress/feature_list.json"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+# === Layer 3.4 (pure_read_only) — 접두 명령 (F67 F37 2차 판정) ===
+# `PURE_READ=1` 은 ASK 배열 **전체**를 건너뛴다. 그래서 이 층의 도구 목록에 **접두 명령**이
+# 들어가면 단어 하나로 ASK 계층 전체가 무력화된다. `env`·`command` 가 그 목록에 있었고,
+# 2차 판정이 살아 있는 릴리스(v1.39.0)에서 실증했다. 이 층은 그때까지 테스트가 0건이었다.
+
+@test "prefix commands are not read-only: env/command exec their argument" {
+  local c
+  for c in "env cp /tmp/x progress/feature_list.json" \
+           "command cp /tmp/x progress/feature_list.json" \
+           "env python3 -c open(hooks/hooks.json,w).write(x)" \
+           "env git reset --hard origin/main" \
+           "env -i cp /tmp/x progress/feature_list.json" \
+           "env FOO=1 cp /tmp/x progress/feature_list.json" \
+           "time cp /tmp/x progress/feature_list.json"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"$c\"}}"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "접두 한 단어로 ASK 계층이 무력화된다: $c"; false; }
+  done
+}
+
+@test "prefix stripping does not take real reads with it" {
+  # 보수적 방향으로 틀리되, 정상 읽기까지 잡으면 그것은 과잉 교정이다.
+  local c
+  for c in "env" \
+           "env cat README.md" \
+           "env python3 --version" \
+           "command -v jq" \
+           "command -v git >/dev/null" \
+           "command -V bash"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"$c\"}}"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "정상 읽기에 마찰이 생겼다: $c"; false; }
+  done
+}
+
+@test "the read-only tool list contains no command that execs its argument" {
+  # 목록에 접두 명령이 다시 들어오는 것을 소스에서 막는다 — 위 두 테스트는 아는 이름만 보지만
+  # 이 검사는 **목록 자체**를 본다. 새 이름이 들어오면 여기서 먼저 걸린다.
+  local fw="$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh"
+  local list bad="" n
+  list=$(sed -n '/^  *cat | head | tail/p' "$fw" | head -1)
+  [ -n "$list" ]
+  for n in env command sudo nice nohup timeout stdbuf setsid xargs doas chroot unshare taskset; do
+    [[ "$list" == *"| $n "* || "$list" == *"| $n)"* || "$list" == *" $n |"* ]] && bad="$bad $n"
+  done
+  [ -z "$bad" ] || { echo "읽기 전용 목록에 인자를 exec 하는 명령이 있다:$bad"; false; }
 }

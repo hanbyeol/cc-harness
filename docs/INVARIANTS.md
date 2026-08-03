@@ -172,6 +172,23 @@ behavioral 프로브 코퍼스가 이 부류의 누출을 감시한다.
 안에서만** critical도 무인으로 진행할 수 있다. 승인 범위 밖의 검증 장치 파일을 건드리면 무인이
 중단되고 `progress/approval-queue.json`에 적립된다.
 
+**알려진 한계 — 경로 철자 클래스 (F68 8·9차 판정, 미해결)**: 대소문자를 구분하지 않는 파일시스템
+(macOS APFS 기본)에서 **대상을 먼저 지운 뒤 다른 철자로 재생성**하면 이 절의 게이트들을 빠져나간다.
+`invariant-guard.sh`의 `canon_file()`은 실제 철자를 파일시스템에 물어보는데, 지워진 뒤에는 물어볼
+대상이 없기 때문이다. 실측된 형태 둘 —
+- `progress/feature_list.json` 삭제 후 `PROGRESS/FEATURE_LIST.JSON` 쓰기 → `passes:true`가
+  evaluator-feedback 조회·실행 기록 확인·min-of-5·보안 임계값 없이 통과(INV-11 우회).
+- `progress/contracts/`가 아직 없는 상태에서 `progress/CONTRACTS/sprint-1.json`에 `agreed:true` +
+  `_batch_approval` 쓰기 → 통과. 신규 파일이라 `protected-integrity.sh`가 되돌릴 HEAD 원본도 없다.
+
+**한 번 시도했다가 되돌렸다.** 전역 `shopt -s nocasematch`로 판정을 대소문자 무시로 돌렸더니 경로
+분류만이 아니라 **내용·구조 동등비교까지** 무뎌져, `.claude/settings.json`의 matcher를 소문자로 내려
+PreToolUse 훅 전체를 없애는 쓰기와 `evaluator-runs.jsonl`의 기존 라인 대문자 재작성이 통과했다
+(9차 판정이 대조군 귀속으로 실증). **닫으려던 것보다 연 것이 컸다.** 올바른 해법은 판정을 파일
+동일성으로 올리는 것이다 — 존재하면 device+inode, 없으면 realpath(최근접 상위) + 나머지 성분을
+**경로 분류 술어에 한해서만** 대소문자 무시. 전역 셸 옵션으로 대신하지 않는다.
+`tests/invariant-guard.bats`가 전역 설정의 재유입과 위 두 회귀를 잠근다.
+
 **승인 범위에 넣을 수 없는 것**: `tests/*.bats`는 명시 승인이어도 무인 편집 대상이 아니다 — 아래에서
 못박듯 count 기반 검사는 `@test` 본문의 `skip` 주입을 잡지 못하므로, 범위에 넣으면 그 제외 근거가
 그대로 무력해진다(F68 1차 판정 지적). 예외는 "무인 금지 목록에서 빼는 것"이 아니라 "명시 승인된
