@@ -402,6 +402,41 @@ ASK_PATTERNS=(
   '^ *(ed|ex|vi|vim|nano|emacs|dd|patch|sponge)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
   '>>? *[^ ]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
   '\b(cp|mv|install|rsync|ln|tee|sponge|truncate)\b[^;|&]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
+  # === 순수 삭제로 컨트롤 플레인을 비우는 경로 (F65 AC-11 / SC-9) ===
+  #
+  # 위 두 arm 을 포함해 컨트롤 플레인 arm 은 전부 **덮어쓰기**만 잡고 있었다 — 에디터 이름·
+  # cp/mv 계열·리다이렉트는 모두 "쓴다"는 신호를 명령에 드러내기 때문이다. 그런데 배선을
+  # 무력화하는 더 짧은 길은 덮어쓰는 것이 아니라 **지우는 것**이고, `rm` 은 어느 arm 에도 없었다.
+  #
+  # 왜 삭제가 별도로 값을 하는가 (격리 랩 실측, 2026-08-03):
+  #   - `.claude/settings.json` 이 **있는 채로** 배선을 뺀 Write → invariant-guard exit 2 (deny)
+  #   - `rm` 뒤에 같은 Write                                   → invariant-guard exit 0 (통과)
+  # 이 파일은 gitignore 대상이라 HEAD 기준선이 없다. 그래서 삭제가 배선 비교의 OLD 집합을
+  # 없애고, 그 순간 재생성 Write 는 "무엇을 약화시켰는지" 대조할 상대를 잃는다. 즉 삭제는
+  # 체인에서 **유일하게 값을 하는 단계**이며, 그것이 방화벽에서 allow 였다.
+  # (`hooks/hooks.json` 은 git 추적이라 같은 체인이 이미 exit 2 로 막힌다 — 아래 arm 은 그쪽에는
+  #  다중 방어이고, `settings.json` 쪽에는 유일한 예측 통제다.)
+  #
+  # 삭제는 덮어쓰기와 성질이 다르다: 도구 이름이 확정적이고 표기 변형의 여지가 거의 없어
+  # **열거가 수렴한다.** F63 이 열 회전을 쓴 "이 명령이 쓸 것인가"와 달리 "이 명령이 지우는가"는
+  # 동사 몇 개로 닫힌다. 경로 토큰이 있을 때만 발동하므로 `rm -rf node_modules` 는 그대로 allow 다.
+  '\b(rm|unlink|shred)\b[^;|&]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
+  # `git rm <경로>` 는 위 arm 의 `\brm\b` 가 이미 잡는다(`--cached` 는 별도 arm 이 담당).
+  # `find` 는 경로가 `-name <basename>` 으로 들어와 위 arm 의 디렉터리 앵커에 걸리지 않는다.
+  # 술어 순서는 자유이므로 양방향으로 둔다.
+  '\bfind\b[^;|&]*(hooks\.json|settings(\.local)?\.json)[^;|&]*(-delete|-exec[a-z]* +rm)'
+  '\bfind\b[^;|&]*(-delete|-exec[a-z]* +rm)[^;|&]*(hooks\.json|settings(\.local)?\.json)'
+  # 파일 하나만 앵커하면 `rm -rf .claude` 한 줄로 그대로 빠져나간다 — 같은 동사·같은 대상이므로
+  # 함께 닫는다. 부분 닫기는 닫힌 것으로 오인하게 만들어 오히려 나쁘다는 것이 F63·F67 의 교훈이다.
+  #
+  # 대상은 **컨트롤 플레인을 담는 디렉터리**로 한정한다. 열거가 아니라 세 가지 구조적 위치다:
+  #   - `.claude`            — 컨트롤 플레인 루트(설치본 훅·settings 가 여기 있다)
+  #   - `.claude/plugins[/<플러그인>]` — 플러그인 설치 루트. 여기를 지우면 `hooks/hooks.json` 이 함께 간다
+  #   - `…/hooks`            — 배선 파일과 훅 스크립트가 함께 있는 디렉터리
+  # 앵커는 **토큰이 그 위치에서 끝날 때**다 — `.claude/worktrees/…` 처럼 다른 하위 경로가 이어지면
+  # 발동하지 않는다. 그래야 워크트리·캐시 정리 같은 일상 삭제에 마찰이 생기지 않는다
+  # (이 저장소에서 워크트리 정리는 bash `rm` 으로 하지 않는다 — 확인함).
+  '\brm\b[^;|&]*(^| )-[a-zA-Z]*[rR][^;|&]*(^| )[^ ;|&]*(\.claude/plugins(/[A-Za-z0-9_.-]+)?|\.claude|hooks)/?( |$)'
   # === 탐지기 자신을 지키는 arm (F65 1차 판정) ===
   # 분류 축은 "되돌릴 수 있는가" 하나가 아니라 **"자기를 복구할 수 있는가"**까지다.
   # protected-integrity.sh 는 파괴되면 자기를 복구할 수 없고, 티켓 파일은 복구 대상 판단의

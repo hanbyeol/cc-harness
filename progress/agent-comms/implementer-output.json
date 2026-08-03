@@ -1,150 +1,137 @@
 {
-  "feature_id": "F67",
-  "sprint": 53,
-  "title": "예측 계층을 INV-14에 정합시킨다 — 읽기를 잡는 데이터 플레인 arm 면제 + 명령 경계 오인식 수정",
+  "feature_id": "F65",
+  "sprint": 51,
+  "title": "컨트롤 플레인의 삭제 경로를 닫는다 — 예측 계층이 덮어쓰기만 보고 있던 공백 (AC-11 / SC-9)",
   "security_tier": "critical",
-  "timestamp": "2026-07-30T15:20:00+09:00",
-  "_supersedes_note": "이 슬롯의 직전 내용은 F63 sprint-49 10차 보고였다. F63은 F65가 supersede했고(sprint-51 _supersedes) 그 보고는 git 히스토리에 남아 있다.",
+  "timestamp": "2026-08-03T14:30:00+09:00",
+  "_supersedes_note": "이 슬롯의 직전 내용은 F67 sprint-53 보고였다. git 히스토리에 남아 있다.",
   "mode": "serial",
-  "_mode_note": "계약이 _parallelizable:false — step 1·2가 hooks/pre-bash-firewall.sh 의 같은 판정 경로를 건드리고, step 2가 step 1의 면제 판정 결과에 영향을 준다.",
-  "summary": "INV-14는 데이터 플레인을 예측이 아니라 탐지·복구로 지킨다고 선언하는데 방화벽 면제는 45개 arm 중 1개에만 적용돼 있었다. 그 결과 인터프리터로 보호 파일을 **읽기만** 해도 ask였고, 개행으로 나눈 무관한 두 명령이 한 스팬으로 묶였으며, 같은 명령을 `;` 로 이으면 통과했다 — 표기 한 글자로 판정이 뒤집혀 보호와 마찰이 동시에 실패하고 있었다. 면제 대상을 단일 출처 목록으로 뽑아 인터프리터 arm을 편입하고, 정규화가 개행을 명령 구분자로 인식하게 했다.",
-  "achieved": {
-    "AC-1": "완료. 인터프리터가 데이터 플레인 파일을 읽는 3형태(python3 -c · node -e · 사용자가 실제로 거부당한 작은따옴표 형태)가 배선 상태에서 allow.",
-    "AC-2": "완료. 인터프리터 쓰기는 예측에서 빠지고 protected-integrity.sh 사후 탐지·복구가 담당한다. 테스트가 이 교환을 명시적으로 고정한다 — allow가 버그가 아니라 설계임을 코드로 문서화.",
-    "AC-3": "완료. `python3 --version` ⏎ `wc -l <파일>` 이 allow가 되고 세미콜론 형태와 판정이 일치. 컨트롤 플레인 arm(`vim README.md` ⏎ `cat hooks/hooks.json`)에서도 동일.",
-    "AC-4": "완료. 리다이렉트·cp·sed -i·dd of= 는 종전대로 ask — 쓰기 신호가 명령에 드러나 읽기를 잡지 않으므로 목록에 넣지 않았다.",
-    "AC-5": "완료. vim·patch 는 데이터 플레인에서도 ask 유지(F65 AC-5 계승).",
-    "AC-6": "완료. BLOCKED·INDIRECT_PATTERNS 배열 미수정. vim hooks/hooks.json · sed -i .claude/settings.json · egress · 탐지기 자신 경로 전부 ask 유지.",
-    "AC-7": "완료. 미배선 상태(run_firewall)에서 인터프리터 읽기가 ask로 되돌아옴을 실행 확인.",
-    "AC-8": "완료. bats tests/ exit=0, ok=678, not ok=0."
-  },
-  "security": {
-    "SC-1": "충족. ASK_PATTERNS 배열 항목을 하나도 삭제하지 않았다 — 면제 조건만 넓혔다. invariant-guard의 count_array 검사(BLOCKED·INDIRECT_PATTERNS·ASK_PATTERNS)를 통과했고 편집이 차단되지 않았다. 배선이 사라지면 패턴이 폴백으로 되살아난다(AC-7).",
-    "SC-2": "충족. 면제 대상을 EXEMPTABLE_ARM_TOKENS 배열 한 곳에 열거하고 판정을 arm_is_exemptable()로 분리했다. 테스트가 (a) 목록이 단일 출처인지 (b) 각 토큰이 살아 있는 ASK arm과 문자열로 일치하는지 (c) 편집 전용 도구·컨트롤 플레인 경로가 토큰에 섞이지 않았는지를 대조한다. **F65 SC-2의 'arm 하나' 제약을 대체하되 국소화 기준을 'arm 개수'에서 '그 arm이 읽기를 잡는가'로 바꿨다** — F63 4차의 실패는 ASK 배열 전체 면제(컨트롤 플레인 포함)였고 이번 확대는 데이터 플레인 안에서도 쓰기 신호가 드러나지 않는 arm에만 적용된다.",
-    "SC-3": "충족. INV-14에 두 문단 추가 — '어느 arm이 예측에서 빠졌나(F67)'와 '개행은 명령 구분자다(F67)'. 손실 상한이 sed·awk에서 python3 -c 까지 넓어진 사실, 컨트롤 플레인·탐지기 자신은 토큰이 일치해도 면제되지 않는다는 사실을 명시.",
-    "SC-4": "충족. PROTECTED_GLOBS·is_protected() 정합 테스트 통과 (invariant-guard.bats + protected-integrity.bats 134 ok / 0 fail). 보호 파일 목록 자체는 수정하지 않았다.",
-    "SC-5": "충족. 개행을 구분자로 바꾸면 스팬이 짧아져 기존 보호가 빠질 수 있으므로, 대표 deny/ask 케이스(rm -rf / · egress · settings in-place · feature_list cp)를 전부 개행 형태로 재주입해 판정 유지를 확인했다. 인용부호 안 개행과 줄 이음은 구분자로 바꾸지 않는다 — 각각 리터럴과 한 명령이므로 끊으면 보호가 약해진다."
-  },
-  "evidence": [
-    {
-      "gate": "면제 범위 실측 (변경 전 기준선)",
-      "command": "ASK_PATTERNS 배열을 추출해 면제 조건을 각 arm에 평가",
-      "result": "45개 arm 중 면제 1개(sed/awk + 하네스 파일). feature_list.json 전용 arm 7개는 전부 미면제 — F67의 출발점."
-    },
-    {
-      "gate": "판정 역전 실측 (문제 재현)",
-      "command": "`python3 --version` + 개행 + `wc -l <파일>` 을 개행·세미콜론 두 형태로 훅에 주입",
-      "result": "개행 → ask, 세미콜론 → allow. 표기 한 글자로 판정이 뒤집힘."
-    },
-    {
-      "gate": "TDD RED (step 1)",
-      "command": "bats tests/pre-bash-firewall.bats -f F67",
-      "result": "8개 중 4개 실패(인터프리터 읽기·개행 오탐·인터프리터 쓰기 면제·면제목록 단일출처). 유지되어야 할 4개(쓰기신호 arm·편집도구·컨트롤플레인·폴백)는 구현 전에도 통과 — 테스트가 변경을 실제로 요구함을 확인."
-    },
-    {
-      "gate": "TDD GREEN (step 1)",
-      "command": "bats tests/pre-bash-firewall.bats -f F67",
-      "result": "8/8 통과"
-    },
-    {
-      "gate": "TDD RED (step 2)",
-      "command": "bats tests/pre-bash-firewall.bats -f F67",
-      "result": "12개 중 1개 실패(개행/세미콜론 판정 불일치 — 컨트롤 플레인 arm). 줄 이음·인용 안 개행·SC-5 회귀 3개는 구현 전에도 통과."
-    },
-    {
-      "gate": "TDD GREEN (step 2)",
-      "command": "bats tests/pre-bash-firewall.bats -f F67",
-      "result": "12/12 통과"
-    },
-    {
-      "gate": "전체 회귀 (AC-8)",
-      "command": "bats tests/ (출력 파일 저장 후 파싱)",
-      "result": "exit=0, ok=678, not ok=0"
-    },
-    {
-      "gate": "INVARIANTS 편집 후 대칭 (SC-3·SC-4)",
-      "command": "bats tests/invariant-guard.bats tests/protected-integrity.bats",
-      "result": "exit=0, ok=134, not ok=0"
-    }
+  "iteration": 3,
+  "_scope_note": "implementation_steps 1~7 은 이전 라운드에서 done:true 로 완료됐고 이번 라운드는 건드리지 않았다. 이번 라운드가 다룬 것은 이번 세션의 security-auditor 가 실측한 **새 반례 하나**뿐이며, 그것을 AC-11·SC-9 + step 8 로 계약에 add-only 로 기록했다.",
+  "summary": "컨트롤 플레인 arm 은 전부 **덮어쓰기**만 잡고 있었다 — 에디터 이름·cp/mv 계열·리다이렉트는 모두 '쓴다'는 신호를 명령에 드러내기 때문이다. 그런데 배선을 무력화하는 더 짧은 길은 덮어쓰는 것이 아니라 **지우는 것**이었고, `rm` 은 어느 arm 에도 없어 firewall allow(ask 조차 아님)였다. 삭제 동사류(rm·unlink·shred·git rm·find -delete)와 컨트롤 플레인을 담는 디렉터리의 재귀 삭제를 ASK_PATTERNS 에 add-only 로 추가했다.",
+  "features_implemented": [
+    "F65 (AC-11, SC-9 only)"
   ],
   "files_changed": [
-    "hooks/pre-bash-firewall.sh — INTERPRETER_ARM·EXEMPTABLE_ARM_TOKENS·arm_is_exemptable() 신설, 면제 판정을 목록 기반으로 교체, 정규화가 개행을 명령 구분자로 인식 (보호 파일, Edit 툴)",
-    "tests/pre-bash-firewall.bats — F67 테스트 12건 추가 (보호 파일, Edit 툴)",
-    "docs/INVARIANTS.md — INV-14에 손실 상한 2문단 추가 (보호 파일, Edit 툴)",
-    "progress/feature_list.json — F67 등록 (passes:false)",
-    "progress/contracts/sprint-53.json — 신규 계약, Plan 게이트 승인 후 agreed:true, steps done:true",
-    "evals/acceptance-criteria.json — F67 엔트리",
-    "progress/phase-gate.json — _comment에 등록 사유"
+    "hooks/pre-bash-firewall.sh",
+    "tests/pre-bash-firewall.bats",
+    "progress/contracts/sprint-51.json"
   ],
-  "design_notes": [
-    "**면제 여부를 가르는 기준은 '그 arm이 읽기를 잡는가' 하나다.** 쓰기 신호가 명령에 드러나는 arm(리다이렉트·cp·in-place·dd of=·sed w)은 애초에 읽기를 잡지 않으므로 면제해도 마찰이 줄지 않고 손실 상한만 늘어난다. 반대로 도구 이름만으로 판정하는 arm(에디터·인터프리터)은 순수 읽기까지 잡으면서 그 판정을 구문으로 고칠 수 없다 — 인터프리터는 `-c` 뒤가 임의 프로그램이라 대상 언어 파서가 필요하다. F65가 에디터 arm에만 적용한 논리가 인터프리터 arm에도 그대로 성립한다.",
-    "**F65 6차의 보류 근거가 실측으로 무너졌다.** '읽기 마찰은 게이트가 지키는 값어치에 비해 싸다'는 전제는 그 게이트가 실제로 무언가를 지킬 때만 참이다. 이 arm은 `;` 한 글자로 우회되므로 지키는 값어치가 애초에 낮았고, 동시에 개행으로 나눈 무관한 명령까지 잡아 비용은 높았다. 보호와 마찰을 함께 실측하지 않으면 이런 교환은 보이지 않는다.",
-    "**개행을 공백으로 접은 것이 두 결함의 공통 원인이었다.** `[^;|&]*` 스팬은 '같은 명령 안'을 표현하려는 장치인데 가장 흔한 명령 경계인 개행을 놓쳤다. 증상이 과탐(무관한 명령 묶임)과 우회(`;`로 통과) 양쪽에 나타났고, arm을 하나씩 고치는 대신 공통 입력인 정규화를 고쳤다 — F63 6차가 인용 세미콜론에서 배운 것과 같은 패턴이다.",
-    "**awk의 RS는 POSIX에서 단일 문자만 보장된다.** 개행을 그대로 넘기면 레코드가 줄 단위로 쪼개져 인용부호 상태 추적이 줄을 넘지 못하고, 그러면 여러 줄에 걸친 인용 안 개행을 구분자로 오인한다. \\034 제어문자로 전달해 전체를 한 레코드로 다룬다."
+  "tests_added": [
+    "tests/pre-bash-firewall.bats :: F65 AC-11: pure deletion of control-plane files is gated",
+    "tests/pre-bash-firewall.bats :: F65 AC-11: deleting a directory that holds the control plane is gated",
+    "tests/pre-bash-firewall.bats :: F65 AC-11: ordinary deletions and reads gain no new friction",
+    "tests/pre-bash-firewall.bats :: F65 SC-9: the deletion arms can never be exempted"
   ],
-  "criteria_backfill": [
-    "계약 AC-3(개행/세미콜론 일치)의 필요성을 step 1 완료 후 실측으로 재확인했다. step 1(면제 편입)만으로 인터프리터 arm의 개행 오탐은 해소됐으나, 예측을 유지하는 컨트롤 플레인 arm에는 오인식이 남는 것을 테스트로 확인해(`vim README.md` ⏎ `cat hooks/hooks.json` → ask) step 2를 계약대로 진행했다. 기준 축소 없음."
-  ],
-  "limitations_honest": [
-    "**데이터 플레인 인터프리터 쓰기가 사전에 막히지 않는다.** protected-integrity.sh 사후 탐지·복구가 유일한 보호이며, INV-14가 서술한 '한 Bash 호출 안의 변조·소비 창'이 sed·awk에서 python3 -c 까지 넓어진다. 이 창은 없는 위험이 아니라 알려진 교환이다.",
-    "티켓 원장은 셸을 쥔 상대에게 위조 불가능하지 않다(F65가 이미 인정한 한계). 면제를 넓히면 그 원장에 의존하는 범위도 함께 넓어진다.",
-    "명령행에 보호 경로가 전혀 없는 형태(`python3 script.py` — 경로가 스크립트 안에 있다)는 예측이 원리적으로 볼 수 없다. F65가 INV-14에 적은 기존 한계이며 F67이 만든 것도 닫는 것도 아니다.",
-    "개행 처리에서 줄 이음 판정은 직전 문자가 백슬래시인지만 본다. 백슬래시가 짝수 개로 이어진 경우(`\\\\` + 개행 = 리터럴 백슬래시 + 진짜 구분자)는 구분자로 보지 않는다 — 보수적인 방향(스팬을 길게 유지)이므로 보호는 약해지지 않고 과탐 가능성만 남는다.",
-    "컨트롤 플레인 arm은 여전히 예측이다. hooks.json·settings*.json 을 인터프리터로 쓰는 형태(`python3 -c open(hooks/hooks.json,w)`)는 어느 arm에도 걸리지 않는데, 이는 F67 이전부터 있던 갭이며 이번 변경이 넓히지 않았다(인터프리터 arm의 경로 목록에 컨트롤 플레인이 없다). 백로그."
-  ],
-  "self_review_note": "이 산출은 implementer 자기 보고이며 passes를 판정하지 않는다(INV-1). security_tier critical이므로 독립 evaluator 판정 후 F37 2차 판정·security-auditor·qa-reviewer가 함께 필요하다. 판정이 확인해야 할 것: (1) EXEMPTABLE_ARM_TOKENS 확대가 컨트롤 플레인·egress·Layer 1·2로 새지 않는지 — arm_is_exemptable()의 배제 조건이 실제로 먼저 걸리는지 변이로 확인. (2) 개행을 구분자로 바꾼 것이 기존 deny/ask를 느슨하게 하지 않았는지 — SC-5 회귀가 대표 케이스만 덮으므로 더 넓은 코퍼스가 필요할 수 있다. (3) 줄 이음·인용 안 개행 예외가 우회 경로가 되는지(`\\` + 개행으로 스팬을 인위적으로 이어 붙이는 형태). (4) 손실 상한 서술(INV-14)이 코드가 실제로 강제하는 범위를 넘지 않는지 — F63·F65가 매 회전 지적받은 축이다.",
-  "rework_after_1st_verdict": {
-    "verdict_file": "progress/agent-comms/evaluator-feedback-2026-07-30T16-13-35+0900.json",
-    "verdict": "fail (score 3, security 3)",
-    "what_broke": "개행→명령 구분자 변경이 컨트롤 플레인을 열었다. heredoc 본문의 개행이 `;` 가 되면서 `[^;|&]*` 스팬이 끊기고, `python3 - <<'EOF'` 안에서 `.claude/settings.json` 을 쓰는 명령이 ask→allow로 뒤집혔다. 판정을 받고 main 훅과 브랜치 훅으로 직접 대조 재현했다(3형태 전부 ask→allow).",
-    "user_decisions": "1차 판정 보고 후 두 건을 지시받았다 — (1) AC-3 철회, (2) 면제를 데이터 플레인 전체로 확대.",
-    "changes": [
-      {
-        "what": "개행 변경 철회 (커밋 70966db)",
-        "detail": "정규화가 개행을 항상 공백으로 접는 상태로 복귀. 되돌린 상태가 main과 판정 동일함을 5케이스 대조로 확인. 회귀 방지로 heredoc 3형태를 ask로 잠그는 테스트를 추가하고, 개행/세미콜론 판정 차이가 '알려진 갭'임을 별도 테스트로 명시했다.",
-        "why_not_fix_forward": "셸에서 개행이 구분자가 아닌 자리는 인용·줄이음 외에 heredoc 본문·`|`/`&&` 뒤 줄바꿈·`(`/`{` 블록과 절 사이가 더 있다. 전수를 맞추려면 셸 파서가 필요하고 부분 구현은 매번 구멍을 만든다 — F63이 10회전 겪은 열거 실패와 같은 계열이라 기준을 내리는 쪽을 택했다."
-      },
-      {
-        "what": "인터프리터 arm을 평면별로 분리",
-        "detail": "1차 판정이 부수적으로 찾은 갭 — 인터프리터 arm이 데이터 플레인과 컨트롤 플레인 경로를 한 arm에 담고 있어 `settings` 부분일치로 통째 배제됐고, 그래서 면제가 feature_list.json 하나에만 닿았다. 데이터 플레인용(`harness-config.json`·`hooks/*.sh`·`tests/*.bats`·`INVARIANTS.md`)과 컨트롤 플레인용(`hooks/*.json`·`.claude/settings*.json`)으로 쪼갰다. 합집합은 종전과 동일하고 arm 수는 45→46(add-only).",
-        "result": "데이터 플레인 5종 인터프리터 읽기가 allow. 컨트롤 플레인은 인터프리터 읽기도 ask — 사후 복구가 없어 예측이 유일한 통제인데 인터프리터는 읽기임을 확정할 수 없기 때문이다."
-      },
-      {
-        "what": "기준 결함 반영 (criteria_gaps)",
-        "detail": "AC-1에 데이터 플레인 파일 5종 열거 · AC-3 철회 + 근거 · AC-6을 '배열 바이트 동일'에서 **결정 함수 차분**으로 재조작화 · AC-9(면제 결과 집합 스냅샷) 신설 · AC-10(heredoc 잠금) 신설 · ES-2를 양방향 관측으로 교체."
-      },
-      {
-        "what": "INV-14 서술 정합",
-        "detail": "개행 문단을 '알려진 갭 + 되돌린 이유'로 교체. 인터프리터 면제 범위를 실제 코드에 맞춰 정정하고, arm이 평면을 섞으면 안 되는 이유와 컨트롤 플레인이 인터프리터 읽기도 ask인 근거(판정 기준은 도구 이름이 아니라 읽기 확정 가능성)를 추가."
-      }
-    ],
-    "evidence_2nd": [
-      {
-        "gate": "회귀 재현",
-        "command": "main 훅 vs 브랜치 훅 5케이스 대조",
-        "result": "철회 전 3케이스 ask→allow, 철회 후 5/5 main과 동일"
-      },
-      {
-        "gate": "TDD RED (arm 분리)",
-        "command": "bats -f F67",
-        "result": "17개 중 3개 실패 (데이터플레인 전체 읽기·면제 결과집합·결정함수 차분)"
-      },
-      {
-        "gate": "TDD GREEN",
-        "command": "bats tests/pre-bash-firewall.bats",
-        "result": "210 ok / 0 fail"
-      },
-      {
-        "gate": "전체 회귀",
-        "command": "bats tests/",
-        "result": "exit=0, ok=683, not ok=0"
-      },
-      {
-        "gate": "add-only",
-        "command": "ASK_PATTERNS arm 수",
-        "result": "46 (45에서 증가, 삭제 없음)"
-      }
-    ]
+  "achieved": {
+    "AC-11": "충족(OR 의 뒷가지). 삭제 9형태 + 디렉터리 8형태가 전부 ask 로 전환됐다. 앞가지(재생성 Write 가 exit 2)는 `hooks/hooks.json` 에서는 이미 성립하고 `.claude/settings.json` 에서는 성립하지 않는다 — 아래 design_judgment 참조.",
+    "SC-9": "충족. 삭제 arm 4개가 어떤 배선 상태에서도 면제되지 않음을 소스 파싱 테스트로 고정했다. ASK_PATTERNS 60→64(add-only), BLOCKED·INDIRECT_PATTERNS 바이트 동일, harness-config.json 무변경."
   },
-  "ready_for": "evaluator"
+  "design_judgment": {
+    "question": "`rm` 을 ask 로 만드는 것만으로 SC-9 의 실질적 의도('예측이 실제로 성립한다')를 충분히 만족하는가, 아니면 사람이 삭제를 승인해도 뒤이은 재생성 Write 가 무방비라 공격 체인이 완전히 막히지 않는가?",
+    "measured_before_deciding": {
+      "hooks/hooks.json (git 추적)": "파일이 있는 채로 배선을 뺀 Write → invariant-guard exit 2. `rm` 뒤의 같은 Write → **여전히 exit 2**. HEAD 실체화가 동작하므로 이 체인은 이미 닫혀 있었다.",
+      ".claude/settings.json (gitignore)": "파일이 있는 채로 배선을 뺀 Write → exit 2 (deny). `rm` 뒤의 같은 Write → **exit 0 (통과)**.",
+      "해석": "삭제는 장식이 아니라 체인에서 **유일하게 값을 하는 단계**다. 직접 덮어쓰기가 이미 deny 이므로, 공격자가 얻는 것은 오직 '배선 비교의 OLD 집합을 없애는 것'이고 그 수단이 삭제였다. 그 유일한 단계가 allow 였다는 것이 갭의 전부다.",
+      "fail-safe 백스톱": "배선이 사라지면 `integrity_wired()` 가 거짓이 되어 **데이터 플레인 예측 게이트가 되살아난다**. 실측: 배선 제거·settings.json 삭제 두 경우 모두 `sed -f prog.sed hooks/lib.sh` 가 allow→ask. 즉 공격 성공 후의 상태는 '예측 전면 가동 + 탐지 없음'(F65 이전 자세)이지 무방비가 아니다.",
+      "데이터 플레인 삭제": "`rm hooks/lib.sh` 는 allow 인데, PostToolUse 탐지가 **삭제도 복구한다**는 것을 실측으로 확인했다(파일 없음 → 훅 실행 → HEAD 내용으로 복구 + 격리 보관 경로 보고). F65 의 평면 분리가 삭제 동사에서도 성립하므로 데이터 플레인은 예측을 늘리지 않았다."
+    },
+    "conclusion": "AC-11 의 **뒷가지로 충족**한다고 판단하고, 앞가지(`settings.json` 재생성 Write 를 exit 2 로)는 이번 범위에 넣지 않았다.",
+    "why_not_widen": [
+      "(a) 새 공격면: `.claude/settings.json` 은 gitignore 라 HEAD 기준선이 원리적으로 없다. 닫으려면 기대 배선을 git 추적 파일에 별도 기록해야 하는데, 그 기준선 파일 자체가 새 컨트롤 플레인 산출물이 되어 SC-6('자기를 복구할 수 있는가')의 재귀를 한 겹 더 만든다. 보안 수정 라운드에서 새 공격면을 여는 교환이다.",
+      "(b) 고위험 코드 혼입: invariant-guard 의 settings.json 분기는 같은 함정을 세 번(basename → command 튜플 → 형제 필드 우회) 겪은 자리다. 단일 반례를 닫는 라운드에 섞으면 판정이 두 변경에 분리 귀속되지 않고, F65 는 이미 2회 fail 했다.",
+      "(c) 요구 수준: 남는 잔여 위험은 '사람이 ask 를 승인했다'이며 이는 모든 ask 티어 통제가 공유하는 성질이다. SC-9 가 요구하는 것은 '예측 계층에 공백이 없을 것'이지 '사람 동의로도 못 뚫을 것'이 아니다.",
+      "(d) 절차: 기준선 설계는 위협 모델 재검토가 필요한 변경이므로 implementer 가 일방적으로 넓힐 자리가 아니라 change-request + Plan 게이트를 거칠 자리다."
+    ],
+    "recommendation_to_evaluator": "`.claude/settings.json` 의 배선 행 기준선(예: 저장소 추적 `settings.json` 을 OLD 폴백으로 삼기)을 **별도 change-request** 로 다룰 것을 권고한다. 계약의 `_residual_risk_AC11` 에 같은 내용을 기록했다. 이번 변경과 독립이다."
+  },
+  "security_self_check": {
+    "checklist_items": 5,
+    "checklist_passed": 5,
+    "notes": "INV-5 add-only 준수(ASK_PATTERNS 60→64, 삭제 0). BLOCKED·INDIRECT_PATTERNS 바이트 동일. harness-config.json 임계값 무변경. 새 arm 4개는 전부 `hooks\\.json`·`settings` 토큰을 포함하거나 면제 토큰을 포함하지 않아 arm_is_exemptable() 이 항상 거짓 — 어떤 배선 상태에서도 면제되지 않는다. feature_list.json 미수정(INV-1)."
+  },
+  "error_scenarios_tested": [
+    "컨트롤 플레인 파일 직접 삭제 (rm · rm -f · rm -- · unlink · shred)",
+    "git 경유 삭제 (git rm <경로>)",
+    "외부 설치 경로 삭제 (절대경로 플러그인 설치본)",
+    "find 술어 경유 삭제 (-delete · -exec rm, 술어 순서 양방향)",
+    "디렉터리 통째 삭제 (.claude · .claude/hooks · ~/.claude/plugins · ~/.claude/plugins/<플러그인> · ./hooks)",
+    "정상 삭제 오탐 (node_modules · dist · target/debug · coverage.out · .claude/worktrees/<agent>)",
+    "읽기 오탐 (cat/jq/grep/ls 로 컨트롤 플레인 조회)"
+  ],
+  "evidence": [
+    {
+      "gate": "RED — 변경 전 기준선 (실행)",
+      "command": "각 명령을 hooks/pre-bash-firewall.sh 에 주입해 permissionDecision 수집",
+      "result": "컨트롤 플레인 삭제 9형태가 **전부 allow**(ask 조차 아님): rm/rm -f/rm --/unlink/shred/git rm/find -delete/절대경로/`rm -rf .claude`. 반면 외부 설치 경로의 **덮어쓰기**(vim·cp·sed -i)는 이미 ask 였다 — 부분일치 정규식이 절대경로를 이미 덮고 있다는 가설을 실측으로 확인했고, 따라서 이번 라운드에 경로 확장은 불필요했다."
+    },
+    {
+      "gate": "RED — 새 테스트가 실제로 빨간지 (실행)",
+      "command": "bats tests/pre-bash-firewall.bats --filter 'F65 AC-11|F65 SC-9'",
+      "result": "1..4 — not ok 1(삭제 게이트), not ok 2(디렉터리 게이트), ok 3(마찰 가드레일), not ok 4(삭제 arm 부재). 3개가 기대대로 실패했고, 마찰 테스트만 통과해 가드레일 역할을 확인했다."
+    },
+    {
+      "gate": "체인 실측 — 삭제가 값을 하는 단계인가 (격리 랩)",
+      "command": "임시 git 저장소에 harness 레이아웃을 만들고 hooks/invariant-guard.sh 를 Write 입력으로 직접 실행",
+      "result": "A1 hooks.json 덮어쓰기 → exit 2 / A2 rm 후 재생성 → exit 2 (이미 닫힘). B1 settings.json 덮어쓰기 → exit 2 / B2 rm 후 재생성 → **exit 0** (열림). 삭제가 유일한 실효 단계임을 확인."
+    },
+    {
+      "gate": "fail-safe 백스톱 실측 (격리 랩)",
+      "command": "배선 있음/없음/파일삭제 세 상태에서 `sed -f prog.sed hooks/lib.sh` · `awk -f prog.awk hooks/lib.sh` 판정 비교",
+      "result": "배선 있음 → allow, 배선 제거 → ask, settings.json 삭제 → ask. 배선이 사라지면 데이터 플레인 예측 게이트가 되살아난다(fail-safe 확인)."
+    },
+    {
+      "gate": "탐지가 삭제도 복구하는가 (격리 랩)",
+      "command": "hooks/lib.sh 삭제 후 hooks/protected-integrity.sh 를 PostToolUse 입력으로 실행",
+      "result": "exit 0, 파일이 HEAD 내용으로 복구됨(존재 NO → yes). 되돌린 내용은 progress/.integrity-quarantine/<타임스탬프> 에 격리 보관 후 보고. 데이터 플레인에 예측을 늘릴 필요가 없음을 확인."
+    },
+    {
+      "gate": "GREEN — 대상 테스트 (실행)",
+      "command": "bats tests/pre-bash-firewall.bats --filter 'F65 AC-11|F65 SC-9'",
+      "result": "1..4 — ok 1, ok 2, ok 3, ok 4 (4/4 통과)."
+    },
+    {
+      "gate": "회귀 — bats 전체 1회 (실행)",
+      "command": "bats tests/",
+      "result": "exit=0 — ok 746, not ok 0, skip 1. (최종 코드 상태 기준 1회. 앞선 중간 상태에서의 실행 1회가 있었고 그 역시 746/0 이었다.)"
+    },
+    {
+      "gate": "회귀 — behavioral 프로브 1회 (실행)",
+      "command": "bash scripts/probes/behavioral.sh",
+      "result": "exit=0, 출력 `[]` — 후보 0건."
+    },
+    {
+      "gate": "INV-5 add-only 기계 확인 (실행)",
+      "command": "HEAD 판본과 현재 판본에서 배열별 패턴 수 + 배열 본문 해시 대조",
+      "result": "BLOCKED 13→13 (바이트 동일), INDIRECT_PATTERNS 15→15 (바이트 동일), ASK_PATTERNS 60→64 (add-only +4). harness-config.json diff 없음. 변경 파일 3개."
+    },
+    {
+      "gate": "마찰 회귀 실측 (실행)",
+      "command": "정상 삭제·읽기 10형태 재주입",
+      "result": "rm /tmp/build/x.o · rm -rf node_modules · rm -rf dist build · rm -f coverage.out · rm -rf .claude/worktrees/agent-abc · rm -rf target/debug · cat/jq/grep/ls 조회 · git status 가 전부 allow 유지. deny 티어(rm -rf / · rm -rf $HOME · sudo rm -rf /etc)도 deny 유지."
+    }
+  ],
+  "criteria_backfill": {
+    "acceptance_criteria_added": [
+      "AC-11: 컨트롤 플레인 파일을 지우는 경로가 최소 ask 다 (검증은 OR — 재생성 Write 가 exit 2 이거나, 최소한 삭제 단계에서 사람 확인)"
+    ],
+    "security_criteria_added": [
+      "SC-9: 예측이 실제로 성립한다 — 컨트롤 플레인은 예측이 유일한 통제이므로 동사 하나만큼의 공백도 남기지 않는다"
+    ],
+    "implementation_steps_added": [
+      "step 8: 컨트롤 플레인 삭제 동사 게이트 (ASK_PATTERNS add-only 확장)"
+    ],
+    "other_added": [
+      "_residual_risk_AC11: 측정치·판단 근거·범위를 넓히지 않은 이유·후속 권고"
+    ],
+    "spec_updated": false,
+    "security_checklist_updated": false,
+    "reason": "계약에 AC-11·SC-9 가 아직 없었다. security-auditor 가 실측한 반례를 기준으로 먼저 승격하고 구현했다(기준 역전파). 기존 기준은 완화·삭제하지 않았고 추가만 했다.",
+    "backfill_count": 4,
+    "_note": "3건 이상이지만 spec/architecture 재검토 권고 사유는 아니다 — 이번 backfill 은 상위 설계의 결함이 아니라 **이미 합의된 설계(컨트롤 플레인=예측)를 실제로 성립시키는 검증 항목**의 추가다. 다만 `.claude/settings.json` 의 기준선 부재는 위협 모델 축의 문제이므로 별도 change-request 를 권고한다."
+  },
+  "tdd_exceptions": [],
+  "self_notes": "삭제 arm 을 파일 하나에만 앵커했다가 `rm -rf .claude` 로 그대로 빠져나가는 것을 발견해 디렉터리 앵커를 함께 넣었고, 그 뒤 다시 `~/.claude/plugins/cc-harness`(플러그인 설치 루트)가 남는 것을 발견해 앵커를 세 구조적 위치(컨트롤 플레인 루트 · 플러그인 설치 루트 · hooks 디렉터리)로 정리했다. 열거가 아니라 구조로 앵커를 잡아야 이 계열이 수렴한다. 마찰 경계는 '토큰이 그 위치에서 끝날 때'이며 `.claude/worktrees/…` 는 발동하지 않는다(이 저장소에서 워크트리 정리를 bash rm 으로 하지 않음을 확인).",
+  "blocked_on": [],
+  "ready_for": "evaluation"
 }

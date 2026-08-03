@@ -1917,3 +1917,94 @@ JSON
   done
   [ -z "$bad" ] || { echo "읽기 전용 목록에 인자를 exec 하는 명령이 있다:$bad"; false; }
 }
+
+# === 순수 삭제로 컨트롤 플레인을 비우는 경로 (F65 AC-11 / SC-9) ===
+#
+# 컨트롤 플레인 arm 들은 **덮어쓰기**만 잡고 있었다 — 에디터 이름·cp/mv 계열·리다이렉트는
+# 모두 "쓴다"는 신호를 명령에 드러내기 때문이다. 그런데 배선을 무력화하는 더 짧은 길은
+# 덮어쓰는 것이 아니라 **지우는 것**이다. `.claude/settings.json` 은 gitignore 대상이라 HEAD
+# 기준선이 없고, 파일이 사라지면 invariant-guard 의 배선 비교가 대조할 OLD 집합을 잃는다.
+#
+# 격리 랩 실측(2026-08-03): 파일이 있는 채로 배선을 뺀 Write 는 exit 2(deny) 인데,
+# `rm` 을 앞세운 같은 Write 는 exit 0 이었다. 즉 삭제가 그 체인에서 **유일하게 값을 하는 단계**다.
+# 그 삭제가 방화벽에서 ask 조차 아닌 allow 였다는 것이 SC-9 가 닫는 갭이다.
+
+@test "F65 AC-11: pure deletion of control-plane files is gated" {
+  # 배선된 상태(wired)로 확인한다 — 데이터 플레인 게이트가 꺼진 최악 조건에서도 물어야 한다.
+  local c
+  for c in "rm .claude/settings.json" \
+           "rm -f .claude/settings.local.json" \
+           "rm hooks/hooks.json" \
+           "rm -- .claude/settings.json" \
+           "unlink .claude/settings.json" \
+           "git rm hooks/hooks.json" \
+           "shred -u .claude/settings.json" \
+           "rm /Users/x/.claude/plugins/cc-harness/hooks/hooks.json" \
+           "find .claude -name settings.json -delete" \
+           "find . -name hooks.json -delete" \
+           "find .claude -name settings.json -exec rm {} +"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"$c\"}}"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "컨트롤 플레인을 지우는 명령이 무프롬프트다: $c"; false; }
+  done
+}
+
+@test "F65 AC-11: deleting a directory that holds the control plane is gated" {
+  # 파일 하나만 앵커하면 `rm -rf .claude` 한 줄로 그대로 빠져나간다 — 같은 동사, 같은 대상이므로
+  # 함께 닫는다. 앵커는 **디렉터리 토큰이 거기서 끝날 때**로 좁혔다(아래 마찰 테스트가 그 경계를
+  # 고정한다): `.claude/worktrees/...` 처럼 하위 경로가 이어지면 발동하지 않는다.
+  local c
+  for c in "rm -rf .claude" \
+           "rm -rf .claude/" \
+           "rm -rf ~/.claude" \
+           "rm -rf .claude/hooks" \
+           "rm -r ./hooks" \
+           "rm -rf ~/.claude/plugins" \
+           "rm -rf ~/.claude/plugins/cc-harness" \
+           "rm -rf ~/.claude/plugins/cc-harness/hooks"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"$c\"}}"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "컨트롤 플레인을 담은 디렉터리 삭제가 무프롬프트다: $c"; false; }
+  done
+}
+
+@test "F65 AC-11: ordinary deletions and reads gain no new friction" {
+  # 게이트는 컨트롤 플레인 토큰이 있을 때만 발동해야 한다. 여기가 무너지면 F63 이 없애려던
+  # 마찰이 삭제 동사로 되돌아온다.
+  local c
+  for c in "rm /tmp/build/x.o" \
+           "rm -rf node_modules" \
+           "rm -rf dist build" \
+           "rm -f coverage.out" \
+           "rm -rf .claude/worktrees/agent-abc" \
+           "rm -rf target/debug" \
+           "cat .claude/settings.json" \
+           "jq . hooks/hooks.json" \
+           "ls .claude" \
+           "git status"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"$c\"}}"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "정상 명령에 마찰이 생겼다: $c"; false; }
+  done
+}
+
+@test "F65 SC-9: the deletion arms can never be exempted" {
+  # 면제는 "사후 탐지·복구가 담당하는가"를 근거로만 성립한다. 컨트롤 플레인은 그 담당이 없으므로
+  # 삭제 arm 은 어떤 배선 상태에서도 면제 대상이 되어서는 안 된다. 판정이 아니라 **소스**를 본다 —
+  # 위 테스트들은 아는 명령만 보지만 이 검사는 arm 자체가 면제 토큰을 얻는지 본다.
+  local fw="$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh"
+  local -a ARMS
+  mapfile -t ARMS < <(awk "/^ASK_PATTERNS=\(/{b=1;next} b&&/^\)/{b=0} b&&/^[[:space:]]*'/{sub(/^[[:space:]]*'/,\"\");sub(/'[[:space:]]*\$/,\"\");print}" "$fw")
+  [ "${#ARMS[@]}" -ge 49 ]
+  local read_tok arm found=0
+  read_tok=$(grep -m1 '^READ_CAPABLE_ARM=' "$fw" | cut -d"'" -f2)
+  [ -n "$read_tok" ]
+  for arm in "${ARMS[@]}"; do
+    # 삭제 동사를 가진 arm 만 고른다
+    [[ "$arm" == *'rm|unlink'* || "$arm" == *'find'*'-delete'* || "$arm" == *'-delete'*'find'* ]] || continue
+    found=$((found+1))
+    [[ "$arm" != *"$read_tok"* ]] \
+      || { echo "삭제 arm 이 면제 토큰을 갖고 있다: $arm"; false; }
+  done
+  [ "$found" -ge 2 ] || { echo "삭제 arm 을 찾지 못했다 — 패턴이 사라졌는지 확인하라"; false; }
+}
