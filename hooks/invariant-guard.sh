@@ -204,10 +204,12 @@ fs_is_case_insensitive() {
   [[ -e "$parent/$flipped" ]]
 }
 FILE=$(canon_file "$FILE")
+
 # 이 파일시스템이 대소문자를 구분하지 않는가 — **경로 분류 술어**만 이 값을 본다.
 # 판정 불가(디렉터리 부재·글자 없는 이름)일 때는 1(무시)로 둔다: 분류에서 대소문자를 무시하는
 # 쪽이 **보호 방향**이기 때문이다. 9차 판정이 반대 방향(끄는 쪽)을 '보수적'이라 적은 주석의
-# 오류를 지적했고, 그 지적이 맞다.
+# 오류를 지적했고, 그 지적이 맞다. **아래 삭제-후-재생성 실체화보다 먼저 계산한다** — 그
+# 블록이 `is_protected()` 를 호출하는데, `is_protected()` 는 이 값을 읽는다.
 FS_CI=1
 if [[ -d "$(dirname "$FILE")" ]]; then
   fs_is_case_insensitive "$(dirname "$FILE")" || FS_CI=0
@@ -218,6 +220,55 @@ fi
 # 가드가 조용히 죽는다(실측). 저장·복원 모두 상태를 삼킨다.
 ci_on()  { _CI_SAVED=$(shopt -p nocasematch || true); [[ "${FS_CI:-0}" == 1 ]] && shopt -s nocasematch; return 0; }
 ci_off() { eval "${_CI_SAVED:-:}" || true; return 0; }
+
+# === 삭제 후 재생성 우회를 원리적으로 닫는다 (F68 10차) ===
+# `[[ ! -e "$FILE" ]]` 분기는 지금까지 파일명을 하나씩 열거해서만 막았다 — `feature_list.json`
+# 과 `sprint-*.json` 은 6·8·9차를 거치며 개별로 닫혔지만, 나머지 여덟(`harness-config.json`·
+# `tests/*.bats`·`hooks.json`·`settings.json`·`invariant-guard.sh`·`evaluator-runs.jsonl`·
+# `.integrity-baseline`·`approval-queue.json`)은 열거되지 않아 `rm` 후 재생성이 그대로
+# 통과했다(10차 판정 실측: 8종 전부 재생성 경로로 임계값·테스트 개수·배선·append-only 검사를
+# 우회). 개별 arm을 여덟 번 더 쓰는 대신 **입구를 없앤다** — 파일이 없어도 `is_protected()`나
+# `is_wiring_file()`이 참이면, HEAD의 마지막 커밋 내용을 이 경로에 실체화해 **존재하는 것처럼
+# 만든다.** 그러면 이 스크립트의 모든 `cat "$FILE"` 이 HEAD 내용을 OLD로 읽고, 아래의
+# 임계값·개수·배선·append-only 검사가 원래 있던 파일과 똑같이 적용된다 — 새 arm이 필요 없다.
+# HEAD에도 없으면(진정한 신규 파일) 지킬 이전 상태가 없으므로 정상 신규 생성으로 흘려보낸다.
+# 승인이 거부되면 이 실체화만 남아 삭제된 파일이 HEAD 내용으로 복구된 채가 되고(안전한 방향),
+# 승인되면 그 위에 NEW_CONTENT가 그대로 쓰이므로(Write/Edit 툴이 이어서 실행) 부작용이 없다.
+# `git show HEAD:<path>` 는 **철자 그대로** 트리를 찾는다 — `core.ignorecase=true` 여도 그렇다
+# (실측: `git show HEAD:progress/FEATURE_LIST.JSON` → "exists on disk, but not in HEAD").
+# 그래서 대소문자 무시 FS 에서 삭제 후 다른 철자로 재생성하면 그 철자로는 HEAD 조회가
+# 실패해 실체화가 안 되고, 원래 우회가 그대로 남는다. `FS_CI` 일 때는 HEAD 트리를 훑어
+# 대소문자 무시로 일치하는 실제 철자를 먼저 찾는다.
+if [[ ! -e "$FILE" ]]; then
+  if is_protected "$FILE" || is_wiring_file "$FILE"; then
+    __root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
+    __root=$(cd "$__root" 2>/dev/null && pwd -P) || __root=""
+    if [[ -n "$__root" && "$FILE" == "$__root"/* ]]; then
+      __rel="${FILE#"$__root"/}"
+      if [[ "${FS_CI:-0}" == 1 ]]; then
+        # `grep` 가 매치를 못 찾으면 exit 1 을 낸다 — `pipefail` 아래에서 뒤의 `head -1` 이
+        # 성공해도 파이프라인 전체가 실패로 집계돼 `set -e` 가 스크립트를 죽인다(실측:
+        # 정말 신규인 파일 — HEAD 에 어떤 철자로도 없는 경우 — 을 만들면 그 자리에서 exit 1).
+        __real_rel=$( { git -C "$__root" ls-tree -r --name-only HEAD 2>/dev/null | grep -ixF -- "$__rel" | head -1; } || true)
+        [[ -n "$__real_rel" ]] && __rel="$__real_rel"
+      fi
+      __head=$(git -C "$__root" show "HEAD:$__rel" 2>/dev/null || echo "")
+      if [[ -n "$__head" ]]; then
+        # **`$FILE` 을 정규 철자로 갱신한다.** 아래의 각 파일별 분기(harness-config.json·
+        # hooks.json·settings.json 등)는 `$BASENAME == "literal-name"` 같은 대소문자 구분
+        # 게이트로 시작한다 — 존재하는 파일에서는 `canon_file` 이 이미 이 값을 맞춰 두지만,
+        # 방금 막 실체화한 파일은 지금까지 **입력받은 철자**를 들고 있었다. 그대로 두면
+        # 내용은 복원돼도 `BASENAME` 이 안 맞아 그 분기가 발화하지 않는다(실측: 대문자 경로로
+        # 재생성하면 `harness-config.json` 임계값 검사가 통째로 건너뛰어졌다). 이 재배정은
+        # 이 프로세스 안의 판정 변수에만 영향을 준다 — 실제 Write/Edit 은 호출자가 준
+        # 원래 경로에 쓰이므로 부작용이 없다.
+        FILE="$__root/$__rel"
+        mkdir -p "$(dirname "$FILE")" 2>/dev/null || true
+        printf '%s' "$__head" > "$FILE" 2>/dev/null || true
+      fi
+    fi
+  fi
+fi
 # **전역 `shopt -s nocasematch` 는 철회했다 (F68 9차 판정).** 대소문자 무시 FS 에서 모든 경로
 # 매칭을 대소문자 무시로 돌렸더니 경로 분류만이 아니라 **내용·구조 판정까지** 함께 무뎌져
 # 게이트 둘이 새로 열렸다(대조군 대비 귀속 확인):
@@ -360,6 +411,40 @@ fi
 # 같은 값을 본다.
 BASENAME=$(basename "$FILE")
 
+# === 훅 배선 비교 — settings.json·hooks.json 두 분기가 공유한다 (F68 10차) ===
+# 이전엔 `settings.json` 분기 **안에서** 정의돼 hooks.json 처리 시 함수가 없어 exit 127로
+# 죽었다(fail-open과 같은 방향 — 10차 판정 검증 중 실측). 두 분기보다 앞으로 옮긴다.
+#
+# 왜 오브젝트 전문(정규화 JSON)인가: 훅 오브젝트에는 command 외에 실행을 좌우하는 필드이
+# 많다(type·if·once·async·enabled·timeout 등). 그중 하나만 변조해도 command 문자열은 그대로라
+# 이름/튜플 기반 비교로는 안 보인다. settings.json 브랜치가 이 함정을 세 번(basename만 →
+# command 튜플 → 형제 필드 우회) 겪고 정착시킨 방식이며, hooks.json도 10차 판정에서 튜플
+# 대조(F68 9차 대응)가 `type:"COMMAND"` 한 필드로 뚫리는 것이 실증돼 같은 방식으로 옮긴다.
+wired_rows() {
+  jq -S -c '
+    (.hooks // {}) | to_entries[] as $e
+    | ($e.value // [])[] as $grp
+    | ($grp.hooks // [])[] as $h
+    | select($h | (.command // "") | test("\\.sh"))
+    | [$e.key, ($grp.matcher // ""), ($h | tojson)]
+  ' <<<"$1" 2>/dev/null | sort -u || true
+}
+# NEW matcher(nm)가 OLD matcher(om)를 커버하는가 (nm의 매치 집합 ⊇ om의 매치 집합).
+#   - nm 빈 문자열/부재 = 전체 매치 → 모든 om을 커버(widening) → 통과
+#   - om 전체 매치인데 nm 구체적 → narrowing → 차단
+#   - 둘 다 alternation → om의 각 대안이 nm에 문자열로 존재해야 커버(보수적 근사)
+matcher_covers() {
+  local om="$1" nm="$2" a
+  [[ "$om" == "$nm" ]] && return 0
+  [[ -z "$nm" ]] && return 0
+  [[ -z "$om" ]] && return 1
+  while IFS= read -r a; do
+    [[ -z "$a" ]] && continue
+    tr '|' '\n' <<<"$nm" | grep -qxF "$a" || return 1
+  done < <(tr '|' '\n' <<<"$om")
+  return 0
+}
+
 # === 탐지기의 상태 파일: 도구 경로 쓰기 전면 차단 (F65 2차 판정) ===
 # .guarded-edits(면제 티켓)와 .integrity-baseline(세션 기준선)은 **기계가 관리한다.**
 # 도구로 쓸 정당한 이유가 없고, 쓸 수 있으면 복구를 임의로 면제할 수 있다.
@@ -430,30 +515,6 @@ if [[ "$BASENAME" == "settings.json" ]]; then
   # 불필요(jq -c가 개행 없는 한 줄을 보장하고, 필드는 아래에서 다시 jq로 뽑는다). 이전엔 탭·SOH
   # 구분자를 썼으나 탭은 read의 whitespace라 빈 matcher에서 필드가 밀렸고 제어문자는 파일에
   # 리터럴로 새는 문제가 있었다 — JSON 배열 라인이 둘 다 없앤다.
-  wired_rows() {
-    jq -S -c '
-      (.hooks // {}) | to_entries[] as $e
-      | ($e.value // [])[] as $grp
-      | ($grp.hooks // [])[] as $h
-      | select($h | (.command // "") | test("\\.sh"))
-      | [$e.key, ($grp.matcher // ""), ($h | tojson)]
-    ' <<<"$1" 2>/dev/null | sort -u || true
-  }
-  # NEW matcher(nm)가 OLD matcher(om)를 커버하는가 (nm의 매치 집합 ⊇ om의 매치 집합).
-  #   - nm 빈 문자열/부재 = 전체 매치 → 모든 om을 커버(widening) → 통과
-  #   - om 전체 매치인데 nm 구체적 → narrowing → 차단
-  #   - 둘 다 alternation → om의 각 대안이 nm에 문자열로 존재해야 커버(보수적 근사)
-  matcher_covers() {
-    local om="$1" nm="$2" a
-    [[ "$om" == "$nm" ]] && return 0
-    [[ -z "$nm" ]] && return 0
-    [[ -z "$om" ]] && return 1
-    while IFS= read -r a; do
-      [[ -z "$a" ]] && continue
-      tr '|' '\n' <<<"$nm" | grep -qxF "$a" || return 1
-    done < <(tr '|' '\n' <<<"$om")
-    return 0
-  }
   OLD_R=$(wired_rows "$(cat "$FILE")")
   NEW_R=$(wired_rows "$NEW_CONTENT")
   # (문서 레벨) OLD에 배선이 하나라도 있었으면, 그 배선을 통째로 죽이는 최상위 스위치를
@@ -562,25 +623,38 @@ fi
 # === hooks.json: invariant-guard 실제 실행 등록 보존 (INV-7) ===
 # 텍스트 substring이 아니라 jq로 실제 hook command를 추출해 검사한다 (미끼 필드·rename 우회 차단).
 if [[ "$BASENAME" == "hooks.json" ]]; then
-  # **배선은 (이벤트 | matcher | command) 튜플 집합으로 본다.** 이전 판본은 command 문자열이
-  # 어딘가 남아 있는지만 봤고, 그래서 **이벤트 키를 대문자로 바꾸는 쓰기 하나로 훅 전체가
-  # 등록에서 사라지는데 통과**했다(F68 9차 판정 실증: 여섯 이벤트가 전부 `PRETOOLUSE` 류가
-  # 되고 하네스 배선이 소실됐다). command 는 그대로이므로 이름 기반 검사로는 보이지 않는다.
-  # 더 나쁜 것은 가드가 통과시키면 `.guarded-edits` 티켓이 발급되어 protected-integrity 도
-  # 되돌리지 않는다는 점이다 — 두 계층이 함께 눈을 감는다.
-  # `settings.json` 브랜치(INV-13)가 이미 쓰는 방식과 같게 맞춘다: **사라진 등록이 있으면 deny.**
-  # 추가는 자유다(add-only 강화).
-  wiring_set() {
-    jq -r '(.hooks // {}) | to_entries[]? | .key as $ev | (.value // [])[]?
-           | (.matcher // "") as $m | (.hooks // [])[]?
-           | "\($ev)|\($m)|\(.command // "")"' <<<"$1" 2>/dev/null | sort -u
-  }
-  OLD_W=$(wiring_set "$(cat "$FILE")")
-  if [[ -n "$OLD_W" ]]; then
-    NEW_W=$(wiring_set "$NEW_CONTENT")
-    MISSING=$(comm -23 <(printf '%s\n' "$OLD_W") <(printf '%s\n' "$NEW_W") 2>/dev/null)
-    if [[ -n "${MISSING//[$' \t\n']/}" ]]; then
-      deny "hooks.json 배선 소실 (event|matcher|command): $(printf '%s' "$MISSING" | tr '\n' ' ' | cut -c1-300) — 훅 등록의 실행 도달성 축소는 게이트 약화 (INV-7)"
+  # **튜플(event|matcher|command) 대조는 폐기한다 — settings.json 브랜치가 세 번 겪고 이미
+  # 버린 접근이다.** 바로 위 주석(1~3차)이 남긴 기록대로: command 외에 `type`·`if`·`once`·
+  # `async`·`enabled`·`timeout` 같은 실행을 좌우하는 형제 필드가 있고, 그중 하나만 변조해도
+  # 튜플 추출값은 그대로다. 10차 판정 실측: 모든 훅에 `type:"COMMAND"`(대문자)를 넣으면
+  # `command` 필드는 안 바뀌므로 튜플 대조는 통과하지만, 그 필드는 스펙상 `"command"`
+  # 소문자만 유효해 **훅이 전부 죽는다.** `if:false`·`enabled:false`·`timeout:0` 도 같은 급.
+  # 그래서 settings.json 이 정착시킨 방식을 그대로 재사용한다 — **훅 오브젝트 전문(jq -S 정규화)
+  # 을 매칭 커버리지와 함께 비교**하는 `wired_rows`/`matcher_covers`(위, settings.json 브랜치).
+  # 그 함수들은 `select($h | .command // "" | test("\\.sh"))` 로 걸러 셸 훅만 보므로 그대로
+  # 재사용해도 대상이 어긋나지 않는다.
+  OLD_R=$(wired_rows "$(cat "$FILE")")
+  if [[ -n "$OLD_R" ]]; then
+    NEW_R=$(wired_rows "$NEW_CONTENT")
+    MISSING=""
+    while IFS= read -r __row; do
+      [[ -z "$__row" ]] && continue
+      ev=$(jq -r '.[0]' <<<"$__row" 2>/dev/null || echo "")
+      om=$(jq -r '.[1]' <<<"$__row" 2>/dev/null || echo "")
+      hj=$(jq -c '.[2]' <<<"$__row" 2>/dev/null || echo "")
+      FOUND=0
+      while IFS= read -r __nrow; do
+        [[ -z "$__nrow" ]] && continue
+        nev=$(jq -r '.[0]' <<<"$__nrow" 2>/dev/null || echo "")
+        nm=$(jq -r '.[1]' <<<"$__nrow" 2>/dev/null || echo "")
+        nhj=$(jq -c '.[2]' <<<"$__nrow" 2>/dev/null || echo "")
+        [[ "$nev" == "$ev" && "$nhj" == "$hj" ]] || continue
+        if matcher_covers "$om" "$nm"; then FOUND=1; break; fi
+      done <<< "$NEW_R"
+      [[ "$FOUND" -eq 1 ]] || MISSING="$MISSING [$ev | ${om:-<all>}]"
+    done <<< "$OLD_R"
+    if [[ -n "$MISSING" ]]; then
+      deny "hooks.json 배선 무력화 (event | matcher):$MISSING — 훅 오브젝트의 실행 도달성 축소는 게이트 약화 (INV-7)"
     fi
   fi
   # OLD가 invariant-guard.sh를 PreToolUse command로 등록하고 있었는가?

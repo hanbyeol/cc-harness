@@ -194,12 +194,27 @@ exit 0'
 }
 
 @test "allows editing hooks.json while keeping invariant-guard registration" {
+  # F68 10차: hooks.json 도 settings.json 과 같은 오브젝트 전문 비교로 옮기면서, 훅 오브젝트를
+  # **바꾸는** 편집(예: timeout 값 변경)은 이제 사람 승인이 필요하다(settings.json 브랜치의
+  # 원칙 "무해한 편집이 막히면 사람이 직접 승인" 을 그대로 물려받는다) — 그 자체가 이번 회전의
+  # 목적이다(형제 필드 변조가 튜플 비교를 뚫었었다). 그래서 "등록을 유지하는 편집"의 예시를
+  # matcher 확대(오브젝트는 그대로, matcher 만 넓힘 — matcher_covers 가 widening 으로 허용)로
+  # 바꾼다.
   mkdir -p "$WORK/hooks"
   cp "$PLUGIN_ROOT/hooks/hooks.json" "$WORK/hooks/hooks.json"
-  # timeout만 바꾸고 invariant-guard 등록은 유지
-  NEW=$(jq '(.hooks.PreToolUse[].hooks[] | select(.command | test("invariant-guard")) | .timeout) = 8' "$WORK/hooks/hooks.json")
+  NEW=$(jq '(.hooks.PreToolUse[] | select(.hooks[].command | test("invariant-guard")) | .matcher) |= (. + "|NotebookEdit")' "$WORK/hooks/hooks.json")
   run run_write "$(mk_write_input "$WORK/hooks/hooks.json" "$NEW")"
-  [ "$status" -eq 0 ]
+  [ "$status" -eq 0 ] || { echo "matcher 확대(강화)가 차단됐다 — 과잉 차단"; false; }
+}
+
+@test "denies a hooks.json edit that changes a hook object's field even if the command survives" {
+  # 위 테스트가 허용 방향을 고정한다면 이 테스트는 차단 방향을 고정한다 — 10차 판정이 실제로
+  # 반증한 자리(형제 필드 변조)를 이 실제 배선 파일로 재현한다.
+  mkdir -p "$WORK/hooks"
+  cp "$PLUGIN_ROOT/hooks/hooks.json" "$WORK/hooks/hooks.json"
+  NEW=$(jq '(.hooks.PreToolUse[].hooks[] | select(.command | test("invariant-guard")) | .timeout) = 999' "$WORK/hooks/hooks.json")
+  run run_write "$(mk_write_input "$WORK/hooks/hooks.json" "$NEW")"
+  [ "$status" -eq 2 ] || { echo "훅 오브젝트 필드 변조가 통과했다"; false; }
 }
 
 @test "denies hooks.json del + decoy field (semantic, not substring)" {
@@ -1192,4 +1207,88 @@ JSON
   local OK='{"sprint":99,"feature_id":"F99","agreed":false,"acceptance_criteria":[{"id":"AC-1"}],"implementation_steps":["a"]}'
   run run_write "$(mk_write_input "$WORK/progress/contracts/sprint-99.json" "$OK")"
   [ "$status" -eq 0 ]
+}
+
+# === F68 10차 — 삭제 후 재생성을 개별 파일명이 아니라 원리적으로 닫는다 ===
+# 6·8·9차는 각각 `feature_list.json`·`sprint-*.json` 하나씩만 열거해서 닫았다. 10차 판정이
+# 나머지 여덟(harness-config.json·tests/*.bats·hooks.json·settings.json·invariant-guard.sh·
+# evaluator-runs.jsonl·.integrity-baseline·approval-queue.json)이 그대로 열려 있음을 실증했다.
+# 해법은 열거를 하나 더 늘리는 것이 아니라, 파일이 없을 때 **HEAD의 마지막 내용을 그 경로에
+# 실체화**해 이후의 모든 비교가 원래 있던 파일과 똑같이 동작하게 하는 것이다.
+
+setup_git_repo() {
+  GITWORK=$(mktemp -d)
+  git -C "$GITWORK" init -q
+  git -C "$GITWORK" config user.email t@t
+  git -C "$GITWORK" config user.name t
+  mkdir -p "$GITWORK/progress" "$GITWORK/hooks" "$GITWORK/tests" "$GITWORK/.claude"
+  cat > "$GITWORK/progress/harness-config.json" <<'JSON'
+{ "scoring": { "pass_threshold": 7, "security_thresholds": { "critical": 7, "standard": 5, "low": 3 } } }
+JSON
+  printf '@test "x" {\n  true\n}\n' > "$GITWORK/tests/sample.bats"
+  cat > "$GITWORK/hooks/hooks.json" <<'JSON'
+{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"bash ${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash-firewall.sh"}]}]}}
+JSON
+  git -C "$GITWORK" add -A
+  git -C "$GITWORK" commit -q -m baseline
+}
+
+@test "F68: deleting harness-config.json and recreating it with a lowered threshold still denies" {
+  command -v git >/dev/null || skip "git not installed"
+  setup_git_repo
+  rm -f "$GITWORK/progress/harness-config.json"
+  local BAD='{ "scoring": { "pass_threshold": 1, "security_thresholds": { "critical": 1, "standard": 1, "low": 1 } } }'
+  CLAUDE_PROJECT_DIR="$GITWORK" run bash "$HOOK" <<<"$(mk_write_input "$GITWORK/progress/harness-config.json" "$BAD")"
+  [ "$status" -eq 2 ] || { echo "삭제 후 재생성으로 임계값 하향이 통과했다"; false; }
+  rm -rf "$GITWORK"
+}
+
+@test "F68: deleting hooks.json and recreating with a sibling-field kill switch still denies" {
+  # 9차 대응(튜플 대조)이 뚫린 자리 — command 는 그대로 두고 `type` 을 대문자로 바꾸면
+  # 스펙상 무효값이 되어 훅이 죽지만 튜플 추출값은 동일했다. 오브젝트 전문 비교로 잡는다.
+  command -v git >/dev/null || skip "git not installed"
+  setup_git_repo
+  rm -f "$GITWORK/hooks/hooks.json"
+  local BAD='{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"COMMAND","command":"bash ${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash-firewall.sh"}]}]}}'
+  CLAUDE_PROJECT_DIR="$GITWORK" run bash "$HOOK" <<<"$(mk_write_input "$GITWORK/hooks/hooks.json" "$BAD")"
+  [ "$status" -eq 2 ] || { echo "삭제 후 형제 필드 우회로 재생성한 hooks.json 이 통과했다"; false; }
+  rm -rf "$GITWORK"
+}
+
+@test "F68: deleting tests/*.bats and recreating it empty still denies (truncation)" {
+  command -v git >/dev/null || skip "git not installed"
+  setup_git_repo
+  rm -f "$GITWORK/tests/sample.bats"
+  CLAUDE_PROJECT_DIR="$GITWORK" run bash "$HOOK" <<<"$(mk_write_input "$GITWORK/tests/sample.bats" "")"
+  [ "$status" -eq 2 ] || { echo "삭제 후 빈 파일로 재생성한 .bats 가 통과했다"; false; }
+  rm -rf "$GITWORK"
+}
+
+@test "F68: a spelling variant of harness-config.json is treated as the same file" {
+  # 대소문자 무시 FS 에서만 의미가 있다 — `git show HEAD:<철자>` 는 정확한 철자만 찾으므로
+  # (core.ignorecase=true 여도) 재생성한 표기와 HEAD 의 실제 철자가 다르면 그 표기로는
+  # 조회가 실패한다. HEAD 트리를 훑어 대소문자 무시로 일치하는 실제 철자를 먼저 찾아야 한다.
+  command -v git >/dev/null || skip "git not installed"
+  mkdir -p "$WORK/CiProbe"
+  if [[ ! -e "$WORK/ciprobe" ]]; then skip "case-sensitive filesystem — 이 검사는 발화하지 않는다"; fi
+  rmdir "$WORK/CiProbe" 2>/dev/null || rm -rf "$WORK/CiProbe"
+  setup_git_repo
+  rm -f "$GITWORK/progress/harness-config.json"
+  local BAD='{ "scoring": { "pass_threshold": 1, "security_thresholds": { "critical": 1, "standard": 1, "low": 1 } } }'
+  CLAUDE_PROJECT_DIR="$GITWORK" run bash "$HOOK" <<<"$(mk_write_input "$GITWORK/PROGRESS/HARNESS-CONFIG.JSON" "$BAD")"
+  [ "$status" -eq 2 ] || { echo "표기를 바꿔 재생성한 harness-config.json 이 통과했다"; false; }
+  rm -rf "$GITWORK"
+}
+
+@test "F68: materialization does not block a genuinely new file or a legitimate edit" {
+  # 과잉 차단 방지 — HEAD 에 전혀 없던 경로(진짜 신규)는 여전히 정상 생성이고, 삭제 없이
+  # 값을 올리는 정당한 편집도 그대로 통과해야 한다.
+  command -v git >/dev/null || skip "git not installed"
+  setup_git_repo
+  CLAUDE_PROJECT_DIR="$GITWORK" run bash "$HOOK" <<<"$(mk_write_input "$GITWORK/hooks/brandnew.sh" "#!/bin/bash\necho hi\n")"
+  [ "$status" -eq 0 ] || { echo "진짜 신규 훅 스크립트가 막혔다"; false; }
+  local OK='{ "scoring": { "pass_threshold": 8, "security_thresholds": { "critical": 7, "standard": 5, "low": 3 } } }'
+  CLAUDE_PROJECT_DIR="$GITWORK" run bash "$HOOK" <<<"$(mk_write_input "$GITWORK/progress/harness-config.json" "$OK")"
+  [ "$status" -eq 0 ] || { echo "삭제 없는 정당한 임계값 상향이 막혔다"; false; }
+  rm -rf "$GITWORK"
 }
