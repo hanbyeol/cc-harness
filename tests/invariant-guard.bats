@@ -1400,12 +1400,13 @@ JSON
   # 술어를 스텁으로 갈아끼우므로, lookup 이 `fs_is_case_insensitive` 가 아닌 다른 축에
   # 걸려 있으면 스텁이 무시돼 이 테스트가 깨진다(같은 근거 재사용을 행동으로 고정).
   source <(sed -n '/^canon_file()/,/^}/p' "$HOOK")
-  export LC_ALL=C   # ls 정렬을 고정해 어느 철자가 head -1 에 걸리는지 결정론적으로 만든다
-  local D="$WORK/progress" req got
+  export LC_ALL=C   # ls 정렬을 고정해 어느 철자가 후보 목록의 앞에 오는지 결정론적으로 만든다
+  local D="$WORK/progress" req got ci_fs=0
   : > "$D/feature_list.json"
   mkdir -p "$WORK/CiProbe"
   if [[ -e "$WORK/ciprobe" ]]; then
     req="FEATURE_LIST.JSON"          # 무시 FS: 두 철자가 공존 불가 — 변형 철자로 요청한다
+    ci_fs=1
   else
     : > "$D/FEATURE_LIST.json"       # 구분 FS: 디코이를 실제로 만든다 (원본과 공존)
     req="feature_list.json"
@@ -1419,10 +1420,22 @@ JSON
     echo "구분 FS 에서 판정 대상이 '$req' -> '$(basename "$got")' 로 재바인딩됐다"; false; }
 
   # (2) FS 가 대소문자를 무시하면 기존대로 실제 철자를 물어본다 (정당한 철자 변형 인식).
-  fs_is_case_insensitive() { return 0; }
-  got=$(canon_file "$D/$req")
-  [ "$(basename "$got")" != "$req" ] || {
-    echo "무시 FS 에서 lookup 이 돌지 않았다 — 정당한 철자 변형 인식이 깨진다"; false; }
+  #
+  # **이 leg 은 무시 FS 에서만 돈다 (F70 2차 판정 이후).** 단언의 전제 — "디스크의 실제 철자가
+  # 요청한 철자와 다르다" — 는 무시 FS 에서만 자연히 성립한다. 구분 FS 에서 같은 상황을 만들려면
+  # 두 철자를 **공존**시켜야 하는데(위 else 분기의 디코이), 그 공존 자체가 이 FS 가 대소문자를
+  # 구분한다는 증거이고, `canon_file` 은 이제 그 상태에서 어느 쪽도 고르지 않는다 — 고르는 순간
+  # 판정 대상이 디코이로 옮겨가는 것이 2차 판정이 실측한 우회였다(술어를 뒤집는 `mkdir PROGRESS`
+  # 와 결합해 임계값 하향·가드 무력화가 통과). 즉 구분 FS 에서 이 leg 을 그대로 두면 **우회 동작을
+  # 기대값으로 고정**하게 된다. 공존 상태의 올바른 동작은 아래 "F70r2: canon_file does not choose
+  # among coexisting case variants" 가 양쪽 FS 에서 단언한다(`ls` 스텁으로 공존을 주입).
+  # leg (1) 은 양쪽 FS 에서 그대로 돌고, 무시 FS 에서는 이 leg 도 그대로 돈다 — 커버리지 손실 없음.
+  if [[ "$ci_fs" == 1 ]]; then
+    fs_is_case_insensitive() { return 0; }
+    got=$(canon_file "$D/$req")
+    [ "$(basename "$got")" != "$req" ] || {
+      echo "무시 FS 에서 lookup 이 돌지 않았다 — 정당한 철자 변형 인식이 깨진다"; false; }
+  fi
 }
 
 @test "F70: a case-variant decoy does not rebind the guard's target (case-sensitive FS)" {
@@ -1468,4 +1481,90 @@ JSON
   local BAD='{ "scoring": { "pass_threshold": 1, "security_thresholds": { "critical": 1, "standard": 1, "low": 1 } } }'
   run run_write "$(mk_write_input "$WORK/progress/HARNESS-CONFIG.JSON" "$BAD")"
   [ "$status" -eq 2 ] || { echo "존재하는 harness-config.json 을 변형 철자로 쓰면 임계값 게이트가 열린다"; false; }
+}
+
+# === F70 2차 판정: 게이트가 의존하는 **술어 자신**을 공격자가 뒤집을 수 있었다 ===
+# `fs_is_case_insensitive()` 는 "뒤집은 이름의 형제가 존재하는가" 로 FS 를 판정했다. 그 형제는
+# 공격자가 만들면 그만이다 — 구분하는 FS 에서 `mkdir PROGRESS`(방화벽 allow·무프롬프트) 하나로
+# 술어가 '무시함' 이라고 답하고, 그 순간 `canon_file` 의 lookup 게이트가 다시 열려 F70 이 닫았던
+# 디코이 재바인딩이 부활했다. 2차 판정 실측(구분 APFS 볼륨, LC_ALL=C): 디코이 파일만 = exit 2,
+# 디코이 파일 + `mkdir PROGRESS` = **exit 0**(임계값 하향 통과), 디코이 + `mkdir HOOKS` = **exit 0**
+# (가드 자신의 `exit 2` 제거 통과). 아래 네 테스트가 그 축을 고정한다.
+# 디코이 공존은 구분 FS 에서만 가능하므로 대소문자 무시 FS 에서는 skip 된다 — 대신 술어의
+# 긍정 방향(무시 FS 에서 '무시함' 유지)과 lookup 의 후보 다중성 축은 양쪽 FS 에서 모두 돈다.
+
+@test "F70r2: an attacker-created flipped sibling directory no longer flips the predicate" {
+  source <(sed -n '/^fs_is_case_insensitive()/,/^}/p' "$HOOK")
+  local T="$WORK/fsci"
+  mkdir -p "$T/progress"
+  if ! mkdir "$T/PROGRESS" 2>/dev/null; then
+    skip "case-insensitive filesystem — 뒤집힌 형제 디렉터리는 같은 디렉터리라 만들 수 없다"
+  fi
+  run fs_is_case_insensitive "$T/progress"
+  [ "$status" -eq 1 ] || { echo "mkdir PROGRESS 하나로 술어가 '대소문자 무시' 로 뒤집혔다"; false; }
+
+  # 링크로 inode 동일성을 흉내내는 변형도 같은 답이어야 한다.
+  rmdir "$T/PROGRESS"
+  ln -s progress "$T/PROGRESS"
+  run fs_is_case_insensitive "$T/progress"
+  [ "$status" -eq 1 ] || { echo "심볼릭 링크로 술어가 '대소문자 무시' 로 뒤집혔다"; false; }
+}
+
+@test "F70r2: on a case-insensitive FS the predicate still answers insensitive" {
+  # 위 테스트의 대칭 — 기만 저항을 얻으면서 정상 판정을 잃지 않았는지 본다(AC-2 의 토대).
+  source <(sed -n '/^fs_is_case_insensitive()/,/^}/p' "$HOOK")
+  local T="$WORK/fsci2"
+  mkdir -p "$T/progress"
+  if mkdir "$T/PROGRESS" 2>/dev/null; then
+    rmdir "$T/PROGRESS"
+    skip "case-sensitive filesystem — 이 축은 이 FS 에서 발화하지 않는다"
+  fi
+  run fs_is_case_insensitive "$T/progress"
+  [ "$status" -eq 0 ] || { echo "무시 FS 를 '구분함' 으로 판정했다 — 분류 술어의 nocasematch 가 꺼진다"; false; }
+}
+
+@test "F70r2: canon_file does not choose among coexisting case variants" {
+  # 술어에 **기대지 않는** 두 번째 방어선. 술어가 어떤 이유로든(마운트 경계 등) 틀려도
+  # 판정 대상이 실제 쓰기 대상에서 떨어지지 않아야 한다: 두 철자가 공존한다는 것 자체가
+  # 이 FS 가 대소문자를 구분한다는 증거이므로 lookup 은 아무것도 고르지 않는다.
+  # `ls` 를 스텁으로 갈아끼워 어느 FS 에서도 이 축을 확인한다(공존은 구분 FS 에서만 가능).
+  source <(sed -n '/^canon_file()/,/^}/p' "$HOOK")
+  fs_is_case_insensitive() { return 0; }   # 술어가 '무시함' 이라고 (틀리게) 답해도
+  ls() { printf '%s\n' 'HARNESS-CONFIG.json' 'harness-config.json'; }
+  local got
+  got=$(canon_file "$WORK/progress/harness-config.json")
+  [ "$(basename "$got")" = "harness-config.json" ] || {
+    echo "후보가 둘인데 lookup 이 '$(basename "$got")' 를 골랐다 — 판정 대상이 디코이로 옮겨간다"; false; }
+}
+
+@test "F70r2: decoy file plus flipped sibling directory cannot lower the threshold" {
+  mkdir -p "$WORK/CiProbe"
+  if [[ -e "$WORK/ciprobe" ]]; then
+    rmdir "$WORK/CiProbe" 2>/dev/null || rm -rf "$WORK/CiProbe"
+    skip "case-insensitive filesystem — 두 철자가 공존할 수 없어 디코이를 만들 수 없다"
+  fi
+  rmdir "$WORK/CiProbe" 2>/dev/null || rm -rf "$WORK/CiProbe"
+  export LC_ALL=C
+  # 2차 판정이 실측한 체인 그대로: 이미 약한 디코이 + 술어를 뒤집는 형제 디렉터리.
+  printf '%s\n' '{ "scoring": { "pass_threshold": 1, "security_thresholds": { "critical": 1, "standard": 1, "low": 1 } } }' > "$WORK/progress/HARNESS-CONFIG.json"
+  mkdir "$WORK/PROGRESS"
+  local BAD='{ "scoring": { "pass_threshold": 1, "security_thresholds": { "critical": 1, "standard": 1, "low": 1 } } }'
+  run run_write "$(mk_write_input "$WORK/progress/harness-config.json" "$BAD")"
+  [ "$status" -eq 2 ] || { echo "디코이 파일 + mkdir PROGRESS 로 임계값 하향이 통과한다 (status=$status)"; false; }
+}
+
+@test "F70r2: decoy file plus flipped sibling directory cannot strip the guard's own exit 2" {
+  mkdir -p "$WORK/CiProbe"
+  if [[ -e "$WORK/ciprobe" ]]; then
+    rmdir "$WORK/CiProbe" 2>/dev/null || rm -rf "$WORK/CiProbe"
+    skip "case-insensitive filesystem — 두 철자가 공존할 수 없어 디코이를 만들 수 없다"
+  fi
+  rmdir "$WORK/CiProbe" 2>/dev/null || rm -rf "$WORK/CiProbe"
+  export LC_ALL=C
+  cp "$HOOK" "$WORK/hooks/invariant-guard.sh"
+  local GUTTED; GUTTED=$(sed 's/exit 2/exit 0/g' "$HOOK")
+  printf '%s\n' "$GUTTED" > "$WORK/hooks/INVARIANT-GUARD.sh"   # 이미 무력화된 디코이
+  mkdir "$WORK/HOOKS"
+  run run_write "$(mk_write_input "$WORK/hooks/invariant-guard.sh" "$GUTTED")"
+  [ "$status" -eq 2 ] || { echo "디코이 파일 + mkdir HOOKS 로 가드 자신의 exit 2 제거가 통과한다 (status=$status)"; false; }
 }

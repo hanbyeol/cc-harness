@@ -1,113 +1,99 @@
 {
   "feature_id": "F70",
   "sprint": 56,
-  "title": "canon_file() 의 대소문자 무시 lookup 을 fs_is_case_insensitive() 로 게이팅",
+  "title": "F70 2차 판정 대응 — 게이트가 의존하는 술어 자체의 기만 저항",
   "security_tier": "critical",
-  "timestamp": "2026-08-03T23:15:40+0900",
-  "_supersedes_note": "이 슬롯의 직전 내용은 F67 sprint-53 보고였다. 그 보고는 git 히스토리에 남아 있다.",
+  "timestamp": "2026-08-05T14:20:00+0900",
+  "iteration": 2,
   "mode": "serial",
-  "_mode_note": "계약이 _parallelizable:false — step 1(게이팅)과 step 2(회귀 테스트)가 같은 두 파일의 같은 판정 경로를 건드리고, step 2 는 step 1 이 고른 술어에 직접 의존한다.",
-  "summary": "canon_file() 은 대상이 존재하면 `ls -1 | grep -ixF` 로 'FS 가 인식하는 실제 철자' 를 물어봤는데, 그 물음이 FS 가 실제로 대소문자를 무시하는지와 무관하게 무조건 실행됐다. 대소문자를 구분하는 FS(이 저장소의 CI 인 ubuntu-latest 포함)에서는 원본과 디코이가 두 파일로 공존하므로 grep 이 둘 다 매치하고 head -1 이 정렬 순서대로 하나를 골라, 무방비 Write 로 심은 디코이가 판정 대상을 통째로 대체했다. is_protected() 가 nocasematch 를 게이팅할 때 쓰는 같은 술어(fs_is_case_insensitive)를 이 lookup 에도 적용해 닫았다.",
-  "ac0_decision": {
-    "question": "canon_file 은 라인 229·232 에서 호출되는데 FS_CI 는 라인 249 에서야 계산된다 — 이 순서를 어떻게 풀 것인가.",
-    "measured_before_deciding": [
-      "canon_file 본문에 프로브를 심어 두 호출 모두에서 `FS_CI=[<UNSET>]` 을 관측했다 — 추측이 아니라 실행 결과다.",
-      "순진한 수정(canon_file 안에서 `${FS_CI:-0}` 참조)을 실제로 적용해 돌렸다: 항상 기본값 0 으로 굳어 lookup 이 영구히 꺼지고, 존재하는 progress/harness-config.json 을 `HARNESS-CONFIG.JSON` 철자로 임계값 7→1 낮추는 쓰기가 deny(exit 2) → allow(exit 0) 로 **열렸다**. 즉 순진한 수정은 게이팅에 실패할 뿐 아니라 macOS 에서 새 구멍을 낸다.",
-      "옵션 (a)(FS_CI 계산을 앞으로 이동)도 실측으로 기각했다: 그 시점의 FILE 은 아직 생 경로여서 `progress/./harness-config.json` 의 dirname 은 `progress/.` 이고, basename `.` 은 뒤집을 글자가 없어 술어가 '구분함'(FS_CI=0)을 반환한다. 이 경로 형태는 가드 자신의 주석이 위협 모델로 명시한 것이고, FS_CI=0 이 되면 is_protected() 의 분류까지 함께 무뎌진다 — F68 10차 판정이 세운 분류 게이팅의 회귀다."
-    ],
-    "decision": "옵션 (b) — canon_file() 이 전역 FS_CI 를 읽지 않고, 자기가 지금 훑는 디렉터리 `$d` 에 대해 fs_is_case_insensitive() 를 직접 호출한다.",
-    "rationale": [
-      "순서 의존을 없앤다: 전역이 언제 계산되든 무관해지므로 (a)/(순진한 수정)이 밟은 함정이 원리적으로 사라진다.",
-      "앵커가 더 정확하다: `$d` 는 이미 `pwd -P` 로 물리 경로가 확정된 뒤이고, 심볼릭 링크가 대상을 다른 마운트(대소문자 정책이 다를 수 있는)로 옮겨도 호출마다 그 디렉터리를 직접 묻는다.",
-      "같은 판단 근거를 재사용한다: is_protected() 의 nocasematch 와 **동일한 술어**다 — 새 판단축을 만들지 않는다.",
-      "기존 전역 FS_CI 의 위치·입력·의미를 건드리지 않는다. F68 9·10차 판정이 그 위치(삭제 후 재생성 실체화보다 앞)를 의도적으로 고른 자리이므로 재검토 대상을 늘리지 않는다."
-    ],
-    "side_change": "fs_is_case_insensitive() 정의를 canon_file() 앞으로 옮겼다(본문 무변경, 순수 이동). 뒤에 두면 '정의 전 호출'이 exit 127 로 새는 자리가 남는다 — 현재 호출부는 모두 아래이지만 그 순서에 기대지 않는다."
-  },
-  "test_strategy_decision": {
-    "question": "대소문자 구분 FS 버그를 macOS(대소문자 무시 기본) 개발 환경에서 어떻게 회귀 고정할 것인가.",
-    "rejected": {
-      "option": "FS_CI 를 테스트에서 오버라이드하는 환경변수를 운영 코드에 추가",
-      "reason": "이 게이트에서 '대소문자 무시' 방향이 곧 **취약한 방향**이다. 환경변수로 그 방향을 켤 수 있게 만들면, 가드가 도는 환경(에이전트가 env 를 설정할 수 있는 곳)에서 오버라이드 자체가 이번에 닫은 우회로를 되여는 스위치가 된다. 테스트 편의를 위해 운영 경로에 켤 수 있는 우회 스위치를 두지 않는다."
-    },
-    "chosen": [
-      "유닛: 저장소의 기존 관행(`source <(sed -n '/^is_protected()/,/^}/p' \"$HOOK\")`)대로 canon_file() 을 원본에서 추출하고, **술어를 스텁으로 갈아끼워** 게이팅을 직접 확인한다. 운영 코드에 손댈 필요가 없고, lookup 이 fs_is_case_insensitive 가 아닌 다른 축에 걸려 있으면 스텁이 무시돼 테스트가 깨지므로 '같은 근거 재사용' 까지 행동으로 고정된다. 두 분기의 픽스처는 FS 에 맞춰 고르되 단언은 양쪽에서 동일하다.",
-      "종단: 디코이 공존이 필요한 E2E 테스트는 FS 를 런타임에 프로브해 대소문자 무시 FS 에서는 skip 한다(저장소에 이미 있는 skip 관행과 동일). 실제 CI(ubuntu-latest)에서는 그대로 돈다.",
-      "AC-2 앵커: 파일이 **그대로 있는 채** 변형 철자로 닿는 경로를 새로 고정했다. 기존 F68 테스트들은 삭제 후 재생성(HEAD 실체화) 경로만 덮고 있어서, 게이팅을 조금만 넓게 걸어도 여기가 조용히 열렸다(순진한 수정에서 실제로 열렸다)."
-    ],
-    "local_verification_of_the_skipped_leg": "skip 되는 종단 테스트를 검증하지 않은 채 두지 않았다. hdiutil 로 대소문자 구분 볼륨(Case-sensitive APFS)을 만들고, setup() 의 mktemp 만 그 볼륨으로 바꾼 미러 사본(모든 @test 본문 바이트 동일, @test 개수 동일 확인)으로 F70 3건을 실제로 돌려 수정 전 RED / 수정 후 GREEN 을 관측했다. macOS 의 mktemp 는 TMPDIR 을 따르지 않아(실측) 미러가 필요했다."
-  },
-  "features_implemented": [
-    "F70"
-  ],
+  "_mode_note": "술어 하나와 그 소비자 한 곳을 고치는 작업이라 병렬 분할 대상이 아니다.",
+  "_supersedes_note": "이 슬롯의 직전 내용은 F65 sprint-51 보고였다(git 히스토리에 남아 있다).",
+  "base_commit": "83a0404",
+  "input_verdict": "progress/agent-comms/evaluator-feedback-2026-08-04T09-44-03+0900.json (F37 2차 독립 판정, fail — security 6, min-of-5 6)",
+  "summary": "1차 판정이 확인한 레그(파일 디코이)는 그대로 두고, 2차 판정이 연 축 — 게이트가 새로 의존하게 된 **술어 자신을 공격자가 뒤집을 수 있다** — 를 닫았다. fs_is_case_insensitive() 가 '뒤집은 이름의 형제가 존재하는가' 대신 '뒤집은 경로가 대상 디렉터리와 같은 객체인가'(device+inode)를 묻는다. 여기에 더해 canon_file() 의 lookup 이 술어의 답과 **무관하게** 안전하도록 2차 방어선을 뒀다 — 대소문자만 다른 후보가 둘 이상이면 어느 것도 고르지 않는다. 이전 라운드가 방어를 술어 하나에 몰아 둔 것이 2차 판정의 지적이었으므로, 이번에는 신뢰 근원을 둘로 나눴다.",
+  "features_implemented": [],
+  "_features_note": "F70 의 passes 는 evaluator 만 바꾼다. feature_list.json 의 F70 은 passes:false / status:pending 그대로 두었다.",
   "files_changed": [
-    "hooks/invariant-guard.sh"
+    "hooks/invariant-guard.sh",
+    "tests/invariant-guard.bats",
+    "progress/contracts/sprint-56.json"
   ],
   "tests_added": [
-    "tests/invariant-guard.bats"
+    "tests/invariant-guard.bats :: F70r2: an attacker-created flipped sibling directory no longer flips the predicate",
+    "tests/invariant-guard.bats :: F70r2: on a case-insensitive FS the predicate still answers insensitive",
+    "tests/invariant-guard.bats :: F70r2: canon_file does not choose among coexisting case variants",
+    "tests/invariant-guard.bats :: F70r2: decoy file plus flipped sibling directory cannot lower the threshold",
+    "tests/invariant-guard.bats :: F70r2: decoy file plus flipped sibling directory cannot strip the guard's own exit 2"
   ],
-  "iteration": 1,
-  "tdd": {
-    "red": [
-      "macOS(무시 FS): 'F70: canon_file's case-insensitive lookup is gated by fs_is_case_insensitive' 실패 — `구분 FS 에서 판정 대상이 'FEATURE_LIST.JSON' -> 'feature_list.json' 로 재바인딩됐다`",
-      "대소문자 구분 볼륨: 같은 테스트 실패 — `'feature_list.json' -> 'FEATURE_LIST.json' 로 재바인딩됐다`(디코이가 원본을 밀어냄) + 'F70: a case-variant decoy does not rebind the guard's target' 실패 — `디코이가 있으면 임계값 하향이 통과한다`"
-    ],
-    "green": [
-      "macOS: F70 3건 — ok 2, skip 1(구분 FS 전용 종단)",
-      "대소문자 구분 볼륨: F70 3건 — ok 2, skip 1(무시 FS 전용 AC-2 앵커)"
-    ]
+  "what_changed": {
+    "predicate": "존재 검사(`[[ -e \"$parent/$flipped\" ]]`)를 객체 동일성(`[[ \"$alias\" -ef \"$d\" ]]`)으로 바꿨다. `-ef` 는 심볼릭 링크를 따라가므로 링크를 그 앞에서 선제외한다(`ln -s progress PROGRESS` 로 같은 inode 를 흉내내는 것을 막는다). 공격자는 자기가 만든 디렉터리에 원본의 inode 를 줄 수 없다 — 디렉터리 하드링크는 OS 가 금지한다(실측: ln 실패).",
+    "second_line": "canon_file() 의 lookup 이 `head -1` 로 후보를 고르지 않는다. `-e` 로 요청 철자의 존재가 이미 확인됐으므로 후보 집합은 항상 요청 철자를 포함한다 — 후보가 하나면 재바인딩이 안전하고(요청 철자 자신이거나, 무시 FS 가 인식하는 유일한 실제 철자), 둘 이상이면 그 공존 자체가 이 FS 가 대소문자를 구분한다는 증거이므로 요청 철자를 유지한다(그것이 OS 가 실제로 열 파일이다).",
+    "call_sites": "호출부 두 곳(FS_CI 계산 → is_protected() 의 nocasematch, canon_file() 의 lookup 게이팅)은 고친 술어를 **그대로** 쓴다 — 시그니처와 반환 규약이 그대로라 별도 수정이 필요 없었다(F70 의 단일 술어 재사용 원칙 유지). canon_file 의 2차 방어선은 술어 사용을 대체하는 것이 아니라 그 아래에 덧댄 것이다."
   },
-  "evidence": {
-    "tests": "bats tests/ — 1회 실행(재실행 없음): 745 ok, 0 not ok, 2 skip. skip 2건은 (1) F70 구분 FS 전용 종단 테스트(이 머신이 무시 FS), (2) 기존 'migration: pristine v1.4.0 copies removed via legacy hash'(v1.4.0 플러그인 캐시 없음) — 둘 다 이번 변경과 무관한 환경 조건이다. F70 3건: ok 264 / 265(skip) / 266.",
-    "lint": "bash -n hooks/invariant-guard.sh — syntax OK",
-    "behavioral_probe": "bash scripts/probes/behavioral.sh → `[]` (0건), exit 0",
-    "ac1_end_to_end_all_seven": {
-      "method": "hdiutil Case-sensitive APFS 볼륨 위에 git 저장소를 만들고, 각 시나리오마다 '이미 통과할 모양'의 디코이(임계값이 이미 낮고, passes 가 이미 참이고, @test 가 이미 하나 …)를 심은 뒤, 수정 전 가드(git show HEAD:hooks/invariant-guard.sh)와 수정 후 가드(작업 트리)에 동일 입력을 넣어 종료 코드를 비교했다. LC_ALL=C 로 ls 정렬을 고정해 디코이가 head -1 에 걸리는 것을 결정론적으로 만들었다.",
-      "pre_fix_exit_codes": {
-        "1_passes_injection": 0,
-        "2_pass_threshold_7_to_1": 0,
-        "3_batch_approval_widened": 0,
-        "4_test_count_2_to_1": 0,
-        "5_hooks_json_unwiring": 0,
-        "6_settings_json_unwiring": 0,
-        "7_guard_own_deny_neutered": 0
-      },
-      "post_fix_exit_codes": {
-        "1_passes_injection": 2,
-        "2_pass_threshold_7_to_1": 2,
-        "3_batch_approval_widened": 2,
-        "4_test_count_2_to_1": 2,
-        "5_hooks_json_unwiring": 2,
-        "6_settings_json_unwiring": 2,
-        "7_guard_own_deny_neutered": 2
-      },
-      "conclusion": "security-auditor 가 재현한 7가지가 전부 exit 0 → exit 2 로 닫혔다."
-    },
-    "tdd_exceptions": []
+  "design_decision": {
+    "requested": "지시는 대상 디렉터리 안에 mktemp 계열 고유 마커를 만들고 뒤집은 이름으로 접근되는지 보는 방식이었다.",
+    "implemented": "쓰지 않는 inode 동일성 판정을 채택했다 (코디네이터 승인 완료).",
+    "reason": "이 술어는 Write/Edit/MultiEdit **매 호출마다** 도는 PreToolUse 경로에 있다. 마커 방식은 (1) 생성과 검사 사이에 TOCTOU 창이 열리고, (2) 파일시스템 이벤트 감시기에 노이즈와 잔여물을 남기며, (3) 쓰기 불가 디렉터리에서 판정이 실패하는 **새 실패 모드**를 만든다 — 그 실패의 fail-closed 방향이 두 호출부에서 서로 반대라(분류는 '무시함' 쪽이 보호적, lookup 은 '구분함' 쪽이 보호적) 단일 기본값으로 안전하게 접히지 않는다. inode 동일성은 읽기만으로 같은 질문에 답하고 이 세 문제가 전부 없다."
   },
   "security_self_check": {
-    "checklist_items": 6,
-    "checklist_passed": 6,
-    "notes": "(1) INV-5 add-only: diff 는 술어 정의의 순수 이동 + lookup 게이팅 + 주석뿐이다 — deny/exit 2/ask 를 제거하거나 조건을 넓힌 곳이 없다(diff 전문 확인). (2) harness-config.json 무변경(git status 에 없음). (3) INV-1: progress/feature_list.json 미수정 — F70 passes 는 evaluator 만 바꾼다. (4) 테스트 삭제·약화 없음: @test 순증(+3), 기존 단언 무수정. (5) 운영 경로에 테스트용 우회 스위치를 추가하지 않았다(환경변수 오버라이드 기각). (6) 전역 nocasematch 미도입 — 기존 'F68: the guard sets no global nocasematch' 그대로 green."
+    "checklist_items": 5,
+    "checklist_passed": 5,
+    "notes": "add-only(INV-5) 확인 — 이번 변경은 deny 를 늘리기만 한다. 술어가 '구분함'으로 더 자주 답하게 되어 lookup 이 덜 돌고, 재바인딩은 후보가 유일한 경우로 좁아졌다. harness-config.json 무변경. 기존 exit 2 판정 회귀 0건(macOS 전체 bats + 케이스 구분 볼륨 차분 양쪽에서 확인). feature_list.json 의 F70 passes/status 미변경."
   },
   "error_scenarios_tested": [
-    "ES-1 (술어 판정 불가): canon_file 안에서는 `$d` 가 이미 `cd` 로 존재가 확인된 물리 경로이므로 '디렉터리 부재' 분기에 도달하지 않는다 — 기존 기본값을 뒤집지 않았다. 남는 판정 불가 케이스(디렉터리 이름에 뒤집을 글자가 없음)는 술어가 '구분함' 을 반환해 lookup 을 건너뛰므로 재바인딩이 일어나지 않는 안전한 방향이고, 같은 술어를 쓰는 is_protected() 와 답이 갈리지 않는다.",
-    "ES-2 (디코이가 정렬상 항상 앞서는 경우): LC_ALL=C 로 대문자가 먼저 오도록 고정해 디코이가 head -1 에 확실히 걸리는 조건에서 검증했다 — 게이팅 후에는 lookup 자체가 스킵되므로 정렬 순서와 무관하게 원본 basename 이 유지된다(테스트 2 및 7시나리오 표 전부).",
-    "과잉 차단 방지: 대소문자 무시 FS 에서 정당한 철자 변형 인식이 유지되는지 — 기존 F68 테스트 2건(삭제 후 재생성 경로) + 신규 AC-2 앵커 1건(파일 존재 경로) 모두 green.",
-    "정말 신규인 파일·디렉터리 부재 경로: canon_file 의 조기 반환 분기 무변경, 기존 'F68: materialization does not block a genuinely new file or a legitimate edit' green."
+    "뒤집은 이름의 형제 디렉터리 존재(mkdir PROGRESS) → '구분함'",
+    "뒤집은 이름의 상대 심볼릭 링크(ln -s progress PROGRESS) → '구분함'",
+    "뒤집은 이름의 절대 심볼릭 링크 → '구분함'",
+    "뒤집은 이름의 일반 파일 → '구분함'",
+    "디렉터리 하드링크 시도 → OS 가 거부(생성 자체 불가)",
+    "대소문자 무시 FS 에서 정상 판정 유지 → '무시함'",
+    "후보 공존 상태에서 술어를 '무시함'으로 강제 → 재바인딩 없음"
   ],
+  "evidence": {
+    "red_chain_before_fix": "케이스 구분 APFS 볼륨(hdiutil, /Volumes/ImplCS), LC_ALL=C, 수정 전 훅(83a0404). [INV-3 pass_threshold 7→1 쓰기] 디코이 없음 exit2 / 디코이 파일만 exit2 / 플립 디렉터리만 exit2 / **디코이 파일 + `mkdir PROGRESS` exit0 (우회 성립)**. [가드 자신의 모든 `exit 2`→`exit 0` 치환 쓰기] 디코이 없음 exit2 / 디코이 파일만 exit2 / 플립 디렉터리만 exit2 / **디코이 파일 + `mkdir HOOKS` exit0 (우회 성립)**. 2차 판정이 기록한 두 체인의 독립 재현이다.",
+    "green_chain_after_fix": "같은 볼륨·같은 8칸 매트릭스, 수정 후 훅: **전부 exit2 (DENY)**.",
+    "red_predicate_before_fix": "수정 전 술어 — mkdir PROGRESS / 상대 심볼릭 링크 / 절대 심볼릭 링크 / 같은 이름의 일반 파일, **네 가지 모두 '무시함'** 으로 뒤집혔다(각각 명령 하나).",
+    "green_predicate_after_fix": "수정 후 술어 — 위 네 가지 **전부 '구분함'**. 대소문자 무시 FS(macOS 기본)에서는 그대로 '무시함' 으로 답해 정상 판정을 유지한다.",
+    "red_green_new_tests": "신규 5종을 케이스 구분 픽스처로 실행 — 수정 전: not ok 4 / skip 1(무시 FS 전용 축), 수정 후: ok 4 / skip 1. RED 를 먼저 보고 GREEN 으로 넘어간 것을 동일 환경에서 확인했다.",
+    "tests": "bats tests/ — 1..760, ok 760 / not ok 0 / skip 5, bats exit=0. macOS(대소문자 무시 FS)에서 **최종 트리 1회 실행**. F70 계열 8건 전부 ok(그중 구분 FS 전용 4건은 이 환경에서 올바르게 skip).",
+    "tests_case_sensitive_differential": "tests/invariant-guard.bats 를 케이스 구분 볼륨 픽스처로 돌린 차분 — CONTROL(수정 전 훅 + 신규 테스트): 1..141, ok=137 / not ok=4 (신규 4건이 정확히 RED). FIXED(수정 후): 1..141, **ok=141 / not ok=0**. 이 저장소의 실제 CI 인 ubuntu-latest 가 대소문자 구분 FS 이므로 그 환경을 국소 재현한 것이다.",
+    "behavioral_probe": "bash scripts/probes/behavioral.sh → [] (0건)",
+    "lint": "shellcheck 미설치 — 실행하지 못했다. 셸 문법·동작은 위 760건 + 케이스 구분 141건 실행으로 확인했다.",
+    "tdd_exceptions": [],
+    "artifacts": "scratchpad/verify-cs.sh (케이스 구분 볼륨 재현 스크립트), scratchpad/verify-cs-report.txt, scratchpad/bats-macos-final.txt, scratchpad/bats-cs-control.txt, scratchpad/bats-cs-fixed.txt",
+    "artifacts_note": "세션이 한 번 중단되며 scratchpad 산출물과 마운트가 소실되어 케이스 구분 측정을 스크립트로 재생성했다. 위 수치는 전부 재생성 이후의 실제 실행 결과다."
+  },
+  "existing_test_modified": {
+    "test": "F70: canon_file's case-insensitive lookup is gated by fs_is_case_insensitive",
+    "change": "leg (2)('술어가 무시함이라고 답하면 lookup 이 돌아 철자가 바뀐다')를 대소문자 무시 FS 에서만 실행하도록 조건화했다. leg (1) 은 양쪽 FS 에서 그대로 돌고 @test 개수도 그대로다.",
+    "why": "leg (2) 의 전제('디스크의 실제 철자가 요청 철자와 다르다')는 무시 FS 에서만 자연히 성립한다. 구분 FS 에서 같은 상황을 만들려면 두 철자를 **공존**시켜야 하는데, 그 공존이 곧 2차 판정이 실측한 우회의 성립 조건이다. 그대로 두면 **우회 동작을 기대값으로 고정**하게 된다 — 구분 FS 에서 실제로 red 가 났고, 그 red 의 의미가 이것이다. 공존 상태의 올바른 동작은 신규 테스트 'canon_file does not choose among coexisting case variants' 가 `ls` 스텁으로 **양쪽 FS 에서** 단언하므로 커버리지 손실이 없다.",
+    "reviewer_note": "구현에 맞추려 단언을 약화한 것이 아니라, 그 단언이 요구하던 상태가 이제 '금지된 상태'가 된 경우다. 안티패턴 경계에 있는 판단이므로 판정자가 직접 검토해 주기 바란다."
+  },
   "criteria_backfill": {
-    "acceptance_criteria_added": [],
-    "error_scenarios_added": [],
-    "test_scenarios_added": [
-      "대소문자 무시 FS 에서 **존재하는** 보호 파일에 변형 철자로 쓰는 경로 (기존 테스트는 삭제 후 재생성/HEAD 실체화 경로만 덮었다)"
+    "acceptance_criteria_added": [
+      "AC-4: 술어가 존재가 아니라 객체 동일성으로 판정하며, 공격자가 만들 수 있는 이름(디렉터리·링크·파일)으로 뒤집히지 않는다",
+      "AC-5: canon_file 의 lookup 이 술어와 독립적으로 안전하다(공존 시 요청 철자 유지)"
     ],
+    "security_criteria_added": [
+      "SC-3: 게이트가 의존하는 술어를 공격자가 통제할 수 없다",
+      "SC-4: 술어가 틀려도 SC-1 의 '항상'이 유지된다"
+    ],
+    "error_scenarios_added": [
+      "ES-3: 뒤집은 경로가 존재하지만 같은 객체가 아닌 경우",
+      "ES-4: 대소문자만 다른 후보가 둘 이상 공존하는 경우"
+    ],
+    "open_axes_added": 4,
     "spec_updated": false,
     "security_checklist_updated": false,
-    "contract_updated": false,
-    "reason": "구현 중 발견: AC-2('기존 동작 유지')를 실제로 지탱하는 테스트가 삭제 후 재생성 경로에만 있었다. 파일이 그대로 있는 채 변형 철자로 닿는 경로는 canon_file 의 lookup 만이 닫는데 그 경로에 단언이 없어, 게이팅을 조금만 넓게 걸면 조용히 열렸다(순진한 수정에서 실제로 deny→allow 로 열리는 것을 관측). 회귀 테스트로 고정했다.",
-    "_scope_note": "progress/contracts/sprint-56.json 은 이 격리 worktree 에 존재하지 않는다(메인 저장소에만 미커밋 상태로 있다). 부모가 지정한 편집 범위(hooks/invariant-guard.sh, tests/invariant-guard.bats, 이 파일)를 지키기 위해 implementation_steps 의 done 표시와 위 test_scenarios_added 의 계약 반영은 하지 않았다 — 병합 시 부모가 접어 넣어야 한다."
+    "reason": "2차 판정의 criteria_gaps — '술어의 능동적 기만 저항 기준이 F68·F70 어디에도 없다', 'critical 티어인데 게이트가 의존하는 술어를 공격자가 통제할 수 있는가를 묻는 기준이 없다' — 를 계약 기준으로 승격했다. 전부 추가이며 기존 기준의 완화·삭제는 없다.",
+    "backfill_count_note": "추가 6건(+open_axes 4). 3건 이상이므로 규약대로 상위 단계 재검토를 권고한다 — 다만 이번 건들은 spec 결함이라기보다 '술어를 보안 게이트의 신뢰 근원으로 승격시키면 그 술어의 무결성이 기준이 되어야 한다'는 F70 고유의 누락이다."
   },
-  "self_notes": "AC-1 의 7시나리오 종단 확인은 대소문자 구분 볼륨에서 스크립트로 수행했고 bats 에는 그중 3건(임계값·passes·@test)만 상시 테스트로 남겼다. 일곱이 하나의 근본 원인(canon_file 의 FILE 재바인딩)을 공유하고 그 근본 원인 자체를 유닛 테스트가 직접 고정하므로, 나머지 넷을 상시 테스트로 늘리는 대신 대표 3건 + 근본 원인 1건 구성을 골랐다. 이 판단은 evaluator 가 뒤집을 수 있다.",
+  "residual_risk": [
+    "**마운트 경계(확인하지 않음)**: 술어는 `$d` **자신의 이름**이 부모에서 접히는지를 묻는다. `$d` 가 대소문자 무시 부모에 마운트된 볼륨의 루트이면 그 답이 '`$d` 안의 항목이 접히는가'와 갈릴 수 있다. 위험한 방향(구분 FS 를 '무시함'으로 오답)은 canon_file 의 2차 방어선이 막지만, 반대 방향에서는 정당한 철자 정규화를 놓친다. 대상 디렉터리 **안의** 항목으로 판정하는 대안은 더 나쁘다 — 파일 하드링크(`ln a A`)로 기만할 수 있고, 디렉터리 하드링크와 달리 OS 가 이를 허용한다.",
+    "**동시 실행 공격자**: 판정과 사용 사이에 파일시스템을 바꾸는 별도 프로세스는 막지 못한다. 다만 그런 프로세스는 보호 파일을 직접 쓸 수 있어 이 가드 전체가 무의미해지는 위협 모델이라, 이 술어만의 약점은 아니다.",
+    "**비ASCII 케이스 폴딩**: `grep -ixF` 의 폴딩과 FS 의 유니코드 폴딩이 갈리면 후보 수가 달라질 수 있다. 갈리는 방향은 '고르지 않음'(안전)이지만, 무시 FS 에서 정당한 정규화를 놓칠 수 있다. 보호 파일명이 전부 ASCII 라 현재는 도달하지 않는다.",
+    "**`ci_on` 적용 범위(이번 범위 밖)**: 2차 판정의 medium 이슈가 그대로 남아 있다 — BASENAME 기반 분기 중 평문 비교(641 계열)와 `ci_on` 래핑(838·958 계열)이 서로 다르게 동작한다. 이번 수정으로 BASENAME 이 뒤집힌 철자가 되는 경로는 좁아졌지만 그 축 자체를 닫지는 않았다. 후속 스프린트 후보."
+  ],
+  "self_notes": "닫았다고 주장하는 범위를 좁게 적는다. 확인한 것: 2차 판정이 실측한 **두 우회 체인**과 술어 기만 **네 형태**가 같은 볼륨에서 pre/post 차분으로 닫혔다는 것. 닫혔다고 주장하지 않는 것: 위 residual_risk 네 항목. 이전 라운드와의 실질적 차이는 방어가 하나가 아니라 둘이라는 점이다 — 술어 하나가 신뢰 근원이던 구조가 2차 판정에서 문제였으므로, 술어가 틀려도 lookup 자신이 안전하도록 축을 하나 더 뒀다.",
   "ready_for": "evaluation"
 }
