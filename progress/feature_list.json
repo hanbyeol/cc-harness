@@ -943,13 +943,14 @@
       "name": "canon_file() 대소문자 무시 매칭을 FS_CI로 게이팅",
       "description": "[2026-08-03, F68 검증 라운드 security-auditor 실측] hooks/invariant-guard.sh의 canon_file()(F67 '보호 판정의 파일 동일성 기반 전환'으로 도입) 안 대소문자 무시 파일명 매칭이 `ls -1 \"$d\" | grep -ixF -- \"$b\" | head -1`인데, is_protected()의 nocasematch(fs_is_case_insensitive()로 게이팅됨)와 달리 실제 파일시스템이 대소문자를 구분하는지 확인하지 않고 무조건 실행된다. 대소문자 구분 FS(리눅스 C/C.UTF-8 로케일 — 이 프로젝트의 실제 CI인 ubuntu-latest 포함)에서 progress/FEATURE_LIST.json 같은 디코이 파일(무방비 Write로 생성 가능)을 만들면 head -1이 원본 대신 디코이를 골라 FILE이 엉뚱한 파일로 재바인딩된다 — 보호 판정이 실제로 쓰여질 파일과 다른 파일을 대상으로 이뤄진다. 실측(C/C.UTF-8 로케일): 디코이가 있으면 디코이 없이는 전부 막히던 7가지(passes:true 주입, pass_threshold 7→1, _batch_approval 교체, @test 삭제, hooks.json/settings.json 언와이어링, 가드 자신의 deny()에서 exit 2 제거)가 전부 exit 0. macOS(en_US 로케일)에서는 정렬 순서상 미재현이라 로컬에서는 안 보이지만, en_US 로케일이 아닌 CI 환경에서는 지금도 열려 있을 수 있다. 수정 방향: 이 lookup을 is_protected()처럼 fs_is_case_insensitive()로 게이팅 — 대소문자 구분 FS에서는 정확 일치만 신뢰한다.",
       "security_tier": "critical",
-      "status": "pending",
-      "passes": false,
-      "iteration": 0,
+      "status": "done",
+      "passes": true,
+      "iteration": 2,
       "dependencies": [
         "F67"
       ],
-      "assigned_sprint": 56
+      "assigned_sprint": 56,
+      "_verdict_2026_08_05": "1차(evaluator-feedback-2026-08-05T16-38-13+0900.json): pass, min-of-5 7, security 7. F37 2차(evaluator-feedback-2026-08-05T17-56-30+0900.json): pass, min-of-5 7, security 8. verdict·min-of-5·critical 보안 게이트 일치, 최솟값을 만든 차원(test_coverage)도 동일 — 에스컬레이션 불필요. 후속 권고(이번 범위 밖, 재판정 안 함): hooks/invariant-guard.sh:373 부근의 별도 lookup(git ls-tree 기반 HEAD 기준선 조회)이 canon_file()과 같은 '후보 복수면 미선택' 원칙이 아직 적용되지 않은 선재 결함 — 다음 change-request 후보."
     }
   ]
 }
