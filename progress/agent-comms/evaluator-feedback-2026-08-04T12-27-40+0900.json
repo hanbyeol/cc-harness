@@ -1,0 +1,108 @@
+{
+  "timestamp": "2026-08-04T12:27:40+0900",
+  "sprint": 51,
+  "iteration": 4,
+  "features_evaluated": [
+    "F65"
+  ],
+  "security_tier": "critical",
+  "scope": "AC-11 / SC-9 / AC-2(c) — implementation_steps step 9(삭제 판정을 토큰 정규화로 재설계, 커밋 e3e70cd)만 판정한다. step 1~7(탐지·복구 계층)은 이번 라운드의 재판정 대상이 아니다.",
+  "review_target": "e3e70cd fix(firewall): judge control-plane deletion by path token, not by string anchor (HEAD=83a0404 머지 커밋이며 대상 파일은 e3e70cd 와 바이트 동일)",
+  "scores": {
+    "functionality": 6,
+    "code_quality": 7,
+    "security": 6,
+    "error_handling": 7,
+    "test_coverage": 6
+  },
+  "score": 6,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 6 < 7 (critical tier 자동 fail)",
+    "score 6 < pass_threshold 7",
+    "AC-11: 컨트롤 플레인 삭제가 최소 ask 여야 하는데 같은 대상에 도달하는 표기 2종이 allow 이고, 그 뒤의 배선-뺀 재생성 Write 는 invariant-guard exit 0 — OR 양쪽이 모두 열린다(격리 랩에서 종단 재현)",
+    "SC-9: 계약이 열거한 표기 축(글로브 · 경로 표기)의 대상×표기 조합에서 반례가 나왔고, 그 축들은 `_residual_risk_AC11.open_axes_2026_08_04` 에 잔여로 적혀 있지도 않다"
+  ],
+  "progress_since_3rd_verdict": {
+    "closed": [
+      "`rm -rf .claude/*` (글로브) → ask",
+      "`rm --recursive .claude` (장문 플래그) → ask",
+      "`rm -rf '.claude'` (인용) → ask",
+      "`rm -rf .clau*` (이름 자체가 글로브 — 구현자 자체 발견) → ask",
+      "AC-2(c) 과잉 차단 해소: `rm -rf src/hooks`·`web/src/hooks`·`/tmp/foo/hooks`·`app/hooks/`·`mv src/hooks src/hooks-old` 전부 allow. 동시에 `rm -rf hooks`·`rm -rf ./hooks`·`rm hooks/hooks.json` 은 여전히 ask — 실체 앵커로 좁히면서 커버리지를 잃지 않았다"
+    ],
+    "design": "문자열 앵커 → 삭제 동사 피연산자 토큰 정규화 후 구조적 위치 대조. 12차 판정 recommendation.priority_1 을 그대로 이행했고 플래그 매처 제거도 지시대로다. priority_2(닫히지 않는 축을 정직하게 기록)도 `_superseded_criterion_2026_08_04`·`open_axes_2026_08_04` 로 반영됐으며, 게이트(최소 ask)·임계값을 낮추지 않고 주장 범위만 정정한 것은 옳은 방향이다.",
+    "why_still_fail": "닫힌 표기는 늘었지만 판정 축이 여전히 **유한한 정규화 목록**이고, 그 목록 밖의 표기 2종이 적대 프로빙에서 나왔다. 그중 하나는 F68 원 반례와 같은 파일(`.claude/settings.json`)에 같은 방식으로 도달한다."
+  },
+  "issues": [
+    "[security][high][confidence:high] 중간 `..` 경로 표기가 컨트롤 플레인 삭제를 무프롬프트로 통과한다. `rm -f .claude/plugins/../settings.json` → allow (격리 랩에서 실제 삭제 확인). 같은 축: `rm -f .claude/plugins/cc-harness/../../settings.json` · `rm -f ~/.claude/plugins/../settings.json` · `rm -rf ~/.claude/plugins/cc-harness/../cc-harness`(설치된 플러그인 자신) · `rm -rf .claude/plugins/x/../plugins` 전부 allow. 원인: `normalize_path_token` 이 따옴표·백슬래시·`//`·`/./`·선행 `./`·후행 `/`·후행 글로브는 접지만 `<성분>/..` 는 접지 않는다. 계약의 '경로 표기' 축(`/./`·`//`)과 같은 계열이고 순수 문자열 연산으로 닫힌다 — `cd` 축처럼 원리적으로 불가능한 것이 아니다.",
+    "[security][high][confidence:high] 마지막 성분이 글로브이고 **부모가 컨트롤 플레인이 아닌** 토큰이 무프롬프트다. `rm -rf ~/.claude*` · `rm -rf ~/.cl*` · `rm -rf $HOME/.claude*` · `rm -rf $PWD/.claude*` · `rm -rf ../cc-harness/.clau*` · `rm -rf /Users/<user>/.clau*` 전부 allow. 원인: `scan_control_plane_delete` 가 마지막 성분이 글로브면 **먼저 부모 디렉터리로 접고** 나서 `control_plane_location` 을 부르므로, 부모가 CP 가 아니면 '패턴이 CP 이름을 덮는가' 검사(글로브 분기)에 도달하지 못한다. 부모가 CP 일 때만 잡힌다 — 대조군 `rm -rf ~/.claude/plugin*`·`rm -rf .claude/plug*`·`rm -rf .claude*` 는 ask. 격리 랩 재현: `rm -rf home/.claude*`(allow) 실행 → `.claude` 트리 전체 삭제, 설치본 `plugins/cc-harness/hooks/hooks.json` 포함.",
+    "[security][high][confidence:high] 위 두 표기는 AC-11 의 OR 를 **양쪽 다** 연다. 배선을 담은 settings.json 이 존재하는 상태에서 배선 뺀 Write → invariant-guard exit 2(deny, 'settings.json 배선 무력화'), 같은 파일을 지운 뒤 동일 Write → exit 0(통과)을 격리 랩에서 직접 실행해 확인했다. 원인은 invariant-guard 의 `OLD_R=$(wired_rows \"$(cat \"$FILE\")\")` 가 파일 부재 시 빈 집합이 되어 배선 비교가 통째로 생략되는 것(계약 `_residual_risk_AC11.measured` 의 기록과 일치하며, 이번에는 판정자가 직접 실행해 확인했다). 즉 F68 이 실측한 무프롬프트 체인이 새 표기로 그대로 재구성된다.",
+    "[security][low][confidence:high] `rm -rf .claude/.` · `rm -rf .claude/plugins/cc-harness/hooks/.` 는 allow 지만 rm 이 `.`/`..` 삭제를 거부하므로(랩: `rm: \".\" and \".\" may not be removed`, 대상 보존) 실제 도달은 불가능하다. 악용 불가한 판정 갭이며 위 `..` 접기를 추가하면 함께 사라진다.",
+    "[honesty][medium][confidence:high] 코드 주석의 '## 무엇이 닫히지 않는가 (측정한 것만 적는다)' 와 계약 `open_axes_2026_08_04` 가 인스턴스 3개(cd 이동·간접 피연산자·미열거 동사)만 적어 **완결 목록처럼 읽힌다**. 실제로는 정규화가 접지 못하는 표기(`..`)와 접기 **순서**가 만든 사각(글로브 부모)이 남아 있었다. 잔여는 인스턴스가 아니라 클래스로 적어야 한다 — '현재 정규화 집합 N = {따옴표, 백슬래시, `//`, `/./`, 선행 `./`, 후행 `/`, 후행 글로브}. N 밖의 표기는 전부 열려 있다.' 이 저장소가 F52·F63·F65·F68 에서 반복한 '문서가 코드보다 강하다' 패턴의 잔재다. 다만 이번 라운드는 그 패턴이 확실히 축소됐다 — 기준문을 게이트 하향 없이 주장 범위만 정정했고, 검증 집합을 '확인한 것이지 닫힘의 증명이 아니다'라고 적었다.",
+    "[guard][medium][confidence:high] 기존 ASK arm 하나가 **좁혀졌다**(`(…|\\.claude|hooks)/?` → `(…|\\.claude(/[A-Za-z0-9_./-]*hooks)?)/?` — 단독 `hooks` 대안 제거). ASK_PATTERNS 엔트리 수는 64→64 로 불변이라 개수 기반 add-only 검사가 arm 축소를 보지 못한다. 이번엔 Layer 3.3 의 실체 앵커가 대체 커버함을 실행으로 확인했지만(`rm -rf hooks`·`./hooks` ask), '개수는 그대로인데 커버리지가 줄어드는' 경로가 게이트에 보이지 않는다는 구조는 남는다 — 별도 개선 후보.",
+    "[test][medium][confidence:high] 배터리가 대상 열거에서 **표기 축**으로 재구성된 것은 12차 판정 지시대로이고 실질 개선이다(43종 + 배선 상태 무관 테스트 + no-friction 배터리). 그러나 여전히 손으로 고른 유한 목록이고, 계약이 스스로 열거한 두 축의 조합(글로브 × 비-CP 부모, 경로 표기 `..`)이 비어 있었다. 정규화 함수에 표기 생성기를 물리는 프로퍼티 테스트(같은 대상을 가리키는 표기 N개를 조합 생성해 전부 같은 토큰으로 수렴하는지)가 이 계열의 재발을 막는다.",
+    "[test][medium][confidence:high] bats 전체 실행에서 732 'F62: the contract list and the repo scan must be the same set (reverse)' 1건이 실패한다. 원인은 이 커밋과 무관한 환경 요인 — 살아 있는 in-repo 워크트리 `.claude/worktrees/agent-a1ad3126c20d11654/` 안의 파일(CLAUDE.md·progress/lessons.md·skills/implement/SKILL.md·templates/*)이 F62 스캔에 잡힌다. **이 하네스가 스스로 만드는 격리 워크트리(`isolation:\"worktree\"`)가 존재하는 동안 suite 가 빨갛다**는 뜻이므로 스캔에서 `.claude/worktrees/` 를 제외해야 한다. 이번 판정의 회귀 근거로는 무해하다(방화벽·삭제 게이트 테스트는 전부 통과).",
+    "[info][low][confidence:medium] `control_plane_location` 의 `-f \"$t/hooks.json\"` 는 훅 프로세스의 cwd 에 상대적인 파일시스템 조회다 — cwd 가 다르면 상대 토큰의 실체 판정이 빗나갈 수 있다(주석에 명시돼 있어 의도된 절충으로 읽힌다). 절대 경로 토큰에서는 정상 동작을 확인했다."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-2(c) 이름만 같은 디렉터리 무마찰: `rm -rf src/hooks`·`web/src/hooks`·`/tmp/foo/hooks`·`app/hooks/`·`packages/ui/src/hooks/useThing.ts`·`mv src/hooks src/hooks-old` = allow",
+      "AC-11 정상 삭제 무마찰: `rm -rf node_modules`·`node_modules/*`·`dist/* build/*`·`.claude/worktrees/agent-abc`·`.claude/worktrees/*`·`~/.cache/myapp/*`·`rm -f *.log`·`find . -name \"*.pyc\" -delete` = allow",
+      "AC-11 표기 축 부분 통과: 12차 판정 반례 중 재현 가능한 3종 + `.clau*` + 계약 axes(인용·장문옵션·구분자·접두·동사·`$HOME`·`../`·`//`·`/./`·탭 구분·`--`·`bash -c`) 46종 전수 ask 재확인"
+    ],
+    "security": [
+      "SC-1 게이트 불변: BLOCKED·INDIRECT_PATTERNS diff 없음, progress/harness-config.json 무변경, ASK_PATTERNS 엔트리 64→64",
+      "SC-9 부분: 삭제 게이트가 ASK 루프 **앞**에 있고 `DATA_PLANE_DETECTED`·`arm_is_exemptable` 를 참조하지 않는다(소스 + 전용 테스트로 확인) — 배선 상태로 면제되지 않는다"
+    ],
+    "error_scenarios": [
+      "토큰 스캐너의 마지막 세그먼트 누락 회귀(`while read` 종료 상태)가 고쳐져 있고, `--` 구분자·빈 토큰·탭 구분·접두 명령(`env`·`time`·`sudo`)·`bash -c \"…\"`·따옴표 조합에서 판정이 무너지지 않음을 실행 확인"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-11 — `rm -f .claude/plugins/../settings.json`(allow, 랩 삭제 확인) 및 `rm -rf ~/.claude*` 류(allow, 랩 삭제 확인). 이어지는 배선-뺀 재생성 Write 가 invariant-guard exit 0 이므로 OR 의 양쪽이 모두 열린다"
+    ],
+    "security": [
+      "SC-9 — 계약 `AC-11.verification_axes_2026_08_04` 의 '글로브'·'이름 자체가 글로브'·'경로 표기' 축과 대상(`$HOME/.claude`·`.claude/settings.json`·`.claude/plugins/<name>`)의 조합에서 최소 ask 가 성립하지 않는다. 이 축들은 `_residual_risk_AC11.open_axes_2026_08_04` 에 잔여로 적혀 있지 않으므로 '닫혔다고 주장하지 않는다' 조항으로도 구제되지 않는다"
+    ],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "`AC-11.verification_axes_2026_08_04.axes` 에 '경로 표기 — 중간 `..`' 항목이 없다",
+      "같은 axes 에 '글로브 성분의 **부모**가 컨트롤 플레인이 아닌 경우'(`~/.claude*`·`$PWD/.clau*`) 항목이 없다 — 현재 글로브 축 예시는 전부 부모가 CP 인 것뿐이다"
+    ],
+    "ambiguous_criteria": [
+      "SC-9 의 '표기 축 전수(대상 × 표기)' 가 여전히 **예시 열거**로만 정의돼 있어, 열거 밖 표기가 나오면 이번처럼 '축은 맞췄는데 기준은 미충족' 상태가 반복된다. 판정 가능한 형태로 바꾸려면 축을 구현의 성질로 정의하는 편이 낫다 — 예: 'normalize_path_token 이 접는 표기 집합 N 을 계약에 명시하고, N 안의 임의 조합을 생성기로 전수 확인한다. N 밖은 잔여 축으로 적는다.' 그러면 무엇을 다 확인하면 충족인지가 코드와 함께 움직인다"
+    ],
+    "security_criteria_insufficient": [],
+    "action_required": "다음 iteration 에서 두 축을 axes 에 추가하고 SC-9 검증을 '정규화 집합 N + 생성기 전수' 형태로 재기술할 것 (게이트·임계값은 그대로)"
+  },
+  "recommendation": {
+    "priority_1": "`normalize_path_token` 에 `<성분>/..` 접기를 추가한다 — 순수 문자열 연산이고 cwd 를 필요로 하지 않는다. 선행 `../`(`../cc-harness/.claude`)는 접으면 안 되므로 '앞에 접을 성분이 있을 때만' 반복 치환할 것. 이 하나로 issues[0]·issues[3] 이 함께 닫힌다.",
+    "priority_2": "글로브 판정을 **접기 전에** 수행한다. 지금은 `dir/<패턴>` 을 무조건 `dir` 로 접은 뒤 판정하므로 부모가 CP 가 아니면 패턴 커버리지 검사가 실행되지 않는다. 접기 전에 글로브 분기를 전체 토큰에 대해 한 번 돌리되, CP 이름 목록을 **부모까지 포함한 절대·홈 표기**(`$HOME/.claude`·`~/.claude`·`<repo>/.claude`·`<CLAUDE_PLUGIN_ROOT>`)로 확장해 대조할 것. 접기는 그 검사 뒤의 폴백으로 남기면 `dist/*`·`node_modules/*` 무마찰은 유지된다.",
+    "priority_3": "잔여 축을 인스턴스가 아니라 **클래스**로 적는다 — 계약과 코드 주석 양쪽에. '현재 정규화 집합 N = {…}. N 밖의 표기는 전부 열려 있다' 한 줄이 인스턴스 3개 열거보다 정확하고, 다음 판정자가 무엇을 프로빙해야 하는지도 그 문장에서 나온다.",
+    "priority_4": "테스트를 생성기로 바꾼다 — 같은 대상을 가리키는 표기를 조합(따옴표 × 플래그 × 경로 표기 × 글로브 × 접두 × 부모 표기)해 만들고 전부 ask 인지 확인. 손으로 고른 43종은 '구현이 아는 것만 묻는' 구조를 벗어나지 못한다(12차 판정과 이번 판정이 같은 형태로 두 번 반증했다).",
+    "priority_5": "F62 스캔에서 `.claude/worktrees/` 를 제외한다 — 이 하네스가 스스로 만드는 격리 워크트리가 suite 를 빨갛게 만든다(issues[7]).",
+    "not_now": "`cd` 이동 축은 이번에도 닫으려 하지 말 것 — 계약의 판단(문자열 예측으로 원리적 불가)에 동의한다. 이번 판정도 그 축을 fail 사유로 쓰지 않았다."
+  },
+  "evidence": {
+    "firewall_probe_must_ask": "격리 프로브(hooks/pre-bash-firewall.sh 에 PreToolUse JSON 직접 투입, CLAUDE_PROJECT_DIR=<repo>) 46종 — 12차 반례 3종(`rm -rf .claude/*`·`rm --recursive .claude`·`rm -rf '.claude'`) + `rm -rf .clau*` + 계약 axes 전부 ask, `sudo rm -rf .claude` 는 deny. 스크립트 /private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/7f24bf90-5267-4e5f-9518-028fbc223df3/scratchpad/probe-eval.sh, 케이스 cases-must-ask.txt",
+    "firewall_probe_no_friction": "23종 전부 allow — src/hooks·web/src/hooks·/tmp/foo/hooks·app/hooks/·node_modules·node_modules/*·dist/* build/*·.claude/worktrees/*·~/.cache/myapp/*·*.log·*.tmp·.claude-backup·.claude.bak·.claudia. 케이스 cases-mixed.txt",
+    "firewall_probe_bypass": "cases-hunt.txt / cases-hunt2.txt — allow: `rm -f .claude/plugins/../settings.json`, `rm -f .claude/plugins/cc-harness/../../settings.json`, `rm -f ~/.claude/plugins/../settings.json`, `rm -rf ~/.claude/plugins/cc-harness/../cc-harness`, `rm -rf .claude/plugins/x/../plugins`, `rm -rf ~/.claude*`, `rm -rf ~/.cl*`, `rm -rf $HOME/.claude*`, `rm -rf $PWD/.claude*`, `rm -rf ../cc-harness/.clau*`, `rm -rf /Users/<user>/.clau*`, `rm -rf .claude/.` — 대조군 ask: `rm -rf ~/.claude/plugin*`, `rm -rf ~/.claude/plugins/cc-harn*`, `rm -rf .claude/plug*`, `rm -rf .claude*`, `rm -rf ./.claude*`",
+    "lab_reachability": "격리 랩 /tmp/f65-eval-lab2 (scratchpad/lab-eval.sh) — `rm -f .claude/plugins/../settings.json` → settings.json DELETED / `rm -rf home/.claude*` → .claude 트리 및 plugins/cc-harness/hooks/hooks.json DELETED / `rm -rf .claude/.` → rm 이 거부, 대상 STILL-THERE",
+    "lab_recreate_leg": "격리 랩 /tmp/f65-eval-lab3 (scratchpad/guard-lab.sh) — 배선된 settings.json 존재 시 배선-뺀 Write → invariant-guard exit 2, 같은 파일 삭제 후 동일 Write → exit 0. 삭제가 무프롬프트면 체인 전체가 무프롬프트다",
+    "tests": "bats tests/ 1회 (전량 캡처, scratchpad/bats-full.txt) — plan 1..755, ok 754 / not ok 1 / skip 2. 유일한 실패 732 'F62: the contract list and the repo scan must be the same set (reverse)' 는 이 커밋과 무관한 환경 요인(살아 있는 in-repo 워크트리 `.claude/worktrees/agent-a1ad3126c20d11654/`)이며 방화벽·삭제 게이트 테스트는 전부 통과. 첫 실행은 `tail -25` 파이프로 집계를 잃어 전량 캡처로 1회만 재실행했다",
+    "invariants_diff": "git diff e3e70cd^..HEAD — BLOCKED·INDIRECT_PATTERNS 변경 없음, progress/harness-config.json 변경 없음, ASK_PATTERNS 엔트리 64→64(arm 1개 축소)",
+    "code_read": "hooks/pre-bash-firewall.sh:704-868 (Layer 3.3 — normalize_path_token / control_plane_location / scan_control_plane_delete), hooks/invariant-guard.sh:562-635 및 601 (OLD_R 도출)"
+  },
+  "f37_second_judgment": {
+    "required": false,
+    "why": "verdict 가 fail 이므로 passes 전환이 없다 — F37 2차 독립 판정은 critical 기능의 **pass** 를 게이트하는 절차다. 이 판정은 progress/feature_list.json 의 F65.passes 를 건드리지 않는다(false 유지).",
+    "next_round": "다음 라운드가 pass 로 기울면 그 때 독립 컨텍스트 2차 판정을 반드시 디스패치할 것 — F70 에서 1차·2차 불일치가 실제로 발생했다."
+  },
+  "passes_updated": false
+}
