@@ -182,6 +182,12 @@
       "contract": "progress/contracts/sprint-56.json",
       "security_tier": "critical",
       "summary": "[2026-08-03, security-auditor F68 검증 라운드 실측] hooks/invariant-guard.sh의 canon_file() 안 대소문자 무시 파일명 매칭이 is_protected()의 nocasematch와 달리 FS_CI(fs_is_case_insensitive) 게이팅 없이 무조건 실행된다. 대소문자 구분 FS(이 프로젝트 실제 CI인 ubuntu-latest 포함)에서 디코이 파일(예: progress/FEATURE_LIST.json)이 있으면 canon_file이 원본 대신 디코이로 FILE을 재바인딩해 보호 판정이 엉뚱한 파일에 적용된다. 실측: passes 주입·threshold 하향·batch_approval 교체·테스트 삭제·두 훅 배선 언와이어링·가드 자신의 deny() 무력화까지 7가지가 디코이 있을 때 전부 exit 0. macOS(en_US 로케일)에서는 미재현이나 이 프로젝트 CI에서는 발동 가능. 수정: 이 lookup도 is_protected()처럼 FS_CI 게이팅."
+    },
+    {
+      "feature_id": "F71",
+      "contract": "progress/contracts/sprint-57.json",
+      "security_tier": "critical",
+      "summary": "[2026-08-08, 사용자 override] 인터프리터(python/node/ruby/perl/php/lua) 인라인 실행의 ASK 면제를 F67 철회(5회 독립 판정 반려, 2026-08-02)를 뒤집고 재도입한다. 구현 전 철회 이력과 실증된 cd 우회 사례(`cd .claude && python3 -c \"open('hooks/lib.sh','w')\"`, 복구 불가능한 설치본 훅 덮어쓰기)를 사용자에게 두 차례 고지했고, 사용자가 두 차례 모두 경로 구속·cd 가드 없는 전면 면제를 명시적으로 선택 — 이 우회는 수정 후에도 그대로 성립하는 승인된 위험이다. ADR-004 Amendment 5, INVARIANTS.md INV-14 참조."
     }
   ]
 }

@@ -86,3 +86,15 @@
 **왜 ask(deny 아님)**: 하드블록은 정상 공개키 업로드 등을 false-block. ask는 **무인/자동 exfil을 사람 확인으로 강등** — 하네스 위협모델(자동 루프·부주의를 막는 speed bump)과 정합. 순수 add-only(INV-5), 어떤 deny/ask도 약화 없음.
 
 **집행**: `tests/pre-bash-firewall.bats`에 exfil 6종 `never allow` + 정상 egress 4종 `allow` 대조. `scripts/probes/behavioral.sh` 코퍼스에 exfil 변종 add-only(S-5) — 프로브가 egress 누출도 잡는다(정상 훅 `[]`, leaky 검출).
+
+## Amendment 5 — 인터프리터 ASK 면제를 사용자 override로 재도입 (F71, 2026-08-08)
+
+**배경**: Amendment 3(F32/S-1)이 도입한 보호경로 인지 ASK는 `hooks/pre-bash-firewall.sh`의 Layer 3.5(`EXEMPTABLE_ARM_TOKENS`/`arm_is_exemptable()`)로 일부 arm을 사후 탐지·복구가 있는 경로에 한해 다시 allow로 면제할 수 있게 진화했다(F65 → INV-14). F67이 이 면제를 인터프리터(`python`/`node`/`ruby`/`perl`/`php`/`lua`)까지 넓히려 했으나, 손실 상한을 경로로 구속하려는 시도가 **독립 판정 다섯 회전 연속 반려**되어 2026-08-02 철회됐다(`docs/INVARIANTS.md` INV-14 참조). 반려 근거는 F63이 10회전에 걸쳐 확인한 "명령 문자열로 실제 대상을 확정하는 것은 결정 불가능"이며, 마지막 상태에서도 `cd .claude && python3 -c "open('hooks/lib.sh','w')"`(gitignore 대상 설치본 훅을 덮어써 HEAD 기반 사후 복구가 불가능한 형태)가 뚫렸다.
+
+**결정(사용자 지시)**: 2026-08-08, 사용자가 인터프리터 인라인 실행(`python -c`/`node -e` 등)의 ASK 마찰 제거를 다시 요청. 메인 루프가 위 철회 이력과 `cd` 우회 실증 사례를 구현 전에 두 차례 고지했고(1차: 면제 자체 재도입 여부, 2차: 은퇴된 `exempt_paths_are_detected()`의 `cd`/`chdir` 탐지만 최소 복원할지 여부), 사용자는 두 차례 모두 **경로 구속·안전장치를 추가하지 않는 전면 면제**를 선택했다. F67과의 차이는 손실 상한을 구속하려는 시도의 유무다 — F67은 구속을 시도하다 매번 실패했고, F71은 구속을 시도하지 않고 결정 불가능성을 그대로 수용한다.
+
+**수용된 위험(명시)**: `EXEMPTABLE_ARM_TOKENS`에 `INTERPRETER_ARM`이 재편입되며, `arm_is_exemptable()`의 기존 하드 제외(컨트롤 플레인 · 탐지기 자신 · 티켓 원장 · 패턴 문자열에 `.claude/`·`templates/` 리터럴이 있는 arm)만 arm과 무관하게 유지된다. 이 제외는 **패턴 텍스트의 리터럴 일치**로 판정하므로, 리터럴 앵커가 없는 일반형 데이터 플레인 패턴(예: 경로 미고정 `hooks/*.sh`)은 인터프리터에서 그대로 면제되고, `cd`로 작업 디렉터리를 바꿔 표기와 실제 쓰기 대상을 분리하는 F67 4차 판정의 우회 형태가 **의도적으로 다시 열린다.** 이는 결함이 아니라 승인된 위험이며, 되돌리려면 `EXEMPTABLE_ARM_TOKENS`에서 `INTERPRETER_ARM`을 다시 빼면 된다(F67 상태로 복귀).
+
+**INV-9와의 관계**: 이 Amendment는 Layer 3.5(사후 탐지·복구가 있는 경로에 한한 ASK→allow 면제, INV-14 소관)를 바꾸는 것이지 Layer 4 default-allow(INV-9 소관, 이미 Amendment 2에서 python/node 스크립트를 일반적으로 default-allow로 수용)를 바꾸는 것이 아니다 — 대상은 어디까지나 "보호경로 토큰이 인터프리터 명령에 등장하는" 좁은 경우다.
+
+**집행**: `tests/pre-bash-firewall.bats`의 F67 회귀 테스트(면제가 철회 상태임을 고정하는 약 18개 `@test`)를 새 상태를 고정하도록 반전·재작성한다. `docs/INVARIANTS.md` INV-14에 동일 서술 추가.

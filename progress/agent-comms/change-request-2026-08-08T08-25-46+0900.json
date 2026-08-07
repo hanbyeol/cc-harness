@@ -1,0 +1,31 @@
+{
+  "timestamp": "2026-08-08T08:25:46+0900",
+  "type": "modify",
+  "description": "인터프리터(python/node/ruby/perl/php/lua) 인라인 실행의 ASK 면제를 F67 철회(2026-08-02, 5회 독립 판정 반려)를 뒤집고 재도입 — 사용자 명시적 override, 안전장치(cd/chdir 가드) 없는 전면 면제로 승인",
+  "affected_features": [
+    "F71"
+  ],
+  "related_features": [
+    "F65",
+    "F67"
+  ],
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": true,
+    "acceptance_criteria_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false,
+    "invariants_updated": true,
+    "adr_amended": "ADR-004 Amendment 5"
+  },
+  "new_sprint_contract": "progress/contracts/sprint-57.json",
+  "rollback_to_phase": null,
+  "user_override": {
+    "prior_decision_reversed": "F67 (독립 판정 5회 연속 반려 끝에 2026-08-02 철회)",
+    "disclosure_1": "F67 철회 이력 + cd 우회 실증 사례(cd .claude && python3 -c \"open('hooks/lib.sh','w')\")를 change-request 진입 직후 AskUserQuestion으로 고지",
+    "user_response_1": "명시적으로 override — 위험 감수하고 재도입",
+    "disclosure_2": "은퇴된 exempt_paths_are_detected()의 cd/chdir 탐지 줄만 최소 복원할지 재질문",
+    "user_response_2": "안전장치 없이 순수 전면 면제",
+    "accepted_risk": "리터럴 앵커 없는 일반형 데이터 플레인 패턴(예: hooks/*.sh)에 대한 인터프리터 exemption이 cd를 통한 작업 디렉터리 우회를 허용 — .claude/hooks/*.sh(gitignore 대상, HEAD 기반 사후 복구 불가) 등 설치본 훅 덮어쓰기가 무프롬프트로 가능해짐"
+  }
+}

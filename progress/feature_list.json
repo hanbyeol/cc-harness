@@ -951,6 +951,21 @@
       ],
       "assigned_sprint": 56,
       "_verdict_2026_08_05": "1차(evaluator-feedback-2026-08-05T16-38-13+0900.json): pass, min-of-5 7, security 7. F37 2차(evaluator-feedback-2026-08-05T17-56-30+0900.json): pass, min-of-5 7, security 8. verdict·min-of-5·critical 보안 게이트 일치, 최솟값을 만든 차원(test_coverage)도 동일 — 에스컬레이션 불필요. 후속 권고(이번 범위 밖, 재판정 안 함): hooks/invariant-guard.sh:373 부근의 별도 lookup(git ls-tree 기반 HEAD 기준선 조회)이 canon_file()과 같은 '후보 복수면 미선택' 원칙이 아직 적용되지 않은 선재 결함 — 다음 change-request 후보."
+    },
+    {
+      "id": "F71",
+      "name": "인터프리터(python/node/ruby/perl/php/lua) ASK 면제 재도입 — F67 철회를 사용자 override로 뒤집는다",
+      "description": "[2026-08-08, 사용자 요청] `python -c \"...\"`·`node -e \"...\"` 등 인터프리터 인라인 실행이 하네스 파일(데이터 플레인)을 건드리는 형태에서 여전히 ASK가 뜨는 마찰을 없애 달라는 요청. 구현 전 확인 결과 이 요청은 F67(INV-14)에서 **독립 판정 다섯 회전 연속 반려** 끝에 2026-08-02 철회된 것과 동일한 변경이다 — 반려 사유는 '명령 문자열로 실제 대상을 확정하는 것이 결정 불가능'(F63 10회전 결론)이고, 마지막 상태의 실증된 우회는 `cd .claude && python3 -c \"open('hooks/lib.sh','w')\"`(gitignore 대상이라 HEAD 기반 사후 복구가 원리적으로 불가능한 설치본 훅 덮어쓰기)였다. 이 철회 이력과 구체적 우회 사례를 사용자에게 두 차례(면제 도입 여부, cd/chdir 최소 가드 추가 여부) 제시했고, 사용자는 두 번 모두 **안전장치 없는 전면 면제**를 명시적으로 선택했다. F67과의 차이: F67은 손실 상한을 경로 기반으로 구속하려다 매번 우회를 남기고 실패했지만, F71은 그 구속 시도 자체를 하지 않고 결정 불가능성을 그대로 수용한다 — 즉 위 cd 우회 사례는 수정 후에도 그대로 성립하며, 이는 결함이 아니라 **승인된 위험**이다. 변경 범위: `hooks/pre-bash-firewall.sh`의 `EXEMPTABLE_ARM_TOKENS`에 `INTERPRETER_ARM`을 재편입(기존 하드 제외 — 컨트롤 플레인·탐지기 자신·티켓 원장·`.claude/`·`templates/` 리터럴 포함 패턴 — 은 arm과 무관하게 유지). `tests/pre-bash-firewall.bats`의 F67 회귀 테스트 약 18개(면제가 철회 상태임을 고정하는 테스트들, `grep -n F67 tests/pre-bash-firewall.bats` 참조)는 새 상태(면제됨)를 고정하도록 반전 또는 재작성이 필요하다. `docs/INVARIANTS.md`(INV-14)와 `docs/DECISIONS/ADR-009`에 override 근거를 기록했다.",
+      "security_tier": "critical",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F65",
+        "F67"
+      ],
+      "assigned_sprint": 57,
+      "_user_override_2026_08_08": "메인 루프가 F67의 6차 판정 철회 이력과 cd 우회 실증 사례를 change-request 진입 직후 AskUserQuestion으로 고지했고, 사용자가 '명시적으로 override — 위험 감수하고 재도입'을 선택. 이어서 cd/chdir 최소 가드 부활 여부를 다시 물었고, 사용자가 '안전장치 없이 순수 전면 면제'를 선택. 두 응답 모두 대화 기록에 보존."
     }
   ]
 }
