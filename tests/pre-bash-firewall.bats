@@ -754,9 +754,14 @@ JSON
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
   run wired_firewall '{"tool_input":{"command":"sed -n '"'"'1,20p'"'"' hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
-  # 반대로 쓰기 신호가 드러난 형태는 표기와 무관하게 계속 물어본다
-  run wired_firewall '{"tool_input":{"command":"sed -ni s/a/b/ hooks/lib.sh"}}'
+  # F73(2026-08-08) 이전에는 쓰기 신호가 드러난 형태가 표기와 무관하게 계속 ask였다 — 데이터
+  # 플레인에서는 이제 allow(승인된 면제, 아래 F73 테스트 참조). 컨트롤 플레인에서는 여전히
+  # 표기와 무관하게 ask다 — 그쪽으로 확인한다.
+  run wired_firewall '{"tool_input":{"command":"sed -ni s/a/b/ .claude/settings.json"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run wired_firewall '{"tool_input":{"command":"sed -ni s/a/b/ hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "F73 override가 반영되지 않았다"; false; }
 }
 
 @test "F63: awk -i inplace onto a protected file is still gated" {
@@ -922,15 +927,23 @@ JSON
 @test "F65: combined short options are still recognized as in-place writes" {
   # 에디터 이름 arm이 sed·awk를 통째로 잡던 동안 in-place 패턴의 `-i` 리터럴이 결합 단축옵션을
   # 놓치는 것이 가려져 있었다. 그 arm을 탐지·복구로 대체하자 behavioral 프로브가 검출했다.
-  run wired_firewall '{"tool_input":{"command":"sed -ni s/a/b/ hooks/lib.sh"}}'
+  # F73(2026-08-08)로 데이터 플레인 sed in-place는 allow가 됐으므로, "인식되는가"를
+  # 구별하려면 여전히 예측만이 통제인 컨트롤 플레인을 타겟으로 확인한다 — 인식되면 ask,
+  # 인식 실패로 새면 allow가 나오므로 구별이 유지된다.
+  run wired_firewall '{"tool_input":{"command":"sed -ni s/a/b/ .claude/settings.json"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
-  run wired_firewall '{"tool_input":{"command":"sed -ie s/a/b/ hooks/lib.sh"}}'
+  run wired_firewall '{"tool_input":{"command":"sed -ie s/a/b/ .claude/settings.json"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
-  run wired_firewall '{"tool_input":{"command":"sed --in-place s/a/b/ hooks/lib.sh"}}'
+  run wired_firewall '{"tool_input":{"command":"sed --in-place s/a/b/ .claude/settings.json"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
   # 장옵션 과탐은 없어야 한다 — --quiet·--posix 의 i 를 in-place 로 오인하지 않는다
   run wired_firewall '{"tool_input":{"command":"sed --quiet 1p hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
+  # F73: 같은 결합 단축옵션이 데이터 플레인에서는 이제 allow다(승인된 면제, 방금 위에서 검증한
+  # "인식됨" 자체는 컨트롤 플레인 케이스가 이미 증명했다).
+  run wired_firewall '{"tool_input":{"command":"sed -ni s/a/b/ hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "F73 override가 결합 단축옵션(-ni)까지 반영되지 않았다"; false; }
 }
 
 @test "F65: the firewall defines each pattern array exactly once" {
@@ -1297,14 +1310,14 @@ JSON
     || { echo ".claude/ 하드 제외가 뚫렸다 — 남은 유일한 방어선이 사라짐: .claude/hooks/lib.sh"; false; }
 }
 
-@test "F67: arms whose write signal is in the command are not exempted" {
-  # 리다이렉트 `>` · cp/mv/tee 이름 · in-place `-i` · `dd of=` · `sed w` 는 쓰기 신호가
-  # 명령에 드러나므로 읽기를 잡지 않는다 — 면제해도 마찰이 줄지 않고 손실 상한만 늘어난다.
+@test "F67: arms whose write signal is in the command are not exempted (except F73's sed/awk -i override)" {
+  # 리다이렉트 `>` · cp/mv/tee 이름 · `dd of=` · `sed w` 는 쓰기 신호가 명령에 드러나므로
+  # 읽기를 잡지 않는다 — 면제해도 마찰이 줄지 않고 손실 상한만 늘어난다. `in-place(-i)`는
+  # F73(2026-08-08)에서 사용자가 명시적으로 이 원칙을 override해 sed/awk에 한해 예외가 됐다
+  # (데이터 플레인에 한함 — 아래 F73 테스트 참조).
   run wired_firewall '{"tool_input":{"command":"echo x > progress/feature_list.json"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
   run wired_firewall '{"tool_input":{"command":"cp /tmp/x progress/feature_list.json"}}'
-  [[ "$output" == *'"permissionDecision": "ask"'* ]]
-  run wired_firewall '{"tool_input":{"command":"sed -i s/a/b/ progress/feature_list.json"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
   run wired_firewall '{"tool_input":{"command":"dd of=progress/feature_list.json"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
@@ -1361,11 +1374,14 @@ JSON
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
   run wired_firewall '{"tool_input":{"command":"awk NR==1 progress/feature_list.json"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
-  # 쓰기 신호가 드러나면 sed/awk 도 예측 대상이다(면제가 도구 이름만 보지 않는다는 증거)
-  run wired_firewall '{"tool_input":{"command":"sed -i s/a/b/ progress/feature_list.json"}}'
-  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  # 리다이렉트(`>`)는 여전히 예측 대상이다(F73 범위 밖 — in-place만 면제됐다).
   run wired_firewall '{"tool_input":{"command":"awk {print} x > hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  # F73(2026-08-08): in-place(-i)는 더 이상 이 원칙의 예시가 아니다 — 데이터 플레인에서
+  # sed/awk in-place는 이제 승인된 면제로 allow다(위 F73 테스트 섹션 참조).
+  run wired_firewall '{"tool_input":{"command":"sed -i s/a/b/ progress/feature_list.json"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "F73 override가 반영되지 않았다"; false; }
 }
 
 @test "F67/F71: the control plane stays predicted even for interpreters" {
@@ -1424,10 +1440,11 @@ JSON
     done
   done < <(awk "/^ASK_PATTERNS=\(/{b=1;next} b&&/^\)/{b=0} b&&/^[[:space:]]*'/{sub(/^[[:space:]]*'/,\"\");sub(/'[[:space:]]*\$/,\"\");print}" "$fw")
   [ "$total" -ge 45 ]
-  # F71(2026-08-08)로 INTERPRETER_ARM이 EXEMPTABLE_ARM_TOKENS에 재편입되면서 면제되는 arm 수가
-  # sed/awk 하나(F65)에서 늘었다. 정확한 값은 실측(2026-08-08, 이 저장소의 ASK_PATTERNS 기준)으로
-  # 고정한다 — 하드코딩된 매직넘버가 아니라, 값이 바뀌면 면제 범위가 의도치 않게 바뀐 것이다.
-  [ "$exempt" -eq 4 ] || { echo "면제 arm 수가 4가 아니다: $exempt — F71 의도(READ_CAPABLE_ARM+INTERPRETER_ARM) 대비 면제 범위가 바뀌었는지 확인하라"; false; }
+  # F71(2026-08-08)로 INTERPRETER_ARM이 재편입되며 4가 됐고, F73(같은 날, in-place 확대)이
+  # sed/awk 전용 in-place arm 6개를 add-only로 더해 10이 됐다. 정확한 값은 실측(이 저장소의
+  # ASK_PATTERNS 기준)으로 고정한다 — 하드코딩된 매직넘버가 아니라, 값이 바뀌면 면제 범위가
+  # 의도치 않게 바뀐 것이다.
+  [ "$exempt" -eq 10 ] || { echo "면제 arm 수가 10이 아니다: $exempt — F71/F73 의도 대비 면제 범위가 바뀌었는지 확인하라"; false; }
 }
 
 @test "F67: the decision function matches main outside the intended change" {
@@ -1748,10 +1765,13 @@ load_firewall_fns() {
   # 쪼개면 토큰이 리터럴로 일치하게 되고, 그 순간 배제만이 면제를 막는다. 그 편집을 여기서
   # 만들어 각 배제 절이 실제로 판정을 뒤집는지 확인한다.
   load_firewall_fns
+  # F73(2026-08-08): `--in-place`가 하드 제외 항목이던 시절에는
+  # `\b$READ_CAPABLE_ARM\b[^;|&]*--in-place[^;|&]*harness-config\.json` 류가 이 배제로
+  # 막혔다. 그 하드 제외를 사용자 override로 지웠으므로(위 arm_is_exemptable() 주석 참조)
+  # 이 형태는 이제 **의도적으로** 면제 대상이다 — 아래 F73 전용 검사로 옮겼다(하단).
   local a
   for a in "\\b$INTERPRETER_ARM\\b[^;|&]*hooks/hooks\\.json" \
            "\\b$INTERPRETER_ARM\\b[^;|&]*\\.claude/settings(\\.local)?\\.json" \
-           "\\b$READ_CAPABLE_ARM\\b[^;|&]*--in-place[^;|&]*harness-config\\.json" \
            "\\b$INTERPRETER_ARM\\b[^;|&]*hooks/protected-integrity\\.sh" \
            "\\b$INTERPRETER_ARM\\b[^;|&]*progress/\\.guarded-edits" \
            "\\b$INTERPRETER_ARM\\b[^;|&]*progress/\\.integrity-baseline" \
@@ -1767,6 +1787,12 @@ load_firewall_fns() {
   # 배제가 과도하면 sed/awk 면제까지 멈춰 F65 가 없앤 마찰이 되돌아온다 — 그쪽은 통과해야 한다
   run arm_is_exemptable "\\b$READ_CAPABLE_ARM\\b[^;|&]*(harness-config\\.json|INVARIANTS\\.md)"
   [ "$status" -eq 0 ]
+  # F73: READ_CAPABLE_ARM + in-place 조합은 이제 데이터 플레인에서 의도적으로 면제되지만,
+  # 컨트롤 플레인/탐지기 자신 리터럴이 있으면 여전히 하드 제외가 우선한다.
+  run arm_is_exemptable "\\b$READ_CAPABLE_ARM\\b[^;|&]*--in-place[^;|&]*harness-config\\.json"
+  [ "$status" -eq 0 ] || { echo "F73 override(in-place)가 반영되지 않았다"; false; }
+  run arm_is_exemptable "\\b$READ_CAPABLE_ARM\\b[^;|&]*--in-place[^;|&]*\\.claude/settings\\.json"
+  [ "$status" -ne 0 ] || { echo "in-place 면제가 컨트롤 플레인으로 샜다"; false; }
 }
 
 @test "F71: the cwd-detour class is now allowed by design — no longer identical to main" {
@@ -1901,9 +1927,16 @@ JSON
 }
 
 @test "F67: a line continuation is still one command" {
-  # `\` + 개행은 셸에서 명령이 이어진다 — 구분자로 오인하면 in-place 게이트가 뚫린다.
-  run wired_firewall '{"tool_input":{"command":"sed -i \\\ns/a/b/ hooks/lib.sh"}}'
+  # `\` + 개행은 셸에서 명령이 이어진다 — 구분자로 오인하면 스팬이 끊겨 도구 이름과 경로가
+  # 분리된다. 컨트롤 플레인으로 확인한다 — 거기서는 F73 이후에도 여전히 ask이므로 "구분자로
+  # 오인해 스팬이 끊기면 allow로 샌다"는 이 테스트의 취지가 F73과 무관하게 유지된다.
+  run wired_firewall '{"tool_input":{"command":"sed -i \\\ns/a/b/ .claude/settings.json"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  # F73(2026-08-08): 같은 줄 이음 형태가 데이터 플레인에서는 이제 allow다(스팬이 안 끊겼다는
+  # 증거이자, 승인된 면제가 표기 변형에도 안정적으로 적용된다는 확인).
+  run wired_firewall '{"tool_input":{"command":"sed -i \\\ns/a/b/ hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "F73 override가 줄 이음 표기에 반영되지 않았다"; false; }
 }
 
 @test "F67: a newline inside quotes is not a separator" {
@@ -2175,4 +2208,91 @@ delete_decision() {
     [[ "$output" == *'"permissionDecision": "ask"'* ]] \
       || { echo "배선 없는 상태에서 컨트롤 플레인 삭제가 무프롬프트다: $c"; false; }
   done
+}
+
+# === F73 (2026-08-08, 사용자 override) — sed/awk in-place(-i/--in-place) 쓰기까지 ASK 면제 확대 ===
+# F65는 sed/awk의 순수 읽기만 면제했다. 사용자가 F71과 같은 무게로 in-place 쓰기까지 요청했고,
+# 명시 확인했다: "쓰기까지 모두 — sed -i/awk -i inplace도 무프롬프트로". 구현 중 실측으로 발견한
+# 것: 새 exemptable arm을 옆에 추가하는 것만으로는 부족했다 — 판정 루프는 매칭되는 모든 patterns를
+# 순회하며 그중 하나라도 비면제면 즉시 ask다. 그래서 sed/awk를 포함하던 기존 arm 3곳(일반 데이터
+# 플레인·contracts·feature_list.json)과 이름 기반 arm 1곳(feature_list.json)에서 sed/awk/mawk를
+# 빼고 perl/기타 에디터만 남긴 뒤, sed/awk 전용 새 arm으로 옮겼다(INV-5는 라인 수 감소만 막으므로
+# 텍스트 좁히기 자체는 허용된다 — 총 라인 수는 6개 증가로 순증가).
+
+@test "F73: sed/awk in-place writes to data-plane files are exempted" {
+  local c
+  for c in "sed -i s/a/b/ progress/harness-config.json" \
+           "awk -i inplace {print} hooks/lib.sh" \
+           "sed --in-place s/a/b/ tests/lib.bats" \
+           "sed --in-place s/a/b/ docs/INVARIANTS.md" \
+           "sed -i s/a/b/ progress/feature_list.json" \
+           "awk -i inplace {print} progress/feature_list.json" \
+           "awk -i inplace {print} progress/contracts/sprint-1.json" \
+           "sed --in-place s/a/b/ progress/contracts/sprint-1.json"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"$c\"}}"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "F73 override가 반영되지 않았다: $c"; false; }
+  done
+}
+
+@test "F73: control plane sed/awk in-place stays ask (exemption does not leak)" {
+  local c
+  for c in "sed -i s/a/b/ .claude/settings.json" \
+           "sed --in-place s/a/b/ .claude/settings.local.json" \
+           "awk -i inplace {print} hooks/hooks.json"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"$c\"}}"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "컨트롤 플레인으로 면제가 새어나갔다: $c"; false; }
+  done
+}
+
+@test "F73: the detector's own files stay ask for sed/awk in-place" {
+  local c
+  for c in "sed -i s/a/b/ hooks/protected-integrity.sh" \
+           "sed -i s/a/b/ progress/.guarded-edits" \
+           "sed -i s/a/b/ progress/.integrity-baseline"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"$c\"}}"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "탐지기 자신에게 면제가 새어나갔다: $c"; false; }
+  done
+}
+
+@test "F73: perl -i is out of scope and stays ask on data-plane files" {
+  # perl은 READ_CAPABLE_ARM에 없다(순수 읽기조차 면제 대상이 아니었다) — 이번 확대도 제외.
+  local c
+  for c in "perl -i -pe s/a/b/ progress/harness-config.json" \
+           "perl --in-place -pe s/a/b/ hooks/lib.sh" \
+           "perl -i -pe s/a/b/ progress/contracts/sprint-1.json" \
+           "perl -i -pe s/a/b/ progress/feature_list.json"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"$c\"}}"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "perl -i가 범위 밖인데 면제됐다: $c"; false; }
+  done
+}
+
+@test "F73: sed's w command/flag stays out of scope and stays ask" {
+  local c
+  for c in "sed -n 'w progress/harness-config.json' src" \
+           "sed -n 'w progress/feature_list.json' src"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"$c\"}}"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "sed w가 범위 밖인데 면제됐다: $c"; false; }
+  done
+}
+
+@test "F73: F65's pure-read exemption is unaffected" {
+  local c
+  for c in "sed -n 1,5p progress/harness-config.json" \
+           "awk NR==1 progress/feature_list.json"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"$c\"}}"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "F65의 순수 읽기 면제가 F73으로 회귀했다: $c"; false; }
+  done
+}
+
+@test "F73: editors other than sed/awk still ask by name on feature_list.json" {
+  # 이름 기반 arm에서 sed/awk/mawk만 빼냈다 — 나머지 에디터(vim 등)는 그대로 남아야 한다.
+  run wired_firewall '{"tool_input":{"command":"vim progress/feature_list.json"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "이름 기반 에디터 arm이 sed/awk 제거 과정에서 함께 무력화됐다"; false; }
 }

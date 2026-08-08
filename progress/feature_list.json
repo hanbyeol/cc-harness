@@ -825,7 +825,7 @@
       "name": "방화벽 과탐 제거 — 보호 경로 읽기(sed -n·awk)를 쓰기와 구분",
       "description": "[2026-07-27, 사용자 보고] 방화벽이 보호 경로에 대한 **읽기 전용** sed/awk 사용을 쓰기와 구분하지 않고 ask로 판정해 불필요한 승인 프롬프트를 반복 유발한다. hooks/pre-bash-firewall.sh:128 의 '(ed|ex|vi|vim|nano|emacs|sed|awk|dd|patch) + 보호경로' 패턴이 원인이며, 148줄(feature_list.json)에도 같은 형태가 있다. **바로 위 126줄 주석은 '정상 개발 sed -n file.go 는 미발동'이라고 적혀 있는데 그것은 비보호 경로일 때만 참이다** — 보호 경로에서는 sed -n(출력 전용)·awk '{print}'(출력 전용)도 발동한다. 같은 파일을 grep·cat으로 읽으면 allow인데 sed·awk로 읽으면 ask라, 위험도가 아니라 도구 이름으로 갈리는 판정이다. 실측 근거: 사용자 ~/.claude/settings.json의 permissions.allow가 665건까지 누적됐고 그중 sed 27·perl 23·awk 16건이며, 649건의 Bash 규칙 중 와일드카드로 끝나는 것이 0건이라 명령 형태가 조금만 달라도 새 승인이 필요하다. **수정 방향은 약화가 아니라 과탐 제거**다: sed/awk는 in-place 플래그가 있을 때만 쓰기이며(sed -i·awk -i inplace), 그 경로는 118줄(sed|perl -i)과 116줄(리다이렉트)이 이미 커버한다. 다만 awk -i inplace 는 현재 어느 패턴도 잡지 않으므로 sed/awk를 128줄에서 빼려면 그것을 먼저 추가해야 한다 — 빼기 전에 더하지 않으면 순수 약화가 된다.",
       "security_tier": "critical",
-      "status": "pending",
+      "status": "superseded",
       "passes": false,
       "iteration": 0,
       "dependencies": [
@@ -835,7 +835,10 @@
       ],
       "assigned_sprint": 49,
       "release_note": "[2026-07-28 릴리스] v1.38.0 에 판정 미통과 상태로 포함됐다 — 사용자 지시. F65는 판정 2회 fail(보안 3→4)이며 2차 지적에 대한 수정은 독립 검증을 받지 않았다. 머지 판단 근거: 독립 판정자가 스스로 고른 15개 메커니즘으로 15/15 복구를 확인했고, 인덱스 조작 4형태·복구의 비파괴성·fail-safe가 실측으로 확인됐다. 미해결(INV-14에 명시): 티켓 파일은 명령행에 경로가 없는 형태로 조작 가능하며, 한 Bash 호출 안의 변조·소비 창이 남는다.",
-      "released_in": "v1.38.0"
+      "_release_note_bug": "[2026-08-08 확인] 위 release_note는 F65 내용의 오기 복사다(F63과 F65는 별도 sprint) — 이번 F73 change-request 착수 시 발견, session-handoff 백로그에 이미 기록돼 있던 기존 데이터 오류. 원문은 보존만 하고 정정하지 않는다(추적성).",
+      "released_in": "v1.38.0",
+      "superseded_by": "F65, F73",
+      "_superseded_note": "[2026-08-08] F63의 원 목표(sed/awk 읽기 과탐 제거, sprint-49.json AC-1~AC-6)는 F64와 같은 이유로 사라졌다 — F63이 계획한 '패턴 열거로 과탐을 줄이는' 접근 자체를 F65가 예측→탐지/복구 전환으로 대체했고, F73이 그 위에 in-place 쓰기까지 면제를 넓혔다. AC-1(과탐 해소)·AC-3/AC-4(회귀 없음)·SC-1(게이트 불변)은 F65+F73 구현·테스트로 실질 충족을 확인했다(tests/pre-bash-firewall.bats의 F65·F73 테스트, behavioral 프로브 0건). AC-5(배터리 상설화+CI)도 충족(.github/workflows/ci.yml이 bats를 호출). **AC-6(격리 샌드박스에서 allow 판정을 실제 실행해 트리 해시 불변 확인)은 미충족으로 남는다** — 이 검증 방식 자체가 F63의 예측 기반 설계를 겨냥한 것이었고, F65/F73 어느 쪽 구현에도 이 형태의 테스트가 없다. F64 선례(같은 방식으로 superseded 처리되며 개별 AC 완전 충족을 요구하지 않음)를 따라 superseded로 표시하되, AC-6의 정신(allow되는 명령이 실제로 안전한지 종단 실행으로 확인)은 아직 어떤 기능에도 흡수되지 않은 채로 남아 있다는 사실을 여기 명시한다 — 필요하면 별도 change-request 후보."
     },
     {
       "id": "F64",

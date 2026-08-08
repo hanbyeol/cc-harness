@@ -1,0 +1,82 @@
+{
+  "feature_id": "F73",
+  "sprint": 59,
+  "title": "sed/awk in-place(-i/--in-place) ASK 면제 확대 + F63 완료 처리",
+  "security_tier": "critical",
+  "timestamp": "2026-08-08T22:29:25+0900",
+  "iteration": 1,
+  "mode": "serial",
+  "_mode_note": "단일 파일(hooks/pre-bash-firewall.sh) 중심의 순차 체인 — 병렬 분할 대상 아님(sprint-59.json _parallelizable:false).",
+  "base_commit": "1a94dfe",
+  "input": "사용자가 F65의 sed/awk 순수 읽기 면제를 in-place 쓰기까지 확대해 달라고 요청. 메인 루프가 F71과 같은 무게의 결정임을 고지했고 사용자가 '쓰기까지 모두 — sed -i/awk -i inplace도 무프롬프트로'를 명시 확인.",
+  "summary": "hooks/pre-bash-firewall.sh에 sed/awk 전용(perl 제외) in-place ASK arm 6개를 데이터 플레인(harness-config.json·hooks/*.sh·tests/*.bats·INVARIANTS.md)·feature_list.json·contracts/*.json에 추가하고, arm_is_exemptable()의 -i 하드 제외를 지웠다. Plan 단계 설계('기존 arm은 손대지 않아도 안전')가 실측으로 반증되어 구현 중 수정했다 — 판정 루프가 매칭되는 모든 patterns를 순회하며 하나라도 비면제면 즉시 ask이므로, sed/awk를 포함하던 기존 perl-혼합 arm 4곳(일반 데이터 플레인 2줄·contracts 2줄·feature_list.json -i 1줄·feature_list.json 이름 기반 1줄)에서 sed/awk/mawk를 빼고 perl/기타 에디터만 남겨야 새 exemptable arm이 실제로 작동했다. INV-5는 배열별 라인 수 감소만 차단하므로(hooks/invariant-guard.sh:767-782) 기존 라인 텍스트를 좁히는 것 자체는 막히지 않는다 — 순증가 6줄.",
+  "features_implemented": [],
+  "_features_note": "F73의 passes는 evaluator만 바꾼다. feature_list.json의 F73은 passes:false / status:pending 그대로 두었다. F63은 F64와 같은 방식으로 status:superseded 처리(코드 변경 아님).",
+  "files_changed": [
+    "hooks/pre-bash-firewall.sh",
+    "tests/pre-bash-firewall.bats",
+    "progress/feature_list.json",
+    "progress/contracts/sprint-59.json"
+  ],
+  "design_correction_during_implementation": {
+    "planned": "기존 in-place arm(perl 혼입)은 손대지 않고 새 sed/awk 전용 arm만 add-only로 추가하면 충분하다고 Plan 단계에서 코드 조사로 결론 냈다.",
+    "actual_defect_found": "실측 결과 새 arm만 추가했더니 여전히 ask였다 — 판정 루프(:880 부근)는 for 문으로 ASK_PATTERNS를 순회하며 명령과 매치되는 **모든** 패턴에 대해 개별적으로 exemption을 확인하고, 그중 하나라도 비면제면 그 자리에서 즉시 ask+exit한다. 옛 perl-혼합 arm도 같은 'sed -i ...' 명령에 별도로 매치하고 비면제이므로, 새 arm의 exemption이 실질적으로 무의미해졌다.",
+    "fix": "옛 arm 4곳에서 sed/g?awk/mawk를 빼고 perl(및 feature_list.json 이름 arm의 경우 나머지 에디터)만 남겼다. 방어 커버리지는 무손실(perl in-place는 그대로 ask, sed/awk in-place는 새 전용 arm으로 이관) — 텍스트 좁히기이지 라인 삭제가 아니므로 INV-5도 위반하지 않는다(실측: invariant-guard가 편집을 승인함)."
+  },
+  "tests_added": [
+    "tests/pre-bash-firewall.bats :: F73: sed/awk in-place writes to data-plane files are exempted",
+    "tests/pre-bash-firewall.bats :: F73: control plane sed/awk in-place stays ask (exemption does not leak)",
+    "tests/pre-bash-firewall.bats :: F73: the detector's own files stay ask for sed/awk in-place",
+    "tests/pre-bash-firewall.bats :: F73: perl -i is out of scope and stays ask on data-plane files",
+    "tests/pre-bash-firewall.bats :: F73: sed's w command/flag stays out of scope and stays ask",
+    "tests/pre-bash-firewall.bats :: F73: F65's pure-read exemption is unaffected",
+    "tests/pre-bash-firewall.bats :: F73: editors other than sed/awk still ask by name on feature_list.json"
+  ],
+  "existing_tests_updated": [
+    "F65: spelling no longer matters — 컨트롤 플레인 타겟으로 재구성해 '인식됨' 검증을 보존하고, 데이터 플레인 케이스는 새 allow 기대값 추가",
+    "F65: combined short options are still recognized as in-place writes — 동일 재구성",
+    "F67: arms whose write signal is in the command are not exempted (except F73's sed/awk -i override) — sed -i 케이스를 제거(F73 섹션으로 이관), 제목에 예외 명시",
+    "F67/F71: sed/awk exemption rests on a different basis — sed -i 케이스를 allow로 전환, 리다이렉트 케이스는 무변경 확인",
+    "F67: the exemption result set is pinned — exempt count 4→10(실측), 근거 주석 갱신",
+    "F67: the arm exclusions hold against a plausible arm split — READ_CAPABLE_ARM+--in-place 합성 케이스를 F73 의도된 면제로 재분류, 컨트롤 플레인 누출 방지 네거티브 추가",
+    "F67: a line continuation is still one command — 컨트롤 플레인 케이스로 '스팬 안 끊김' 검증 보존, 데이터 플레인 케이스에 새 allow 기대값 추가(전체 스위트 실행에서 발견, pre-bash-firewall.bats 단독 실행 시에는 재현 안 됨 — 사유 미상, 실측 기반으로 직접 수정)"
+  ],
+  "security_self_check": {
+    "checklist_items": 4,
+    "checklist_passed": 4,
+    "notes": "SC-1(범위 한정) — diff가 정확히 6개 신규 arm + 4곳의 tool-list 좁히기(perl만 남김) + -i 하드 제외 제거로 한정. 실체화 로직·Layer 1/2/4·인터프리터 면제(F71)는 무변경. SC-2(면제가 새지 않음) — 컨트롤 플레인·탐지기 자신 3개 파일·perl·sed w 전부 신규 테스트로 ask 유지 고정. SC-3(승인된 위험이 이름 붙어 고정됨) — F73 신규 테스트 7개 + 기존 테스트 갱신 7개 모두 F73/override 참조."
+  },
+  "error_scenarios_tested": [
+    "ES-1: 컨트롤 플레인 리터럴이 함께 있으면 하드 제외 우선 — AC-2 테스트로 확인",
+    "ES-2: perl -i가 데이터 플레인 겨냥 — AC-4 테스트로 확인",
+    "ES-3: sed -i와 sed w가 섞인 경우 — 직접 테스트하지 않음(사용자 명시 범위 밖인 sed w는 자체 arm이 여전히 매치하므로 이론상 안전하나 별도 실측 없음, 잔여 리스크로 기록)"
+  ],
+  "evidence": {
+    "manual_smoke": "20개 대표 명령을 wired 픽스처에 직접 파이프해 확인 — AC-1~AC-6 전 항목 기대대로.",
+    "design_bug_repro": "1차 구현(새 arm만 추가)에서 'sed -i s/a/b/ progress/harness-config.json' 등 6개 AC-1 케이스가 전부 ask로 실패 → 판정 루프 구조 재확인 → 옛 arm 좁히기로 수정 → 재실측 전부 allow.",
+    "feature_list_json_edge_case": "feature_list.json은 이름 기반 arm(vim 등과 sed/awk가 같은 목록에 있던 것)이 별도로 존재해 -i arm 수정만으로는 안 풀렸다 — 이 arm도 sed/awk를 빼고 전용 arm을 추가해서야 allow로 전환됨(실측으로 발견).",
+    "tests": "bats tests/pre-bash-firewall.bats — 1..208, ok=208 / not ok=0(1차 실행 6건 실패 → 수정 → 재실행). bats tests/ 전체 — 1..774, ok=774 / not ok=0(중간에 'a line continuation is still one command' 1건 발견 → 수정 → 최종 재실행 774/774). 최종 결과로 판정.",
+    "behavioral_probe": "bash scripts/probes/behavioral.sh → [] (0건)"
+  },
+  "f63_disposition": {
+    "action": "status: superseded (F64 선례와 동일 방식)",
+    "reasoning": "sprint-49.json AC-1(과탐 해소)·AC-3/AC-4(회귀 없음)·SC-1(게이트 불변)은 F65+F73으로 실질 충족. AC-5(배터리 상설화+CI 호출)도 충족(.github/workflows/ci.yml).",
+    "gap_disclosed": "AC-6(격리 샌드박스에서 allow 판정을 실제 실행 + 트리 해시 불변 확인)은 F65에도 F73에도 구현된 적이 없다 — F63의 예측 기반 설계를 겨냥한 검증 방식 자체가 이관되지 않았다. feature_list.json의 F63 _superseded_note와 sprint-59.json open_axes에 명시해 향후 후속 change-request 후보로 남겼다."
+  },
+  "criteria_backfill": {
+    "acceptance_criteria_added": [],
+    "security_criteria_added": [],
+    "error_scenarios_added": [],
+    "spec_updated": false,
+    "security_checklist_updated": false,
+    "reason": "sprint-59.json의 AC/SC/ES가 change-request+Plan 단계에서 이미 이번 구현 범위를 정확히 예견했다. implementation_steps 2번의 설계 서술만 Plan 게이트에서 실제 코드 조사로 갱신됐고(기존 arm 분리 불필요 → 필요), 이후 구현 중 그 갱신된 설계마저 실측으로 한 번 더 정정됐다(add-only만으로 불충분 → 기존 arm 텍스트 좁히기 필요) — 두 정정 모두 계약의 acceptance criteria(AC-1~AC-8) 자체는 그대로 두고 구현 방법만 바뀌었다."
+  },
+  "residual_risk": [
+    "perl -i 면제는 범위 밖으로 남았다 — READ_CAPABLE_ARM에 perl을 추가할지는 순수 읽기 축부터 재검토가 필요한 별도 결정.",
+    "sed w/s///w 플래그 형태의 면제도 범위 밖.",
+    "F63 AC-6(격리 샌드박스 종단 실행 검증)의 정신은 F65/F73 어느 구현에도 흡수되지 않았다.",
+    "ES-3(sed -i와 sed w 혼재)를 직접 실측하지 않았다 — 이론상 안전(각 신호가 독립적으로 매치)하나 별도 테스트로 고정하지 않음."
+  ],
+  "self_notes": "이 구현은 Plan 게이트에서 승인받은 설계가 실측 한 번에 틀렸음이 드러나고(add-only만으로 충분하다는 결론), 그 수정본을 검증하는 과정에서 feature_list.json의 또 다른 특이 케이스(이름 기반 arm)를 발견해 다시 고친, 두 단계의 자기 수정이 있었던 작업이다. 매 단계 '추정하지 말고 실행해서 확인하라'는 이 세션의 원칙을 그대로 따랐고, 전체 bats 스위트 실행에서만 드러난 7번째 낡은 테스트('line continuation')도 추측 없이 직접 재현·수정했다.",
+  "ready_for": "evaluation"
+}

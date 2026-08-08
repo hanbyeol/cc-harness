@@ -188,9 +188,18 @@ arm_is_exemptable() {
   local p="$1" tok
   # 토큰이 일치해도 아래는 절대 면제하지 않는다 — 사후 복구가 성립하지 않는 자리다.
   #  - hooks.json·settings*.json: 이 훅의 배선 자체를 끄고, settings는 gitignore라 HEAD 복구 불가
-  #  - in-place(`-i`): 쓰기 신호가 명령에 드러나므로 애초에 읽기를 잡지 않는다
   #  - 탐지기 자신과 티켓 원장: 파괴되면 자기를 복구할 수 없다(F65 SC-6)
-  [[ "$p" == *'hooks\.json'* || "$p" == *'settings'* || "$p" == *'-i'* ]] && return 1
+  # F73(2026-08-08, 사용자 override): in-place(`-i`) 하드 제외를 지웠다 — "쓰기 신호가 드러나는
+  # arm은 면제하지 않는다"는 원칙을 sed/awk in-place 쓰기에 한해 뒤집는 결정이다(F71과 같은
+  # 무게). 안전한 이유는 이 제거가 **기존 arm의 동작을 바꾸지 않는다**는 데 있다 — 전체
+  # ASK_PATTERNS 중 `-i` 리터럴을 포함하는 arm은 셋뿐이고(일반/contracts `--in-place`,
+  # feature_list.json `-i`) 셋 다 도구 목록에 `perl`이 섞여 있어(`(g?sed|perl|g?awk|mawk)`)
+  # `READ_CAPABLE_ARM`(`(g?sed|g?awk|mawk)`)을 연속 부분문자열로 포함하지 않는다 — 그래서
+  # 아래 토큰 매치 단계에서 여전히 실패해 면제되지 않는다(perl 계속 ask, 실측 확인됨). 실제
+  # 면제는 이 arm들이 아니라 F73이 새로 추가한, perl 없이 `(g?sed|g?awk|mawk)`만 쓰는 arm에서만
+  # 일어난다. `protected-integrity` 등 `-i`를 우연히 포함하는 다른 패턴은 아래 별도 하드 제외가
+  # 이미 막는다.
+  [[ "$p" == *'hooks\.json'* || "$p" == *'settings'* ]] && return 1
   [[ "$p" == *'protected-integrity'* || "$p" == *'guarded-edits'* || "$p" == *'integrity-baseline'* ]] && return 1
   # F68: 무인 중단 기록도 탐지기의 판단 근거와 같은 성격이다 — 지워지면 "멈췄다"는 사실이
   # 사라진다. 인터프리터로 읽는 마찰보다 기록이 남는 쪽이 값어치가 크므로 면제하지 않는다.
@@ -327,8 +336,23 @@ ASK_PATTERNS=(
   # 통째로 잡아 가려져 있었고, 그 arm을 탐지·복구로 대체하자 드러났다(behavioral 프로브가 검출).
   # 장옵션 과탐은 생기지 않는다 — 첫 `-` 뒤가 `[a-zA-Z]` 이어야 하므로 `--quiet`·`--posix`·
   # `--field-separator` 는 두 번째 `-` 에서 걸러진다(F63 2차 판정이 지적한 과탐의 원인 제거).
-  '\b(g?sed|perl|g?awk|mawk)\b[^;|&]*(^| )-[a-zA-Z]*i[a-zA-Z]*[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
-  '\b(g?sed|perl|g?awk|mawk)\b[^;|&]*--in-place[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  # F73(2026-08-08, 사용자 override): 이 둘은 원래 `(g?sed|perl|g?awk|mawk)`였다 — sed/awk를
+  # 아래 새 전용 arm으로 옮기고 여기는 `perl`만 남긴다. **텍스트를 바꾸지 않고 새 arm을 옆에
+  # 추가하는 것만으로는 부족하다**: 판정 루프(`:880` 부근)는 매칭되는 patterns 를 배열 순서대로
+  # 전부 순회하며, 그중 **어느 하나라도** 비면제면 그 자리에서 즉시 ask+exit한다(F71/INTERPRETER_ARM
+  # 때와 달리, sed 를 포함하는 옛 arm이 같은 명령에 별도로 매치해 새 arm의 exemption을 무의미하게
+  # 만든다 — 실측: 새 arm만 추가했더니 옛 arm이 먼저/추가로 매치해 ask가 유지됐다). `perl`만
+  # 남기면 이 arm이 `sed -i ...`류 명령에 더 이상 매치하지 않아 충돌이 사라진다. INV-5는 배열별
+  # **라인 수** 감소만 차단하므로(`hooks/invariant-guard.sh:767-782`, 텍스트 보존이 아니라 카운트
+  # 검사) 기존 라인의 텍스트를 좁히는 것 자체는 막히지 않는다 — net 으로는 6줄이 추가돼 총수도
+  # 늘어난다. perl in-place 방어는 이 두 줄에 그대로 남아 무손실이다.
+  '\bperl\b[^;|&]*(^| )-[a-zA-Z]*i[a-zA-Z]*[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  '\bperl\b[^;|&]*--in-place[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  # F73: sed/awk **전용** in-place arm — 데이터 플레인에만(컨트롤 플레인 `.claude/settings*.json`·
+  # `hooks/*.json` 제외, hooks는 `.sh`만). 도구 목록이 `READ_CAPABLE_ARM`과 정확히 같은 리터럴이라
+  # `arm_is_exemptable()`의 토큰 매치를 통과해 allow가 된다.
+  '\b(g?sed|g?awk|mawk)\b[^;|&]*(^| )-[a-zA-Z]*i[a-zA-Z]*[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
+  '\b(g?sed|g?awk|mawk)\b[^;|&]*--in-place[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
   # sed의 w 명령/s///w 플래그 — 플래그도 리다이렉트도 없이 임의 파일에 쓴다.
   # 실측: sed -n 'w victim' src → victim에 src 내용 · sed 's/x/PWN/w victim2' → victim2=PWN.
   # F63 이전에는 에디터 이름 목록이 sed를 통째로 잡아 가려져 있었다.
@@ -348,8 +372,13 @@ ASK_PATTERNS=(
   # 위 넷은 셸 모양의 쓰기만 잡는다 — 인터프리터와 sed in-place/`w` 는 별도 arm 이 필요하다
   # (F68 9차 판정 부수 관찰: `python3 -c "open('<계약>','w')"` 과 `sed -i` 가 allow 였다).
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*contracts/[A-Za-z0-9_.-]+\.json'
-  '\b(g?sed|perl|g?awk|mawk)\b[^;|&]*(^| )-[a-zA-Z]*i[a-zA-Z]*[^;|&]*contracts/[A-Za-z0-9_.-]+\.json'
-  '\b(g?sed|perl|g?awk|mawk)\b[^;|&]*--in-place[^;|&]*contracts/[A-Za-z0-9_.-]+\.json'
+  # F73: perl만 남긴다(위 :339 주석과 같은 이유 — 옛 arm이 sed 를 계속 잡으면 새 arm의
+  # exemption이 무효화된다). sed/awk in-place 방어는 아래 새 전용 arm으로 옮긴다.
+  '\bperl\b[^;|&]*(^| )-[a-zA-Z]*i[a-zA-Z]*[^;|&]*contracts/[A-Za-z0-9_.-]+\.json'
+  '\bperl\b[^;|&]*--in-place[^;|&]*contracts/[A-Za-z0-9_.-]+\.json'
+  # F73: sed/awk 전용(perl 제외) in-place arm — 위와 같은 이유로 add-only.
+  '\b(g?sed|g?awk|mawk)\b[^;|&]*(^| )-[a-zA-Z]*i[a-zA-Z]*[^;|&]*contracts/[A-Za-z0-9_.-]+\.json'
+  '\b(g?sed|g?awk|mawk)\b[^;|&]*--in-place[^;|&]*contracts/[A-Za-z0-9_.-]+\.json'
   '\bg?sed\b[^;|&]*\bw\b *[^;|&]*contracts/[A-Za-z0-9_.-]+\.json'
   # 민감 파일(비밀키·크리덴셜) 이동/복사/덮어쓰기
   '\b(cp|mv|rsync|install|tee|scp)\b[^;|&]*(\.ssh/|\.aws/|\.gnupg/)'
@@ -488,11 +517,22 @@ ASK_PATTERNS=(
   # basename 앵커(harness-config 패턴과 동일 방식) — progress// · cd progress 등 경로정규화 우회 차단 (F-1).
   '>>? *[^ ]*feature_list\.json'
   '\b(cp|mv|install|rsync|ln|tee|sponge|truncate)\b[^;|&]*feature_list\.json'
-  '\b(sed|perl|awk)\b[^;|&]*-i[^;|&]*feature_list\.json'
+  # F73: perl만 남긴다(:339 주석과 같은 이유).
+  '\bperl\b[^;|&]*-i[^;|&]*feature_list\.json'
+  # F73: sed/awk 전용 in-place arm. 리터럴 `-i`는 `--in-place`도 부분문자열로 포함하므로
+  # 별도 긴 옵션 arm이 필요 없다.
+  '\b(g?sed|g?awk|mawk)\b[^;|&]*-i[^;|&]*feature_list\.json'
   '\bsed\b[^;|&]*\bw\b *[^;|&]*feature_list\.json'
   '\bof= *[^ ]*feature_list\.json'
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*feature_list\.json'
-  '\b(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)\b[^;|&]*feature_list\.json'
+  # F73: sed/g?awk/mawk을 위 이름 목록에서 뺀다 — 이름만으로 판정하는 이 arm은 :339와 같은
+  # 이유로 in-place exemption과 충돌한다(sed 이름만으로 매치해 -i 유무와 무관하게 ask). 순수
+  # 읽기는 PURE_READ 단계(Layer 3.4)에서 이 arm 이전에 이미 걸러지므로 영향 없음(실측 확인).
+  # vim 등 나머지 에디터는 이름 자체로 쓰기 문법을 모르므로 계속 여기서 ask.
+  '\b(ed|ex|vi|vim|nano|emacs|sponge|dd|patch)\b[^;|&]*feature_list\.json'
+  # F73: 위에서 뺀 sed/awk/mawk의 이름 기반 자리 — 일반 데이터 플레인 arm(harness-config.json 등)의
+  # 대응 arm과 동일하게 exemptable(도구 목록이 READ_CAPABLE_ARM과 같은 리터럴).
+  '\b(g?sed|g?awk|mawk)\b[^;|&]*feature_list\.json'
   # F68(INV-12): 무인 중단 기록. invariant-guard는 Edit|Write만 후킹하므로 리다이렉트·복사·
   # 인터프리터·에디터로 큐를 비우는 bash 경로가 그대로 열려 있었다(1차 판정 실증).
   # 적립은 Edit|Write 경로에서 append-only 검사를 통과하면 되고, 여기서 막는 것은 셸로

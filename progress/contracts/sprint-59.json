@@ -97,7 +97,7 @@
       "covers": ["AC-7"]
     },
     {
-      "step": "2. hooks/pre-bash-firewall.sh: in-place 전용 arm(:330-331, :351-352, :491)을 sed/awk 전용(데이터 플레인)·perl 전용·컨트롤 플레인 전용으로 분리, sed/awk 전용 arm을 EXEMPTABLE_ARM_TOKENS 소비 가능하도록 구성",
+      "step": "2. [Plan 단계에서 설계 확정, 기존 arm 분리 불필요로 정정] hooks/pre-bash-firewall.sh: READ_CAPABLE_ARM 리터럴을 그대로 쓰는 신규 sed/awk in-place arm 6개를 add-only로 추가(데이터플레인·feature_list.json·contracts × 짧은/긴 옵션), arm_is_exemptable()의 -i 하드 제외 제거. 기존 in-place arm(perl 혼입)은 토큰 불일치로 무변경 유지됨을 실측으로 재확인",
       "verify": "AC-1~AC-5 실측",
       "done": false,
       "covers": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "SC-1", "SC-2"]
@@ -118,8 +118,10 @@
   "open_axes": [
     "sed w/s///w 플래그 형태의 면제는 이번 범위 밖 — 필요 시 별도 change-request.",
     "perl -i 면제는 이번 범위 밖 — READ_CAPABLE_ARM에 perl을 추가할지는 별도 결정 필요(순수 읽기부터 재검토해야 함).",
-    "F73이 되돌려지면(원칙 복원) F63의 superseded 처리도 재검토 필요."
+    "F73이 되돌려지면(원칙 복원) F63의 superseded 처리도 재검토 필요.",
+    "F63 AC-6(격리 샌드박스 실제 실행 + 트리 해시 불변 확인)은 F65/F73 어느 구현에도 흡수되지 않은 채 남았다 — F63을 superseded로 닫아도 이 검증 방식 자체는 어떤 기능도 커버하지 않는다. 필요하면 별도 change-request 후보(feature_list.json F63의 _superseded_note 참조)."
   ],
   "_parallelizable": false,
-  "agreed": false
+  "agreed": true,
+  "_agreed_note": "승인 — 2026-08-08, Plan 게이트(ExitPlanMode) 승인. Plan 단계에서 기존 in-place arm을 분리할 필요 없이 신규 arm 6개 add-only 추가만으로 충분함을 코드 조사로 확정(perl 혼입으로 기존 arm은 토큰 불일치가 유지됨) — implementation_steps 2번 정정 후 승인됨."
 }
