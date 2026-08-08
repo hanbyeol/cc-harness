@@ -1,0 +1,26 @@
+{
+  "timestamp": "2026-08-08T12:33:30+0900",
+  "type": "modify",
+  "description": "invariant-guard.sh의 저장소 root 해석이 CLAUDE_PROJECT_DIR 미설정 + 훅 프로세스 cwd가 저장소 밖일 때 실패해 fail-open되는 결함 수정 — F68 10차가 닫은 삭제-후-재생성 방어(임계값 add-only, INV-3)가 재개방되고, evaluator의 passes 전환 티켓 발급(INV-11)도 사라짐",
+  "affected_features": [
+    "F72"
+  ],
+  "related_features": [
+    "F68",
+    "F71"
+  ],
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": false,
+    "acceptance_criteria_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false,
+    "invariants_updated": true
+  },
+  "new_sprint_contract": "progress/contracts/sprint-58.json",
+  "rollback_to_phase": null,
+  "discovery_context": {
+    "found_during": "F71의 F37 2차 독립 evaluator 판정 (security_tier: critical 필수 절차)",
+    "how": "1차 evaluator가 F71 passes:true 전환에 성공했다고 보고했으나 사후 확인 결과 반영되지 않았음(false/pending 그대로) — 이 불일치를 2차 evaluator에게 진단 지시했고, 2차 evaluator가 근본 원인(root 해석 fail-open)을 실측으로 규명. 메인 루프가 같은 root-cause 패턴이 record_guarded_edit()(부수적 문제)뿐 아니라 F68 10차의 삭제-후-재생성 실체화 로직(:365, 실제 보안 방어)에도 있음을 확인하고 격리 클론에서 재현해 심각도가 더 큼을 검증."
+  }
+}

@@ -188,6 +188,12 @@
       "contract": "progress/contracts/sprint-57.json",
       "security_tier": "critical",
       "summary": "[2026-08-08, 사용자 override] 인터프리터(python/node/ruby/perl/php/lua) 인라인 실행의 ASK 면제를 F67 철회(5회 독립 판정 반려, 2026-08-02)를 뒤집고 재도입한다. 구현 전 철회 이력과 실증된 cd 우회 사례(`cd .claude && python3 -c \"open('hooks/lib.sh','w')\"`, 복구 불가능한 설치본 훅 덮어쓰기)를 사용자에게 두 차례 고지했고, 사용자가 두 차례 모두 경로 구속·cd 가드 없는 전면 면제를 명시적으로 선택 — 이 우회는 수정 후에도 그대로 성립하는 승인된 위험이다. ADR-004 Amendment 5, INVARIANTS.md INV-14 참조."
+    },
+    {
+      "feature_id": "F72",
+      "contract": "progress/contracts/sprint-58.json",
+      "security_tier": "critical",
+      "summary": "[2026-08-08, F71 F37 2차 판정 중 발견·재현] hooks/invariant-guard.sh의 root 해석(`CLAUDE_PROJECT_DIR` 미설정 시 `git rev-parse --show-toplevel` 폴백, 프로세스 cwd 기준)이 훅 프로세스의 cwd가 저장소 밖일 때 실패해 두 자리(삭제-후-재생성 HEAD 실체화 :365, record_guarded_edit 티켓 발급 :414)가 조용히 스킵된다. 격리 클론에서 실측: `harness-config.json` 삭제 후 `pass_threshold` 하향 재생성 시도가 이 조건에서 무프롬프트 통과(exit 0) — F68 10차가 닫은 삭제-후-재생성 우회가 재개방되고 INV-3이 무력화된다. 수정: root를 프로세스 cwd가 아니라 `$FILE` 자신의 위치에서 유도(`git -C \"$(dirname -- \"$FILE\")\" rev-parse --show-toplevel`)."
     }
   ]
 }

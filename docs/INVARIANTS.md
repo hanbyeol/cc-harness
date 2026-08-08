@@ -200,6 +200,24 @@ behavioral 프로브 코퍼스가 이 부류의 누출을 감시한다.
   변수에만 영향을 준다 — 실제 Write/Edit은 호출자가 준 원래 경로에 쓰이므로 부작용이 없다.
   거부되면 실체화만 남아 삭제된 파일이 HEAD 내용으로 복구된 채가 된다(안전한 방향).
 
+**세 번째 함정 — root 해석 자체가 실패하면 이 방어 전체가 조용히 꺼진다 (F72, 2026-08-08)**:
+위 실체화 로직은 `root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"`로
+저장소 루트를 구하고, `$FILE`이 그 root 아래에 있을 때만 발동한다. `CLAUDE_PROJECT_DIR`이
+미설정이고 훅 프로세스의 **cwd가 저장소 밖**이면 `git rev-parse` 폴백도 실패해 root가 비고,
+`[[ -n "$__root" && "$FILE" == "$__root"/* ]]`가 거짓이 되어 **실체화가 통째로 스킵**된다 —
+파일이 "진정한 신규 파일"인 것처럼 흘러가 임계값·개수·배선·append-only 검사를 전부 건너뛴다.
+F71 검증(F37 2차 판정) 중 `CLAUDE_PROJECT_DIR` 미설정이 가설이 아니라 실제 세션 조건임이
+실측됐고, 격리 클론에서 직접 재현했다 — 삭제된 `harness-config.json`을
+`pass_threshold: 7→1`로 재생성 시도 시 cwd가 저장소 안이면 차단(exit 2), 밖이면 무프롬프트
+통과(exit 0). `record_guarded_edit()`(:414, 아래 INV-11 참조)도 같은 패턴을 써서 같은 조건에
+걸린다 — evaluator의 정당한 `passes:true` 전환이 티켓 없이 사후 되돌려지는 형태로 관측됐다.
+**수정(F72)**: 두 자리 모두 root를 프로세스 cwd/환경변수가 아니라 **`$FILE` 자신의 위치**에서
+유도한다(`git -C "$(dirname -- "$FILE")" rev-parse --show-toplevel`) — 편집 대상이 실제로 어느
+저장소에 속하는지를 직접 묻으므로 훅 프로세스의 cwd/환경변수 상태와 무관하게 정확하다. 진짜
+저장소 밖 tmpdir(bats 테스트 격리 등)에서는 이 방식도 정상적으로 실패해, 기존 "저장소 밖
+경로는 실체화·티켓 대상 아님" 설계 의도는 그대로 유지된다 — 판단 기준이 프로세스 위치에서
+파일 위치로 바뀔 뿐이다.
+
 두 번의 함정이 이 구현 자체에서 나왔다: `shopt -p <opt>`는 옵션이 꺼져 있으면 exit 1을 내
 `set -e` 아래에서 스크립트를 조용히 죽였고, `grep -ixF`가 매치를 못 찾을 때의 exit 1도 `pipefail`
 아래서 같은 방식으로 죽였다 — 둘 다 `|| true`로 삼킨다. `tests/invariant-guard.bats`가 8종 전부와

@@ -1,0 +1,107 @@
+{
+  "sprint": 58,
+  "title": "invariant-guard.sh 저장소 root 해석 실패 시 fail-open 수정 — F68 10차 삭제-재생성 방어 재개방 차단",
+  "feature_id": "F72",
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "dependencies": [
+    "F68"
+  ],
+  "problem": "hooks/invariant-guard.sh의 두 자리(:365 삭제-후-재생성 HEAD 실체화, :414 record_guarded_edit 티켓 발급)가 root=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo \"\")}\" 패턴을 쓴다. CLAUDE_PROJECT_DIR 미설정 + 훅 프로세스 cwd가 저장소 밖이면 root 해석이 실패(빈 문자열)해 두 로직 모두 조용히 스킵된다. :365는 F68 10차가 닫은 삭제-후-재생성 우회(파일이 없으면 HEAD 내용을 실체화해 임계값·개수·배선·append-only 검사를 원래 있던 파일과 동일 적용)를 같은 조건에서 재개방한다 — 격리 클론에서 실측: harness-config.json 삭제 후 pass_threshold 7→1로 재생성 시도 시 cwd가 저장소 안이면 exit 2(차단), 밖이면 exit 0(통과). :414는 evaluator의 정당한 passes:true 전환이 무결성 티켓 없이 사후 되돌려지는 형태로 F71 검증 중 실측됐다. CLAUDE_PROJECT_DIR 미설정은 F71 검증 세션에서 실측된 실제 조건이다.",
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "hooks/invariant-guard.sh:365(삭제-후-재생성 실체화)와 :414(record_guarded_edit)의 root 해석이 프로세스 cwd/CLAUDE_PROJECT_DIR가 아니라 $FILE 자신의 위치에서 유도된다(예: git -C \"$(dirname -- \"$FILE\")\" rev-parse --show-toplevel).",
+      "verification": "코드 diff로 두 자리 모두 동일한 방식으로 바뀌었는지 확인."
+    },
+    {
+      "id": "AC-2",
+      "criterion": "재현된 우회(harness-config.json 삭제 후 pass_threshold 하향 재생성, CLAUDE_PROJECT_DIR 미설정 + cwd 저장소 밖)가 수정 후 exit 2(차단)로 바뀐다.",
+      "verification": "격리 클론에서 수정 전(exit 0)/수정 후(exit 2) pre/post 재현. scratchpad/repro_b.sh 패턴 재사용 가능."
+    },
+    {
+      "id": "AC-3",
+      "criterion": "evaluator의 정당한 passes 전환이 CLAUDE_PROJECT_DIR 미설정 + cwd 저장소 밖 조건에서도 티켓이 발급되고 되돌려지지 않는다.",
+      "verification": "같은 조건에서 progress/feature_list.json에 정당한 passes:false→true 편집을 시도 → progress/.guarded-edits에 티켓 1줄 발급 확인 → protected-integrity.sh(PostToolUse 시뮬레이션) 실행 후에도 편집이 유지되는지 확인."
+    },
+    {
+      "id": "AC-4",
+      "criterion": "저장소 밖 tmpdir(bats 테스트 격리 등 — $FILE 자체가 git 저장소 밖에 있는 진짜 격리 상황)에서는 기존과 동일하게 실체화·티켓 발급이 스킵된다(설계 의도 보존, 회귀 아님).",
+      "verification": "tests/invariant-guard.bats의 기존 임시 디렉터리(비-git) 픽스처 테스트가 전부 green으로 유지되는지 확인 — 이 클래스가 새로 티켓을 만들거나 실체화를 시도하면 오히려 회귀."
+    },
+    {
+      "id": "AC-5",
+      "criterion": "회귀 없음.",
+      "verification": "bats tests/invariant-guard.bats 전체 1회(재실행 금지) + 하네스 전체 bats 1회 + behavioral 프로브 0건."
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "수정은 root 해석 방식에만 한정된다 — 삭제-후-재생성 실체화 로직 자체(HEAD 조회·임계값/개수/배선/append-only 검사)나 record_guarded_edit()의 티켓 해시·append-only 방식은 건드리지 않는다.",
+      "rationale": "critical 가드 파일의 blast radius를 정확히 진단된 결함(root 해석)으로 한정해야, 이번 수정이 다른 축의 암묵적 약화를 정당화하는 것으로 오독되지 않는다.",
+      "verification": "diff가 root 해석 라인(및 그 직접 소비부)만 건드리는지 확인."
+    },
+    {
+      "id": "SC-2",
+      "criterion": "$FILE 기반 root 유도가 실패(진짜 저장소 밖)할 때도 fail-safe 방향(보호 유지 또는 명시적 스킵)이지 fail-open이 아니다.",
+      "rationale": "이번 수정이 한 fail-open을 다른 fail-open으로 바꾸면 안 된다 — $FILE의 부모 디렉터리에서 git 저장소를 못 찾으면 여전히 '저장소 밖'으로 정확히 판단되어야 하며, 엉뚱한 저장소를 root로 오인해서도 안 된다.",
+      "verification": "$FILE이 (a) 진짜 비git tmpdir, (b) 완전히 다른 git 저장소 안에 있는 경우 각각에서 실체화/티켓이 스킵되는지 확인(오인 없음)."
+    },
+    {
+      "id": "SC-3",
+      "criterion": "INV-3(임계값 add-only)·INV-11(passes 전환 기계 검증)이 이번 수정으로 실제로 복원됨을 각각 최소 1개 종단 시나리오로 재확인한다.",
+      "rationale": "이번 결함이 두 invariant의 실효성을 무력화했으므로, 수정이 서술이 아니라 실제 동작에서 두 invariant를 복원했는지 종단으로 봐야 한다.",
+      "verification": "AC-2(INV-3)·AC-3(INV-11) 검증과 동일 시나리오 재사용."
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "$FILE의 부모 디렉터리에서 git 저장소를 찾을 수 없는 경우(진짜 비git 환경)",
+      "expected": "root 해석이 빈 값으로 실패 → 기존과 동일하게 실체화/티켓 스킵(AC-4)."
+    },
+    {
+      "id": "ES-2",
+      "scenario": "$FILE이 실제로 존재하지 않는 완전히 새 저장소의 경로인 경우(예: 신규 프로젝트 초기화 중)",
+      "expected": "그 저장소 자신의 root가 정확히 유도되어야 하며, 다른 저장소(예: 훅이 설치된 플러그인 캐시)를 root로 오인하지 않는다."
+    },
+    {
+      "id": "ES-3",
+      "scenario": "git 바이너리 자체가 없는 환경",
+      "expected": "root 해석 실패 → fail-safe(보호 유지 방향) — 기존 동작과 동일, 이번 수정으로 새로 깨지지 않는다."
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": "1. hooks/invariant-guard.sh :365, :414 두 자리의 root 해석을 $FILE 기반으로 통일",
+      "verify": "AC-1 코드 대조",
+      "done": false,
+      "covers": ["AC-1", "SC-1"]
+    },
+    {
+      "step": "2. 격리 클론에서 우회 재현 시나리오 pre/post 확인 (AC-2, AC-3)",
+      "verify": "exit 코드·티켓 발급 여부 실측",
+      "done": false,
+      "covers": ["AC-2", "AC-3", "SC-3"]
+    },
+    {
+      "step": "3. 저장소 밖/다른 저장소 오인 케이스 확인 (SC-2, ES-1, ES-2)",
+      "verify": "격리 클론 변형 시나리오 실측",
+      "done": false,
+      "covers": ["SC-2", "ES-1", "ES-2"]
+    },
+    {
+      "step": "4. bats tests/invariant-guard.bats 전체 1회 + 하네스 전체 bats 1회 + behavioral 프로브",
+      "verify": "AC-4, AC-5 실측",
+      "done": false,
+      "covers": ["AC-4", "AC-5"]
+    }
+  ],
+  "open_axes": [
+    "git 바이너리 자체가 부재한 환경(ES-3)은 기존에도 fail-safe였고 이번 수정으로 변경되지 않는다 — 별도 검증 불필요, 회귀 여부만 확인.",
+    "이 결함이 다른 훅(예: pre-bash-firewall.sh의 integrity_wired())에도 유사 패턴으로 존재하는지는 이번 범위 밖 — 후속 change-request 후보."
+  ],
+  "_parallelizable": false,
+  "agreed": false
+}
