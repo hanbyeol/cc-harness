@@ -3,58 +3,73 @@
   "sprint": 58,
   "title": "invariant-guard.sh 저장소 root 해석 fail-open 수정",
   "security_tier": "critical",
-  "timestamp": "2026-08-08T12:57:45+0900",
-  "iteration": 1,
+  "timestamp": "2026-08-08T14:03:00+0900",
+  "iteration": 2,
   "mode": "serial",
   "_mode_note": "같은 파일(hooks/invariant-guard.sh) 두 자리를 같은 방식으로 고치는 단일 체인 — 병렬 분할 대상 아님(sprint-58.json _parallelizable:false).",
-  "base_commit": "f258a21",
-  "input": "F71의 F37 2차 독립 evaluator 판정 중 발견·규명. 1차 evaluator가 보고한 feature_list.json passes:true 전환이 실제로는 반영되지 않는 불일치를 메인 루프가 사후 확인했고, 2차 evaluator가 근본 원인(root 해석 fail-open)을 실측으로 규명. 메인 루프가 같은 패턴이 F68 10차의 삭제-후-재생성 방어(:365)에도 있음을 확인하고 격리 클론에서 재현.",
-  "summary": "hooks/invariant-guard.sh의 두 자리(:365 삭제-후-재생성 HEAD 실체화, :414 record_guarded_edit 티켓 발급)에서 저장소 root 해석을 `${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}`(프로세스 cwd 기준)에서 `${CLAUDE_PROJECT_DIR:-$(git -C \"$(dirname -- \"$FILE\")\" rev-parse --show-toplevel)}`($FILE 자신의 위치 기준)로 바꿨다. 두 자리 모두 동일한 표현식으로 통일. 기존 물리 경로 정규화(`pwd -P`)와 prefix 검사(`$FILE == $root/*`)는 무변경.",
+  "base_commit": "83125c6",
+  "input_verdict": "progress/agent-comms/evaluator-feedback-2026-08-08T13-22-05+0900.json (1차 독립 판정, fail — security 4, min-of-5 4)",
+  "input": "1차 구현(83125c6)이 F71 F37 2차 판정 중 발견된 root-resolution fail-open을 프로세스 cwd 대신 `$FILE` 위치 기준(`git -C \"$(dirname -- \"$FILE\")\" ...`)으로 고쳤으나, 1차 evaluator가 **새 fail-open**을 실측으로 반증했다 — `$FILE`의 바로 위 디렉터리 자체가 삭제되면(`rm -rf progress`) `dirname`이 가리키는 디렉터리가 없어 `git -C`가 실패, root가 다시 빈 값이 되어 cwd가 저장소 **안**이어도 F68 10차 방어가 스킵됐다. 재현: 구버전(f258a21) exit=2 / 1차 수정(83125c6) exit=0.",
+  "summary": "2차 수정: root를 찾을 때 `$FILE`의 바로 위 디렉터리가 아니라 **존재하는 가장 가까운 조상 디렉터리**까지 걸어 올라가 거기서 git rev-parse를 실행한다(`__nearest_existing_dir` 헬퍼 신설). 이 헬퍼를 :365(삭제-후-재생성 실체화)와 :414(record_guarded_edit 티켓 발급) 양쪽에서 공유한다. 구현 중 자체 재현으로 **3차 문제**를 추가로 발견·수정했다 — `$FILE`의 부모가 없으면 `canon_file()`이 물리 경로 정규화를 포기해(기존 :219-223 로직) `$FILE`이 논리 경로(macOS `/var/...`)로 남는데, 새 root는 `pwd -P`로 물리 경로(`/private/var/...`)가 되어 prefix 비교가 심볼릭 링크 구간에서 항상 어긋났다. `__physicalize_under` 헬퍼를 추가해 root와 같은 기준(존재하는 조상만 물리화 + 없는 나머지 구간은 문자열로 이어붙임)으로 `$FILE`도 맞췄다. 1차 판정이 지적한 관측 가능한 신호(SC-4)도 반영 — root 해석이 끝내 실패하면 stderr에 경고를 남긴다(판정 자체는 불변).",
   "features_implemented": [],
   "_features_note": "F72의 passes는 evaluator만 바꾼다. feature_list.json의 F72는 passes:false / status:pending 그대로 두었다.",
   "files_changed": [
     "hooks/invariant-guard.sh",
-    "tests/invariant-guard.bats"
+    "tests/invariant-guard.bats",
+    "progress/contracts/sprint-58.json"
   ],
+  "sprint_contract_change": "1차 반려를 반영해 SC-2를 명확화(부모 디렉터리 삭제 ≠ 진짜 저장소 밖)하고 SC-4(관측 가능한 신호) · AC-6(부모 디렉터리 삭제 축)을 add-only로 추가.",
   "tests_added": [
     "tests/invariant-guard.bats :: F72: root resolution derives from $FILE, not process cwd — delete-recreate still denies",
     "tests/invariant-guard.bats :: F72: a legitimate add-only edit still gets a guarded-edit ticket under the same condition",
-    "tests/invariant-guard.bats :: F72: a different unrelated git repo as cwd does not get misattributed as root (SC-2)"
+    "tests/invariant-guard.bats :: F72: a different unrelated git repo as cwd does not get misattributed as root (SC-2)",
+    "tests/invariant-guard.bats :: F72r2: deleting the file's parent directory itself still denies (evaluator round-1 rejection)",
+    "tests/invariant-guard.bats :: F72r2: parent directory deleted AND cwd outside repo — both axes combined still denies",
+    "tests/invariant-guard.bats :: F72r2: a legitimate add-only edit still gets a ticket when the parent directory was deleted",
+    "tests/invariant-guard.bats :: F72r2: a genuinely non-git tmpdir still skips silently in effect, but now logs an observable warning"
   ],
   "what_changed": {
-    "core_edit": "두 곳의 root 해석 우변을 `git rev-parse --show-toplevel`(인자 없음, 프로세스 cwd 암묵 사용)에서 `git -C \"$(dirname -- \"$FILE\")\" rev-parse --show-toplevel`($FILE의 부모 디렉터리 명시)로 변경. CLAUDE_PROJECT_DIR가 설정돼 있으면 그대로 우선 사용(무변경).",
-    "why_this_fix": "이 함수들이 실제로 답해야 하는 질문은 '이 프로세스가 어디서 도는가'가 아니라 '편집 대상 $FILE이 어느 저장소에 속하는가'다. 프로세스 cwd는 훅 실행 환경(서브에이전트, 플러그인 캐시 실행 등)에 따라 $FILE의 저장소와 어긋날 수 있고, 실제로 F71 검증 세션에서 그렇게 어긋났다. $FILE 자신의 위치에서 물으면 그 어긋남이 원리적으로 발생하지 않는다.",
-    "preserved_design": "$FILE이 진짜 비git tmpdir에 있으면(bats 테스트 격리 등) 이 방식도 동일하게 실패해 빈 문자열을 반환한다 — 기존 '저장소 밖 경로는 실체화·티켓 대상 아님' 설계는 그대로 유지된다."
+    "round1_core_edit": "두 곳의 root 해석 우변을 `git rev-parse --show-toplevel`(프로세스 cwd 암묵 사용)에서 `git -C \"$(dirname -- \"$FILE\")\" ...`($FILE의 부모 디렉터리 명시)로 변경.",
+    "round1_defect_found_by_evaluator": "`dirname -- \"$FILE\"`이 가리키는 디렉터리 자체가 삭제되면 git -C 호출이 실패 — F68 10차 방어가 다시 스킵됨(1차 판정 반려, security 4).",
+    "round2_fix": "`__nearest_existing_dir(path)` 신설 — dirname을 반복 적용해 존재하는 가장 가까운 조상까지 올라간 뒤 그 디렉터리에서 git rev-parse. 두 자리(:365 `__root`, :414 `root`) 모두 이 헬퍼로 통일.",
+    "round2_self_found_defect": "위 수정을 직접 재현·검증하는 과정에서 3번째 문제를 발견했다 — root는 `pwd -P`로 물리화되는데 `$FILE`은 canon_file()이 부모 부재 시 정규화를 포기해 논리 경로로 남아, macOS의 `/var` → `/private/var` 심볼릭 링크 구간에서 prefix 비교(`$FILE == $root/*`)가 항상 거짓이 됐다(mktemp -d 픽스처에서만 재현 — /private/tmp 직속 경로로 수동 재현했을 때는 심볼릭 링크가 없어 우연히 통과했었다).",
+    "round3_fix": "`__physicalize_under(file, ancestor)` 신설 — 존재하는 조상(ancestor)만 `pwd -P`로 물리화하고, 없는 나머지 구간(중간 디렉터리 + 파일명)은 원본 문자열을 그대로 이어붙인다. 두 자리 모두 prefix 비교·rel 계산에 물리화된 `$FILE`을 쓰도록 변경.",
+    "observable_signal": "1차 판정 issue(SC-4 신설)에 대응 — root 해석이 끝내 실패하면(:365, :414 각각) stderr에 경고 메시지를 남긴다. exit code는 바꾸지 않는다(진짜 비git 환경에서는 이 경고가 정상)."
   },
   "security_self_check": {
-    "checklist_items": 3,
-    "checklist_passed": 3,
-    "notes": "SC-1(수정이 root 해석에만 한정) — diff가 두 root= 라인과 그 주석뿐임을 git show로 확인. 실체화 로직의 HEAD 조회·임계값/개수/배선/append-only 검사, record_guarded_edit()의 해시·append-only 방식은 무변경. SC-2(fail-open→fail-open 치환 아님) — 진짜 비git 경로·다른 저장소 오귀속 두 케이스 모두 새 테스트로 고정, 정상적으로 스킵/차단됨을 실측. SC-3(INV-3·INV-11 실제 복원) — AC-2/AC-3 종단 재현으로 확인(아래 evidence)."
+    "checklist_items": 5,
+    "checklist_passed": 5,
+    "notes": "SC-1(범위 한정) — diff가 두 헬퍼 함수 신설 + 두 root/FILE 유도 라인·직접 소비부로 한정, 실체화/티켓 로직 자체는 무변경. SC-2(fail-open→fail-open 아님, 1차 판정 대응 명확화) — 부모 디렉터리 삭제(cwd 안/밖 둘 다)·진짜 비git·다른 저장소 오귀속 네 케이스 전부 신규 테스트로 고정, 실측 확인. SC-3(INV-3·INV-11 실제 복원) — AC-2/AC-3/AC-6 종단 재현. SC-4(관측 가능한 신호) — 비git 케이스 stderr 출력 테스트로 고정."
   },
   "error_scenarios_tested": [
-    "ES-1: $FILE 부모에서 git 저장소를 못 찾는 진짜 비git 환경 → root 빈 값, 기존과 동일하게 스킵(F72 신규 테스트 3개가 쓰는 setup_git_repo 자체가 실제 git repo이므로 이 축은 기존 F68 10차 테스트들의 비파괴 케이스로 이미 커버됨 — 별도 실측: $FILE을 mktemp -d 비git 디렉터리로 지정 시 root 해석 실패 확인)",
-    "ES-2: 다른 git 저장소가 cwd인 경우 → F72 3번째 신규 테스트(SC-2)로 확인, 오귀속 없음",
-    "ES-3: git 바이너리 부재 → 코드 경로 무변경(기존과 동일하게 fail-safe), 이번 수정 범위 밖이라 별도 실측 생략"
+    "ES-1(개정): 조상을 다 훑어도 git 저장소를 못 찾는 진짜 비git 환경 — F72r2 4번째 테스트로 stderr 경고까지 확인",
+    "ES-2: 다른 git 저장소가 cwd인 경우 — F72 3번째 테스트, 오귀속 없음",
+    "ES-3: git 바이너리 부재 — 코드 경로 무변경, 범위 밖"
   ],
   "evidence": {
-    "isolated_repro_before_fix": "격리 클론(scratchpad/guard-repro)에서 harness-config.json 삭제 후 pass_threshold 7→1 재생성 시도 — cwd 저장소 안: exit 2(차단, 정상). cwd=/private/tmp(저장소 밖) + CLAUDE_PROJECT_DIR unset: exit 0(통과, 우회 성립) — 재현 확인.",
-    "isolated_repro_after_fix": "동일 시나리오를 F72 수정이 반영된 스냅샷(scratchpad/guard-repro-f72)에서 재실행 — cwd=/private/tmp + CLAUDE_PROJECT_DIR unset: exit 2(차단, 수정됨). 정당한 add-only 편집(pass_threshold 7→8)도 같은 조건에서 exit 0 + progress/.guarded-edits에 티켓 1줄 발급 확인(수정 전에는 티켓 0줄이었음).",
-    "tests": "bats tests/invariant-guard.bats — 1..144, ok=144 / not ok=0 (신규 F72 3건 포함, F68 10차 기존 테스트 전부 회귀 없음). bats tests/ 전체 — ok=763 / not ok=0, exit=0. 최종 트리 1회 실행.",
-    "behavioral_probe": "bash scripts/probes/behavioral.sh → [] (0건)",
-    "lint": "shellcheck 미실행(환경 확인 안 함) — 셸 동작은 위 907건(144+763 겹치지 않는 파일 기준 invariant-guard.bats는 tests/ 전체 실행에 포함되므로 실질 total은 763) 실행으로 확인."
+    "round1_repro": "격리 클론에서 progress/ 디렉터리 자체를 삭제 후 pass_threshold 하향 재생성 — cwd 저장소 안: 1차 수정본(83125c6) exit=0(우회 성립, evaluator 반증과 일치) / 구버전(f258a21) exit=2.",
+    "round2_repro_before_round3_fix": "__nearest_existing_dir 적용 직후, 동일 시나리오를 bats setup_git_repo()(mktemp -d 기반) 픽스처로 실행 — exit=0로 여전히 실패. bash -x 트레이스로 원인 확정: __root는 /private/var/... (물리), $FILE은 /var/... (논리, canon_file이 부모 부재로 정규화 포기) — prefix 비교 불일치.",
+    "round3_repro_after_fix": "__physicalize_under 적용 후 동일 mktemp -d 픽스처 재실행 — exit=2(차단, 수정됨). 정당한 add-only 편집(부모 디렉터리 삭제 상태에서)도 exit=0 + 티켓 발급 확인.",
+    "tests": "bats tests/invariant-guard.bats — 1..148, ok=148 / not ok=0(1차 실행 시 F72r2 3건 fail 확인 후 round3 수정 → 재실행 148/148 green). bats tests/ 전체 — 1..767, ok=767 / not ok=0, exit=0. 최종 트리 1회 실행.",
+    "behavioral_probe": "bash scripts/probes/behavioral.sh → [] (0건)"
   },
   "criteria_backfill": {
-    "acceptance_criteria_added": [],
-    "security_criteria_added": [],
+    "acceptance_criteria_added": [
+      "AC-6: 부모 디렉터리 삭제 축(cwd 안/밖 모두)"
+    ],
+    "security_criteria_added": [
+      "SC-4: root 해석 실패 시 관측 가능한 신호"
+    ],
     "error_scenarios_added": [],
     "spec_updated": false,
     "security_checklist_updated": false,
-    "reason": "구현 중 새로 발견한 기준 갭 없음 — sprint-58.json의 AC/SC/ES가 change-request 단계에서 이미 이번 구현 범위를 정확히 예견했다(작성 시점에 이미 root-cause와 재현 방법을 알고 있었음)."
+    "reason": "1차 evaluator의 criteria_gaps(issues)를 계약 기준으로 승격 — SC-2 명확화, SC-4·AC-6 신설. 전부 add-only, 기존 기준 완화 없음."
   },
   "residual_risk": [
-    "hooks/pre-bash-firewall.sh의 integrity_wired()가 유사 패턴(CLAUDE_PLUGIN_ROOT 기준 root 후보 열거)을 쓰는지는 이번 범위 밖으로 남겼다 — 다른 변수·다른 목적이라 즉시 같은 결함이라 단정할 수 없으나, 같은 계열의 환경 의존 root 해석이므로 후속 change-request 후보(sprint-58.json open_axes에 기록).",
-    "git 바이너리 자체가 없는 환경에서의 동작은 이번 수정으로 바뀌지 않았다(기존 fail-safe 유지) — 별도 실측하지 않음."
+    "hooks/pre-bash-firewall.sh의 integrity_wired()가 유사 패턴(CLAUDE_PLUGIN_ROOT 기준)을 쓰는지는 이번 범위 밖 — 후속 change-request 후보(sprint-58.json open_axes).",
+    "1차 evaluator가 지적한 '종단 우회'(pre-bash-firewall이 `rm -rf progress`를 allow하고, protected-integrity가 matcher=Bash 전용 + git merge 진행 중에는 복구하지 않는 조합) — invariant-guard PreToolUse 게이트 자체는 이번 수정으로 정상 차단하지만, 그 뒤의 방어망(방화벽 allow 정책, protected-integrity의 git-operation 예외)은 이번 Sprint Contract 범위 밖이었다. 별도 change-request 후보로 남긴다.",
+    "git 바이너리 자체가 없는 환경에서의 동작은 이번 수정으로 바뀌지 않았다(기존 fail-safe 유지)."
   ],
-  "self_notes": "이 결함은 F71 작업의 부산물로 발견됐고, 처음 보고된 형태(evaluator의 passes 플래그가 사라짐)보다 실제 심각도가 컸다 — 같은 root cause가 F68 10차의 실제 보안 방어(임계값 add-only)를 재개방하고 있었다. 격리 클론에서 직접 재현한 뒤에야 이 사실을 확인했고, 재현 없이 '티켓 문제'로만 보고 넘어갔다면 더 심각한 결함을 놓쳤을 것이다.",
+  "self_notes": "이번 라운드는 '반려 → 재수정 → 자체 재현으로 3번째 결함 발견 → 재수정'의 3단 과정이었다. 매 단계 이론으로 추정하지 않고 실제로 bash -x 트레이스까지 떠서 정확한 실패 지점을 확인한 뒤 고쳤다 — 특히 2차 결함(심볼릭 링크 prefix 불일치)은 내가 처음 만든 스크래치패드 수동 재현(우연히 /private/tmp 직속 경로를 써서 통과)과 bats의 mktemp -d 픽스처(macOS에서 /var 경유, 재현)가 갈린 사례라 '한 번 통과했다고 안심하지 않는다'는 원칙이 실제로 값어치를 했다.",
   "ready_for": "evaluation"
 }

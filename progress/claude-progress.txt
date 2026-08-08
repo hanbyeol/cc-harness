@@ -152,3 +152,7 @@
 - 수정: 두 자리 모두 root를 프로세스 cwd/환경변수가 아니라 $FILE 자신의 위치에서 유도(git -C "$(dirname -- "$FILE")" rev-parse --show-toplevel). 진짜 저장소 밖 tmpdir(bats 테스트 격리)에서는 기존과 동일하게 스킵되어 설계 의도 보존
 - tests/invariant-guard.bats에 F72 회귀 테스트 3개 추가 — 기존 F68 10차 테스트는 전부 CLAUDE_PROJECT_DIR을 명시적으로 세워 이 축(미설정+cwd 어긋남)을 한 번도 덮지 않았던 갭을 새로 커버. 다른 저장소를 cwd로 쓰는 오귀속 케이스(SC-2)도 별도 고정
 - 검증: 격리 클론 pre/post 재현(수정 전 exit 0 → 수정 후 exit 2, 티켓 0줄 → 1줄), bats tests/invariant-guard.bats 144/144, 하네스 전체 bats 763/763, behavioral 프로브 0건
+- 1차 독립 evaluator: fail(min-of-5 4, security 4) — dirname 기반 root 유도가 $FILE의 **바로 위 디렉터리 자체가 삭제된 경우**(`rm -rf progress`)에 다시 fail-open됨을 실측 반증(구버전 exit 2 / 1차 수정 exit 0). cwd가 저장소 **안**이어도 걸리는 축이라 새로 연 결함
+- 2차 수정: __nearest_existing_dir 헬퍼로 존재하는 조상까지 걸어 올라가 root를 찾도록 교체. 자체 재현 중 **3번째 결함**을 추가로 발견 — root는 pwd -P로 물리 경로화되는데 $FILE은 canon_file()이 부모 부재 시 정규화를 포기해 논리 경로(macOS `/var/...`)로 남아 심볼릭 링크 구간(`/var`→`/private/var`)에서 prefix 비교가 항상 어긋났다(수동 스크래치패드 재현은 우연히 /private/tmp 직속 경로라 안 잡혔고, bats의 mktemp -d 픽스처에서만 재현됨) — __physicalize_under 헬퍼로 $FILE도 같은 기준으로 물리화해 해결
+- 1차 판정의 SC-4(관측 가능한 신호) 권고도 반영 — root 해석 실패 시 stderr 경고(판정 불변). sprint-58.json에 SC-2 명확화·SC-4·AC-6 add-only 추가
+- 검증(2차): bats tests/invariant-guard.bats 148/148(F72r2 신규 4건 포함), 하네스 전체 bats 767/767, behavioral 프로브 0건. 재판정 디스패치 대기

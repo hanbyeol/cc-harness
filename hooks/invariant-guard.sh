@@ -342,6 +342,41 @@ fi
 ci_on()  { _CI_SAVED=$(shopt -p nocasematch || true); [[ "${FS_CI:-0}" == 1 ]] && shopt -s nocasematch; return 0; }
 ci_off() { eval "${_CI_SAVED:-:}" || true; return 0; }
 
+# === $FILE이 속한 저장소 root를, 없어진 경로 구간과 무관하게 찾는다 (F72 2차 판정) ===
+# 1차 시도(`git -C "$(dirname -- "$FILE")" ...`)는 $FILE의 **바로 위** 디렉터리가 실제로
+# 존재해야만 동작했다. 보호 파일이 담긴 디렉터리째 삭제되면(`rm -rf progress`) 그 디렉터리가
+# 없어 git 호출 자체가 실패하고, root가 다시 빈 값이 되어 아래 두 방어(F68 10차 삭제-후-재생성
+# 실체화, record_guarded_edit 티켓 발급)가 조용히 스킵됐다 — process cwd 기준이던 원래 결함을
+# 닫으면서 "$FILE의 부모가 존재해야 한다"는 새 결함을 열었다(2차 판정 실측: 구버전은 이 축에서
+# 우연히 차단했는데 신버전이 놓침). `canon_file()`(위 `:219-223`)도 "디렉터리가 아직 없으면
+# 정규화할 것이 없다"로 같은 종류의 부재를 다루지만 그쪽은 정규화를 포기하는 것으로 충분하고,
+# 여기는 root 자체를 반드시 찾아야 하므로 존재하는 가장 가까운 조상까지 걸어 올라간다 — 삭제된
+# 것이 `progress/`든 `progress/contracts/`든, 그 위 어딘가는(적어도 저장소 루트는) 남아 있다.
+__nearest_existing_dir() {
+  local d
+  d=$(dirname -- "$1")
+  while [[ ! -d "$d" && "$d" != "/" && "$d" != "." ]]; do
+    d=$(dirname -- "$d")
+  done
+  printf '%s' "$d"
+}
+
+# === $FILE을 root와 같은 기준(물리 경로)으로 맞춘다 (F72 2차 판정 반려 대응) ===
+# 위 __nearest_existing_dir가 처음 고친 회귀 테스트는 통과했지만, 2차 실행에서 새 회귀가
+# 나왔다 — $FILE의 바로 위 디렉터리가 없으면 `canon_file()`(위 `:219-223`)이 정규화를 포기해
+# $FILE이 **논리 경로**(예: macOS `/var/folders/...`)로 남는데, root는 `pwd -P`로 **물리
+# 경로**(`/private/var/folders/...`)로 맞춘다. 이 둘을 그대로 접두 비교하면 심볼릭 링크
+# 구간에서 어긋나 `[[ "$FILE" == "$root"/* ]]`가 항상 거짓이 되고, 방어가 다시 조용히
+# 스킵된다(record_guarded_edit의 기존 주석이 이미 같은 클래스를 F68 실측으로 남겼었다 —
+# 이번엔 그 정규화의 **전제**인 canon_file 자체가 무력화되는 경우였다). 존재하는 조상만
+# `pwd -P`로 물리화하고, 없는 나머지 구간(디렉터리+파일명)은 문자열로 그대로 이어붙인다 —
+# 없는 경로는 애초에 `pwd -P`로 확인할 수 없다.
+__physicalize_under() {
+  local file="$1" anc="$2" anc_phys
+  anc_phys=$(cd "$anc" 2>/dev/null && pwd -P) || { printf '%s' "$file"; return 0; }
+  printf '%s' "$anc_phys${file#"$anc"}"
+}
+
 # === 삭제 후 재생성 우회를 원리적으로 닫는다 (F68 10차) ===
 # `[[ ! -e "$FILE" ]]` 분기는 지금까지 파일명을 하나씩 열거해서만 막았다 — `feature_list.json`
 # 과 `sprint-*.json` 은 6·8·9차를 거치며 개별로 닫혔지만, 나머지 여덟(`harness-config.json`·
@@ -362,15 +397,23 @@ ci_off() { eval "${_CI_SAVED:-:}" || true; return 0; }
 # 대소문자 무시로 일치하는 실제 철자를 먼저 찾는다.
 if [[ ! -e "$FILE" ]]; then
   if is_protected "$FILE" || is_wiring_file "$FILE"; then
-    # F72: root는 프로세스 cwd가 아니라 $FILE 자신의 위치에서 유도한다 — 실제 질문은
-    # "이 프로세스가 어디서 도는가"가 아니라 "편집 대상이 어느 저장소에 속하는가"다.
-    # 훅 실행 환경(서브에이전트·플러그인 캐시 등)에 따라 cwd가 $FILE의 저장소와 어긋나면
-    # 기존 방식(process cwd 기준 git rev-parse)은 root를 못 찾아 이 실체화 전체를 조용히
-    # 건너뛰어 F68 10차의 삭제-후-재생성 방어를 무력화했다(실측, docs/INVARIANTS.md 참조).
-    __root="${CLAUDE_PROJECT_DIR:-$(git -C "$(dirname -- "$FILE")" rev-parse --show-toplevel 2>/dev/null || echo "")}"
+    # F72: root는 프로세스 cwd가 아니라 $FILE 자신의 위치(의 가장 가까운 존재하는 조상,
+    # `__nearest_existing_dir` 위 정의 참조)에서 유도한다 — 실제 질문은 "이 프로세스가 어디서
+    # 도는가"가 아니라 "편집 대상이 어느 저장소에 속하는가"다. 훅 실행 환경(서브에이전트·
+    # 플러그인 캐시 등)에 따라 cwd가 $FILE의 저장소와 어긋나면 process-cwd 기준 git rev-parse는
+    # root를 못 찾아 이 실체화 전체를 조용히 건너뛰어 F68 10차의 삭제-후-재생성 방어를
+    # 무력화했다(실측, docs/INVARIANTS.md 참조).
+    __anc="$(__nearest_existing_dir "$FILE")"
+    __root="${CLAUDE_PROJECT_DIR:-$(git -C "$__anc" rev-parse --show-toplevel 2>/dev/null || echo "")}"
     __root=$(cd "$__root" 2>/dev/null && pwd -P) || __root=""
-    if [[ -n "$__root" && "$FILE" == "$__root"/* ]]; then
-      __rel="${FILE#"$__root"/}"
+    # root를 끝내 못 찾으면 이 방어 전체가 조용히 꺼진다 — F71 회고(progress/lessons.md)의
+    # 교훈대로, 그 사실을 관측 가능하게 남긴다(판정 자체는 바꾸지 않는다: 진짜 비git 환경에서는
+    # 이 경고가 정상이고, 그 구분은 사람이 로그를 보고 판단한다).
+    [[ -z "$__root" ]] && echo "invariant-guard: root 해석 실패 — 삭제-후-재생성 방어가 이 편집에 적용되지 않습니다 (file: $FILE)" >&2
+    # $FILE도 root와 같은 기준(물리 경로)으로 맞춘다 — __physicalize_under 위 정의 참조.
+    __file_phys="$(__physicalize_under "$FILE" "$__anc")"
+    if [[ -n "$__root" && "$__file_phys" == "$__root"/* ]]; then
+      __rel="${__file_phys#"$__root"/}"
       if [[ "${FS_CI:-0}" == 1 ]]; then
         # `grep` 가 매치를 못 찾으면 exit 1 을 낸다 — `pipefail` 아래에서 뒤의 `head -1` 이
         # 성공해도 파이프라인 전체가 실패로 집계돼 `set -e` 가 스크립트를 죽인다(실측:
@@ -417,22 +460,29 @@ fi
 # 복구"한다. 그 판단에는 '어떤 변경이 심사를 통과했는가'가 필요하므로 여기서 기록한다.
 # deny()는 exit 2로 끝나므로 기록되지 않는다 — 통과한 편집만 원장에 오른다.
 record_guarded_edit() {
-  local rc=$? root rel sha
+  local rc=$? root rel sha anc file_phys
   [[ $rc -ne 0 ]] && return 0
-  # F72: 위 :370과 같은 이유로 root를 $FILE 자신의 위치에서 유도한다 — 프로세스 cwd 기준
-  # 폴백은 CLAUDE_PROJECT_DIR 미설정 + cwd가 저장소 밖인 조건에서 root를 못 찾아 티켓을
+  # F72: 위 root 유도와 같은 이유·같은 방식(__nearest_existing_dir)을 쓴다 — 프로세스 cwd
+  # 기준 폴백은 CLAUDE_PROJECT_DIR 미설정 + cwd가 저장소 밖인 조건에서 root를 못 찾아 티켓을
   # 발급하지 않고, 그러면 protected-integrity.sh가 정당한 편집(예: evaluator의 passes 전환)을
   # "미승인"으로 보고 되돌렸다(실측, docs/INVARIANTS.md 참조).
-  root="${CLAUDE_PROJECT_DIR:-$(git -C "$(dirname -- "$FILE")" rev-parse --show-toplevel 2>/dev/null || echo "")}"
-  [[ -z "$root" || ! -d "$root/progress" ]] && return 0
+  anc="$(__nearest_existing_dir "$FILE")"
+  root="${CLAUDE_PROJECT_DIR:-$(git -C "$anc" rev-parse --show-toplevel 2>/dev/null || echo "")}"
+  if [[ -z "$root" || ! -d "$root/progress" ]]; then
+    echo "invariant-guard: root 해석 실패 — 이 편집에 무결성 티켓이 발급되지 않습니다 (file: $FILE)" >&2
+    return 0
+  fi
   # root 도 **물리 경로**로 맞춘다 — `$FILE` 은 canon_file() 이 `pwd -P` 로 정규화했으므로
   # 논리 경로와 비교하면 어긋난다. macOS 에서 `/tmp` 는 `/private/tmp` 의 심볼릭 링크라
   # 저장소가 그 아래 있으면 아래 접두 검사가 항상 실패해 티켓이 생기지 않았다(F68 실측).
   root=$(cd "$root" 2>/dev/null && pwd -P) || return 0
+  # $FILE도 같은 기준으로 맞춘다 — $FILE의 바로 위 디렉터리가 없으면 canon_file()이 정규화를
+  # 포기해 물리화되지 않은 채로 남는다(위 __physicalize_under 정의 참조, F72 2차 판정 반려 대응).
+  file_phys="$(__physicalize_under "$FILE" "$anc")"
   # 저장소 밖 경로는 티켓을 만들지 않는다 — 테스트가 임시 디렉터리에서 돌 때 실 저장소
   # 티켓을 오염시키던 원인이다(실제로 209줄까지 쌓였고 그중 160줄이 보호 파일 경로였다).
-  [[ "$FILE" == "$root"/* ]] || return 0
-  rel="${FILE#"$root"/}"
+  [[ "$file_phys" == "$root"/* ]] || return 0
+  rel="${file_phys#"$root"/}"
   # **내용 해시를 함께 적는다.** 경로만 적으면 정당한 편집 한 번이 그 경로를 영구 면제로
   # 만든다. 해시를 붙이면 티켓은 '이 내용의 이 편집' 하나에만 유효하고, 소비되면 사라진다.
   # 편집 직후의 파일 내용을 해시해야 하는데 이 훅은 PreToolUse이므로 아직 쓰이지 않았다 —

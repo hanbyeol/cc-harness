@@ -1341,6 +1341,61 @@ JSON
   rm -rf "$GITWORK" "$OTHERWORK"
 }
 
+@test "F72r2: deleting the file's parent directory itself still denies (evaluator round-1 rejection)" {
+  # 1차 판정이 반려한 축 — root 유도를 `dirname -- "$FILE"`에만 의존하게 하면, 그 디렉터리
+  # 자체가 삭제됐을 때(`rm -rf progress`) git -C 호출 대상이 없어 root가 다시 빈 값이 된다.
+  # cwd가 저장소 **안**이어도 걸린다는 것이 핵심 — 이전 결함(cwd 밖)을 닫으며 새 결함(부모 디렉터리
+  # 부재)을 열었다. `__nearest_existing_dir`이 존재하는 조상까지 걸어 올라가 이 축을 닫는다.
+  command -v git >/dev/null || skip "git not installed"
+  setup_git_repo
+  rm -rf "$GITWORK/progress"
+  local BAD='{ "scoring": { "pass_threshold": 1, "security_thresholds": { "critical": 1, "standard": 1, "low": 1 } } }'
+  # cwd가 저장소 안 — 1차 판정이 실측한 정확한 반례
+  run bash -c "cd '$GITWORK' && unset CLAUDE_PROJECT_DIR && bash '$HOOK'" <<<"$(mk_write_input "$GITWORK/progress/harness-config.json" "$BAD")"
+  [ "$status" -eq 2 ] || { echo "부모 디렉터리(progress/)가 통째로 삭제됐을 때 cwd가 저장소 안이어도 임계값 하향 재생성이 통과했다"; false; }
+  rm -rf "$GITWORK"
+}
+
+@test "F72r2: parent directory deleted AND cwd outside repo — both axes combined still denies" {
+  command -v git >/dev/null || skip "git not installed"
+  setup_git_repo
+  rm -rf "$GITWORK/progress"
+  local BAD='{ "scoring": { "pass_threshold": 1, "security_thresholds": { "critical": 1, "standard": 1, "low": 1 } } }'
+  run bash -c "cd '$BATS_TEST_TMPDIR' && unset CLAUDE_PROJECT_DIR && bash '$HOOK'" <<<"$(mk_write_input "$GITWORK/progress/harness-config.json" "$BAD")"
+  [ "$status" -eq 2 ] || { echo "부모 디렉터리 삭제 + cwd 저장소 밖 조합에서 임계값 하향 재생성이 통과했다"; false; }
+  rm -rf "$GITWORK"
+}
+
+@test "F72r2: a legitimate add-only edit still gets a ticket when the parent directory was deleted" {
+  # $FILE의 부모(progress/)가 삭제된 채로 정당한 상향 편집을 제출한다 — 복원하지 않는다.
+  # :365의 삭제-후-재생성 실체화가 root를 찾아 HEAD 내용을 그 자리에 되살리는 부수효과로
+  # progress/ 디렉터리 자체도 다시 생기고(mkdir -p), 그 위에서 임계값 비교가 이뤄진다. 그
+  # 실체화가 성공해야 비로소 record_guarded_edit()까지 rc=0으로 도달한다 — 두 root 유도가
+  # 같은 조건에서 함께 성공하는지를 종단으로 확인한다.
+  command -v git >/dev/null || skip "git not installed"
+  setup_git_repo
+  rm -rf "$GITWORK/progress"
+  local OK='{ "scoring": { "pass_threshold": 8, "security_thresholds": { "critical": 7, "standard": 5, "low": 3 } } }'
+  run bash -c "cd '$BATS_TEST_TMPDIR' && unset CLAUDE_PROJECT_DIR && bash '$HOOK'" <<<"$(mk_write_input "$GITWORK/progress/harness-config.json" "$OK")"
+  [ "$status" -eq 0 ] || { echo "부모 디렉터리 삭제 후 정당한 임계값 상향이 막혔다"; false; }
+  grep -qF "progress/harness-config.json" "$GITWORK/progress/.guarded-edits" 2>/dev/null \
+    || { echo "부모 디렉터리 삭제 조건에서 티켓이 발급되지 않았다"; false; }
+  rm -rf "$GITWORK"
+}
+
+@test "F72r2: a genuinely non-git tmpdir still skips silently in effect, but now logs an observable warning" {
+  # ES-1 보존 확인 + 2차 판정이 요구한 관측 가능한 신호(stderr) 확인. 판정(exit code)은
+  # 바뀌지 않아야 한다 — 진짜 저장소 밖 경로는 여전히 정상적으로 스킵된다.
+  local NG
+  NG=$(mktemp -d)
+  mkdir -p "$NG/progress"
+  local BAD='{ "scoring": { "pass_threshold": 1 } }'
+  run bash -c "unset CLAUDE_PROJECT_DIR && bash '$HOOK'" <<<"$(mk_write_input "$NG/progress/harness-config.json" "$BAD")"
+  [ "$status" -eq 0 ] || { echo "진짜 비git tmpdir에서 신규 파일 생성이 막혔다(과잉 차단)"; false; }
+  [[ "$output" == *"root 해석 실패"* ]] || { echo "root 해석 실패가 관측 가능한 신호를 남기지 않았다"; false; }
+  rm -rf "$NG"
+}
+
 # === F68 마지막 알려진 한계 — 계약 디렉터리 안 파일 심볼릭 링크 ===
 # `canon_file()`은 디렉터리를 `pwd -P`로 풀지만 **경로의 마지막 성분 자체가 링크**인 경우는
 # 남아 있었다(8차 판정이 발견, 10차 판정이 완화 두 겹으로 medium 격하하며 INV-12에 문서화).

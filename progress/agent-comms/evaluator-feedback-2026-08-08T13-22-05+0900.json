@@ -1,0 +1,105 @@
+{
+  "timestamp": "2026-08-08T13:22:05+0900",
+  "sprint": 58,
+  "iteration": 1,
+  "features_evaluated": [
+    "F72"
+  ],
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "commit_evaluated": "83125c6",
+  "base_commit": "f258a21",
+  "scores": {
+    "functionality": 8,
+    "code_quality": 5,
+    "security": 4,
+    "error_handling": 5,
+    "test_coverage": 6
+  },
+  "score": 4,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 4 < 7 (critical tier) — 자동 fail",
+    "score 4 < pass_threshold 7",
+    "SC-2 미충족: 한 fail-open을 닫으면서 같은 방어(F68 10차 삭제-후-재생성 실체화)에 새 fail-open을 열었다. 수정 전 가드는 이 조건에서 exit 2(차단)였고 수정 후 exit 0(통과)이다 — 실측 대조군으로 확인."
+  ],
+  "issues": [
+    "[security][critical][confidence:high] 새 root 유도식이 $FILE의 **부모 디렉터리 존재**에 의존한다. 보호 파일이 담긴 디렉터리째 삭제되면(rm -rf progress) `git -C \"$(dirname -- \"$FILE\")\"`가 실패해 root가 빈 값 → :365 삭제-후-재생성 실체화와 :419 티켓 발급이 조용히 스킵된다. 대조 실측(격리 저장소, CLAUDE_PROJECT_DIR 미설정, cwd는 저장소 **안**): 구버전 f258a21 exit=2(차단) / 신버전 83125c6 exit=0(허용). 즉 이 축에서는 F72가 방어를 약화시킨다. 재현: scratchpad/f72-repro-min.sh",
+    "[security][critical][confidence:high] 위 조건은 종단 우회로 성립한다. pre-bash-firewall은 `rm -rf progress`·`rm -rf <abs>/progress`·`mv progress progress.bak`를 모두 permissionDecision=allow로 통과시킨다(실측 4/4). 보상 계층인 protected-integrity.sh는 (a) PostToolUse **matcher=Bash 전용**이라 다음 Bash 호출 전까지는 오염된 설정이 디스크에 살아 있고, (b) git 작업 진행 중(MERGE_HEAD 등)에는 설계상 '보고만 하고 복구하지 않는다'. (b) 조건에서 실측한 결과 pass_threshold=1 / security_thresholds 전부 1인 harness-config.json이 그대로 정착했다 — INV-3 무력화. 구버전에서는 같은 순서가 가드 단계에서 차단됐다.",
+    "[security][medium][confidence:high] 실패 분기가 여전히 무신호 `return 0`/스킵이다. progress/lessons.md가 F71 회고에서 이미 '훅의 조용한 실패(guard가 통과시키되 부수효과를 빠뜨리는 것)는 deny보다 찾기 어렵다 — root/경로 해석에 실패하는 분기는 return 0이 아니라 관측 가능한 신호를 남겨야 한다'고 적었는데, 그 교훈이 이번 수정에 반영되지 않았다. 보호 파일인데 root 유도에 실패했다면 최소한 stderr 경고나 원장 기록이 필요하다.",
+    "[quality][medium][confidence:high] 같은 파일 canon_file()(:219-223)이 '디렉터리가 아직 없으면 정규화할 것이 없다 — 원본을 그대로 쓴다'로 **바로 이 엣지**를 이미 문서화하고 있다. 200줄 위에 선례가 있는 실패 모드를 새 표현식이 다시 밟았다. 두 자리를 같은 표현식으로 통일한 것은 좋지만, 그 표현식 자체의 실패 조건 열거가 빠졌다.",
+    "[test][medium][confidence:high] 신규 3개 테스트는 '고친 축'만 고정한다. 저장소 전체에서 보호 파일의 **상위 디렉터리를 지우는** 테스트가 0건이다(grep 확인). calibration 코퍼스의 반복 교훈 — '테스트 커버리지는 닫힌 인스턴스 수가 아니라 축 커버리지로 본다'(F52 항목) — 이 적용되지 않았다.",
+    "[criteria][low][confidence:medium] implementer-output-F72.json의 residual_risk가 이 축을 언급하지 않는다. ES-1을 '진짜 비git 환경'으로만 해석했는데, root 유도 실패 조건은 그 밖에도 '저장소 안이지만 부모 디렉터리 부재'가 있다 — 계약 ES-1의 문언이 이 경우를 포섭하도록 보완이 필요하다.",
+    "[style][low][confidence:high] 커밋 메시지가 'Files genuinely outside any repo (bats test isolation) still resolve empty, so the original design intent is preserved'라고 단정하는데, 실제로는 '저장소 안이지만 부모 디렉터리가 없는 파일'도 함께 empty가 된다 — 서술이 실제 동작보다 좁다."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1: :365/:419 두 자리 모두 `git -C \"$(dirname -- \"$FILE\")\" rev-parse --show-toplevel`로 동일하게 변경됨 (git show 83125c6 -- hooks/invariant-guard.sh: 변경은 두 root 할당 우변 + 그 직속 주석 9줄뿐)",
+      "AC-2: 삭제 후 pass_threshold 1 재생성, CLAUDE_PROJECT_DIR 미설정 + cwd=/tmp → EXIT=2 (실측)",
+      "AC-3: 같은 조건에서 정당한 add-only 편집(7→8) → EXIT=0 + progress/.guarded-edits에 `4fcc6630720a5db739532627606fdc97239e9b3a progress/harness-config.json` 1줄 발급 (실측)",
+      "AC-4: 진짜 비git tmpdir에서는 실체화·티켓 모두 스킵, .guarded-edits 미생성 (실측) + 기존 임시 디렉터리 픽스처 테스트 전부 green",
+      "AC-5: bats tests/ 763/763 (exit 0), bats --count tests/invariant-guard.bats = 144, behavioral 프로브 [] (0건)"
+    ],
+    "security": [
+      "SC-1: blast radius 한정 확인 — 실체화 로직의 HEAD 조회·임계값/개수/배선/append-only 검사, record_guarded_edit()의 해시(git hash-object)·append-only 방식 모두 무변경. 계약 파일 diff는 `agreed:false→true` + `_agreed_note`뿐이며 기준 완화 없음.",
+      "SC-2 부분(b축): 완전히 다른 git 저장소를 cwd로 두어도 오귀속 없이 차단(EXIT=2, 실측) — ES-2 충족",
+      "SC-2 부분(a축): $FILE이 진짜 비git tmpdir이면 정확히 '저장소 밖'으로 판단해 스킵 — ES-1 충족"
+    ],
+    "error_scenarios": [
+      "ES-1: 비git 환경 → root 빈 값, 스킵 (실측)",
+      "ES-2: 다른 저장소 cwd → 오귀속 없음, 차단 (실측)",
+      "ES-3: git 부재 → 코드 경로 무변경 (diff 확인, 계약상 open_axes)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [
+      "SC-2: 'root 유도 실패 시 fail-safe이지 fail-open이 아니다' 미충족 — 저장소 **안**의 보호 파일인데 부모 디렉터리가 없으면 '저장소 밖'으로 **오분류**되어 실체화·티켓이 스킵된다. 계약 rationale이 명시한 '한 fail-open을 다른 fail-open으로 바꾸면 안 된다'에 정면으로 걸린다.",
+      "SC-3: INV-3 복원이 부분적 — cwd 축에서는 복원되나 부모-디렉터리 축에서 새로 깨진다(종단 실측: 임계값 1 정착)."
+    ],
+    "error_scenarios": [
+      "ES-1 확장 케이스: 'root 유도 실패'가 비git 환경 외에 '저장소 안 + 부모 디렉터리 부재'에서도 발생하며, 이 경우 기대되는 동작은 스킵이 아니라 차단이어야 한다."
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "보호 파일의 **상위 디렉터리 삭제**를 포함한 삭제-후-재생성 시나리오에 대한 기준이 AC/ES 어디에도 없다 — F68 10차가 닫으려던 클래스의 일부인데 열거되지 않았다.",
+      "root 유도 실패 시 **관측 가능한 신호**(경고·원장) 요구가 기준에 없다 — lessons.md에는 이미 있으나 계약으로 승격되지 않았다."
+    ],
+    "ambiguous_criteria": [
+      "ES-1의 '$FILE의 부모 디렉터리에서 git 저장소를 찾을 수 없는 경우(진짜 비git 환경)' — '부모 디렉터리가 아예 없는 경우'가 이 문장에 포함되는지 불명확하고, 두 경우의 기대 동작은 정반대(스킵 vs 차단)다."
+    ],
+    "security_criteria_insufficient": [],
+    "action_required": "다음 iteration에서 (1) 위 두 missing_criteria를 sprint-58.json AC/ES에 추가, (2) ES-1 문언을 두 경우로 분리해 명확화."
+  },
+  "required_fix": {
+    "summary": "root 유도를 $FILE의 **가장 가까운 존재하는 상위 디렉터리**에서 수행한다. 두 자리 모두 동일 적용.",
+    "candidate_patch": "__nearest_dir() { local d; d=$(dirname -- \"$1\"); while [[ ! -d \"$d\" && \"$d\" != \"/\" && \"$d\" != \".\" ]]; do d=$(dirname -- \"$d\"); done; printf '%s' \"$d\"; }  # 이후 git -C \"$(__nearest_dir \"$FILE\")\" rev-parse --show-toplevel",
+    "verified_by_evaluator": "이 후보 패치를 가드 사본에 적용해 5개 케이스 실측: (1) 부모 디렉터리 삭제+cwd 안 → 2, (2) 부모 디렉터리 삭제+cwd 밖 → 2, (3) F72 본래 케이스 → 2, (4) 정당한 add-only+cwd 밖 → 0 + 티켓 1줄, (5) 진짜 비git tmpdir → 0(스킵) + 티켓 미생성. AC-2·AC-3·AC-4·ES-1·ES-2를 모두 유지하면서 새 fail-open만 닫는다. 스크립트: scratchpad/f72-probe4.sh",
+    "also_required": [
+      "위 축을 고정하는 회귀 테스트 추가(보호 파일의 상위 디렉터리 삭제 후 임계값 하향 재생성 → exit 2). 구버전에서 red, 신버전에서 green이 되도록 양방향 확인.",
+      "root 유도 실패 시 보호 파일에 한해 관측 가능한 신호를 남길 것(lessons.md의 F71 교훈 적용)."
+    ]
+  },
+  "evidence": {
+    "diff_scope": "git show 83125c6 -- hooks/invariant-guard.sh → 변경은 :365 `__root=` 와 :419 `root=` 두 할당의 우변 + 그 직속 주석 9줄. 실체화 로직·티켓 해시·append-only 방식 무변경 (SC-1 확인). 전체 커밋: hooks/invariant-guard.sh +13-2, tests/invariant-guard.bats +48, contract는 agreed 플립만.",
+    "ac2_repro": "격리 저장소, `env -u CLAUDE_PROJECT_DIR`, cwd=/tmp, harness-config.json 삭제 후 pass_threshold 1 Write → EXIT=2",
+    "ac3_repro": "동일 조건, add-only 편집(7→8) → EXIT=0, progress/.guarded-edits = `4fcc6630720a5db739532627606fdc97239e9b3a progress/harness-config.json` (1줄)",
+    "sc2_other_repo": "다른 git 저장소를 cwd로 지정 → EXIT=2 (오귀속 없음)",
+    "regression_differential": "scratchpad/f72-repro-min.sh — 부모 디렉터리째 삭제, CLAUDE_PROJECT_DIR 미설정, cwd=저장소 안: old.sh(f258a21) exit=2 / invariant-guard.sh(83125c6) exit=0. 물리 경로(/private/tmp) 저장소에서 재확인해 macOS /tmp 심볼릭 링크 요인 배제.",
+    "end_to_end_bypass": "scratchpad/f72-probe3.sh — Route A(정상): rm -rf progress → PostToolUse:Bash가 HEAD로 복구 → 이후 하향 Write는 exit 2로 차단(보상 성립). Route B(git 작업 진행 중, MERGE_HEAD 존재): protected-integrity가 설계대로 '보고만' 하고 복구하지 않음 → 하향 Write exit 0 → 디스크의 pass_threshold=1 정착. Route 공통: PostToolUse matcher는 Bash 전용(hooks.json 실측)이라 다음 Bash 호출 전까지 오염 지속.",
+    "firewall_reachability": "pre-bash-firewall.sh에 `rm -rf progress` / `rm -rf <abs>/progress` / `rm -f progress/harness-config.json` / `mv progress progress.bak` 주입 → 4건 모두 permissionDecision=allow",
+    "candidate_fix_verification": "scratchpad/f72-probe4.sh — 위 required_fix.verified_by_evaluator 참조 (5/5 기대대로)",
+    "tests": "bats tests/ → 1..763, ok=763 / not ok=0, exit=0 (단일 실행). F72 신규 3건 모두 ok(#261·#262·#263). bats --count tests/invariant-guard.bats = 144.",
+    "behavioral_probe": "bash scripts/probes/behavioral.sh → [] (0건), exit 0",
+    "coverage_gap_check": "tests/invariant-guard.bats에 보호 파일의 상위 디렉터리를 삭제하는 케이스 0건(grep), CLAUDE_PROJECT_DIR를 unset하는 테스트는 신규 3건뿐"
+  },
+  "calibration_notes": {
+    "pattern_match": "calibration 코퍼스의 반복 패턴 '지목된 인스턴스는 닫혔으나 클래스/축은 열린 채'(F52 sprint-38 3차, F68 sprint-54 재판정·4차·5차)와 동일 형상이다. 이번에는 수정이 **축을 옮겼다** — cwd 축을 닫고 부모-디렉터리 축을 열었다. 판정 방법도 그 교훈대로 적용했다: 구·신 가드 대조군을 같은 시나리오에 돌려 귀속을 확인했고, 종단(가드 판정이 아니라 최종 파일 상태)으로 확인했다.",
+    "not_a_style_rejection": "반려 사유는 전부 보안·동작이며 스타일 이슈는 issues에만 기록하고 판정에 쓰지 않았다.",
+    "f37_second_judge": "critical 티어이므로 독립 컨텍스트 2차 판정 샘플링 대상이다. 다만 이번 1차가 fail이고 근거가 대조군 실측(구버전 exit 2 / 신버전 exit 0)이라 재현이 결정적이므로, 2차는 수정 후 재판정 회전에서 수행하기를 권고한다."
+  },
+  "next_action": "implementer에게 반려. required_fix 적용 + 회귀 테스트 추가 후 재검증 요청. feature_list.json의 F72는 passes:false / status:pending 유지(변경하지 않음)."
+}

@@ -33,6 +33,11 @@
       "id": "AC-5",
       "criterion": "회귀 없음.",
       "verification": "bats tests/invariant-guard.bats 전체 1회(재실행 금지) + 하네스 전체 bats 1회 + behavioral 프로브 0건."
+    },
+    {
+      "id": "AC-6",
+      "criterion": "[1차 판정 반려 대응, add-only] $FILE의 바로 위 디렉터리 자체가 삭제된 경우(`rm -rf progress`)에도 삭제-후-재생성 방어와 티켓 발급이 동작한다 — cwd가 저장소 안이든 밖이든 동일하게.",
+      "verification": "격리 클론에서 progress/ 디렉터리 자체를 삭제한 뒤 (a) cwd 저장소 안, (b) cwd 저장소 밖 두 조건 모두에서 pass_threshold 하향 재생성 시도가 exit 2인지, 정당한 상향 편집은 exit 0 + 티켓 발급인지 확인."
     }
   ],
   "security_criteria": [
@@ -44,22 +49,28 @@
     },
     {
       "id": "SC-2",
-      "criterion": "$FILE 기반 root 유도가 실패(진짜 저장소 밖)할 때도 fail-safe 방향(보호 유지 또는 명시적 스킵)이지 fail-open이 아니다.",
-      "rationale": "이번 수정이 한 fail-open을 다른 fail-open으로 바꾸면 안 된다 — $FILE의 부모 디렉터리에서 git 저장소를 못 찾으면 여전히 '저장소 밖'으로 정확히 판단되어야 하며, 엉뚱한 저장소를 root로 오인해서도 안 된다.",
-      "verification": "$FILE이 (a) 진짜 비git tmpdir, (b) 완전히 다른 git 저장소 안에 있는 경우 각각에서 실체화/티켓이 스킵되는지 확인(오인 없음)."
+      "criterion": "$FILE 기반 root 유도가 실패(진짜 저장소 밖)할 때도 fail-safe 방향(보호 유지 또는 명시적 스킵)이지 fail-open이 아니다. **[1차 판정 반려로 명확화]** $FILE의 바로 위 디렉터리 자체가 삭제된 경우(`rm -rf progress`)는 '진짜 저장소 밖'이 아니다 — 존재하는 가장 가까운 조상 디렉터리에서 다시 물어 저장소를 찾아야 한다. 이 케이스를 '저장소 밖'과 같게 취급해 스킵하면 그것이 새 fail-open이다.",
+      "rationale": "이번 수정이 한 fail-open을 다른 fail-open으로 바꾸면 안 된다 — $FILE의 부모 디렉터리가 없어졌다는 사실과 $FILE이 애초에 저장소 밖에 있다는 사실은 다른 조건이고, 전자를 후자로 오인하면 F68 10차 방어가 다시 뚫린다. 1차 구현이 정확히 이 오인을 저질렀다(git -C 호출 대상 디렉터리가 없으면 실패 → 빈 root로 취급).",
+      "verification": "$FILE이 (a) 진짜 비git tmpdir, (b) 완전히 다른 git 저장소 안, (c) 저장소 **안**이지만 바로 위 디렉터리가 삭제된 경우 — 세 케이스 각각에서 (a)만 실체화/티켓이 스킵되고 (b)·(c)는 저장소 자신의 root로 정확히 해석되는지 확인(오인 없음)."
     },
     {
       "id": "SC-3",
       "criterion": "INV-3(임계값 add-only)·INV-11(passes 전환 기계 검증)이 이번 수정으로 실제로 복원됨을 각각 최소 1개 종단 시나리오로 재확인한다.",
       "rationale": "이번 결함이 두 invariant의 실효성을 무력화했으므로, 수정이 서술이 아니라 실제 동작에서 두 invariant를 복원했는지 종단으로 봐야 한다.",
-      "verification": "AC-2(INV-3)·AC-3(INV-11) 검증과 동일 시나리오 재사용."
+      "verification": "AC-2(INV-3)·AC-3(INV-11) 검증과 동일 시나리오 재사용, SC-2의 (c) 케이스로도 재확인."
+    },
+    {
+      "id": "SC-4",
+      "criterion": "[1차 판정 반려 대응, add-only] root 해석이 끝내 실패해 방어(실체화 또는 티켓 발급)를 건너뛸 때, 그 사실이 무신호 `return`이 아니라 관측 가능한 신호(stderr)로 남는다.",
+      "rationale": "progress/lessons.md의 F71 회고 — '훅의 조용한 실패는 deny보다 찾기 어렵다' — 가 이 수정에도 적용된다. 진짜 저장소 밖(정상 스킵)과 저장소 안인데 root 해석 실패(비정상, 디버깅 필요)를 코드 스스로는 구분할 수 없으므로, 최소한 사람이 로그에서 판단할 수 있는 신호를 남긴다. 판정(exit code)은 바꾸지 않는다.",
+      "verification": "진짜 비git tmpdir 케이스에서 stderr에 root 해석 실패 메시지가 출력되는지 확인."
     }
   ],
   "error_scenarios": [
     {
       "id": "ES-1",
-      "scenario": "$FILE의 부모 디렉터리에서 git 저장소를 찾을 수 없는 경우(진짜 비git 환경)",
-      "expected": "root 해석이 빈 값으로 실패 → 기존과 동일하게 실체화/티켓 스킵(AC-4)."
+      "scenario": "$FILE의 조상 디렉터리 전부를 뒤져도(존재하는 가장 가까운 디렉터리까지 포함) git 저장소를 찾을 수 없는 경우(진짜 비git 환경) — 여기에는 (a) 애초에 저장소 밖 tmpdir인 경우와 (b) 저장소 **안**이지만 $FILE의 바로 위 디렉터리 자체가 삭제된 경우(`rm -rf progress`, 1차 판정이 반증한 축)가 모두 포함된다. 후자는 존재하는 조상(예: 저장소 루트 자신)까지 걸어 올라가면 결국 저장소를 찾으므로, ES-1이 실제로 발동하는 것은 (a)뿐이다.",
+      "expected": "root 해석이 빈 값으로 실패 → 기존과 동일하게 실체화/티켓 스킵(AC-4) + stderr에 관측 가능한 경고(SC-4)."
     },
     {
       "id": "ES-2",
