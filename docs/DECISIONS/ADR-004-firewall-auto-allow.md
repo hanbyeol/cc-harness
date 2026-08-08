@@ -100,3 +100,17 @@
 **INV-9와의 관계**: 이 Amendment는 Layer 3.5(사후 탐지·복구가 있는 경로에 한한 ASK→allow 면제, INV-14 소관)를 바꾸는 것이지 Layer 4 default-allow(INV-9 소관, 이미 Amendment 2에서 python/node 스크립트를 일반적으로 default-allow로 수용)를 바꾸는 것이 아니다 — 대상은 어디까지나 "보호경로 토큰이 인터프리터 명령에 등장하는" 좁은 경우다.
 
 **집행**: `tests/pre-bash-firewall.bats`의 F67 회귀 테스트(면제가 철회 상태임을 고정하는 약 18개 `@test`)를 새 상태를 고정하도록 반전·재작성한다. `docs/INVARIANTS.md` INV-14에 동일 서술 추가.
+
+## Amendment 6 — sed/awk in-place 쓰기까지 ASK 면제 확대 (F73, 2026-08-08)
+
+**배경**: F65(INV-14)는 sed/awk 면제를 "읽기가 구문으로 확정되는가"로 세웠다 — `-i`·`w`·리다이렉트의 부재로 읽기가 확정되는 형태만 면제하고, `arm_is_exemptable()`은 패턴 텍스트에 `-i` 리터럴이 있으면 무조건 면제를 거부한다(쓰기 신호가 명령에 드러나는 arm은 애초에 읽기를 잡지 않으므로 면제해도 마찰이 줄지 않는다는 것이 원래 논거). F73은 사용자 요청으로 이 경계를 sed/awk의 in-place 쓰기(`-i`/`--in-place`)까지 넓힌다.
+
+**결정(사용자 지시)**: 메인 루프가 이것이 F71과 같은 무게의 보안 경계 축소임을(쓰기 신호가 드러나는 arm을 처음으로 면제) 고지한 뒤, 사용자가 "쓰기까지 모두 — sed -i/awk -i inplace도 무프롬프트로"를 명시적으로 확인했다. 데이터 플레인 파일(`harness-config.json`·`hooks/*.sh`·`tests/*.bats`·`INVARIANTS.md`·`feature_list.json`·`progress/contracts/*.json`)에 대한 sed/awk in-place 쓰기가 무프롬프트로 통과한다.
+
+**경계(F71과 동일)**: 컨트롤 플레인(`.claude/settings*.json`·`hooks/hooks.json`)과 탐지기 자신(`protected-integrity.sh`·`.guarded-edits`·`.integrity-baseline`)을 겨냥한 in-place 쓰기는 하드 제외로 계속 ask. `perl -i`는 `READ_CAPABLE_ARM`에 perl이 없어(순수 읽기조차 면제 대상 아님) 이번 확대에서도 제외 — 계속 ask. `sed`의 `w` 명령/`s///w` 플래그는 사용자가 명시하지 않아 범위 밖 — 계속 ask.
+
+**기술적 구현 방향**: 기존 in-place 전용 ASK arm(`hooks/pre-bash-firewall.sh:330-331` 데이터 플레인, `:351-352` contracts, `:491` feature_list.json)의 도구 목록이 `(g?sed|perl|g?awk|mawk)`로 `READ_CAPABLE_ARM`(`(g?sed|g?awk|mawk)`)과 리터럴이 달라 `arm_is_exemptable()`의 부분일치 판정을 통과하지 못한다 — sed/awk 전용 arm과 perl 전용 arm으로 분리해야 한다. `:330-331`은 컨트롤 플레인 타겟(`.claude/settings*.json`)이 데이터 플레인 타겟과 한 패턴에 섞여 있어, 면제 판정 전에 평면별로 arm을 나눠야 한다(F67이 INTERPRETER_ARM을 평면별로 쪼갠 것과 같은 패턴).
+
+**수용된 위험**: 데이터 플레인 파일에 대한 사전 Bash 게이트가 sed/awk in-place 경로에서도 사라진다. F71과 동일한 교환(사전 차단 → 사후 탐지·복구, `protected-integrity.sh`)이며, 되돌리려면 arm 분리 이전 상태(`-i` 하드 제외 복원)로 돌아가면 된다.
+
+**집행**: `tests/pre-bash-firewall.bats`에 F73 테스트 추가(데이터 플레인 in-place 쓰기 allow, 컨트롤 플레인/perl/sed w는 ask 유지 회귀 고정). `docs/INVARIANTS.md` INV-14에 동일 서술 추가.

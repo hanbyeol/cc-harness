@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-08-08T20:38:02+0900",
+  "type": "modify",
+  "description": "sed/awk in-place(-i/--in-place) 쓰기까지 데이터 플레인 파일에 대해 ASK 면제를 확대 — F71과 같은 무게의 사용자 override. F63(sed/awk 읽기 과탐 제거)의 잔여 목표를 흡수해 superseded 처리 겸용",
+  "affected_features": [
+    "F73"
+  ],
+  "related_features": [
+    "F65",
+    "F71",
+    "F63"
+  ],
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": false,
+    "acceptance_criteria_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false,
+    "invariants_updated": true,
+    "adr_amended": "ADR-004 Amendment 6"
+  },
+  "new_sprint_contract": "progress/contracts/sprint-59.json",
+  "rollback_to_phase": null,
+  "user_override": {
+    "prior_precedent": "F71 (인터프리터 ASK 면제 재도입)",
+    "disclosure": "메인 루프가 '쓰기 신호가 명령에 드러나는 arm은 지금까지 면제한 적 없다'는 원칙을 뒤집는 것임을 F71과 같은 무게로 고지",
+    "user_response": "쓰기까지 모두 — sed -i/awk -i inplace도 무프롬프트로",
+    "accepted_risk": "데이터 플레인 파일(harness-config.json·hooks/*.sh·tests/*.bats·INVARIANTS.md·feature_list.json·progress/contracts/*.json)에 대한 sed/awk in-place 쓰기가 사전 Bash 게이트 없이 통과 — 사후 탐지·복구(protected-integrity.sh)만 남음. 컨트롤 플레인·탐지기 자신·perl·sed w는 범위 밖으로 유지."
+  }
+}

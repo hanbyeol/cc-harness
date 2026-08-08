@@ -608,6 +608,24 @@ ASK 계층이었다. 다만 두 파일 모두 `PROTECTED_GLOBS`에 있어 `prote
 방어가 전무해진 것은 아니다. bats가 이 형태를 `progress/feature_list.json` 직접 쓰기로 이미
 고정하고 있다(`tests/pre-bash-firewall.bats`의 F71 테스트 참조).
 
+**sed/awk in-place 쓰기도 면제됐다 (F73, 2026-08-08 사용자 override)**: F65는 sed/awk의 면제
+근거를 "읽기가 구문으로 확정되는가"로 세웠다 — `-i`·`w`·리다이렉트의 **부재**로 읽기가 확정되는
+형태만 면제하고, 그 신호가 있으면(즉 쓰기가 확정되면) 면제하지 않는다는 것이 원칙이었다
+(`arm_is_exemptable()`의 `-i` 하드 제외). F73은 이 원칙을 사용자 override로 뒤집는다 — 데이터
+플레인 파일(`harness-config.json`·`hooks/*.sh`·`tests/*.bats`·`INVARIANTS.md`·
+`feature_list.json`·`progress/contracts/*.json`)에 대한 `sed -i`/`awk -i`/`--in-place` 쓰기도
+무프롬프트로 통과한다. F71과 정확히 같은 형태의 결정이다 — "쓰기 신호가 명령에 드러나는 arm은
+면제하지 않는다"는 이 파일의 다른 자리(:159-161, :537)에 명시된 원칙 자체를 사용자가 명시적으로
+승인해 축소한 것이지, 그 원칙이 틀렸다고 판명된 것이 아니다. **경계는 F71과 동일하게 유지된다** —
+컨트롤 플레인(`.claude/settings*.json`·`hooks/hooks.json`)과 탐지기 자신(`protected-integrity.sh`·
+`.guarded-edits`·`.integrity-baseline`)을 겨냥한 in-place 쓰기는 하드 제외로 계속 ask다. `perl`은
+`READ_CAPABLE_ARM`에 없으므로(순수 읽기조차 면제 대상이 아니었다) 이번 확대에도 포함되지 않는다 —
+`perl -i`는 여전히 ask다. `sed`의 `w` 명령/`s///w` 플래그(파일명이 플래그 뒤에 오는 별도 쓰기
+형태)도 사용자가 명시하지 않아 이번 범위 밖이며 계속 ask다. **수용된 위험**: 데이터 플레인 파일에
+대한 사전 Bash 게이트가 sed/awk in-place 경로에서도 사라진다 — F71이 인터프리터에 대해 연 것과
+같은 교환(사전 차단 → 사후 탐지·복구)을 sed/awk 쓰기까지 넓힌 것이다. 되돌리려면 arm 분리 이전
+상태(`-i` 하드 제외 복원)로 돌아가면 된다.
+
 **F67이 남긴 것 (철회되지 않은 부분)**: 다섯 회전이 부수적으로 드러낸 보호 갭들은 그대로 유지된다 —
 `hooks/*.sh` 전체와 `templates/progress/*.json`을 `PROTECTED_GLOBS`·`is_protected()`에 편입(실행되는
 훅과 신규 프로젝트 seed가 탐지 밖에 있었다), 포매터 skip 목록과 `PROTECTED_GLOBS`의 정합(정당한

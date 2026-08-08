@@ -1,0 +1,125 @@
+{
+  "sprint": 59,
+  "title": "sed/awk in-place(-i/--in-place) 쓰기까지 ASK 면제 확대 — F63 완료 처리 겸용",
+  "feature_id": "F73",
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "dependencies": [
+    "F65",
+    "F71",
+    "F63"
+  ],
+  "problem": "F65는 sed/awk의 순수 읽기(-i·w·리다이렉트 부재로 읽기가 구문으로 확정되는 형태)만 데이터 플레인에서 ASK 면제했다. 사용자가 in-place 쓰기(sed -i·awk -i/--in-place)까지 같은 데이터 플레인 파일(harness-config.json·hooks/*.sh·tests/*.bats·INVARIANTS.md·feature_list.json·progress/contracts/*.json)에 대해 무프롬프트로 통과시켜 달라고 요청했다. 메인 루프가 이것이 F71과 같은 무게의 결정임을 고지했고(쓰기 신호가 드러나는 arm은 지금까지 절대 면제하지 않는다는 원칙을 뒤집는 것), 사용자가 명시적으로 확인했다: '쓰기까지 모두 — sed -i/awk -i inplace도 무프롬프트로'. 기술적으로 현재 in-place 전용 ASK arm의 도구 목록(g?sed|perl|g?awk|mawk)이 READ_CAPABLE_ARM(g?sed|g?awk|mawk)과 리터럴이 달라 단순 하드 제외 제거만으로는 면제되지 않으며, 데이터 플레인 arm(:330-331)에 컨트롤 플레인 타겟(.claude/settings*.json)이 섞여 있어 arm 분리가 선행돼야 한다. F63(sprint-49.json, agreed:false)의 원 목표(sed/awk 읽기 과탐 제거)는 F65가 이미 충족했으므로, 이 기능 완료 후 F63을 F64와 같은 방식으로 superseded 처리한다.",
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "데이터 플레인 파일(harness-config.json·hooks/*.sh·tests/*.bats·INVARIANTS.md·feature_list.json·progress/contracts/*.json)에 대한 sed -i/awk -i/--in-place 쓰기가 allow를 방출한다(수정 전 ask).",
+      "verification": "각 파일별 대표 명령(예: sed -i 's/pass_threshold: 7/pass_threshold: 8/' progress/harness-config.json) 1개씩 wired 픽스처에서 실측."
+    },
+    {
+      "id": "AC-2",
+      "criterion": "컨트롤 플레인(.claude/settings*.json·hooks/hooks.json)에 대한 sed -i/awk -i는 여전히 ask다 — 데이터 플레인 arm 분리가 컨트롤 플레인까지 새어나가지 않는다.",
+      "verification": "sed -i 's/x/y/' .claude/settings.json, awk -i inplace ... hooks/hooks.json 각각 ask 실측."
+    },
+    {
+      "id": "AC-3",
+      "criterion": "탐지기 자신(protected-integrity.sh·.guarded-edits·.integrity-baseline)에 대한 sed -i/awk -i는 여전히 ask다.",
+      "verification": "각 파일 대상 sed -i 시도가 ask인지 실측."
+    },
+    {
+      "id": "AC-4",
+      "criterion": "perl -i는 이번 확대 대상이 아니다 — 데이터 플레인 대상이어도 계속 ask.",
+      "verification": "perl -i -pe 's/x/y/' progress/harness-config.json이 ask인지 실측(READ_CAPABLE_ARM에 perl이 없으므로 무변경이어야 함)."
+    },
+    {
+      "id": "AC-5",
+      "criterion": "sed의 w 명령/s///w 플래그(파일명이 플래그 뒤에 오는 별도 쓰기 형태)는 이번 범위 밖 — 계속 ask.",
+      "verification": "sed -n 'w progress/harness-config.json' 류가 ask인지 실측(회귀 확인, 기존 F65 테스트가 이미 고정)."
+    },
+    {
+      "id": "AC-6",
+      "criterion": "F65의 순수 읽기 면제(READ_CAPABLE_ARM, -i 없는 sed -n/awk)는 무변경.",
+      "verification": "기존 F65 관련 bats @test 전부 green."
+    },
+    {
+      "id": "AC-7",
+      "criterion": "F63(sprint-49.json)의 acceptance_criteria 6개가 이번 변경(F73)+F65로 실질적으로 충족되는지 대조하고, 충족되면 F63을 superseded로 표시한다(F64 선례와 동일 방식) — 새로 구현하지 않는다.",
+      "verification": "sprint-49.json AC-1~AC-6을 하나씩 현재 코드/테스트와 대조. 미충족 항목이 있으면 그 항목만 별도 기록하고 F63을 superseded로 표시하지 않는다."
+    },
+    {
+      "id": "AC-8",
+      "criterion": "회귀 없음.",
+      "verification": "bats tests/pre-bash-firewall.bats 전체 1회(재실행 금지) + 하네스 전체 bats 1회 + behavioral 프로브 0건."
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "이번 변경은 정확히 in-place 전용 ASK arm의 sed/awk·perl 분리 + 데이터/컨트롤 플레인 분리 + EXEMPTABLE_ARM_TOKENS 소비로 한정된다 — sed w, 순수 읽기 면제, Layer 1/2 deny, Layer 4 default-allow, 인터프리터 면제(F71)는 건드리지 않는다.",
+      "rationale": "critical 보안 변경의 blast radius를 승인된 범위(sed/awk in-place)로 정확히 한정해야, 이번 override 승인이 다른 축의 암묵적 약화를 정당화하는 것으로 오독되지 않는다.",
+      "verification": "diff가 in-place 관련 arm·EXEMPTABLE_ARM_TOKENS 소비·주석·문서·테스트 외 영역을 건드리지 않는지 확인."
+    },
+    {
+      "id": "SC-2",
+      "criterion": "arm 분리 과정에서 컨트롤 플레인·탐지기 자신·perl·sed w 어느 하나도 실수로 면제 대상에 섞이지 않는다.",
+      "rationale": "arm 분리는 정규식 재구성이라 실수로 타겟 목록이나 도구 목록이 새어나가기 쉽다(F67의 인터프리터 arm 분리 때도 같은 위험이 지적됐다). 분리 직후 반드시 네거티브 테스트로 확인한다.",
+      "verification": "AC-2·AC-3·AC-4·AC-5가 전부 이 SC의 네거티브 확인이다."
+    },
+    {
+      "id": "SC-3",
+      "criterion": "새로 allow되는 모든 케이스가 테스트로 명시적으로 이름 붙여 고정된다 — F71/F72와 같은 SC-3 원칙.",
+      "rationale": "승인된 위험과 미발견 결함은 코드 상으로 구별되지 않는다.",
+      "verification": "AC-1 검증과 동일 — bats 테스트명·주석에 F73/override 참조가 있는지 확인."
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "sed -i와 데이터 플레인 파일 사이에 컨트롤 플레인 리터럴이 함께 있는 경우(예: sed -i ... hooks/hooks.json이 아니라 다른 이유로 두 경로가 같은 명령에 등장)",
+      "expected": "컨트롤 플레인 리터럴이 있으면 하드 제외가 arm과 무관하게 우선."
+    },
+    {
+      "id": "ES-2",
+      "scenario": "perl -i가 데이터 플레인 파일을 겨냥하는 경우",
+      "expected": "계속 ask — READ_CAPABLE_ARM에 perl이 없다는 것이 근거이지 대상 파일이 아니다."
+    },
+    {
+      "id": "ES-3",
+      "scenario": "sed -i와 sed w가 같은 명령 안에 섞인 경우(예: sed -i 's/x/y/w other.json' file.json)",
+      "expected": "w 플래그가 있으면 ask 유지(AC-5의 취지 — w 형태는 이번 확대에서 제외됐으므로, in-place만 있는 형태와 구분되게 판정된다)."
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": "1. F63(sprint-49.json) AC-1~AC-6을 현재 코드/테스트와 대조 — F65/F73으로 충족 여부 사전 확인",
+      "verify": "AC-7 근거 확보",
+      "done": false,
+      "covers": ["AC-7"]
+    },
+    {
+      "step": "2. hooks/pre-bash-firewall.sh: in-place 전용 arm(:330-331, :351-352, :491)을 sed/awk 전용(데이터 플레인)·perl 전용·컨트롤 플레인 전용으로 분리, sed/awk 전용 arm을 EXEMPTABLE_ARM_TOKENS 소비 가능하도록 구성",
+      "verify": "AC-1~AC-5 실측",
+      "done": false,
+      "covers": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "SC-1", "SC-2"]
+    },
+    {
+      "step": "3. tests/pre-bash-firewall.bats에 F73 테스트 추가(allow 전환 + 컨트롤플레인/perl/sed w 네거티브)",
+      "verify": "AC-1~AC-6, SC-3 실측",
+      "done": false,
+      "covers": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-6", "SC-3"]
+    },
+    {
+      "step": "4. bats 전체 1회 + behavioral 프로브 + F63 superseded 처리(대조 결과에 따라)",
+      "verify": "AC-8 실측",
+      "done": false,
+      "covers": ["AC-8", "AC-7"]
+    }
+  ],
+  "open_axes": [
+    "sed w/s///w 플래그 형태의 면제는 이번 범위 밖 — 필요 시 별도 change-request.",
+    "perl -i 면제는 이번 범위 밖 — READ_CAPABLE_ARM에 perl을 추가할지는 별도 결정 필요(순수 읽기부터 재검토해야 함).",
+    "F73이 되돌려지면(원칙 복원) F63의 superseded 처리도 재검토 필요."
+  ],
+  "_parallelizable": false,
+  "agreed": false
+}
