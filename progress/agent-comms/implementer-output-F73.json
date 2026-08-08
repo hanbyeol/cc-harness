@@ -55,7 +55,7 @@
     "manual_smoke": "20개 대표 명령을 wired 픽스처에 직접 파이프해 확인 — AC-1~AC-6 전 항목 기대대로.",
     "design_bug_repro": "1차 구현(새 arm만 추가)에서 'sed -i s/a/b/ progress/harness-config.json' 등 6개 AC-1 케이스가 전부 ask로 실패 → 판정 루프 구조 재확인 → 옛 arm 좁히기로 수정 → 재실측 전부 allow.",
     "feature_list_json_edge_case": "feature_list.json은 이름 기반 arm(vim 등과 sed/awk가 같은 목록에 있던 것)이 별도로 존재해 -i arm 수정만으로는 안 풀렸다 — 이 arm도 sed/awk를 빼고 전용 arm을 추가해서야 allow로 전환됨(실측으로 발견).",
-    "tests": "bats tests/pre-bash-firewall.bats — 1..208, ok=208 / not ok=0(1차 실행 6건 실패 → 수정 → 재실행). bats tests/ 전체 — 1..774, ok=774 / not ok=0(중간에 'a line continuation is still one command' 1건 발견 → 수정 → 최종 재실행 774/774). 최종 결과로 판정.",
+    "tests": "bats tests/pre-bash-firewall.bats — 전체 green, not ok=0(1차 실행 6건 실패 → 수정 → 재실행). bats tests/ 전체 — 1..774, ok=774 / not ok=0(중간에 'a line continuation is still one command' 1건 발견 → 수정 → 최종 재실행 774/774). **정정(F37 1차 판정 실측 지적)**: 이 파일의 실제 총 개수는 `bats --count tests/pre-bash-firewall.bats` 기준 240이다 — 구현 중 반복 실행하며 기록한 '208'은 오기였다(정확한 재구성 원인은 못 찾음, 아마 초반 회차의 부분 카운트를 최종 수치로 착각). 최종 판정은 774/774(하네스 전체) 결과로 한다.",
     "behavioral_probe": "bash scripts/probes/behavioral.sh → [] (0건)"
   },
   "f63_disposition": {

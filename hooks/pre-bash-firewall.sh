@@ -526,9 +526,16 @@ ASK_PATTERNS=(
   '\bof= *[^ ]*feature_list\.json'
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*feature_list\.json'
   # F73: sed/g?awk/mawk을 위 이름 목록에서 뺀다 — 이름만으로 판정하는 이 arm은 :339와 같은
-  # 이유로 in-place exemption과 충돌한다(sed 이름만으로 매치해 -i 유무와 무관하게 ask). 순수
-  # 읽기는 PURE_READ 단계(Layer 3.4)에서 이 arm 이전에 이미 걸러지므로 영향 없음(실측 확인).
+  # 이유로 in-place exemption과 충돌한다(sed 이름만으로 매치해 -i 유무와 무관하게 ask).
   # vim 등 나머지 에디터는 이름 자체로 쓰기 문법을 모르므로 계속 여기서 ask.
+  # **범위 정정(F37 1차 판정 실측 지적)**: 순수 읽기(PURE_READ, Layer 3.4)만 영향받는 게
+  # 아니다 — 이 arm이 이름만으로 sed/awk/mawk를 전부 잡던 것을 걷어내면서, in-place가 아닌
+  # 형태(`awk -f prog.awk`·`sed -f script.sed`·`gawk -v out=… '{print>out}'` 등 파일/변수
+  # 경유 쓰기)도 함께 ask→allow로 열렸다 — PURE_READ 판정과 무관하게 넓어진 것이라 앞선 서술은
+  # 틀렸다. 이것을 새 위험군으로 보지 않는 근거: F71이 이미 이 파일에 `python3 -c
+  # "open(...,'w')"` 류 무프롬프트 임의 쓰기를 허용하고 있고(INV-14가 그 경계를 명문화) 이
+  # 형태들은 그 기존 경계 안의 다른 경로일 뿐이다 — 다만 이 클래스는 테스트로 고정돼 있지
+  # 않다(후속 필요).
   '\b(ed|ex|vi|vim|nano|emacs|sponge|dd|patch)\b[^;|&]*feature_list\.json'
   # F73: 위에서 뺀 sed/awk/mawk의 이름 기반 자리 — 일반 데이터 플레인 arm(harness-config.json 등)의
   # 대응 arm과 동일하게 exemptable(도구 목록이 READ_CAPABLE_ARM과 같은 리터럴).
