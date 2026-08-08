@@ -95,6 +95,8 @@
 
 **수용된 위험(명시)**: `EXEMPTABLE_ARM_TOKENS`에 `INTERPRETER_ARM`이 재편입되며, `arm_is_exemptable()`의 기존 하드 제외(컨트롤 플레인 · 탐지기 자신 · 티켓 원장 · 패턴 문자열에 `.claude/`·`templates/` 리터럴이 있는 arm)만 arm과 무관하게 유지된다. 이 제외는 **패턴 텍스트의 리터럴 일치**로 판정하므로, 리터럴 앵커가 없는 일반형 데이터 플레인 패턴(예: 경로 미고정 `hooks/*.sh`)은 인터프리터에서 그대로 면제되고, `cd`로 작업 디렉터리를 바꿔 표기와 실제 쓰기 대상을 분리하는 F67 4차 판정의 우회 형태가 **의도적으로 다시 열린다.** 이는 결함이 아니라 승인된 위험이며, 되돌리려면 `EXEMPTABLE_ARM_TOKENS`에서 `INTERPRETER_ARM`을 다시 빼면 된다(F67 상태로 복귀).
 
+`cd`는 이 면제의 필요조건이 아니다 — `progress/feature_list.json`·`progress/harness-config.json`처럼 하드 제외 리터럴이 없는 데이터 플레인 파일은 `cd` 없는 **직접** 인터프리터 쓰기도 똑같이 allow다(F37 2차 판정 검증 시 지적, 상세는 `docs/INVARIANTS.md` INV-14 참조). 이 둘은 INV-11·INV-3이 지키는 파일이라 Bash 경유의 **사전** ASK 게이트가 사라진다는 뜻이지만, 둘 다 `PROTECTED_GLOBS`에 있어 `protected-integrity.sh`의 사후 탐지·복구는 그대로 작동한다.
+
 **INV-9와의 관계**: 이 Amendment는 Layer 3.5(사후 탐지·복구가 있는 경로에 한한 ASK→allow 면제, INV-14 소관)를 바꾸는 것이지 Layer 4 default-allow(INV-9 소관, 이미 Amendment 2에서 python/node 스크립트를 일반적으로 default-allow로 수용)를 바꾸는 것이 아니다 — 대상은 어디까지나 "보호경로 토큰이 인터프리터 명령에 등장하는" 좁은 경우다.
 
 **집행**: `tests/pre-bash-firewall.bats`의 F67 회귀 테스트(면제가 철회 상태임을 고정하는 약 18개 `@test`)를 새 상태를 고정하도록 반전·재작성한다. `docs/INVARIANTS.md` INV-14에 동일 서술 추가.

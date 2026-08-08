@@ -901,6 +901,10 @@ if [ "$PURE_READ" -eq 0 ] && echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns
       # 걸쳐 확인한 결정 불가능 축이며, 부분 구현은 닫힌 것으로 오인하게 만들어 오히려 나쁘다.
       # 그래서 다섯 도구(python·node·ruby·sed·awk 계열)는 **경로와 무관하게** 면제하고,
       # 보호는 전적으로 사후 탐지·복구에 맡긴다. 손실 상한은 INV-14에 그대로 적었다.
+      # [상태 갱신] 이 블록은 F67 원안의 판단을 그대로 남긴 것이다 — F67 철회(2026-08-02) 때
+      # 실제로는 인터프리터 계열이 목록에서 빠졌고(sed/awk만 남음), F71 override(2026-08-08)에서
+      # 사용자 결정으로 다시 들어왔다(위 :163-178 주석, INV-14, ADR-004 Amendment 5 참조).
+      # 지금 이 자리의 서술("다섯 도구·경로 무관 면제")은 F71 이후의 실제 코드 상태와 일치한다.
       if [ "$DATA_PLANE_DETECTED" -eq 0 ] && arm_is_exemptable "$p"; then
         continue
       fi

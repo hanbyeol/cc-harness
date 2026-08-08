@@ -563,6 +563,20 @@ main과 동일했다 — 인터프리터가 하네스 파일을 건드리는 형
 승인된 위험이다. 되돌리려면(F67 상태로) `EXEMPTABLE_ARM_TOKENS`에서 `INTERPRETER_ARM`을
 다시 빼면 된다.
 
+**cd 우회보다 단순한 형태도 함께 열린다는 것을 명시한다(F37 2차 판정 검증 시 지적)**: 위
+서술이 `cd` 간접화를 예시로 들다 보니 `cd` 없이 **직접** 데이터 플레인 파일을 여는 형태 —
+예를 들어 `python3 -c "open('progress/feature_list.json','w').write(evil)"`나 같은 방식의
+`progress/harness-config.json` 쓰기 — 도 똑같이 allow라는 점이 가려질 수 있다. `cd`는 이 면제의
+**필요조건이 아니다**: 하드 제외 리터럴(`.claude/`·`templates/`·컨트롤 플레인)이 명령 표기에
+없는 데이터 플레인 파일이면 간접화 여부와 무관하게 전부 면제된다. `feature_list.json`·
+`harness-config.json`은 INV-11(passes 전환 기계 검증)·INV-3(임계값 하향 방어)가 지키는 바로
+그 파일들이므로, 이 면제로 **Bash 경유의 사전 게이트가 사라진다는 사실**을 분명히 적는다 —
+`invariant-guard.sh`는 Edit/Write 도구만 후킹하므로 원래도 Bash 우회를 막는 것은 이 방화벽의
+ASK 계층이었다. 다만 두 파일 모두 `PROTECTED_GLOBS`에 있어 `protected-integrity.sh`의 사후
+탐지·복구(INV-14 앞부분 참조)는 그대로 작동한다 — **사전 차단이 사후 복구로 대체된 것**이지
+방어가 전무해진 것은 아니다. bats가 이 형태를 `progress/feature_list.json` 직접 쓰기로 이미
+고정하고 있다(`tests/pre-bash-firewall.bats`의 F71 테스트 참조).
+
 **F67이 남긴 것 (철회되지 않은 부분)**: 다섯 회전이 부수적으로 드러낸 보호 갭들은 그대로 유지된다 —
 `hooks/*.sh` 전체와 `templates/progress/*.json`을 `PROTECTED_GLOBS`·`is_protected()`에 편입(실행되는
 훅과 신규 프로젝트 seed가 탐지 밖에 있었다), 포매터 skip 목록과 `PROTECTED_GLOBS`의 정합(정당한

@@ -1351,10 +1351,12 @@ JSON
   done
 }
 
-@test "F67: sed/awk stay exempt — the withdrawal is scoped to interpreters" {
-  # F65 의 sed/awk 면제는 유지된다. 두 도구는 `-i`·`w`·리다이렉트 부재로 **읽기가 구문으로
-  # 확정**되므로 면제 근거가 도구 이름이 아니라 확정 가능성에 있다. 인터프리터는 `-c` 뒤가
-  # 임의 프로그램이라 그 확정이 원리적으로 불가능하고, 그 차이가 이번 철회의 경계다.
+@test "F67/F71: sed/awk exemption rests on a different basis than the interpreter override" {
+  # F65 의 sed/awk 면제는 F67 철회·F71 override 와 무관하게 유지된다. 두 도구는 `-i`·`w`·
+  # 리다이렉트 부재로 **읽기가 구문으로 확정**되므로 면제 근거가 도구 이름이 아니라 확정
+  # 가능성에 있다. 인터프리터는 `-c` 뒤가 임의 프로그램이라 그 확정이 원리적으로 불가능한데도
+  # F71은 그 확정 불가능성을 수용하고 면제한다 — 두 arm의 면제 근거가 서로 다르다는 뜻이지,
+  # 인터프리터가 지금 비면제 상태라는 뜻이 아니다(F71로 인터프리터도 면제됨, 위 F71 테스트 참조).
   run wired_firewall '{"tool_input":{"command":"sed -n 1,5p hooks/lib.sh"}}'
   [[ "$output" == *'"permissionDecision": "allow"'* ]]
   run wired_firewall '{"tool_input":{"command":"awk NR==1 progress/feature_list.json"}}'
@@ -1366,10 +1368,14 @@ JSON
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
 }
 
-@test "F67: the control plane stays predicted even for interpreters" {
-  # 컨트롤 플레인은 사후 복구가 없으므로 예측이 유일한 통제다(INV-14 경계). 인터프리터는
-  # 읽기임을 구문으로 확정할 수 없으므로 읽기 형태여도 ask가 맞다 — sed 가 allow인 것은
-  # 도구 이름 때문이 아니라 `-i` 부재로 읽기가 **확정**되기 때문이다.
+@test "F67/F71: the control plane stays predicted even for interpreters" {
+  # 컨트롤 플레인(hooks.json·.claude/settings*.json)을 겨냥한 인터프리터 명령은 사후 복구가
+  # 없으므로 예측이 유일한 통제다(INV-14 경계) — 이것은 arm_is_exemptable()의 하드 제외이며
+  # F71의 전면 면제와 무관하게 그대로 유지된다. **데이터 플레인**(feature_list.json 등)은
+  # F71로 인터프리터 읽기·쓰기가 allow로 바뀌었지만(위 F71 테스트 참조), 컨트롤 플레인 리터럴이
+  # 명령에 있으면 여전히 ask다. (하드 제외는 매칭된 ASK_PATTERNS 패턴 텍스트에 컨트롤 플레인
+  # 리터럴이 있을 때만 발동한다 — 애초에 컨트롤 플레인을 겨냥하는 ASK arm이 없는 도구·형태는
+  # 이 테스트의 대상이 아니다.)
   run wired_firewall '{"tool_input":{"command":"python3 -c open(hooks/hooks.json).read()"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
   run wired_firewall '{"tool_input":{"command":"python3 -c open(.claude/settings.json,w).write(x)"}}'
@@ -1427,13 +1433,20 @@ JSON
 @test "F67: the decision function matches main outside the intended change" {
   # AC-6 재조작화(1차 판정): '배열 바이트 동일 + 대표 케이스'로는 정규화 변경이 판정을 바꿔도
   # 통과한다 — 실제로 그렇게 heredoc 구멍이 지나갔다. 판정 대상은 배열이 아니라 **결정 함수**여야
-  # 하므로, 같은 코퍼스에 대해 main 과 판정을 대조하고 의도된 차이만 허용한다.
-  # 로컬에 main ref 가 없는 체크아웃(브랜치만 클론한 CI 등)에서는 대조 기준이 없다 —
-  # 실패가 아니라 skip 이다(2차 판정 권고). 기준이 있으면 아래는 그대로 강제된다.
-  git -C "$BATS_TEST_DIRNAME/.." rev-parse --verify main >/dev/null 2>&1 \
-    || skip "local 'main' ref not available — nothing to compare against"
+  # 하므로, 같은 코퍼스에 대해 기준선과 판정을 대조하고 의도된 차이만 허용한다.
+  #
+  # **기준선은 `main` 브랜치가 아니라 고정된 커밋 SHA다(F71 구현 중 발견, 사용자 실측 지적).**
+  # 이 저장소는 기능 브랜치 없이 main에 직접 커밋하는 것을 허용한다 — F71도 그렇게 커밋됐다
+  # (f442997, 2d1b807). 그 순간부터 `main`은 곧 HEAD이므로 `git show main:...`가 **지금 이
+  # 파일 자신**을 반환해 main==branch가 되고, 의도된 차이(INTENDED)를 요구하는 이 테스트가
+  # 항상 실패한다 — 실제로 F71 구현 중 이 방식으로 재현됐다. 그래서 F71의 코드 변경 직전
+  # 커밋(f442997 — docs만 갱신, hooks/pre-bash-firewall.sh는 아직 F71 이전 상태)을 **영구
+  # 고정 기준선**으로 쓴다. main이 앞으로 얼마나 나아가든 이 기준선은 그대로다.
+  local BASELINE_SHA="f442997"
+  git -C "$BATS_TEST_DIRNAME/.." rev-parse --verify "$BASELINE_SHA" >/dev/null 2>&1 \
+    || skip "baseline commit $BASELINE_SHA not available in this checkout — nothing to compare against"
   local main_hook="$BATS_TEST_TMPDIR/main-firewall.sh"
-  git -C "$BATS_TEST_DIRNAME/.." show main:hooks/pre-bash-firewall.sh > "$main_hook" 2>/dev/null
+  git -C "$BATS_TEST_DIRNAME/.." show "$BASELINE_SHA:hooks/pre-bash-firewall.sh" > "$main_hook" 2>/dev/null
   [ -s "$main_hook" ]
 
   judge_with() {
@@ -1767,10 +1780,15 @@ load_firewall_fns() {
   # 목적은 "F67이 이 무관한 갭까지 만든 게 아님"을 고정하는 것이었는데, F71 아래서는 그 목적
   # 자체가 (a)와 (b)를 나눠서 봐야 유지된다).
   command -v git >/dev/null || skip "git not installed"
-  git -C "$BATS_TEST_DIRNAME/.." rev-parse --verify main >/dev/null 2>&1 \
-    || skip "local 'main' ref not available"
+  # 고정 커밋 기준선을 쓴다 — 위 "the decision function matches main" 테스트와 같은 이유다.
+  # 이 저장소는 main 직접 커밋을 허용하고 F71도 그렇게 커밋됐으므로, `main` 브랜치 ref는
+  # F71 구현 시점부터 곧 HEAD다. `git show main:...`를 그대로 쓰면 기준선이 자기 자신이 되어
+  # main=branch가 항상 성립해 아래 (a) 그룹(의도된 차이) 단언이 항상 실패한다(실측으로 재현됨).
+  local BASELINE_SHA="f442997"
+  git -C "$BATS_TEST_DIRNAME/.." rev-parse --verify "$BASELINE_SHA" >/dev/null 2>&1 \
+    || skip "baseline commit $BASELINE_SHA not available in this checkout"
   local main_hook="$BATS_TEST_TMPDIR/main-fw-gap.sh"
-  git -C "$BATS_TEST_DIRNAME/.." show main:hooks/pre-bash-firewall.sh > "$main_hook" 2>/dev/null
+  git -C "$BATS_TEST_DIRNAME/.." show "$BASELINE_SHA:hooks/pre-bash-firewall.sh" > "$main_hook" 2>/dev/null
   [ -s "$main_hook" ]
   # 배선된 설치본 — wired_firewall 과 같은 조건에서 양쪽을 돌린다
   local wired="$BATS_TEST_TMPDIR/wired-gap"
@@ -1839,8 +1857,9 @@ JSON
   [ "$output" -ge 1 ]
 }
 
-@test "F67: F65's sed/awk read relief survives the withdrawal" {
-  # 철회는 인터프리터에만 적용된다. F65 가 없앤 sed/awk 읽기 마찰이 되돌아오면 그것은
+@test "F67/F71: F65's sed/awk read relief is untouched by the interpreter policy changes" {
+  # F67 철회도, F71 override 도 sed/awk 의 면제 근거(F65 — `-i`·`w`·리다이렉트 부재로 읽기가
+  # 구문으로 확정됨)를 건드리지 않는다. F65 가 없앤 sed/awk 읽기 마찰이 되돌아오면 그것은
   # 과잉 교정이므로, 데이터 플레인 전체에 대해 같은 자리에서 확인한다.
   local c
   for c in "progress/feature_list.json" "progress/harness-config.json" \
