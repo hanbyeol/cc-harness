@@ -957,13 +957,14 @@
       "name": "invariant-guard.sh 저장소 root 해석 실패 시 fail-open 수정 — F68 10차 삭제-재생성 방어 재개방 차단",
       "description": "[2026-08-08, F71 F37 2차 판정 중 발견·재현] hooks/invariant-guard.sh에 `root=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo \"\")}\"` 패턴이 두 곳(:365 삭제-후-재생성 HEAD 실체화 로직, :414 record_guarded_edit() 티켓 발급)에 있다. `CLAUDE_PROJECT_DIR`이 미설정이고 훅 프로세스의 cwd가 저장소 밖일 때 `git rev-parse --show-toplevel` 폴백도 실패해 root가 빈 문자열이 되고, 두 곳 모두 root 미해석을 '이 편집은 판단 대상 밖'으로 취급해 **조용히 통과(코드 경로상 deny 아님)**시킨다. :414는 evaluator의 정당한 `passes:true` 전환이 티켓 없이 사라지는 부수 문제였지만(F71 검증 중 실측: 1차 evaluator의 전환이 원인 불명으로 두 번 되돌아감), :365는 그보다 심각하다 — **F68 10차 판정이 닫은 '삭제 후 재생성' 우회(파일이 없으면 HEAD 내용을 실체화해 임계값·개수·배선·append-only 검사를 원래 있던 파일과 동일하게 적용하는 방어)가 같은 조건에서 재개방된다.** 격리 클론에서 직접 재현: `progress/harness-config.json`을 삭제 후 `pass_threshold: 7→1`로 재생성 시도 시, cwd가 저장소 안이면 정상 차단(exit 2)되지만 `CLAUDE_PROJECT_DIR` 미설정 + cwd가 저장소 밖이면 **root 해석 실패로 무프롬프트 통과(exit 0)** — INV-3(임계값 add-only) 방어가 이 조건에서 완전히 무력화된다. `CLAUDE_PROJECT_DIR` 미설정은 가설이 아니라 F71 검증 세션에서 실측된 실제 조건이다. 수정 방향: 두 곳 모두 root를 프로세스 cwd/env가 아니라 **`$FILE` 자신의 위치**에서 유도한다(`git -C \"$(dirname -- \"$FILE\")\" rev-parse --show-toplevel`) — 편집 대상 파일이 실제로 어느 저장소에 속하는지를 직접 묻는 것이므로 훅 프로세스의 cwd/환경변수 상태와 무관하게 정확하다. 격리 테스트 환경(파일이 진짜로 git repo 밖의 tmpdir에 있는 경우)에서는 이 방식도 정상적으로 실패해 기존 '저장소 밖 경로는 티켓/실체화 안 함' 설계 의도를 그대로 보존한다(구분 기준이 프로세스 위치에서 파일 위치로 바뀔 뿐).",
       "security_tier": "critical",
-      "status": "pending",
-      "passes": false,
-      "iteration": 0,
+      "status": "done",
+      "passes": true,
+      "iteration": 3,
       "dependencies": [
         "F68"
       ],
-      "assigned_sprint": 58
+      "assigned_sprint": 58,
+      "_verdict_2026_08_08": "1차(evaluator-feedback-2026-08-08T14-30-54+0900.json): pass, min-of-5 7, security 8. F37 2차 독립 판정(evaluator-feedback-2026-08-08T14-58-02+0900.json, 커밋 514ed33 대상): pass, min-of-5 7, security 8 — 5차원 점수·verdict·최솟값을 만든 차원이 모두 일치하므로 에스컬레이션 불필요. 2차 판정의 독립 근거: 케이스마다 새 픽스처를 쓴 12칸 버전 대조(f258a21/83125c6/514ed33 × 파일삭제·디렉터리삭제 × cwd 안·밖)에서 514ed33만 4축 전부 exit 2, 2단계 삭제(progress/contracts/) walk-up, 티켓 발급 후 protected-integrity.sh 생존 종단 확인, 티켓의 내용 해시 바인딩 행동 확인, 심볼릭 링크 경로·비git·git 실패 환경 확인. bats 148/148 + 767/767, behavioral 0건. **배포 갭(코드 결함 아님)**: 이 세션에 실제로 배선된 훅은 ${CLAUDE_PLUGIN_ROOT} 플러그인 캐시 사본이고 그 사본은 F72 이전 코드(:365·:417의 process-cwd 기준 root 해석)라 F72 수정이 아직 발효되지 않았다 — 1·2차 판정의 passes 전환이 티켓 미발급으로 두 번 되돌려진 원인이다(progress/.integrity-restores의 20260808T053346Z·20260808T055908Z). 플러그인 릴리스/업데이트 후에야 런타임에 적용된다. 후속(범위 밖, 재판정 안 함): (1) CLAUDE_PROJECT_DIR이 설정됐으나 $FILE의 저장소와 불일치하면 root가 비어 있지 않아 SC-4 경고 없이 조용히 스킵되는 선재 결함(세 버전 모두 동일, security/medium), (2) __physicalize_under()의 `.` 조상 접합 결함(절대 경로 강제로 실질 도달 불가, quality/low), (3) SC-4 경고가 보호 파일 아닌 편집에서도 발화하는 과발화. **범위 안 필수 후속**: docs/INVARIANTS.md:203-218이 1차 판정에서 반려된 설계(`git -C \"$(dirname -- \"$FILE\")\"`)를 아직 서술 중 — 514ed33의 실제 설계로 갱신 필요."
     },
     {
       "id": "F71",

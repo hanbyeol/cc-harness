@@ -1,0 +1,117 @@
+{
+  "timestamp": "2026-08-08T14:58:02+0900",
+  "sprint": 58,
+  "iteration": 3,
+  "features_evaluated": [
+    "F72"
+  ],
+  "security_tier": "critical",
+  "verdict_type": "F37_second_independent_verdict",
+  "_verdict_type_note": "critical 티어 2차 독립 판정 (INV-1/F37). 1차(직전) 판정 progress/agent-comms/evaluator-feedback-2026-08-08T14-30-54+0900.json과 별도 컨텍스트에서 커밋 514ed33을 재검증했다. 1차 판정은 판정 후 참조만 했고, 모든 실행 근거는 이 세션에서 독립적으로 재생성했다.",
+  "commit_evaluated": "514ed33",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 7,
+    "security": 8,
+    "error_handling": 7,
+    "test_coverage": 8
+  },
+  "score": 7,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_threshold_critical": 7,
+  "verdict": "pass",
+  "cross_check_with_first_verdict": {
+    "first_verdict_file": "progress/agent-comms/evaluator-feedback-2026-08-08T14-30-54+0900.json",
+    "first_scores": {
+      "functionality": 9,
+      "code_quality": 7,
+      "security": 8,
+      "error_handling": 7,
+      "test_coverage": 8
+    },
+    "first_score": 7,
+    "first_verdict": "pass",
+    "agreement": "full",
+    "_note": "verdict·min-of-5(7)·보안 점수(8)·5차원 점수가 모두 일치. 두 판정이 독립적으로 같은 두 저심각도 결함(__physicalize_under의 `.` 조상 케이스, SC-4 경고의 과발화)에 도달했다는 점이 수렴의 근거다. 사람 에스컬레이션 불필요."
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1: 두 root 유도 지점(:406 실체화, :466 record_guarded_edit) 모두 __nearest_existing_dir(\"$FILE\") 기반으로 통일 — diff 대조 확인",
+      "AC-2: 재현된 우회(progress/ 삭제 + CLAUDE_PROJECT_DIR 미설정 + cwd 저장소 밖 + pass_threshold 7→1)가 exit 2로 차단 — 독립 픽스처 실측",
+      "AC-3: 같은 조건의 정당한 상향 편집이 티켓 1줄을 발급받고 protected-integrity.sh 실행 후에도 유지됨 — 종단 실측(E2E-1)",
+      "AC-4: 진짜 비git tmpdir는 기존대로 스킵(과잉 차단 없음, exit 0) — 실측 + 비-git bats 픽스처 전부 green",
+      "AC-5: 회귀 없음 — bats tests/invariant-guard.bats 148/148, bats tests/ 767/767, behavioral 프로브 0건",
+      "AC-6: $FILE의 바로 위 디렉터리가 삭제된 경우 cwd 안/밖 양쪽 모두 exit 2 — 실측. 2단계 삭제(progress/contracts/까지 부재)도 exit 2"
+    ],
+    "security": [
+      "SC-1: 수정이 root 해석에만 한정 — 실체화 본문(HEAD 조회·FS_CI ls-tree·mkdir/printf)과 티켓 해시(git hash-object)·append-only(>>) 무변경. diff 대조 + 행동 확인(티켓이 경로 면제가 아니라 내용 바인딩으로 남아 있음, E2E-3)",
+      "SC-2: 세 케이스 구분 확인 — (a) 진짜 비git tmpdir만 스킵, (b) 무관한 다른 저장소를 cwd로 둬도 오귀속 없음, (c) 저장소 안이지만 부모 디렉터리 삭제는 정확히 자기 저장소 root로 해석",
+      "SC-3: INV-3(임계값 add-only)·INV-11(passes 전환) 각각 종단 재확인 — 임계값 하향 차단 + 정당 상향 생존, feature_list passes:false→true가 4개 조건 전부에서 차단",
+      "SC-4: root 해석 실패 시 stderr 경고 출력 확인(2줄), exit code 불변"
+    ],
+    "error_scenarios": [
+      "ES-1: 조상까지 훑어도 저장소가 없는 진짜 비git 환경 → 스킵 + 관측 가능한 경고. 실측",
+      "ES-2: 존재하지 않는 신규 경로 → 자기 저장소 root로 해석되고 다른 저장소로 오인되지 않음. HEAD에 없으면 정상 신규 생성으로 통과, 티켓 오염 없음",
+      "ES-3: git 실패 환경(항상 exit 127인 git shim) → f258a21과 514ed33 동작 동일(feature_list passes 주입은 전용 브랜치가 계속 차단). 이번 수정으로 새로 깨지지 않음"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "issues": [
+    "[quality][low][confidence:high] __physicalize_under()가 조상이 `.`일 때(상대 경로 입력) 구분자 없는 잘못된 경로를 만든다. 헬퍼 단위 실측: file=\"relative/x/y.json\", anc=\".\" → \"/private/tmp/.../scratchpadrelative/x/y.json\". `${file#\"$anc\"}`가 `.`을 벗기지 못하고 anc_phys에 후행 구분자가 없어 접합이 깨진다 → 접두 비교 실패 → 방어 스킵(상대 경로 + 부모 디렉터리 삭제 조합에서 exit 0 실측). 판정에 반영하지 않은 이유: (a) 회귀가 아니다 — f258a21·83125c6·514ed33 세 버전 모두 같은 조건에서 exit 0(메커니즘은 다르나 결과 동일), (b) invariant-guard의 PreToolUse matcher는 Edit|Write|MultiEdit이고 세 툴 모두 절대 경로를 요구하므로 실질 도달 불가. 후속에서 `anc == \".\"` 보정 권고.",
+    "[quality][low][confidence:high] SC-4의 stderr 신호 중 record_guarded_edit() 쪽이 보호 파일이 아닌 편집에서도 발화한다. record_guarded_edit은 trap EXIT으로 매 호출 실행되고, 경고가 NEW_CONTENT 존재 검사·보호 파일 게이트보다 앞에 있다. 실측: progress/ 디렉터리가 없는 임의 git 저장소에서 무관한 README.md 편집 → '무결성 티켓이 발급되지 않습니다' 경고 출력. exit code는 불변이라 판정에는 영향 없으나 SC-4의 rationale(사람이 로그에서 판단할 신호)이 희석된다. 경고를 보호 파일/NEW_CONTENT 조건 뒤로 옮길 것을 권고.",
+    "[security][medium][confidence:medium] **이번 판정에서 새로 관측 — 범위 밖·선재**: 두 자리 모두 `${CLAUDE_PROJECT_DIR:-...}` 형태라 환경변수가 $FILE 기반 유도보다 **우선**한다. 환경변수가 설정돼 있으나 $FILE이 그 저장소 밖이면 root는 비어 있지 않으므로 SC-4 경고가 발화하지 않고, 접두 비교만 조용히 실패해 실체화·티켓이 모두 스킵된다. 실측: CLAUDE_PROJECT_DIR을 무관한 저장소로 설정하고 대상 저장소의 harness-config.json을 하향 재생성 → f258a21·83125c6·514ed33 **세 버전 모두 exit 0**(파일만 삭제한 약한 조건에서도 동일). F72 계약의 문제 진술은 '환경변수 미설정'이므로 범위 밖이고 이번 커밋이 악화시키지 않았다 → fail 사유 아님. 다만 F72 자신의 논거('실제 질문은 편집 대상이 어느 저장소에 속하는가')는 환경변수가 $FILE 유도를 덮어써서는 안 된다고 말한다. 운영상 관련성: isolation:\"worktree\" 서브에이전트에서 CLAUDE_PROJECT_DIR이 워크트리가 아니라 원본 저장소를 가리킬 경우 이 분기에 실제로 진입할 수 있다(미검증 가설 — 후속에서 확인 필요). 후속 change-request 권고: (a) $FILE 유도 결과가 환경변수와 불일치하면 $FILE 쪽을 채택하거나 최소한 경고, (b) SC-4 신호를 'root 비어 있음'이 아니라 '방어를 적용하지 못함'으로 확장.",
+    "[test][low][confidence:high] 위 세 축을 고정하는 테스트가 없다 — (a) 상대 경로/`.` 조상, (b) '정상 편집에서는 경고가 찍히지 않는다'는 노이즈 회귀 가드, (c) CLAUDE_PROJECT_DIR 불일치 분기. (b)는 SC-4 신호가 무차별 발화로 퇴화하는 것을 막는 값싼 테스트다.",
+    "[process][medium][confidence:high] **판정 전제 오류 — 이 판정을 지시한 프롬프트는 'feature_list.json의 F72는 이미 passes:true'라고 했으나 실제 값은 false다.** 실측: progress/feature_list.json:961 `\"passes\": false`, `\"status\": \"pending\"`, `\"iteration\": 0`이고 `git diff HEAD -- progress/feature_list.json`이 비어 있다(HEAD와 동일). 1차 판정의 feedback 파일도 untracked 상태로 커밋되지 않았다. 이는 progress/lessons.md의 F71 교훈('편집했다'와 '편집이 남았다'는 다른 사실 — 보호 파일 편집은 같은 턴에 커밋해야 살아남는다)이 그대로 재발한 형태다. 이번 판정에서 passes를 true로 전환하되, 메인 루프가 **같은 턴에 커밋**해야 protected-integrity.sh에 되돌려지지 않는다.",
+    "[observation][low][confidence:high] 514ed33 커밋 메시지의 서술 '구버전은 이 축에서 우연히 차단했는데 신버전이 놓침'은 픽스처 의존적이다. 기본 `mktemp -d`(macOS /var 심볼릭 링크 경유) 독립 픽스처 12칸 매트릭스 실측: f258a21은 dir_deleted 축에서 cwd 안/밖 **모두 exit 0**이다(심볼릭 링크로 인한 접두 비교 실패 — 구현자가 2차에서 발견한 바로 그 문제 때문에 베이스라인도 이미 열려 있었다). 결론(514ed33이 모든 축에서 두 이전 버전 이상)은 영향받지 않는다.",
+    "[docs][medium][confidence:high] **1차 판정이 놓친 축 — docs/INVARIANTS.md가 반려된 1차 설계를 여전히 서술한다.** :214의 **수정(F72)** 문단이 root 유도 방식을 `git -C \"$(dirname -- \"$FILE\")\" rev-parse --show-toplevel`로 적고 있는데, 이것은 1차 판정이 명시적으로 **반려한** 방식이고 514ed33이 `__nearest_existing_dir`로 대체했다. 이어지는 문장(진짜 저장소 밖 tmpdir에서는 이 방식도 정상적으로 실패해 ... 설계 의도는 그대로 유지된다)도 2차의 핵심 명확화($FILE의 부모 디렉터리 삭제는 저장소 밖이 아니다 — SC-2)를 반영하지 않아, 그대로 읽으면 반려 사유가 된 바로 그 오인을 재생산한다. git log 확인: docs/INVARIANTS.md는 f258a21(change-request) 이후 83125c6·514ed33 어디서도 갱신되지 않았다. 훅의 코드 주석이 실측, docs/INVARIANTS.md 참조로 이 문서를 가리키므로 포인터를 따라간 독자가 낡은(그리고 기각된) 설계를 얻는다. CLAUDE.md의 기준 역전파 원칙 위반이다. **fail 사유로 삼지 않은 이유**: (a) sprint-58의 어떤 AC/SC도 문서 갱신을 요구하지 않는다, (b) 코드 내 주석은 정확하고 최신이며 2차 설계를 정밀히 서술한다, (c) 잘못된 것은 invariant 자체가 아니라 구현 스케치이므로 보장 수준을 약화시키는 방향의 오독을 낳지 않는다. 그러나 critical 가드의 정본 문서이므로 **후속 필수**로 분류한다.",
+    "[process][low][confidence:high] verification_tier가 critical인데 F72에 대한 security-auditor 산출물이 없다(progress/agent-comms에 F72를 다룬 security-audit 파일 없음, 최신 감사는 2026-08-03). CLAUDE.md의 검증 티어링은 critical에 evaluator+security-auditor를 요구한다. evaluator 게이트 이후 실행되는 하류 단계이므로 이 판정의 선행 조건은 아니지만, 메인 루프가 병렬 verification 단계에서 디스패치해야 한다."
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [
+      "CLAUDE_PROJECT_DIR이 **설정돼 있으나 $FILE의 저장소와 불일치**하는 경우의 기대 동작이 어느 기준에도 없다 — SC-2는 '$FILE 기반 유도가 실패할 때'만 다루고, 이 분기는 유도가 성공(비어 있지 않은 root)한 뒤 접두 비교에서 조용히 실패한다. 후속 sprint의 SC로 명문화 권고.",
+      "sprint-58에 문서 동기화 기준이 없다 — critical 가드의 동작을 바꾸는 sprint는 docs/INVARIANTS.md의 해당 항목 갱신을 AC로 포함해야 한다(이번에 실제로 누락됐다)."
+    ],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "action_required": "F72 범위 밖 2건은 후속 change-request로: (1) CLAUDE_PROJECT_DIR 우선순위로 인한 조용한 스킵(security/medium), (2) __physicalize_under의 `.` 조상 보정 + SC-4 경고 발화 조건 정밀화(quality/low). 범위 안 필수 1건: docs/INVARIANTS.md:203-218을 514ed33의 실제 설계(__nearest_existing_dir/__physicalize_under + 부모 디렉터리 삭제 != 저장소 밖)로 갱신."
+  },
+  "criteria_backfill_review": {
+    "count": 2,
+    "items": [
+      "AC-6 신설",
+      "SC-4 신설 + SC-2 명확화"
+    ],
+    "assessment": "적절 — 둘 다 1차 판정의 반려 사유를 기준으로 승격한 add-only 변경이다. 범위 확대나 요건 완화 없음. 삭제·하향된 기준 없음(diff 대조). 3건 미만이므로 spec/architecture 재검토 불필요."
+  },
+  "evidence": {
+    "diff_scope": "git diff f258a21 514ed33 -- hooks/invariant-guard.sh → 신설 __nearest_existing_dir()/__physicalize_under() 2개 헬퍼와 그 직접 소비부 2곳(:406-416 실체화 root/FILE 유도, :463-485 record_guarded_edit root/FILE 유도)만 변경. 실체화 본문의 HEAD 조회(git show HEAD:$__rel)·FS_CI ls-tree 철자 조회·mkdir -p/printf, record_guarded_edit의 git hash-object·`>>` append 모두 diff에 없음 → SC-1 충족.",
+    "core_repro_independent_fixtures": "매 케이스 새 mktemp -d 픽스처(오염 배제), CLAUDE_PROJECT_DIR 미설정. (a) progress/ 삭제 + cwd 안 + 7→1: EXIT=2, 'INVARIANT 위반: .scoring.pass_threshold 하향 (7 → 1) ... (INV-3)'. (b) 동일 + cwd 밖(/usr): EXIT=2, 동일 메시지. (c) progress/ 삭제 + 7→8 상향 + cwd 안: EXIT=0, progress/.guarded-edits = '4fcc6630720a5db739532627606fdc97239e9b3a progress/harness-config.json' 정확히 1줄. (c2) 동일 + cwd 밖: EXIT=0, 티켓 1줄. (d) 진짜 비git tmpdir + 7→1: EXIT=0(과잉 차단 없음) + stderr 2줄 경고.",
+    "version_differential_matrix": "독립 픽스처, 12칸. 형식 [hook | deleted | cwd | exit]: f258a21: file/in=2, file/out=0, dir/in=0, dir/out=0. 83125c6: file/in=2, file/out=2, dir/in=0, dir/out=0. 514ed33: file/in=2, file/out=2, dir/in=2, dir/out=2. → 514ed33만 4축 전부 차단이며 어느 축도 이전 버전 대비 약화되지 않았다. 스크립트: scratchpad/differential_f72.sh",
+    "multi_level_deletion": "progress/contracts/만 삭제(progress/는 생존)하고 sprint-1.json을 agreed:false→true로 재생성 → cwd 안/밖 모두 EXIT=2 ('agreed:true 전환에 acceptance_criteria(0)·implementation_steps(0) 필요 (INV-11)'). 2단계 walk-up 동작 확인.",
+    "inv11_axis": "feature_list.json passes:false→true(evaluator-feedback 없음)를 4조건에서 제출 — 파일만 삭제/cwd안, 파일만 삭제/cwd밖, progress/ 전체 삭제/cwd안, progress/ 전체 삭제/cwd밖 → **전부 EXIT=2** ('feature F1 passes:true 전환 근거 없음 — evaluator-feedback 레코드 부재 (INV-1/INV-11)').",
+    "end_to_end_ticket_survival": "E2E-1: progress/ 삭제 + cwd 밖 + 정당한 상향 → guard EXIT=0, 티켓 1줄 발급, Write 적용 후 protected-integrity.sh 실행 → EXIT=0, pass_threshold=8 유지(되돌려지지 않음). AC-3/SC-3 종단 충족.",
+    "ticket_is_content_bound": "E2E-2: 티켓 없이 디스크에 직접 하향(2) 기록 후 protected-integrity → 'HEAD 내용으로 복구했습니다' + .integrity-quarantine 보관, pass_threshold 7로 복구. E2E-3: 티켓은 상향(8) 내용으로 발급됐는데 디스크에는 하향(2)을 기록 → 동일하게 복구. 티켓이 경로 면제가 아니라 내용 해시 바인딩임을 행동으로 확인(SC-1의 '해시 방식 무변경'을 서술이 아니라 동작으로 검증).",
+    "symlink_axis": "/tmp(macOS에서 /private/tmp의 심볼릭 링크) 하위 저장소 + progress/ 삭제 + cwd 밖 + 하향 → EXIT=2, 메시지의 파일 경로가 /private/tmp/...로 물리화됨. __physicalize_under의 필요성과 동작 확인.",
+    "es2_new_path": "기존 저장소 안의 완전 신규 중첩 경로(/W/brandnew/deep/progress/harness-config.json) + 하향 내용 → EXIT=0(HEAD에 없는 진짜 신규이므로 정상), 대상 저장소 티켓 원장 오염 없음(.guarded-edits 미생성).",
+    "es3_broken_git": "항상 exit 127을 내는 git shim을 PATH 앞에 두고(jq는 유지) progress/ 삭제 + feature_list passes 주입 → f258a21 EXIT=2, 514ed33 EXIT=2(+ SC-4 경고 1줄). 동작 동일 — 이번 수정으로 새로 깨지지 않음.",
+    "claude_project_dir_precedence_probe": "CLAUDE_PROJECT_DIR을 무관한 저장소로 설정하고 대상 저장소의 harness-config.json 하향 재생성 → f258a21/83125c6/514ed33 **전부 EXIT=0**. 파일만 삭제한 조건에서도 f258a21/514ed33 모두 EXIT=0. 선재 결함이며 이번 커밋과 무관(issues 참조).",
+    "helper_unit_probe": "__nearest_existing_dir/__physicalize_under 단위 실행: /nonexistent-top/a/b/c.json → anc=/, phys=/nonexistent-top/a/b/c.json (정상) · /tmp/../tmp/zzz/q.json → anc=/tmp/../tmp, phys=/private/tmp/zzz/q.json (`..` 정상 해소) · //weird///path//x.json → anc=/, phys 보존 (정상) · relative/x/y.json → anc=., phys 접합 깨짐 (**결함**, issues 참조). 모든 입력에서 루프 종료(무한 루프 없음).",
+    "static_analysis": "bash -n hooks/invariant-guard.sh → syntax OK. shellcheck -S warning → SC2010 1건(:261, 신규 코드 아님, F70 canon_file 영역). 신규 헬퍼 2개에 대한 경고 없음.",
+    "tests": "bats tests/invariant-guard.bats → 148/148 ok, RC=0 (단일 실행). F72 테스트 7건 전부 ok: #130~#132(1차), #133~#136(F72r2 신규). 신규 4건은 각각 실질 단언 보유(exit 2 확인 / 티켓 grep / stderr 문자열 매치) — 토톨로지 아님. bats tests/ 전체는 아래 full_suite 참조.",
+    "full_suite": "bats tests/ → 마지막 테스트 #767 ok, not-ok 0건, FULL_SUITE_RC=0 (단일 실행, 재실행 없음). bats --count tests/ = 767로 총 개수 대조.",
+    "behavioral_probe": "bash scripts/probes/behavioral.sh → [] (0건), BEHAVIORAL_RC=0",
+    "docs_drift": "grep -n \"F72\" docs/INVARIANTS.md → :203-218 문단이 root 유도를 `git -C \"$(dirname -- \"$FILE\")\"`로 서술(1차 설계, 반려됨). git log --oneline -3 -- docs/INVARIANTS.md → 최신 커밋 f258a21(change-request), 즉 83125c6·514ed33 어느 쪽도 이 문서를 갱신하지 않았다.",
+    "matcher_scope": "jq로 hooks/hooks.json 확인 → invariant-guard의 PreToolUse matcher = \"Edit|Write|MultiEdit\". 세 툴 모두 절대 경로 file_path를 요구하므로 `.` 조상 결함의 실질 도달 가능성이 낮다는 판단의 근거."
+  },
+  "recommendation_to_main_loop": [
+    "passes:true 전환 후 **같은 턴에 커밋**할 것 — F71 교훈(lessons.md)대로 커밋하지 않으면 protected-integrity.sh가 다음 PostToolUse 회전에서 되돌린다. 1차 판정의 전환이 실제로 남지 않은 것이 그 증거다.",
+    "후속 change-request 후보 2건: (1) CLAUDE_PROJECT_DIR 우선순위로 인한 조용한 스킵(security/medium), (2) __physicalize_under의 `.` 조상 보정 + SC-4 경고 발화 조건 정밀화(quality/low).",
+    "**필수 후속(이번 sprint 범위)**: docs/INVARIANTS.md:203-218이 반려된 1차 설계를 서술하고 있다 — 514ed33의 실제 설계로 갱신할 것. 문서 전용 변경이므로 경량 경로로 처리 가능.",
+    "critical 티어이므로 security-auditor를 병렬 verification 단계에서 디스패치할 것 — F72 대상 감사 산출물이 아직 없다."
+  ]
+}
