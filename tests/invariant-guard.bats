@@ -1293,6 +1293,54 @@ JSON
   rm -rf "$GITWORK"
 }
 
+# === F72 — root 해석이 프로세스 cwd/CLAUDE_PROJECT_DIR가 아니라 $FILE 자신의 위치에서
+# 유도되는지 고정한다 ===
+# 위 F68 10차 테스트들은 전부 CLAUDE_PROJECT_DIR="$GITWORK"를 명시적으로 세운다 — 그래서
+# 이 축(미설정 + 프로세스 cwd가 대상 저장소와 다름)은 어느 것도 실제로 덮지 않았다. F71의
+# F37 2차 판정이 이 갭을 실측으로 재현했다: CLAUDE_PROJECT_DIR 미설정 + 훅 프로세스 cwd가
+# 저장소 밖이면 root 해석이 빈 문자열로 실패해, F68 10차의 삭제-후-재생성 방어(:365)와
+# record_guarded_edit() 티켓 발급(:414)이 조용히 스킵됐다.
+
+@test "F72: root resolution derives from \$FILE, not process cwd — delete-recreate still denies" {
+  command -v git >/dev/null || skip "git not installed"
+  setup_git_repo
+  rm -f "$GITWORK/progress/harness-config.json"
+  local BAD='{ "scoring": { "pass_threshold": 1, "security_thresholds": { "critical": 1, "standard": 1, "low": 1 } } }'
+  run bash -c "cd '$BATS_TEST_TMPDIR' && unset CLAUDE_PROJECT_DIR && bash '$HOOK'" <<<"$(mk_write_input "$GITWORK/progress/harness-config.json" "$BAD")"
+  [ "$status" -eq 2 ] || { echo "CLAUDE_PROJECT_DIR 미설정 + cwd가 저장소 밖일 때 삭제 후 임계값 하향 재생성이 통과했다"; false; }
+  rm -rf "$GITWORK"
+}
+
+@test "F72: a legitimate add-only edit still gets a guarded-edit ticket under the same condition" {
+  command -v git >/dev/null || skip "git not installed"
+  setup_git_repo
+  local OK='{ "scoring": { "pass_threshold": 8, "security_thresholds": { "critical": 7, "standard": 5, "low": 3 } } }'
+  run bash -c "cd '$BATS_TEST_TMPDIR' && unset CLAUDE_PROJECT_DIR && bash '$HOOK'" <<<"$(mk_write_input "$GITWORK/progress/harness-config.json" "$OK")"
+  [ "$status" -eq 0 ] || { echo "정당한 임계값 상향이 막혔다"; false; }
+  grep -qF "progress/harness-config.json" "$GITWORK/progress/.guarded-edits" 2>/dev/null \
+    || { echo "티켓이 발급되지 않았다 — protected-integrity.sh가 이 편집을 되돌릴 수 있다"; false; }
+  rm -rf "$GITWORK"
+}
+
+@test "F72: a different unrelated git repo as cwd does not get misattributed as root (SC-2)" {
+  # cwd 기준 조회가 완전히 살아있는 **다른** 저장소를 root로 잘못 집는 경우를 놓치지 않도록,
+  # cwd가 비git이 아니라 다른 실제 git 저장소인 경우도 함께 고정한다.
+  command -v git >/dev/null || skip "git not installed"
+  setup_git_repo
+  local OTHERWORK
+  OTHERWORK=$(mktemp -d)
+  git -C "$OTHERWORK" init -q
+  git -C "$OTHERWORK" config user.email t@t
+  git -C "$OTHERWORK" config user.name t
+  printf 'x\n' > "$OTHERWORK/unrelated.txt"
+  git -C "$OTHERWORK" add -A && git -C "$OTHERWORK" commit -q -m x
+  rm -f "$GITWORK/progress/harness-config.json"
+  local BAD='{ "scoring": { "pass_threshold": 1, "security_thresholds": { "critical": 1, "standard": 1, "low": 1 } } }'
+  run bash -c "cd '$OTHERWORK' && unset CLAUDE_PROJECT_DIR && bash '$HOOK'" <<<"$(mk_write_input "$GITWORK/progress/harness-config.json" "$BAD")"
+  [ "$status" -eq 2 ] || { echo "cwd가 다른 저장소일 때 삭제 후 임계값 하향 재생성이 통과했다(root 오귀속)"; false; }
+  rm -rf "$GITWORK" "$OTHERWORK"
+}
+
 # === F68 마지막 알려진 한계 — 계약 디렉터리 안 파일 심볼릭 링크 ===
 # `canon_file()`은 디렉터리를 `pwd -P`로 풀지만 **경로의 마지막 성분 자체가 링크**인 경우는
 # 남아 있었다(8차 판정이 발견, 10차 판정이 완화 두 겹으로 medium 격하하며 INV-12에 문서화).

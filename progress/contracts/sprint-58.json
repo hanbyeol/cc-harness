@@ -103,5 +103,6 @@
     "이 결함이 다른 훅(예: pre-bash-firewall.sh의 integrity_wired())에도 유사 패턴으로 존재하는지는 이번 범위 밖 — 후속 change-request 후보."
   ],
   "_parallelizable": false,
-  "agreed": false
+  "agreed": true,
+  "_agreed_note": "승인 — 2026-08-08, Plan 게이트(ExitPlanMode) 승인."
 }

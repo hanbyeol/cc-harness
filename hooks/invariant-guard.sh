@@ -362,7 +362,12 @@ ci_off() { eval "${_CI_SAVED:-:}" || true; return 0; }
 # 대소문자 무시로 일치하는 실제 철자를 먼저 찾는다.
 if [[ ! -e "$FILE" ]]; then
   if is_protected "$FILE" || is_wiring_file "$FILE"; then
-    __root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
+    # F72: root는 프로세스 cwd가 아니라 $FILE 자신의 위치에서 유도한다 — 실제 질문은
+    # "이 프로세스가 어디서 도는가"가 아니라 "편집 대상이 어느 저장소에 속하는가"다.
+    # 훅 실행 환경(서브에이전트·플러그인 캐시 등)에 따라 cwd가 $FILE의 저장소와 어긋나면
+    # 기존 방식(process cwd 기준 git rev-parse)은 root를 못 찾아 이 실체화 전체를 조용히
+    # 건너뛰어 F68 10차의 삭제-후-재생성 방어를 무력화했다(실측, docs/INVARIANTS.md 참조).
+    __root="${CLAUDE_PROJECT_DIR:-$(git -C "$(dirname -- "$FILE")" rev-parse --show-toplevel 2>/dev/null || echo "")}"
     __root=$(cd "$__root" 2>/dev/null && pwd -P) || __root=""
     if [[ -n "$__root" && "$FILE" == "$__root"/* ]]; then
       __rel="${FILE#"$__root"/}"
@@ -414,7 +419,11 @@ fi
 record_guarded_edit() {
   local rc=$? root rel sha
   [[ $rc -ne 0 ]] && return 0
-  root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || echo "")}"
+  # F72: 위 :370과 같은 이유로 root를 $FILE 자신의 위치에서 유도한다 — 프로세스 cwd 기준
+  # 폴백은 CLAUDE_PROJECT_DIR 미설정 + cwd가 저장소 밖인 조건에서 root를 못 찾아 티켓을
+  # 발급하지 않고, 그러면 protected-integrity.sh가 정당한 편집(예: evaluator의 passes 전환)을
+  # "미승인"으로 보고 되돌렸다(실측, docs/INVARIANTS.md 참조).
+  root="${CLAUDE_PROJECT_DIR:-$(git -C "$(dirname -- "$FILE")" rev-parse --show-toplevel 2>/dev/null || echo "")}"
   [[ -z "$root" || ! -d "$root/progress" ]] && return 0
   # root 도 **물리 경로**로 맞춘다 — `$FILE` 은 canon_file() 이 `pwd -P` 로 정규화했으므로
   # 논리 경로와 비교하면 어긋난다. macOS 에서 `/tmp` 는 `/private/tmp` 의 심볼릭 링크라

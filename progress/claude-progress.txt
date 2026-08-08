@@ -144,3 +144,11 @@
 - 코드 변경은 정확히 한 줄(EXEMPTABLE_ARM_TOKENS에 INTERPRETER_ARM 추가) + 주석 갱신으로 한정. arm_is_exemptable()의 하드 제외(컨트롤 플레인·탐지기 자신·티켓 원장·.claude/·templates/ 리터럴)는 무변경 — 유일하게 남는 방어선
 - tests/pre-bash-firewall.bats의 F67 테스트 24개를 실측 기반으로 재작성(3개 전면 반전을 F71 이름으로, 4개 부분 반전, 2개 수치·배열 재구성, 나머지는 재실행 확인 후 무변경). 1차 bats 전체 실행에서 신규 테스트 1건이 실패 — 원인은 결과가 잘못돼서가 아니라 verdict 문자열을 bare word와 비교한 어서션 버그. 수정 후 재실행 1..233 ok=233 not ok=0
 - 검증: bats 233/233(pre-bash-firewall.bats 전용, 최종 1회), behavioral 프로브 0건. security_tier critical — 승인된 위험을 코드·테스트·문서(INV-14 addendum, ADR-004 Amendment 5) 세 곳에 정합하게 기록해 향후 세션이 이를 '버그'로 오인해 되돌리지 않도록 함
+- F71의 F37 2차 판정: pass, min-of-5 8(1차와 일치, 에스컬레이션 불필요) — feature_list.json F71 passes:true 최종 반영(commit b56a6e3). 1차 판정 시도가 두 번 사라진 원인을 2차 evaluator가 실측으로 규명 — invariant-guard.sh가 승인은 했지만(exit 0) 티켓을 발급 못 해 protected-integrity.sh가 미승인으로 보고 되돌린 것(F72로 분리 처리)
+
+[2026-08-08] Sprint 58 — invariant-guard.sh 저장소 root 해석 fail-open 수정 (F72, 미릴리스, main 직접 커밋)
+- F71 F37 2차 판정 중 발견. invariant-guard.sh의 두 자리(:365 F68 10차 삭제-후-재생성 HEAD 실체화, :414 record_guarded_edit 티켓 발급)가 root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}"(프로세스 cwd 기준)를 쓴다 — CLAUDE_PROJECT_DIR 미설정 + 훅 프로세스 cwd가 저장소 밖이면 root 해석이 실패해 두 로직 모두 조용히 스킵된다
+- 메인 루프가 격리 클론에서 직접 재현: harness-config.json 삭제 후 pass_threshold 7→1 재생성 시도가 cwd 저장소 밖 + CLAUDE_PROJECT_DIR 미설정 조건에서 무프롬프트 통과(exit 0) — F68 10차가 닫은 삭제-후-재생성 우회가 재개방되고 INV-3(임계값 add-only)이 무력화됨을 확인. 초기 보고(evaluator 플래그가 사라지는 부수 문제)보다 심각도가 컸다
+- 수정: 두 자리 모두 root를 프로세스 cwd/환경변수가 아니라 $FILE 자신의 위치에서 유도(git -C "$(dirname -- "$FILE")" rev-parse --show-toplevel). 진짜 저장소 밖 tmpdir(bats 테스트 격리)에서는 기존과 동일하게 스킵되어 설계 의도 보존
+- tests/invariant-guard.bats에 F72 회귀 테스트 3개 추가 — 기존 F68 10차 테스트는 전부 CLAUDE_PROJECT_DIR을 명시적으로 세워 이 축(미설정+cwd 어긋남)을 한 번도 덮지 않았던 갭을 새로 커버. 다른 저장소를 cwd로 쓰는 오귀속 케이스(SC-2)도 별도 고정
+- 검증: 격리 클론 pre/post 재현(수정 전 exit 0 → 수정 후 exit 2, 티켓 0줄 → 1줄), bats tests/invariant-guard.bats 144/144, 하네스 전체 bats 763/763, behavioral 프로브 0건
