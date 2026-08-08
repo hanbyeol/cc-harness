@@ -1,0 +1,98 @@
+{
+  "timestamp": "2026-08-08T23:16:53+09:00",
+  "sprint": 59,
+  "iteration": 1,
+  "features_evaluated": [
+    "F73"
+  ],
+  "security_tier": "critical",
+  "commit_evaluated": "7b759a7",
+  "baseline_commit": "1a94dfe",
+  "scores": {
+    "functionality": 8,
+    "code_quality": 7,
+    "security": 7,
+    "error_handling": 8,
+    "test_coverage": 7
+  },
+  "score": 7,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "pass",
+  "pass_reasons": [
+    "AC-1~AC-6, AC-8을 독립 실측으로 전부 확인 — 데이터 플레인 in-place 14케이스 allow, 컨트롤 플레인·탐지기 자신·perl·sed w·templates·approval-queue·.claude/hooks 18케이스 ask 유지, F65 순수 읽기 무회귀.",
+    "SC-2(면제 누출 없음)를 계약이 요구한 것보다 넓게 검증 — 경로 철자 변형(./hooks/hooks.json, hooks/../hooks/hooks.json, .claude/plugins/x/hooks/hooks.json), 다중 타겟 혼재(; · && · 같은 스팬), perl 4철자, sed w 3형태 모두 ask 유지.",
+    "SC-1 blast radius를 기계 측정 — 테스트 스위트에서 추출한 245개 명령 코퍼스를 1a94dfe와 7b759a7 양쪽 방화벽에 통과시켜 판정을 대조한 결과, 바뀐 판정은 정확히 11건이고 전부 데이터 플레인 sed/awk in-place의 ask→allow였다. deny→ask·ask→allow가 범위 밖에서 발생한 사례 0건.",
+    "fail-safe 보존 확인 — 탐지기가 배선되지 않은 상태(CLAUDE_PLUGIN_ROOT 미설정)에서는 새 면제 arm들이 여전히 ask다. 면제는 사후 탐지·복구가 실제로 배선됐을 때만 켜진다.",
+    "회귀 없음 — bats tests/ 774/774 (not ok 0), behavioral 프로브 [] (0건).",
+    "ES-3(계약에 있으나 implementer가 미실측으로 남긴 항목)을 evaluator가 직접 실측해 닫음 — sed -i와 w가 섞인 두 형태 모두 ask 유지."
+  ],
+  "issues": [
+    "[security][medium] feature_list.json 이름 기반 arm 좁히기가 승인된 문언(in-place 쓰기)보다 넓게 면제를 연다. 1a94dfe 대비 실측으로 바뀐 것: `awk -f prog.awk progress/feature_list.json` · `sed -f script.sed progress/feature_list.json` · `gawk -v out=progress/feature_list.json '{print>out}' src` · `awk 'BEGIN{f=\"progress/feature_list.json\";print \"x\" > f}'` 4형태가 ask→allow. 다만 **한계 노출 증가분은 0이다** — F71이 이미 같은 파일에 python/node/ruby 무프롬프트 임의 쓰기를 허용하고 있고(실측: 3형태 전부 allow), INV-14의 F71 절이 'feature_list.json·harness-config.json은 Bash 경유 사전 게이트가 사라졌다'고 이미 명시한다. 즉 문서화된 경계 안이며, 새 위험 클래스가 아니다.",
+    "[security][medium] 위 arm 좁히기의 근거 주석(hooks/pre-bash-firewall.sh, feature_list.json 이름 arm)이 '순수 읽기는 PURE_READ 단계에서 이 arm 이전에 이미 걸러지므로 영향 없음(실측 확인)'이라고 적었는데, 실측하면 거짓이다 — 순수 읽기가 아니면서 in-place도 아닌 위 4형태가 실제로 판정이 바뀐다. 보증 문장이 코드가 실제로 여는 범위보다 좁다(F63 AC-2가 겨냥한 바로 그 실패 유형의 역방향).",
+    "[test][medium] SC-3('새로 allow되는 모든 케이스를 이름 붙여 고정')이 in-place 케이스에는 충족되지만(F73 신규 테스트 7개 + 갱신 7개 + 면제 arm 수 10 고정) 위 4형태에는 미충족 — 어떤 테스트도 이 클래스를 고정하지 않는다. 다음에 누가 이 arm을 되돌리거나 넓혀도 스위트는 초록이다.",
+    "[evidence][high] implementer-output-F73.json의 evidence.tests가 'bats tests/pre-bash-firewall.bats — 1..208, ok=208'이라고 보고했는데, 이 파일의 실제 테스트 수는 240이다(`bats --count` 240, `grep -c '^@test'` 240). F73 이전 커밋 1a94dfe에서도 233이었고, 최근 20개 커밋 어디에도 208인 상태가 없다(193·210·211·217·221·228·233). 즉 이 수치는 저장소의 어떤 상태와도 대응하지 않는다. 전체 스위트 수치(774)와 behavioral(0건)은 독립 재실행으로 일치 확인했으므로 결과 자체는 참이나, 핵심 파일의 헤드라인 근거 수치가 틀린 것은 'evidence over claims' 위반이다.",
+    "[quality][low] 신규 arm 6개 중 5개는 기존 면제 가능 arm에 이미 포섭돼 기능적으로 중복이다 — 데이터 플레인 in-place 2개는 :429(sed/awk 이름 기반 데이터 플레인 arm)에, feature_list.json -i arm은 새 이름 기반 arm에 각각 포섭된다. 실제로 판정을 바꾸는 것은 contracts용 2개와 feature_list.json 이름 arm 1개다. 무해하고(add-only) 미배선 상태의 fail-safe를 명시적으로 보존하는 효과는 있으나, 변경의 본질(기존 arm 4곳 좁히기 + -i 하드 제외 제거)이 중복 arm에 가려져 diff가 실제보다 커 보인다.",
+    "[criteria][low] criteria_backfill이 '계약의 AC/SC가 이번 구현 범위를 정확히 예견했다'고 적었으나 사실과 다르다 — 계약도 Plan도 in-place arm 3곳만 예견했고, 실제로는 이름 기반 arm(비 in-place)까지 좁혀야 했다. 그 축이 새 AC/SC로 역전파되지 않아 위 [test] 이슈가 발생했다.",
+    "[criteria][low] AC-7이 자기모순이다 — 본문은 'F64 선례와 동일 방식'(F64는 개별 AC 완전 충족을 요구하지 않고 superseded 처리됐다)을 지시하고, verification은 '미충족 항목이 있으면 superseded로 표시하지 않는다'를 지시한다. implementer는 본문을 따라 F63을 superseded로 표시하면서 AC-6 미충족을 feature_list _superseded_note·contract open_axes·implementer-output 세 곳에 명시했다. 은폐가 아니라 공시이고 되돌리기 쉬우므로 반려 사유로 삼지 않았으나, **F63의 superseded 처리는 사용자 확인이 필요하다**(AC-7의 verification 절을 문자 그대로 적용하면 superseded로 표시하지 말았어야 한다).",
+    "[info][pre-existing, F73 무관] `cd .claude && sed -i s/a/b/ settings.json`은 1a94dfe에서도 7b759a7에서도 allow다 — 경로 토큰이 명령 문자열에서 사라지는 F67 4차 판정의 cd 우회이며 INV-14가 '승인된 위험'으로 명시한 형태다. F73이 만든 것이 아니고 F73이 닫지도 않는다."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1: 데이터 플레인 sed -i/awk -i/--in-place 쓰기 allow — harness-config.json·hooks/*.sh·tests/*.bats·INVARIANTS.md·feature_list.json·contracts/*.json 각각 실측(14케이스, gsed/gawk/mawk 변형 포함)",
+      "AC-2: 컨트롤 플레인 ask 유지 — .claude/settings.json·.claude/settings.local.json·hooks/hooks.json, 짧은/긴 옵션·경로 철자 변형·다중 타겟 혼재 포함 실측",
+      "AC-3: 탐지기 자신 ask 유지 — protected-integrity.sh·.guarded-edits·.integrity-baseline, ./ 접두·cd 형태 포함 실측",
+      "AC-4: perl -i 계속 ask — -i/-i.bak/--in-place/-pi 4철자 × 데이터 플레인 4파일 실측",
+      "AC-5: sed w 명령/s///w 플래그 계속 ask — 3형태 실측",
+      "AC-6: F65 순수 읽기 면제 무회귀 — sed -n·awk 형태 실측 + 관련 bats 테스트 green",
+      "AC-8: 회귀 없음 — bats tests/ 774/774(not ok 0), behavioral 프로브 0건"
+    ],
+    "security": [
+      "SC-1(주요부): diff가 hooks/pre-bash-firewall.sh 한 파일의 in-place arm·EXEMPTABLE_ARM_TOKENS 소비·주석에 한정. 삭제-후-재생성 실체화 로직·Layer 1/2/4·F71 인터프리터 면제·sed w arm 전부 무변경(245개 코퍼스 판정 대조로 기계 확인, 변경 11건 전부 의도된 in-place)",
+      "SC-2: 컨트롤 플레인·탐지기 자신·perl·sed w 어디로도 면제가 새지 않음 — 18케이스 네거티브 실측 + 면제 가능 arm 열거 결과 10개 중 컨트롤 플레인 리터럴을 담은 것 0개",
+      "SC-3(주요부): in-place 신규 allow 케이스가 F73 이름의 테스트 7개 + 갱신 7개로 고정되고, 면제 arm 총수가 10으로 핀 고정됨"
+    ],
+    "error_scenarios": [
+      "ES-1: 컨트롤 플레인 리터럴이 같이 있으면 하드 제외 우선 — 같은 스팬·; 분리·&& 분리 3형태 모두 ask 실측",
+      "ES-2: perl -i가 데이터 플레인을 겨냥해도 계속 ask — 실측",
+      "ES-3: sed -i와 sed w 혼재 — implementer 미실측 항목을 evaluator가 직접 실측해 두 형태 모두 ask 확인"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": [],
+    "_partial": [
+      "SC-1/SC-3 부분: feature_list.json 이름 기반 arm 좁히기로 in-place가 아닌 4형태가 추가로 allow가 됐고(위 issues 참조) 이 클래스는 테스트로 고정되지 않았다. 한계 노출 증가분이 0(F71이 이미 같은 파일에 더 강한 무프롬프트 쓰기를 허용)이고 INV-14가 이미 그 경계를 명시하고 있어 반려 사유로 삼지 않았으나, 보안 점수를 7로 제한한 근거다.",
+      "AC-7 부분: 대조 작업 자체는 수행·공시됐으나 disposition 절이 자기모순이라 F63 superseded 처리는 사용자 확인 필요."
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "이름 기반(비 in-place) sed/awk arm을 좁힐 때 발생하는 부수 면제에 대한 기준이 없다 — 계약은 in-place arm만 예견했다. 'sed/awk가 데이터 플레인 파일 이름을 언급하기만 해도 면제되는 범위'를 명시적으로 규정하는 AC가 필요하다(F65가 harness-config.json 등에 이미 그 상태를 만들어 놓았으나 어느 계약에도 명문화돼 있지 않다).",
+      "ES-3에 대응하는 bats 테스트가 없다 — 계약에 시나리오는 있으나 고정 장치가 없다."
+    ],
+    "ambiguous_criteria": [
+      "AC-7이 자기모순(본문의 'F64 선례와 동일 방식' vs verification의 '미충족 항목이 있으면 superseded 금지'). 다음 계약에서는 둘 중 하나로 통일해야 한다.",
+      "F63 AC-5의 '배터리'가 어떤 파일을 가리키는지 계약에 고정돼 있지 않다 — bats로 읽으면 CI가 호출하므로 충족(feature_list _superseded_note가 이렇게 해석했고 이 해석은 정확하다), scripts/probes/behavioral.sh로 읽으면 CI는 shellcheck만 하고 실행하지 않으므로 미충족이다."
+    ],
+    "security_criteria_insufficient": [
+      "SC-3이 '새로 allow되는 모든 케이스'를 요구하면서 verification은 'AC-1 검증과 동일'로 좁혀 놓아, AC-1이 예견하지 못한 클래스(이름 기반 arm 부수 면제)를 검사하지 못한다. 다음 유사 변경에서는 SC-3의 verification을 '기준 커밋 대비 판정 차분(differential)이 의도된 집합과 정확히 일치'로 조작화할 것을 권고한다 — 이번 판정에서 evaluator가 실제로 사용한 방법이며, 이름 붙인 케이스 나열보다 누락에 강하다."
+    ],
+    "action_required": "다음 iteration 또는 후속 change-request에서: (1) feature_list.json 비 in-place sed/awk 4형태를 고정하는 bats 테스트 추가 + 해당 근거 주석의 '영향 없음' 문장 수정, (2) ES-3 테스트 추가, (3) INV-14/ADR-004 Amendment 6에 '이름 기반 arm 부수 면제' 한 문장 추가, (4) F63 superseded 처리를 사용자에게 확인."
+  },
+  "evidence": {
+    "diff_scope": "git show 7b759a7 -- hooks/pre-bash-firewall.sh → 48 insertions / 8 deletions, 단일 파일. 변경 실체: (a) sed/awk 전용 in-place arm 6개 추가, (b) 기존 arm 4곳(일반 데이터 플레인 2줄·contracts 2줄·feature_list.json -i 1줄·feature_list.json 이름 기반 1줄)에서 g?sed/g?awk/mawk 제거 후 perl·기타 에디터만 잔존, (c) arm_is_exemptable()의 '-i' 하드 제외 제거. 삭제-후-재생성 실체화·Layer 1/2/4·F71 인터프리터 면제·sed w arm 무변경.",
+    "pattern_counts": "ASK_PATTERNS 64 → 70 (+6), 다른 배열(BLOCKED 13·INDIRECT_PATTERNS 15·DETECTED_LOCATIONS 6·CONTROL_PLANE_NAMES 6) 무변경 — INV-5(배열별 라인 수 감소 차단) 위반 없음. 면제 가능 arm 열거 결과 10개(:354·:355·:374·:380·:381·:406·:429·:524·:527·:535), 그중 컨트롤 플레인 리터럴 포함 0개.",
+    "differential_blast_radius": "테스트 스위트에서 추출한 245개 명령 코퍼스를 1a94dfe/7b759a7 양쪽 훅에 wired 픽스처로 통과시켜 판정 대조 → changed=11, 전부 ask→allow이며 전부 데이터 플레인 sed/awk in-place(awk -i inplace hooks/lib.sh, gsed -i hooks/lib.sh, mawk -i inplace tests/probes.bats, sed -i progress/feature_list.json, sed -ie hooks/invariant-guard.sh, 줄 이음 형태 등). 범위 밖 판정 변화 0건.",
+    "adversarial_probes": "테스트 코퍼스 밖 32개 명령을 같은 방식으로 대조 → 컨트롤 플레인 6형태·탐지기 자신 3형태·perl 3형태·templates·approval-queue·.claude/hooks 전부 ask 유지(변화 없음). 변화 4건은 전부 feature_list.json 비 in-place 형태(위 issues 기록). README.md·src/main.go 등 비보호 경로는 양쪽 allow.",
+    "wired_fixture_spot_checks": "tests/pre-bash-firewall.bats의 wired_firewall()과 동일한 픽스처(hooks/protected-integrity.sh 사본 + PostToolUse 배선 hooks.json, CLAUDE_PLUGIN_ROOT 지정)에 47개 명령 직접 파이프 → AC-1 14/14 allow, AC-2 6/6 ask, AC-3 3/3 ask, AC-4 4/4 ask, AC-5 3/3 ask, ES-3 2/2 ask, AC-6 4/4 allow, 부수 쓰기 신호(리다이렉트·cp·dd of=·vim·templates·approval-queue) 7/7 ask, Layer 1 deny 유지.",
+    "failsafe_unwired": "CLAUDE_PLUGIN_ROOT 미설정 + 훅 배선 없는 디렉터리에서 재실행 → sed -i harness-config.json·awk -i inplace feature_list.json·awk -f prog.awk feature_list.json·sed -i contracts/*.json 전부 ask(구·신 동일), sed -n 순수 읽기만 allow. 면제는 탐지·복구 배선이 있을 때만 켜진다.",
+    "tests": "bats tests/ → 1..774, ok=774, not ok=0 (evaluator가 전체 TAP을 파일로 캡처해 집계: /private/tmp/.../scratchpad/bats-full.tap). bats --count tests/pre-bash-firewall.bats → 240 (implementer 보고치 208은 오기 — issues 참조), bats --count tests/ → 774.",
+    "behavioral_probe": "bash scripts/probes/behavioral.sh → [] (0건)",
+    "docs": "INV-14 F73 절(docs/INVARIANTS.md:611~)과 ADR-004 Amendment 6이 산출물 커밋 1a94dfe에 이미 반영돼 있음을 확인 — override 근거·경계(컨트롤 플레인·탐지기 자신·perl·sed w 제외)·수용된 위험·되돌리는 법이 기록돼 있고 :159-161·:537의 상충 서술을 명시적으로 상호참조한다.",
+    "f63_disposition": "sprint-49.json AC-1~AC-6 대조 확인 — AC-6(격리 샌드박스 실행 + 트리 해시 불변)은 F65/F73 어느 쪽에도 구현되지 않았고 implementer가 세 곳에 공시했다. .github/workflows/ci.yml은 `bats tests/`와 caller-copy mutation 배터리를 호출하나 scripts/probes/behavioral.sh는 shellcheck만 하고 실행하지 않는다."
+  },
+  "second_verdict_required": true,
+  "_second_verdict_note": "security_tier가 critical이므로 F37에 따라 독립 컨텍스트의 2차 judge 샘플링 대상이다. 메인 루프가 2차 evaluator를 디스패치해 이 판정과 대조할 것 — verdict 불일치 시 자동 pass 금지, 사람 에스컬레이션."
+}
