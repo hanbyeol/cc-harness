@@ -22,8 +22,8 @@
     },
     {
       "id": "AC-3",
-      "criterion": "F67이 실증한 cd 우회(`cd .claude && python3 -c \"open('hooks/lib.sh','w')\"`)가 수정 후 allow를 방출한다 — 이것은 발견되지 않은 결함이 아니라 사용자가 명시적으로 수용한 위험이므로, 회귀 테스트가 이 결과를 **의도된 것으로 고정**한다(향후 이 결과가 바뀌면 그 자체가 회귀로 잡혀야 한다).",
-      "verification": "해당 명령이 allow를 방출하는지 실측 + 그 사실을 고정하는 bats 테스트에 F71/사용자 override를 가리키는 주석이 있는지 확인(우연한 통과와 승인된 위험을 코드 리뷰에서 구분 가능해야 한다)."
+      "criterion": "[Plan 단계 확인 후 보강] `arm_is_exemptable()`은 경로의 git 추적 여부·신규 파일 여부·대소문자를 보지 않으므로, 하드 제외 리터럴에 걸리지 않는 인터프리터 명령은 예외 없이 전부 allow가 된다. 이는 F67이 마지막으로 반려된 '경로 제한 버전'이 아니라 **F67의 최초 무제한 버전**으로 돌아가는 것이며, 최소 아래 네 클래스를 모두 포함한다: (1) cd 우회(`cd .claude && python3 -c \"open('hooks/lib.sh','w')\"`), (2) **미추적 신규 파일**(`python3 -c \"open('hooks/newfile.sh','w').write(evil)\"` — 사후 탐지는 git HEAD 열거라 새 파일은 사전 예측도 사후 탐지도 전혀 없다), (3) 접미사/대소문자 변형(`progress/feature_list.json.bak` 등), (4) 데이터 플레인 파일의 순수 읽기(`python3 -c \"json.load(open('progress/feature_list.json'))\"`). 넷 다 발견되지 않은 결함이 아니라 사용자가 명시적으로 수용한 위험이므로, 회귀 테스트가 각각을 **의도된 것으로 고정**한다.",
+      "verification": "네 클래스 각각 대표 명령이 allow를 방출하는지 실측 + 그 사실을 고정하는 bats 테스트에 F71/사용자 override를 가리키는 주석이 있는지 확인(우연한 통과와 승인된 위험을 코드 리뷰에서 구분 가능해야 한다)."
     },
     {
       "id": "AC-4",
@@ -120,5 +120,6 @@
     "cd 우회를 이후에 막고 싶어지면 F71을 되돌리는 것이 아니라 새로운 change-request로 다룬다(이번 override는 '막지 않기'가 명시적 결정이므로, 되돌리려면 같은 무게의 명시적 재승인이 필요하다)."
   ],
   "_parallelizable": false,
-  "agreed": false
+  "agreed": true,
+  "_agreed_note": "승인 — 2026-08-08, Plan 게이트(ExitPlanMode) 승인. Plan 단계에서 파급 범위가 cd 우회 하나가 아니라 미추적 신규 파일·접미사 변형·순수 읽기까지 포함함을 재확인해 AC-3에 반영한 뒤 승인됨."
 }

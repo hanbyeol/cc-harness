@@ -135,3 +135,12 @@
 - AC-6을 Plan 게이트에서 수정했다. 원래 'F56·F57·F58 무오탐'이었으나 프로브가 baseline에서 자기를 제외하므로 F56의 q7·s7은 나머지 16건에서 0건인 유일 사례다. evaluator 검증: F56까지 없애는 임계는 존재하지 않으며(0건을 통과시키려면 임계 0 → 아무것도 못 잡음) 원래 문구는 달성 자체가 탐지력 전멸과 동치였다
 - evaluator가 실제 결함을 찾았다 — 입력 61건 중 51건이 gitignore된 archive/에 있어 clean clone에서 실행하면 코퍼스가 11건으로 축소되고 critical 표본이 4건이 되어 N게이트 아래로 떨어진다. AC-1의 '2회 실행 바이트 동일'로는 드러나지 않는 구멍. 재현 확인 후 축소 방지 가드 + tests/golden-set.bats 6건 추가
 - 검증: bats 623/623, shellcheck 클린, 독립 evaluator pass(min-of-5=7). ES-3(skip 사실 노출)은 미구현 — 프로브에 skip 보고 채널이 없어 부분 충족으로 처리되고 error_handling 7에 반영됐다
+
+[2026-08-08] Sprint 57 — 인터프리터 ASK 면제 재도입, F67 철회를 사용자 override로 뒤집는다 (F71, 미릴리스, main 직접 커밋)
+- 사용자가 python -c/node -e 인라인 실행의 ASK 마찰 제거를 요청. change-request 착수 즉시 확인한 결과 동일 변경이 F67에서 독립 판정 다섯 회전 연속 반려 끝에 2026-08-02 철회된 것과 정확히 같았다(docs/INVARIANTS.md INV-14) — 반려 근거는 F63의 '명령 문자열로 실제 대상 확정은 결정 불가능', 마지막 실증된 우회는 `cd .claude && python3 -c "open('hooks/lib.sh','w')"`(gitignore 대상 설치본 훅 덮어쓰기, HEAD 기반 사후 복구 불가)
+- 이 철회 이력과 우회 사례를 코드 수정 전 사용자에게 두 차례 AskUserQuestion으로 고지했다 — (1) 재도입 여부 자체, (2) 은퇴된 cd/chdir 최소 가드 부활 여부. 두 차례 모두 '안전장치 없는 전면 면제'를 명시적으로 선택
+- Plan 단계에서 tests/pre-bash-firewall.bats의 F67 회귀 테스트 전문을 재검토해 실제 파급 범위가 change-request에서 예시로 든 cd 우회 하나보다 훨씬 넓음을 재확인했다 — arm_is_exemptable()은 git 추적 여부·신규 파일 여부·대소문자를 전혀 보지 않으므로, 미추적 신규 hooks/*.sh 파일 생성(사전 예측도 사후 탐지도 전무)·접미사/대소문자 변형·데이터 플레인 순수 읽기까지 전부 무조건 allow가 된다. 이는 F67의 '마지막 반려 상태'가 아니라 '최초 무제한 버전'으로의 회귀다. 이 확장된 범위를 Plan(ExitPlanMode)에서 다시 제시해 최종 승인을 받고 sprint-57.json AC-3을 그 범위로 넓힌 뒤 구현 착수
+- **모든 allow/ask 전환 주장을 이론이 아니라 실측으로 확정했다.** 이 과정에서 초기 가정 두 개가 틀렸음을 실측이 드러냈다 — (1) 면제 arm 수는 이론상 2가 아니라 4(하나의 토큰이 ASK_PATTERNS 안 여러 arm에 걸쳐 매칭), (2) cwd-detour 코퍼스 8건 중 2건은 인터프리터 면제와 무관하게 main에서 이미 allow였다(세미콜론이 -c 인자 안에서 스팬을 끊는 기존 갭, hooks/ 접두 없는 단독 파일명 표기가 패턴 밖인 기존 갭) — 이 둘을 F71이 새로 연 것으로 잘못 단언할 뻔한 것을 실행으로 잡았다
+- 코드 변경은 정확히 한 줄(EXEMPTABLE_ARM_TOKENS에 INTERPRETER_ARM 추가) + 주석 갱신으로 한정. arm_is_exemptable()의 하드 제외(컨트롤 플레인·탐지기 자신·티켓 원장·.claude/·templates/ 리터럴)는 무변경 — 유일하게 남는 방어선
+- tests/pre-bash-firewall.bats의 F67 테스트 24개를 실측 기반으로 재작성(3개 전면 반전을 F71 이름으로, 4개 부분 반전, 2개 수치·배열 재구성, 나머지는 재실행 확인 후 무변경). 1차 bats 전체 실행에서 신규 테스트 1건이 실패 — 원인은 결과가 잘못돼서가 아니라 verdict 문자열을 bare word와 비교한 어서션 버그. 수정 후 재실행 1..233 ok=233 not ok=0
+- 검증: bats 233/233(pre-bash-firewall.bats 전용, 최종 1회), behavioral 프로브 0건. security_tier critical — 승인된 위험을 코드·테스트·문서(INV-14 addendum, ADR-004 Amendment 5) 세 곳에 정합하게 기록해 향후 세션이 이를 '버그'로 오인해 되돌리지 않도록 함

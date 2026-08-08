@@ -1,0 +1,74 @@
+{
+  "feature_id": "F71",
+  "sprint": 57,
+  "title": "인터프리터 ASK 면제 재도입 — F67 철회를 사용자 override로 뒤집는다",
+  "security_tier": "critical",
+  "timestamp": "2026-08-08T09:10:00+0900",
+  "iteration": 1,
+  "mode": "serial",
+  "_mode_note": "같은 두 파일(hooks/pre-bash-firewall.sh, tests/pre-bash-firewall.bats)을 순서대로 건드리는 단일 체인이라 병렬 분할 대상이 아니다(Sprint Contract _parallelizable:false).",
+  "base_commit": "f442997",
+  "input": "change-request 단계에서 사용자가 두 차례 명시적으로 선택한 override — (1) F67 철회를 뒤집고 인터프리터 면제 재도입, (2) cd/chdir 최소 가드 없이 안전장치 없는 전면 면제. Plan 게이트(ExitPlanMode)에서 파급 범위(cd 우회뿐 아니라 미추적 신규 파일·접미사 변형·순수 읽기까지)를 재확인 후 승인받음.",
+  "summary": "hooks/pre-bash-firewall.sh의 EXEMPTABLE_ARM_TOKENS에 INTERPRETER_ARM을 재편입했다. arm_is_exemptable()의 하드 제외(컨트롤 플레인 hooks.json/settings* · in-place -i · 탐지기 자신 protected-integrity/guarded-edits/integrity-baseline · 티켓 원장 approval-queue · 패턴 리터럴 .claude/·templates/)는 변경하지 않았다 — 이것이 유일하게 남는 방어선이다. 은퇴된 exempt_paths_are_detected()/DETECTED_LOCATIONS는 그대로 은퇴 상태로 두었다(사용자가 부활을 명시적으로 거부). tests/pre-bash-firewall.bats의 F67 회귀 테스트 24개를 실제 스크립트 실행 결과(추정 아님)로 재작성했다 — 3개는 F71 이름으로 전면 반전, 4개는 부분 반전(하드 제외 케이스만 유지), 2개는 실측 기반 수치·배열 재구성(exempt count 1→4, main-diff 코퍼스의 INTENDED/SAME 재분류), 나머지는 실행으로 확인 후 무변경.",
+  "features_implemented": [],
+  "_features_note": "F71의 passes는 evaluator만 바꾼다. feature_list.json의 F71은 passes:false / status:pending 그대로 두었다.",
+  "files_changed": [
+    "hooks/pre-bash-firewall.sh",
+    "tests/pre-bash-firewall.bats",
+    "progress/contracts/sprint-57.json"
+  ],
+  "sprint_contract_change": "Plan 승인 직후 AC-3을 'cd 우회 하나'에서 실제 파급 범위 네 클래스(cd 우회·미추적 신규 파일·접미사 변형·순수 읽기)로 넓히고 agreed:true로 전환(_agreed_note 기록).",
+  "tests_added_or_rewritten": [
+    "tests/pre-bash-firewall.bats :: F71: an interpreter touching a data-plane file is exempted (F67 override) — 전면 반전",
+    "tests/pre-bash-firewall.bats :: F71: the newline/semicolon asymmetry collapses under blanket exemption — 전면 반전",
+    "tests/pre-bash-firewall.bats :: F71: interpreter writes to data-plane files are exempted, except the .claude/ literal (accepted risk, named) — 부분 반전(.claude/ 하드 제외만 ask 유지)",
+    "tests/pre-bash-firewall.bats :: F67: the exemption result set is pinned, not just the token list — 실측 기반 수치 갱신(exempt: 1→4)",
+    "tests/pre-bash-firewall.bats :: F67: the decision function matches main outside the intended change — INTENDED 배열을 실측 6건으로 채움, SAME에서 이관",
+    "tests/pre-bash-firewall.bats :: F71: the retired path check stays unconsulted — but the outcome flips (override, not a revival) — 부분 반전",
+    "tests/pre-bash-firewall.bats :: F71: suffix variants are exempted — the class the judgments kept reopening, now by design — 전면 반전",
+    "tests/pre-bash-firewall.bats :: F71: untracked files under a protected glob are exempted too — no prediction, no detection (accepted risk) — 전면 반전",
+    "tests/pre-bash-firewall.bats :: F67: the arm exclusions hold against a plausible arm split (not dead code) — 단일 단언 반전",
+    "tests/pre-bash-firewall.bats :: F71: the cwd-detour class is now allowed by design — no longer identical to main — 재구성(F71로 새로 열리는 6건 vs main에 원래 있던 무관한 갭 2건 분리)",
+    "tests/pre-bash-firewall.bats :: load_firewall_fns() 주석/하한 갱신(면제 토큰 수 1→2)"
+  ],
+  "what_changed": {
+    "core_edit": "EXEMPTABLE_ARM_TOKENS=(\"$READ_CAPABLE_ARM\") → EXEMPTABLE_ARM_TOKENS=(\"$READ_CAPABLE_ARM\" \"$INTERPRETER_ARM\"), 주변 주석을 F67 철회 역사 + F71 override 근거로 갱신.",
+    "unchanged_by_design": "arm_is_exemptable()의 하드 제외 목록, Layer 1/2 deny, Layer 4 default-allow, integrity_wired()/DATA_PLANE_DETECTED 게이팅 — 전부 무변경. 인터프리터 면제도 sed/awk와 마찬가지로 탐지가 실제로 배선돼 있을 때만 발동한다(fail-safe 유지, 테스트로 확인)."
+  },
+  "empirical_verification_method": "Plan 단계에서 '이론으로 추정하지 않는다'는 원칙을 세웠다 — 모든 allow/ask 전환 주장은 실제로 수정된 hooks/pre-bash-firewall.sh를 wired 픽스처로 실행해 결과를 확인한 뒤 테스트에 반영했다. 이 과정에서 초기 가정 두 개가 틀렸음을 실측으로 발견해 정정했다: (1) exempt count는 이론상 2일 것으로 예상했으나 실제로는 4(ASK_PATTERNS 안에서 INTERPRETER_ARM 토큰이 여러 arm에 걸쳐 매칭됨), (2) cwd-detour 코퍼스 8건 중 2건(os.chdir을 세미콜론으로 이은 형태, hooks/ 접두 없는 lib.sh 단독 표기)은 main에서 이미 인터프리터 면제와 무관하게 allow였다 — F71이 새로 연 것이 아니라 기존 갭이므로 INTENDED가 아니라 SAME 성격의 별도 그룹으로 분리했다.",
+  "security_self_check": {
+    "checklist_items": 4,
+    "checklist_passed": 4,
+    "notes": "SC-1(diff가 EXEMPTABLE_ARM_TOKENS 배열·주석·bats·contract 외 영역을 안 건드림) — git diff --stat으로 확인, hooks/pre-bash-firewall.sh의 diff가 정확히 그 블록에 한정됨. SC-2(INTERPRETER_ARM 정규식이 F67 원안과 동일) — '(python3?|node|nodejs|ruby|perl|php|lua)' 문자열 무변경 확인. SC-3(승인된 위험이 테스트에 명시적으로 이름 붙어 고정됨) — 위 tests_added_or_rewritten 전부 F71/override를 이름 또는 주석에 명시. harness-config.json 무변경."
+  },
+  "error_scenarios_tested": [
+    "ES-1: INTERPRETER_ARM + .claude/ 또는 templates/ 리터럴 → ask 유지 (실측)",
+    "ES-2: INTERPRETER_ARM에 없는 도구(deno 등)는 영향 없음 — 코드 diff가 정규식 자체를 안 건드려 자명, 별도 실측 생략",
+    "ES-3: sed/awk와 인터프리터 혼재 시 arm 경계 무변경 — 기존 F67 arm-split 테스트가 그대로 green으로 확인"
+  ],
+  "evidence": {
+    "manual_smoke": "12개 대표 명령을 wired 픽스처에 직접 파이프해 확인 — 순수 읽기/컨트롤플레인/settings/cd우회/미추적파일/접미사변형/.claude리터럴/templates리터럴/approval-queue/sed-awk대조/dist경로/대소문자변형 전부 계획대로.",
+    "main_diff_corpus": "scratchpad/diff_main.sh로 main 체크아웃 대비 27개 코퍼스 전체를 실행 — DIFF 6건(cd우회 계열)·same 21건, 이론적 예상과 실측이 정확히 일치.",
+    "cwd_detour_corpus": "8건 cwd-detour 코퍼스 개별 실행 — 6건 DIFF(main=ask, branch=allow), 2건은 main에서 이미 allow(F71과 무관한 기존 갭, 실측으로 발견해 테스트 로직에 반영).",
+    "bug_found_and_fixed_during_verification": "첫 bats 전체 실행에서 신규 작성한 cwd-detour 테스트 1건이 실패 — 원인은 verdict_of() 헬퍼가 `\"permissionDecision\": \"ask\"` 형태의 전체 JSON 조각을 반환하는데 신규 어서션이 `[ \"$m\" = ask ]`로 bare word와 비교해 항상 거짓이 되는 버그(로직 오류가 아니라 실제로는 기대한 대로 main=ask/branch=allow였음). `[[ \"$m\" == *'\"ask\"'* ]]` 형태로 수정 후 재실행.",
+    "tests": "bats tests/pre-bash-firewall.bats — 1..233, ok=233 / not ok=0, exit=0. 최종 트리 1회 실행(수정→재실행 1회 포함, 그 결과로 판정).",
+    "behavioral_probe": "bash scripts/probes/behavioral.sh → [] (0건)",
+    "lint": "shellcheck 미설치 — 실행하지 못했다. 셸 문법·동작은 위 233건 bats 실행으로 확인."
+  },
+  "criteria_backfill": {
+    "acceptance_criteria_added": [],
+    "security_criteria_added": [],
+    "error_scenarios_added": [],
+    "spec_updated": false,
+    "security_checklist_updated": false,
+    "reason": "구현 중 발견한 갭(exempt count 실측치·cwd-detour 코퍼스의 기존 무관 갭)은 acceptance_criteria/security_criteria의 새 축이 아니라 AC-3·AC-5의 검증 방법 안에서 이미 예견된 '실측으로 확정' 지시를 따른 결과다. 계약의 기준 자체를 바꿀 필요는 없었다 — 이미 change-request 단계에서 Plan 재검토로 AC-3을 넓혀 뒀다."
+  },
+  "residual_risk": [
+    "**미추적 신규 파일**: hooks/*.sh 형태의 새 파일을 인터프리터로 생성하면 사전 예측도 사후 탐지(git HEAD 열거 기반)도 없다 — F71 override의 승인된 위험 중 가장 넓은 축. 사용자가 명시적으로 수용했다.",
+    "**cd/chdir 간접화**: 표기와 실제 쓰기 대상이 갈리는 모든 형태(cd·pushd·중첩 디렉터리)가 열려 있다. 막을 수 있는 최소 가드(retired exempt_paths_are_detected의 cd 탐지 줄)를 부활시키지 않기로 사용자가 두 번째로 확인했다.",
+    "**개행 파싱 갭 자체는 안 고쳐짐**: '뉴라인 오버파이어' 테스트가 확인하듯 정규화가 개행을 공백으로 접는 문제는 F67 이전부터 있던 별개의 알려진 한계다(docs/INVARIANTS.md 참조) — F71은 이 갭을 인터프리터 축에서 관측 불가능하게 만들 뿐 고치지 않는다.",
+    "**INTERPRETER_ARM 목록 확장 미검토**: deno·bun 등 새 인터프리터를 목록에 추가할지는 이번 범위 밖(sprint-57.json open_axes)."
+  ],
+  "self_notes": "이 기능은 버그 수정이나 신규 기능이 아니라 **의도적으로 보안 경계를 축소하는 사용자 override**다. 구현자로서 한 일은 그 결정을 정확하게, 숨김없이, 실측으로 코드·테스트·문서 세 곳에 정합하게 반영하는 것이었다 — 판단을 대신 내리거나 몰래 안전장치를 끼워 넣지 않았다(Plan 단계에서 그 유혹을 사용자에게 명시적으로 확인받았고 거부됨). 다음 세션이나 evaluator가 이걸 '고쳐야 할 버그'로 오인하지 않도록 모든 반전 테스트에 F71/override 참조를 이름·주석에 남겼다.",
+  "ready_for": "evaluation"
+}
