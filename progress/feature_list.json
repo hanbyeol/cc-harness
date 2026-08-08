@@ -974,16 +974,18 @@
       "name": "sed/awk in-place(-i/--in-place) 쓰기까지 ASK 면제 확대 — F63 완료 처리 겸용",
       "description": "[2026-08-08, 사용자 요청] F65는 sed/awk의 **순수 읽기**(sed -n·awk '{print}' 등, -i·w·리다이렉트 부재로 읽기가 구문으로 확정되는 형태)만 데이터 플레인에서 ASK 면제했다(`READ_CAPABLE_ARM`, INV-14). 이번 요청은 그보다 넓다 — **in-place 쓰기(sed -i·awk -i/--in-place)까지** 같은 데이터 플레인 파일(`harness-config.json`·`hooks/*.sh`·`tests/*.bats`·`INVARIANTS.md`·`feature_list.json`·`progress/contracts/*.json`)에 대해 무프롬프트로 통과시켜 달라는 것이다. 메인 루프가 이것이 F71(인터프리터 ASK 면제)과 같은 무게의 결정임을 고지했고(쓰기 신호가 명령에 드러나는 arm은 지금까지 절대 면제하지 않는다는 원칙 — `arm_is_exemptable()`의 `-i` 하드 제외, `:191-193` — 을 정면으로 뒤집는 것), 사용자가 명시적으로 확인했다: \"쓰기까지 모두 — sed -i/awk -i inplace도 무프롬프트로\". **컨트롤 플레인(`.claude/settings*.json`·`hooks/hooks.json`)과 탐지기 자신(`protected-integrity.sh`·`.guarded-edits`·`.integrity-baseline`)은 이번 요청 범위 밖이며 기존 하드 제외를 그대로 유지한다** — 사후 탐지·복구가 없는 자리이기 때문(F71과 동일 경계). **기술적 난점(Plan 단계에서 정밀 설계 필요)**: 현재 in-place 전용 ASK arm(`hooks/pre-bash-firewall.sh:330-331` 데이터 플레인용, `:351-352` contracts/*.json용, `:491` feature_list.json용)의 도구 목록이 `(g?sed|perl|g?awk|mawk)`로 `READ_CAPABLE_ARM`(`(g?sed|g?awk|mawm)` — perl 미포함) 토큰과 리터럴 문자열이 다르다 — `arm_is_exemptable()`의 부분일치 판정(`[[ \"$p\" == *\"$tok\"* ]]`)이 통과하려면 단순히 `-i` 하드 제외만 지워선 안 되고, **sed/awk 전용 arm과 perl 전용 arm으로 분리**(perl은 계속 ask — READ_CAPABLE_ARM에 없으므로 이번 확대 대상 아님)하는 재구성이 필요하다. 또한 `:330-331`의 데이터 플레인 arm은 타겟 목록에 `.claude/settings(\\.local)?\\.json`(컨트롤 플레인)이 **같은 패턴에 섞여** 있으므로, 컨트롤 플레인 타겟을 별도 arm으로 분리해야 데이터 플레인만 안전하게 면제할 수 있다(F67이 INTERPRETER_ARM을 평면별로 쪼갠 것과 동일 패턴). `sed w`/`s///w`(파일명이 플래그 뒤에 오는 별도 쓰기 형태, `:335`)는 사용자가 명시하지 않았으므로 이번 범위에 포함하지 않는다 — 계속 ask. **F63과의 관계**: F63(sprint-49.json, agreed:false)의 원 목표(sed/awk 읽기 과탐 제거)는 F65가 이미 충족했다. 이 기능이 완료되면 F63의 잔여 목표(쓰기까지 포함한 완전한 과탐 제거)도 흡수되므로, F73 완료 후 F63을 F64와 같은 방식으로 `superseded` 처리한다(새 구현 불필요, 대조만).",
       "security_tier": "critical",
-      "status": "pending",
-      "passes": false,
-      "iteration": 0,
+      "status": "done",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [
         "F65",
         "F71",
         "F63"
       ],
       "assigned_sprint": 59,
-      "_user_override_2026_08_08": "메인 루프가 F71과 같은 무게의 보안 경계 축소임을 고지(쓰기 신호가 드러나는 arm은 지금까지 면제한 적 없음)한 뒤 AskUserQuestion으로 범위를 확인 — 사용자가 '쓰기까지 모두 — sed -i/awk -i inplace도 무프롬프트로'를 명시적으로 선택."
+      "_user_override_2026_08_08": "메인 루프가 F71과 같은 무게의 보안 경계 축소임을 고지(쓰기 신호가 드러나는 arm은 지금까지 면제한 적 없음)한 뒤 AskUserQuestion으로 범위를 확인 — 사용자가 '쓰기까지 모두 — sed -i/awk -i inplace도 무프롬프트로'를 명시적으로 선택.",
+      "_evaluator_verdict_2026_08_08": "pass (min-of-5 = 7, 기능 8·품질 7·보안 7·에러 8·테스트 7) — progress/agent-comms/evaluator-feedback-2026-08-08T23-16-53+0900.json. 근거: 245개 명령 코퍼스를 1a94dfe/7b759a7 양쪽 방화벽에 통과시킨 판정 차분이 정확히 11건이고 전부 의도된 데이터 플레인 sed/awk in-place ask→allow, 범위 밖 변화 0건. 컨트롤 플레인·탐지기 자신·perl·sed w는 경로 철자 변형·다중 타겟 혼재까지 포함해 18케이스 ask 유지. 미배선 상태 fail-safe 보존. bats tests/ 774/774, behavioral 0건. **잔여(후속 필요)**: feature_list.json 이름 기반 arm 좁히기로 in-place가 아닌 4형태(awk -f·sed -f·awk 변수 간접 리다이렉트)가 함께 allow가 됐고 테스트로 고정되지 않았다 — F71이 같은 파일에 이미 더 강한 무프롬프트 쓰기를 허용하므로 한계 노출 증가분은 0이나, 근거 주석의 '영향 없음' 문장은 사실과 다르다. F63의 superseded 처리는 AC-7 자기모순으로 사용자 확인 필요.",
+      "_second_verdict_pending": "security_tier critical — F37에 따라 독립 컨텍스트 2차 judge 대조 필요(불일치 시 자동 pass 금지)."
     },
     {
       "id": "F71",
