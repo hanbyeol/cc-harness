@@ -1,0 +1,138 @@
+{
+  "sprint": 60,
+  "title": "git push --force · reset --hard · clean -f · checkout --force ASK/BLOCKED 제거 — 사용자 override",
+  "feature_id": "F74",
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "dependencies": [],
+  "problem": "사용자가 'git bypass'를 요청했다. 조사 결과 hooks/pre-bash-firewall.sh에서 걸리는 것은 4개 서브커맨드다 — 'git push --force'(BLOCKED, Layer 1, :92), 'git reset --hard'(ASK, Layer 3, :312), 'git clean -f'(ASK, :313), 'git checkout --force'(ASK, :314). 메인 루프가 3라운드에 걸쳐 범위·무게·정확한 레이어(특히 push --force가 ASK가 아니라 BLOCKED라는 점)를 고지했고, 사용자가 매번 명시적으로 위험을 수용하며 4개 전부(deny→allow 포함)를 확인했다. F71/F73과의 결정적 차이: 그 두 기능은 예외를 줘도 protected-integrity.sh의 사후 탐지·복구가 남았지만(INV-14), 이 4개 git 명령은 그 모델 밖이다 — INV-14 자신이 ':550 되돌릴 수 없는 것(Layer 1·2의 파괴적 명령...): 사후 복구가 성립하지 않는다'고 이미 명시한다. 유일하게 남는 완충은 git reflog(reset --hard·push --force의 일부 사례, GC·시간에 취약)뿐이며 clean -f·checkout --force가 지우는 미커밋 변경은 그조차 없다 — 이 변경은 이 4개 명령에 대해 하네스가 가진 유일한 방어(사전 차단)를 제거한다.",
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "'git push --force ...' 및 'git push origin main --force' 가 permissionDecision:allow를 방출한다(수정 전 BLOCKED/exit 2).",
+      "verification": "wired 픽스처에서 두 형태 모두 실측."
+    },
+    {
+      "id": "AC-2",
+      "criterion": "'git reset --hard HEAD~1' 이 allow를 방출한다(수정 전 ask).",
+      "verification": "wired 픽스처 실측."
+    },
+    {
+      "id": "AC-3",
+      "criterion": "'git clean -fd'(및 -f를 포함하는 결합 단축옵션 일반)가 allow를 방출한다(수정 전 ask).",
+      "verification": "wired 픽스처 실측 — 기존 패턴이 잡던 표기(-f·-fd·-fx 등) 대표 케이스."
+    },
+    {
+      "id": "AC-4",
+      "criterion": "'git checkout --force main' 이 allow를 방출한다(수정 전 ask).",
+      "verification": "wired 픽스처 실측."
+    },
+    {
+      "id": "AC-5",
+      "criterion": "미배선(fail-safe 무관) 상태에서도 위 4개가 allow다 — 이 4개는 애초에 탐지·복구 배선 여부와 무관한 BLOCKED/ASK_PATTERNS 표준 매치이므로 배선 상태가 결과에 영향을 주지 않는다(F73류의 배선-의존 예외 메커니즘과 무관함을 확인).",
+      "verification": "CLAUDE_PLUGIN_ROOT 미설정 상태에서 4개 모두 재실측."
+    },
+    {
+      "id": "AC-6",
+      "criterion": "이번 변경의 blast radius가 정확히 이 4개 패턴/명령으로 한정된다 — 다른 BLOCKED·INDIRECT_PATTERNS·ASK_PATTERNS 판정은 무변화.",
+      "verification": "변경 전/후 방화벽에 동일 코퍼스(최소 F73 round-2가 쓴 수준 규모)를 통과시켜 판정 차분을 내고, 차분이 정확히 이 4개 명령 계열(및 그 표기 변형)에만 있는지 확인 — 열거가 아니라 차분으로 확인한다(F73 F37 2차가 남긴 방법론 교훈, evals/calibration/false-positives.json 참조)."
+    },
+    {
+      "id": "AC-7",
+      "criterion": "'git push --force-with-lease'·'git push (force 없이)'는 기존과 동일하게 allow — 무변화.",
+      "verification": "두 케이스 회귀 재실측(기존 테스트에 이미 있음)."
+    },
+    {
+      "id": "AC-8",
+      "criterion": "INV-5(BLOCKED·ASK_PATTERNS는 배열별/전체 라인 수 add-only)를 위반하지 않는다 — 4개 라인의 패턴 텍스트만 교체하고 라인 자체는 삭제하지 않는다.",
+      "verification": "git diff로 BLOCKED·ASK_PATTERNS 배열의 라인 수가 변경 전후 동일함을 확인(invariant-guard.sh의 count_array 로직과 동일한 방식으로 셀 것) — 커밋 시 invariant-guard PreToolUse 훅 자체가 최종 게이트."
+    },
+    {
+      "id": "AC-9",
+      "criterion": "회귀 없음.",
+      "verification": "tests/pre-bash-firewall.bats 전체 1회(재실행 금지) + 하네스 전체 bats 1회 + behavioral 프로브 0건."
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "제거되는 4개 패턴 외에 어떤 BLOCKED·INDIRECT_PATTERNS·ASK_PATTERNS 항목도 텍스트가 바뀌지 않는다 — F73의 SC-1과 동일 원칙(승인 범위를 정확히 한정).",
+      "rationale": "critical 보안 변경의 blast radius를 정확히 승인된 4개 명령으로 한정해야, 이번 override 승인이 다른 축의 암묵적 약화를 정당화하는 것으로 오독되지 않는다.",
+      "verification": "diff가 정확히 4개 라인(및 그 라인들의 인접 설명 주석)만 건드리는지 확인."
+    },
+    {
+      "id": "SC-2",
+      "criterion": "이 4개 명령에는 F71/F73과 달리 사후 탐지·복구가 없다는 사실을 docs/INVARIANTS.md·docs/DECISIONS/ADR-004에 정직하게 기록한다 — '승인된 위험'과 '남은 완충 없음'을 구분해 서술.",
+      "rationale": "INV-14가 이미 이 경계(Layer 1·2 파괴적 명령 = 사후 복구 불가)를 명시한 상태에서, 그 경계 안의 4개 항목을 사용자 override로 제거하는 것은 이 하네스 최초의 'Layer 1(BLOCKED) 자체를 사용자 override로 여는' 사례다 — F71/F73은 Layer 3(ASK)의 예외 메커니즘만 건드렸다. 이 구분이 문서에 없으면 다음 검토자가 F71/F73과 같은 급으로 오판할 위험이 있다.",
+      "verification": "INVARIANTS.md 새 INV-15(또는 상응 addendum)와 ADR-004 Amendment 7에 '사후 복구 없음' 문장이 명시적으로 있는지 확인."
+    },
+    {
+      "id": "SC-3",
+      "criterion": "새로 allow되는 모든 케이스가 테스트로 명시적으로 이름 붙여 고정된다 — F71/F72/F73과 같은 SC-3 원칙.",
+      "rationale": "승인된 위험과 미발견 결함은 코드 상으로 구별되지 않는다.",
+      "verification": "AC-1~AC-5 검증과 동일 — bats 테스트명·주석에 F74/override 참조가 있는지 확인."
+    },
+    {
+      "id": "SC-4",
+      "criterion": "tombstone 치환 기법(패턴 텍스트를 실제 명령과 매치 불가능한 문자열로 교체해 INV-5의 라인 수 검사를 만족시키면서 매치를 무력화)이 코드 주석에 명확히 설명되어, 이후 이 라인들을 보는 사람이 '아직 방어가 있다'고 오인하지 않는다.",
+      "rationale": "F73 F37 2차가 지적한 것처럼, 라인은 존재하지만 실질적 방어가 없는 상태는 코드만 봐서는 구별되지 않는다 — 주석이 유일한 정직성 장치다.",
+      "verification": "4개 tombstone 라인 각각에 인접한 주석이 원래 패턴·제거 사유·ADR 참조를 담는지 확인."
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "'git reset --hard' 와 무관한 위험 명령이 같은 셸 호출에 함께 있는 경우 (예: 'git reset --hard HEAD~1 && rm -rf /')",
+      "expected": "rm -rf / 부분은 BLOCKED의 별도 패턴이 여전히 잡아 deny — 이번 변경은 git reset --hard 패턴 자체만 무력화하고 다른 Layer 1/2 패턴에는 영향이 없다."
+    },
+    {
+      "id": "ES-2",
+      "scenario": "'git push --force-with-lease' 처럼 이미 허용된 안전 변형과 이번에 새로 열리는 'git push --force'가 같은 셸 호출에 함께 있는 경우",
+      "expected": "결과는 allow — 두 형태 모두 이제 allow이므로 판정 일관성 문제 없음(회귀 아님)."
+    },
+    {
+      "id": "ES-3",
+      "scenario": "prefix 명령(env·time·command)을 붙인 형태 — 'env git reset --hard origin/main'",
+      "expected": "F74 이후 이 4개는 애초에 어떤 ASK/BLOCKED 패턴에도 안 걸리므로(패턴 자체가 무력화됨) prefix 유무와 무관하게 allow — F67이 남긴 'prefix가 ASK 계층을 무력화한다'는 갭 자체가 이 4개 명령에 대해서는 더 이상 관측 가능한 차이를 만들지 않는다(원래도 결과가 allow, prefix 붙여도 allow)."
+    }
+  ],
+  "implementation_steps": [
+    {
+      "step": "1. hooks/pre-bash-firewall.sh: BLOCKED :92 'git push[^;|&]*--force([^-]|$)' 를 tombstone으로 치환. 인접 주석에 원래 패턴·ADR-004 Amendment 7 참조·'실질 방어 없음' 명시.",
+      "verify": "AC-1(push 부분) 실측",
+      "done": false,
+      "covers": ["AC-1", "AC-5", "AC-8", "SC-1", "SC-4"]
+    },
+    {
+      "step": "2. hooks/pre-bash-firewall.sh: ASK_PATTERNS :312-314 (reset --hard / clean -f / checkout --force) 3개를 각각 tombstone으로 치환. 동일한 주석 규율.",
+      "verify": "AC-2~AC-5 실측",
+      "done": false,
+      "covers": ["AC-2", "AC-3", "AC-4", "AC-5", "AC-8", "SC-1", "SC-4"]
+    },
+    {
+      "step": "3. tests/pre-bash-firewall.bats: 기존 6개 테스트(:83,:88,:160,:166,:172,:687 — F74 조사로 확정된 목록) 단언을 allow로 반전(이름에 F74 표기, INV-6 준수 — @test 라인 자체는 유지). :1221(F38 로깅 테스트)의 ask 예시를 'sed -i s/a/b/ .claude/settings.json'로 교체. :1508 부근 F67 판정-일치 테스트에서 'git push origin main --force'를 SAME→INTENDED로 이동. :1970 prefix-stripping 테스트에서 'env git reset --hard origin/main' 예시를 'env kubectl delete pod x -n app'로 교체.",
+      "verify": "개별 green + SC-3 실측",
+      "done": false,
+      "covers": ["AC-6", "AC-7", "AC-9", "SC-3"]
+    },
+    {
+      "step": "4. docs/INVARIANTS.md: INV-14 말미(파일 끝, :713) 뒤에 새 'INV-15' 절 추가 — 이번 변경의 성격(Layer 1 BLOCKED을 사용자 override로 최초로 여는 사례)과 '사후 복구 없음'을 SC-2대로 명시. docs/DECISIONS/ADR-004-firewall-auto-allow.md에 Amendment 7 추가.",
+      "verify": "SC-2 실측(문장 존재 확인)",
+      "done": false,
+      "covers": ["SC-2"]
+    },
+    {
+      "step": "5. bats 전체 1회 + behavioral 프로브 1회 + 판정 차분(AC-6) 실측",
+      "verify": "AC-6·AC-9 실측",
+      "done": false,
+      "covers": ["AC-6", "AC-9"]
+    }
+  ],
+  "open_axes": [
+    "git reflog 등 부분적/시간제한적 완충이 실제로 존재하는지, 존재한다면 그 한계(GC 주기·원격 reflog 정책 등)를 문서에 어느 정도까지 상세히 적을지는 구현 단계에서 결정 — 과도한 상세는 '완충이 있다'는 잘못된 안도감을 줄 수 있으므로 신중히 서술.",
+      "이번 변경은 F71/F73과 달리 EXEMPTABLE_ARM_TOKENS/arm_is_exemptable() 메커니즘을 쓰지 않는다 — 되돌리려면(원상복구) 4개 tombstone 라인을 원래 패턴 텍스트로 되돌리면 된다(add-only 제약 없음, 텍스트 교체는 자유).",
+    "F74가 열매트릭스를 넓히면(예: force-push 계열 다른 변형) 별도 change-request 대상 — 이번 범위는 사용자가 명시한 정확히 4개 서브커맨드."
+  ],
+  "_parallelizable": false,
+  "agreed": false
+}

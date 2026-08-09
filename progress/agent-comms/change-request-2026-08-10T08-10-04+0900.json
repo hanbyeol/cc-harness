@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-08-10T08:10:04+0900",
+  "type": "modify",
+  "description": "git push --force(Layer 1 BLOCKED)·git reset --hard·git clean -f·git checkout --force(Layer 3 ASK) 4개 파괴적 git 서브커맨드의 방화벽 프롬프트를 제거 — 사용자 override로 무프롬프트 allow 전환",
+  "affected_features": [
+    "F74"
+  ],
+  "related_features": [],
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": false,
+    "acceptance_criteria_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false,
+    "invariants_updated": true,
+    "adr_amended": "ADR-004 Amendment 7"
+  },
+  "new_sprint_contract": "progress/contracts/sprint-60.json",
+  "rollback_to_phase": null,
+  "user_override": {
+    "prior_precedent": "F71 (인터프리터 ASK 면제 재도입), F73 (sed/awk in-place ASK 면제 확대)",
+    "disclosure_round_1": "'git bypass'가 가리키는 대상을 명확화 — 특정 git 서브커맨드의 ASK 프롬프트 제거로 확인.",
+    "disclosure_round_2": "메인 루프가 이 4개가 하네스/시스템 프롬프트의 git 안전 원칙이 '명시적 요청 없이는 실행 금지'로 규정하는 가장 파괴적인 git 조작이며, F71/F73과 같은 무게의 보안 경계 축소임을 고지. 사용자가 '핫픽스'라는 표현을 썼으나 메인 루프가 버그 수정이 아닌 의도된 동작 변경이고 critical tier 게이트는 하향 불가라는 원칙에 따라 /hotfix가 아닌 /change-request로 라우팅.",
+    "disclosure_round_3": "코드 조사 결과 'git push --force'가 ASK가 아니라 Layer 1 BLOCKED(rm -rf /·DROP DATABASE·포크폭탄과 동급)임을 정정 고지 — 다른 3개의 ask→allow보다 한 단계 더 큰 deny→allow 전환도 원하는지 별도 재확인.",
+    "user_response": "매 라운드 명시적으로 위험을 수용 — 최종: 'push --force도 포함 — deny→allow까지 명시적 수용'.",
+    "accepted_risk": "이 4개 명령에는 F71/F73이 의지한 '사전 차단 → 사후 탐지·복구(protected-integrity.sh)' 교환이 성립하지 않는다 — git ref 재작성·미커밋 변경 파괴는 그 모델 밖이며, INV-14가 이미 이 경계(Layer 1·2 파괴적 명령)를 '사후 복구 불가'로 명시하고 있다. 남는 완충은 git reflog(reset --hard·push --force 일부, 시간제한적)뿐이고 clean -f·checkout --force가 지우는 미커밋 변경은 그조차 없다 — 제거 후 예측(사전 차단)이었던 유일한 방어가 완전히 사라진다."
+  }
+}

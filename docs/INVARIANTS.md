@@ -711,3 +711,41 @@ heredoc 본문·`|`/`&&` 뒤 줄바꿈·`(`/`{` 블록과 절 사이가 모두 �
 **배선이 없으면 예측이 되살아난다**: 방화벽은 탐지 훅의 배선을 확인해 데이터 플레인 게이트를 끄고,
 확인에 실패하면 켜진 상태로 남긴다(fail-safe). `tests/protected-integrity.bats`가 이 성질과
 두 설치 경로(hooks.json·settings.json)의 배선 대칭(INV-13)을 함께 고정한다.
+
+### INV-15. Layer 1(BLOCKED)도 사용자 override로 개별 제거될 수 있다 — 단, 사후 복구는 없다 (F74)
+
+F71·F73은 모두 **Layer 3(ASK)** 안의 예외 메커니즘(`EXEMPTABLE_ARM_TOKENS`/`arm_is_exemptable()`)을
+확장한 것이다 — ask가 allow로 바뀌어도 데이터 플레인이면 `protected-integrity.sh`의 사후 탐지·복구가
+남는다(INV-14의 교환). F74는 이 하네스에서 **최초로 Layer 1(`BLOCKED`, 완전 차단·exit 2) 자체를
+사용자 override로 연 사례**다 — `git push --force`(BLOCKED)·`git reset --hard`·`git clean -f`·
+`git checkout --force`(모두 ASK_PATTERNS) 4개 서브커맨드의 방화벽 프롬프트를 제거해 무프롬프트
+allow로 전환했다.
+
+**F71/F73과 결정적으로 다른 점**: 이 4개 명령에는 F71/F73이 의지했던 "사전 차단 → 사후 탐지·복구"
+교환이 성립하지 않는다. `protected-integrity.sh`는 `PROTECTED_GLOBS`에 나열된 특정 파일 경로의
+HEAD 대비 **내용**만 복구한다 — git ref 재작성(`push --force`)이나 커밋된 적 없는 로컬 변경의 파괴
+(`reset --hard`·`clean -f`·`checkout --force`)는 이 모델 밖이다. 이는 새로 발견한 갭이 아니라
+INV-14 자신이 이미 명시한 경계다(위 "경계 — 예측이 계속 유일한 수단인 것": "**되돌릴 수 없는 것**
+(Layer 1·2의 파괴적 명령...): 사후 복구가 성립하지 않는다"). F74는 바로 그 경계 **안**의 항목을
+사용자 override로 제거한다.
+
+**남는 완충(제한적)**: `git reflog`가 `reset --hard`·`push --force`에 대해 시간제한적·로컬 한정
+완충이 될 수 있다(대상 커밋이 이미 한 번 커밋된 적 있는 경우에 한하며, GC 주기·원격 reflog 보존
+정책에 좌우된다). `clean -f`가 지우는 미추적 파일과 `checkout --force`가 덮어쓰는 미커밋 수정은
+git 오브젝트가 애초에 생성된 적이 없어 이 완충조차 없다 — 예측(사전 차단)이 유일한 방어였고,
+이 변경은 그 유일한 방어를 제거한다.
+
+**수용된 위험**: 메인 루프가 3라운드에 걸쳐 고지·재확인했다 — (1) 대상 서브커맨드 확인, (2) 이
+변경이 F71/F73과 같은 무게의 보안 경계 축소이자 이 4개가 하네스/에이전트 시스템 프롬프트가
+"명시적 요청 없이는 실행 금지"로 규정하는 가장 파괴적인 git 조작이라는 고지, (3) `git push --force`가
+실제로는 ASK가 아니라 **BLOCKED**(`rm -rf /`·`DROP DATABASE`·포크폭탄과 동급)라는 사실 정정 고지
+후 deny→allow 전환까지 원하는지 별도 재확인. 매 라운드 사용자가 명시적으로 위험을 수용했다
+(`progress/feature_list.json` F74 `_user_override_2026_08_10` 참조).
+
+**기술적 수단(tombstone)**: `BLOCKED`·`ASK_PATTERNS`는 INV-5(add-only)로 보호되며, 그 집행은
+`hooks/invariant-guard.sh`의 `count_array()`(배열별 따옴표 시작 라인 수)다 — **텍스트 보존이 아니라
+라인 수만 검사**한다(F73에서 처음 확인된 사실, F74도 동일하게 이용). 4개 라인의 패턴 텍스트를 실제
+명령과 결코 매치하지 않는 tombstone 문자열로 교체해 라인 수를 그대로 유지하면서 매치를 무력화했다.
+매치가 사라지면 Layer 4(2026-08 기준 무조건부 catch-all 구조 — deny/ask를 통과한 모든 명령에
+`permissionDecision:allow`를 방출)에 자동 도달해 명시적 allow가 나온다. 되돌리려면 tombstone 텍스트를
+원래 패턴으로 되돌리면 된다(add-only 제약이 텍스트 자체에는 없다).

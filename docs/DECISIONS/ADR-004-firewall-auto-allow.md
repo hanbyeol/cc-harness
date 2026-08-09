@@ -116,3 +116,15 @@
 **집행**: `tests/pre-bash-firewall.bats`에 F73 테스트 추가(데이터 플레인 in-place 쓰기 allow, 컨트롤 플레인/perl/sed w는 ask 유지 회귀 고정). `docs/INVARIANTS.md` INV-14에 동일 서술 추가.
 
 **F37 2차 판정 반려 및 수정 (2026-08-09)**: 1차 구현이 `hooks/hooks.json`(컨트롤 플레인)을 새 sed/awk arm에서 빼려고 타겟을 `hooks/*.sh`로 좁혔는데, POSIX ERE에 부정 전방탐색이 없어 `.json` 전체가 함께 빠졌다 — `hooks/hooks.json`이 아닌 다른 JSON 파일에 대한 sed/awk in-place 쓰기가 **면제가 아니라 어떤 ASK arm에도 매치하지 않는 상태**로 방어 밖에 남았다(`PROTECTED_GLOBS` 미등재로 사후 탐지 없음, 미배선 fail-safe도 비껴감 — 실측 확인). 사용자 승인 범위(`hooks/*.sh`) 밖의 미발견 결함이었고, F37 2차 독립 판정이 반려해 잡았다. 수정: `hooks/*.json`을 겨냥한 sed/awk in-place에 `perl`을 섞은 전용 arm을 추가(영구 비면제, 예전과 동일하게 항상 ask). 같은 판정이 `feature_list.json` 이름 기반 arm 축소의 부수효과(비 in-place 쓰기 형태 일부가 함께 열림 — 새 위험군은 아니나 승인 문언보다 넓음)도 재확인해 `tests/pre-bash-firewall.bats`의 F73r2 테스트로 고정했다. 상세는 `docs/INVARIANTS.md` INV-14 참조.
+
+## Amendment 7 — 파괴적 git 명령 4종의 Layer 1/3 방어 제거 (F74, 2026-08-10)
+
+**배경**: 사용자가 'git push --force'·'git reset --hard'·'git clean -f'·'git checkout --force' 4개 서브커맨드의 방화벽 프롬프트 제거를 요청했다. 조사 결과 'git push --force'는 ASK가 아니라 **Layer 1 BLOCKED**(:92, `rm -rf /`·`DROP DATABASE`·포크폭탄과 동급)였고, 나머지 3개만 Layer 3 ASK_PATTERNS(:312-314)였다.
+
+**결정(사용자 지시, 3라운드 고지)**: 메인 루프가 (1) 대상 확인, (2) 이 4개가 하네스/에이전트 시스템 프롬프트의 git 안전 원칙이 "명시적 요청 없이는 실행 금지"로 규정하는 가장 파괴적인 git 조작이며 F71/F73과 같은 무게의 경계 축소라는 고지, (3) `push --force`가 실제로는 BLOCKED라는 정정 고지 후 deny→allow까지 원하는지 재확인 — 을 순서대로 거쳤다. 사용자는 매 라운드 명시적으로 위험을 수용했다(`progress/feature_list.json` F74 `_user_override_2026_08_10`).
+
+**F71/F73과의 결정적 차이**: 이 Amendment는 Layer 3(ASK) 예외 메커니즘이 아니라 **Layer 1(BLOCKED)과 ASK_PATTERNS 원본 패턴 자체**를 직접 무력화한다 — 이 하네스에서 Layer 1이 사용자 override로 열리는 최초 사례다. 더 중요한 차이는 **사후 탐지·복구가 없다**는 것이다: F71/F73은 데이터 플레인 파일이라 `protected-integrity.sh`가 남았지만, git ref 재작성이나 미커밋 변경 파괴는 그 모델 밖이다 — INV-14가 이미 "Layer 1·2의 파괴적 명령: 사후 복구가 성립하지 않는다"고 명시한 경계 안이다. 남는 완충은 `git reflog`(reset --hard·push --force 일부, 시간제한적)뿐이고 clean -f·checkout --force가 지우는 미커밋 변경은 그조차 없다.
+
+**기술적 구현**: `BLOCKED`·`ASK_PATTERNS`는 INV-5(add-only)로 보호되나 그 집행은 배열별 라인 수 검사일 뿐 텍스트 보존이 아니다(F73에서 확인). 4개 라인의 패턴 텍스트를 실제 명령과 결코 매치하지 않는 tombstone 문자열로 교체해 라인 수를 유지하면서 매치를 무력화한다. 매치가 사라지면 Layer 4(현재 무조건부 catch-all)에서 명시적 allow가 자동으로 나온다 — F71/F73의 `EXEMPTABLE_ARM_TOKENS`/`arm_is_exemptable()` 메커니즘과 무관한 별개 기법이다(이 4개는 다중 도구 alternation arm이 아니라 단일 목적 패턴이라 그 메커니즘이 적용되지 않는다).
+
+**집행**: `tests/pre-bash-firewall.bats`의 관련 기존 테스트(F74 조사로 확정된 6개 + 로깅/차분/prefix 테스트 3곳) 단언을 반전·교체(INV-6 준수 — @test 라인은 유지). `docs/INVARIANTS.md`에 신규 INV-15 추가(F71/F73과 달리 사후 복구가 없다는 사실을 명시).
