@@ -1,0 +1,120 @@
+{
+  "timestamp": "2026-08-08T23:54:37+09:00",
+  "sprint": 59,
+  "iteration": 1,
+  "round": 2,
+  "round_type": "F37 second independent verdict (security_tier critical, INV-1)",
+  "features_evaluated": [
+    "F73"
+  ],
+  "security_tier": "critical",
+  "commits_evaluated": [
+    "7b759a7",
+    "934f2c1"
+  ],
+  "scores": {
+    "functionality": 8,
+    "code_quality": 7,
+    "security": 6,
+    "error_handling": 8,
+    "test_coverage": 6
+  },
+  "score": 6,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 6 < 7 (critical tier 자동 fail — progress/harness-config.json security_thresholds.critical)",
+    "min-of-5 = 6 < pass_threshold 7"
+  ],
+  "divergence_from_round_1": {
+    "round_1_file": "progress/agent-comms/evaluator-feedback-2026-08-08T23-16-53+0900.json",
+    "round_1": {
+      "verdict": "pass",
+      "score": 7,
+      "security": 7
+    },
+    "round_2": {
+      "verdict": "fail",
+      "score": 6,
+      "security": 6
+    },
+    "escalation_required": true,
+    "passes_left_unchanged": true,
+    "_note": "F37에 따라 verdict 불일치 → 사람 에스컬레이션. feature_list.json의 F73 passes:true를 이 판정이 자동으로 되돌리지 않았다(어느 쪽도 자동 선택 금지). 사용자가 (a) 이 fail을 수용해 passes:false로 되돌리고 후속 iteration을 돌릴지, (b) 아래 잔여를 승인된 위험으로 수용하고 round-1의 pass를 확정할지 결정해야 한다.",
+    "what_changed_the_verdict": "round 1이 보유하지 않은 새 실측 사실 1건 — hooks/*.json(hooks.json 제외) 대상 sed/awk in-place가 ask→allow가 됐고, 이 클래스는 예측·탐지·fail-safe 셋 다 없다. round 1의 '범위 밖 변화 0건'(245개 코퍼스, 차분 11건) 주장은 이 클래스를 코퍼스에 넣지 않아 성립했다. 나머지 이슈(feature_list.json 이름 arm 광역화, SC-3 미고정)는 round 1이 이미 medium으로 보고했고 나와 사실 인식이 같다 — 다른 것은 그 사실들의 가중치다."
+  },
+  "issues": [
+    "[security][high][confidence:high] **round 1 미발견** — `hooks/*.json`(단, `hooks/hooks.json` 제외) 대상 sed/awk in-place 쓰기가 ask→allow로 열렸고, **어떤 통제도 남지 않았다**. 실측(wired 픽스처): `sed -i s/a/b/ hooks/other-config.json` OLD(1a94dfe)=ask → NEW(934f2c1)=allow, `awk -i inplace {print} hooks/other-config.json` 동일. 원인: 옛 arm의 타겟이 `hooks/[A-Za-z0-9_.-]+\\.(sh|json)`였는데 신규 sed/awk arm(:354-355)은 `hooks/[A-Za-z0-9_.-]+\\.sh`로 좁혔다 — 컨트롤 플레인(hooks/hooks.json)을 빼려고 `.json` 대안을 통째로 지우면서 hooks.json이 아닌 JSON이 함께 빠졌다. hooks.json은 이름 기반 CP arm(:505)이 계속 잡지만 그 외 JSON은 **어느 ASK arm도 매치하지 않는다**.",
+    "[security][high][confidence:high] 위 클래스는 **면제(exemption)가 아니라 패턴 무매치**다 — 그래서 F73/F65 설계의 세 안전장치가 전부 비껴간다: (1) `PROTECTED_GLOBS`에 `hooks/*.json`이 없어(`hooks/*.sh`·`hooks/hooks.json`만 존재) 사후 탐지·복구 대상이 아니다 — F73이 수용한 위험의 전제('사전 게이트 → 사후 탐지·복구'로 교환)가 이 경로에서는 성립하지 않는다. (2) 미배선(fail-safe) 상태에서도 allow다 — 실측: `env -u CLAUDE_PLUGIN_ROOT` OLD=ask/NEW=allow. 승인된 in-place 면제는 미배선 시 전부 ask로 유지되는데(실측 확인) 이 클래스만 그 fail-safe를 우회한다. (3) 같은 타겟에 대해 perl·인터프리터는 여전히 ask다(:349-350, :407, 실측 확인) — 즉 기존 설계가 아직 게이트로 취급하는 평면에 sed/awk만 구멍이 났다. `PROTECTED_GLOBS`의 F68 주석('예측만 있고 탐지가 없으면 그 경로가 통제 밖에 남는다')이 금지한 상태를 이 변경이 만들었다.",
+    "[security][medium][confidence:high] 이 클래스는 사용자가 승인한 범위 밖이다 — override 문언과 계약(sprint-59 AC-1)의 데이터 플레인 목록은 `hooks/*.sh`이지 `hooks/*.json`이 아니다. docs/INVARIANTS.md INV-14 F73 절과 ADR-004 Amendment 6 어디에도 이 클래스가 없다. 즉 **승인된 위험이 아니라 미발견 결함**의 형태로 남았다(SC-3 rationale이 정확히 금지한 상태).",
+    "[security][medium][confidence:high] INV-5(패턴 add-only)가 이 약화를 잡지 못했다 — 기존 arm 라인의 **텍스트를 좁히고** 새 라인을 더해 배열별 라인 수는 +6이라 카운트 검사를 통과한다. 구현 주석(:344-348)이 이 한계를 정확히 알고 이용했다고 명시한다. 승인된 sed/awk in-place 부분에 대해서는 사용자 override가 있으니 정당하지만, hooks/*.json 커버리지 상실은 그 override가 덮지 않는 부수 약화이며 INV-5는 설계상 이것을 못 막는다(가드의 알려진 한계가 실제로 실현된 첫 사례).",
+    "[test][medium][confidence:high] SC-3('새로 allow되는 **모든** 케이스를 이름 붙여 테스트로 고정') 미충족. 1a94dfe↔934f2c1 판정 차분 실측 결과 신규 allow 15형태 중 5형태가 무고정이다 — hooks/*.json 2형태(위 이슈) + feature_list.json 비 in-place 3형태(`awk -f script.awk`·`sed -f script.sed`·`gawk -v out=… '{print>out}'`). 구현 자신이 934f2c1 주석에 '이 클래스는 테스트로 고정돼 있지 않다(후속 필요)'라고 적고 그대로 게이트를 통과시켰다 — 미충족을 인지한 채 critical 보안 기준을 미룬 것이다. 결과: 누가 이 arm들을 되돌리거나 더 넓혀도 스위트는 774/774 초록이다.",
+    "[security][low][confidence:high] feature_list.json 이름 기반 arm 광역화(round 1이 이미 보고)의 **한계 노출 증가분이 0이라는 논거는 재현으로 확인했다** — `python3 -c \"open('progress/feature_list.json','w')\"`가 F71 경계로 이미 allow다(실측). 같은 논거가 hooks/*.json에는 적용되지 않는다(그 타겟은 인터프리터가 여전히 ask). 즉 round 1이 두 클래스를 같은 무게로 볼 근거는 없었고, 실제로 두 번째 클래스는 코퍼스에 없었다.",
+    "[quality][low][confidence:high] 컨트롤 플레인 분리를 `.json` 대안 삭제로 처리한 것은 필요 이상으로 무딘 수단이다 — `hooks/(?!hooks\\.json)` 류가 grep -E에서 불가능하더라도, 신규 sed/awk arm 타겟에 `hooks/[A-Za-z0-9_.-]+\\.json`을 넣고 하드 제외(`arm_is_exemptable`의 `hooks\\.json` 검사)에 맡기거나, `PROTECTED_GLOBS`에 `hooks/*.json`을 추가하는 두 가지 저비용 대안이 있었다.",
+    "[quality][low][confidence:medium] 신규 arm 6개 중 다수가 기존 면제 가능 arm(:429 등)에 이미 포섭돼 판정을 바꾸지 않는다(round 1 관찰과 동일). 무해하고 미배선 fail-safe를 명시적으로 보존하는 효과는 실측으로 확인했으나, diff가 실제 변경의 본질(기존 arm 좁히기)보다 커 보이게 만든다.",
+    "[docs][low][confidence:high] INV-14 F73 절·ADR-004 Amendment 6은 in-place만 서술한다 — 실제로 열린 것은 in-place + feature_list.json 비 in-place 3형태 + hooks/*.json 2형태다. 정본이 수용된 위험을 과소 서술한다(기준 역전파 원칙 위반; 42fe4d3에서 INV-12를 정정한 것과 같은 유형).",
+    "[info][no-action] 934f2c1은 코드 동작을 바꾸지 않는 주석/문서 수정만이다 — 실측 확인: `git show 934f2c1 -- hooks/pre-bash-firewall.sh`의 비주석 +/- 라인 0줄, 구현 보고 테스트 수치 208→'전체 green + 실제 240' 정정. round 1이 지적한 두 정확성 문제는 정확히 정정됐다.",
+    "[info][no-action] round 1이 지적한 AC-7 자기모순(F63 superseded 처리)은 사용자가 이미 확정 승인했으므로 이번 판정 대상이 아니다 — 대조 기록(implementer-output-F73.json f63_disposition, feature_list F63 _superseded_note)에 AC-6 미충족이 공시돼 있음을 확인만 했다."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1 데이터 플레인 sed/awk in-place allow — harness-config.json·hooks/*.sh·tests/*.bats·INVARIANTS.md·feature_list.json·contracts/*.json 6종 + 짧은/긴 옵션 + gawk/mawk 변형 전부 wired 픽스처 실측 allow",
+      "AC-2 컨트롤 플레인 ask 유지 — hooks/hooks.json(sed -i·awk -i inplace·--in-place)·.claude/settings.json·.claude/settings.local.json 전부 ask 실측",
+      "AC-3 탐지기 자신 ask 유지 — protected-integrity.sh·.guarded-edits·.integrity-baseline 전부 ask 실측",
+      "AC-4 perl -i 범위 밖 ask 유지 — perl -i / -i.bak / --in-place × 데이터 플레인 3종 전부 ask 실측",
+      "AC-5 sed w/s///w 범위 밖 ask 유지 — sed -n 'w …' 2형태 + sed -i 's/x/y/w other.json' 혼재형 ask 실측",
+      "AC-6 F65 순수 읽기 면제 무변경 — sed -n 1,5p·awk 'NR>1' allow, 판정 차분 코퍼스에서 회귀 0",
+      "AC-7 F63 대조·superseded 처리 기록 존재(AC-6 미충족 공시 포함)",
+      "AC-8 회귀 없음 — bats tests/ 774/774(not ok 0, F73 테스트 7개 포함 전부 ok), behavioral 프로브 [] 0건"
+    ],
+    "security": [
+      "SC-2 컨트롤 플레인·탐지기 자신·perl·sed w 어느 하나도 면제로 새지 않음 — 49개 코퍼스 차분에서 이 네 축의 판정 변화 0건, 개별 네거티브 18케이스 ask 실측",
+      "SC-1 (부분) 승인된 축의 변경은 정확 — Layer 1/2 deny·Layer 4 default-allow·리다이렉트/cp/dd/vim/sponge arm·F71 인터프리터 면제 모두 판정 무변화(실측)"
+    ],
+    "error_scenarios": [
+      "ES-1 컨트롤 플레인 리터럴 혼재 시 하드 제외 우선 — 'sed -i … progress/harness-config.json hooks/hooks.json' ask 실측",
+      "ES-2 perl -i가 데이터 플레인을 겨냥해도 ask 유지 — 실측",
+      "ES-3 sed -i와 w 플래그 혼재 시 ask 유지 — 실측"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [
+      "SC-1 (blast radius가 승인 범위로 정확히 한정되지 않음) — hooks/*.json(hooks.json 제외) 대상 sed/awk in-place가 승인 문언·계약·INV-14·ADR-004 어디에도 없이 ask→allow. 예측·탐지(PROTECTED_GLOBS 미포함)·미배선 fail-safe 셋 다 없는 유일한 신규 경로.",
+      "SC-3 (신규 allow 전부를 테스트로 고정) — 신규 allow 15형태 중 5형태 무고정(hooks/*.json 2 + feature_list.json 비 in-place 3). 구현이 주석으로 미충족을 인지·공시한 채 통과."
+    ],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "AC/SC 어디에도 '기존 arm의 타겟 목록을 좁힐 때 어떤 파일 클래스도 예측·탐지 양쪽에서 빠지지 않는다'는 기준이 없다 — 계약이 예견한 실패 유형은 '면제가 새는 것'(SC-2)이었고 실제로 난 것은 '커버리지가 조용히 사라지는 것'이었다. 이 방향은 INV-5도 (라인 수만 세므로) 못 잡는다.",
+      "F73 같은 arm 재구성 sprint에는 '변경 전후 판정 차분(differential blast radius)을 코퍼스로 산출하고, 차분 전 항목이 승인 문언에 대응함을 보인다'가 AC로 있어야 한다 — 두 판정 모두 이 방법을 썼지만 계약이 요구하지 않아 코퍼스 구성이 판정자 재량이었고, round 1의 코퍼스에 hooks/*.json이 없어서 결론이 갈렸다."
+    ],
+    "ambiguous_criteria": [
+      "SC-3의 criterion 본문('새로 allow되는 **모든** 케이스')과 verification 절('AC-1 검증과 동일 — bats 테스트명·주석에 F73/override 참조가 있는지 확인')이 서로 다른 범위를 지시한다. verification 절만 따르면 충족, 본문을 따르면 미충족이다. 나는 본문을 기준으로 판정했다(SC-3 rationale '승인된 위험과 미발견 결함은 코드 상으로 구별되지 않는다'가 본문 쪽 독해를 뒷받침한다) — round 1과 갈릴 수 있는 축이므로 명시한다."
+    ],
+    "security_criteria_insufficient": [
+      "critical 티어 arm 재구성인데 'PROTECTED_GLOBS(사후 탐지 집합)와 ASK arm 타겟 집합의 정합성' 기준이 없다. F73의 위험 수용 논거가 '사전 게이트 → 사후 탐지·복구 교환'인 이상, 탐지 집합 밖으로 나가는 타겟이 없다는 것이 SC로 있어야 했다."
+    ],
+    "action_required": "다음 iteration에서 evals/acceptance-criteria.json·sprint 계약에 위 3항(커버리지 상실 금지, 판정 차분 코퍼스 의무화, ASK 타겟↔PROTECTED_GLOBS 정합성)을 역전파할 것."
+  },
+  "recommended_fix": {
+    "minimal": "신규 sed/awk in-place arm(:354-355)과 이름 기반 데이터 플레인 arm(:429)의 타겟에 `hooks/[A-Za-z0-9_.-]+\\.json`을 되돌려 넣는다 — hooks.json은 `arm_is_exemptable()`의 `hooks\\.json` 하드 제외가 이미 잡으므로 컨트롤 플레인은 여전히 ask로 남고, 나머지 hooks/*.json은 ask로 복원된다. 대안(또는 병행): `PROTECTED_GLOBS`에 `hooks/*.json` 추가로 탐지 집합을 맞춘다.",
+    "tests": "SC-3 충족을 위해 (a) hooks/*.json 대상 sed/awk in-place가 ask임을 고정하는 네거티브 테스트, (b) feature_list.json 비 in-place 3형태(awk -f·sed -f·gawk -v 간접 리다이렉트)가 allow임을 **의도된 승인 범위로** 이름 붙여 고정하는 테스트를 추가한다.",
+    "docs": "INV-14 F73 절과 ADR-004 Amendment 6에 비 in-place 형태까지 열렸다는 사실을 반영한다."
+  },
+  "evidence": {
+    "tests": "bats tests/ — 1..774, ok=774 / not ok=0 (전체 출력을 파일로 캡처 후 파싱: scratchpad/bats-full.tap). F73 테스트 7개(ok 531-537) 전부 ok. `bats --count tests/pre-bash-firewall.bats` = 240 (934f2c1의 정정치와 일치, round 1과 동일 확인). 재실행 없이 1회 실행 결과로 판정.",
+    "behavioral_probe": "bash scripts/probes/behavioral.sh → [] (0건), exit 0",
+    "differential_blast_radius": "49개 명령 코퍼스를 1a94dfe(F73 이전) 방화벽과 934f2c1(현재) 방화벽 양쪽에 동일 wired 픽스처로 통과시켜 판정 차분 산출 — changed=15 / unchanged=34. 15건 전부 ask→allow, 전부 sed/g?awk/mawk. 그중 13건은 승인된 데이터 플레인 in-place + feature_list.json 비 in-place(round 1이 보고한 클래스), **2건은 hooks/other-config.json 대상 in-place(round 1 미보고)**. deny 티어·리다이렉트·cp/mv/vim/dd/sponge·인터프리터·git·egress는 판정 무변화.",
+    "wired_fixture_spot_checks": "요청 매트릭스 8건 전부 기대와 일치(allow: sed -i harness-config.json / awk -i inplace feature_list.json / sed -n 1,5p / awk -f script.awk feature_list.json — ask: .claude/settings.json / hooks/protected-integrity.sh / perl -i / sed -n 'w …'). 추가로 AC-1 9케이스·AC-2 5케이스·AC-3 3케이스·AC-4/5 4케이스·ES-1 1케이스 실측, 불일치 0.",
+    "failsafe_unwired": "env -u CLAUDE_PLUGIN_ROOT(탐지기 미배선)에서 승인된 in-place 3케이스 전부 ask 유지 = fail-safe 보존. 단 hooks/other-config.json 2케이스는 미배선에서도 allow(OLD=ask) — 면제가 아니라 무매치이기 때문.",
+    "detection_set_check": "hooks/protected-integrity.sh PROTECTED_GLOBS 16개 항목을 셸 glob으로 대조 — hooks/hooks.json=yes, hooks/pre-bash-firewall.sh=yes(hooks/*.sh), hooks/other-config.json=**no**. 신규 allow 타겟 중 탐지 집합 밖은 이 클래스뿐.",
+    "diff_scope": "git show 7b759a7 -- hooks/pre-bash-firewall.sh 비주석 +/- 라인 전수 확인 — (a) arm_is_exemptable의 `-i` 하드 제외 1줄 제거, (b) 기존 arm 6줄 좁히기(일반 in-place 2·contracts 2·feature_list -i 1·feature_list 이름 기반 1), (c) 신규 sed/awk 전용 arm 6줄 추가. 그 외 코드 변경 없음(hunk 4개: :188 :327 :348 :488). git show 934f2c1 -- hooks/pre-bash-firewall.sh 비주석 +/- 라인 = 0줄(주석 전용), 나머지 1줄은 implementer-output-F73.json 수치 정정.",
+    "docs_check": "docs/INVARIANTS.md:611-625(INV-14 F73 절)·docs/DECISIONS/ADR-004 Amendment 6이 change-request 커밋 1a94dfe에서 갱신돼 존재함을 확인 — 다만 서술 범위는 in-place에 한정(위 [docs] 이슈).",
+    "_note": "canonical evidence 필드. 모든 항목은 이 세션에서 직접 실행한 결과이며 round 1의 보고를 근거로 재사용한 항목은 없다."
+  },
+  "unverified_dimensions": [],
+  "next_step": "사람 판단 필요 — verdict 불일치(round 1 pass / round 2 fail). passes는 이 판정이 건드리지 않았다."
+}
