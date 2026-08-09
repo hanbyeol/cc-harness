@@ -2296,3 +2296,47 @@ delete_decision() {
   [[ "$output" == *'"permissionDecision": "ask"'* ]] \
     || { echo "이름 기반 에디터 arm이 sed/awk 제거 과정에서 함께 무력화됐다"; false; }
 }
+
+# === F37 2차 판정 반려 대응 (2026-08-09) ===
+# 1차 판정 통과 후 F37 2차 독립 판정이 실제 결함을 찾았다 — hooks/*.sh만 남기며 hooks/*.json
+# (hooks.json 아닌 다른 JSON) 커버리지가 **면제가 아니라 무매치**로 통째로 빠졌다. PROTECTED_GLOBS
+# 사후 탐지도, 미배선 fail-safe도 비껴가는 클래스였다. 여기서 회귀를 고정하고, 같은 판정이 지적한
+# SC-3 미고정 케이스(feature_list.json 비 in-place 3형태)도 함께 고정한다.
+
+@test "F73r2: hooks/*.json other than hooks.json still asks for sed/awk in-place (regression fix)" {
+  # hooks.json(컨트롤 플레인)을 빼려고 .sh로 좁힌 부작용으로 다른 hooks/*.json이 무보호가
+  # 됐던 것 — 면제가 아니라 무매치였으므로 미배선 상태에서도 allow였다(가장 심각한 신호).
+  local c
+  for c in "sed -i s/a/b/ hooks/other-config.json" \
+           "awk -i inplace {print} hooks/other-config.json" \
+           "sed --in-place s/a/b/ hooks/another.json"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"$c\"}}"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "hooks/*.json 커버리지 회귀가 다시 발생했다: $c"; false; }
+  done
+  # 미배선 상태에서도 ask여야 한다 — 면제가 아니라는 것이 핵심이므로 fail-safe도 확인한다.
+  run run_firewall '{"tool_input":{"command":"sed -i s/a/b/ hooks/other-config.json"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "미배선 상태에서도 allow다 — 면제 메커니즘이 아니라 무매치였다는 증거"; false; }
+  # hooks/hooks.json 자체는 이미 다른 F73 테스트가 고정하지만, 대조로 여기서도 확인한다.
+  run wired_firewall '{"tool_input":{"command":"sed -i s/a/b/ hooks/hooks.json"}}'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  # hooks/*.sh 데이터 플레인 면제는 이 수정으로 회귀하지 않아야 한다.
+  run wired_firewall '{"tool_input":{"command":"sed -i s/a/b/ hooks/lib.sh"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "hooks/*.json 회귀 수정이 hooks/*.sh 면제까지 되돌렸다"; false; }
+}
+
+@test "F73r2: feature_list.json non-in-place write forms (SC-3 gap closure)" {
+  # 1차 판정이 발견하고 2차 판정이 재확인한, 테스트로 고정되지 않았던 3형태 — F71이 이미 이
+  # 파일에 대한 임의 interpreter 쓰기를 허용하므로 새 위험군은 아니지만(INV-14 경계 안), 테스트로
+  # 이름 붙여 고정하지 않으면 SC-3(승인된 위험은 명시적으로 고정한다) 미충족으로 남는다.
+  local c
+  for c in "awk -f script.awk progress/feature_list.json" \
+           "sed -f script.sed progress/feature_list.json" \
+           "gawk -v out=progress/feature_list.json {print > out}"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"$c\"}}"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "F71 경계 안에서 이미 열려 있어야 할 형태가 막혔다(회귀): $c"; false; }
+  done
+}

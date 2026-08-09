@@ -114,3 +114,5 @@
 **수용된 위험**: 데이터 플레인 파일에 대한 사전 Bash 게이트가 sed/awk in-place 경로에서도 사라진다. F71과 동일한 교환(사전 차단 → 사후 탐지·복구, `protected-integrity.sh`)이며, 되돌리려면 arm 분리 이전 상태(`-i` 하드 제외 복원)로 돌아가면 된다.
 
 **집행**: `tests/pre-bash-firewall.bats`에 F73 테스트 추가(데이터 플레인 in-place 쓰기 allow, 컨트롤 플레인/perl/sed w는 ask 유지 회귀 고정). `docs/INVARIANTS.md` INV-14에 동일 서술 추가.
+
+**F37 2차 판정 반려 및 수정 (2026-08-09)**: 1차 구현이 `hooks/hooks.json`(컨트롤 플레인)을 새 sed/awk arm에서 빼려고 타겟을 `hooks/*.sh`로 좁혔는데, POSIX ERE에 부정 전방탐색이 없어 `.json` 전체가 함께 빠졌다 — `hooks/hooks.json`이 아닌 다른 JSON 파일에 대한 sed/awk in-place 쓰기가 **면제가 아니라 어떤 ASK arm에도 매치하지 않는 상태**로 방어 밖에 남았다(`PROTECTED_GLOBS` 미등재로 사후 탐지 없음, 미배선 fail-safe도 비껴감 — 실측 확인). 사용자 승인 범위(`hooks/*.sh`) 밖의 미발견 결함이었고, F37 2차 독립 판정이 반려해 잡았다. 수정: `hooks/*.json`을 겨냥한 sed/awk in-place에 `perl`을 섞은 전용 arm을 추가(영구 비면제, 예전과 동일하게 항상 ask). 같은 판정이 `feature_list.json` 이름 기반 arm 축소의 부수효과(비 in-place 쓰기 형태 일부가 함께 열림 — 새 위험군은 아니나 승인 문언보다 넓음)도 재확인해 `tests/pre-bash-firewall.bats`의 F73r2 테스트로 고정했다. 상세는 `docs/INVARIANTS.md` INV-14 참조.

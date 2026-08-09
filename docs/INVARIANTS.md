@@ -626,6 +626,25 @@ ASK 계층이었다. 다만 두 파일 모두 `PROTECTED_GLOBS`에 있어 `prote
 같은 교환(사전 차단 → 사후 탐지·복구)을 sed/awk 쓰기까지 넓힌 것이다. 되돌리려면 arm 분리 이전
 상태(`-i` 하드 제외 복원)로 돌아가면 된다.
 
+**F37 2차 판정이 반려한 미승인 갭과 그 수정 (2026-08-09)**: 1차 구현이 `hooks/hooks.json`을
+빼려고 데이터 플레인 sed/awk arm의 타겟을 `hooks/*.sh`로 좁혔는데, POSIX ERE(`grep -E`)에
+부정 전방탐색이 없어 "hooks.json만 제외"를 정규식 하나로 표현할 수 없었다. 그 결과 `.json`
+전체가 통째로 빠져, `hooks/hooks.json`이 **아닌** 다른 JSON 파일에 대한 sed/awk in-place
+쓰기가 **면제가 아니라 무매치**로 방어 밖에 남았다 — `PROTECTED_GLOBS`에도 없어 사후 탐지가
+없고, 미배선 fail-safe도 비껴갔다(실측: 배선 안 된 상태에서도 allow). 이것은 사용자가 승인한
+범위(데이터 플레인 목록에 `hooks/*.json`은 없다) **밖의 미발견 결함**이었지 승인된 위험이
+아니었다 — F37 2차 독립 판정이 잡아 반려했다. 수정: `hooks/*.json`을 겨냥한 sed/awk in-place에
+`perl`을 섞은 별도 arm을 추가해(`READ_CAPABLE_ARM` 리터럴 불일치로 영구 비면제, F73 본문의
+장치와 동일) 예전처럼 항상 ask로 되돌렸다 — `hooks/*.sh` 면제는 그대로 유지된다.
+
+또한 `feature_list.json`의 이름 기반 arm에서 sed/awk를 뺀 부수효과로, in-place가 아닌 형태
+(`awk -f script.awk`·`sed -f script.sed`·`gawk -v out=… '{print>out}'` 등 파일/변수 경유 쓰기)도
+함께 ask→allow가 됐다. 이 클래스는 새 위험군이 아니다 — F71이 이미 이 파일에 대한 임의
+interpreter 쓰기(`python3 -c "open(...,'w')"` 등)를 무프롬프트로 허용하므로 같은 경계 안의 다른
+경로일 뿐이다. 다만 사용자 override 문언이 명시한 것은 in-place(`-i`/`--in-place`)뿐이므로, 이
+부수적 확장은 승인 문언보다 넓다 — 새 위험은 아니지만 정직하게 여기 기록한다(테스트로 고정:
+`tests/pre-bash-firewall.bats`의 F73r2 테스트 참조).
+
 **F67이 남긴 것 (철회되지 않은 부분)**: 다섯 회전이 부수적으로 드러낸 보호 갭들은 그대로 유지된다 —
 `hooks/*.sh` 전체와 `templates/progress/*.json`을 `PROTECTED_GLOBS`·`is_protected()`에 편입(실행되는
 훅과 신규 프로젝트 seed가 탐지 밖에 있었다), 포매터 skip 목록과 `PROTECTED_GLOBS`의 정합(정당한

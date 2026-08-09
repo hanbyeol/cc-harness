@@ -349,10 +349,22 @@ ASK_PATTERNS=(
   '\bperl\b[^;|&]*(^| )-[a-zA-Z]*i[a-zA-Z]*[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
   '\bperl\b[^;|&]*--in-place[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
   # F73: sed/awk **전용** in-place arm — 데이터 플레인에만(컨트롤 플레인 `.claude/settings*.json`·
-  # `hooks/*.json` 제외, hooks는 `.sh`만). 도구 목록이 `READ_CAPABLE_ARM`과 정확히 같은 리터럴이라
+  # `hooks/hooks.json` 제외, hooks는 `.sh`만). 도구 목록이 `READ_CAPABLE_ARM`과 정확히 같은 리터럴이라
   # `arm_is_exemptable()`의 토큰 매치를 통과해 allow가 된다.
   '\b(g?sed|g?awk|mawk)\b[^;|&]*(^| )-[a-zA-Z]*i[a-zA-Z]*[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
   '\b(g?sed|g?awk|mawk)\b[^;|&]*--in-place[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
+  # **F37 2차 판정 반려 대응(2026-08-09)**: `.sh`만 남기며 위 두 줄의 원래 타겟이던
+  # `hooks/*.(sh|json)`에서 `.json`이 통째로 빠졌다 — `hooks/hooks.json`(컨트롤 플레인)을
+  # 빼려던 것이지만 grep -E(POSIX ERE)는 부정 전방탐색이 없어 "hooks.json만 제외"를 정규식
+  # 하나로 표현할 수 없었고, `.json` 전체를 뺀 결과 `hooks/hooks.json` **아닌** 다른 JSON
+  # 파일(가상의 `hooks/other.json` 등)이 **면제가 아니라 무매치**로 통째로 빠졌다 —
+  # `PROTECTED_GLOBS`에도 없어 사후 탐지도 없고, 미배선 fail-safe도 비껴간다(실측 확인).
+  # 위 두 exemptable arm과 짝을 이루는 **비면제** arm을 여기 더한다 — 도구 목록에 `perl`을
+  # 섞어(`READ_CAPABLE_ARM` 리터럴 불일치로 영구 비면제, :339 주석과 같은 장치) `hooks/*.json`
+  # 전체(즉 사실상 `hooks.json`)를 예전처럼 항상 ask로 되돌린다. `.sh`는 위에서 이미 다루므로
+  # 여기 넣지 않는다 — 중복 매치는 무해하지만 의도를 흐린다.
+  '\b(g?sed|perl|g?awk|mawk)\b[^;|&]*(^| )-[a-zA-Z]*i[a-zA-Z]*[^;|&]*hooks/[A-Za-z0-9_.-]+\.json'
+  '\b(g?sed|perl|g?awk|mawk)\b[^;|&]*--in-place[^;|&]*hooks/[A-Za-z0-9_.-]+\.json'
   # sed의 w 명령/s///w 플래그 — 플래그도 리다이렉트도 없이 임의 파일에 쓴다.
   # 실측: sed -n 'w victim' src → victim에 src 내용 · sed 's/x/PWN/w victim2' → victim2=PWN.
   # F63 이전에는 에디터 이름 목록이 sed를 통째로 잡아 가려져 있었다.

@@ -3,8 +3,18 @@
   "sprint": 59,
   "title": "sed/awk in-place(-i/--in-place) ASK 면제 확대 + F63 완료 처리",
   "security_tier": "critical",
-  "timestamp": "2026-08-08T22:29:25+0900",
-  "iteration": 1,
+  "timestamp": "2026-08-09T21:05:00+0900",
+  "iteration": 2,
+  "round2_fix": {
+    "trigger": "F37 2차 독립 판정(progress/agent-comms/evaluator-feedback-2026-08-08T23-54-37+0900.json)이 fail(min-of-5 6, security 6)을 냈다 — 1차 evaluator·구현자 둘 다 놓친 실제 결함.",
+    "defect": "hooks/hooks.json(컨트롤 플레인)을 새 sed/awk in-place arm 타겟에서 빼려고 hooks/*.sh로만 좁혔는데, 그 arm의 원래 타겟이던 hooks/*.(sh|json) 중 .json 전체가 함께 빠졌다 — hooks/hooks.json이 아닌 다른 JSON 파일에 대한 sed/awk in-place 쓰기가 면제가 아니라 **어떤 ASK arm에도 매치하지 않는 상태**가 됐다. PROTECTED_GLOBS 미등재로 사후 탐지도 없고, 미배선 fail-safe도 비껴갔다(실측: 배선 안 된 상태에서도 allow). 사용자가 승인한 범위(hooks/*.sh)를 벗어난 미발견 결함이었다.",
+    "root_cause": "POSIX ERE(grep -E)에는 부정 전방탐색이 없어 'hooks.json만 빼고 나머지 .json은 유지'를 정규식 하나로 표현할 수 없었다 — .sh만 남기는 방식으로 우회했는데, 그 우회가 hooks/*.json 전체를 무매치 상태로 만드는 부작용을 냈다.",
+    "fix": "hooks/*.json을 겨냥한 sed/awk in-place ASK arm 2개를 추가(도구 목록에 perl을 섞어 READ_CAPABLE_ARM 리터럴 불일치로 영구 비면제 — F73 본문과 같은 장치). hooks/*.sh 면제는 그대로 유지, hooks.json은 여전히 이 새 arm으로 ask.",
+    "also_closed": "F37 1차 판정이 지적하고 2차가 재확인한 SC-3 미고정 3형태(feature_list.json의 awk -f/sed -f/gawk -v 리다이렉트)를 F73r2 테스트로 고정. 새 위험군은 아님을 재확인(F71 경계 안).",
+    "feature_list_passes_history": "1차 evaluator가 passes:true로 전환 → F37 2차가 fail을 내며 되돌리려 했으나 스폰 에이전트가 API 한도로 판정 기록 직후 중단 → 메인 루프가 그 기록된 판정을 반영해 passes:false로 되돌림(commit e2a9990) → 이번 커밋으로 결함 수정."
+  },
+  "_iteration1_note": "아래 iteration 1 필드(base_commit·summary 등)는 최초 구현 라운드 기록이다. round2_fix가 그 이후 반려·수정 이력이다.",
+  "_iteration1_timestamp": "2026-08-08T22:29:25+0900",
   "mode": "serial",
   "_mode_note": "단일 파일(hooks/pre-bash-firewall.sh) 중심의 순차 체인 — 병렬 분할 대상 아님(sprint-59.json _parallelizable:false).",
   "base_commit": "1a94dfe",
@@ -30,7 +40,9 @@
     "tests/pre-bash-firewall.bats :: F73: perl -i is out of scope and stays ask on data-plane files",
     "tests/pre-bash-firewall.bats :: F73: sed's w command/flag stays out of scope and stays ask",
     "tests/pre-bash-firewall.bats :: F73: F65's pure-read exemption is unaffected",
-    "tests/pre-bash-firewall.bats :: F73: editors other than sed/awk still ask by name on feature_list.json"
+    "tests/pre-bash-firewall.bats :: F73: editors other than sed/awk still ask by name on feature_list.json",
+    "tests/pre-bash-firewall.bats :: F73r2: hooks/*.json other than hooks.json still asks for sed/awk in-place (regression fix)",
+    "tests/pre-bash-firewall.bats :: F73r2: feature_list.json non-in-place write forms (SC-3 gap closure)"
   ],
   "existing_tests_updated": [
     "F65: spelling no longer matters — 컨트롤 플레인 타겟으로 재구성해 '인식됨' 검증을 보존하고, 데이터 플레인 케이스는 새 allow 기대값 추가",
@@ -55,8 +67,9 @@
     "manual_smoke": "20개 대표 명령을 wired 픽스처에 직접 파이프해 확인 — AC-1~AC-6 전 항목 기대대로.",
     "design_bug_repro": "1차 구현(새 arm만 추가)에서 'sed -i s/a/b/ progress/harness-config.json' 등 6개 AC-1 케이스가 전부 ask로 실패 → 판정 루프 구조 재확인 → 옛 arm 좁히기로 수정 → 재실측 전부 allow.",
     "feature_list_json_edge_case": "feature_list.json은 이름 기반 arm(vim 등과 sed/awk가 같은 목록에 있던 것)이 별도로 존재해 -i arm 수정만으로는 안 풀렸다 — 이 arm도 sed/awk를 빼고 전용 arm을 추가해서야 allow로 전환됨(실측으로 발견).",
-    "tests": "bats tests/pre-bash-firewall.bats — 전체 green, not ok=0(1차 실행 6건 실패 → 수정 → 재실행). bats tests/ 전체 — 1..774, ok=774 / not ok=0(중간에 'a line continuation is still one command' 1건 발견 → 수정 → 최종 재실행 774/774). **정정(F37 1차 판정 실측 지적)**: 이 파일의 실제 총 개수는 `bats --count tests/pre-bash-firewall.bats` 기준 240이다 — 구현 중 반복 실행하며 기록한 '208'은 오기였다(정확한 재구성 원인은 못 찾음, 아마 초반 회차의 부분 카운트를 최종 수치로 착각). 최종 판정은 774/774(하네스 전체) 결과로 한다.",
-    "behavioral_probe": "bash scripts/probes/behavioral.sh → [] (0건)"
+    "tests": "iteration 1 최종: bats tests/pre-bash-firewall.bats 240/240, bats tests/ 전체 774/774. iteration 2(F37 2차 반려 수정 후): bats tests/pre-bash-firewall.bats 242/242(F73r2 신규 2건 포함), bats tests/ 전체 776/776. 각 최종 1회 실행 결과로 판정.",
+    "manual_smoke_round2": "hooks/other-config.json·hooks/another.json에 대한 sed -i/awk -i가 수정 전 allow → 수정 후 ask, hooks/hooks.json은 그대로 ask, hooks/lib.sh(.sh)는 그대로 allow, 미배선 상태에서도 hooks/other-config.json이 ask(면제가 아니라 무매치였다는 증거가 사라짐)임을 wired/unwired 양쪽에서 직접 확인.",
+    "behavioral_probe": "bash scripts/probes/behavioral.sh → [] (0건, iteration 2 기준)"
   },
   "f63_disposition": {
     "action": "status: superseded (F64 선례와 동일 방식)",
