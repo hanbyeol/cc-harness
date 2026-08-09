@@ -976,7 +976,7 @@
       "security_tier": "critical",
       "status": "pending",
       "passes": false,
-      "iteration": 1,
+      "iteration": 2,
       "_f37_round2_reverted": "[2026-08-09] F37 2차 독립 판정(progress/agent-comms/evaluator-feedback-2026-08-08T23-54-37+0900.json)이 fail을 냈다(min-of-5 6, security 6 < 7). 1차가 놓친 실제 결함: 컨트롤 플레인 hooks/hooks.json을 새 sed/awk in-place arm 타겟에서 빼려고 hooks/*.sh로만 좁혔는데, 그 과정에서 옛 arm이 커버하던 hooks/*.json(hooks.json 외 다른 JSON 파일)이 어느 ASK arm에도 매치되지 않게 됐다 — 면제가 아니라 무매치라 PROTECTED_GLOBS 사후 탐지도 미배선 fail-safe도 전부 비껴간다(실측: 배선 없어도 allow). 판정 프로세스가 스폰 에이전트의 API 한도 초과로 이 판정 직후 자동으로 passes를 되돌리지 못해, 메인 루프가 이미 내려진 독립 판정 결과를 그대로 반영해 여기서 되돌린다(INV-1 — 새 판단이 아니라 기록된 판정의 반영).",
       "dependencies": [
         "F65",
@@ -985,8 +985,9 @@
       ],
       "assigned_sprint": 59,
       "_user_override_2026_08_08": "메인 루프가 F71과 같은 무게의 보안 경계 축소임을 고지(쓰기 신호가 드러나는 arm은 지금까지 면제한 적 없음)한 뒤 AskUserQuestion으로 범위를 확인 — 사용자가 '쓰기까지 모두 — sed -i/awk -i inplace도 무프롬프트로'를 명시적으로 선택.",
-      "_evaluator_verdict_2026_08_08": "pass (min-of-5 = 7, 기능 8·품질 7·보안 7·에러 8·테스트 7) — progress/agent-comms/evaluator-feedback-2026-08-08T23-16-53+0900.json. 근거: 245개 명령 코퍼스를 1a94dfe/7b759a7 양쪽 방화벽에 통과시킨 판정 차분이 정확히 11건이고 전부 의도된 데이터 플레인 sed/awk in-place ask→allow, 범위 밖 변화 0건. 컨트롤 플레인·탐지기 자신·perl·sed w는 경로 철자 변형·다중 타겟 혼재까지 포함해 18케이스 ask 유지. 미배선 상태 fail-safe 보존. bats tests/ 774/774, behavioral 0건. **잔여(후속 필요)**: feature_list.json 이름 기반 arm 좁히기로 in-place가 아닌 4형태(awk -f·sed -f·awk 변수 간접 리다이렉트)가 함께 allow가 됐고 테스트로 고정되지 않았다 — F71이 같은 파일에 이미 더 강한 무프롬프트 쓰기를 허용하므로 한계 노출 증가분은 0이나, 근거 주석의 '영향 없음' 문장은 사실과 다르다. F63의 superseded 처리는 AC-7 자기모순으로 사용자 확인 필요.",
-      "_second_verdict_pending": "security_tier critical — F37에 따라 독립 컨텍스트 2차 judge 대조 필요(불일치 시 자동 pass 금지)."
+      "_evaluator_verdict_2026_08_08": "[superseded by _f37_round2_reverted, see above, and by _evaluator_verdict_2026_08_09 below] pass (min-of-5 = 7, 기능 8·품질 7·보안 7·에러 8·테스트 7) — progress/agent-comms/evaluator-feedback-2026-08-08T23-16-53+0900.json. 근거: 245개 명령 코퍼스를 1a94dfe/7b759a7 양쪽 방화벽에 통과시킨 판정 차분이 정확히 11건이고 전부 의도된 데이터 플레인 sed/awk in-place ask→allow, 범위 밖 변화 0건. 컨트롤 플레인·탐지기 자신·perl·sed w는 경로 철자 변형·다중 타겟 혼재까지 포함해 18케이스 ask 유지. 미배선 상태 fail-safe 보존. bats tests/ 774/774, behavioral 0건. **잔여(후속 필요)**: feature_list.json 이름 기반 arm 좁히기로 in-place가 아닌 4형태(awk -f·sed -f·awk 변수 간접 리다이렉트)가 함께 allow가 됐고 테스트로 고정되지 않았다 — F71이 같은 파일에 이미 더 강한 무프롬프트 쓰기를 허용하므로 한계 노출 증가분은 0이나, 근거 주석의 '영향 없음' 문장은 사실과 다르다. F63의 superseded 처리는 AC-7 자기모순으로 사용자 확인 필요. 이후 F37 2차가 이 판정을 뒤집었다(_f37_round2_reverted 참조) — 아래 회귀를 수정한 커밋(1a4e26f)이 이 판정의 대상이 아니었다는 점에 유의.",
+      "_evaluator_verdict_2026_08_09": "1차 pass (min-of-5 = 7, 기능 9·품질 7·보안 8·에러 8·테스트 7) — progress/agent-comms/evaluator-feedback-2026-08-09T22-00-47+0900.json, 커밋 1a4e26f(F37 2차 회귀 수정) 대상. 근거: 자체 wired 픽스처 57케이스 + 934f2c1/round-1/HEAD 3버전 658명령 차분 실측 — round-1→HEAD 41건 전부 allow→ask(회귀 폐쇄, 부작용 0), pre-F73→HEAD 125건 전부 승인 범위 내(데이터 플레인 in-place 120형태 + feature_list.json 비in-place 3형태 고정 + 읽기전용 2형태). bats tests/ 776/776, behavioral 0건. 낮은 심각도 이슈 7건(비차단) — I-1(arm_is_exemptable() 주석-코드 불일치, 이 커밋에서 같이 수정)·I-6(이 필드로 해소) 포함. security_tier critical이므로 이 1차 결과만으로는 passes 전환 불가 — F37 2차 독립 판정 필요(아래 필드).",
+      "_second_verdict_pending": "[2026-08-09] security_tier critical — 1차(_evaluator_verdict_2026_08_09, 커밋 1a4e26f)에 대한 F37 2차 독립 컨텍스트 판정이 아직 디스패치 전/진행 중. 두 판정의 verdict·score가 일치해야 passes 전환 가능(불일치 시 자동 pass 금지, 사용자 에스컬레이션)."
     },
     {
       "id": "F71",

@@ -191,14 +191,16 @@ arm_is_exemptable() {
   #  - 탐지기 자신과 티켓 원장: 파괴되면 자기를 복구할 수 없다(F65 SC-6)
   # F73(2026-08-08, 사용자 override): in-place(`-i`) 하드 제외를 지웠다 — "쓰기 신호가 드러나는
   # arm은 면제하지 않는다"는 원칙을 sed/awk in-place 쓰기에 한해 뒤집는 결정이다(F71과 같은
-  # 무게). 안전한 이유는 이 제거가 **기존 arm의 동작을 바꾸지 않는다**는 데 있다 — 전체
-  # ASK_PATTERNS 중 `-i` 리터럴을 포함하는 arm은 셋뿐이고(일반/contracts `--in-place`,
-  # feature_list.json `-i`) 셋 다 도구 목록에 `perl`이 섞여 있어(`(g?sed|perl|g?awk|mawk)`)
-  # `READ_CAPABLE_ARM`(`(g?sed|g?awk|mawk)`)을 연속 부분문자열로 포함하지 않는다 — 그래서
-  # 아래 토큰 매치 단계에서 여전히 실패해 면제되지 않는다(perl 계속 ask, 실측 확인됨). 실제
-  # 면제는 이 arm들이 아니라 F73이 새로 추가한, perl 없이 `(g?sed|g?awk|mawk)`만 쓰는 arm에서만
-  # 일어난다. `protected-integrity` 등 `-i`를 우연히 포함하는 다른 패턴은 아래 별도 하드 제외가
-  # 이미 막는다.
+  # 무게). 안전한 이유는 `-i`/`--in-place` 리터럴을 포함하는 arm 중 실제로 면제되는 것이
+  # 도구 목록이 `READ_CAPABLE_ARM`(`(g?sed|g?awk|mawk)`)과 정확히 같은 arm뿐이라는 데 있다 —
+  # 그 arm들은 사용자가 승인한 데이터 플레인(harness-config.json 등)·contracts/*.json·
+  # feature_list.json만 대상으로 한다. 나머지 `-i`/`--in-place` 보유 arm(원래 sed/awk/perl이
+  # 섞여 있던 arm에서 perl만 남긴 것들, 그리고 `hooks/*.json`(hooks.json 제외분) 커버리지
+  # 손실을 되돌리려 F37 2차 후속으로 perl을 다시 sed/awk와 섞어 넣은 arm — 개수는 고정값이
+  # 아니므로 여기 세지 않는다)은 도구 목록에 `perl`이 항상 끼어 있어 `READ_CAPABLE_ARM`을
+  # 연속 부분문자열로 포함하지 않는다 — 그래서 아래 토큰 매치가 여전히 실패해 면제되지 않는다
+  # (perl·`hooks/*.json` 대상 sed/awk in-place 계속 ask, 실측 확인됨). `protected-integrity`
+  # 등 `-i`를 우연히 포함하는 다른 패턴은 아래 별도 하드 제외가 이미 막는다.
   [[ "$p" == *'hooks\.json'* || "$p" == *'settings'* ]] && return 1
   [[ "$p" == *'protected-integrity'* || "$p" == *'guarded-edits'* || "$p" == *'integrity-baseline'* ]] && return 1
   # F68: 무인 중단 기록도 탐지기의 판단 근거와 같은 성격이다 — 지워지면 "멈췄다"는 사실이
