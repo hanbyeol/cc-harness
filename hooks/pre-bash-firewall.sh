@@ -321,9 +321,11 @@ exempt_paths_are_detected() {
 ASK_PATTERNS=(
   # F74(2026-08-10, 사용자 override): 아래 3줄은 각각 원래 'git reset[^;|&]*--hard' ·
   # 'git clean[^;|&]* -[a-zA-Z]*f' · 'git checkout[^;|&]* --force' 였다 — uncommitted
-  # 변경/미추적 파일을 파괴하는 세 서브커맨드를 ASK로 잡던 패턴들이다. 위 BLOCKED :92의
-  # push --force와 같은 사용자 override로 제거됐다(같은 3라운드 고지, 같은 근거·같은
-  # tombstone 기법 — 상세 주석은 :92 참조, 중복 서술하지 않는다). 이 3개도 push --force와
+  # 변경/미추적 파일을 파괴하는 세 서브커맨드를 ASK로 잡던 패턴들이다. 위 BLOCKED 배열의
+  # F74_TOMBSTONE_PUSH_FORCE 줄(push --force)과 같은 사용자 override로 제거됐다(같은
+  # 3라운드 고지, 같은 근거·같은 tombstone 기법 — 상세 주석은 그 줄 참조, 중복 서술하지
+  # 않는다. 정확한 줄 번호는 위 주석이 늘어나면 드리프트하므로 여기 박아두지 않는다).
+  # 이 3개도 push --force와
   # 마찬가지로 사후 탐지·복구가 없다 — reset --hard가 궤도 밖으로 보낸 커밋은 git reflog로
   # 일부 복구 가능하지만, clean -f가 지우는 미추적 파일과 checkout --force가 덮어쓰는
   # 미커밋 수정은 git 오브젝트가 애초에 없어 그조차 없다.

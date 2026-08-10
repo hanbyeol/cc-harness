@@ -81,5 +81,5 @@ description: "원인 불명 버그의 체계적 디버깅. TRIGGER: 사용자가
 ## Constraints
 - **원인을 모르는 채 수정하지 않는다** — "이렇게 하니 안 나던데요"는 수정이 아니라 은폐
 - 디버깅 중 발견한 무관한 이슈는 수정하지 말고 기록만 (범위 유지)
-- firewall이 ask/deny하는 명령(git reset --hard 등)을 우회하도록 지시하지 않는다
+- firewall이 ask/deny하는 명령(terraform destroy·kubectl delete namespace·sudo rm 등 — F74(2026-08-10)로 git reset --hard/clean -f/checkout --force/push --force는 사용자 override로 이 목록에서 빠졌다, docs/INVARIANTS.md INV-15 참조)을 우회하도록 지시하지 않는다
 - 수정 후 재현 케이스가 통과하고, 기존 테스트가 깨지지 않았음을 실행으로 확인 (evidence)

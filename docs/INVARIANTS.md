@@ -93,8 +93,11 @@ invariant-guard의 Edit|Write 후킹을 우회하는 경로 차단)가 포함된
 **단 자기보호의 수단은 F65에서 갈렸다** — 되돌릴 수 없는 것만 예측으로 막고, 되돌릴 수 있는
 검증 파일 변경은 사후 탐지·복구가 담당한다(INV-14). default-allow 확장·위험정의
 완화는 사람이 검토(critical 티어)하고, 위험 명령이 allow로 새지 않음은 `tests/pre-bash-firewall.bats`의
-회귀 배터리(rm·sudo·terraform destroy·kubectl delete·git reset --hard 등이 output에
-`permissionDecision:"allow"` 미포함, 하네스 검증파일 쓰기는 `ask`)가 고정한다. → [ADR-004](DECISIONS/ADR-004-firewall-auto-allow.md)
+회귀 배터리(rm·sudo·terraform destroy·kubectl delete 등이 output에 `permissionDecision:"allow"`
+미포함, 하네스 검증파일 쓰기는 `ask`)가 고정한다. **예외(F74, 2026-08-10)**: `git push --force`·
+`git reset --hard`·`git clean -f`·`git checkout --force` 4개는 이 배터리에서 사용자 override로
+빠졌다 — 지금은 의도적으로 allow다. 상세와 근거(사후 복구가 없다는 사실 포함)는 아래 INV-15
+참조. → [ADR-004](DECISIONS/ADR-004-firewall-auto-allow.md)
 
 ### INV-10. 도구 방화벽 allow 계층은 add-only (확장 불가)
 `hooks/pre-tool-firewall.sh`(Bash 외 도구의 크로스도구 권한 계층, [ADR-005](DECISIONS/ADR-005-cross-tool-permission-tier.md))의
