@@ -176,8 +176,9 @@ plugin 설치 시 `hooks.json`으로 **네이티브 등록**됩니다 — settin
 > `hooks/lib.sh`는 이벤트 훅이 아니라 위 훅들이 공유하는 라이브러리(cfg_get·version_lt·harness_cd·handoff snapshot)입니다.
 
 **Firewall 정책** — **default-allow(위험만 게이트, 나머지 무프롬프트)** (우선순위: deny → ask → default-allow):
-- **deny**: 루트/홈/시스템 디렉토리 `rm`, `git push --force`(`--force-with-lease`는 허용), pipe-to-shell(중간 파이프 우회 포함), fork bomb, `DROP TABLE`, eval/명령치환 우회 등 복구 불가·파괴
-- **ask**: uncommitted 손실 위험(`git reset --hard`·`git clean -f`) + **하네스 자기보호**(검증파일 `harness-config.json`·`hooks/*`·`tests/*`·`INVARIANTS.md` 쓰기 — cp/mv/리다이렉트뿐 아니라 인터프리터(`python3 -c`)·에디터(`vim`)·`git -c core.hooksPath`·`GIT_CONFIG_*` 경유 포함) + **시크릿 egress**(`curl/nc/scp`가 `~/.ssh`·`~/.aws`·개인키를 외부 전송) + `terraform destroy`·`kubectl delete`·`helm uninstall` 등
+- **deny**: 루트/홈/시스템 디렉토리 `rm`, pipe-to-shell(중간 파이프 우회 포함), fork bomb, `DROP TABLE`, eval/명령치환 우회 등 복구 불가·파괴
+- **ask**: **하네스 자기보호**(검증파일 `harness-config.json`·`hooks/*`·`tests/*`·`INVARIANTS.md` 쓰기 — cp/mv/리다이렉트뿐 아니라 인터프리터(`python3 -c`)·에디터(`vim`)·`git -c core.hooksPath`·`GIT_CONFIG_*` 경유 포함) + **시크릿 egress**(`curl/nc/scp`가 `~/.ssh`·`~/.aws`·개인키를 외부 전송) + `terraform destroy`·`kubectl delete`·`helm uninstall` 등
+- **default-allow에 포함(F74, 2026-08-10, 사용자 override)**: `git push --force`(`--force-with-lease`는 원래부터 허용)·`git reset --hard`·`git clean -f`·`git checkout --force` — 이 4개는 원래 deny/ask였으나 사용자가 위험을 명시적으로 수용해 무프롬프트로 전환했다. 이 4개에는 다른 ask 항목과 달리 사후 탐지·복구가 없다(`docs/INVARIANTS.md` INV-15 참조) — 새 설치 환경에서 이 정책을 되돌리려면 `hooks/pre-bash-firewall.sh`의 F74 tombstone 주석을 참조할 것
 - **default-allow**: deny/ask에 걸리지 않은 **나머지 모든 명령을 무프롬프트 통과** — `python`·`node`·`git push`·`npm install`·`docker build`·`find` 등 일반 개발은 확인 없이 실행된다(위험 명령만 게이트). `harness-config.json`의 `firewall.auto_allow`(기본 true)로 allow만 on/off — deny/ask는 항상 유지
 
 **크로스도구 권한** (`pre-tool-firewall.sh`, [ADR-005](docs/DECISIONS/ADR-005-cross-tool-permission-tier.md)): Bash 외 도구도 **읽기 전용은 무프롬프트** — WebFetch·WebSearch·MCP read-verb(`get`/`list`/`search`/`read` 등)는 자동 허용, MCP write(`create`/`delete`/`send`/`upload`)·`file_upload`·미분류 도구는 프롬프트. `firewall.auto_allow_tools`(기본 true)로 on/off.
