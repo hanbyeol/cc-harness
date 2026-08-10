@@ -88,8 +88,18 @@ join_patterns() {
 BLOCKED=(
   # rm targeting root / root-variants / home / $HOME / top-level system dirs (as a whole argument)
   '\brm [^;|&]*( /+| /\*| /\.| ~| ~/| ~/\*| \$HOME/?| "\$HOME"/?| \$\{HOME\}/?| /(etc|usr|bin|sbin|lib|lib64|boot|dev|sys|proc|opt|srv|home|root|tmp|var|System|Library|Applications)/?)( |$|[;&|])'
-  # git push --force (단, --force-with-lease는 허용)
-  'git push[^;|&]*--force([^-]|$)'
+  # F74(2026-08-10, 사용자 override): 원래 'git push[^;|&]*--force([^-]|$)' — 원격 브랜치를
+  # 강제로 덮어쓰는 push를 이 하네스의 최고 위험 등급(rm -rf /·DROP DATABASE·포크폭탄과 동급,
+  # Layer 1 BLOCKED)으로 잡던 패턴이었다. 사용자가 3라운드 고지(대상 확인 → F71/F73급 경계
+  # 축소 고지 → 이 줄이 ASK가 아니라 BLOCKED임을 정정 고지 후 deny→allow 재확인) 끝에 명시
+  # 수용해 제거를 요청했다. 아래는 실제 명령과 결코 매치하지 않는 tombstone이다 — INV-5는
+  # BLOCKED 배열의 **라인 수**만 검사하므로(텍스트 보존 아님, F73에서 확인) 라인을 지우지
+  # 않고 텍스트만 교체해 add-only를 지키면서 매치를 무력화한다. 이 라인은 더 이상 실질적
+  # 방어를 하지 않는다 — F71/F73과 달리 이 명령엔 사후 탐지·복구(protected-integrity.sh)도
+  # 없다(git ref 재작성은 그 모델 밖). 남는 완충은 git reflog뿐(GC·시간에 취약). 되돌리려면
+  # 이 줄을 원래 패턴으로 되돌리면 된다. docs/INVARIANTS.md INV-15, docs/DECISIONS/ADR-004
+  # Amendment 7, progress/contracts/sprint-60.json 참조.
+  '\bF74_TOMBSTONE_PUSH_FORCE_NEVER_MATCH\b'
   'kubectl delete namespace'
   'kubectl delete -A'
   'kubectl delete[^;|&]*--all-namespaces'
@@ -309,9 +319,17 @@ exempt_paths_are_detected() {
   return 0
 }
 ASK_PATTERNS=(
-  'git reset[^;|&]*--hard'
-  'git clean[^;|&]* -[a-zA-Z]*f'
-  'git checkout[^;|&]* --force'
+  # F74(2026-08-10, 사용자 override): 아래 3줄은 각각 원래 'git reset[^;|&]*--hard' ·
+  # 'git clean[^;|&]* -[a-zA-Z]*f' · 'git checkout[^;|&]* --force' 였다 — uncommitted
+  # 변경/미추적 파일을 파괴하는 세 서브커맨드를 ASK로 잡던 패턴들이다. 위 BLOCKED :92의
+  # push --force와 같은 사용자 override로 제거됐다(같은 3라운드 고지, 같은 근거·같은
+  # tombstone 기법 — 상세 주석은 :92 참조, 중복 서술하지 않는다). 이 3개도 push --force와
+  # 마찬가지로 사후 탐지·복구가 없다 — reset --hard가 궤도 밖으로 보낸 커밋은 git reflog로
+  # 일부 복구 가능하지만, clean -f가 지우는 미추적 파일과 checkout --force가 덮어쓰는
+  # 미커밋 수정은 git 오브젝트가 애초에 없어 그조차 없다.
+  '\bF74_TOMBSTONE_RESET_HARD_NEVER_MATCH\b'
+  '\bF74_TOMBSTONE_CLEAN_F_NEVER_MATCH\b'
+  '\bF74_TOMBSTONE_CHECKOUT_FORCE_NEVER_MATCH\b'
   # IaC (iac 프로파일) — 복구 불가·리뷰 우회·state 수술. 환경(prod) 강제는 /plan-review·Plan 게이트가 담당.
   'terraform[^;|&]* destroy'
   'terraform[^;|&]* apply[^;|&]* -auto-approve'

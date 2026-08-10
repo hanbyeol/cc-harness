@@ -100,31 +100,31 @@
     {
       "step": "1. hooks/pre-bash-firewall.sh: BLOCKED :92 'git push[^;|&]*--force([^-]|$)' 를 tombstone으로 치환. 인접 주석에 원래 패턴·ADR-004 Amendment 7 참조·'실질 방어 없음' 명시.",
       "verify": "AC-1(push 부분) 실측",
-      "done": false,
+      "done": true,
       "covers": ["AC-1", "AC-5", "AC-8", "SC-1", "SC-4"]
     },
     {
       "step": "2. hooks/pre-bash-firewall.sh: ASK_PATTERNS :312-314 (reset --hard / clean -f / checkout --force) 3개를 각각 tombstone으로 치환. 동일한 주석 규율.",
       "verify": "AC-2~AC-5 실측",
-      "done": false,
+      "done": true,
       "covers": ["AC-2", "AC-3", "AC-4", "AC-5", "AC-8", "SC-1", "SC-4"]
     },
     {
       "step": "3. tests/pre-bash-firewall.bats: 기존 6개 테스트(:83,:88,:160,:166,:172,:687 — F74 조사로 확정된 목록) 단언을 allow로 반전(이름에 F74 표기, INV-6 준수 — @test 라인 자체는 유지). :1221(F38 로깅 테스트)의 ask 예시를 'sed -i s/a/b/ .claude/settings.json'로 교체. :1508 부근 F67 판정-일치 테스트에서 'git push origin main --force'를 SAME→INTENDED로 이동. :1970 prefix-stripping 테스트에서 'env git reset --hard origin/main' 예시를 'env kubectl delete pod x -n app'로 교체.",
       "verify": "개별 green + SC-3 실측",
-      "done": false,
+      "done": true,
       "covers": ["AC-6", "AC-7", "AC-9", "SC-3"]
     },
     {
       "step": "4. docs/INVARIANTS.md: INV-14 말미(파일 끝, :713) 뒤에 새 'INV-15' 절 추가 — 이번 변경의 성격(Layer 1 BLOCKED을 사용자 override로 최초로 여는 사례)과 '사후 복구 없음'을 SC-2대로 명시. docs/DECISIONS/ADR-004-firewall-auto-allow.md에 Amendment 7 추가.",
       "verify": "SC-2 실측(문장 존재 확인)",
-      "done": false,
+      "done": true,
       "covers": ["SC-2"]
     },
     {
       "step": "5. bats 전체 1회 + behavioral 프로브 1회 + 판정 차분(AC-6) 실측",
       "verify": "AC-6·AC-9 실측",
-      "done": false,
+      "done": true,
       "covers": ["AC-6", "AC-9"]
     }
   ],
@@ -134,5 +134,7 @@
     "F74가 열매트릭스를 넓히면(예: force-push 계열 다른 변형) 별도 change-request 대상 — 이번 범위는 사용자가 명시한 정확히 4개 서브커맨드."
   ],
   "_parallelizable": false,
-  "agreed": false
+  "agreed": true,
+  "_agreed_note": "승인 — 2026-08-10, Plan 게이트(ExitPlanMode) 승인. tombstone 치환 기법(라인 삭제 없이 텍스트만 교체해 INV-5 라인 수 검사를 유지하면서 매치를 무력화)과 Layer 4가 이제 무조건부 catch-all임을 코드 조사로 확정한 뒤 승인됨.",
+  "_implementation_evidence": "hooks/pre-bash-firewall.sh 4개 라인 tombstone 치환 완료(BLOCKED :92, ASK_PATTERNS :312-314). tests/pre-bash-firewall.bats: 244/244(F74 표기 테스트 8개 포함, 배선/미배선·blast-radius 전용 테스트 포함). 하네스 전체 bats: 778/778. AC-6 판정 차분: bats/behavioral.sh 코퍼스에서 추출한 247개 명령을 bae0064(F74 이전) vs HEAD에 통과시킨 결과 diff 정확히 11건 — 전부 대상 4개 명령 계열의 표기 변형(대소문자·공백·prefix 포함)이고 범위 밖 변화 0건. **구현 중 발견한 추가 필요 수정**: scripts/probes/behavioral.sh의 BASH_CORPUS(F30 행위 프로브)에 'git push --force origin main'·'git reset --hard HEAD~3'가 '절대 allow되면 안 되는' 항목으로 등록돼 있어 F74 이후 정책대로의 allow를 오탐(behavioral 프로브가 실제로 이 2건을 leak으로 보고함, 실측 확인). 코퍼스 자체 주석('정책이 의도적으로 허용하는 것은 넣지 않는다')에 따라 제거하고 F74 참조 주석 추가 — 제거 후 프로브 재실행 결과 []. 이 파일은 sprint-60.json 원안에 없던 대상이나 CLAUDE.md 기준 역전파 원칙에 따라 즉시 보완했다."
 }

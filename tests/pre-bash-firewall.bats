@@ -80,14 +80,16 @@ JSON
   [ "$status" -eq 2 ]
 }
 
-@test "blocks git push --force" {
+@test "F74: git push --force now allows (was blocked, user override)" {
   run run_firewall '{"tool_input":{"command":"git push --force"}}'
-  [ "$status" -eq 2 ]
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
-@test "blocks git push origin main --force" {
+@test "F74: git push origin main --force now allows (was blocked, user override)" {
   run run_firewall '{"tool_input":{"command":"git push origin main --force"}}'
-  [ "$status" -eq 2 ]
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
 @test "blocks kubectl delete namespace" {
@@ -157,22 +159,50 @@ JSON
 
 # --- Ask tier: recoverable-but-risky commands prompt the user ---
 
-@test "asks on git reset --hard" {
+@test "F74: git reset --hard now allows (was ask, user override)" {
   run run_firewall '{"tool_input":{"command":"git reset --hard HEAD~1"}}'
   [ "$status" -eq 0 ]
-  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
-@test "asks on git clean -fd" {
+@test "F74: git clean -fd now allows (was ask, user override)" {
   run run_firewall '{"tool_input":{"command":"git clean -fd"}}'
   [ "$status" -eq 0 ]
-  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
-@test "asks on git checkout --force" {
+@test "F74: git checkout --force now allows (was ask, user override)" {
   run run_firewall '{"tool_input":{"command":"git checkout --force main"}}'
   [ "$status" -eq 0 ]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
+@test "F74: the 4 exempted git subcommands also allow when wired (AC-5)" {
+  local c
+  for c in "git push --force" \
+           "git push origin main --force" \
+           "git reset --hard HEAD~1" \
+           "git clean -fd" \
+           "git checkout --force main"; do
+    run wired_firewall "{\"tool_input\":{\"command\":\"$c\"}}"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "wired 상태에서 allow가 아니다: $c"; false; }
+  done
+}
+
+@test "F74: blast radius is exactly the 4 commands -- adjacent patterns unchanged (AC-6/SC-1)" {
+  run run_firewall '{"tool_input":{"command":"git push --force-with-lease origin main"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+  run run_firewall '{"tool_input":{"command":"git push origin main"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+  run run_firewall '{"tool_input":{"command":"terraform state push foo"}}'
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
+  run run_firewall '{"tool_input":{"command":"kubectl delete namespace prod"}}'
+  [ "$status" -eq 2 ]
+  run run_firewall '{"tool_input":{"command":"rm -rf /"}}'
+  [ "$status" -eq 2 ]
+  run run_firewall '{"tool_input":{"command":"git branch -D feature"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
 }
 
 @test "asks on redirect into progress/feature_list.json (INV-11 bash bypass)" {
@@ -684,11 +714,11 @@ JSON
   [[ "$output" != *'"permissionDecision": "allow"'* ]]
 }
 
-@test "git reset --hard never emits allow (ask wins)" {
+@test "F74: git reset --hard now emits allow (was: ask wins, user override reversed this)" {
   run run_firewall '{"tool_input":{"command":"git reset --hard HEAD~1"}}'
   [ "$status" -eq 0 ]
-  [[ "$output" == *'"permissionDecision": "ask"'* ]]
-  [[ "$output" != *'"permissionDecision": "allow"'* ]]
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+  [[ "$output" != *'"permissionDecision": "ask"'* ]]
 }
 
 # --- Layer 3: 하네스 자기보호 — default-allow에서도 검증파일/비밀키 쓰기는 ask로 게이트 ---
@@ -1218,7 +1248,7 @@ JSON
 @test "F38: deny/ask/allow each append their category to .firewall-stats" {
   D=$(mktemp -d); mkdir -p "$D/progress"
   printf '%s' '{"tool_input":{"command":"rm -rf /"}}' | CLAUDE_PROJECT_DIR="$D" bash "$HOOK" >/dev/null 2>&1 || true
-  printf '%s' '{"tool_input":{"command":"git reset --hard HEAD~1"}}' | CLAUDE_PROJECT_DIR="$D" bash "$HOOK" >/dev/null 2>&1 || true
+  printf '%s' '{"tool_input":{"command":"sed -i s/a/b/ .claude/settings.json"}}' | CLAUDE_PROJECT_DIR="$D" bash "$HOOK" >/dev/null 2>&1 || true
   printf '%s' '{"tool_input":{"command":"ls -la"}}' | CLAUDE_PROJECT_DIR="$D" bash "$HOOK" >/dev/null 2>&1 || true
   [ "$(grep -cx deny "$D/progress/.firewall-stats")" -eq 1 ]
   [ "$(grep -cx ask "$D/progress/.firewall-stats")" -eq 1 ]
@@ -1491,7 +1521,21 @@ JSON
     '{"tool_input":{"command":"python3 -c json.load(open(progress/feature_list.json))"}}'
     '{"tool_input":{"command":"python3 -c open(HOOKS/LIB.SH,w).write(x)"}}'
   )
-  [ "${#INTENDED[@]}" -eq 6 ]
+  # F74(2026-08-10, 사용자 override): 이 baseline(f442997) 시점에는 존재하지 않았던 새 의도된
+  # 차이 — git reset --hard/git clean -f/git checkout --force가 ask(baseline)→allow(현재)로
+  # 바뀐다. baseline에서 이미 ask였던 패턴이므로(F71/F73과 무관하게 예전부터 Layer 3에 있었다)
+  # 기존 INTENDED 배열과 같은 ask→allow 형태로 들어간다.
+  INTENDED+=(
+    '{"tool_input":{"command":"git reset --hard HEAD~1"}}'
+    '{"tool_input":{"command":"git clean -fd"}}'
+    '{"tool_input":{"command":"git checkout --force main"}}'
+  )
+  [ "${#INTENDED[@]}" -eq 9 ]
+  # F74: git push --force는 baseline에서 ask가 아니라 BLOCKED(deny)였다 — 위 INTENDED
+  # 배열과 다른 shape(deny→allow)이므로 별도 배열·별도 루프로 검증한다.
+  local -a INTENDED_DENY_TO_ALLOW=(
+    '{"tool_input":{"command":"git push origin main --force"}}'
+  )
   # 그 밖: 판정이 main 과 같아야 한다 — 하드 제외 리터럴(.claude/·templates/·컨트롤 플레인)이
   # 걸리는 인터프리터 케이스는 F71 아래서도 main과 동일하게 ask이므로 여기 남는다.
   local -a SAME=(
@@ -1505,7 +1549,6 @@ JSON
     '{"tool_input":{"command":"dd of=hooks/lib.sh"}}'
     '{"tool_input":{"command":"patch hooks/lib.sh"}}'
     '{"tool_input":{"command":"sed -n 1,5p hooks/lib.sh"}}'
-    '{"tool_input":{"command":"git push origin main --force"}}'
     '{"tool_input":{"command":"kubectl delete namespace prod"}}'
     '{"tool_input":{"command":"python3 - <<EOF\nopen(.claude/settings.json,w)\nEOF"}}'
     '{"tool_input":{"command":"vim README.md\ncat hooks/hooks.json"}}'
@@ -1525,6 +1568,10 @@ JSON
   local c
   for c in "${INTENDED[@]}"; do
     [ "$(judge_with "$main_hook" "$c")" = ask ]
+    [ "$(judge_with "$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh" "$c")" = allow ]
+  done
+  for c in "${INTENDED_DENY_TO_ALLOW[@]}"; do
+    [ "$(judge_with "$main_hook" "$c")" = deny ]
     [ "$(judge_with "$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh" "$c")" = allow ]
   done
   for c in "${SAME[@]}"; do
@@ -1967,7 +2014,7 @@ JSON
   for c in "env cp /tmp/x progress/feature_list.json" \
            "command cp /tmp/x progress/feature_list.json" \
            "env python3 -c open(hooks/hooks.json,w).write(x)" \
-           "env git reset --hard origin/main" \
+           "env kubectl delete pod x -n app" \
            "env -i cp /tmp/x progress/feature_list.json" \
            "env FOO=1 cp /tmp/x progress/feature_list.json" \
            "time cp /tmp/x progress/feature_list.json"; do
