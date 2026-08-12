@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-08-12T00:00:00+0900",
+  "type": "modify",
+  "description": "F65 재작업 준비 — 4차 독립 evaluator가 fail 판정(score 5, security 5 < 7 critical 임계값)한 3개 갭을 sprint-51.json에 반영한다: (1) 중괄호 확장이 Layer 3.3 통과, (2) init.sh 설치본 훅 개별 파일의 rm 삭제가 무프롬프트, (3) evaluator-runs.jsonl이 SC-8 집합 동등성을 위반(PROTECTED_GLOBS·방화벽 어디에도 없음). 코드 수정 없이 산출물(Sprint Contract·feature_list·acceptance-criteria)만 갱신 — 구현은 /implement Plan 게이트 승인 이후.",
+  "affected_features": [
+    "F65"
+  ],
+  "related_features": [
+    "F63",
+    "F64"
+  ],
+  "impact": {
+    "spec_updated": false,
+    "architecture_updated": false,
+    "acceptance_criteria_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false,
+    "invariants_updated": false
+  },
+  "new_sprint_contract": "progress/contracts/sprint-51.json",
+  "rollback_to_phase": null,
+  "evaluator_feedback_source": "progress/agent-comms/evaluator-feedback-2026-08-08T17-10-26+0900.json",
+  "contract_changes": {
+    "agreed": "true → false (재합의 필요)",
+    "new_implementation_steps": [
+      "10. normalize_path_token 중괄호 확장 반영 + control_plane_location 메타문자 확장",
+      "11. 삭제 게이트 대상에 .claude/**/hooks/*.sh(설치본 훅 개별 파일) 추가 — 쓰기 arm과 대칭",
+      "12. evaluator-runs.jsonl basename arm 추가 + INV-11 서술 정정",
+      "13. SC-8 테스트를 두 집합 기계 대조로 교체 + AC-11 조합 생성기 테스트 추가"
+    ],
+    "new_fields": [
+      "_gap_2026_08_08 (top-level)",
+      "_verdict_4th",
+      "AC-11.verification_axes_2026_08_08",
+      "SC-8._gap_2026_08_08",
+      "_agreed_note_2026_08_08"
+    ],
+    "all_add_only": true
+  }
+}
