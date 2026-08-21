@@ -690,7 +690,18 @@ if [[ "$BASENAME" == "settings.json" ]]; then
   # invariant-guard 자신을 포함한 전 훅을 죽이며 우회했다. 배선(오브젝트)뿐 아니라 그 배선의
   # 문서 레벨 실행 도달성까지 봐야 한다. 이 목록의 완전성은 hook-wiring-parity.bats가 공식
   # 스키마의 hook 관련 boolean과 대조해 강제한다(새 스위치 추가 시 테스트 실패 → 등록 강제).
-  HOOK_KILL_SWITCHES="disableAllHooks allowManagedHooksOnly"
+  #
+  # `disableCommandPluginSources`는 앞의 둘과 **의미가 대칭이 아니다**(F75). 앞의 둘은 on이
+  # 곧 훅 실행 중지지만, 이것은 on = command 소스 플러그인을 설치·갱신·재해석하지 않음(그
+  # 명령이 로컬에서 실행되지 않음)이라 일반적으로는 오히려 강화다. kill이 되는 것은 하네스
+  # 자신이 command 소스로 설치된 형태뿐이며 — 재해석이 끊겨 훅이 실행 도달성을 잃는다 —
+  # 게다가 스키마가 'Only honored from managed settings'라고 명시하므로 이 가드가 실제
+  # 관할하는 settings.json·.claude/settings.json 에서는 효력조차 없다. 그럼에도 등록하는 이유:
+  # INV-13이 지키는 대상이 '실행 도달성'이고 위 설치 형태가 그 클래스 안이라, 모호한 쪽을
+  # fail-closed로 둔다. 대가는 실효 없는 편집이 막히는 과잉차단 한 번이며 사람이 승인하면
+  # 된다(같은 트레이드오프를 INV-13이 timeout 사례로 이미 명문화했다). 스위치별 방향·범위
+  # 예외를 두는 대안은 '빠뜨린 조건'이라는 새 우회 표면을 만들므로 택하지 않았다.
+  HOOK_KILL_SWITCHES="disableAllHooks allowManagedHooksOnly disableCommandPluginSources"
   # 각 배선을 [event, matcher, tojson(hook)] JSON 배열 한 줄로 추출한다 — 구분자·제어문자
   # 불필요(jq -c가 개행 없는 한 줄을 보장하고, 필드는 아래에서 다시 jq로 뽑는다). 이전엔 탭·SOH
   # 구분자를 썼으나 탭은 read의 whitespace라 빈 matcher에서 필드가 밀렸고 제어문자는 파일에

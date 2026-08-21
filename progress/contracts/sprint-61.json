@@ -124,6 +124,22 @@
       "step": "bats tests/를 파이프 없이 전체 실행해 실제 종료 코드와 집계를 evidence로 기록한다(AC-6)."
     }
   ],
+  "_implementation_evidence": {
+    "date": "2026-08-21",
+    "AC-1": "hooks/invariant-guard.sh:704 — HOOK_KILL_SWITCHES=\"disableAllHooks allowManagedHooksOnly disableCommandPluginSources\". 기존 두 토큰 보존(SC-1 동시 충족).",
+    "AC-2": "bats tests/hook-wiring-parity.bats 38/38. 기준선에서 실패하던 'INV-13 완전성'이 ok 38로 전환.",
+    "AC-3": "ok 32(부재→true deny) + ok 35(false→true deny). false→true는 OLD를 제어해야 하므로 저장소 안 .tmp/ 픽스처를 쓴다 — 저장소 밖 경로는 F72의 root 해석 fail-closed 때문에 deny 단언이 tautology가 된다.",
+    "AC-4": "ok 37 — 배선 없는 settings(del(.hooks))에서 켜도 exit 0. 구현 전 격리 랩에서 기존 disableAllHooks도 같은 픽스처에서 exit 0임을 확인해 대칭을 검증했다.",
+    "AC-5": "ok 33 — disableCommandPluginSources:false 명시가 exit 0.",
+    "AC-6": "bats tests/ 784/784, BATS_EXIT=0(파이프 없이 실행해 실제 종료 코드 기록). 기준선은 777/778이었고 유일 실패가 AC-2가 고친 그 테스트다. 784 = 기존 778 + 신규 6.",
+    "SC-1": "git diff -U0 hooks/invariant-guard.sh의 비주석 변경이 정확히 1줄(HOOK_KILL_SWITCHES)이며 기존 두 토큰이 문자열에 그대로 남아 있다.",
+    "SC-2": "git diff -U0 tests/hook-wiring-parity.bats의 삭제 라인 0건 — 순수 add-only. 완전성 테스트 본문·jq 분류기 무변경, skip 추가 없음.",
+    "SC-3": "docs/INVARIANTS.md INV-13에 세 사실(비대칭·command 소스 설치 형태 한정 kill·managed settings 전용)과 수용한 과잉차단을 기록. 역방향 정합성 점검에서 기존 서술 '그 배선을 통째로 죽이는 최상위 스위치'가 신규 항목에 대해 실제보다 강함을 발견해 '그 배선의 실행 도달성을 끊는'으로 정정했다 — F74 판정이 남긴 criteria gap('기존 보증 진술 역방향 정합성 점검')을 이번 계약이 SC로 흡수한 결과다.",
+    "SC-4": "변경 파일 3개(docs/INVARIANTS.md, hooks/invariant-guard.sh, tests/hook-wiring-parity.bats). 오브젝트 전문 비교·matcher 포함관계·is_wiring_file()의 has_jq/has_awk 게이트·is_protected() 모두 무변경. shellcheck 결과가 HEAD와 동일(SC2010/SC2329/SC2012 3건 전부 기존 항목, 신규 0건 — 라인 번호만 주석 추가로 965→976 이동).",
+    "SC-5": "ok 36 — 1·\"true\"·\"false\" 세 값 모두 deny. 등록만으로 기존 루프(:716-723, jq -c 타입 보존 + false/부재만 off)가 그대로 적용되며 새 코드 경로를 만들지 않았다.",
+    "anti_tautology": "ok 34 — 픽스처 무변경이 exit 0임을 고정해, 픽스처 경로 때문에 무조건 deny되는 상태로 deny 테스트들이 거짓 통과하는 것을 배제한다(기존 :154 '가드가 항상 deny하는 게 아님'과 같은 패턴).",
+    "not_verified": "ES-1의 '스키마 파일이 없는 환경'은 실측하지 않았다 — 로컬에 스키마가 존재해 완전성 테스트가 skip 경로를 타지 않았다. 신규 6개 테스트가 스키마를 참조하지 않는다는 것은 코드로 확인했으나(스키마 조회는 완전성 테스트에만 있음), skip 환경에서의 실행은 미실행이다."
+  },
   "_parallelizable": false,
   "_parallelizable_reason": "S-1~S-3이 같은 불변식의 세 면(코드·테스트·문서)이고 S-2가 S-1의 최종 형태에 의존한다. 독립 트랙이 아니므로 직렬."
 }

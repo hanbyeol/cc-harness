@@ -382,6 +382,68 @@ add_sibling_field() {
   [ "$status" -eq 0 ]
 }
 
+# ─── F75: disableCommandPluginSources ───
+#
+# 스키마 2.1.238이 추가한 hook-affecting boolean. 앞의 둘과 **의미가 대칭이 아니다** —
+# on = command 소스 플러그인을 설치·갱신·재해석하지 않음이라 일반적으로는 오히려 강화이고,
+# kill이 되는 것은 하네스 자신이 command 소스로 설치된 형태뿐이다(재해석이 끊겨 실행 도달성
+# 상실). 게다가 스키마가 managed settings 전용이라고 명시한다. 그럼에도 등록해 fail-closed로
+# 두는 근거는 invariant-guard.sh의 HOOK_KILL_SWITCHES 주석과 INV-13 본문에 있다.
+
+@test "INV-13 문서레벨(F75): disableCommandPluginSources:true를 켜면 deny한다" {
+  run run_guard "$(mutate_guard_entry '. + {disableCommandPluginSources:true}')"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-13 과잉차단 방지(F75): disableCommandPluginSources:false 명시는 통과시킨다 (off→off)" {
+  run run_guard "$(mutate_guard_entry '. + {disableCommandPluginSources:false}')"
+  [ "$status" -eq 0 ]
+}
+
+# OLD 내용을 제어해야 하는 케이스(false→on, 배선 없는 파일)용 픽스처.
+# 저장소 **안**에 만든다 — 가드는 $FILE의 dirname에서 git root를 유도하므로(F72) 저장소 밖
+# 경로는 root 해석 실패로 fail-closed가 되고, 그러면 deny 단언이 tautology가 된다.
+# .tmp/ 는 gitignore 대상이라 워킹트리를 더럽히지 않는다.
+fixture_guard() {   # $1=OLD를 만드는 jq 변형, $2=NEW를 만드는 jq 변형
+  mkdir -p "$(pwd)/.tmp"
+  local d st new
+  d=$(mktemp -d "$(pwd)/.tmp/f75.XXXXXX")
+  jq "$1" settings.json > "$d/settings.json"
+  new=$(jq "$2" "$d/settings.json")
+  jq -n --arg f "$d/settings.json" --arg c "$new" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' | bash "$GUARD"
+  st=$?
+  rm -rf "$d"
+  return $st
+}
+
+@test "INV-13 하네스 자체 검증(F75): 픽스처 무변경은 통과한다 (fixture_guard가 항상 deny하는 게 아님)" {
+  # 아래 픽스처 deny 테스트들이 '경로 때문에 무조건 차단되는' 상태로 거짓 통과하는 것을 배제한다.
+  run fixture_guard '. + {disableCommandPluginSources:false}' '.'
+  [ "$status" -eq 0 ]
+}
+
+@test "INV-13 문서레벨(F75): disableCommandPluginSources를 false→true로 바꾸면 deny한다" {
+  run fixture_guard '. + {disableCommandPluginSources:false}' '. + {disableCommandPluginSources:true}'
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-13 문서레벨(F75): 스펙 위반 값(1·\"true\"·\"false\")도 on으로 보아 deny한다" {
+  # F52 5차가 기존 두 스위치에 확립한 값 강건화 규칙이 신규 항목에도 적용되어야 한다 —
+  # 한 항목만 빠지면 그 자리가 우회 표면이 된다. false/부재만 off로 보므로 문자열 "false"도 on이다.
+  for v in '1' '"true"' '"false"'; do
+    run fixture_guard '. + {disableCommandPluginSources:false}' \
+      ". + {disableCommandPluginSources:$v}"
+    [ "$status" -eq 2 ] || { echo "값 $v 가 deny되지 않았다 (exit=$status)" >&2; return 1; }
+  done
+}
+
+@test "INV-13 과잉차단 방지(F75): 훅을 배선하지 않는 settings에서는 켜도 통과시킨다" {
+  # OLD 집합이 공집합이면 죽일 배선이 없다 — 기존 두 스위치와 동일한 면제 규칙.
+  run fixture_guard 'del(.hooks) | . + {env:{FOO:"bar"}}' '. + {disableCommandPluginSources:true}'
+  [ "$status" -eq 0 ]
+}
+
 @test "INV-13 완전성: HOOK_KILL_SWITCHES가 스키마의 hook-affecting boolean을 전부 덮는다" {
   # 인스턴스 열거가 아니라 클래스 봉쇄의 핵심 — 가드의 하드코딩 목록이 공식 스키마의
   # 'hook 실행에 영향을 주는 최상위 boolean' 전체와 일치해야 한다. 새 스위치가 스키마에

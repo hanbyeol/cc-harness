@@ -405,11 +405,24 @@ self-wipe 위험, `init.sh:278,604`). 더해 `invariant-guard.sh`의 `settings.j
 여기에 **문서 레벨 도달성**을 더한다: 훅이 실제로 발화하려면 (배선됨) AND (최상위 스위치가 죽이지
 않음)이어야 한다. 오브젝트를 아무리 정밀 비교해도 `disableAllHooks: true` 같은 **최상위 boolean**은
 오브젝트 바깥이라 안 걸린다 — 이 하나로 invariant-guard 자신을 포함한 전 훅이 죽는다. 그래서 OLD에
-배선이 있었으면, 그 배선을 통째로 죽이는 최상위 스위치(`disableAllHooks`·`allowManagedHooksOnly`)를
-off/부재 → on 으로 켜는 편집도 차단한다. 이 스위치 목록은 하드코딩하되, 그 **완전성을 테스트가 공식
-스키마와 대조**한다(`hook-wiring-parity.bats`) — 스키마에 새 hook-disabling boolean이 생기면 테스트가
-실패해 등록을 강제한다. 목록을 사람이 열거하는 게 아니라 스키마가 정의하는 셈이라, 이 역시 인스턴스가
-아니라 클래스를 겨냥한다.
+배선이 있었으면, 그 배선의 실행 도달성을 끊는 최상위 스위치(`disableAllHooks`·`allowManagedHooksOnly`·
+`disableCommandPluginSources`)를 off/부재 → on 으로 켜는 편집도 차단한다. 값은 **false/부재만 off**로
+보므로 `1`·`"true"`·`"false"` 같은 스펙 위반 값도 on으로 잡아 fail-closed다. 이 스위치 목록은
+하드코딩하되, 그 **완전성을 테스트가 공식 스키마와 대조**한다(`hook-wiring-parity.bats`) — 스키마에 새
+hook-disabling boolean이 생기면 테스트가 실패해 등록을 강제한다. 목록을 사람이 열거하는 게 아니라
+스키마가 정의하는 셈이라, 이 역시 인스턴스가 아니라 클래스를 겨냥한다.
+
+**셋이 같은 강도는 아니다 (F75).** 앞의 둘은 on이 곧 훅 실행 중지라 off→on이 명백한 약화다.
+`disableCommandPluginSources`는 다르다 — on = command 소스 플러그인을 설치·갱신·재해석하지 않음(그
+명령이 로컬에서 실행되지 않음)이라 **일반적으로는 오히려 강화**이고, kill이 되는 것은 하네스 자신이
+command 소스로 설치된 형태뿐이다(재해석이 끊겨 훅이 도달성을 잃는다). 더구나 스키마가 "Only honored
+from managed settings"라고 명시하므로, 이 가드가 실제 관할하는 `settings.json`·`.claude/settings.json`
+에서는 **효력조차 없다**. 그럼에도 등록한 이유는 INV-13이 지키는 대상이 실행 도달성이고 위 설치 형태가
+그 클래스 안이기 때문이며, 모호한 쪽을 fail-closed로 두는 선택이다. 그 대가는 정직하게 적어 둔다:
+**프로젝트 settings.json에서 이 키를 켜려는 정당한 편집이 실효도 없는데 막힌다.** 위 `timeout` 사례와
+같은 성격의 수용된 과잉차단이며 사람이 승인하면 통과한다. 스위치별로 방향·범위 예외를 두는 대안은
+'빠뜨린 조건'이라는 새 우회 표면을 만들고(allowlist를 두지 않는 것과 같은 이유), 가드가 "어느 설치
+경로로 설치됐는가"를 런타임에 신뢰성 있게 알 수 없어 택하지 않았다.
 
 요컨대 이 검사가 지키는 것은 이름의 존재가 아니라 **실행 도달성**이며 — 그것은 훅 오브젝트가 아니라
 settings **문서 전체**의 속성이다. 집합 보존도, 오브젝트 보존도, 그 자체로는 실행 보장이 아니다.
