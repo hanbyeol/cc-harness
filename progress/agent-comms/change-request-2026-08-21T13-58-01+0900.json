@@ -1,0 +1,37 @@
+{
+  "timestamp": "2026-08-21T13:58:01+09:00",
+  "type": "modify",
+  "description": "invariant-guard.sh의 HOOK_KILL_SWITCHES가 Claude Code settings 스키마의 신규 hook-affecting boolean(disableCommandPluginSources)을 덮지 않아 INV-13 완전성 테스트가 실패한다 — hook 실행 도달성을 끊을 수 있는 최상위 스위치가 가드 시야 밖에 있는 커버리지 갭",
+  "trigger": "tests/hook-wiring-parity.bats 'INV-13 완전성' 테스트 실패(test 93). v1.39.10 릴리스 검증 중 전체 bats 실행(777/778)에서 관측. F52 4차 판정이 '스키마에 새 스위치가 생기면 실패해 등록을 강제'하도록 설계한 클래스 봉쇄 장치가 설계대로 발화한 것이며, 원인은 Claude Code 확장 스키마(anthropic.claude-code-2.1.238) 확장이지 저장소 변경이 아니다.",
+  "affected_features": [
+    "F75"
+  ],
+  "related_features": [
+    "F12",
+    "F52"
+  ],
+  "tier_classification": {
+    "hotfix_eligible": false,
+    "reason": "security_tier critical의 보안 관련 변경(안전장치 자기보호 경로)이므로 hotfix 전환 불가 — /change-request SKILL.md Step 1의 critical 우선 규칙(F48)."
+  },
+  "impact": {
+    "spec_updated": false,
+    "spec_note": "이 저장소에는 docs/SPEC.md가 없다. 하네스의 규범 문서는 docs/INVARIANTS.md와 docs/DECISIONS/*이며, 해당 갱신(INV-13 본문)은 Sprint Contract의 SC-3·S-3으로 계약에 편입했다.",
+    "architecture_updated": false,
+    "architecture_note": "컴포넌트·배선 구조 변경 없음. 기존 가드의 하드코딩 목록 한 항목 확장이라 새 ADR을 만들지 않고 INV-13 본문 갱신으로 처리한다.",
+    "acceptance_criteria_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false,
+    "feature_list_updated": true
+  },
+  "new_sprint_contract": "progress/contracts/sprint-61.json",
+  "rollback_to_phase": null,
+  "open_axes": [
+    "AX-1: 비대칭 스위치를 기존 둘과 동일하게 등록해 fail-closed로 갈 것인가(A, 권고), 방향·범위를 인지하는 별도 처리를 둘 것인가(B). Plan 게이트에서 결정."
+  ],
+  "excluded_options": [
+    "테스트 분류기(스키마에서 hook-affecting boolean을 뽑는 jq 식)를 좁혀 실패를 회피 — INV-6(테스트·기준 add-only) 위반이자 F52 4차가 닫은 '인스턴스만 닫고 클래스를 열어두는' 회귀와 동형."
+  ],
+  "verification_tier": "critical",
+  "verification_note": "critical이므로 독립 evaluator 판정 + security-auditor, 그리고 F37 critical 2차 독립 판정이 필요하다."
+}

@@ -1,0 +1,129 @@
+{
+  "sprint": 61,
+  "feature_id": "F75",
+  "title": "HOOK_KILL_SWITCHES 커버리지 갱신 — settings 스키마 신규 hook-affecting boolean(disableCommandPluginSources) 등록",
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "agreed": true,
+  "_agreed_note": "[2026-08-21] Plan 게이트(ExitPlanMode) 승인. 제시한 계획에 AX-1의 두 선택지와 권고(A: 기존 둘과 동일하게 등록해 fail-closed), 배제 선택지(테스트 분류기 축소 = INV-6 위반), 그리고 수용하는 대가(프로젝트 settings.json에서 실효 없는 편집이 막히는 과잉차단, 사람 승인 1회)를 모두 명시했고 사용자가 승인했다. 승인 범위는 AX-1의 A안 — HOOK_KILL_SWITCHES 한 항목 추가 + 동형 deny 테스트 + INV-13 문서 갱신으로 한정된다.",
+  "dependencies": ["F12", "F52"],
+  "problem": "tests/hook-wiring-parity.bats의 'INV-13 완전성' 테스트(:385-413)가 실패한다. 이 테스트는 로컬 설치된 Claude Code 확장의 공식 settings 스키마에서 description에 'hook'을 언급하는 최상위 boolean을 추출해 hooks/invariant-guard.sh의 HOOK_KILL_SWITCHES(:693)가 그 집합을 전부 덮는지 검사하며, 새 스위치가 스키마에 생기면 실패해 등록을 강제하도록 F52 4차 판정이 설계한 클래스 봉쇄 장치다('목록을 사람이 열거하는 게 아니라 스키마가 정의한다' — INV-13). 스키마 2.1.238이 `disableCommandPluginSources`를 추가했고 가드 목록(`disableAllHooks allowManagedHooksOnly`)이 이를 덮지 않아 갭이 열렸다. 즉 hook 실행 도달성에 영향을 주는 최상위 스위치 하나가 가드의 시야 밖에 있다. 이 실패는 F74 릴리스(v1.39.10) 이전부터 존재했고 그 변경과 무관하다 — 원인은 Claude Code 측 스키마 확장이다.",
+  "design_context": {
+    "asymmetry": "신규 스위치는 기존 둘과 의미가 대칭이 아니다. `disableAllHooks`·`allowManagedHooksOnly`는 on = 훅 실행 자체를 죽이므로 off→on이 명백한 약화다. `disableCommandPluginSources`는 스키마 설명상 on = '마켓플레이스가 선언한 명령으로 생성되는 command 소스 플러그인을 설치·갱신·재해석하지 않음(그 명령이 실행되지 않음)'이라 일반적으로는 오히려 강화다. 그러나 하네스가 command 소스로 설치된 형태에서는 재해석이 끊겨 훅이 실행 도달성을 잃으므로 그 설치 형태에서는 kill로 작동한다 — INV-13이 지키는 대상이 정확히 '실행 도달성'이므로 클래스 안에 있다.",
+    "scope_limit": "스키마가 'Only honored from managed settings'라고 명시한다. 가드가 실제로 관할하는 root settings.json·.claude/settings.json에서는 이 키가 효력이 없으므로, 그 파일에서 off→on을 deny하는 것은 실효 없는 편집을 막는 과잉차단이다. INV-13은 이미 같은 트레이드오프를 `timeout` 사례로 명문화했다 — '무해한 편집이 막히면 사람이 직접 승인하면 된다'.",
+    "excluded_option": "테스트의 분류기(스키마에서 hook-affecting boolean을 뽑는 jq 식)를 좁혀 실패를 회피하는 선택지는 INV-6(테스트·기준 add-only) 위반이며, F52 4차가 닫은 '실증된 인스턴스만 닫고 클래스를 열어두는' 회귀와 동형이라 배제한다."
+  },
+  "open_axes": [
+    {
+      "id": "AX-1",
+      "question": "비대칭 스위치를 어떻게 처리할 것인가 — (A) 기존 둘과 동일하게 HOOK_KILL_SWITCHES에 등록해 off/부재→on을 deny(fail-closed), (B) 방향·범위를 인지하는 별도 처리(managed settings 경로에서만 kill로 취급하거나 on→off 방향만 문제 삼음).",
+      "recommendation": "A. 근거: (1) 모호할 때 fail-closed가 critical 가드의 원칙이고 INV-13이 이미 그 선택을 명문화했다. (2) 등록은 add-only라 INV-5/INV-6과 충돌하지 않지만, B는 스위치별 예외 로직을 도입해 '빠뜨린 조건'이라는 새 우회 표면을 만든다 — INV-13이 allowlist를 두지 않는 이유와 같다. (3) 과잉차단의 비용은 사람 승인 한 번이고, 이 키는 프로젝트 settings.json에서 거의 편집되지 않는다. (4) B는 가드가 '어느 설치 경로로 설치됐는가'를 런타임에 알아야 하는데 그 판정 자체가 신뢰 가능하지 않다."
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "hooks/invariant-guard.sh의 HOOK_KILL_SWITCHES가 `disableCommandPluginSources`를 포함한다.",
+      "verification": "grep으로 목록 확인 + 아래 AC-2 테스트 통과."
+    },
+    {
+      "id": "AC-2",
+      "criterion": "tests/hook-wiring-parity.bats의 'INV-13 완전성' 테스트가 통과한다(스키마의 hook-affecting boolean 집합 ⊆ 가드 목록).",
+      "verification": "bats tests/hook-wiring-parity.bats 실행 결과에서 해당 테스트가 ok."
+    },
+    {
+      "id": "AC-3",
+      "criterion": "기존 배선이 있는 settings 픽스처에서 `disableCommandPluginSources`를 부재/false → true로 켜는 Edit이 deny된다.",
+      "verification": "신규 문서레벨 deny 테스트를 픽스처로 실측(기존 disableAllHooks 테스트와 동형)."
+    },
+    {
+      "id": "AC-4",
+      "criterion": "훅을 배선하지 않는 settings 파일(OLD 집합 공집합)에서는 같은 편집이 통과한다 — 기존 두 스위치와 동일한 면제 규칙이 유지된다.",
+      "verification": "픽스처 실측."
+    },
+    {
+      "id": "AC-5",
+      "criterion": "`disableCommandPluginSources: false` 명시(및 true→false)는 통과한다 — 과잉차단 방지가 기존 'disableAllHooks:false 명시는 통과' 테스트와 대칭으로 성립한다.",
+      "verification": "픽스처 실측."
+    },
+    {
+      "id": "AC-6",
+      "criterion": "bats 전체가 실패 0건으로 수렴한다 — 이번 변경 전 기준선은 777/778(유일 실패가 AC-2가 고치는 그 테스트)이므로, 변경 후 신규 테스트를 포함해 전부 통과해야 한다.",
+      "verification": "bats tests/를 파이프 없이 실행해 실제 종료 코드와 집계를 기록한다(파이프라인 종료 코드가 bats 실패를 가리는 사고가 이번 세션에 실제로 있었다)."
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "HOOK_KILL_SWITCHES는 add-only — 기존 두 항목(`disableAllHooks`·`allowManagedHooksOnly`)의 텍스트가 그대로 유지된다.",
+      "rationale": "이 목록의 축소는 곧 최상위 kill 스위치에 대한 방어 제거이며 INV-5·INV-6 계열의 add-only 보증에 해당한다.",
+      "verification": "diff에서 두 토큰이 삭제·변형되지 않았는지 확인."
+    },
+    {
+      "id": "SC-2",
+      "criterion": "완전성 테스트의 분류기와 단언을 좁히지 않는다 — 실패 회피를 목적으로 한 skip 추가·jq 필터 강화·예외 allowlist 도입을 하지 않는다.",
+      "rationale": "이 테스트가 클래스 봉쇄의 유일한 집행 지점이다. 분류기를 좁히면 다음 스키마 확장 때 아무도 알 수 없게 되어, F52 4차가 닫은 우회 클래스가 조용히 재개방된다.",
+      "verification": "tests/hook-wiring-parity.bats의 해당 테스트 본문 diff가 없거나, 있다면 단언을 넓히는 방향인지 확인."
+    },
+    {
+      "id": "SC-3",
+      "criterion": "신규 스위치의 비대칭 의미(on이 일반적으로는 강화, command 소스 설치 형태에서만 kill, managed settings에서만 유효)를 docs/INVARIANTS.md INV-13 본문에 기록한다. 기존 서술('그 배선을 통째로 죽이는 최상위 스위치')이 신규 항목에 대해 실제보다 강하게 읽히지 않도록 역방향 정합성까지 점검한다.",
+      "rationale": "F74 판정이 남긴 criteria gap — '신규 사실 기록'만 요구하고 '같은 문서 내 상충 구절 조정'을 요구하지 않아 INV-5·INV-9에 과잉주장이 남았던 것과 같은 클래스다. 여기서는 방향이 반대로, 코드가 문서보다 강한(설명 없는 과잉차단) 드리프트가 된다.",
+      "verification": "INV-13 본문에 세 사실이 모두 있고, 기존 문장이 신규 항목을 포함해도 참인지 읽어 확인."
+    },
+    {
+      "id": "SC-4",
+      "criterion": "가드의 다른 축을 건드리지 않는다 — 오브젝트 전문 비교, matcher 포함관계 판정, is_wiring_file()의 has_jq/has_awk fail-closed 게이트, is_protected() 목록이 모두 불변이다.",
+      "rationale": "critical 가드 변경의 blast radius를 승인된 한 축으로 한정해야, 이번 승인이 다른 축의 암묵적 변경을 정당화하는 것으로 오독되지 않는다(F73 SC-1·F74 SC-1과 동일 원칙).",
+      "verification": "비주석 diff가 HOOK_KILL_SWITCHES 한 줄 + 신규 테스트 + INV-13 문서로 한정되는지 확인."
+    },
+    {
+      "id": "SC-5",
+      "criterion": "값 강건화가 신규 스위치에도 동일 적용된다 — `1`(숫자)·`\"true\"`(문자열) 같은 스펙 위반 truthy 값과 `\"false\"`(문자열)처럼 애매한 값도 on으로 보아 deny한다.",
+      "rationale": "F52 5차 판정이 기존 두 스위치에 대해 확립한 fail-closed 규칙이다. 신규 항목만 이 규칙에서 빠지면 그 자리가 우회 표면이 된다.",
+      "verification": "픽스처로 세 값 각각 실측."
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "스키마 파일이 없는 환경(CI 등)에서 완전성 테스트를 실행",
+      "expected": "기존 동작대로 명시적 skip(조용한 통과 아님). 신규 문서레벨 deny 테스트는 스키마에 의존하지 않으므로 정상 실행되어야 한다 — 완전성 테스트가 skip되는 환경에서도 등록의 실효는 검증된다."
+    },
+    {
+      "id": "ES-2",
+      "scenario": "편집 대상 settings.json이 malformed JSON이거나 jq/awk가 없는 상태",
+      "expected": "기존 경로대로 fail-closed. is_wiring_file()이 has_jq/has_awk 게이트에 포함되어 있으므로 배선 검사를 우회할 수 없다(F41이 닫은 fail-open과 동형)."
+    },
+    {
+      "id": "ES-3",
+      "scenario": "Claude Code 스키마가 앞으로 또 다른 hook-affecting boolean을 추가",
+      "expected": "완전성 테스트가 다시 실패해 등록을 강제한다. 이번 변경이 그 메커니즘을 손상시키지 않아야 한다 — 항목 하나를 더한 것 외에 테스트 구조가 그대로여야 성립한다."
+    },
+    {
+      "id": "ES-4",
+      "scenario": "사용자가 프로젝트 settings.json에서 `disableCommandPluginSources: true`를 정당하게 설정하려 함(실제로는 managed settings가 아니라 효력 없음)",
+      "expected": "deny되고 사람이 승인해 통과한다. 실효 없는 편집을 막는 과잉차단이지만 INV-13이 이미 명문화한 수용 가능한 마찰이며, 이 사실이 SC-3에 따라 문서에 기록되어 있어야 한다."
+    }
+  ],
+  "implementation_steps": [
+    {
+      "id": "S-1",
+      "step": "hooks/invariant-guard.sh: HOOK_KILL_SWITCHES에 `disableCommandPluginSources`를 추가하고, 인접 주석에 비대칭 근거(일반적으로는 강화이나 command 소스 설치 형태에서 실행 도달성을 끊음, managed settings 전용)를 짧게 남긴다."
+    },
+    {
+      "id": "S-2",
+      "step": "tests/hook-wiring-parity.bats: 문서레벨 deny 테스트를 추가한다 — 부재→true deny, false→true deny, `1`·`\"true\"`·`\"false\"` deny(SC-5), false 명시 통과(AC-5), 배선 없는 파일 통과(AC-4). 기존 disableAllHooks 테스트군과 동형으로 작성한다."
+    },
+    {
+      "id": "S-3",
+      "step": "docs/INVARIANTS.md INV-13: 스위치 목록을 갱신하고 SC-3의 세 사실을 기록한다. 기존 '그 배선을 통째로 죽이는 최상위 스위치' 서술이 신규 항목에도 참으로 읽히는지 역방향 점검한다."
+    },
+    {
+      "id": "S-4",
+      "step": "bats tests/를 파이프 없이 전체 실행해 실제 종료 코드와 집계를 evidence로 기록한다(AC-6)."
+    }
+  ],
+  "_parallelizable": false,
+  "_parallelizable_reason": "S-1~S-3이 같은 불변식의 세 면(코드·테스트·문서)이고 S-2가 S-1의 최종 형태에 의존한다. 독립 트랙이 아니므로 직렬."
+}

@@ -206,6 +206,12 @@
       "contract": "progress/contracts/sprint-60.json",
       "security_tier": "critical",
       "summary": "[2026-08-10, 사용자 override, 3라운드 고지] 'git push --force'(Layer 1 BLOCKED)·'git reset --hard'·'git clean -f'·'git checkout --force'(모두 Layer 3 ASK) 4개 서브커맨드의 방화벽 프롬프트를 제거해 무프롬프트 allow로 전환한다. F71/F73과 결정적으로 다른 점: 그 둘은 사후 탐지·복구(protected-integrity.sh)가 남았지만, 이 4개는 INV-14가 이미 '사후 복구 불가'로 명시한 Layer 1·2 파괴적 명령 경계 안이라 제거 후 예측(사전 차단)이었던 유일한 방어가 완전히 사라진다 — git reflog가 일부(reset --hard·push --force) 시간제한적 완충이 될 뿐, 미커밋 변경(clean -f·checkout --force 대상)은 그조차 없다. push --force가 ASK가 아니라 BLOCKED(rm -rf /·DROP DATABASE와 동급)라는 사실도 정정 고지 후 별도 재확인했다. INVARIANTS.md 신규 INV-15, ADR-004 Amendment 7 참조."
+    },
+    {
+      "feature_id": "F75",
+      "contract": "progress/contracts/sprint-61.json",
+      "security_tier": "critical",
+      "summary": "[2026-08-21, 테스트 실패로 자동 발견] Claude Code settings 스키마(2.1.238)에 hook-affecting boolean `disableCommandPluginSources`가 추가되어 hooks/invariant-guard.sh의 HOOK_KILL_SWITCHES가 스키마 집합을 더 이상 덮지 못한다 — INV-13의 클래스 봉쇄 장치(hook-wiring-parity.bats)가 설계대로 실패해 등록을 강제하는 상태다. 이 스위치는 기존 둘과 달리 on이 일반적으로는 강화(command 소스 플러그인의 명령을 실행하지 않음)지만 하네스가 command 소스로 설치된 형태에서는 재해석을 끊어 훅의 실행 도달성을 없애므로 INV-13이 지키는 클래스 안에 있고, 동시에 'Only honored from managed settings'라 가드 관할 파일에서는 무효다. 모호할 때 fail-closed(등록해 off→on을 deny하고 사람이 승인)를 택하되, 그 비대칭을 INV-13 본문에 정직하게 기록한다. 테스트 분류기를 좁혀 실패를 회피하는 것은 INV-6 위반이라 배제한다."
     }
   ]
 }
