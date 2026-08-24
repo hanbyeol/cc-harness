@@ -393,6 +393,10 @@ add_sibling_field() {
 @test "INV-13 문서레벨(F75): disableCommandPluginSources:true를 켜면 deny한다" {
   run run_guard "$(mutate_guard_entry '. + {disableCommandPluginSources:true}')"
   [ "$status" -eq 2 ]
+  # 종료 코드만 단언하면 향후 **다른 규칙**이 같은 픽스처를 우연히 막아도 exit 2가 유지되어
+  # 이 스위치의 등록이 풀린 회귀가 가려진다(1차 판정 지적). deny 사유가 이 스위치를
+  # 지목하는지까지 단언한다.
+  [[ "$output" == *"disableCommandPluginSources"* ]]
 }
 
 @test "INV-13 과잉차단 방지(F75): disableCommandPluginSources:false 명시는 통과시킨다 (off→off)" {
@@ -426,6 +430,8 @@ fixture_guard() {   # $1=OLD를 만드는 jq 변형, $2=NEW를 만드는 jq 변�
 @test "INV-13 문서레벨(F75): disableCommandPluginSources를 false→true로 바꾸면 deny한다" {
   run fixture_guard '. + {disableCommandPluginSources:false}' '. + {disableCommandPluginSources:true}'
   [ "$status" -eq 2 ]
+  [[ "$output" == *"disableCommandPluginSources"* ]]
+  [[ "$output" == *"off→true"* ]]
 }
 
 @test "INV-13 문서레벨(F75): 스펙 위반 값(1·\"true\"·\"false\")도 on으로 보아 deny한다" {
@@ -435,6 +441,9 @@ fixture_guard() {   # $1=OLD를 만드는 jq 변형, $2=NEW를 만드는 jq 변�
     run fixture_guard '. + {disableCommandPluginSources:false}' \
       ". + {disableCommandPluginSources:$v}"
     [ "$status" -eq 2 ] || { echo "값 $v 가 deny되지 않았다 (exit=$status)" >&2; return 1; }
+    # 사유까지 확인 — 다른 규칙의 우연한 발화로 exit 2가 유지되는 경우를 배제한다.
+    [[ "$output" == *"disableCommandPluginSources"* ]] \
+      || { echo "값 $v 의 deny 사유가 이 스위치를 지목하지 않는다: $output" >&2; return 1; }
   done
 }
 

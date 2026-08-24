@@ -708,8 +708,10 @@ if [[ "$BASENAME" == "settings.json" ]]; then
   # 리터럴로 새는 문제가 있었다 — JSON 배열 라인이 둘 다 없앤다.
   OLD_R=$(wired_rows "$(cat "$FILE")")
   NEW_R=$(wired_rows "$NEW_CONTENT")
-  # (문서 레벨) OLD에 배선이 하나라도 있었으면, 그 배선을 통째로 죽이는 최상위 스위치를
+  # (문서 레벨) OLD에 배선이 하나라도 있었으면, 그 배선의 실행 도달성을 끊는 최상위 스위치를
   # off/부재 → on 으로 켜는 편집을 차단한다. OLD에 배선이 없으면 죽일 것도 없으므로 스킵.
+  # '전부 무력화'가 아니라 '도달성을 끊는'인 이유는 위 F75 주석과 INV-13 참조 — 세 스위치의
+  # 강도가 같지 않아, 전자로 쓰면 disableCommandPluginSources에 대해 과잉 서술이 된다.
   # 값 강건화(F52 5차 evaluator, A3): jq -c로 타입을 보존하고 **false/부재만 off**로 본다 —
   # disableAllHooks:1(숫자)·"true"(문자열) 같은 스펙 위반 truthy 값도 on으로 잡아 fail-closed.
   # (문자열 "false"처럼 애매한 스펙 위반값도 보수적으로 on 취급해 차단한다.)
@@ -718,7 +720,7 @@ if [[ "$BASENAME" == "settings.json" ]]; then
       __o=$(jq -c --arg k "$__sw" '.[$k] // false' <<<"$(cat "$FILE")" 2>/dev/null || echo false)
       __n=$(echo "$NEW_CONTENT" | jq -c --arg k "$__sw" '.[$k] // false' 2>/dev/null || echo false)
       [[ "$__o" == "false" && "$__n" != "false" ]] \
-        && deny "settings.json 최상위 $__sw 켜짐(off→$__n) — 배선된 훅을 문서 레벨에서 전부 무력화 (INV-13)"
+        && deny "settings.json 최상위 $__sw 켜짐(off→$__n) — 배선된 훅의 실행 도달성이 끊길 수 있음. 스위치별 강도 차이(특히 disableCommandPluginSources는 managed settings에서만 유효)는 docs/INVARIANTS.md INV-13 참조 (INV-13)"
     done
   fi
   MISSING=""
