@@ -1,0 +1,194 @@
+{
+  "timestamp": "2026-08-24T17:30:39+0900",
+  "agent": "security-auditor",
+  "feature_id": "F75",
+  "contract": "progress/contracts/sprint-61.json",
+  "target": {
+    "repo": "/Users/hanbyeol/Project/studioj/cc-harness",
+    "branch": "main",
+    "head": "96b862d0c24a1a3d9fc0ced908edaa1a2965862d",
+    "commits_audited": [
+      "651369e",
+      "96b862d"
+    ],
+    "parent_baseline": "651369e~1",
+    "working_tree": "hooks/invariant-guard.sh clean vs HEAD (git diff HEAD -- hooks/invariant-guard.sh empty); git status clean after the test run"
+  },
+  "verdict_summary": "No weakening of the existing INV-13 protection was found, and no new bypass surface was introduced by the change itself. Three defects were measured: one false assurance sentence newly written into docs/INVARIANTS.md (F-1), ticket-ledger pollution introduced by the new test fixtures (F-2), and a pre-existing class-wide gap in the kill-switch check that the new switch inherits (F-3). None of the three is a regression of a previously-held guarantee, but F-1 and F-2 are defects in artifacts this change authored.",
+  "audit_execution_trace": {
+    "note": "Empirical, not read-only. Every verdict below is backed by an executed command. 4 probe rounds ran the HEAD guard against an isolated scratch git repo so the real repo's ticket ledger was not touched by the probes (verified: ledger line count unchanged 1110 -> 1110 across probe rounds 2 and 3).",
+    "checks_executed": 78,
+    "guard_invocations": 62,
+    "probe_scripts": [
+      "scratchpad/f75_probe.sh  — 40 guard invocations: anti-tautology controls, canonical on/off matrix, 16 spec-violating values, off-set values, key-spelling evasion, raw-JSON encoding evasion, cross-check against the two pre-existing switches",
+      "scratchpad/f75_probe2.sh — 11 guard invocations: characterization of the OLD-unparseable gap across all three switches plus parent-commit regression control",
+      "scratchpad/f75_probe3.sh —  3 guard invocations: 'Unset follows allowManagedHooksOnly' evasion + controls; schema scope extraction; PROTECTED_GLOBS / firewall coverage read",
+      "inline — decoy-comment simulation against the completeness test; HOOK_KILL_SWITCHES token-removal simulation"
+    ],
+    "tools_used": [
+      "git diff/show/log",
+      "jq",
+      "bats 38 tests",
+      "shellcheck",
+      "npm audit (n/a)",
+      "grep/sed/awk",
+      "shasum",
+      "perl"
+    ],
+    "commands_of_record": [
+      "git diff 651369e~1..96b862d -- hooks/invariant-guard.sh",
+      "git show <rev>:hooks/invariant-guard.sh | grep -vE '^\\s*#' | grep -v '^\\s*$' | diff -u  => exactly 2 changed lines, 607 -> 607 non-comment lines",
+      "git show <rev>:tests/hook-wiring-parity.bats | sed -n '/INV-13 완전성/,/^}/p' | diff -u  => exit 0 (byte-identical)",
+      "git diff 651369e~1..96b862d -- tests/hook-wiring-parity.bats | grep '^-' | grep -v '^---'  => no output (pure addition)",
+      "bats tests/hook-wiring-parity.bats  => BATS_EXIT=0, ok 38, not ok 0, skipped 0",
+      "shellcheck -f gcc  => parent 3 findings, HEAD 3 findings (SC2010 SC2012 SC2329), no new codes"
+    ]
+  },
+  "scan_tools": [
+    "shellcheck",
+    "bats",
+    "jq-based differential guard fuzzing (62 invocations)",
+    "git history secret scan",
+    "npm audit"
+  ],
+  "supply_chain": {
+    "vulnerable_deps": 0,
+    "outdated_critical": 0,
+    "details": [
+      "package.json declares no dependencies and no devDependencies; no package-lock.json and no node_modules, so npm audit has nothing to resolve. No go.mod / pubspec.yaml / requirements.txt / Cargo.toml in the repo.",
+      "The changed guard block (hooks/invariant-guard.sh:686-730) shells out to exactly one external binary: jq. No new external command was introduced.",
+      "Secret scan over the full F75 diff (651369e~1..96b862d) against api_key/secret/token/password/private-key/Bearer/sk-/ghp_/AKIA patterns: 0 matches."
+    ],
+    "supply_chain_semantics_of_the_new_switch": "disableCommandPluginSources:true is a HARDENING action — it stops a marketplace-declared command from running locally to produce a plugin directory. The guard now denies turning it on. This does NOT obstruct a user's legitimate supply-chain hardening: the schema states the key is 'Only honored from managed settings', and managed settings are outside this guard's jurisdiction (the guard covers settings.json and .claude/settings.json). The effective hardening path is therefore untouched; what is blocked is an edit that would have had no effect. Cost is one human action, and docs/INVARIANTS.md INV-13 records this trade-off explicitly and honestly ('효력조차 없다', '정당한 편집이 실효도 없는데 막힌다')."
+  },
+  "checklist_compliance": {
+    "note": "docs/SECURITY-CHECKLIST.md is not present in this repo; the contract's security_criteria (SC-1..SC-5) are the governing checklist for this change.",
+    "total_items": 5,
+    "passed": 4,
+    "failed": 0,
+    "partial": 1,
+    "failed_items": [],
+    "partial_items": [
+      "SC-3 (see finding F-1: the required documentation was written, and the reverse-consistency correction SC-3 demanded was made, but one newly-written sentence asserts a safety property that measurement contradicts)"
+    ],
+    "detail": {
+      "SC-1": "PASS — add-only confirmed. Exactly one HOOK_KILL_SWITCHES assignment exists (hooks/invariant-guard.sh:704); both original tokens are present verbatim; the non-comment diff shows the line changed only by appending the third token.",
+      "SC-2": "PASS — the completeness test body is byte-identical to the parent (diff exit 0). The whole test-file diff contains zero removed lines (pure addition). No skip condition was added or widened; the test actually ran in this environment (schema 2.1.241 present) and passed as 'ok 38' — not skipped.",
+      "SC-3": "PARTIAL — the three asymmetry facts (generally hardening / kills only the command-source install shape / managed-settings-only) are all present in INV-13, and the reverse-consistency fix ('그 배선을 통째로 죽이는' -> '그 배선의 실행 도달성을 끊는') was made in both the doc and the runtime deny message. But the newly-added paragraph about the Unset simplification states an unconditional non-bypass claim that is measurably false in one configuration. See F-1.",
+      "SC-4": "PASS — blast radius held. Non-comment diff between 651369e~1 and 96b862d is exactly 2 lines (the switch list, and the deny message text); non-comment line count is unchanged at 607. is_protected(), is_wiring_file() with its has_jq/has_awk fail-closed gate, wired_rows() (object full-text comparison), and the matcher-containment logic are all untouched. shellcheck finding count and codes identical to the parent.",
+      "SC-5": "PASS — and stronger than the contract asked. All 16 spec-violating values tested were denied: 1, 0, -1, 2, 0.0, \"true\", \"false\", \"TRUE\", \"False\", \"\", \"0\", [], {}, [false], {\"a\":false}, \"no\". The new switch inherits the existing loop verbatim (no new code path). Proof of completeness: the guard's OFF-set is exactly {absent, null, false}, which is a strict subset of the JavaScript-falsy set, so no value that Claude Code's loader would read as truthy can pass as off."
+    }
+  },
+  "threat_model_coverage": {
+    "threats_identified": 6,
+    "mitigations_verified": 5,
+    "gaps": [
+      "T-3 below: a settings.json that the guard's parser cannot read disables the entire kill-switch check (pre-existing, class-wide, inherited by the new switch)"
+    ],
+    "threats": [
+      {
+        "id": "T-1",
+        "threat": "Attacker turns the new switch on to sever hook execution reachability",
+        "verified": "MITIGATED — denied from absent->on and false->on, with the deny reason naming the switch (probe B1, B2; bats ok 32, ok 35)"
+      },
+      {
+        "id": "T-2",
+        "threat": "Attacker uses a spec-violating value to slip past the boolean check",
+        "verified": "MITIGATED — 16/16 values denied; OFF-set proven to be a subset of JS-falsy (probe section C, D)"
+      },
+      {
+        "id": "T-3",
+        "threat": "Attacker renders settings.json unreadable to the guard's parser, then flips the switch",
+        "verified": "GAP — see F-3. Reproduced against all three switches; identical on the parent commit, so inherited rather than introduced"
+      },
+      {
+        "id": "T-4",
+        "threat": "Attacker spells the key differently (case, whitespace, unicode escape) or duplicates it to diverge the guard's parse from Claude Code's",
+        "verified": "MITIGATED — unicode-escaped key denied (probe F1); duplicate keys follow last-wins identically in jq and JSON.parse (F2 denied, F3 allowed); case and trailing-space variants are allowed by the guard but are also not honored by Claude Code, so they are not a bypass (probe E1-E3)"
+      },
+      {
+        "id": "T-5",
+        "threat": "The registration is silently reverted later while the completeness test stays green",
+        "verified": "MITIGATED — the 96b862d follow-up pins the deny reason to the switch name in tests 32/35/36, so a de-registration fails at runtime rather than being masked by an unrelated rule. Measured: removing a token from the list makes the corresponding deny test return exit 0 instead of 2"
+      },
+      {
+        "id": "T-6",
+        "threat": "Over-blocking pushes the user to disable the guard entirely",
+        "verified": "MITIGATED — see over_blocking_assessment"
+      }
+    ]
+  },
+  "findings": [
+    {
+      "id": "F-1",
+      "severity": "medium",
+      "confidence": "high",
+      "file": "docs/INVARIANTS.md",
+      "location": "INV-13, the paragraph beginning '한 가지 단순화도 적어 둔다'",
+      "issue": "A newly-written assurance sentence is measurably false. The paragraph concedes that the guard treats an absent key as off while the schema defines Unset as 'follows allowManagedHooksOnly', then asserts unconditionally: '이 어긋남은 과잉차단 방향으로만 작용해 우회 표면을 만들지 않는다 … on → 부재 는 도달성을 넓히는 쪽이라 허용이 맞다.' Measurement contradicts this. With allowManagedHooksOnly:true present in the same document, DELETING disableCommandPluginSources moves its effective value from 'explicitly allowed' to 'disabled' — an effective off->on — and the guard allows the edit (exit 0).",
+      "evidence": "probe3 N1: OLD={allowManagedHooksOnly:true, disableCommandPluginSources:false} -> NEW=del(disableCommandPluginSources) => exit 0 ALLOW (expected DENY). Controls in the same run: N2 (same deletion without allowManagedHooksOnly, effective off->off) => ALLOW, correct; N3 (absent->true with allowManagedHooksOnly:true) => exit 2 DENY, correct. Schema text: 'Unset: follows allowManagedHooksOnly — an org that restricts hook execution to managed settings gets command sources disabled too.'",
+      "exploitability": "Very low in practice. Both keys are 'Only honored from managed settings', and managed settings files are outside this guard's jurisdiction, so within the guard's actual scope neither the attack nor the protection has effect. The defect is in the assurance statement, not in reachable security.",
+      "why_it_matters": "This is precisely the class SC-3 was written to catch (F74's carried-over criteria gap: existing guarantee statements must be re-checked against what the code actually does). The change correctly applied that discipline to an OLD sentence and then introduced a NEW sentence with the same flaw. An INVARIANTS claim that is stronger than the code is how a future reader concludes a direction is covered when it is not.",
+      "recommendation": "Narrow the claim rather than change the code — the code's simplicity is worth keeping. Replace the unconditional '우회 표면을 만들지 않는다' with the measured statement: the mismatch is over-blocking in the common case, but when allowManagedHooksOnly is on, deleting the key is an effective off->on that the guard does not catch; this is accepted because the key is inert in the guard's jurisdiction."
+    },
+    {
+      "id": "F-2",
+      "severity": "low",
+      "confidence": "high",
+      "file": "tests/hook-wiring-parity.bats",
+      "location": "fixture_guard() helper, added by 651369e",
+      "issue": "The new fixtures write permanent entries into the real repository's exemption-ticket ledger. fixture_guard() creates its settings.json under $(pwd)/.tmp/f75.XXXXXX/ — deliberately inside the repo — so record_guarded_edit() resolves root to the real repo and appends a ticket to progress/.guarded-edits for every fixture case the guard ALLOWS. The fixture directory is then deleted, so the ticket names a path that can never exist again. Neither settings.json nor .tmp/** is in protected-integrity.sh's PROTECTED_GLOBS, so consume_ticket() never runs for these lines: they accumulate monotonically and are never reclaimed.",
+      "evidence": "Measured across one full run of tests/hook-wiring-parity.bats: ledger 1110 -> 1121 lines (delta 11 = 9 'settings.json' + 2 '.tmp/f75.*/settings.json'). Ledger already held 14 '.tmp/f75.*' lines from 7 prior runs plus 8 '.tmp/f75-eval/fx.*' lines from the evaluator's probes. Current ledger: 1121 lines / ~65KB. Working tree itself is clean — .tmp is gitignored and fully removed (0 leftover dirs), git status clean — so the test comment's claim '워킹트리를 더럽히지 않는다' is true but incomplete.",
+      "why_it_matters": "The guard's own code comment states the design property being violated: '저장소 밖 경로는 티켓을 만들지 않는다 — 테스트가 임시 디렉터리에서 돌 때 실 저장소 티켓을 오염시키던 원인이다(실제로 209줄까지 쌓였고 그중 160줄이 보호 파일 경로였다)'. F75 re-opens that pollution channel from the inside. No false-exemption risk exists (tickets are content-hash + exact-path and the paths are random and deleted), but the ledger is described as an audit trail and unbounded junk degrades it.",
+      "the_justification_for_the_in-repo_fixture_is_itself_inaccurate": "The fixture's comment says an out-of-repo path 'root 해석 실패로 fail-closed가 되고, 그러면 deny 단언이 tautology가 된다'. Measured otherwise: a scratch git repo outside the repository produces correctly differentiated verdicts, not blanket fail-closed. My 40-probe round 1 ran entirely out-of-repo and reproduced every bats verdict exactly (no-op ALLOW, disableAllHooks on DENY, all six F75 cases matching). Root resolution succeeds there; only the ticket write is skipped, because the scratch repo has no progress/ directory. The tautology risk applies to a non-git temporary directory, not to a temporary git repo.",
+      "recommendation": "Make the fixture self-contained outside the repository: mktemp -d, git init, copy settings.json, commit. Verdicts are identical (measured) and no ticket is written because the fixture has no progress/ directory. If keeping the in-repo location is preferred, have the fixture prune its own ledger lines in teardown."
+    },
+    {
+      "id": "F-3",
+      "severity": "medium",
+      "confidence": "high",
+      "status": "PRE-EXISTING — reproduced identically on 651369e~1; not introduced by F75, but the newly registered switch inherits it",
+      "file": "hooks/invariant-guard.sh",
+      "line": 706,
+      "issue": "The kill-switch check is gated on `if [[ -n \"$OLD_R\" ]]`, and wired_rows() returns empty both when there is genuinely no wiring AND when jq cannot parse the on-disk file (its 2>/dev/null || true swallows the parse failure). The two cases are indistinguishable, so an unparseable settings.json silently disables the entire document-level check: turning any of the three switches on is then ALLOWED.",
+      "evidence": "probe2 section H, 6/6 ALLOW where DENY was expected — OLD with a // comment and OLD with a trailing comma, each against disableAllHooks, allowManagedHooksOnly and disableCommandPluginSources. probe2 I3: OLD='garbage' -> switch on => ALLOW. Control I2 (valid OLD with wiring) => DENY. Parent-commit control (section J): the 651369e~1 guard gives exit 0 on the same JSONC case, confirming the behavior predates F75.",
+      "exploitability": "Requires settings.json to be jq-unreadable while still honored by Claude Code's loader, and requires reaching that state outside the guard (the guard denies NEW content that is not valid JSON, so it cannot be used to create the state itself). settings.json is git-tracked but is NOT in is_protected() or PROTECTED_GLOBS, so protected-integrity.sh does not restore it — a non-guard write path is the exposure to check.",
+      "why_it_matters": "The 'no wiring -> skip' exemption is intentional and documented (nothing to kill). 'Cannot tell whether there is wiring' is a different question and currently inherits the permissive answer, which is the inverse of the fail-closed posture INV-13 claims for this check. INV-13's '값은 false/부재만 off로 보므로 … fail-closed다' reads stronger than the code behaves.",
+      "recommendation": "Separate the two conditions: if jq cannot parse the on-disk file, treat it as fail-closed (deny) rather than as absence of wiring — the same distinction the has_jq/has_awk gates already make elsewhere in this file. Out of scope for F75's approved single axis; should be its own change request."
+    },
+    {
+      "id": "F-4",
+      "severity": "info",
+      "confidence": "high",
+      "file": "tests/hook-wiring-parity.bats",
+      "location": "'INV-13 완전성' test, GUARD_SET extraction",
+      "issue": "The completeness test compares the schema against a grep of the guard's SOURCE TEXT (grep -oE 'HOOK_KILL_SWITCHES=\"[^\"]*\"'), unioning every match in the file. A comment line carrying that pattern would satisfy the test while the live assignment was shrunk.",
+      "evidence": "Simulation on a copy: real list reduced to the two original tokens plus a commented-out line holding all three => completeness test verdict MISSING='<none>' (would pass), while the same file's runtime ALLOWS disableCommandPluginSources:true (exit 0).",
+      "current_state": "Not live. The file contains exactly one match of that pattern (line 704); the F75 comment block discusses the switch names in prose but never in the HOOK_KILL_SWITCHES=\"...\" form. Verified by grep -c.",
+      "mitigating_fact": "The runtime deny tests are the real enforcement, and F75 strengthened them: removing a token was measured to flip its deny test from exit 2 to exit 0. The 96b862d follow-up additionally pins the deny reason to the switch name for the new switch (tests 32/35/36) — the two older switches still assert exit code only (measured: 0 assertions on $output for them), which is weaker defense-in-depth but was measured not to mask anything today.",
+      "recommendation": "Optional hardening for a future change: extract GUARD_SET by sourcing/executing rather than by grepping source text, or pin the deny reason for the two older switches as well, so all three have the same regression strength."
+    }
+  ],
+  "positive_results": [
+    "Existing protection is intact: the two original tokens (disableAllHooks, allowManagedHooksOnly) survive verbatim in the single assignment; the change is strictly additive (SC-1).",
+    "The completeness classifier and its skip condition were not narrowed: the test body is byte-identical to the parent, the test-file diff has zero removed lines, and the test executed (schema 2.1.241 found) rather than skipping (SC-2).",
+    "Blast radius held to the approved axis: 2 non-comment lines changed, non-comment line count unchanged at 607, and every other guard axis byte-identical (SC-4).",
+    "Value robustness is complete, not merely sampled: the guard's OFF-set is exactly {absent, null, false}, a strict subset of the JavaScript-falsy set, so no value Claude Code would read as truthy can be classified as off. 16/16 spec-violating values denied (SC-5).",
+    "No parser-divergence bypass: unicode-escaped key spellings are caught, and duplicate-key last-wins matches JSON.parse semantics in both directions.",
+    "bats tests/hook-wiring-parity.bats: BATS_EXIT=0, ok 38, not ok 0, skipped 0 — including all six new F75 tests and the completeness test that motivated the change.",
+    "shellcheck parity with the parent: 3 findings before, 3 after, same codes (SC2010, SC2012, SC2329) — no new static findings.",
+    "The test suite leaves the working tree clean: .tmp fully removed, git status empty (the ledger is the only residue — see F-2)."
+  ],
+  "over_blocking_assessment": {
+    "question": "Does blocking an edit that has no effect create a security problem — e.g. friction that pushes the user to disable the guard?",
+    "answer": "No meaningful incentive is created.",
+    "reasoning": [
+      "The blocked edit is inert: the schema restricts the key to managed settings, which this guard does not cover, so within its jurisdiction the deny has a 0% true-positive rate and a 100% over-block rate. That is a real cost, and INV-13 states it plainly rather than hiding it.",
+      "The frequency is near zero — a project-level settings.json has no reason to carry a managed-settings-only key.",
+      "The escape hatch is stated in the deny message: 'INVARIANT 위반: … 의도적 변경이라면 사용자가 직접 편집/승인하세요.' Note this is a hard block (exit 2), not an approval prompt: the human path is editing the file outside the agent, not clicking approve. The contract and INV-13 phrase this as '사람이 승인하면 통과한다', which is directionally right but slightly overstates the affordance.",
+      "Disabling the guard is itself an INV-13-protected act (unwiring the hook is denied), so friction cannot cheaply convert into guard removal.",
+      "The alternative the contract rejected (per-switch direction/scope exceptions) would introduce conditional logic whose missed conditions become bypass surface. Given F-1 and F-3 — both of which are exactly 'a condition the reasoning missed' — that rejection looks correct."
+    ]
+  },
+  "summary": "0 critical, 0 high, 2 medium, 1 low, 1 info. Medium: F-1 (a newly-written INV-13 assurance sentence is measurably false in the allowManagedHooksOnly:true configuration) and F-3 (pre-existing, class-wide: an unparseable settings.json disables the whole kill-switch check; inherited by the new switch, reproduced identically on the parent commit). Low: F-2 (new test fixtures append unreclaimable entries to the real ticket ledger, ~3 per suite run, re-opening a pollution channel the guard's own comment says was closed). Info: F-4 (completeness test is text-level and decoy-defeatable; not live, and runtime tests cover it). The approved change itself — registering disableCommandPluginSources in HOOK_KILL_SWITCHES — weakens nothing, adds no bypass surface, and inherits the fail-closed value handling correctly."
+}

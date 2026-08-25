@@ -405,13 +405,21 @@ add_sibling_field() {
 }
 
 # OLD 내용을 제어해야 하는 케이스(false→on, 배선 없는 파일)용 픽스처.
-# 저장소 **안**에 만든다 — 가드는 $FILE의 dirname에서 git root를 유도하므로(F72) 저장소 밖
-# 경로는 root 해석 실패로 fail-closed가 되고, 그러면 deny 단언이 tautology가 된다.
-# .tmp/ 는 gitignore 대상이라 워킹트리를 더럽히지 않는다.
+#
+# **저장소 밖의 독립 git 저장소**에 만든다. 가드는 $FILE의 dirname에서 git root를 유도하므로
+# (F72) git이 아닌 임시 디렉터리는 root 해석에 실패해 fail-closed가 되고 deny 단언이
+# tautology가 된다 — 그래서 필요한 것은 '저장소 안'이 아니라 '어떤 git 저장소 안'이다.
+# 처음엔 이 저장소의 .tmp/ 를 썼는데, 그러면 가드가 매 실행마다 실 저장소의 티켓 원장
+# (progress/.guarded-edits)에 소비 불가능한 항목을 적립한다(픽스처 경로가 즉시 삭제되므로
+# 소비될 수 없고, PROTECTED_GLOBS 밖이라 회수도 없다). security-auditor가 실측해 지적했다.
+#
+# `pwd -P`로 실경로를 쓴다 — macOS의 mktemp는 /var(→/private/var) 심볼릭 링크 아래를 주고,
+# 심볼릭 경로와 실경로의 불일치는 F72가 세 번째 회전에서 실제로 겪은 실패 모드다.
 fixture_guard() {   # $1=OLD를 만드는 jq 변형, $2=NEW를 만드는 jq 변형
-  mkdir -p "$(pwd)/.tmp"
   local d st new
-  d=$(mktemp -d "$(pwd)/.tmp/f75.XXXXXX")
+  d=$(mktemp -d) || return 99
+  d=$(cd "$d" && pwd -P) || return 99
+  git init -q "$d" 2>/dev/null || { rm -rf "$d"; echo "픽스처 git 저장소 생성 실패" >&2; return 99; }
   jq "$1" settings.json > "$d/settings.json"
   new=$(jq "$2" "$d/settings.json")
   jq -n --arg f "$d/settings.json" --arg c "$new" \
