@@ -698,8 +698,9 @@ if [[ "$BASENAME" == "settings.json" ]]; then
   # 게다가 스키마가 'Only honored from managed settings'라고 명시하므로 이 가드가 실제
   # 관할하는 settings.json·.claude/settings.json 에서는 효력조차 없다. 그럼에도 등록하는 이유:
   # INV-13이 지키는 대상이 '실행 도달성'이고 위 설치 형태가 그 클래스 안이라, 모호한 쪽을
-  # fail-closed로 둔다. 대가는 실효 없는 편집이 막히는 과잉차단 한 번이며 사람이 승인하면
-  # 된다(같은 트레이드오프를 INV-13이 timeout 사례로 이미 명문화했다). 스위치별 방향·범위
+  # fail-closed로 둔다. 대가는 실효 없는 편집이 막히는 과잉차단이며, 이 deny는 exit 2 하드
+  # 차단이라 승인 프롬프트가 없다 — 실제 경로는 사람이 그 편집을 직접 하는 것이다(INV-13에
+  # 같은 문장이 있다). 스위치별 방향·범위
   # 예외를 두는 대안은 '빠뜨린 조건'이라는 새 우회 표면을 만들므로 택하지 않았다.
   HOOK_KILL_SWITCHES="disableAllHooks allowManagedHooksOnly disableCommandPluginSources"
   # 각 배선을 [event, matcher, tojson(hook)] JSON 배열 한 줄로 추출한다 — 구분자·제어문자

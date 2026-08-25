@@ -396,7 +396,7 @@ add_sibling_field() {
   # 종료 코드만 단언하면 향후 **다른 규칙**이 같은 픽스처를 우연히 막아도 exit 2가 유지되어
   # 이 스위치의 등록이 풀린 회귀가 가려진다(1차 판정 지적). deny 사유가 이 스위치를
   # 지목하는지까지 단언한다.
-  [[ "$output" == *"disableCommandPluginSources"* ]]
+  [[ "$output" == *"최상위 disableCommandPluginSources 켜짐"* ]]
 }
 
 @test "INV-13 과잉차단 방지(F75): disableCommandPluginSources:false 명시는 통과시킨다 (off→off)" {
@@ -406,20 +406,22 @@ add_sibling_field() {
 
 # OLD 내용을 제어해야 하는 케이스(false→on, 배선 없는 파일)용 픽스처.
 #
-# **저장소 밖의 독립 git 저장소**에 만든다. 가드는 $FILE의 dirname에서 git root를 유도하므로
-# (F72) git이 아닌 임시 디렉터리는 root 해석에 실패해 fail-closed가 되고 deny 단언이
-# tautology가 된다 — 그래서 필요한 것은 '저장소 안'이 아니라 '어떤 git 저장소 안'이다.
-# 처음엔 이 저장소의 .tmp/ 를 썼는데, 그러면 가드가 매 실행마다 실 저장소의 티켓 원장
-# (progress/.guarded-edits)에 소비 불가능한 항목을 적립한다(픽스처 경로가 즉시 삭제되므로
-# 소비될 수 없고, PROTECTED_GLOBS 밖이라 회수도 없다). security-auditor가 실측해 지적했다.
+# **저장소 밖**에 만든다. 이유는 오직 하나 — 이 저장소의 `.tmp/` 를 쓰면 가드가 매 실행마다
+# 실 티켓 원장(progress/.guarded-edits)에 소비 불가능한 항목을 적립한다(픽스처 경로가 즉시
+# 삭제되므로 소비될 수 없고 PROTECTED_GLOBS 밖이라 회수도 없다). security-auditor가 실측 지적.
 #
-# `pwd -P`로 실경로를 쓴다 — macOS의 mktemp는 /var(→/private/var) 심볼릭 링크 아래를 주고,
-# 심볼릭 경로와 실경로의 불일치는 F72가 세 번째 회전에서 실제로 겪은 실패 모드다.
+# **한때 여기에 `git init`이 있었고 그 근거는 틀렸다.** "git이 아닌 임시 디렉터리는 root 해석에
+# 실패해 fail-closed가 되므로 deny 단언이 tautology가 된다"고 적었으나, F37 2차 판정이 평범한
+# `mktemp -d`에서 116건 코퍼스를 돌려 **116/116 동일 판정**임을 실측해 반증했다 — `__root`는
+# `! -e $FILE` arm 에서만 참조되고, 티켓 발급 실패는 경고 후 return 0 이다. 필요 없는 것을
+# 필요하다고 적어 두면 다음 사람이 그 제약을 진짜로 믿는다. 그래서 `git init`을 걷어낸다.
+#
+# `pwd -P`는 남긴다 — macOS의 mktemp는 /var(→/private/var) 심볼릭 링크 아래를 주고, 심볼릭
+# 경로와 실경로의 불일치는 F72가 세 번째 회전에서 실제로 겪은 실패 모드다.
 fixture_guard() {   # $1=OLD를 만드는 jq 변형, $2=NEW를 만드는 jq 변형
   local d st new
   d=$(mktemp -d) || return 99
   d=$(cd "$d" && pwd -P) || return 99
-  git init -q "$d" 2>/dev/null || { rm -rf "$d"; echo "픽스처 git 저장소 생성 실패" >&2; return 99; }
   jq "$1" settings.json > "$d/settings.json"
   new=$(jq "$2" "$d/settings.json")
   jq -n --arg f "$d/settings.json" --arg c "$new" \
@@ -438,7 +440,7 @@ fixture_guard() {   # $1=OLD를 만드는 jq 변형, $2=NEW를 만드는 jq 변�
 @test "INV-13 문서레벨(F75): disableCommandPluginSources를 false→true로 바꾸면 deny한다" {
   run fixture_guard '. + {disableCommandPluginSources:false}' '. + {disableCommandPluginSources:true}'
   [ "$status" -eq 2 ]
-  [[ "$output" == *"disableCommandPluginSources"* ]]
+  [[ "$output" == *"최상위 disableCommandPluginSources 켜짐"* ]]
   [[ "$output" == *"off→true"* ]]
 }
 
@@ -450,7 +452,10 @@ fixture_guard() {   # $1=OLD를 만드는 jq 변형, $2=NEW를 만드는 jq 변�
       ". + {disableCommandPluginSources:$v}"
     [ "$status" -eq 2 ] || { echo "값 $v 가 deny되지 않았다 (exit=$status)" >&2; return 1; }
     # 사유까지 확인 — 다른 규칙의 우연한 발화로 exit 2가 유지되는 경우를 배제한다.
-    [[ "$output" == *"disableCommandPluginSources"* ]] \
+    # **스위치명만 찾으면 안 된다**(F37 2차 지적): 공유 deny 문자열이 어느 스위치에 걸리든
+    # disableCommandPluginSources를 언급하므로, 이름만 찾는 단언은 disableAllHooks deny로도
+    # 만족된다. 어느 스위치가 걸렸는지 특정하는 `최상위 <이름> 켜짐` 형태여야 한다.
+    [[ "$output" == *"최상위 disableCommandPluginSources 켜짐"* ]] \
       || { echo "값 $v 의 deny 사유가 이 스위치를 지목하지 않는다: $output" >&2; return 1; }
   done
 }
@@ -459,6 +464,38 @@ fixture_guard() {   # $1=OLD를 만드는 jq 변형, $2=NEW를 만드는 jq 변�
   # OLD 집합이 공집합이면 죽일 배선이 없다 — 기존 두 스위치와 동일한 면제 규칙.
   run fixture_guard 'del(.hooks) | . + {env:{FOO:"bar"}}' '. + {disableCommandPluginSources:true}'
   [ "$status" -eq 0 ]
+}
+
+@test "INV-13 스키마 부재(F75/ES-1): 조용한 통과가 아니라 명시적 skip이다" {
+  # 계약 ES-1을 저장소 안에서 고정한다. 구현 시점에는 "완전성 테스트에 주입점을 만들어야
+  # 하는데 그 주입점이 곧 검사를 끄는 우회 표면"이라는 이유로 넣지 않았으나, F37 2차 판정이
+  # **소스 변경 0으로** 가능함을 실증해 그 전제를 반증했다 — PATH 앞에 `ls` 셰임을 두면
+  # 스키마 조회만 빈 결과가 되고 나머지는 실제 ls에 위임된다. 주입점을 만들지 않으므로
+  # SC-2가 지키려는 표면도 열지 않는다.
+  #
+  # 이것이 고정하는 성질: 스키마를 못 찾았을 때 테스트가 **통과로 보고되면 안 된다**.
+  # 조용한 통과는 "가드가 스키마를 덮는다"는 거짓 보증이 되고, 그 상태는 정상 통과와
+  # 겉보기가 같다(F41이 닫은 fail-open과 같은 계열).
+  # 재귀 방지 이중 안전장치. 첫 시도에서 필터 문자열이 이 테스트 이름에도 매치해 중첩 실행이
+  # 무한히 자기를 다시 불렀다(2분 타임아웃으로 발견). 이름을 필터와 겹치지 않게 바꾸고,
+  # 그것과 별개로 환경변수로도 중첩을 차단한다 — 이름은 나중에 누가 다시 바꿀 수 있다.
+  [[ -n "${CC_ES1_NESTED:-}" ]] && skip "중첩 실행 (재귀 방지)"
+  command -v bats >/dev/null || skip "중첩 bats 실행 불가"
+  local shim; shim=$(mktemp -d) || return 99
+  cat > "$shim/ls" <<'SHIM'
+#!/usr/bin/env bash
+for a in "$@"; do
+  case "$a" in *claude-code-settings.schema.json*) exit 1 ;; esac
+done
+exec /bin/ls "$@"
+SHIM
+  chmod +x "$shim/ls"
+  run env PATH="$shim:$PATH" CC_ES1_NESTED=1 \
+    bats --filter 'HOOK_KILL_SWITCHES가 스키마의 hook-affecting boolean' "$BATS_TEST_FILENAME"
+  rm -rf "$shim"
+  # skip으로 보고되어야 한다 — ok(무조건 통과)도 not ok(실패)도 아니다.
+  [[ "$output" == *"# skip"* ]] || {
+    echo "스키마 부재 시 명시적 skip이 아니다:" >&2; echo "$output" >&2; return 1; }
 }
 
 @test "INV-13 완전성: HOOK_KILL_SWITCHES가 스키마의 hook-affecting boolean을 전부 덮는다" {
