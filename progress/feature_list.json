@@ -1035,6 +1035,22 @@
         "F52"
       ],
       "assigned_sprint": 61
+    },
+    {
+      "id": "F76",
+      "name": "INV-13 런타임 집행이 파싱 불가한 settings.json에서 조용히 사라지는 fail-open 수정",
+      "description": "[2026-08-25, F75 security-auditor 발견 + 메인 루프 독립 재현으로 범위 확대] hooks/invariant-guard.sh의 INV-13 런타임 집행 전체가 `OLD_R`(디스크 settings.json에서 추출한 기존 배선)이 비어 있지 않다는 전제 위에서만 돈다. 그런데 이 게이트는 '배선이 없다'와 '**파일을 파싱하지 못했다**'를 구분하지 않는다 — 디스크의 settings.json이 jq로 읽히지 않으면(주석·후행 쉼표·깨진 JSON) `wired_rows`가 빈 값을 돌려주고, 그 순간 킬스위치 검사와 배선 보존 검사가 **둘 다** 통째로 건너뛰어진다. 격리 랩 실측(저장소 밖 mktemp, pwd -P): OLD가 정상 JSON일 때 `invariant-guard` 배선 제거는 exit 2로 차단되고 킬스위치 3종을 켜는 편집도 전부 exit 2인데, OLD를 파싱 불가로 만들면 **같은 편집이 전부 exit 0**으로 통과한다. 즉 INV-13이 지키는 두 축(실행 도달성·배선 보존)이 함께 무력화되며, invariant-guard 자신의 배선을 제거하는 편집조차 통과한다. 부모 커밋에서도 동일 재현되므로 F75가 도입한 것이 아니라 선재 갭이고 F75가 등록한 신규 스위치가 이를 물려받았다. F75 감사는 킬스위치 축만 보고했으며 배선 보존 축까지 걸린다는 사실은 이 change-request의 독립 재현에서 확인했다. **적대적 시나리오가 필요 없다** — 사용자가 settings.json을 손으로 고치다 후행 쉼표를 남기거나 JSON5식 주석을 넣으면 그 시점부터 게이트가 조용히 꺼지고, 훅은 계속 exit 0을 돌려주므로 '검사했고 문제없음'과 겉보기가 같다. F41이 닫은 fail-open(도구 부재 시 검사 무력화)과 같은 계열이며 이번엔 '입력을 읽지 못하면'이다. 권고 수정(AX-1 B): HEAD의 settings.json을 기준선으로 폴백 — F68/F72가 삭제-후-재생성 방어에 이미 쓰는 HEAD 실체화 기법의 재사용이라 새 개념·새 우회 표면을 들이지 않으며, 깨진 파일을 복구하는 정당한 편집은 배선을 보존하는 한 통과하고 배선을 지우거나 킬스위치를 켜는 편집은 HEAD 기준으로 정확히 차단된다. HEAD에도 파일이 없으면 deny로 폴백. 변경 범위: hooks/invariant-guard.sh(보호), tests/hook-wiring-parity.bats(보호), docs/INVARIANTS.md INV-13(보호).",
+      "security_tier": "critical",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F12",
+        "F41",
+        "F52",
+        "F75"
+      ],
+      "assigned_sprint": 62
     }
   ]
 }

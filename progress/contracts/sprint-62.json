@@ -1,0 +1,123 @@
+{
+  "sprint": 62,
+  "feature_id": "F76",
+  "title": "INV-13 런타임 집행이 파싱 불가한 settings.json에서 조용히 사라지는 fail-open 수정",
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "agreed": false,
+  "dependencies": ["F12", "F52", "F75"],
+  "problem": "hooks/invariant-guard.sh의 INV-13 런타임 집행 전체가 `OLD_R`(디스크 settings.json에서 추출한 기존 배선)이 비어 있지 않다는 전제 위에서만 돈다. 그런데 이 게이트는 '배선이 없다'와 '**파일을 파싱하지 못했다**'를 구분하지 않는다. 디스크의 settings.json이 jq로 읽히지 않으면(주석·후행 쉼표·깨진 JSON) `wired_rows`가 빈 값을 돌려주고, 그 순간 킬스위치 검사와 배선 보존 검사가 **둘 다** 통째로 건너뛰어진다.\n\n실측(격리 랩, 저장소 밖 git 저장소, 부모 커밋에서도 동일 재현): OLD가 정상 JSON일 때 invariant-guard 배선 제거는 exit 2로 차단되고 세 킬스위치를 켜는 편집도 전부 exit 2다. OLD를 파싱 불가 상태로 만들면 같은 편집이 전부 **exit 0**으로 통과한다. 즉 INV-13이 지키는 두 축(실행 도달성·배선 보존)이 함께 무력화된다.\n\n이 조건은 적대적 시나리오 없이도 발생한다 — 사용자가 settings.json을 손으로 고치다 후행 쉼표를 남기거나 JSON5식 주석을 넣으면 그 시점부터 게이트가 조용히 꺼진다. 아무 경고도 없고, 훅은 계속 exit 0을 돌려주므로 '검사했고 문제없음'과 겉보기가 같다. F75 이전부터 존재했고 F75가 등록한 신규 스위치도 이를 물려받았다(F75 security-auditor가 킬스위치 축을 먼저 발견했고, 배선 보존 축까지 걸린다는 사실은 이 change-request의 독립 재현에서 확인했다).",
+  "why_this_class_matters": "이것은 F41이 닫은 fail-open(jq 부재 시 검사 무력화)과 **같은 계열**이다. 그때는 '도구가 없으면'이었고 이번엔 '입력을 읽지 못하면'이다. 두 경우 모두 검사가 수행되지 않았는데 수행되어 통과한 것과 구분되지 않는다. INV-14가 '검증 장치는 예측이 아니라 탐지·복구로 지킨다'고 적은 이유와 같은 맥락에서, 예측 계층이 조용히 no-op이 되는 경로는 그 자체로 결함이다.",
+  "open_axes": [
+    {
+      "id": "AX-1",
+      "question": "OLD(디스크 내용)를 파싱하지 못했을 때 무엇을 기준선으로 삼을 것인가.",
+      "options": {
+        "A": "무조건 deny(fail-closed). 단순하고 확실하지만, 깨진 settings.json을 Edit/Write로 **복구하는 정당한 편집까지** 막아 사용자를 가둔다(복구 경로가 Bash ask 티어만 남는다).",
+        "B": "HEAD의 settings.json을 OLD 기준선으로 폴백한다. F68/F72가 삭제-후-재생성 방어에 이미 쓰는 HEAD 실체화 기법의 재사용이라 새 개념을 들이지 않는다. 깨진 파일을 복구하는 편집은 배선을 보존하는 한 통과하고, 배선을 지우거나 킬스위치를 켜는 편집은 HEAD 기준으로 정확히 차단된다.",
+        "C": "NEW 내용만으로 판정한다(배선 존재 + 킬스위치 off 요구). 기준선이 없어 '원래 배선이 무엇이었는가'를 알 수 없으므로 축소 탐지가 불가능하다."
+      },
+      "recommendation": "B를 기본으로, HEAD에도 해당 파일이 없을 때(추적되지 않는 settings.json)는 A로 폴백. 근거: (1) B는 이 저장소가 이미 채택한 기법이라 새 우회 표면을 만들지 않는다. (2) '검사할 수 없으면 차단'이라는 has_jq/has_awk 게이트의 원칙을 유지하면서 정당한 복구 편집을 가두지 않는다. (3) C는 기준선 없는 판정이라 INV-13이 요구하는 '약화 탐지'를 구조적으로 못 한다."
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "디스크의 settings.json이 파싱 불가한 상태에서 invariant-guard 배선을 제거하는 편집이 deny된다(현재 exit 0 → exit 2).",
+      "verification": "저장소 밖 git 저장소 픽스처로 실측. 부모 커밋에서 exit 0이던 동일 입력이 HEAD에서 exit 2여야 한다."
+    },
+    {
+      "id": "AC-2",
+      "criterion": "같은 상태에서 세 킬스위치(disableAllHooks·allowManagedHooksOnly·disableCommandPluginSources)를 각각 켜는 편집이 모두 deny된다.",
+      "verification": "세 스위치 각각 픽스처 실측."
+    },
+    {
+      "id": "AC-3",
+      "criterion": "**파싱 가능하지만 배선이 없는** settings.json(예: enabledPlugins만 담은 파일)은 지금처럼 통과한다 — 이 수정이 '배선 없음' 면제를 없애지 않는다.",
+      "verification": "픽스처 실측. INV-13이 명시한 유일한 면제 대상이므로 회귀 시 과잉차단이다."
+    },
+    {
+      "id": "AC-4",
+      "criterion": "깨진 settings.json을 **정상으로 복구하면서 배선을 보존하는** 편집은 통과한다 — 사용자가 자신의 파일을 고칠 수 있어야 한다.",
+      "verification": "픽스처 실측(AX-1에서 B가 채택된 경우). A가 채택되면 이 기준은 '차단되며 그 사실이 문서에 기록된다'로 대체한다."
+    },
+    {
+      "id": "AC-5",
+      "criterion": "정상 JSON 경로의 기존 판정이 하나도 바뀌지 않는다 — 기존 bats 784건이 전부 통과한다.",
+      "verification": "bats tests/를 파이프 없이 실행해 실제 종료 코드와 집계를 기록한다."
+    },
+    {
+      "id": "AC-6",
+      "criterion": "이 갭을 고정하는 회귀 테스트가 tests/hook-wiring-parity.bats에 추가된다(파싱 불가 OLD × 배선 제거 / 킬스위치 3종 / 배선 없음 면제 / 복구 편집).",
+      "verification": "신규 테스트가 수정 전 코드에서 실패하고 수정 후 통과하는지 mutation으로 확인."
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "이 수정이 기존 보호를 어떤 축에서도 축소하지 않는다 — HOOK_KILL_SWITCHES 목록, 오브젝트 전문 비교, matcher 포함관계, is_protected(), is_wiring_file()의 has_jq/has_awk 게이트가 모두 불변이다.",
+      "rationale": "fail-open 하나를 닫으면서 다른 축을 건드리면 승인 범위가 흐려지고, 그 자체가 F52 4차가 경고한 '인스턴스만 닫고 클래스를 여는' 패턴이 된다.",
+      "verification": "부모 커밋과 함수 단위 대조(md5 또는 diff)."
+    },
+    {
+      "id": "SC-2",
+      "criterion": "폴백 기준선(HEAD 내용)을 신뢰할 수 없는 경우가 명시적으로 처리된다 — HEAD에 파일이 없거나 HEAD 내용도 파싱 불가하면 deny(fail-closed)한다. 조용한 통과가 남아서는 안 된다.",
+      "rationale": "이 수정의 목적이 '검사하지 못한 상태를 통과와 구분하는 것'이므로, 폴백 자체가 새로운 조용한 no-op을 만들면 결함을 옮긴 것에 불과하다.",
+      "verification": "HEAD 부재·HEAD 파싱 불가 두 경우를 각각 픽스처로 실측."
+    },
+    {
+      "id": "SC-3",
+      "criterion": "이 수정으로 인해 사용자가 자신의 settings.json을 복구할 수 없게 되는 경우가 있다면, 그 경로와 대안을 docs/INVARIANTS.md INV-13에 정직하게 기록한다. 실제 affordance를 과장하지 않는다(예: exit 2 하드 차단을 '사람이 승인하면 통과한다'로 적지 않는다).",
+      "rationale": "F75에서 정확히 이 오류가 났다 — deny의 성격을 승인 가능한 것처럼 서술했다. 같은 클래스를 반복하지 않는다.",
+      "verification": "INV-13 본문을 읽고 서술이 실측 동작과 일치하는지 확인."
+    },
+    {
+      "id": "SC-4",
+      "criterion": "INV-13 본문의 기존 서술 중 이 수정으로 참이 되거나 거짓이 되는 문장을 **역방향으로** 점검해 함께 갱신한다. 특히 F75가 추가한 '(2) 단순화' 문단은 이 갭이 닫히면 갱신 대상이다.",
+      "rationale": "F74가 남기고 F75가 두 번 반복한 criteria gap이다 — 신규 사실만 적고 기존 진술을 점검하지 않으면 문서가 코드보다 강해지거나 약해진다.",
+      "verification": "INV-13 전문을 읽고 상충 구절이 없는지 확인."
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "jq 또는 awk가 없는 환경에서 파싱 불가한 settings.json을 편집",
+      "expected": "기존 has_jq/has_awk fail-closed 게이트가 먼저 걸려 deny. 이 수정이 그 우선순위를 바꾸지 않아야 한다."
+    },
+    {
+      "id": "ES-2",
+      "scenario": "settings.json이 디스크에 없고 HEAD에도 없는 상태에서 배선 없는 내용으로 신규 생성",
+      "expected": "기존 신규 생성 예외가 유지된다 — 이 수정은 '파싱 실패'만 다루며 '파일 부재'는 F68/F72가 이미 다룬 별개 경로다. 두 경로가 서로를 덮어쓰지 않는지 확인한다."
+    },
+    {
+      "id": "ES-3",
+      "scenario": "HEAD의 settings.json은 정상이나 디스크 내용이 파싱 불가하고, 사용자가 배선을 **늘리는** 편집을 시도",
+      "expected": "통과한다. INV-13은 넓히는 편집을 보호 강화로 보아 허용하며, 폴백 기준선을 쓰더라도 그 규칙이 유지되어야 한다."
+    },
+    {
+      "id": "ES-4",
+      "scenario": "디스크 내용이 파싱 불가하고 NEW 내용도 파싱 불가",
+      "expected": "deny. 기존 'NEW가 깨진 JSON이면 deny' 규칙이 그대로 적용되며 이 수정과 충돌하지 않는다."
+    }
+  ],
+  "implementation_steps": [
+    {
+      "id": "S-1",
+      "step": "OLD 파싱 성공 여부를 `wired_rows`의 빈 결과와 분리해 판정한다. 파싱 실패 시 AX-1에서 승인된 전략(권고 B)으로 기준선을 결정하고, 기준선을 얻지 못하면 deny한다."
+    },
+    {
+      "id": "S-2",
+      "step": "tests/hook-wiring-parity.bats에 회귀 테스트를 추가한다(AC-1~AC-4 대응). 픽스처는 F75가 확립한 저장소 밖 git 저장소 방식을 재사용하되, HEAD 기준선이 필요한 케이스는 픽스처에 커밋을 만들어야 한다."
+    },
+    {
+      "id": "S-3",
+      "step": "docs/INVARIANTS.md INV-13을 갱신한다 — 갭이 닫혔다는 사실, 채택한 기준선 전략, 남는 제약(SC-3), 그리고 F75가 적어 둔 '(2) 단순화' 문단의 역방향 점검(SC-4)."
+    },
+    {
+      "id": "S-4",
+      "step": "bats tests/를 파이프 없이 전체 실행해 실제 종료 코드와 집계를 evidence로 기록한다."
+    }
+  ],
+  "_parallelizable": false,
+  "_parallelizable_reason": "S-1~S-3이 같은 불변식의 코드·테스트·문서 세 면이고 S-2가 S-1의 최종 형태에 의존한다. 직렬."
+}

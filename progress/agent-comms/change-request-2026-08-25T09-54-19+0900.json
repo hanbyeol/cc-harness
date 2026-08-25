@@ -1,0 +1,46 @@
+{
+  "timestamp": "2026-08-25T09:54:19+09:00",
+  "type": "modify",
+  "description": "INV-13 런타임 집행 전체가 파싱 불가한 settings.json에서 조용히 사라지는 fail-open 수정 — OLD_R 게이트가 '배선 없음'과 '파싱 실패'를 구분하지 못한다",
+  "trigger": "F75 security-auditor가 킬스위치 축에서 먼저 발견(security-audit-2026-08-24T17-30-39+0900.json의 F-3, medium, 선재). 메인 루프가 이를 그대로 옮기지 않고 격리 랩에서 독립 재현했고, 그 과정에서 **배선 보존 검사까지 같은 게이트에 걸린다**는 사실을 추가로 확인해 범위가 감사 보고보다 넓다는 것이 드러났다.",
+  "independent_reproduction": {
+    "lab": "저장소 밖 mktemp git 저장소, pwd -P 실경로",
+    "control": "OLD = 정상 JSON → invariant-guard 배선 제거 exit 2, 킬스위치 3종 켜기 각각 exit 2",
+    "gap": "OLD = 파싱 불가(주석 1줄 삽입) → 동일 편집이 배선 제거 exit 0, 킬스위치 3종 전부 exit 0",
+    "pre_existing": "부모 커밋에서도 동일 재현 — F75가 도입한 것이 아니라 신규 스위치가 물려받은 것",
+    "not_concluded": "OLD 파일이 아예 없는 경우도 exit 0이었으나, 랩 저장소에 커밋이 없어 F68/F72의 HEAD 실체화가 작동할 수 없는 상태였다. 실 저장소에서는 다를 수 있어 결론에 넣지 않았다 — 계약의 ES-2가 이 경로를 별도로 확인하도록 요구한다."
+  },
+  "affected_features": [
+    "F76"
+  ],
+  "related_features": [
+    "F12",
+    "F41",
+    "F52",
+    "F68",
+    "F72",
+    "F75"
+  ],
+  "tier_classification": {
+    "hotfix_eligible": false,
+    "reason": "security_tier critical의 안전장치 자기보호 경로 변경이므로 hotfix 전환 불가(F48 규칙)."
+  },
+  "impact": {
+    "spec_updated": false,
+    "spec_note": "이 저장소에는 docs/SPEC.md가 없다. 규범 문서는 docs/INVARIANTS.md이며 해당 갱신은 계약의 SC-3·SC-4·S-3으로 편입했다. F75가 이미 INV-13에 이 갭을 '별도 change-request로 다룬다'고 기록해 둔 상태다.",
+    "architecture_updated": false,
+    "architecture_note": "새 컴포넌트 없음. 기존 판정 경로의 기준선 결정 로직 수정이며, 폴백 기법(HEAD 실체화)은 F68/F72가 이미 쓰는 것을 재사용한다.",
+    "acceptance_criteria_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false,
+    "feature_list_updated": true
+  },
+  "new_sprint_contract": "progress/contracts/sprint-62.json",
+  "rollback_to_phase": null,
+  "open_axes": [
+    "AX-1: OLD 파싱 실패 시 기준선을 무엇으로 할 것인가 — (A) 무조건 deny, (B) HEAD 폴백(권고), (C) NEW만으로 판정. Plan 게이트에서 결정."
+  ],
+  "sequencing_note": "이 change-request를 작성하는 동안 F75의 F37 2차 판정이 백그라운드에서 진행 중이었다. progress/feature_list.json은 2차 evaluator가 F75의 passes를 전환할 수 있는 파일이라, 동시 편집 충돌을 피해 F76 항목 추가를 2차 판정 종료 후로 미뤘다.",
+  "verification_tier": "critical",
+  "verification_note": "critical이므로 독립 evaluator + security-auditor, 그리고 F37 critical 2차 독립 판정이 필요하다."
+}
