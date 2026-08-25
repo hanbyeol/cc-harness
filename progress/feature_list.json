@@ -1027,9 +1027,9 @@
       "name": "HOOK_KILL_SWITCHES 커버리지 갱신 — settings 스키마 신규 hook-affecting boolean(disableCommandPluginSources) 등록",
       "description": "[2026-08-21, 테스트 실패로 자동 발견] tests/hook-wiring-parity.bats의 'INV-13 완전성: HOOK_KILL_SWITCHES가 스키마의 hook-affecting boolean을 전부 덮는다'(:385-413)가 실패한다. 이 테스트는 로컬 설치된 Claude Code 확장의 공식 settings 스키마(현재 anthropic.claude-code-2.1.238)에서 description에 'hook'을 언급하는 최상위 boolean을 추출해 hooks/invariant-guard.sh의 HOOK_KILL_SWITCHES(:693)가 그 집합을 전부 덮는지 검사한다 — 스키마에 새 스위치가 생기면 실패해 등록을 강제하도록 F52 4차 판정이 설계한 클래스 봉쇄 장치이며, '목록을 사람이 열거하는 게 아니라 스키마가 정의한다'는 것이 INV-13의 명시적 설계다. 스키마가 `disableCommandPluginSources`를 추가했고 가드 목록(`disableAllHooks allowManagedHooksOnly`)이 이를 덮지 않아 갭이 열렸다. **핵심 — 기존 두 스위치와 의미가 대칭이 아니다**: 그 둘은 on = 훅 실행 자체를 죽이므로 off→on이 명백한 약화다. 신규 스위치는 스키마 설명상 on = '마켓플레이스가 선언한 명령으로 생성되는 command 소스 플러그인을 설치·갱신·재해석하지 않음(그 명령이 실행되지 않음)'이라 일반적으로는 오히려 **강화**다. 다만 하네스 자신이 command 소스로 설치된 형태에서는 재해석이 끊겨 훅이 실행 도달성을 잃으므로 그 설치 형태에서는 kill로 작동한다 — INV-13이 지키려는 것이 정확히 '실행 도달성'이므로 클래스 안에 있다. 추가 제약: 스키마가 'Only honored from managed settings'라고 명시하므로 가드가 실제로 지키는 root settings.json·.claude/settings.json에서는 효력이 없다. 이 비대칭(강화이자 kill, 그리고 가드 관할 파일에서는 무효)을 어떻게 처리할지가 이번 변경의 유일한 설계 축이다. 테스트의 분류기(description에 'hook' 언급)를 좁혀 실패를 회피하는 선택지는 INV-6(테스트·기준 add-only) 위반이자 F52 4차가 닫은 '인스턴스만 닫고 클래스를 열어두는' 회귀라 배제한다. 변경 범위: hooks/invariant-guard.sh(보호), tests/hook-wiring-parity.bats(보호), docs/INVARIANTS.md INV-13(보호).",
       "security_tier": "critical",
-      "status": "pending",
-      "passes": false,
-      "iteration": 0,
+      "status": "done",
+      "passes": true,
+      "iteration": 1,
       "dependencies": [
         "F12",
         "F52"
