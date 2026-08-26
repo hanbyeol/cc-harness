@@ -534,9 +534,15 @@ f76_guard() {   # 대상: settings.json
   [ "$status" -eq 2 ]
 }
 
-@test "INV-13(F76): 파싱 불가 + HEAD 기준선 — 킬스위치 켜기를 deny한다" {
-  run f76_guard commit "$(mutate_guard_entry '. + {disableAllHooks:true}')"
-  [ "$status" -eq 2 ]
+@test "INV-13(F76): 파싱 불가 + HEAD 기준선 — 킬스위치 3종 모두 deny한다" {
+  # 계약 AC-6이 3종을 열거한다. 1종만 고정하면 나머지 둘이 조용히 빠져도 아무도 모른다
+  # (1차 판정 지적).
+  for sw in disableAllHooks allowManagedHooksOnly disableCommandPluginSources; do
+    run f76_guard commit "$(mutate_guard_entry ". + {$sw:true}")"
+    [ "$status" -eq 2 ] || { echo "$sw 가 deny되지 않았다 (exit=$status)" >&2; return 1; }
+    [[ "$output" == *"최상위 $sw 켜짐"* ]] \
+      || { echo "$sw 의 deny 사유가 이 스위치를 지목하지 않는다: $output" >&2; return 1; }
+  done
 }
 
 @test "INV-13(F76): 파싱 불가 + HEAD 기준선 — 배선 보존한 복구 편집은 통과시킨다" {
@@ -545,10 +551,24 @@ f76_guard() {   # 대상: settings.json
   [ "$status" -eq 0 ]
 }
 
-@test "INV-13(F76): 무기준선 — 킬스위치 켜기는 기준선 없이도 deny한다" {
+@test "INV-13(F76): 무기준선 — 킬스위치 3종 모두 기준선 없이도 deny한다" {
   # OLD 값을 알 수 없어도 'NEW 가 켜져 있다'는 기준선 없이 판정 가능한 축이다.
+  for sw in disableAllHooks allowManagedHooksOnly disableCommandPluginSources; do
+    run f76_guard nocommit "$(mutate_guard_entry ". + {$sw:true}")"
+    [ "$status" -eq 2 ] || { echo "$sw 가 deny되지 않았다 (exit=$status)" >&2; return 1; }
+  done
+}
+
+@test "INV-13(F76): 무기준선 — 켜져 있던 스위치를 되돌리는 복구도 막힌다 (수용된 대가)" {
+  # **이것은 회귀이고, 수용된 것이다.** 기준선이 없으면 '되돌리기'와 '새로 켜기'를 구분할 수
+  # 없어 fail-closed를 택했다. 그 결과 원래 킬스위치가 켜져 있던 파일을 그 내용 그대로
+  # 복구하는 편집도 exit 2 로 막힌다(부모 커밋에서는 통과했다). 사람이 직접 고쳐야 한다.
+  #
+  # 이 테스트가 있는 이유: 1차 판정에서 코드 주석이 "복구를 가로막지 않는다"고 단언했는데
+  # 거짓이었다. 문서에 적은 대가를 테스트로 고정해, 서술과 동작이 다시 어긋나면 잡히게 한다.
   run f76_guard nocommit "$(mutate_guard_entry '. + {disableAllHooks:true}')"
   [ "$status" -eq 2 ]
+  [[ "$output" == *"이전 값을 확인할 수 없습니다"* ]]
 }
 
 @test "INV-13(F76): 무기준선 — 복구 편집은 통과하되 검사 불가를 경고로 남긴다" {
