@@ -1,0 +1,174 @@
+{
+  "timestamp": "2026-08-26T15:01:24+09:00",
+  "sprint": 62,
+  "iteration": 1,
+  "features_evaluated": [
+    "F76"
+  ],
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "round": "1 of 2 — critical 티어이므로 이 판정만으로 확정이 아니다. F37 규칙에 따라 독립 컨텍스트의 2차 judge가 뒤따르며, 두 판정의 verdict가 불일치하면 자동 pass 없이 사람에게 에스컬레이션한다.",
+  "commit_evaluated": "ba9dc19a360d808f7b1390e81f39e6ab27cfbe23",
+  "parent_commit": "ba9dc19~1 (e830dd0)",
+  "scores": {
+    "functionality": 8,
+    "code_quality": 7,
+    "security": 6,
+    "error_handling": 8,
+    "test_coverage": 6
+  },
+  "score": 6,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 6 < 7 (critical tier 자동 fail) — SC-3의 '복구 불가 경로를 INV-13에 기록한다' 절이 미충족이고, 그 자리에 실측으로 반증되는 단정형 주석이 대신 들어가 있다",
+    "score 6 < threshold 7 (min-of-5)"
+  ],
+  "verdict_note": "이 fail은 '설계가 틀렸다'가 아니다. 3분기 설계와 그 집행은 내가 실측한 모든 축에서 승인된 대로 정확히 동작하며, 보호가 약해진 지점은 한 건도 관측되지 않았다(deny→allow 전이 0건). 반려 사유는 **두 개의 계약 조항이 문자 그대로 미충족**이고 그중 하나가 F75에서 이름 붙인 오류 클래스의 재발이라는 점이다. 수정 비용은 INV-13 문단 하나와 주석 한 줄, 테스트 2건 수준이다.",
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1 파싱 불가 디스크 + HEAD 기준선에서 invariant-guard 배선 제거 → exit 2 (부모 커밋 동일 입력은 exit 0). 실측",
+      "AC-2 세 킬스위치(disableAllHooks·allowManagedHooksOnly·disableCommandPluginSources) 각각 켜는 편집 → HEAD 기준선 경로 3/3 exit 2, 무기준선 경로 3/3 exit 2. 내 픽스처로 6건 전부 실측",
+      "AC-3 파싱 가능하지만 배선 없는 파일(enabledPlugins만)에서 킬스위치 켜기 → exit 0. 면제 유지 확인",
+      "AC-4(a) HEAD 기준선 있는 경로의 복구 편집 → exit 0 + 'HEAD 내용을 기준선으로 사용합니다' 경고. 실측",
+      "AC-4(b) 무기준선 경로의 복구 편집 → exit 0 + '배선 보존 검사를 수행하지 못했습니다' 경고. 실측",
+      "AC-5 bats tests/ 파이프 없이 실행 → 792 ok / 0 not ok / 1..792 / BATS_EXIT=0. 추가로 내 26케이스 코퍼스를 부모·HEAD 양쪽에 통과시켜 deny→allow 전이 0건 확인"
+    ],
+    "security": [
+      "SC-1 wired_rows·matcher_covers·is_protected·is_wiring_file 네 함수 모두 부모 커밋과 md5 동일. HOOK_KILL_SWITCHES 문자열 동일. shellcheck 지적 3건이 종류·순서 모두 동일(행번호만 이동)",
+      "SC-1(보강) 코퍼스 양방향 판정 차분 — 부모 대비 allow→deny 11건, **deny→allow 0건**. F73 교훈이 요구하는 '무매치로 떨어진 것'까지 포함한 차분에서 축소 없음",
+      "SC-2 3분기가 실제로 구현·관측됨. head 분기와 none 분기 모두 stderr 경고가 실측으로 나오며, 경고 없는 조용한 통과는 관측되지 않았다. 무기준선에서 킬스위치 3종 전부 deny",
+      "SC-4 INV-13 본문 역방향 점검 완료 — F75가 남긴 '(2) 단순화' 문단이 닫힌 상태로 대체되고 '두 가지 → 하나'로 정정됨. 저장소 전체에서 이 갭을 서술한 다른 문서는 없다(docs/·README·lessons 검색)"
+    ],
+    "error_scenarios": [
+      "ES-1 jq 없는 PATH(심볼릭 링크 팜으로 구성)에서 파싱 불가 디스크 편집 → 'jq 부재 상태에서 보호 파일 편집을 차단합니다 (fail-closed)' exit 2. 부모와 동일하게 has_jq 게이트가 먼저 발화하며 우선순위 무변경",
+      "ES-2 파일 부재 + HEAD 부재 + 배선 없는 신규 생성 → exit 0. 신규 생성 예외 유지, 파싱 실패 경로와 충돌 없음",
+      "ES-3 파싱 불가 디스크 + HEAD 기준선 + matcher 확대(넓히는 편집) → exit 0. 폴백 기준선에서도 강화 편집 허용 규칙 유지",
+      "ES-4 파싱 불가 디스크 + 파싱 불가 NEW → exit 2 ('settings.json이 유효한 JSON이 아닙니다'). 기존 규칙이 기준선 로직보다 앞서 발화"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-6 (부분) — 계약이 열거한 회귀 테스트 케이스 중 '킬스위치 3종'이 1종(disableAllHooks)만 커밋됐다. 나머지 두 스위치의 동작은 내가 실측해 정확함을 확인했으나 저장소 안에 고정되어 있지 않다"
+    ],
+    "security": [
+      "SC-3 (부분) — 이 수정이 만든 '사용자가 자신의 배선 파일을 원래 내용 그대로 복구할 수 없는 경로'가 INV-13에 기록되지 않았다. 오히려 hooks/invariant-guard.sh의 none 분기 주석이 '깨진 파일을 복구하는 정당한 편집은 스위치를 켤 이유가 없으므로 이 규칙이 복구를 가로막지 않는다'고 단정하는데, 이 전칭 단언은 실측으로 반증된다"
+    ],
+    "error_scenarios": []
+  },
+  "issues": [
+    {
+      "id": "I-1",
+      "severity": "medium",
+      "confidence": "high",
+      "tag": "security/SC-3",
+      "title": "none 분기가 '이미 킬스위치가 켜져 있던 배선 파일'의 원본 복구를 막는다 — 문서화되지 않았고 주석은 반대로 단정한다",
+      "measured": "격리 랩(저장소 밖 git 저장소). HEAD 기준선 없음(git init 후 커밋 없음), 디스크 settings.json = 정상 배선 + disableCommandPluginSources:true 를 파싱 불가 상태로 훼손. NEW = 그 파일의 **원래 내용 그대로**(유효 JSON, 배선 보존, 스위치도 원래대로 true). 결과 exit 2 — 'settings.json 최상위 disableCommandPluginSources 켜짐(true) — 디스크 내용을 파싱할 수 없고 HEAD 기준선도 없어 이전 값을 확인할 수 없습니다'. 대조군 둘 다 exit 0: HEAD 기준선이 있는 같은 편집(g2), 디스크가 정상인 같은 편집(g3). 부모 커밋에서는 exit 0(g1) — 이 차단은 이번 변경이 새로 만든 것이다.",
+      "why_it_matters": "설계 자체는 승인된 대로다(무기준선에서는 NEW 단독으로 킬스위치를 막는다). 문제는 그 대가가 기록되지 않았다는 것이다. SC-3은 '복구할 수 없게 되는 경우가 있다면 그 경로와 대안을 INV-13에 정직하게 기록한다. 실제 affordance를 과장하지 않는다'고 명시하고, 그 조항은 **F75가 정확히 이 오류를 냈기 때문에** 쓰였다. 이번엔 방향이 반대일 뿐 같은 클래스다 — F75는 하드 차단을 승인 가능한 것처럼 적었고, 여기서는 존재하는 하드 차단을 존재하지 않는다고 적었다. 이 deny도 exit 2라 승인 프롬프트가 없다.",
+      "scope": "좁다. HEAD에 없고 + 파싱 불가이고 + 원래 킬스위치가 켜져 있던 파일이라는 3중 조건이며, 방향은 fail-closed(과잉차단)라 우회 표면은 만들지 않는다. 사용자에게 남는 경로는 스위치를 뺀 채 복구하거나 Edit/Write 밖에서 편집하는 것 — 둘 다 INV-13에 적혀 있지 않다.",
+      "fix": "(1) 주석의 전칭 단언을 실측된 예외와 함께 다시 쓴다. (2) INV-13 3분기 표 아래에 이 경로와 대안을 한 문단으로 적는다 — '남는 노출'(배선 축소 미탐지)과 대칭인 '남는 과잉차단'."
+    },
+    {
+      "id": "I-2",
+      "severity": "low",
+      "confidence": "high",
+      "tag": "code_quality",
+      "title": "`jq -e '.'`를 파싱 가능성 판정에 쓰면 JSON 문서 `null`·`false`가 '파싱 불가'로 분류된다",
+      "measured": "HEAD 기준선이 정상 배선인 저장소에서 디스크 settings.json을 `null`(그리고 `false`)로 두고 배선 제거 편집 → exit 2. 부모에서는 둘 다 exit 0. `jq -e`는 마지막 출력값이 false/null이면 종료코드 1을 내므로 파싱 성공과 구분되지 않는다.",
+      "why_it_matters": "docs/INVARIANTS.md의 3분기 표 첫 줄은 '디스크 파싱 OK → 종전과 동일 (판정 무변경)'이라고 적는데, 이 두 문서에 대해서는 참이 아니다. 방향은 fail-closed라 보안 노출은 없고 실사용 빈도도 낮지만, 표의 진술이 코드보다 강하다.",
+      "fix": "`jq -e '.'` 대신 `jq empty` 또는 `jq -e 'true'`를 쓴다(둘 다 값과 무관하게 파싱 성공만 본다). 같은 관용구가 settings.json/harness-config/feature_list의 NEW 검증(:732 등)에도 있으나 그쪽은 **선재**이며 이번 변경과 무관하다 — 함께 고칠지는 별도 판단."
+    },
+    {
+      "id": "I-3",
+      "severity": "medium",
+      "confidence": "medium",
+      "tag": "test_coverage/AC-6",
+      "title": "회귀 테스트가 킬스위치 1종만 고정한다 — 계약은 3종을 열거했다",
+      "measured": "tests/hook-wiring-parity.bats의 F76 테스트 7건 중 킬스위치 케이스는 `disableAllHooks` 뿐이다(head 분기 1건, none 분기 1건). 나머지 두 스위치는 내가 픽스처로 실측해 두 분기 모두 exit 2임을 확인했다 — 동작은 옳으나 저장소가 그것을 붙잡고 있지 않다.",
+      "why_it_matters": "none 분기가 `for __sw in $HOOK_KILL_SWITCHES` 루프라 세 스위치가 구조적으로 같은 경로를 타므로 한계 검출력 차이는 작다. 그러나 F75가 바로 그 목록에 스위치를 **추가**한 스프린트였고, 스위치별로 분기가 갈리는 변경이 다시 오면 1종 테스트는 침묵한다. confidence를 medium으로 둔 이유는 AC-6의 '킬스위치 3종'이 케이스 열거인지 테스트 3건 요구인지 문면상 모호하기 때문이다 — 다만 AC-2가 '세 스위치 각각 픽스처 실측'을 따로 요구하므로 계약의 의도는 3종으로 읽힌다.",
+      "fix": "none·head 각 분기에서 세 스위치를 도는 파라미터화 테스트 2건으로 대체한다."
+    },
+    {
+      "id": "I-4",
+      "severity": "low",
+      "confidence": "high",
+      "tag": "test_coverage",
+      "title": "hooks.json 무기준선 분기(경고 후 통과)에 테스트가 없다",
+      "measured": "커밋된 hooks.json 테스트는 commit 모드(HEAD 기준선 있음) 1건뿐이다. 무기준선 hooks.json에서 배선 제거 → exit 0 + '배선 보존 검사를 수행하지 못했습니다' 경고는 내가 실측했으나(e3) 고정되어 있지 않다. settings.json 쪽은 같은 축이 테스트로 고정돼 있어 두 배선 파일의 테스트 강도가 비대칭이다 — 이 파일 상단 주석이 경계하는 바로 그 형태('약한 쪽이 실제 방어선')."
+    },
+    {
+      "id": "I-5",
+      "severity": "info",
+      "confidence": "high",
+      "tag": "runtime/deployment",
+      "title": "이 세션에 실제 배선된 가드 사본은 F75도 F76도 없는 구버전이다 — 코드는 통과, 런타임 미발효",
+      "measured": "hooks/hooks.json은 `${CLAUDE_PLUGIN_ROOT}/hooks/invariant-guard.sh`를 배선하고 그 실체는 ~/.claude/plugins/marketplaces/cc-harness-marketplace/hooks/invariant-guard.sh(hash da6d204)다. 저장소 사본은 6c0eddb. 캐시 사본의 `grep -c`: F76=0, __wiring_baseline_for=0, disableCommandPluginSources=0(=F75 이전). 한편 settings.json이 배선한 `${CLAUDE_PROJECT_DIR}/.claude/hooks/invariant-guard.sh`는 **디스크에 존재하지 않는다**(그 배선은 죽은 항목).",
+      "why_it_matters": "F72 2차 판정이 남긴 교훈 그대로다 — 판정은 저장소 사본에 대해 내리되 '코드 통과 / 런타임 미발효'를 분리해 적어야 한다. F76이 닫은 fail-open은 플러그인을 갱신하기 전까지 이 환경에서 여전히 열려 있다. F76의 결함은 아니며 배포 조치 사항이다.",
+      "fix": "플러그인 업데이트(전체 id + restart) 후 캐시 사본 해시를 저장소 사본과 대조."
+    },
+    {
+      "id": "I-6",
+      "severity": "info",
+      "confidence": "high",
+      "tag": "scope/SC-4",
+      "title": "hooks.json 분기 동반 수정 — 정당한 클래스 봉쇄로 판단한다(범위 위반 아님)",
+      "measured": "부모 커밋에서 파싱 불가 hooks.json + HEAD 기준선 + 배선 제거 = exit 0, HEAD에서 exit 2(e2). 정상 hooks.json 경로는 부모·HEAD 모두 exit 2로 무변경(e1). hooks.json 축에서도 deny→allow 전이는 0건.",
+      "reasoning": "세 근거가 모두 검증됐다. (1) 실측으로 동일한 갭이다. (2) INV-13은 두 배선 파일을 모두 관할하며, tests/hook-wiring-parity.bats 자체가 두 설치 경로의 강도 대칭을 강제하려고 존재한다 — 그 파일 상단이 '약한 쪽이 실제 방어선이 된다'고 적는다. (3) 게다가 이 환경에서 **실제로 살아 있는 배선은 플러그인 경로(hooks.json)** 쪽이다(I-5) — settings.json만 닫았다면 살아 있는 경로를 열어 둔 채 죽은 경로만 고친 셈이 된다. SC-4가 금지하는 것은 '다른 축을 건드려 보호를 흐리는 것'인데 측정된 변화는 같은 축의 쌍둥이 인스턴스를 같은 함수로 닫은 것뿐이고 축소는 0건이다. 계약·커밋 메시지·INV-13 세 곳에 모두 공개되어 있어 은닉도 아니다. **범위 확장은 승인하되, Plan 게이트에서 재승인을 받지 않은 사실은 기록한다** — 다음번 유사 상황에서는 확장 시점에 사용자 확인을 받는 편이 낫다."
+    },
+    {
+      "id": "I-7",
+      "severity": "info",
+      "confidence": "high",
+      "tag": "evidence/calibration",
+      "title": "구현자 evidence 주장 재현 결과 — 대부분 정확, 두 곳이 실제보다 강하다",
+      "detail": [
+        "정확: 'bats 792/792, BATS_EXIT=0(파이프 없이)' — 재현(792 ok / 0 not ok / BATS_EXIT=0).",
+        "정확: 'mutation 7건 중 5건 실패, 나머지 2건은 보존 동작' — 부모 가드 사본으로 재현(1·2·4·5·7 실패, 3·6 통과).",
+        "정확: 'shellcheck 지적 3건으로 HEAD와 동일' — 종류·순서 동일 확인.",
+        "정확: '티켓 원장에 픽스처 경로 0건' — progress/.guarded-edits 1266행 중 tmp 경로 0건.",
+        "정확: '.claude/는 gitignore 대상이라 HEAD 기준선이 없고 루트 settings.json은 있다' — git check-ignore·ls-files로 확인.",
+        "정확: 'HEAD 조회 추출이 서브셸 때문에 F68/F72 방어를 껐다가 고쳤다' — 현재 방어가 살아 있음을 독립 확인(아래 evidence.f68_f72_live).",
+        "과장 1: 계약 AC-6 evidence가 'F76 테스트 7건 추가'만 적고 계약이 열거한 '킬스위치 3종' 중 1종만 들어갔다는 사실을 적지 않았다(I-3).",
+        "과장 2: none 분기 주석의 '이 규칙이 복구를 가로막지 않는다'는 미실측 전칭 단언이며 반증된다(I-1). **이것이 이 세션이 F75에서 관찰한 패턴의 재발이다** — 다만 F75가 네 건이었던 것에 비해 한 건이고, 나머지 주장은 전부 실측에 대응한다."
+      ]
+    }
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [
+      "가드·방화벽처럼 패턴/조건 집합으로 판정하는 코드 변경에 '변경 전후 판정 차분을 양방향으로 측정하고 deny→allow 전이 0건을 보인다'는 AC가 없다. F73 lessons.md가 '표준 AC로 승격할 것'이라고 적어 두었는데 sprint-62에도 반영되지 않았다 — 이번엔 판정자가 대신 수행했고 결과는 깨끗했다(코퍼스 26+4건).",
+      "'실제 배선된 훅 사본(플러그인 캐시)과 저장소 사본의 해시 대조'가 어떤 sprint 계약에도 AC로 없다. F72 2차 판정이 남긴 교훈인데 계약에 없어 매번 판정자 재량으로만 확인된다(I-5).",
+      "새로 만드는 과잉차단(fail-closed 방향의 신규 deny)을 열거·문서화하라는 요건이 없다. SC-3이 '복구 불가'만 다루는데, 이번 I-1처럼 '복구는 되지만 원래 내용으로는 안 되는' 중간 형태가 조항의 문면과 의도 사이에 낀다."
+    ],
+    "ambiguous_criteria": [
+      "AC-6의 '킬스위치 3종'이 케이스 열거인지 테스트 3건 요구인지 문면상 모호하다(I-3). AC-2와 합쳐 읽으면 3종이지만, 조항 자체가 테스트 개수를 명시하지 않는다.",
+      "SC-3의 '복구할 수 없게 되는 경우'의 범위가 '파일을 유효 JSON으로 되돌릴 수 없음'인지 '의도한 내용 그대로 되돌릴 수 없음'인지 명시되지 않았다. 나는 후자로 읽었다 — 전자로만 읽으면 조항이 사실상 무내용해지고(어떤 경우든 스위치를 빼면 복구는 된다) F75 재발 방지라는 조항의 취지가 사라지기 때문이다. 다음 계약에서는 이 층을 문면에 고정할 것."
+    ],
+    "security_criteria_insufficient": [],
+    "stale_numbers": [
+      "AC-5가 '기존 bats 784건'이라고 적었으나 부모 커밋의 실제 @test 수는 785다(측정: git ls-tree로 부모 트리의 tests/*.bats @test 집계). 구현자 evidence의 '기준선 785 + 신규 7 = 792'가 맞다. 계약 문안이 change-request 시점 수치로 굳어 있었다 — F56·F58·F75에서 반복된 evidence 오기와 같은 유형이므로 계약 작성 시에도 --count로 대조할 것."
+    ],
+    "action_required": "다음 iteration에서 (1) INV-13에 I-1 경로와 대안을 기록하고 주석의 전칭 단언을 정정, (2) 킬스위치 3종 파라미터화 테스트로 AC-6 충족, (3) 선택적으로 I-2·I-4. 아울러 위 missing_criteria 세 항목을 evals/acceptance-criteria.json과 이후 sprint 계약 템플릿에 반영한다."
+  },
+  "evidence": {
+    "_note": "판정 근거는 전부 이 세션에서 직접 실행한 결과다. 구현자 픽스처를 재사용하지 않고 별도 픽스처를 작성했으며, 모든 케이스를 HEAD 가드와 부모 커밋 가드 양쪽에 통과시켰다. 스크립트는 저장소 밖 스크래치패드에 있다.",
+    "full_suite": "bats tests/ (파이프 없음, 출력 전체를 파일로 캡처 후 파싱) → grep -c '^ok ' = 792, grep -c '^not ok ' = 0, plan '1..792', BATS_EXIT=0. 부모 785 @test + 신규 7 = 792 대조 확인.",
+    "independent_corpus": "scratchpad/f76-probe.sh — 자체 작성 픽스처 26케이스(a 정상경로 3 / b HEAD기준선 7 / c 무기준선 5 / d 면제 1 / e hooks.json 3 / f 파일부재 2 / g 잠금 3 / h jq -e 경계 2). HEAD 가드: 기대와 일치 23, 불일치 3(g1·h1·h2 = I-1·I-2). 부모 가드: 불일치 12.",
+    "verdict_diff_bidirectional": "같은 코퍼스를 부모·HEAD 양쪽에 통과시킨 판정 차분 — allow→deny 11건(b1, b2×3, c1×3, e2, g1, h1, h2), **deny→allow 0건**. F73 교훈이 요구하는 방향의 근거.",
+    "kill_switches_all_three": "disableAllHooks·allowManagedHooksOnly·disableCommandPluginSources 각각, HEAD 기준선 경로와 무기준선 경로 양쪽 = 6케이스 전부 exit 2.",
+    "warning_on_pass": "무기준선 통과 경로 stderr = 'invariant-guard: <file> 를 파싱할 수 없고 HEAD 기준선도 없어 배선 보존 검사를 수행하지 못했습니다 — 이 편집은 킬스위치 검사만 거쳤습니다 (INV-13)'. HEAD 폴백 경로 stderr = '... HEAD 내용을 기준선으로 사용합니다 (INV-13)'. 둘 다 실측. 경고 없는 통과는 관측되지 않음.",
+    "mutation": "저장소 밖에 트리 두 벌(mut = 부모 가드, ctl = HEAD 가드)을 만들고 tests/hook-wiring-parity.bats를 -f F76으로 실행. ctl 7/7 ok. mut: not ok 1·2·4·5·7 (5건), ok 3·6 (보존 단언 2건). 구현자 주장과 일치.",
+    "f68_f72_live": "scratchpad/f68-probe.sh — 삭제-후-재생성 우회를 격리 랩에서 직접 시도. rm settings.json → 배선 없는 내용 Write = exit 2, → 킬스위치 켠 내용 Write = exit 2, rm progress/feature_list.json → passes:true Write = exit 2(INV-11 발화), 대조군(내용 보존 재생성) = exit 0. 부모 가드에서 4건 모두 동일 결과 → 리팩터가 이 방어를 죽이지 않았음이 스위트 통과와 독립적으로 확인됨.",
+    "fs_ci_note": "대소문자 다른 철자로 재생성(rm settings.json → Write SETTINGS.JSON, 배선 제거)은 부모·HEAD 모두 exit 0이며 파일이 실체화되지 않았다(가드 실행 후 디렉터리에 파일 없음) — 경로 분류 게이트에서 이미 걸러져 __head_content_for까지 도달하지 않는다. **선재 한계이고 INV-12 '알려진 한계'에 이미 기록돼 있다. F76의 회귀가 아니다.**",
+    "sc1_function_identity": "git show로 부모·HEAD 사본을 뽑아 함수 단위 md5 비교 — wired_rows 81f6fe36…, matcher_covers 34adeebd…, is_protected c484a87b…, is_wiring_file 378a5053… 네 개 모두 동일. HOOK_KILL_SWITCHES 문자열 동일. shellcheck -f gcc 지적 3건(SC2010/SC2329/SC2012) 종류·순서 동일.",
+    "es1_no_jq": "/usr/bin·/bin의 심볼릭 링크 팜에서 jq만 제외한 PATH로 실행 → HEAD·부모 모두 exit 2, 첫 줄 'INVARIANT 위반: jq 부재 상태에서 보호 파일 편집을 차단합니다 (fail-closed)'. 우선순위 무변경.",
+    "runtime_wiring": "hooks/hooks.json → ${CLAUDE_PLUGIN_ROOT}/hooks/invariant-guard.sh = ~/.claude/plugins/.../invariant-guard.sh (da6d204, F75·F76 미포함). 저장소 사본 6c0eddb. settings.json이 가리키는 ${CLAUDE_PROJECT_DIR}/.claude/hooks/invariant-guard.sh 는 부재.",
+    "ledger": "progress/.guarded-edits 1266행 중 tmp/픽스처 경로 0건. 판정 종료 시점 git status --porcelain 깨끗(내 픽스처는 전부 저장소 밖 임시 git 저장소이고 progress/ 디렉터리가 없어 티켓이 발급되지 않는다)."
+  },
+  "next_iteration_guidance": [
+    "최소 수정 경로: docs/INVARIANTS.md INV-13의 3분기 표 아래에 '남는 과잉차단' 한 문단(I-1의 3중 조건 + 대안 두 가지)을 추가하고, hooks/invariant-guard.sh none 분기 주석의 '복구를 가로막지 않는다'를 실측된 예외를 포함하도록 다시 쓴다.",
+    "AC-6 충족: 킬스위치 3종을 도는 파라미터화 테스트를 head·none 두 분기에 각 1건.",
+    "권장(선택): I-2의 `jq -e '.'` → `jq empty` 교체, I-4의 hooks.json 무기준선 테스트 1건.",
+    "재판정 시 이 판정의 프로브를 그대로 다시 돌릴 것 — scratchpad/f76-probe.sh의 g1이 초록이 되고 나머지 23건이 유지되면 I-1이 닫힌 것이다."
+  ]
+}
