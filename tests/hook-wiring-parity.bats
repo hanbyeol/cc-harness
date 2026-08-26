@@ -498,6 +498,93 @@ SHIM
     echo "스키마 부재 시 명시적 skip이 아니다:" >&2; echo "$output" >&2; return 1; }
 }
 
+# ─── F76: 파싱 불가한 배선 파일에서 집행이 사라지던 fail-open ───
+#
+# `OLD_R` 공집합 게이트가 "배선 없음"과 "파싱 실패"를 구분하지 못해, 디스크의 배선 파일이
+# jq로 읽히지 않으면 킬스위치 검사와 배선 보존 검사가 **둘 다** 조용히 건너뛰어졌다.
+# 수정 전 실측: 정상 OLD에서 exit 2 로 차단되던 편집이 파싱 불가 OLD에서 전부 exit 0.
+
+# 디스크만 파싱 불가로 만든 배선 파일에 가드를 돌린다.
+#   $1 = commit | nocommit — HEAD 기준선 유무. nocommit 은 gitignore 대상이라 HEAD 에 없는
+#        `.claude/settings.json` 형태를 재현한다(그 경로가 무기준선 분기가 필요한 이유다).
+#   $2 = NEW 내용
+# 저장소 밖에 만든다 — 실 티켓 원장을 오염시키지 않기 위해서(F75 감사 지적).
+f76_guard() {   # 대상: settings.json
+  local mode="$1" new="$2" d st
+  d=$(mktemp -d) || return 99
+  d=$(cd "$d" && pwd -P) || return 99
+  git init -q "$d" 2>/dev/null || { rm -rf "$d"; return 99; }
+  jq '.' settings.json > "$d/settings.json"
+  if [[ "$mode" == "commit" ]]; then
+    ( cd "$d" && git add settings.json \
+      && git -c user.email=t@example.com -c user.name=t commit -qm init ) >/dev/null 2>&1
+  fi
+  # HEAD 는 정상인 채로 두고 **디스크만** 깨뜨린다 — 이 구분이 이 테스트군의 핵심이다.
+  printf '// breaks jq\n%s' "$(jq '.' settings.json)" > "$d/settings.json"
+  jq -n --arg f "$d/settings.json" --arg c "$new" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' | bash "$GUARD"
+  st=$?
+  rm -rf "$d"
+  return $st
+}
+
+@test "INV-13(F76): 파싱 불가 + HEAD 기준선 — 배선 제거를 deny한다" {
+  run f76_guard commit "$(mutate_guard_entry '.hooks.PreToolUse |= map(select(
+    any(.hooks[]; .command | test("invariant-guard")) | not))')"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-13(F76): 파싱 불가 + HEAD 기준선 — 킬스위치 켜기를 deny한다" {
+  run f76_guard commit "$(mutate_guard_entry '. + {disableAllHooks:true}')"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-13(F76): 파싱 불가 + HEAD 기준선 — 배선 보존한 복구 편집은 통과시킨다" {
+  # 사용자가 깨진 파일을 고칠 수 있어야 한다. 이걸 막으면 가두는 것이다.
+  run f76_guard commit "$(cat settings.json)"
+  [ "$status" -eq 0 ]
+}
+
+@test "INV-13(F76): 무기준선 — 킬스위치 켜기는 기준선 없이도 deny한다" {
+  # OLD 값을 알 수 없어도 'NEW 가 켜져 있다'는 기준선 없이 판정 가능한 축이다.
+  run f76_guard nocommit "$(mutate_guard_entry '. + {disableAllHooks:true}')"
+  [ "$status" -eq 2 ]
+}
+
+@test "INV-13(F76): 무기준선 — 복구 편집은 통과하되 검사 불가를 경고로 남긴다" {
+  # 통과시키되 조용히 넘기지 않는다. 경고가 없으면 '검사했고 문제없음'과 '검사하지 못했음'이
+  # 구분되지 않으며, 그 구분 불가가 바로 F76이 닫은 결함이다.
+  run f76_guard nocommit "$(cat settings.json)"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"배선 보존 검사를 수행하지 못했습니다"* ]]
+}
+
+@test "INV-13(F76): 파싱 가능하지만 배선이 없는 파일의 면제는 유지된다" {
+  # 이 수정이 '배선 없음' 면제를 없애면 과잉차단 회귀다 — INV-13이 명시한 유일한 면제 대상.
+  run fixture_guard 'del(.hooks) | . + {env:{FOO:"bar"}}' '. + {disableAllHooks:true}'
+  [ "$status" -eq 0 ]
+}
+
+@test "INV-13(F76): hooks.json 브랜치도 같은 클래스로 닫혔다" {
+  # settings.json 만 고치면 '인스턴스만 닫고 클래스를 여는' 패턴이 된다(INV-13 본문).
+  local d st
+  d=$(mktemp -d) || return 99
+  d=$(cd "$d" && pwd -P) || return 99
+  git init -q "$d" 2>/dev/null || { rm -rf "$d"; return 99; }
+  mkdir -p "$d/hooks"
+  jq '.' "$PLUGIN_WIRING" > "$d/hooks/hooks.json"
+  ( cd "$d" && git add hooks/hooks.json \
+    && git -c user.email=t@example.com -c user.name=t commit -qm init ) >/dev/null 2>&1
+  printf '// breaks jq\n%s' "$(jq '.' "$PLUGIN_WIRING")" > "$d/hooks/hooks.json"
+  local stripped
+  stripped=$(jq '.hooks.PreToolUse |= map(select(
+    any(.hooks[]; .command | test("invariant-guard")) | not))' "$PLUGIN_WIRING")
+  run bash -c 'jq -n --arg f "$1" --arg c "$2" "{tool_name:\"Write\", tool_input:{file_path:\$f, content:\$c}}" | bash "$3"' \
+    _ "$d/hooks/hooks.json" "$stripped" "$GUARD"
+  rm -rf "$d"
+  [ "$status" -eq 2 ]
+}
+
 @test "INV-13 완전성: HOOK_KILL_SWITCHES가 스키마의 hook-affecting boolean을 전부 덮는다" {
   # 인스턴스 열거가 아니라 클래스 봉쇄의 핵심 — 가드의 하드코딩 목록이 공식 스키마의
   # 'hook 실행에 영향을 주는 최상위 boolean' 전체와 일치해야 한다. 새 스위치가 스키마에

@@ -395,33 +395,105 @@ __physicalize_under() {
 # 그래서 대소문자 무시 FS 에서 삭제 후 다른 철자로 재생성하면 그 철자로는 HEAD 조회가
 # 실패해 실체화가 안 되고, 원래 우회가 그대로 남는다. `FS_CI` 일 때는 HEAD 트리를 훑어
 # 대소문자 무시로 일치하는 실제 철자를 먼저 찾는다.
+# HEAD 에서 이 경로의 마지막 커밋 내용을 가져온다. 못 가져오면 빈 문자열(항상 return 0 —
+# `set -e` 아래에서 호출부를 죽이지 않는다).
+#
+# **부수효과가 없다**: 파일을 만들지도, `$FILE` 을 바꾸지도 않는다. 그 둘은 삭제-후-재생성
+# 방어(아래 `! -e "$FILE"` 블록)에만 필요한 동작이라 호출부에 남긴다. 여기서 공유하는 것은
+# "이 경로의 HEAD 내용은 무엇인가"라는 **조회**뿐이다.
+#
+# 왜 함수인가 (F76): 파싱 불가한 배선 파일의 기준선 폴백도 같은 조회를 필요로 한다. 사본을
+# 하나 더 만들면 이 저장소가 INV-13 본문에 이미 적어 둔 실패 모드 — "같은 불변식을 검사하는
+# 추출기가 두 벌이고 강도가 다르면 약한 쪽이 실제 방어선이 된다" — 를 그대로 반복하게 된다.
+#
+# **결과를 stdout 이 아니라 전역에 넣는다**: `__head_content`(HEAD 내용), `__head_root`(저장소
+# root), `__head_rel`(HEAD 트리의 정규 철자 상대경로), `__head_root_failed`(root 해석 실패 여부 —
+# 경고 문구는 호출부 맥락마다 다르므로 여기서 출력하지 않는다).
+#
+# 왜 stdout 이 아닌가: 처음엔 내용을 출력하고 `__head=$(__head_content_for "$FILE")` 로 받았는데,
+# 명령 치환은 **서브셸**이라 함수가 설정한 root·rel 전역이 부모로 전파되지 않았다. 원래 코드는
+# 최상위 인라인이라 그 값들이 진짜 전역이었고, 그래서 추출만으로 삭제-후-재생성 방어가 통째로
+# 꺼졌다(실측: invariant-guard.bats·hook-wiring-parity.bats 18건 실패). 호출 규약을 전역 할당으로
+# 바꿔 원래 의미를 되돌린다.
+# 배선 파일의 OLD 기준선을 정한다 (F76).
+#
+# ## 무엇이 문제였나
+# 배선 검사는 `OLD_R=$(wired_rows "$(cat "$FILE")")` 가 비어 있지 않은지로 시작하는데, 그
+# 게이트는 **"배선이 없다"와 "파일을 파싱하지 못했다"를 구분하지 못했다.** `wired_rows` 가
+# `jq ... 2>/dev/null || true` 로 오류를 삼켜 두 경우 모두 빈 값이 되기 때문이다. 디스크의
+# settings.json 이나 hooks.json 이 jq로 읽히지 않으면(주석·후행 쉼표·깨진 JSON) 킬스위치
+# 검사와 배선 보존 검사가 **둘 다** 통째로 건너뛰어졌다 — 실측: 정상 OLD에서 exit 2로 차단되던
+# `invariant-guard` 배선 제거와 킬스위치 3종 켜기가 파싱 불가 OLD에서 전부 exit 0이었고,
+# 두 배선 파일 모두에서 재현됐다. 적대적 시나리오가 필요 없다: 손편집으로 후행 쉼표 하나만
+# 남아도 그 시점부터 게이트가 꺼지고, 훅은 계속 exit 0을 돌려주므로 "검사했고 문제없음"과
+# 겉보기가 같다. F41이 닫은 fail-open(도구 부재)과 같은 계열이며 이번엔 "입력을 읽지 못하면"이다.
+#
+# ## 세 갈래 (Plan 게이트 승인)
+#   디스크 파싱 OK  → 디스크 내용이 기준선          (__baseline_kind=disk)
+#   파싱 실패 + HEAD 기준선 O → HEAD 내용이 기준선  (__baseline_kind=head)
+#   파싱 실패 + HEAD 기준선 X → 기준선 없음         (__baseline_kind=none)
+#
+# `none` 에서 무조건 deny 하지 않는 이유: `.claude/` 는 gitignore 대상이라 `.claude/settings.json`
+# 에는 HEAD 기준선이 **아예 없다**(루트 settings.json 은 있다 — 실측 확인). 무조건 deny 면
+# 설치된 프로젝트에서 실제로 동작하는 바로 그 파일이 깨졌을 때 Edit/Write 로 복구할 수 없게
+# 되어 사용자를 가둔다. 그래서 기준선 없이도 판정 가능한 축(NEW 가 킬스위치를 켜는가)만 막고,
+# 기준선이 있어야만 판정 가능한 축(배선 보존)은 **검사 불가 사실을 관측 가능하게 남긴 뒤**
+# 통과시킨다. 조용한 no-op 을 만들지 않는다는 목적은 그 경고로 유지된다.
+#
+# 결과 전역: `__baseline`(기준선 내용), `__baseline_kind`(disk|head|none).
+__wiring_baseline_for() {
+  local __f="$1" __raw
+  __baseline=""; __baseline_kind="none"
+  __raw=$(cat "$__f" 2>/dev/null || echo "")
+  if jq -e '.' <<<"$__raw" >/dev/null 2>&1; then
+    __baseline="$__raw"; __baseline_kind="disk"; return 0
+  fi
+  __head_content_for "$__f"
+  if [[ -n "$__head_content" ]] && jq -e '.' <<<"$__head_content" >/dev/null 2>&1; then
+    __baseline="$__head_content"; __baseline_kind="head"
+    echo "invariant-guard: $__f 를 파싱할 수 없어 HEAD 내용을 기준선으로 사용합니다 (INV-13)" >&2
+    return 0
+  fi
+  return 0
+}
+
+__head_content_for() {
+  local __f="$1" __anc __root __file_phys __rel __real_rel
+  __head_content=""; __head_root=""; __head_rel=""; __head_root_failed=0
+  __anc="$(__nearest_existing_dir "$__f")"
+  # F72: root는 프로세스 cwd가 아니라 $FILE 자신의 위치(의 가장 가까운 존재하는 조상)에서
+  # 유도한다 — 실제 질문은 "이 프로세스가 어디서 도는가"가 아니라 "편집 대상이 어느 저장소에
+  # 속하는가"다. 훅 실행 환경(서브에이전트·플러그인 캐시 등)에 따라 cwd가 $FILE의 저장소와
+  # 어긋나면 process-cwd 기준 git rev-parse는 root를 못 찾아 방어가 조용히 꺼졌다(실측).
+  __root="${CLAUDE_PROJECT_DIR:-$(git -C "$__anc" rev-parse --show-toplevel 2>/dev/null || echo "")}"
+  __root=$(cd "$__root" 2>/dev/null && pwd -P) || __root=""
+  [[ -z "$__root" ]] && { __head_root_failed=1; return 0; }
+  # $FILE도 root와 같은 기준(물리 경로)으로 맞춘다 — __physicalize_under 위 정의 참조.
+  __file_phys="$(__physicalize_under "$__f" "$__anc")"
+  [[ "$__file_phys" == "$__root"/* ]] || return 0
+  __rel="${__file_phys#"$__root"/}"
+  if [[ "${FS_CI:-0}" == 1 ]]; then
+    # `grep` 가 매치를 못 찾으면 exit 1 을 낸다 — `pipefail` 아래에서 뒤의 `head -1` 이
+    # 성공해도 파이프라인 전체가 실패로 집계돼 `set -e` 가 스크립트를 죽인다(실측:
+    # 정말 신규인 파일 — HEAD 에 어떤 철자로도 없는 경우 — 을 만들면 그 자리에서 exit 1).
+    __real_rel=$( { git -C "$__root" ls-tree -r --name-only HEAD 2>/dev/null | grep -ixF -- "$__rel" | head -1; } || true)
+    [[ -n "$__real_rel" ]] && __rel="$__real_rel"
+  fi
+  __head_root="$__root"; __head_rel="$__rel"
+  __head_content=$(git -C "$__root" show "HEAD:$__rel" 2>/dev/null || echo "")
+  return 0
+}
+
 if [[ ! -e "$FILE" ]]; then
   if is_protected "$FILE" || is_wiring_file "$FILE"; then
-    # F72: root는 프로세스 cwd가 아니라 $FILE 자신의 위치(의 가장 가까운 존재하는 조상,
-    # `__nearest_existing_dir` 위 정의 참조)에서 유도한다 — 실제 질문은 "이 프로세스가 어디서
-    # 도는가"가 아니라 "편집 대상이 어느 저장소에 속하는가"다. 훅 실행 환경(서브에이전트·
-    # 플러그인 캐시 등)에 따라 cwd가 $FILE의 저장소와 어긋나면 process-cwd 기준 git rev-parse는
-    # root를 못 찾아 이 실체화 전체를 조용히 건너뛰어 F68 10차의 삭제-후-재생성 방어를
-    # 무력화했다(실측, docs/INVARIANTS.md 참조).
-    __anc="$(__nearest_existing_dir "$FILE")"
-    __root="${CLAUDE_PROJECT_DIR:-$(git -C "$__anc" rev-parse --show-toplevel 2>/dev/null || echo "")}"
-    __root=$(cd "$__root" 2>/dev/null && pwd -P) || __root=""
+    __head_content_for "$FILE"
+    __head="$__head_content"
     # root를 끝내 못 찾으면 이 방어 전체가 조용히 꺼진다 — F71 회고(progress/lessons.md)의
     # 교훈대로, 그 사실을 관측 가능하게 남긴다(판정 자체는 바꾸지 않는다: 진짜 비git 환경에서는
     # 이 경고가 정상이고, 그 구분은 사람이 로그를 보고 판단한다).
-    [[ -z "$__root" ]] && echo "invariant-guard: root 해석 실패 — 삭제-후-재생성 방어가 이 편집에 적용되지 않습니다 (file: $FILE)" >&2
-    # $FILE도 root와 같은 기준(물리 경로)으로 맞춘다 — __physicalize_under 위 정의 참조.
-    __file_phys="$(__physicalize_under "$FILE" "$__anc")"
-    if [[ -n "$__root" && "$__file_phys" == "$__root"/* ]]; then
-      __rel="${__file_phys#"$__root"/}"
-      if [[ "${FS_CI:-0}" == 1 ]]; then
-        # `grep` 가 매치를 못 찾으면 exit 1 을 낸다 — `pipefail` 아래에서 뒤의 `head -1` 이
-        # 성공해도 파이프라인 전체가 실패로 집계돼 `set -e` 가 스크립트를 죽인다(실측:
-        # 정말 신규인 파일 — HEAD 에 어떤 철자로도 없는 경우 — 을 만들면 그 자리에서 exit 1).
-        __real_rel=$( { git -C "$__root" ls-tree -r --name-only HEAD 2>/dev/null | grep -ixF -- "$__rel" | head -1; } || true)
-        [[ -n "$__real_rel" ]] && __rel="$__real_rel"
-      fi
-      __head=$(git -C "$__root" show "HEAD:$__rel" 2>/dev/null || echo "")
+    [[ "$__head_root_failed" == 1 ]] && echo "invariant-guard: root 해석 실패 — 삭제-후-재생성 방어가 이 편집에 적용되지 않습니다 (file: $FILE)" >&2
+    if [[ -n "$__head_root" ]]; then
+      __root="$__head_root"; __rel="$__head_rel"
       if [[ -n "$__head" ]]; then
         # **`$FILE` 을 정규 철자로 갱신한다.** 아래의 각 파일별 분기(harness-config.json·
         # hooks.json·settings.json 등)는 `$BASENAME == "literal-name"` 같은 대소문자 구분
@@ -707,7 +779,10 @@ if [[ "$BASENAME" == "settings.json" ]]; then
   # 불필요(jq -c가 개행 없는 한 줄을 보장하고, 필드는 아래에서 다시 jq로 뽑는다). 이전엔 탭·SOH
   # 구분자를 썼으나 탭은 read의 whitespace라 빈 matcher에서 필드가 밀렸고 제어문자는 파일에
   # 리터럴로 새는 문제가 있었다 — JSON 배열 라인이 둘 다 없앤다.
-  OLD_R=$(wired_rows "$(cat "$FILE")")
+  # F76: 디스크 내용을 그대로 OLD로 쓰지 않는다 — 파싱 실패가 '배선 없음'으로 둔갑하던 자리다.
+  # 세 갈래(disk/head/none)의 근거는 __wiring_baseline_for 정의부 주석 참조.
+  __wiring_baseline_for "$FILE"
+  OLD_R=$(wired_rows "$__baseline")
   NEW_R=$(wired_rows "$NEW_CONTENT")
   # (문서 레벨) OLD에 배선이 하나라도 있었으면, 그 배선의 실행 도달성을 끊는 최상위 스위치를
   # off/부재 → on 으로 켜는 편집을 차단한다. OLD에 배선이 없으면 죽일 것도 없으므로 스킵.
@@ -716,9 +791,21 @@ if [[ "$BASENAME" == "settings.json" ]]; then
   # 값 강건화(F52 5차 evaluator, A3): jq -c로 타입을 보존하고 **false/부재만 off**로 본다 —
   # disableAllHooks:1(숫자)·"true"(문자열) 같은 스펙 위반 truthy 값도 on으로 잡아 fail-closed.
   # (문자열 "false"처럼 애매한 스펙 위반값도 보수적으로 on 취급해 차단한다.)
-  if [[ -n "$OLD_R" ]]; then
+  if [[ "$__baseline_kind" == "none" ]]; then
+    # 기준선이 없다 — OLD 값을 알 수 없으므로 off→on 비교가 불가능하다. 대신 이 축은 기준선
+    # 없이도 판정할 수 있다: NEW 가 스위치를 켜 두었으면 그 자체로 차단한다. 깨진 파일을
+    # 복구하는 정당한 편집은 스위치를 켤 이유가 없으므로 이 규칙이 복구를 가로막지 않는다.
     for __sw in $HOOK_KILL_SWITCHES; do
-      __o=$(jq -c --arg k "$__sw" '.[$k] // false' <<<"$(cat "$FILE")" 2>/dev/null || echo false)
+      __n=$(echo "$NEW_CONTENT" | jq -c --arg k "$__sw" '.[$k] // false' 2>/dev/null || echo false)
+      [[ "$__n" != "false" ]] \
+        && deny "settings.json 최상위 $__sw 켜짐($__n) — 디스크 내용을 파싱할 수 없고 HEAD 기준선도 없어 이전 값을 확인할 수 없습니다. 배선된 훅의 실행 도달성이 끊길 수 있어 차단합니다 (INV-13)"
+    done
+    # 배선 보존은 기준선 없이 판정할 수 없다. **조용히 넘기지 않는다** — 이 경고가 없으면
+    # '검사했고 문제없음'과 '검사하지 못했음'이 구분되지 않으며, 그것이 F76이 닫은 결함이다.
+    echo "invariant-guard: $FILE 를 파싱할 수 없고 HEAD 기준선도 없어 배선 보존 검사를 수행하지 못했습니다 — 이 편집은 킬스위치 검사만 거쳤습니다 (INV-13)" >&2
+  elif [[ -n "$OLD_R" ]]; then
+    for __sw in $HOOK_KILL_SWITCHES; do
+      __o=$(jq -c --arg k "$__sw" '.[$k] // false' <<<"$__baseline" 2>/dev/null || echo false)
       __n=$(echo "$NEW_CONTENT" | jq -c --arg k "$__sw" '.[$k] // false' 2>/dev/null || echo false)
       [[ "$__o" == "false" && "$__n" != "false" ]] \
         && deny "settings.json 최상위 $__sw 켜짐(off→$__n) — 배선된 훅의 실행 도달성이 끊길 수 있음. 스위치별 강도 차이(특히 disableCommandPluginSources는 managed settings에서만 유효)는 docs/INVARIANTS.md INV-13 참조 (INV-13)"
@@ -827,7 +914,16 @@ if [[ "$BASENAME" == "hooks.json" ]]; then
   # 을 매칭 커버리지와 함께 비교**하는 `wired_rows`/`matcher_covers`(위, settings.json 브랜치).
   # 그 함수들은 `select($h | .command // "" | test("\\.sh"))` 로 걸러 셸 훅만 보므로 그대로
   # 재사용해도 대상이 어긋나지 않는다.
-  OLD_R=$(wired_rows "$(cat "$FILE")")
+  # F76: settings.json 브랜치와 **같은 갭이 여기에도 있었다** — 실측으로 확인했다(정상 OLD 에서
+  # exit 2 로 차단되던 배선 제거가 파싱 불가 OLD 에서 exit 0). 한쪽만 닫으면 이 저장소가 INV-13
+  # 본문에 적어 둔 "실증된 인스턴스를 하나씩 닫는 수정은 클래스를 닫지 못한다"를 그대로 반복하게
+  # 되므로 같은 기준선 함수를 쓴다. 킬스위치는 settings.json 개념이라 여기엔 없고, 기준선을
+  # 얻지 못하면 배선 보존을 검사할 수 없다는 사실만 관측 가능하게 남긴다.
+  __wiring_baseline_for "$FILE"
+  OLD_R=$(wired_rows "$__baseline")
+  if [[ "$__baseline_kind" == "none" ]]; then
+    echo "invariant-guard: $FILE 를 파싱할 수 없고 HEAD 기준선도 없어 배선 보존 검사를 수행하지 못했습니다 (INV-13)" >&2
+  fi
   if [[ -n "$OLD_R" ]]; then
     NEW_R=$(wired_rows "$NEW_CONTENT")
     MISSING=""
