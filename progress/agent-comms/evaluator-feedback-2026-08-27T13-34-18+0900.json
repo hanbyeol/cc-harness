@@ -1,0 +1,184 @@
+{
+  "timestamp": "2026-08-27T13:34:18+09:00",
+  "agent": "evaluator",
+  "sprint": 62,
+  "feature_id": "F76",
+  "iteration": 3,
+  "judgment_role": "re-judgment after two failing verifications (F37 round-2 fail + security-audit high F76-01)",
+  "commit_under_judgment": "6ac0561103d83a70e364b5dfb335ab1437b5acb5",
+  "features_evaluated": [
+    "F76"
+  ],
+  "security_tier": "critical",
+  "scores": {
+    "functionality": 6,
+    "code_quality": 6,
+    "security": 5,
+    "error_handling": 6,
+    "test_coverage": 6
+  },
+  "score": 5,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 5 < 7 (critical tier auto-fail): SC-2 and SC-4 are measurably unmet",
+    "score 5 < threshold 7",
+    "AC-2 is measurably unmet for the append-family corruption class: all three kill switches pass (exit 0) on a disk settings.json that jq cannot parse"
+  ],
+  "headline": "F76-01 is genuinely closed on the wiring axis and F76-06 is closed, with zero deny->allow transitions against pre-F76 across 62 measured cells. But the fix moved the same silent no-op one axis over: the new 'extractable wiring' arm hands the kill-switch comparator a jq value stream, the comparison silently never fires, and all three kill switches go exit 2 (in 3d19382) back to exit 0 (in 6ac0561) on exactly the truncated-append / stray-brace / trailing-junk shapes this commit was written for. No warning is emitted, so 'not checked' is again indistinguishable from 'checked and fine'.",
+  "differential_matrix": {
+    "method": "Own isolated lab outside the repository (mktemp -d + git init, CLAUDE_PROJECT_DIR pinned to the fixture). Three guard copies extracted with `git show <rev>:hooks/invariant-guard.sh` for e830dd0 (pre-F76), 3d19382 (pre-fix) and 6ac0561 (current). 7 corruption shapes x 6 edits x 3 revisions for the tracked path, 5 x 3 x 3 for the untracked path, 5 x 1 x 3 for hooks.json = 62 differential cells. The repository working tree was never mutated (verified clean at 6ac0561 before and after).",
+    "corruption_shapes": [
+      "C0_valid (control)",
+      "C1_lead_comment  (prepended '// c')",
+      "C2_trailing_comma",
+      "C3_trunc_append  (valid doc + '\\n{\"extra\"')",
+      "C4_stray_brace   (valid doc + '\\n}')",
+      "C5_trailing_junk (valid doc + '\\nGARBAGE')",
+      "C6_double_doc    (valid doc twice; jq -e '.' SUCCEEDS on this one)"
+    ],
+    "weakening_vs_pre_F76": {
+      "deny_to_allow_transitions": 0,
+      "cells_compared": 62,
+      "note": "Requirement 2 of the judging brief is satisfied: there is no cell where e830dd0 denied and 6ac0561 allows. SC-1 as literally worded (anchored on pre-F76) holds, and function-level parity confirms it."
+    },
+    "weakening_vs_immediately_preceding_commit_3d19382": {
+      "deny_to_allow_transitions": 12,
+      "cells": "settings.json tracked path: {C3,C4,C5} x {disableAllHooks, allowManagedHooksOnly, disableCommandPluginSources} = 9 cells, exit 2 -> exit 0. Untracked .claude/settings.json path: {C3,C4,C5} x {disableAllHooks} = 3 cells, exit 2 -> exit 0.",
+      "note": "These twelve cells are the AC-2 failure. They are parity with pre-F76, not a loss of pre-existing protection, but AC-2 is written as an absolute requirement ('deny된다'), not a relative one."
+    },
+    "strengthening_confirmed": [
+      "settings.json tracked, C1/C2 x {UNWIRE, all three kill switches}: pre-F76 exit 0 -> current exit 2 (8 cells)",
+      "settings.json untracked, C3/C4/C5 x UNWIRE: pre-F76 exit 2, 3d19382 exit 0, current exit 2 (F76-01 restored)",
+      "hooks/hooks.json C1 DEREGISTER: pre-F76 exit 0 -> current exit 2 (F76-06 closed)"
+    ]
+  },
+  "root_cause_of_the_new_defect": {
+    "location": "hooks/invariant-guard.sh:465-467 (new arm) feeding the comparator at hooks/invariant-guard.sh:837",
+    "mechanism": "The new arm sets __baseline to the RAW corrupted text and __baseline_kind=disk. Because __baseline_kind != 'none', the no-baseline branch (which denies on NEW alone) is skipped, and control reaches `elif [[ -n \"$OLD_R\" ]]`. There the comparator runs `__o=$(jq -c --arg k \"$__sw\" '.[$k] // false' <<<\"$__baseline\" 2>/dev/null || echo false)`. jq is a value-stream processor: on 'valid leading document + trailing damage' it EMITS the leading value's result and THEN exits non-zero. stdout is therefore 'false', the `|| echo false` appends a second 'false', and __o becomes the two-line string 'false\\nfalse'.",
+    "measured": "For all three shapes: __o=$'false\\nfalse'; `[[ \"$__o\" == \"false\" ]]` is FALSE, so the `[[ \"$__o\" == \"false\" && \"$__n\" != \"false\" ]]` deny never fires. Directly measured on the extracted jq expression, and end-to-end through the guard (exit 0, stderr carries only the unrelated 'root 해석 실패' ticket notice — no warning about the skipped check).",
+    "why_it_is_the_same_class": "This is the exact shape F76 exists to close: an input the extractor cannot handle produces a value that is indistinguishable from 'checked and clean', and the check disappears with no observable trace. F76 moved it from `wired_rows` returning empty to the kill-switch comparator returning a two-line string.",
+    "suggested_remediation_measured_not_implemented": "Normalising the baseline (or the comparator) to the LEADING VALUE ONLY restores a single-line result: `jq -c -n --arg k \"$k\" 'input | .[$k] // false' <<<\"$raw\"` returns exactly `true` on a corrupted document whose leading value carries the switch, and `false` where it does not (measured on C4 and C5 fixtures). Deciding whether the fix belongs in __wiring_baseline_for (normalise __baseline once) or in the comparator is an implementer call; the evaluator does not modify code."
+  },
+  "issues": [
+    {
+      "id": "J-1",
+      "severity": "high",
+      "confidence": "high",
+      "tag": "security/AC-2/SC-2",
+      "title": "Kill-switch enforcement silently no-ops on append-family corruption — exit 2 (3d19382) back to exit 0 (6ac0561)",
+      "detail": "On a settings.json that jq -e '.' rejects but whose leading document is intact (truncated append, stray closing brace, trailing junk), the new 'extractable wiring' arm keeps the raw corrupted text as the disk baseline. The wiring-preservation axis then works correctly (that is the F76-01 fix, and it is real). The kill-switch axis does not: the comparator receives a jq value stream, __o becomes 'false\\nfalse', the equality test fails, and turning on disableAllHooks / allowManagedHooksOnly / disableCommandPluginSources passes with exit 0 and NO stderr warning.",
+      "measured": "12 differential cells, exit 2 -> exit 0 vs 3d19382 (9 on the tracked path, 3 on the untracked path); end-to-end reproduction with a real `>>` bash append followed by a kill-switch Write: exit 0, stderr contains no notice that the check was skipped.",
+      "why_it_matters": "AC-2 requires all three switches to be denied in this state. SC-2's closing clause — '어느 경우에도 「검사하지 않았음」이 조용히 통과와 같아져서는 안 된다' — is violated on this branch: the no-baseline branch warns, this branch does not."
+    },
+    {
+      "id": "J-2",
+      "severity": "high",
+      "confidence": "high",
+      "tag": "security/SC-4",
+      "title": "The canonical INV-13 decision table still describes three branches; the code now has four",
+      "detail": "docs/INVARIANTS.md keeps the table rows '실패 | 있음 | HEAD 내용' and '실패 | 없음 | 없음'. After 6ac0561 an unparseable file whose wiring is still extractable takes NEITHER row — it stays on the disk baseline. Nothing in INV-13 mentions the extractable-wiring arm (grepped INV-13 for 추출 / wired_rows / 뽑 / 선두 / 스트림 / 잘린 / append / 손상: no hit describes it). The guard's own header comment at hooks/invariant-guard.sh:431 likewise still reads '## 세 갈래' above a four-arm function.",
+      "why_it_matters": "This is the fifth repetition of the pattern that failed round 2: the code changed and the canonical prose kept the pre-change description. Here the stale text is the decision table itself, which is the part a reader would rely on to reason about which checks run."
+    },
+    {
+      "id": "J-3",
+      "severity": "high",
+      "confidence": "high",
+      "tag": "security/SC-4",
+      "title": "The '셋째' paragraph added by this very commit names a residual-exposure path that the same commit closes",
+      "detail": "docs/INVARIANTS.md:124 states '`.claude/settings.json` 을 append 로 깨뜨리는 것은 Bash 방화벽에서 allow 이고, 그 뒤 배선 없는 내용으로 쓰는 Write 는 여기서 통과하며'. I broke an untracked .claude/settings.json with a literal `printf ... >> file` append (jq -e exit 5 confirmed) and then wrote unwired content: exit 2 on the current guard AND exit 2 on pre-F76 e830dd0. Append can never produce the no-baseline branch, because appending leaves the leading document intact and wired_rows always extracts from it.",
+      "measured": "Real `>>` append + unwired Write: e830dd0 exit 2, 6ac0561 exit 2, both with '배선 무력화' deny. The exposure IS real but via a different shape — prepended junk / trailing comma (C1/C2), where the leading value is destroyed: untracked path, C1 x UNWIRE = exit 0 on the current guard.",
+      "why_it_matters": "The paragraph is new in this commit and was written to satisfy SC-4's 'record the residual exposure honestly'. As written it is falsified by the same commit's primary fix, and it names the wrong mechanism, so a reader hardening this path would harden the wrong thing."
+    },
+    {
+      "id": "J-4",
+      "severity": "medium",
+      "confidence": "high",
+      "tag": "test",
+      "title": "The new regression test pins only the wiring axis on the three shapes — the kill-switch axis on those same shapes is untested, which is where the live defect sits",
+      "detail": "tests/hook-wiring-parity.bats:618 'INV-13(F76): 선두가 온전한 손상은 배선을 여전히 읽어 집행한다' loops the three corruption shapes but asserts only that WIRING REMOVAL is denied. No F76 test exercises a kill switch against an append-corrupted baseline. That is precisely the gap that let J-1 through: the suite is green at 794/794 while the defect is live.",
+      "why_it_matters": "AC-6 asks the regression tests to fix the gap. They fix one axis of it. The audit corpus in the security report enumerated six corruption shapes; the tests encode three, and only against one axis."
+    },
+    {
+      "id": "J-5",
+      "severity": "medium",
+      "confidence": "high",
+      "tag": "security/pre-existing",
+      "title": "C6_double_doc: a settings.json containing two concatenated documents parses cleanly under jq -e and defeats the kill-switch comparator the same way",
+      "detail": "`jq -e '.'` returns success on a value stream, so a file that is simply its own content twice takes the FIRST arm (__baseline_kind=disk, clean parse). The comparator then produces the same two-line __o and all three kill switches pass: measured exit 0 on e830dd0, 3d19382 and 6ac0561 alike. Wiring removal is still denied (rows are extracted).",
+      "why_it_matters": "Pre-existing, not introduced by F76, so it is not an SC-1 weakening. But it is the same class F76 exists to close and it survives on the arm that F76 did not touch — worth naming so the next fix targets the class (the comparator's input contract) rather than the arm."
+    },
+    {
+      "id": "J-6",
+      "severity": "low",
+      "confidence": "high",
+      "tag": "code_quality",
+      "title": "The value-stream hazard is documented in the new arm but not carried to the consumers of __baseline",
+      "detail": "The comment block at hooks/invariant-guard.sh:452-464 explains precisely that jq emits the leading value and then errors. The very next consumer of __baseline (the kill-switch comparator, ~370 lines later) is the code that breaks on exactly that property, and it was not revisited. The insight was written down next to the arm that produces the hazard rather than next to the code that must tolerate it."
+    }
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1 unparseable disk + wiring removal is denied: measured exit 2 on all five corruption shapes in both the HEAD-baseline and the no-baseline configuration (pre-F76 was exit 0 for C1/C2 tracked and C1 untracked)",
+      "AC-3 exemption preserved: parseable-but-unwired settings ({\"enabledPlugins\":{}}) + disableAllHooks ON -> exit 0; unwired rewrite -> exit 0",
+      "AC-4 recovery edits pass in both configurations: (a) HEAD baseline present, faithful restore -> exit 0; (b) no HEAD baseline, faithful restore -> exit 0 WITH the required stderr warning '배선 보존 검사를 수행하지 못했습니다 — 이 편집은 킬스위치 검사만 거쳤습니다 (INV-13)'",
+      "AC-5 bats tests/ run without a pipe: 794 ok, 0 not ok, BATS_EXIT=0"
+    ],
+    "security": [
+      "SC-1 no protection shrank relative to pre-F76 on any measured axis: 0 deny->allow transitions across 62 differential cells; has_jq / has_awk / is_protected / is_wiring_file / wired_rows / matcher_covers / apply_replace / deny / canon_file / resolve_file_symlink / record_guarded_edit / __nearest_existing_dir / __physicalize_under all md5-identical to e830dd0; HOOK_KILL_SWITCHES a single distinct line across both revisions",
+      "SC-3 residual exposure is recorded in INV-13 and the affordance is not overstated — the deny is described as an exit 2 hard block with explicitly no approval prompt, which matches measurement"
+    ],
+    "error_scenarios": [
+      "ES-1 jq absent -> exit 2 ('jq 부재 상태에서 보호 파일 편집을 차단합니다'); awk absent -> exit 2. The pre-existing fail-closed gate still wins ahead of the new baseline logic",
+      "ES-2 file-absence path untouched and F68/F72 intact: absent + no HEAD + unwired new file -> exit 0; delete-then-recreate unwired settings.json -> exit 2; delete-then-recreate {\"hooks\":{}} hooks/hooks.json -> exit 2; delete-then-recreate harness-config.json with pass_threshold 1 -> exit 2",
+      "ES-3 widening edit (matcher |NotebookEdit) under a HEAD baseline -> exit 0",
+      "ES-4 NEW content itself unparseable -> exit 2 ('settings.json이 유효한 JSON이 아닙니다')"
+    ],
+    "f76_01_and_f76_06": [
+      "F76-01 (security audit high) is genuinely closed on the wiring axis: untracked path, C3/C4/C5 x UNWIRE went 3d19382 exit 0 -> 6ac0561 exit 2",
+      "F76-06 is closed: guard_registered now reads $__baseline, and hooks/hooks.json C1_lead_comment DEREGISTER went e830dd0 exit 0 -> 6ac0561 exit 2"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-2 'same state, all three kill switches denied' — unmet for the append-family corruption class (C3 truncated append / C4 stray brace / C5 trailing junk). All three switches exit 0. See J-1."
+    ],
+    "security": [
+      "SC-2 closing clause 'no case may let \"not checked\" look like a silent pass' — violated on the new disk-baseline-from-corrupted-text arm: the kill-switch comparison silently does not run and nothing is written to stderr. See J-1.",
+      "SC-4 'reverse-check existing INV-13 prose' — the canonical three-row decision table and the guard's '세 갈래' header now contradict a four-arm implementation (J-2), and the '셋째' paragraph added by this commit states an append-based exposure path that the same commit closes (J-3)."
+    ],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "No criterion states the input contract for the kill-switch comparator. AC-1/AC-2 say 'unparseable disk', which the corpus splits into two behaviourally different classes (leading value destroyed vs leading value intact); the contract never distinguishes them, so a fix can satisfy one axis on one class and be reported as complete. A criterion of the form 'for every corruption shape in the corpus, every axis holds' would have caught both F76-01 and J-1.",
+      "No criterion covers the double-document shape (J-5), which parses cleanly and defeats the same comparator."
+    ],
+    "ambiguous_criteria": [
+      "SC-1's 'existing protection' is anchored on pre-F76 in practice but never says so. Under that anchor 6ac0561 passes; under 'the previous commit' it fails on twelve cells. The judging anchor should be written into the criterion."
+    ],
+    "security_criteria_insufficient": [],
+    "action_required": "Before the next iteration, add a corpus-driven criterion to progress/contracts/sprint-62.json (or a successor contract) that enumerates the corruption shapes and requires BOTH axes — kill switch and wiring preservation — on each. This is the fourth verification round on F76 and the third defect found by widening the input corpus rather than by reading the code."
+  },
+  "evidence": {
+    "tests": "bats tests/ (no pipe, foreground): 794 ok / 0 not ok / BATS_EXIT=0. Output at scratchpad/bats-full.txt. AC-5 met.",
+    "differential_lab": "62 cells across e830dd0 / 3d19382 / 6ac0561, guards extracted via `git show <rev>:hooks/invariant-guard.sh`, driven with `jq -n '{tool_name:\"Write\",tool_input:{file_path,content}}' | CLAUDE_PROJECT_DIR=<fixture> bash <guard>`. Script: scratchpad/f76-diff.sh. Result: 0 deny->allow vs pre-F76; 12 deny->allow vs 3d19382 on the kill-switch axis.",
+    "mechanism_probe": "Direct evaluation of the comparator expression `jq -c --arg k disableAllHooks '.[$k] // false'` on the three corrupted fixtures: stdout 'false' + non-zero exit, `|| echo false` appends, __o = $'false\\nfalse', equality against 'false' is NO for all three. Leading-value normalisation `jq -c -n 'input | .[$k] // false'` returns a single-line result on the same fixtures.",
+    "end_to_end_no_op": "Real `printf 'GARBAGE-APPENDED-BY-BASH\\n' >> .claude/settings.json` (jq -e exit 5) then Write with disableAllHooks:true -> exit 0, stderr contains only the unrelated ticket notice. Same fixture, Write with unwired content -> exit 2 (F76-01 fix confirmed).",
+    "criteria_probe": "scratchpad/f76-probe2.sh — AC-3, AC-4(a)(b) incl. warning text, ES-1 (jq/awk removed from PATH via a symlink bin dir), ES-2 (four file-absence scenarios), ES-3, ES-4, and SC-1 function-level md5 parity against e830dd0.",
+    "doc_probe": "grep of INV-13 (docs/INVARIANTS.md:360-540) for 추출|wired_rows|뽑|선두|스트림|잘린|append|손상 — no hit describes the extractable-wiring arm; the decision table at docs/INVARIANTS.md:454-457 still lists three rows; hooks/invariant-guard.sh:431 still reads '## 세 갈래'.",
+    "lint": "shellcheck not re-run this round; SC-1 was verified by function-level md5 parity instead, which is the stronger check for 'nothing shrank'.",
+    "repo_integrity": "git status --porcelain empty at 6ac0561 before and after all probes — the working tree copy of hooks/invariant-guard.sh was never mutated, so the F65 'edits outside the repository do not pollute the ticket ledger' test was not disturbed. All fixtures were mktemp -d git repositories outside the project with CLAUDE_PROJECT_DIR pinned to the fixture."
+  },
+  "f37_second_judgment": {
+    "required": true,
+    "status": "not triggered — F37 cross-checking applies to a pass. This verdict is fail, so the feature returns to the implementer.",
+    "note": "When F76 next reaches a pass verdict it is still a critical-tier feature, so an independent second judgment in a separate context is mandatory before passes may be considered settled, and a disagreement between the two escalates to a human rather than auto-passing."
+  },
+  "passes_action": {
+    "previous_value": true,
+    "new_value": false,
+    "rationale": "feature_list.json carried passes:true from the 2026-08-27T08-58-24 judgment, which predates both the F37 round-2 fail and the security-audit high. That value contradicted two subsequent verifications and now contradicts a third. Set to false by this judgment."
+  }
+}
