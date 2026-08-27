@@ -508,19 +508,25 @@ SHIM
 #   $1 = commit | nocommit — HEAD 기준선 유무. nocommit 은 gitignore 대상이라 HEAD 에 없는
 #        `.claude/settings.json` 형태를 재현한다(그 경로가 무기준선 분기가 필요한 이유다).
 #   $2 = NEW 내용
+#   $3 = (선택) 원본에 적용할 jq 변형. 기본 `.`. **원본 내용을 제어할 수 있어야 '되돌리기'와
+#        '새로 켜기'를 구분하는 픽스처를 만들 수 있다** — 재판정 J-1: 이 인자가 없던 시절
+#        '수용된 대가' 테스트가 깨진 원본에 스위치를 넣지 못해 입력이 '새로 켜기'였고, 두 경우
+#        코드 경로가 같아 단언은 참이지만 판별력이 0이었다(뮤테이션으로 실증됨).
 # 저장소 밖에 만든다 — 실 티켓 원장을 오염시키지 않기 위해서(F75 감사 지적).
 f76_guard() {   # 대상: settings.json
-  local mode="$1" new="$2" d st
+  local mode="$1" new="$2" orig_jq="${3:-.}" d st
   d=$(mktemp -d) || return 99
   d=$(cd "$d" && pwd -P) || return 99
   git init -q "$d" 2>/dev/null || { rm -rf "$d"; return 99; }
-  jq '.' settings.json > "$d/settings.json"
+  jq "$orig_jq" settings.json > "$d/settings.json"
   if [[ "$mode" == "commit" ]]; then
     ( cd "$d" && git add settings.json \
       && git -c user.email=t@example.com -c user.name=t commit -qm init ) >/dev/null 2>&1
   fi
   # HEAD 는 정상인 채로 두고 **디스크만** 깨뜨린다 — 이 구분이 이 테스트군의 핵심이다.
-  printf '// breaks jq\n%s' "$(jq '.' settings.json)" > "$d/settings.json"
+  # 깨진 텍스트도 원본($orig_jq 적용본)에서 만든다: 원본에 있던 내용이 깨진 파일 안에도
+  # 그대로 보여야 '되돌리기 vs 새로 켜기' 픽스처가 성립한다.
+  printf '// breaks jq\n%s' "$(jq "$orig_jq" settings.json)" > "$d/settings.json"
   jq -n --arg f "$d/settings.json" --arg c "$new" \
     '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' | bash "$GUARD"
   st=$?
@@ -560,13 +566,17 @@ f76_guard() {   # 대상: settings.json
 }
 
 @test "INV-13(F76): 무기준선 — 켜져 있던 스위치를 되돌리는 복구도 막힌다 (수용된 대가)" {
-  # **이것은 회귀이고, 수용된 것이다.** 기준선이 없으면 '되돌리기'와 '새로 켜기'를 구분할 수
-  # 없어 fail-closed를 택했다. 그 결과 원래 킬스위치가 켜져 있던 파일을 그 내용 그대로
-  # 복구하는 편집도 exit 2 로 막힌다(부모 커밋에서는 통과했다). 사람이 직접 고쳐야 한다.
+  # **이것은 회귀이고, 수용된 것이다.** 기준선이 없으면 '되돌리기'와 '새로 켜기'를 신뢰할 수
+  # 있게 구분할 수 없어 fail-closed를 택했다. 그 결과 원래 킬스위치가 켜져 있던 파일을 그
+  # 내용 그대로 복구하는 편집도 exit 2 로 막힌다(F76 이전에는 통과했다). 사람이 직접 고쳐야 한다.
   #
-  # 이 테스트가 있는 이유: 1차 판정에서 코드 주석이 "복구를 가로막지 않는다"고 단언했는데
-  # 거짓이었다. 문서에 적은 대가를 테스트로 고정해, 서술과 동작이 다시 어긋나면 잡히게 한다.
-  run f76_guard nocommit "$(mutate_guard_entry '. + {disableAllHooks:true}')"
+  # **픽스처가 진짜 '되돌리기'여야 한다 (재판정 J-1).** 이전 버전은 깨진 원본에 스위치를 넣지
+  # 않아 입력이 '새로 켜기'였고, 두 경우 코드 경로가 같아 단언은 참이지만 판별력이 0이었다 —
+  # 대가를 무너뜨리는 휴리스틱("깨진 원본 텍스트에 이미 보이는 스위치는 허용")을 주입해도
+  # 초록이었다. 이제 원본에 스위치를 켜 두고 NEW 는 그 원본의 복구본이라, 그 휴리스틱이
+  # 들어오면 이 테스트가 exit 0 으로 무너져 잡힌다.
+  local orig='. + {disableAllHooks:true}'
+  run f76_guard nocommit "$(mutate_guard_entry "$orig")" "$orig"
   [ "$status" -eq 2 ]
   [[ "$output" == *"이전 값을 확인할 수 없습니다"* ]]
 }
