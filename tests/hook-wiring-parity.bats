@@ -642,6 +642,32 @@ f76_guard() {   # 대상: settings.json
   done
 }
 
+@test "INV-13(F76): 선두가 온전한 손상에서도 킬스위치 켜기를 deny한다 (재판정 지적)" {
+  # **배선 축만 고정했더니 킬스위치 축에서 같은 no-op이 되살아났다.** 손상 원문을 그대로
+  # 기준선으로 삼자 비교기가 `jq -c '.[k] // false'` 로 그것을 읽었고, jq 가 선두 값을 내보낸 뒤
+  # 오류를 내면서 `|| echo false` 가 한 줄을 더 붙여 `false\nfalse` 가 됐다. 그러면 off 가 on 으로
+  # 오독돼 off→on deny 가 발화하지 않고, kind=disk 라 무기준선 경고도 나오지 않는다 —
+  # exit 0 에 무경고, 이 기능이 존재하는 이유인 "검사했고 문제없음과 겉보기가 같다"가 그대로
+  # 재현됐다. 794건이 초록인 채로 살아 있었던 이유는 회귀 테스트가 배선 축만 봤기 때문이다.
+  local base d st shape sw
+  base=$(jq '.' settings.json)
+  for shape in 'printf "%s\n{\"a\":" "$base"' 'printf "%s}" "$base"' 'printf "%s\nGARBAGE" "$base"'; do
+    for sw in disableAllHooks allowManagedHooksOnly disableCommandPluginSources; do
+      d=$(mktemp -d) || return 99
+      d=$(cd "$d" && pwd -P) || return 99
+      git init -q "$d" 2>/dev/null || { rm -rf "$d"; return 99; }
+      eval "$shape" > "$d/settings.json"
+      st=0
+      jq -n --arg f "$d/settings.json" --arg c "$(jq ". + {$sw:true}" settings.json)" \
+        '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' \
+        | bash "$GUARD" >/dev/null 2>&1 || st=$?
+      rm -rf "$d"
+      [ "$st" -eq 2 ] || {
+        echo "손상 [$shape] + $sw 켜기가 통과했다 (exit=$st)" >&2; return 1; }
+    done
+  done
+}
+
 @test "INV-13 완전성: HOOK_KILL_SWITCHES가 스키마의 hook-affecting boolean을 전부 덮는다" {
   # 인스턴스 열거가 아니라 클래스 봉쇄의 핵심 — 가드의 하드코딩 목록이 공식 스키마의
   # 'hook 실행에 영향을 주는 최상위 boolean' 전체와 일치해야 한다. 새 스위치가 스키마에

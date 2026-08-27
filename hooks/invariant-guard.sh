@@ -428,10 +428,16 @@ __physicalize_under() {
 # 남아도 그 시점부터 게이트가 꺼지고, 훅은 계속 exit 0을 돌려주므로 "검사했고 문제없음"과
 # 겉보기가 같다. F41이 닫은 fail-open(도구 부재)과 같은 계열이며 이번엔 "입력을 읽지 못하면"이다.
 #
-# ## 세 갈래 (Plan 게이트 승인)
-#   디스크 파싱 OK  → 디스크 내용이 기준선          (__baseline_kind=disk)
-#   파싱 실패 + HEAD 기준선 O → HEAD 내용이 기준선  (__baseline_kind=head)
-#   파싱 실패 + HEAD 기준선 X → 기준선 없음         (__baseline_kind=none)
+# ## 네 갈래 (Plan 게이트가 승인한 셋 + 보안 감사가 되돌린 하나)
+#   디스크 파싱 OK              → 디스크 내용이 기준선  (__baseline_kind=disk)
+#   파싱 실패 + 배선 추출 가능   → 디스크 내용이 기준선  (__baseline_kind=disk)  ← 아래 참조
+#   파싱 실패 + HEAD 기준선 O   → HEAD 내용이 기준선    (__baseline_kind=head)
+#   파싱 실패 + HEAD 기준선 X   → 기준선 없음           (__baseline_kind=none)
+#
+# 두 번째 줄은 처음 설계에 없었다. "파싱 실패"를 "배선을 못 읽음"과 같게 취급한 탓에 실제로
+# 읽히는 배선을 버려 약화가 생겼고(보안 감사 high), 그 arm 을 되돌린 것이다. 이때 기준선이
+# **손상된 원문**이 되므로 최상위 스위치 비교기는 선두 문서 기준으로 정규화해야 한다
+# (`__switch_val` 참조) — 그러지 않으면 킬스위치 축이 조용히 꺼진다(재판정 실측).
 #
 # `none` 에서 무조건 deny 하지 않는 이유: `.claude/` 는 gitignore 대상이라 `.claude/settings.json`
 # 에는 HEAD 기준선이 **아예 없다**(루트 settings.json 은 있다 — 실측 확인). 무조건 deny 면
@@ -441,6 +447,19 @@ __physicalize_under() {
 # 통과시킨다. 조용한 no-op 을 만들지 않는다는 목적은 그 경고로 유지된다.
 #
 # 결과 전역: `__baseline`(기준선 내용), `__baseline_kind`(disk|head|none).
+# 최상위 킬스위치 값을 **선두 문서 기준**으로 읽는다. 부재·읽기 실패는 `false`(off).
+#
+# `jq -c '.[k] // false' <<<"$s"` 를 쓰면 안 된다 (F76 재판정 실측): jq 는 값 스트림을 처리하므로
+# "선두에 온전한 JSON + 뒤쪽 손상" 입력에서 선두 값의 결과를 **먼저 내보낸 뒤** 오류를 낸다.
+# 그러면 `|| echo false` 가 한 줄을 더 붙여 값이 `$'false\nfalse'` 가 되고, `[[ "$v" == "false" ]]`
+# 가 성립하지 않아 **off 를 on 으로 오독한다** — OLD 쪽에서 그러면 "원래 켜져 있었다"가 되어
+# off→on deny 가 발화하지 않는다. 손상 원문을 기준선으로 삼는 arm 을 들이면서 이 입력이 실제로
+# 비교기에 도달하게 됐고, 그 결과 킬스위치 축이 조용히 꺼졌다(exit 0, 경고도 없음).
+# `-n` + `input` 은 선두 값 하나만 읽고 정상 종료하므로 한 줄을 돌려준다.
+__switch_val() {   # $1=내용 $2=스위치 키
+  jq -c -n --arg k "$2" 'input | .[$k] // false' <<<"$1" 2>/dev/null || echo false
+}
+
 __wiring_baseline_for() {
   local __f="$1" __raw
   __baseline=""; __baseline_kind="none"
@@ -797,7 +816,7 @@ if [[ "$BASENAME" == "settings.json" ]]; then
   # 구분자를 썼으나 탭은 read의 whitespace라 빈 matcher에서 필드가 밀렸고 제어문자는 파일에
   # 리터럴로 새는 문제가 있었다 — JSON 배열 라인이 둘 다 없앤다.
   # F76: 디스크 내용을 그대로 OLD로 쓰지 않는다 — 파싱 실패가 '배선 없음'으로 둔갑하던 자리다.
-  # 세 갈래(disk/head/none)의 근거는 __wiring_baseline_for 정의부 주석 참조.
+  # 네 갈래(disk 둘 · head · none)의 근거는 __wiring_baseline_for 정의부 주석 참조.
   __wiring_baseline_for "$FILE"
   OLD_R=$(wired_rows "$__baseline")
   NEW_R=$(wired_rows "$NEW_CONTENT")
@@ -825,7 +844,7 @@ if [[ "$BASENAME" == "settings.json" ]]; then
     # INV-13에 적어 둔다.
     # 승인 프롬프트는 없다 — deny 는 exit 2 하드 차단이다.
     for __sw in $HOOK_KILL_SWITCHES; do
-      __n=$(echo "$NEW_CONTENT" | jq -c --arg k "$__sw" '.[$k] // false' 2>/dev/null || echo false)
+      __n=$(__switch_val "$NEW_CONTENT" "$__sw")
       [[ "$__n" != "false" ]] \
         && deny "settings.json 최상위 $__sw 켜짐($__n) — 디스크 내용을 파싱할 수 없고 HEAD 기준선도 없어 이전 값을 확인할 수 없습니다. 배선된 훅의 실행 도달성이 끊길 수 있어 차단합니다 (INV-13)"
     done
@@ -834,8 +853,8 @@ if [[ "$BASENAME" == "settings.json" ]]; then
     echo "invariant-guard: $FILE 를 파싱할 수 없고 HEAD 기준선도 없어 배선 보존 검사를 수행하지 못했습니다 — 이 편집은 킬스위치 검사만 거쳤습니다 (INV-13)" >&2
   elif [[ -n "$OLD_R" ]]; then
     for __sw in $HOOK_KILL_SWITCHES; do
-      __o=$(jq -c --arg k "$__sw" '.[$k] // false' <<<"$__baseline" 2>/dev/null || echo false)
-      __n=$(echo "$NEW_CONTENT" | jq -c --arg k "$__sw" '.[$k] // false' 2>/dev/null || echo false)
+      __o=$(__switch_val "$__baseline" "$__sw")
+      __n=$(__switch_val "$NEW_CONTENT" "$__sw")
       [[ "$__o" == "false" && "$__n" != "false" ]] \
         && deny "settings.json 최상위 $__sw 켜짐(off→$__n) — 배선된 훅의 실행 도달성이 끊길 수 있음. 스위치별 강도 차이(특히 disableCommandPluginSources는 managed settings에서만 유효)는 docs/INVARIANTS.md INV-13 참조 (INV-13)"
     done
