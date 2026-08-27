@@ -668,6 +668,44 @@ f76_guard() {   # 대상: settings.json
   done
 }
 
+@test "INV-13(F76): 다중 문서 settings.json 은 OLD·NEW 어느 쪽에서도 통하지 않는다" {
+  # **회귀 테스트가 매번 한 축만 고정해 결함이 옆 축에서 살아남았다** — 처음엔 배선 축만,
+  # 다음엔 디스크(OLD) 축만. 그래서 여기서는 손상 형태를 OLD 와 NEW **양쪽에** 건다.
+  #
+  # 다중 문서(`{...}{...}`)는 jq 가 값 스트림 파서라 `jq -e '.'` 를 통과하지만 JSON.parse 로는
+  # 파싱되지 않는다 — 쓰이는 순간 settings.json 이 소비자에게 파싱 불가가 되고 배선된 훅 전부가
+  # 실행 도달성을 잃는다. 종전에는 비교기가 문서마다 한 줄씩 뱉는 부작용으로 **우연히** 막혔고,
+  # 선두 문서 정규화가 그 우연을 걷어내자 열렸다(재판정 실측 exit 2 → exit 0).
+  #
+  # OLD 축은 별개의 공격이다: 디스크가 `{"disableAllHooks":true}\n<정상>` 이면 배선은 두 번째
+  # 문서에서 뽑혀 kind=disk 가 되고, 선두만 읽는 비교기가 `__o=true` 를 얻어 off→on 이 성립하지
+  # 않아 스위치를 켜는 편집이 통과했다(pre-F76·직전 리비전 모두 exit 0).
+  local base multi attack d st
+  base=$(jq -c '.' settings.json)
+  multi=$(printf '%s\n{}' "$base")
+  attack=$(printf '{"disableAllHooks":true}\n%s' "$base")
+
+  # NEW 축 — 정상 디스크에 다중 문서를 쓰려는 편집
+  d=$(mktemp -d) || return 99; d=$(cd "$d" && pwd -P) || return 99
+  git init -q "$d" 2>/dev/null || { rm -rf "$d"; return 99; }
+  printf '%s' "$base" > "$d/settings.json"
+  st=0
+  jq -n --arg f "$d/settings.json" --arg c "$multi" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' | bash "$GUARD" >/dev/null 2>&1 || st=$?
+  rm -rf "$d"
+  [ "$st" -eq 2 ] || { echo "다중 문서 NEW 가 통과했다 (exit=$st)" >&2; return 1; }
+
+  # OLD 축 — 선두 문서를 조작해 킬스위치 비교기를 속이는 경로
+  d=$(mktemp -d) || return 99; d=$(cd "$d" && pwd -P) || return 99
+  git init -q "$d" 2>/dev/null || { rm -rf "$d"; return 99; }
+  printf '%s' "$attack" > "$d/settings.json"
+  st=0
+  jq -n --arg f "$d/settings.json" --arg c "$(jq -c '. + {disableAllHooks:true}' settings.json)" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' | bash "$GUARD" >/dev/null 2>&1 || st=$?
+  rm -rf "$d"
+  [ "$st" -eq 2 ] || { echo "선두 조작으로 킬스위치 켜기가 통과했다 (exit=$st)" >&2; return 1; }
+}
+
 @test "INV-13 완전성: HOOK_KILL_SWITCHES가 스키마의 hook-affecting boolean을 전부 덮는다" {
   # 인스턴스 열거가 아니라 클래스 봉쇄의 핵심 — 가드의 하드코딩 목록이 공식 스키마의
   # 'hook 실행에 영향을 주는 최상위 boolean' 전체와 일치해야 한다. 새 스위치가 스키마에

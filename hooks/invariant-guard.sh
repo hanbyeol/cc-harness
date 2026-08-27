@@ -456,8 +456,15 @@ __physicalize_under() {
 # off→on deny 가 발화하지 않는다. 손상 원문을 기준선으로 삼는 arm 을 들이면서 이 입력이 실제로
 # 비교기에 도달하게 됐고, 그 결과 킬스위치 축이 조용히 꺼졌다(exit 0, 경고도 없음).
 # `-n` + `input` 은 선두 값 하나만 읽고 정상 종료하므로 한 줄을 돌려준다.
+# **단일 문서일 때만 값을 신뢰한다.** 선두 문서만 읽으면 다중 문서에서 선두를 조작해 OLD 값을
+# 위조할 수 있다 — 디스크가 `{"disableAllHooks":true}\n<정상 settings>` 이면 배선은 두 번째
+# 문서에서 추출돼 kind=disk 가 되고, 선두만 읽는 비교기는 `__o=true` 를 얻어 off→on 이 성립하지
+# 않으므로 스위치를 켜는 편집이 통과한다(재판정이 세 리비전 모두에서 실측한 선재 경로).
+# 그래서 문서가 하나가 아니면 값을 `false`(=off)로 본다 — OLD 쪽에서 이는 "켜져 있었다고
+# 인정하지 않는다"는 뜻이라 off→on deny 가 발화하는 **보수적** 방향이다.
 __switch_val() {   # $1=내용 $2=스위치 키
-  jq -c -n --arg k "$2" 'input | .[$k] // false' <<<"$1" 2>/dev/null || echo false
+  jq -c -n --arg k "$2" '[inputs] | if length == 1 then (.[0][$k] // false) else false end' \
+    <<<"$1" 2>/dev/null || echo false
 }
 
 __wiring_baseline_for() {
@@ -765,8 +772,16 @@ fi
 # hooks 키를 갖는다 — 설치본은 면제 대상이 **아니다**. 면제되는 것은 애초에 훅을 배선하지 않는
 # settings 파일(예: enabledPlugins만 담은 것)뿐이며, 그 경우 OLD 집합이 공집합이라 통과한다.
 if [[ "$BASENAME" == "settings.json" ]]; then
-  if ! echo "$NEW_CONTENT" | jq -e '.' &>/dev/null; then
-    deny "settings.json이 유효한 JSON이 아닙니다 (INV-13)"
+  # **단일 문서여야 한다.** `jq -e '.'` 만으로는 부족하다 — jq 는 값 스트림 파서라
+  # `{...}{...}` 같은 다중 문서를 유효로 통과시킨다. 그런 내용은 `JSON.parse`/`json.loads`
+  # 어느 쪽으로도 파싱되지 않으므로, 쓰이는 순간 settings.json 이 소비자에게 파싱 불가가 되고
+  # 거기 배선된 훅 전부(가드 자신 포함)가 실행 도달성을 잃는다 — F76 이 존재하는 이유인 바로
+  # 그 상태다. 파일 내용을 두 번 붙여넣는 손편집이 정확히 이 형태이므로 적대적 시나리오도
+  # 아니다. 종전에는 킬스위치 비교기가 문서마다 한 줄씩 뱉어 `__n` 이 두 줄이 되는 바람에
+  # **우연히** 막혔고, `__switch_val` 이 선두 문서만 읽도록 정규화하자 그 차단이 사라졌다
+  # (재판정 실측: exit 2 → exit 0). 우연에 기대지 않도록 여기서 명시적으로 막는다.
+  if ! jq -n -e '[inputs] | length == 1 and (.[0] | type == "object")' <<<"$NEW_CONTENT" &>/dev/null; then
+    deny "settings.json이 단일 JSON 오브젝트가 아닙니다 — 다중 문서·비오브젝트·파싱 불가 (INV-13)"
   fi
   # 배선을 (event, matcher, **훅 오브젝트 전문**)으로 추출한다 — default-deny 설계.
   #
