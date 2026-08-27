@@ -1,0 +1,113 @@
+{
+  "timestamp": "2026-08-27T18:04:55+09:00",
+  "sprint": 62,
+  "iteration": 6,
+  "features_evaluated": [
+    "F76"
+  ],
+  "security_tier": "critical",
+  "commit_judged": "ecb5b21",
+  "scores": {
+    "functionality": 8,
+    "code_quality": 7,
+    "security": 6,
+    "error_handling": 7,
+    "test_coverage": 7
+  },
+  "score": 6,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 6 < 7 (critical tier -- automatic fail regardless of other dimensions)",
+    "score 6 < threshold 7",
+    "SC-4 not met: the reverse-check this commit exists to perform corrected one row reference and left two others false in the same INV-13 body",
+    "SC-4 eighth occurrence: this commit introduces a NEW unmeasured structural assertion that measurement disproves"
+  ],
+  "code_axis_settled": {
+    "guard_diff_d05d778_to_ecb5b21": "empty (git diff d05d778..ecb5b21 -- hooks/ produced no output) -- no code change, so the 5th judgment's 2016-cell behavioural result carries forward",
+    "regression": "bats tests/ 797/797, BATS_EXIT=0, run without a pipe -- no regression",
+    "note": "The behaviour is correct. This is the sixth consecutive verdict and the fourth in a row failing purely on the documentation axis, which this contract scores as a security criterion (SC-3/SC-4)."
+  },
+  "issues": [
+    "[security][high][confidence:high] NEW false claim introduced by THIS commit. docs/INVARIANTS.md:481-483 asserts '구조적으로도 둘째 줄일 수 없다 -- 선두 값을 위조하려면 온전한 선두 문서가 있어야 하고, 그것이 바로 jq -e \\'.\\'를 성공시키는 조건이다.' Measured false. An intact leading document is NECESSARY but not SUFFICIENT for jq -e '.' to succeed -- jq -e requires EVERY document to be valid. Counterexample fixture '{\"disableAllHooks\":true}\\n<settings>\\nGARBAGE': jq -e '.' FAILS, wired_rows still extracts, instrumented guard prints ROW=2 (kind=disk). The forged-leading attack class therefore does reach row two. It was a live bypass at every pre-fix revision (exit 0 at ba9dc19^, 6ac0561, 7807135) and is closed at d05d778+ (exit 2). This is the eighth instance of the defect class the commit message itself names: it argues a structural impossibility by reasoning in the same paragraph that says 'exit code만 비교하면 이 사실이 보이지 않는다 -- 계측해야 알 수 있다'.",
+    "[security][medium][confidence:high] SC-4 reverse-check incomplete -- docs/INVARIANTS.md:508 '세 번째 줄에서 무조건 deny하지 않는 이유' describes the NO-baseline branch (killswitch axis only, wiring axis warned and passed, .claude/ gitignore rationale). That is row FOUR of the current four-row table. Row three is the HEAD-baseline branch, which denies fully -- measured: prepend-damage and trailing-comma damage WITH a HEAD baseline both give ROW=3, exit 2.",
+    "[security][medium][confidence:high] SC-4 reverse-check incomplete -- docs/INVARIANTS.md:538 'HEAD 기준선 자체는 검증하지 않는다. 두 번째 갈래는 HEAD 내용을 그대로 믿는다.' The HEAD branch is row THREE. Row two takes the DAMAGED DISK content as baseline and never consults HEAD at all (hooks/invariant-guard.sh:491-492).",
+    "[security][medium][confidence:high] Archaeology shows both stale references became false inside F76's own revision series, not before it: the table carried three rows (disk/head/none) through 6ac0561, where '세 번째 줄'=none and '두 번째 갈래'=head were both CORRECT; the fourth row was inserted at 7807135, shifting head 2->3 and none 3->4. SC-4's verification is literally 'INV-13 전문을 읽고 상충 구절이 없는지 확인' -- reading the full body was the required step and it was performed only on the one paragraph already known to be wrong.",
+    "[docs][medium][confidence:high] hooks/invariant-guard.sh:460-462 still carries the identical sentence this commit retracted in INVARIANTS.md: '디스크가 {\"disableAllHooks\":true}\\n<정상 settings> 이면 배선은 두 번째 문서에서 추출돼 kind=disk 가 되고'. Instrumentation shows kind=disk is set by the jq -e '.' branch (ROW=1) before wired_rows is ever consulted for the baseline. The doc now explicitly names this phrasing as the disproven claim, so the code comment and the invariant document contradict each other. A maintainer reads the comment first.",
+    "[docs][low][confidence:medium] docs/INVARIANTS.md:487 '그래서 위 표의 \"두 번째 줄로 흡수되어 통과한다\"는 배선 축에 대한 서술이며...' -- the quoted antecedent lives at line 531, about 44 lines LATER, while line 487 now sits immediately after the paragraph that retracts the row-two story for this input. Read in order it appears to endorse the retracted claim. (Line 531's own row-two claim is measured TRUE for append damage: ROW=2, exit 2.)",
+    "[test][low][confidence:medium] No test pins which ROW an input takes. The new test pins exit codes only, which is the exact blind spot the commit message identifies ('exit code만 비교하면 이 사실이 보이지 않는다'). A row-assignment assertion on the forged-leading fixtures would have caught issue #1 before it was written."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1 unparseable disk + wiring removal denied with HEAD baseline -- measured exit 2 (no-baseline path exit 0 + stderr warning, per the approved SC-2 design)",
+      "AC-2 killswitch ON denied -- measured exit 2 for disableAllHooks on single-doc and forged-leading disk; guard unchanged since the 5th judgment measured all three",
+      "AC-3 parseable-but-unwired exemption preserved -- measured exit 0 for killswitch ON on del(.hooks) content",
+      "AC-4 recovery edits pass -- (a) with HEAD baseline exit 0, (b) without HEAD baseline exit 0 with the '배선 보존 검사' warning on stderr",
+      "AC-5 no verdict changes on the normal path -- bats tests/ 797/797, BATS_EXIT=0, no pipe",
+      "AC-6 regression tests present and load-bearing -- the new test's pinned input exits 0 at 7807135, so its first assertion genuinely fails on the pre-fix guard"
+    ],
+    "security": [
+      "SC-1 no reduction on any axis -- hooks/ diff d05d778..ecb5b21 is empty",
+      "SC-2 no-baseline branch handled explicitly -- killswitch denied, wiring axis passed with an observable stderr warning (measured warn=1 on the no-HEAD recovery and wiring-removal probes)",
+      "SC-3 the new cost is stated accurately AND the stated way out is genuinely open -- switch-preserving edit on multi-document disk measured exit 2; the documented step-one (rewrite as a clean single document without the switch) measured exit 0. Users are not trapped. The test pins both halves.",
+      "SC-3 supporting claims measured true -- multi-document content is rejected by JSON.parse; BOM-prefixed, nan and Infinity content passes the single-document gate, is rejected by JSON.parse, and exits 0 at 6ac0561/7807135/d05d778/HEAD alike, so the documented limitation is pre-existing and not a weakening introduced here"
+    ],
+    "error_scenarios": [
+      "ES-2 absent file + no HEAD + unwired create -- measured exit 0 (new-creation exception intact)",
+      "ES-3 HEAD ok + broken disk + widening edit -- measured exit 0 (widening still allowed)",
+      "ES-4 broken disk + unparseable NEW -- measured exit 2"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [
+      "SC-4 -- two row references in INV-13's body remain false (lines 508, 538); both went stale at 7807135 inside F76's own series",
+      "SC-4 -- a new structural assertion introduced by this commit (line 481-483) is disproved by measurement"
+    ],
+    "error_scenarios": []
+  },
+  "corrections_verified_true": {
+    "row_assignment": "Instrumented copy of the guard (four ROW markers at each baseline-assignment site) confirms '{\"disableAllHooks\":true}\\n<settings>' takes ROW=1 (jq -e '.' succeeded), not row two. The correction is right.",
+    "row1_exception": "Measured across five revisions -- forged-leading + switch ON: ba9dc19^ exit 0, 6ac0561 exit 0, 7807135 exit 0, d05d778 exit 2, ecb5b21 exit 2. The cell moved 0 -> 2, so the table's new '단, 다중 문서는 예외' annotation is accurate. Control (single-doc disk + switch ON) is exit 2 at every revision."
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "No criterion requires the guard's own source comments to stay consistent with INV-13. SC-4 is scoped to 'INV-13 본문', which is why the identical false sentence at hooks/invariant-guard.sh:460-462 falls outside it while being the same defect. A future contract in this class should scope the reverse-check to 'the invariant's body AND the enforcing code's comments'.",
+      "No criterion requires branch/row claims to be pinned by a test. Eight documentation defects in this feature have all been claims about which branch an input takes; every one was caught only by ad-hoc instrumentation."
+    ],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [],
+    "action_required": "Fold both gaps into the sprint-62 contract (or a successor) rather than leaving them as evaluator prose."
+  },
+  "remediation": {
+    "note": "Bounded and mechanical -- four sentences, no code change. Measure each before rewriting rather than reasoning about it.",
+    "items": [
+      "docs/INVARIANTS.md:481-483 -- delete or correct the '구조적으로도 둘째 줄일 수 없다' claim. The accurate statement: the two-document fixture lands in row one, but adding trailing damage puts the same forged-leading attack in row two (measured ROW=2, exit 0 at all three pre-fix revisions, exit 2 now). Both rows are closed, and by the same single-document requirement.",
+      "docs/INVARIANTS.md:508 -- '세 번째 줄' -> '네 번째 줄'.",
+      "docs/INVARIANTS.md:538 -- '두 번째 갈래' -> '세 번째 갈래'.",
+      "hooks/invariant-guard.sh:460-462 -- rewrite the mechanism clause so it matches the corrected doc (kind=disk comes from the jq -e '.' branch; wired_rows is not what puts this input on the disk baseline).",
+      "Optional but directly on the recurring class: extend the new bats test to assert the ROW taken, not only the exit code."
+    ]
+  },
+  "evidence": {
+    "tests": "bats tests/ (no pipe, exit code captured to file): 797 ok / 0 not ok, BATS_EXIT=0",
+    "guard_unchanged": "git diff d05d778..ecb5b21 -- hooks/ -> empty output",
+    "instrumentation": "Copied hooks/invariant-guard.sh to scratchpad and inserted four ROW markers at the baseline-assignment sites (__wiring_baseline_for: jq -e branch, wired_rows branch, HEAD branch, none fallthrough). Fixtures built outside the repository with mktemp -d + git init, per the protected-integrity.bats F65 constraint; repo working tree verified clean afterwards (git status --porcelain empty).",
+    "row_probe_forged_leading": "disk='{\"disableAllHooks\":true}\\n<settings>', NEW=switch ON -> exit 2, ROW=1. Same disk, NEW=clean single doc -> exit 0, ROW=1.",
+    "row_probe_counterexample": "disk='{\"disableAllHooks\":true}\\n<settings>\\nGARBAGE', NEW=switch ON -> jq -e '.' FAILS, ROW=2, exit 2 at HEAD; exit 0 at ba9dc19^, 6ac0561, 7807135. Disproves the 'structurally cannot be row two' claim.",
+    "row_probe_damage_matrix": "wiring-removal edit per damage class -- append valid JSON: ROW=1 exit 2; append invalid junk: ROW=2 exit 2; prepend broken: ROW=4 exit 0 (no HEAD) / ROW=3 exit 2 (HEAD); trailing comma: ROW=4 exit 0 (no HEAD) / ROW=3 exit 2 (HEAD). Establishes row3=HEAD branch and row4=no-baseline branch, which is what makes lines 508 and 538 false.",
+    "sc3_cost_and_bypass": "multi-document disk with disableAllHooks on, NEW preserves the switch -> exit 2 (blocked, no prompt). Documented step one, NEW = clean single document without the switch -> exit 0 (way out genuinely open).",
+    "json_parse_limits": "guard single-document gate vs node JSON.parse -- BOM PASS/REJECT, nan PASS/REJECT, Infinity PASS/REJECT, plain PASS/OK, multi-document BLOCK/REJECT. End-to-end wiring-preserving writes of BOM/nan/Infinity content: exit 0 at 6ac0561, 7807135, d05d778, HEAD -- pre-existing, not a new weakening.",
+    "multidoc_new_history": "multi-document NEW content: 6ac0561 exit 2 (incidental), 7807135 exit 0 (regression), d05d778 exit 2, HEAD exit 2 -- matches the narrative at INVARIANTS.md:470-477.",
+    "table_archaeology": "Table row count by commit -- ba9dc19/261758d/3d19382/6ac0561: three rows; 7807135/d05d778/ecb5b21: four rows. '세 번째 줄에서 무조건 deny' present since ba9dc19; '두 번째 갈래는 HEAD' present since 6ac0561. Both predate the four-row table and were correct under the three-row one.",
+    "test_is_load_bearing": "The new test's first pinned input exits 0 under the 7807135 guard, so the assertion fails on the pre-fix code.",
+    "not_independently_verified": "ES-1 (jq/awk absent -> fail-closed deny). My PATH simulation was invalid on this machine: grep resolves to a shell function from the Claude Code shell snapshot, so command -v grep returns 'grep' and my symlink was dangling. ES-1's gate (hooks/invariant-guard.sh:143) is unchanged from the parent and its suite tests are green, which is execution evidence, but it is not my own targeted measurement."
+  },
+  "f37_second_judgment": {
+    "required": true,
+    "reason": "security_tier is critical, so F37 cross-judgment applies. It is NOT triggered by this verdict: the verdict is fail, and F37 samples a second independent judgment to prevent an unsafe automatic PASS. Should a later iteration reach pass, dispatch a second evaluator in an independent context before flipping passes; a verdict mismatch escalates to a human rather than auto-passing."
+  },
+  "passes_updated": false,
+  "passes_value": false
+}
