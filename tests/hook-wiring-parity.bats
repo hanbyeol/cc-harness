@@ -736,6 +736,26 @@ f76_guard() {   # 대상: settings.json
   [ "$st" -eq 0 ] || { echo "우회 경로(스위치 없이 단일 문서로 복구)가 막혔다 (exit=$st)" >&2; return 1; }
 }
 
+@test "INV-13(F76): 선두가 온전해도 문서 전체가 손상되면 킬스위치 켜기를 deny한다 (6차 판정 반례)" {
+  # **"선두가 온전하면 몇째 줄인지 단정할 수 있다"는 가정이 틀렸다는 것을 고정한다.**
+  # `{sw:true}\n<정상settings>\nGARBAGE` 는 선두 문서가 완전하지만 스트림 전체는 `jq -e '.'`
+  # 를 통과하지 못한다(모든 문서가 유효해야 하므로) — 그래서 "구조적으로 둘째 줄일 수 없다"던
+  # 단정이 틀렸고, 이 픽스처가 정확히 둘째 줄로 간다. `__switch_val`의 단일 문서 요구(d05d778)가
+  # 이미 이 입력을 막고 있었다 — 실측: `7807135`(그 이전)는 exit 0, `d05d778`와 현재는 exit 2.
+  # 즉 여기서 고친 것은 코드가 아니라 "구조적으로 불가능하다"던 문서의 단정이며, 이 테스트는
+  # 그 단정이 다시 코드보다 강하게(또는 틀리게) 서술되는 회귀를 잡는다.
+  local base d st
+  base=$(jq -c '.' settings.json)
+  d=$(mktemp -d) || return 99; d=$(cd "$d" && pwd -P) || return 99
+  git init -q "$d" 2>/dev/null || { rm -rf "$d"; return 99; }
+  printf '{"disableAllHooks":true}\n%s\nGARBAGE' "$base" > "$d/settings.json"
+  st=0
+  jq -n --arg f "$d/settings.json" --arg c "$(jq -c '. + {disableAllHooks:true}' settings.json)" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' | bash "$GUARD" >/dev/null 2>&1 || st=$?
+  rm -rf "$d"
+  [ "$st" -eq 2 ] || { echo "선두 온전 + 전체 손상 입력에서 킬스위치 켜기가 통과했다 (exit=$st)" >&2; return 1; }
+}
+
 @test "INV-13 완전성: HOOK_KILL_SWITCHES가 스키마의 hook-affecting boolean을 전부 덮는다" {
   # 인스턴스 열거가 아니라 클래스 봉쇄의 핵심 — 가드의 하드코딩 목록이 공식 스키마의
   # 'hook 실행에 영향을 주는 최상위 boolean' 전체와 일치해야 한다. 새 스위치가 스키마에
