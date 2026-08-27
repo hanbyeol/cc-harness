@@ -706,6 +706,36 @@ f76_guard() {   # 대상: settings.json
   [ "$st" -eq 2 ] || { echo "선두 조작으로 킬스위치 켜기가 통과했다 (exit=$st)" >&2; return 1; }
 }
 
+@test "INV-13(F76): 다중 문서에 켜져 있던 스위치를 유지하는 편집은 막힌다 (수용된 새 비용)" {
+  # 단일 문서 요구가 만든 비용을 고정한다. 디스크가 다중 문서이고 그중 킬스위치가 정당하게
+  # 켜져 있어도, `__switch_val` 이 다중 문서를 신뢰하지 않아 `__o=false` 가 되므로 스위치를
+  # 유지하는 편집이 off→on 으로 판정돼 막힌다. 승인 프롬프트는 없다(exit 2).
+  #
+  # 이 테스트가 있는 이유: INV-13 이 이 비용을 서술하는데 고정하는 것이 없으면, 나중에 동작이
+  # 바뀌어도 문서만 남아 어긋난다 — 이 기능이 일곱 번 반복한 결함 클래스가 정확히 그것이다.
+  local base d st
+  base=$(jq -c '.' settings.json)
+  d=$(mktemp -d) || return 99; d=$(cd "$d" && pwd -P) || return 99
+  git init -q "$d" 2>/dev/null || { rm -rf "$d"; return 99; }
+  printf '{"disableAllHooks":true}\n%s' "$base" > "$d/settings.json"
+  st=0
+  jq -n --arg f "$d/settings.json" --arg c "$(jq -c '. + {disableAllHooks:true}' settings.json)" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' | bash "$GUARD" >/dev/null 2>&1 || st=$?
+  rm -rf "$d"
+  [ "$st" -eq 2 ] || { echo "다중 문서에서 스위치 유지 편집이 통과했다 (exit=$st)" >&2; return 1; }
+
+  # 문서가 적은 우회 경로가 실제로 열려 있는지도 함께 고정한다 — 스위치 없이 단일 문서로
+  # 고쳐 쓰는 편집은 통과해야 한다. 그러지 않으면 사용자가 가둬진다.
+  d=$(mktemp -d) || return 99; d=$(cd "$d" && pwd -P) || return 99
+  git init -q "$d" 2>/dev/null || { rm -rf "$d"; return 99; }
+  printf '{"disableAllHooks":true}\n%s' "$base" > "$d/settings.json"
+  st=0
+  jq -n --arg f "$d/settings.json" --arg c "$base" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' | bash "$GUARD" >/dev/null 2>&1 || st=$?
+  rm -rf "$d"
+  [ "$st" -eq 0 ] || { echo "우회 경로(스위치 없이 단일 문서로 복구)가 막혔다 (exit=$st)" >&2; return 1; }
+}
+
 @test "INV-13 완전성: HOOK_KILL_SWITCHES가 스키마의 hook-affecting boolean을 전부 덮는다" {
   # 인스턴스 열거가 아니라 클래스 봉쇄의 핵심 — 가드의 하드코딩 목록이 공식 스키마의
   # 'hook 실행에 영향을 주는 최상위 boolean' 전체와 일치해야 한다. 새 스위치가 스키마에
