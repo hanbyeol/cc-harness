@@ -448,6 +448,23 @@ __wiring_baseline_for() {
   if jq -e '.' <<<"$__raw" >/dev/null 2>&1; then
     __baseline="$__raw"; __baseline_kind="disk"; return 0
   fi
+  # **파싱 실패 ≠ 배선 없음. 그리고 파싱 실패 ≠ 배선을 못 읽음** (F76 보안 감사, high).
+  #
+  # jq 는 값 스트림을 처리하므로 "선두에 온전한 JSON + 뒤쪽 손상" 형태에서는 선두 값의 결과를
+  # 먼저 내보낸 뒤 오류를 낸다. `wired_rows` 는 `2>/dev/null || true` 로 그 행을 **보존**하지만
+  # `jq -e '.'` 는 실패로 보고한다. F76 이전에는 게이트가 `wired_rows` 의 결과였기에 그 배선을
+  # 보고 집행했는데, 게이트를 '파싱 성공'으로 바꾸면서 그 행을 버리고 무기준선 갈래로 떨어뜨렸다
+  # — 손상 형태에 따라 exit 2 가 exit 0 으로 뒤집혔다(실측: 잘린 append·잉여 중괄호·뒤 잡문자열
+  # 등 6종). append 계열 손상은 이 기능이 근거로 든 "손편집 중 실수"에 그대로 해당하므로
+  # 적대적 시나리오도 아니다. **F76 이 스스로 선언한 SC-1(어떤 축에서도 축소하지 않는다)의
+  # 위반이었다.**
+  #
+  # 그래서 게이트를 '파싱 성공'이 아니라 **'기준선에서 배선을 추출할 수 있는가'** 로 낮춘다.
+  # 뽑히면 그 내용이 기준선이다 — F76 이전과 정확히 같은 판정 재료이므로 그 축의 강도가
+  # 되돌아온다. 뽑히지 않을 때만 HEAD 폴백과 무기준선 갈래로 간다.
+  if [[ -n "$(wired_rows "$__raw")" ]]; then
+    __baseline="$__raw"; __baseline_kind="disk"; return 0
+  fi
   __head_content_for "$__f"
   if [[ -n "$__head_content" ]] && jq -e '.' <<<"$__head_content" >/dev/null 2>&1; then
     __baseline="$__head_content"; __baseline_kind="head"
@@ -964,7 +981,10 @@ if [[ "$BASENAME" == "hooks.json" ]]; then
     jq -r '[.. | objects | .command? // empty] | .[]' <<<"$1" 2>/dev/null \
       | grep -qE 'invariant-guard\.sh("|$| )'
   }
-  if guard_registered "$(cat "$FILE")" && ! guard_registered "$NEW_CONTENT"; then
+  # 기준선을 쓴다 — 원시 디스크를 읽으면 파일이 파싱 불가일 때 `jq`가 빈 결과를 내 OLD가
+  # "가드를 등록한 적 없음"으로 보이고, 이 검사가 통째로 fail-open 한다(F76 보안 감사 F76-06).
+  # 바로 위 배선 보존 검사가 같은 이유로 뚫렸던 것과 같은 클래스라 함께 닫는다.
+  if guard_registered "$__baseline" && ! guard_registered "$NEW_CONTENT"; then
     deny "hooks.json에서 invariant-guard.sh 실행 등록 제거/변경 — 안전장치 자기 보호 (INV-7)"
   fi
   exit 0

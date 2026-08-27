@@ -615,6 +615,33 @@ f76_guard() {   # 대상: settings.json
   [ "$status" -eq 2 ]
 }
 
+@test "INV-13(F76): 선두가 온전한 손상은 배선을 여전히 읽어 집행한다 (보안 감사 high 회귀)" {
+  # **F76이 스스로 만든 약화를 고정한다.** 게이트를 `wired_rows` 결과에서 `jq -e '.'` 성공으로
+  # 바꾸자, jq가 선두 값을 내보낸 뒤 오류를 내는 손상 형태(잘린 append·잉여 중괄호·뒤 잡문자열)
+  # 에서 배선이 버려지고 무기준선 갈래로 떨어졌다 — 실측 exit 2 → exit 0. append 계열은 이
+  # 기능이 근거로 든 '손편집 중 실수'에 그대로 해당한다. 게이트를 '배선 추출 가능'으로 낮춰
+  # F76 이전과 같은 판정 재료를 쓰게 했고, 이 테스트가 그 복귀를 고정한다.
+  local base stripped d st
+  base=$(jq '.' settings.json)
+  stripped=$(jq '.hooks.PreToolUse |= map(select(
+    any(.hooks[]; .command | test("invariant-guard")) | not))' settings.json)
+  local shape
+  for shape in 'printf "%s\n{\"a\":" "$base"' 'printf "%s}" "$base"' 'printf "%s\nGARBAGE" "$base"'; do
+    d=$(mktemp -d) || return 99
+    d=$(cd "$d" && pwd -P) || return 99
+    git init -q "$d" 2>/dev/null || { rm -rf "$d"; return 99; }
+    eval "$shape" > "$d/settings.json"      # HEAD 기준선 없음 — 배선 추출만이 유일한 근거다
+    # `|| st=$?` 없이 파이프라인을 그냥 두면 bats 가 비영 종료를 즉시 테스트 실패로 처리해,
+    # **가드가 올바르게 deny 한 것이 테스트 실패로 보고된다**(실제로 겪었다).
+    st=0
+    jq -n --arg f "$d/settings.json" --arg c "$stripped" \
+      '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' \
+      | bash "$GUARD" >/dev/null 2>&1 || st=$?
+    rm -rf "$d"
+    [ "$st" -eq 2 ] || { echo "손상 형태 [$shape] 에서 배선 제거가 통과했다 (exit=$st)" >&2; return 1; }
+  done
+}
+
 @test "INV-13 완전성: HOOK_KILL_SWITCHES가 스키마의 hook-affecting boolean을 전부 덮는다" {
   # 인스턴스 열거가 아니라 클래스 봉쇄의 핵심 — 가드의 하드코딩 목록이 공식 스키마의
   # 'hook 실행에 영향을 주는 최상위 boolean' 전체와 일치해야 한다. 새 스위치가 스키마에

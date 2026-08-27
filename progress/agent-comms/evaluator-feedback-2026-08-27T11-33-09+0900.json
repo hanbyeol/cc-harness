@@ -1,0 +1,196 @@
+{
+  "timestamp": "2026-08-27T11:33:09+09:00",
+  "sprint": 62,
+  "feature_id": "F76",
+  "iteration": "F37-second-judgment",
+  "judgment_role": "independent second judge (F37 critical-tier cross-check)",
+  "commit_under_judgment": "3d19382052c5460de5a39ba04f6f90feb3506386",
+  "features_evaluated": [
+    "F76"
+  ],
+  "security_tier": "critical",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 7,
+    "security": 6,
+    "error_handling": 8,
+    "test_coverage": 8
+  },
+  "score": 6,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 6 < 7 (critical tier auto-fail): SC-4 is measurably unmet — two INV-13 statements that this change falsifies were not reverse-checked and still stand in docs/INVARIANTS.md",
+    "score 6 < threshold 7"
+  ],
+  "agreement_with_first_judgment": {
+    "first_verdict": "pass (min-of-5 7, security 8) — evaluator-feedback-2026-08-27T08-58-24+0900.json",
+    "second_verdict": "fail (min-of-5 6, security 6)",
+    "verdicts_agree": false,
+    "escalation_required": true,
+    "escalation_note": "F37 requires human escalation on disagreement — auto-pass is forbidden. feature_list.json passes was set true by 3f48f6c on the strength of the first judgment; this judge did NOT flip it (a fail verdict does not authorize a flip, and reverting it would itself be an automated resolution of a disagreement that F37 reserves for a human).",
+    "scope_of_disagreement": "NARROW AND EXPLICIT. The disagreement is not about the guard's runtime behaviour. Every behavioural criterion (AC-1..AC-6, SC-1..SC-3, ES-1..ES-4) was re-verified from scratch with my own fixtures and passes. The disagreement is confined to SC-4 (reverse-checking existing INV-13 prose) plus a measured residual same-class fail-open on a sibling axis. If the human judges SC-4 satisfied-enough, the behavioural evidence below supports a pass."
+  },
+  "independence_statement": "No fixture, corpus, mutation or conclusion from the first judgment was reused. Own minimal wiring settings.json (not the repo's); the file was broken with a TRAILING COMMA (the guard comment's own stated example) rather than the implementer's '// breaks jq' prefix; own payload builder, own branch matrix, own seven mutations, own delete-then-recreate lab.",
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1 unparseable disk + HEAD baseline, invariant-guard wiring removal -> exit 2 (pre-F76 e830dd0: exit 0 on the identical input)",
+      "AC-2 all three kill switches deny in BOTH the head-baseline and the no-baseline branch (6 measurements, all exit 2)",
+      "AC-3 parseable-but-unwired settings, kill switch enable -> exit 0 (exemption preserved)",
+      "AC-4 recovery edits pass: (a) head baseline, identical restore -> exit 0; (b) no baseline -> exit 0 with the '배선 보존 검사를 수행하지 못했습니다' warning",
+      "AC-5 bats tests/ run WITHOUT a pipe: 1..793, 793 ok, 0 not ok, BATS_EXIT=0",
+      "AC-6 8 F76 regression tests present; discriminating power independently proven by 7 of my own mutations (see mutation_matrix)"
+    ],
+    "security": [
+      "SC-1 no protection shrank on any axis — wired_rows / matcher_covers / is_protected / is_wiring_file / deny / canon_file are byte-identical between e830dd0 and HEAD; HOOK_KILL_SWITCHES identical; has_jq/has_awk gate identical; F68/F72 delete-then-recreate identical pre-vs-post across 5 bypass attempts",
+      "SC-2 three-way branch implemented as approved; no-baseline denies all three switches and emits the 'could not check' warning — no silent no-op",
+      "SC-3 residual exposure is stated and the affordance is not overstated (INV-13 says exit 2 hard block, explicitly no approval prompt)"
+    ],
+    "error_scenarios": [
+      "ES-1 jq absent -> exit 2 ('jq 부재 상태에서 보호 파일 편집을 차단합니다'); awk absent -> exit 2. The pre-existing fail-closed gate still wins first",
+      "ES-2 disk absent + no HEAD, unwired new file -> exit 0; disk absent + HEAD wired -> exit 2 via the F68/F72 restore path, identical pre and post F76",
+      "ES-3 widening edit (matcher |NotebookEdit) under a HEAD baseline -> exit 0",
+      "ES-4 unparseable NEW -> exit 2"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [
+      "SC-4 (reverse-check of existing INV-13 prose) — two statements falsified by this change still stand in docs/INVARIANTS.md; see issues[1] and issues[2]"
+    ],
+    "error_scenarios": []
+  },
+  "issues": [
+    {
+      "id": "I-1",
+      "severity": "high",
+      "confidence": "high",
+      "tag": "security/SC-4",
+      "title": "The universal negative J-3 rejected was corrected in the code comment and left standing in INVARIANTS.md",
+      "detail": "hooks/invariant-guard.sh:804-807 now says the two cases cannot be told apart *신뢰할 수 있게* ('reliably'), explicitly retracting '구분할 방법이 없다'. docs/INVARIANTS.md:472 still reads: 기준선이 없으면 \"켜져 있던 스위치를 그대로 되돌리는 것\"과 \"새로 켜는 것\"을 구분할 방법이 없다. Commit 3d19382 touched only invariant-guard.sh and hook-wiring-parity.bats. The canonical invariants document and the guard now assert contradictory things about the same fact, and the document carries the claim the commit itself refuted.",
+      "measured": "I built the refuting heuristic twice (mutations M3 and M4). Both are real, working discriminators, so '방법이 없다' is false by the project's own adjudicated standard.",
+      "why_it_matters": "This is the fourth repetition of the pattern the round-1 rejection and J-1/J-2/J-3 all named: a correction that leaves the same unmeasured claim standing somewhere else. Here it is left standing in the more authoritative artifact — the one SC-4 names by hand and the one future changes reason from.",
+      "fix": "One sentence in docs/INVARIANTS.md:472, matched to the guard comment's wording."
+    },
+    {
+      "id": "I-2",
+      "severity": "medium",
+      "confidence": "high",
+      "tag": "security/SC-4",
+      "title": "INV-13's statement of its only exemption is now false in the no-baseline branch",
+      "detail": "INV-13 states: 면제되는 것은 애초에 훅을 배선하지 않는 settings 파일(예: enabledPlugins만 담은 것)뿐이다 — OLD 집합이 공집합이라 통과한다. Measured: a settings.json that never wired any hook is exempt while parseable (exit 0) but is DENIED once the disk copy is unparseable with no HEAD baseline (exit 2), because the exemption is computed from OLD_R and the none branch never reaches it. Pre-F76 the same input was exit 0.",
+      "measured": "parseable + del(.hooks) + enable disableAllHooks -> exit 0; unparseable + del(.hooks) + same edit -> exit 2; pre-F76 guard on the same unparseable input -> exit 0.",
+      "why_it_matters": "This is a SECOND accepted cost of the no-baseline branch and it is documented nowhere — neither in the code comment (which names only the restore-an-enabled-switch cost) nor in INV-13. The direction is fail-closed, so it is over-blocking rather than a hole, but the round-2 theme of this feature is precisely 'state the cost accurately'.",
+      "fix": "Add the second cost to the same paragraph that states the first, and scope the exemption sentence to the parseable branch."
+    },
+    {
+      "id": "I-3",
+      "severity": "medium",
+      "confidence": "high",
+      "tag": "security/residual-fail-open",
+      "title": "The hooks.json branch's guard_registered() axis still reads raw disk, not the baseline — the same class F76 claims to have closed",
+      "detail": "invariant-guard.sh:967 still calls guard_registered \"$(cat \"$FILE\")\". On an unparseable disk that call silently evaluates false and the INV-7 self-protection check disappears — exactly the 'parse failure turns a check off' shape F76 exists to close. Its siblings in the same branch (OLD_R / MISSING) were made baseline-aware; this one was not.",
+      "measured": "hooks.json registering invariant-guard.sh OUTSIDE the .hooks structure (so wired_rows misses it and only guard_registered defends it): disk parseable, removal -> exit 2; disk unparseable WITH a valid HEAD baseline, same removal -> exit 0. Pre-F76 also exit 0, so this is pre-existing, not a regression.",
+      "why_it_matters": "Narrow exposure (needs a registration outside .hooks, which is unusual), and out of the contract's literal scope. But it is a measured counter-example to the commit's and INV-13's framing that the class — not just the instance — was closed across both wiring files.",
+      "fix": "Feed $__baseline to guard_registered instead of cat \"$FILE\", or record the axis as a known residual in INV-13."
+    },
+    {
+      "id": "I-4",
+      "severity": "medium",
+      "confidence": "high",
+      "tag": "claims/commit-message",
+      "title": "The round-2 commit message credits itself with a test change it did not make, and overstates an assertion",
+      "detail": "The message says: 'AC-6 named three kill switches; the cases now iterate all three in both branches and assert the deny reason names the switch that fired.' Measured against the diff: 3d19382 changed only the f76_guard orig_jq plumbing and the one cost-test call site. The three-switch iteration was already present in the parent 3f48f6c (added by round-1 follow-up 261758d). Furthermore the deny-reason assertion exists ONLY in the head-baseline test; the no-baseline test asserts exit status alone — so 'in both branches' is false.",
+      "why_it_matters": "Same class as I-1: a new unmeasured claim made inside the commit whose purpose is to retract unmeasured claims. No behavioural impact — mutation M5 confirms the no-baseline test does catch switch-list narrowing even without the message assertion.",
+      "fix": "Correct the commit message in any follow-up, or add the deny-reason assertion to the no-baseline case so the sentence becomes true."
+    },
+    {
+      "id": "I-5",
+      "severity": "medium",
+      "confidence": "high",
+      "tag": "test/fragility",
+      "title": "The F76 head-baseline fixture silently degrades to the no-baseline branch when CLAUDE_PROJECT_DIR is exported",
+      "detail": "__head_content_for prefers CLAUDE_PROJECT_DIR over git rev-parse. f76_guard builds its fixture repo in mktemp -d, outside any CLAUDE_PROJECT_DIR. Measured: with CLAUDE_PROJECT_DIR unset, AC-1's wiring removal -> exit 2; with CLAUDE_PROJECT_DIR set to the repo root, the identical input -> exit 0, because the file no longer resolves under the derived root and baseline_kind falls back to none.",
+      "why_it_matters": "The suite's result depends on an ambient environment variable that IS set in a normal Claude Code session (it is set in this session's MCP sandbox, unset in the Bash tool shell — which is why my run of bats went green). It fails loudly rather than silently, so it is a false-failure risk, not a false pass. It also means INV-13's branch table overstates the head-baseline branch's reach: it applies only to wiring files that resolve under the derived root, not to every file present in HEAD.",
+      "fix": "Have f76_guard export CLAUDE_PROJECT_DIR=\"$d\" (or unset it) so the branch under test is pinned rather than inherited."
+    },
+    {
+      "id": "I-6",
+      "severity": "low",
+      "confidence": "medium",
+      "tag": "pre-existing/observability",
+      "title": "The delete-then-recreate defense is skipped WITHOUT any warning when the edited file lies outside CLAUDE_PROJECT_DIR",
+      "detail": "The 'root 해석 실패' warning fires only when __root is empty. When CLAUDE_PROJECT_DIR is set but the target file is not under it, __head_content_for returns early with __head_root empty and __head_root_failed=0 — the defense does not apply and nothing is printed. Measured identically on pre-F76 and HEAD guards (both exit 0), so this is pre-existing and NOT an F76 regression.",
+      "why_it_matters": "Same 'silent no-op' family F76 is about; worth a backlog line since the refactor put this logic in a shared function where the fix would now be one place instead of two."
+    },
+    {
+      "id": "I-7",
+      "severity": "low",
+      "confidence": "high",
+      "tag": "positive-finding",
+      "title": "The J-2/J-3 corrections and the M3 spoofability claim are all TRUE and now measured",
+      "detail": "Recorded as an issue entry only for completeness of the ledger. Every corrected claim in this commit that I could measure held up — see verified_claims."
+    }
+  ],
+  "verified_claims": [
+    {
+      "claim": "'F76 이전(e830dd0)에는 통과하던 경로다' (guard comment, J-2 correction)",
+      "measured": "TRUE. Restore-of-an-enabled-switch on an unparseable disk with no baseline: e830dd0 -> exit 0.",
+      "method": "ran the identical payload against six guard blobs across the F76 chain"
+    },
+    {
+      "claim": "'부모 커밋이라고 쓰면 거짓이다: 직전 커밋은 이미 이 동작을 담고 있어 실측 exit 2 다' (J-2 correction)",
+      "measured": "TRUE. ba9dc19 / 9b24bee / 261758d / 3f48f6c / 3d19382 all -> exit 2 on that input. Both comment-bearing commits (261758d, 3d19382) have parents (9b24bee, 3f48f6c) that already deny."
+    },
+    {
+      "claim": "'휴리스틱은 만들 수 있으나 텍스트 조작에 그대로 속는다 — 방법이 없다가 아니라 신뢰할 수 없다' (J-3 correction)",
+      "measured": "TRUE, both halves. A heuristic exists (I wrote two, M3 and M4, both make the cost test fail while the other seven stay green). It is spoofable: with M3 injected, a settings.json whose top-level switch is OFF but whose raw text carries a NESTED \"disableAllHooks\": true lets an attacker turn the real top-level switch ON -> exit 0, where the shipped guard denies -> exit 2."
+    },
+    {
+      "claim": "implementer: 'exactly one test fails — the cost test — and the other seven stay green' under the visible-in-broken-text heuristic",
+      "measured": "TRUE, reproduced independently (mutation M3), and reproduced again with a DIFFERENT heuristic of my own (M4: switch name appears anywhere in the raw bytes) — same single failure."
+    },
+    {
+      "claim": "implementer: bats 793/793, exit 0",
+      "measured": "TRUE. bats tests/ run with no pipe: '1..793', 793 ok, 0 not ok, BATS_EXIT=0."
+    },
+    {
+      "claim": "INV-13: '.claude/는 gitignore 대상이라 .claude/settings.json에는 HEAD 기준선이 아예 없다(루트 settings.json은 있다)'",
+      "measured": "TRUE. .gitignore:9 ignores .claude/; git ls-tree HEAD has settings.json and hooks/hooks.json, not .claude/settings.json."
+    }
+  ],
+  "mutation_matrix": {
+    "_note": "My own seven mutations, injected into a git-archive mirror of HEAD (the repo working tree was never modified — verified clean before and after). Each injection was verified to have actually applied (md5 + bash -n) before its result was read; two early perl attempts silently no-opped and were discarded rather than reported, which is the same verification failure the commit message describes.",
+    "M3 visible-in-broken-text heuristic": "cost test only",
+    "M4 switch-name-appears-anywhere heuristic (mine, different from the implementer's)": "cost test only",
+    "M5 no-baseline branch narrowed to disableAllHooks": "no-baseline 3-switch test only",
+    "M6 drop the 'could not check wiring preservation' warning": "warning test only",
+    "M7 drop the HEAD fallback in __wiring_baseline_for": "AC-1 head-baseline test + hooks.json test",
+    "M8 lenient re-parse (strip // lines and trailing commas) to recover a baseline": "cost test + warning test",
+    "M10 revert only the hooks.json branch to raw-disk baseline": "hooks.json test only",
+    "conclusion": "Every mutation is caught, each by the test that should catch it. The accepted-cost test is killed by three distinct mutations and by nothing else — it is both sensitive and specific. J-1's defect is genuinely fixed."
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "No criterion covers the guard_registered() axis of the hooks.json branch (I-3), so 'the class is closed' was never actually pinned for that axis.",
+      "No criterion pins the environment the head-baseline branch is exercised in (I-5); the branch under test is inherited from the ambient CLAUDE_PROJECT_DIR rather than fixed by the fixture."
+    ],
+    "ambiguous_criteria": [
+      "SC-4 says '이 수정으로 참이 되거나 거짓이 되는 문장을 역방향으로 점검' but names only the F75 '(2) 단순화' paragraph as the concrete target. The named item WAS handled; the unnamed ones (I-1, I-2) were not. A criterion that names one instance invites closing that instance — the same instance-vs-class failure INV-13 documents. Future contracts should require enumerating every INV-N sentence touched, not just the flagged one."
+    ],
+    "security_criteria_insufficient": [],
+    "action_required": "Fold I-1 and I-2 into docs/INVARIANTS.md and decide on I-3 (fix or record as residual) before F76 is closed. I-4/I-5 are cheap and can ride along."
+  },
+  "evidence": {
+    "tests": "bats tests/ — run without a pipe from a clean tree at 3d19382. Output: '1..793', 793 ok, 0 not ok, BATS_EXIT=0 (captured via redirect so the exit code is bats's own).",
+    "branch_matrix": "27 scenarios across all four baseline branches (disk / head / none / unwired) plus error scenarios, on my own minimal settings.json broken with a trailing comma; 27/27 matched the expected exit code. Same matrix replayed against the pre-F76 guard (e830dd0) to confirm the gap existed: unparseable-disk wiring removal and kill-switch enable were exit 0 there, exit 2 now; reproduced on hooks.json as well (H4 exit 0 -> H2 exit 2).",
+    "blast_radius": "Function-level extraction and byte comparison of wired_rows, matcher_covers, is_protected, is_wiring_file, deny, canon_file between e830dd0 and 3d19382 — all SAME. HOOK_KILL_SWITCHES identical. has_jq/has_awk gate identical. Full non-comment diff of the guard shows only the __wiring_baseline_for / __head_content_for extraction and the two branch rewrites.",
+    "f68_f72_regression": "Isolated lab, 5 delete-then-recreate bypass attempts (settings.json unwired / settings.json + kill switch / settings.json identical / hooks/hooks.json unwired / harness-config.json lowered threshold). HEAD and pre-F76 guards produce identical verdicts on all five (2/2/0/2/2). Defense intact.",
+    "mutation": "7 mutations against a git-archive mirror; injection application verified by md5 + bash -n before reading any result. See mutation_matrix.",
+    "claim_audit": "git show / git diff against 3f48f6c and e830dd0 to check what the commit actually changed versus what its message claims; grep of docs/INVARIANTS.md for the retracted universal negative.",
+    "repo_state": "git status --porcelain empty before and after all work; HEAD 3d19382 throughout. All mutation and fixture work was done in scratchpad copies and mktemp dirs outside the repository."
+  },
+  "passes_action": "NOT CHANGED. feature_list.json F76.passes remains true (set by 3f48f6c). This judge returns fail; per F37 the disagreement goes to a human rather than being auto-resolved in either direction.",
+  "recommendation": "Escalate to the user. The behavioural work is sound and independently confirmed — if the user rules SC-4 substantially met, pass follows from the evidence above. If SC-4 is held to its text, the fix is small: two sentences in docs/INVARIANTS.md (I-1, I-2), optionally I-3."
+}
