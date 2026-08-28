@@ -218,6 +218,12 @@
       "contract": "progress/contracts/sprint-62.json",
       "security_tier": "critical",
       "summary": "[2026-08-25, F75 security-auditor 발견 + 독립 재현으로 범위 확대] hooks/invariant-guard.sh의 INV-13 런타임 집행 전체가 `OLD_R` 비어 있지 않음을 전제로 돌지만, 그 게이트는 '배선 없음'과 '파싱 실패'를 구분하지 않는다. 디스크의 settings.json이 jq로 읽히지 않으면(주석·후행 쉼표·깨진 JSON) 킬스위치 검사와 배선 보존 검사가 **둘 다** 조용히 건너뛰어진다 — 격리 랩 실측: 정상 OLD에서 exit 2로 차단되던 'invariant-guard 배선 제거'와 '킬스위치 3종 켜기'가 파싱 불가 OLD에서 전부 exit 0. 부모 커밋에서도 동일 재현되므로 F75가 만든 것이 아니라 선재 갭이며, F75 감사는 킬스위치 축만 보고했고 배선 보존 축까지 걸린다는 사실은 이 change-request의 독립 재현에서 확인했다. 적대적 시나리오 없이도 발생한다 — 손편집으로 후행 쉼표 하나가 남으면 그 시점부터 게이트가 꺼지고, 훅은 계속 exit 0을 돌려주므로 '검사했고 문제없음'과 겉보기가 같다. F41이 닫은 fail-open(도구 부재)과 같은 계열이며 이번엔 '입력을 읽지 못하면'이다. 권고 수정: HEAD의 settings.json을 기준선으로 폴백(F68/F72의 HEAD 실체화 재사용), 기준선을 얻지 못하면 deny."
+    },
+    {
+      "feature_id": "F77",
+      "contract": "progress/contracts/sprint-63.json",
+      "security_tier": "critical",
+      "summary": "[2026-08-28, F76 F37 2차 판정 발견 + 독립 재현] hooks/invariant-guard.sh의 root 유도 두 지점(`__head_content_for`·`record_guarded_edit`)이 `CLAUDE_PROJECT_DIR`를 무조건 신뢰해 `$FILE`이 실제로 그 안에 있는지 확인하지 않는다. 격리 랩 실측: `CLAUDE_PROJECT_DIR`를 `$FILE`이 속하지 않은 다른 저장소로 export하면 (1) `__head_content_for` 축은 HEAD 기준선을 잃고 F76의 무기준선 갈래로 조용히 떨어져 배선 제거가 exit 2 → exit 0, (2) `record_guarded_edit` 축은 root 해석 자체는 '성공'하지만 `$FILE`이 그 root 밖이라 경고 없이 티켓 발급이 스킵된다 — 정당한 편집이 다음 Bash 호출에서 protected-integrity에 의해 '미승인'으로 되돌려진다(F72가 막으려던 것과 같은 결과, 다른 경로). 실사용 경로: 이 하네스가 권장하는 `isolation:\"worktree\"` 서브에이전트가 원 저장소의 `CLAUDE_PROJECT_DIR`를 물려받은 채 워크트리 파일을 편집하는 경우. 권고 수정: F72의 원칙('root는 $FILE 위치에서 유도한다')을 CLAUDE_PROJECT_DIR에도 대칭 적용 — $FILE의 물리 경로를 먼저 구하고, CLAUDE_PROJECT_DIR가 그것을 포함할 때만 root로 채택, 아니면 $FILE 위치에서 git으로 직접 유도. 두 지점이 공유 헬퍼를 쓰게 해 강도 비대칭을 만들지 않는다."
     }
   ]
 }

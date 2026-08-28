@@ -1,0 +1,129 @@
+{
+  "sprint": 63,
+  "feature_id": "F77",
+  "title": "CLAUDE_PROJECT_DIR이 $FILE 실제 위치와 다르면 root 유도가 조용히 어긋나는 결함 수정",
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "agreed": true,
+  "_agreed_note": "[2026-08-28] Plan 게이트(ExitPlanMode) 승인. AX-1은 B안(CLAUDE_PROJECT_DIR가 $FILE 물리 경로를 포함할 때만 채택, 아니면 $FILE 위치에서 직접 유도) 그대로 승인됐다. 승인 범위는 root 유도 공유 헬퍼 추출 + 두 호출부 교체 + hermetic 테스트 보강(AC-7) + INV-13 역방향 점검(SC-4)으로 한정된다.",
+  "dependencies": ["F68", "F72", "F76"],
+  "problem": "hooks/invariant-guard.sh가 root를 유도하는 두 지점 — `__head_content_for`(F76이 만든 HEAD 기준선 폴백, F68/F72의 삭제-후-재생성 방어와 공유) 과 `record_guarded_edit`(F65 무결성 티켓 발급) — 모두 다음 패턴을 쓴다:\n\n    __root=\"${CLAUDE_PROJECT_DIR:-$(git -C \"$__anc\" rev-parse --show-toplevel 2>/dev/null || echo \"\")}\"\n\nCLAUDE_PROJECT_DIR가 설정되어 있으면 **무조건** 그것을 root로 채택하고, $FILE이 실제로 그 디렉터리 트리 안에 있는지 검증하지 않는다. F72가 이 두 함수에 심어 둔 원칙은 '실제 질문은 이 프로세스가 어디서 도는가가 아니라 편집 대상이 어느 저장소에 속하는가다'였는데, CLAUDE_PROJECT_DIR 우선순위가 정확히 그 질문을 건너뛴다 — CLAUDE_PROJECT_DIR는 '이 세션이 시작된 저장소'를 말해줄 뿐 '$FILE이 속한 저장소'를 보장하지 않는다.\n\n격리 랩 독립 재현(저장소 밖 mktemp git 저장소, CLAUDE_PROJECT_DIR를 그 밖의 다른 저장소로 export):\n\n1. **__head_content_for 축**: 파싱 불가한 배선 파일 + 정상 HEAD 커밋이 있는 케이스. CLAUDE_PROJECT_DIR 미설정 시 invariant-guard 배선 제거는 exit 2(F76이 보장하는 동작). CLAUDE_PROJECT_DIR를 다른 저장소로 export하면 같은 편집이 **exit 0** — __file_phys가 그 다른 root 하위가 아니라서 HEAD 조회가 조용히 스킵되고(:520 `[[ \"$__file_phys\" == \"$__root\"/* ]] || return 0`), F76이 방금 닫은 무기준선 갈래로 다시 떨어진다.\n\n2. **record_guarded_edit 축 (더 심각)**: CLAUDE_PROJECT_DIR 미설정 시 정상 편집은 `$root/progress/.guarded-edits`에 `<sha> <경로>` 티켓이 정확히 발급된다. CLAUDE_PROJECT_DIR를 progress/ 디렉터리를 가진 다른 저장소로 export하면 — root 해석 자체는 '성공'한다(`-d \"$root/progress\"` 검사를 통과하므로 경고도 안 뜬다) — 그런데 $FILE이 그 root 밖이라 :601의 `[[ \"$file_phys\" == \"$root\"/* ]] || return 0`에서 **완전한 침묵 속에** 티켓 발급이 스킵된다. 원장에도 stderr에도 아무 흔적이 없다.\n\n두 번째 축은 이 함수 자신의 주석이 적은 존재 이유와 정확히 같은 실패 모드를 다른 경로로 재현한다 — 'protected-integrity.sh가 정당한 편집(예: evaluator의 passes 전환)을 미승인으로 보고 되돌렸다'(F72가 처음 막은 것). 이번엔 root를 못 찾아서가 아니라 **잘못된(하지만 유효해 보이는) root를 찾아서** 같은 결과가 난다.\n\n실사용 경로: 이 저장소의 CLAUDE.md·`skills/implement/SKILL.md`가 권장하는 `isolation:\"worktree\"` 서브에이전트 디스패치. 서브에이전트 프로세스가 원 저장소의 CLAUDE_PROJECT_DIR를 물려받은 채 워크트리 안의 파일을 편집하면 이 경로를 탄다 — 가상의 공격 시나리오가 아니라 이 하네스가 스스로 쓰는 병렬 구현 패턴이다. 실제로 F76의 F37 2차 판정이 bats 테스트 실행 중(CLAUDE_PROJECT_DIR를 명시적으로 unset하지 않고 $GUARD를 서브프로세스로 호출) AC-1이 뒤집히는 것을 우연히 발견했다.",
+  "why_this_class_matters": "F65~F76에 걸쳐 이 저장소가 반복해서 닫아 온 것과 같은 계열이다 — '검사하지 않았다'와 '검사했고 문제없다'가 구분되지 않는 조용한 no-op. F41은 도구 부재, F76은 파싱 실패가 그 형태였다. 이번엔 '신뢰해야 할 입력(CLAUDE_PROJECT_DIR)이 검증 없이 root를 결정한다'는 형태이며, 두 지점 중 하나(record_guarded_edit)는 예측(invariant-guard)과 탐지(protected-integrity) 사이의 이음매 자체를 건드린다 — 티켓이 발급되지 않으면 사후 탐지가 정당한 편집을 되돌린다.",
+  "open_axes": [
+    {
+      "id": "AX-1",
+      "question": "CLAUDE_PROJECT_DIR와 $FILE 위치가 다를 때 무엇을 신뢰할 것인가.",
+      "options": {
+        "A": "$FILE 위치에서 유도한 root를 항상 우선(CLAUDE_PROJECT_DIR 완전 무시). 가장 단순하고 F72 원칙과 정확히 일치하지만, CLAUDE_PROJECT_DIR가 존재하는 이유(신뢰할 수 있는 호스트 제공 값)를 버린다.",
+        "B": "CLAUDE_PROJECT_DIR가 $FILE의 물리 경로를 포함할 때만 채택하고, 아니면 $FILE 위치에서 git으로 직접 유도한다. F72의 원칙을 CLAUDE_PROJECT_DIR에도 대칭 적용 — '이 값이 실제로 이 파일의 저장소를 가리키는가'를 검증한 뒤에만 신뢰한다.",
+        "C": "CLAUDE_PROJECT_DIR를 절대 우선(현행 유지) + record_guarded_edit에 불일치 시 경고만 추가. 근본 원인을 안 고치고 관측만 추가하는 것이라 F76이 이미 배제한 '조용한 통과'를 '시끄러운 통과'로 바꿀 뿐 실제 티켓 미발급은 그대로 남는다."
+      },
+      "recommendation": "B. 근거: (1) F72의 원칙과 완전히 대칭이라 새 개념을 들이지 않는다. (2) CLAUDE_PROJECT_DIR가 정말 맞는 값일 때(대다수의 정상 세션)는 그대로 쓰이므로 A처럼 그 값의 존재 이유를 버리지 않는다. (3) C는 record_guarded_edit의 실제 결함(티켓 미발급)을 고치지 못하고 로그만 남긴다 — INV-14가 '탐지로 지킨다'고 할 때의 탐지가 여기서는 성립하지 않는다(티켓 자체가 컨트롤 플레인이라 사후 복구가 없다는 F65 자신의 설계 문서 참조)."
+    }
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "`__head_content_for`: CLAUDE_PROJECT_DIR가 $FILE이 속하지 않은 다른 저장소를 가리켜도, $FILE 자신의 위치에서 유도한 root로 HEAD 기준선을 정상적으로 얻는다 — 파싱 불가 + HEAD 정상 케이스에서 배선 제거가 exit 2를 유지한다(현재 exit 0으로 회귀하는 것을 되돌린다).",
+      "verification": "격리 랩에서 CLAUDE_PROJECT_DIR를 다른 저장소로 export한 상태로 실측. 수정 전 exit 0 → 수정 후 exit 2."
+    },
+    {
+      "id": "AC-2",
+      "criterion": "`record_guarded_edit`: 같은 조건에서 보호 파일 편집이 $FILE이 속한(CLAUDE_PROJECT_DIR가 아닌) 저장소의 `progress/.guarded-edits`에 정확히 티켓을 발급한다.",
+      "verification": "격리 랩 실측 — 티켓 파일에 올바른 sha+경로가 기록되는지, 그리고 **다른** 저장소(CLAUDE_PROJECT_DIR가 가리키던 곳)의 원장에는 아무 항목도 추가되지 않는지 둘 다 확인."
+    },
+    {
+      "id": "AC-3",
+      "criterion": "CLAUDE_PROJECT_DIR가 $FILE을 올바르게 포함하는 정상 케이스(대다수)는 회귀 없이 그대로 동작한다 — 이 값을 신뢰하는 기존 경로가 느려지거나 바뀌지 않는다.",
+      "verification": "정상 세션 픽스처(CLAUDE_PROJECT_DIR == 실제 저장소)로 두 함수 모두 실측."
+    },
+    {
+      "id": "AC-4",
+      "criterion": "CLAUDE_PROJECT_DIR 미설정 상태의 기존 동작(F68/F72/F76이 확립한 것)이 전혀 바뀌지 않는다.",
+      "verification": "CLAUDE_PROJECT_DIR unset 상태로 F68/F72/F76 관련 기존 bats 전부 재실행."
+    },
+    {
+      "id": "AC-5",
+      "criterion": "두 지점이 **같은 헬퍼**를 통해 root를 결정한다 — 강도가 다른 두 개의 별도 구현을 만들지 않는다.",
+      "verification": "코드 리뷰 + diff 확인. 헬퍼 함수 하나가 양쪽에서 호출되는지 확인."
+    },
+    {
+      "id": "AC-6",
+      "criterion": "bats tests/ 전체가 파이프 없이 실행해 실패 0건이다.",
+      "verification": "실제 종료 코드와 집계를 evidence로 기록."
+    },
+    {
+      "id": "AC-7",
+      "criterion": "이 change-request가 발견한 hermeticity 문제(bats가 CLAUDE_PROJECT_DIR를 명시적으로 unset하지 않아 호스트 세션 값이 새어 들어감) 자체도 닫는다 — 관련 bats 픽스처 헬퍼가 하위 프로세스 호출 시 CLAUDE_PROJECT_DIR를 명시적으로 제어(unset 또는 픽스처 경로로 설정)한다.",
+      "verification": "테스트 헬퍼 코드 확인 + CLAUDE_PROJECT_DIR를 이 저장소로 export한 채 전체 스위트를 실행해도 결과가 동일한지 실측(그래야 앞으로 같은 방식으로 새어 들어와도 스위트가 이를 스스로 감지)."
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "이 수정이 F68/F72/F76이 확립한 어떤 축도 축소하지 않는다 — 삭제-후-재생성 방어, INV-13 네 갈래 판정, 킬스위치 축, 배선 축 전부 회귀 없음.",
+      "rationale": "critical 자기보호 파일의 근본 함수(__head_content_for)를 건드리므로 blast radius가 넓다. 이 저장소가 반복해 겪은 대로, 한 축을 고치며 다른 축을 여는 것이 가장 흔한 실패 모드다.",
+      "verification": "F68/F72/F76 관련 bats 전수 + 코퍼스 차분(부모 커밋 대비 완화 0건)."
+    },
+    {
+      "id": "SC-2",
+      "criterion": "새 헬퍼가 CLAUDE_PROJECT_DIR·git 둘 다 실패하는 경우(진짜 비git 환경)를 fail-closed로 처리하고 그 사실을 관측 가능하게 남긴다 — 조용한 통과를 만들지 않는다.",
+      "rationale": "F71 회고·F76이 반복해 강조한 원칙 — root 해석 실패는 항상 stderr 경고를 남기고, 판정은 보수적 방향(deny 또는 티켓 미발급 + 경고)이어야 한다.",
+      "verification": "CLAUDE_PROJECT_DIR unset + $FILE이 어떤 git 저장소에도 속하지 않는 픽스처로 실측, 경고 출력 확인."
+    },
+    {
+      "id": "SC-3",
+      "criterion": "record_guarded_edit 수정이 F65의 원래 방어(저장소 밖 경로에 티켓을 만들지 않음 — 테스트가 실 저장소 원장을 오염시키던 문제)를 되살리지 않는다.",
+      "rationale": "AC-2를 고치는 방향(CLAUDE_PROJECT_DIR 무시하고 $FILE 위치 우선)이 지나치면, $FILE이 진짜 저장소 밖 임시 디렉터리에 있을 때도 그 디렉터리를 '진짜 저장소'로 오인해 티켓을 만들 위험이 있다. $FILE이 어떤 git 저장소에도 속하지 않으면 여전히 티켓을 만들지 않아야 한다.",
+      "verification": "F75 감사가 쓴 것과 같은 저장소 밖 mktemp(git init 없는) 픽스처로 실측 — 원장에 새 항목이 생기지 않아야 한다."
+    },
+    {
+      "id": "SC-4",
+      "criterion": "이 수정으로 docs/INVARIANTS.md의 기존 서술 중 참이 되거나 거짓이 되는 문장을 역방향으로 점검해 함께 갱신한다. 특히 F72·F76 항목의 'CLAUDE_PROJECT_DIR' 언급이 이 수정 이후에도 정확한지 확인한다.",
+      "rationale": "F74~F76에 걸쳐 반복된 criteria gap — 신규 사실만 적고 기존 진술을 점검하지 않으면 문서가 코드보다 강해지거나 약해진다. 이 기능 자체가 그 패턴의 최신 사례(F76)이므로 반복하지 않는다.",
+      "verification": "INV-13 전문 중 CLAUDE_PROJECT_DIR 언급 부분을 읽고 실측과 대조."
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "scenario": "CLAUDE_PROJECT_DIR가 존재하지 않는 경로를 가리킴",
+      "expected": "그 값을 신뢰하지 않고 $FILE 위치에서 유도(AX-1 B 경로)로 폴백. 조용히 실패하지 않는다."
+    },
+    {
+      "id": "ES-2",
+      "scenario": "CLAUDE_PROJECT_DIR가 git 저장소가 아닌 일반 디렉터리를 가리킴",
+      "expected": "같은 폴백. $FILE 위치의 git 저장소를 우선한다."
+    },
+    {
+      "id": "ES-3",
+      "scenario": "$FILE이 심볼릭 링크로 CLAUDE_PROJECT_DIR 안팎을 넘나드는 경우",
+      "expected": "F72의 물리 경로 정규화(__physicalize_under, pwd -P)를 그대로 재사용해 심볼릭 링크 불일치를 피한다."
+    },
+    {
+      "id": "ES-4",
+      "scenario": "정상 세션(CLAUDE_PROJECT_DIR == 실제 저장소)에서 jq/awk가 없는 경우",
+      "expected": "기존 has_jq/has_awk fail-closed 게이트가 우선 적용되며 이 수정과 상호작용하지 않는다."
+    }
+  ],
+  "implementation_steps": [
+    {
+      "id": "S-1",
+      "step": "root 유도 로직을 공유 헬퍼로 추출한다 — $FILE의 물리 경로를 먼저 구하고, CLAUDE_PROJECT_DIR(물리 경로화)가 그것을 포함할 때만 채택, 아니면 $__anc에서 git rev-parse로 직접 유도. __head_content_for와 record_guarded_edit 둘 다 이 헬퍼를 쓰도록 교체한다."
+    },
+    {
+      "id": "S-2",
+      "step": "tests/*.bats에 hermetic 보증을 추가한다 — CLAUDE_PROJECT_DIR를 픽스처 안에서 명시적으로 제어(unset 또는 픽스처 경로 지정)하고, 그 상태에서 새 회귀 테스트(AC-1, AC-2)를 작성한다."
+    },
+    {
+      "id": "S-3",
+      "step": "docs/INVARIANTS.md의 관련 서술(F72·F76 항목의 CLAUDE_PROJECT_DIR 언급)을 역방향 점검하고 필요시 갱신한다."
+    },
+    {
+      "id": "S-4",
+      "step": "bats tests/를 파이프 없이 전체 실행해 실제 종료 코드와 집계를 evidence로 기록한다."
+    }
+  ],
+  "_parallelizable": false,
+  "_parallelizable_reason": "S-1이 두 호출부와 헬퍼 설계를 동시에 확정해야 하고, S-2~S-3이 S-1의 최종 형태에 의존한다. 직렬."
+}

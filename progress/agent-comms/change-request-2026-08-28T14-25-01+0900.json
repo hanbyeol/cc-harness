@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-08-28T14:25:01+09:00",
+  "type": "modify",
+  "description": "CLAUDE_PROJECT_DIR이 $FILE 실제 위치와 다르면 hooks/invariant-guard.sh의 root 유도가 조용히 어긋나는 결함 수정 — 두 지점(__head_content_for, record_guarded_edit) 모두",
+  "trigger": "F76의 F37 2차 독립 판정이 AC-1 실측 중 우연히 발견(CLAUDE_PROJECT_DIR가 export된 상태에서 핵심 단언이 뒤집힘). 메인 루프가 두 지점 모두 독립 재현했고, record_guarded_edit 축이 더 심각함을 추가로 확인했다(경고 없는 티켓 미발급).",
+  "independent_reproduction": {
+    "lab": "저장소 밖 mktemp git 저장소, CLAUDE_PROJECT_DIR를 그 밖의 다른 저장소로 export",
+    "site_1_head_content_for": "CLAUDE_PROJECT_DIR 미설정: 배선 제거 exit 2. CLAUDE_PROJECT_DIR=다른 저장소: 같은 편집 exit 0.",
+    "site_2_record_guarded_edit": "CLAUDE_PROJECT_DIR 미설정: 정상 편집 → 티켓 정확히 발급. CLAUDE_PROJECT_DIR=다른(progress/ 있는) 저장소: root 해석 '성공'(경고 없음)이지만 $FILE이 root 밖이라 티켓 발급이 침묵 속에 스킵됨 — 원장에도 stderr에도 흔적 없음."
+  },
+  "affected_features": [
+    "F77"
+  ],
+  "related_features": [
+    "F65",
+    "F68",
+    "F72",
+    "F76"
+  ],
+  "tier_classification": {
+    "hotfix_eligible": false,
+    "reason": "security_tier critical의 안전장치 자기보호 핵심 함수(root 유도) 변경이므로 hotfix 전환 불가(F48 규칙)."
+  },
+  "impact": {
+    "spec_updated": false,
+    "spec_note": "이 저장소에는 docs/SPEC.md가 없다. 규범 문서는 docs/INVARIANTS.md이며 해당 갱신(F72·F76 항목 역방향 점검)은 계약의 SC-4·S-3으로 편입했다.",
+    "architecture_updated": false,
+    "architecture_note": "새 컴포넌트 없음. 기존 두 지점의 root 유도 로직을 공유 헬퍼로 추출하는 리팩터 + 그 헬퍼의 CLAUDE_PROJECT_DIR 검증 로직 추가.",
+    "acceptance_criteria_updated": true,
+    "security_checklist_updated": false,
+    "phase_rollback": false,
+    "feature_list_updated": true
+  },
+  "new_sprint_contract": "progress/contracts/sprint-63.json",
+  "rollback_to_phase": null,
+  "open_axes": [
+    "AX-1: CLAUDE_PROJECT_DIR와 $FILE 위치가 다를 때 무엇을 신뢰할 것인가 — (A) $FILE 위치 항상 우선, (B) CLAUDE_PROJECT_DIR가 $FILE을 실제로 포함할 때만 채택(권고), (C) 현행 유지+경고만 추가(비권고, 근본 원인 미해결). Plan 게이트에서 결정."
+  ],
+  "excluded_options": [
+    "옵션 C(CLAUDE_PROJECT_DIR 절대 우선 + 경고만 추가) — record_guarded_edit의 실제 결함(티켓 미발급)을 고치지 못하고 로그만 남긴다. 티켓은 컨트롤 플레인이라 사후 복구가 없다(F65 설계 문서)."
+  ],
+  "sequencing_note": "F76 릴리스(v1.39.11) 이후 발견. F76 자체는 이미 확정·릴리스됐고 이 결함은 F76이 만든 것이 아니라 F72부터 있던 root 유도 로직의 선재 결함이며 F76의 새 호출부(__head_content_for)가 그 결함을 물려받았다.",
+  "verification_tier": "critical",
+  "verification_note": "critical이므로 독립 evaluator + security-auditor, 그리고 F37 critical 2차 독립 판정이 필요하다."
+}
