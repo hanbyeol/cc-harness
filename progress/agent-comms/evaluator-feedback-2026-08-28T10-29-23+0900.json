@@ -1,0 +1,91 @@
+{
+  "timestamp": "2026-08-28T10:29:23+09:00",
+  "sprint": 62,
+  "iteration": 8,
+  "commit": "a4357da",
+  "features_evaluated": [
+    "F76"
+  ],
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 7,
+    "security": 8,
+    "error_handling": 9,
+    "test_coverage": 7
+  },
+  "score": 7,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "pass",
+  "fail_reasons": [],
+  "summary": "8회차 pass. 가드 코드는 dea7ee0과 바이트 동일(`git diff dea7ee0..a4357da -- hooks/` 0바이트)이고, 7차가 반려한 두 문장은 실제로 참이 되었다 — 450행 '둘째 줄'은 표 이력 대조로, 492행 정정은 538행 원문 및 실측 exit 2로 각각 독립 확인했다. 신규 기계화 테스트는 tautology가 아니다: 7종 뮤테이션을 직접 만들어 돌린 결과 표 행 스왑(2↔3)·표 헤더 파손·ba9dc19 가드·계측 sed no-op 네 경우 모두 테스트가 죽는다(파싱 실패는 빈 문자열 vs 하드코딩 기대값이라 fail-closed). SC-4는 INV-13 전문(365-592행)을 직접 읽어 상충 구절 없음을 확인해 충족했다 — 다만 **테스트가 SC-4를 대체하지는 못한다**(아래 criteria_gaps). 잔여 이슈는 전부 신규 주석·커밋 메시지의 사실 주장 정확도이며 집행 동작을 바꾸지 않는다.",
+  "issues": [
+    "[test][docs][medium-severity][high-confidence] tests/hook-wiring-parity.bats 신규 주석의 '(이번까지 실제 원인이었던 자리)' 는 거짓이다. 이 테스트의 로직을 각 반려 리비전의 **자기 문서 + 자기 가드** 조합에 그대로 돌린 결과: 7807135 PASS · d05d778 PASS · ecb5b21 PASS · dea7ee0 PASS, 오직 6ac0561만 FAIL(3행 표 vs 4갈래 코드). 즉 이 테스트는 5·6·7차 반려의 실제 결함을 **하나도 잡지 못한다** — 그 결함들은 산문 서수였고 표는 옳았다. 바로 앞 절의 면책('산문 속 모든 서수 참조를 검증하지는 못하지만')이 정확하므로 실질적 오도 위험은 제한적이지만, 괄호 문구는 측정되지 않은 채 커버리지를 과장한다.",
+    "[test][docs][medium-severity][medium-confidence] 같은 주석 첫 문장 '서수 참조가 코드 순서와 어긋나는 것이 이 기능의 반려 사유가 **일곱 번** 반복됐다' 도 거짓이다. 1~5차는 코드 결함이었고 서수/산문 축 반려는 6·7차 두 번이며, 그중에서도 '표의 행 순서가 코드 분기 순서와 어긋난' 사례는 7807135 이후 한 번도 없다. 이중 주격 구문을 느슨하게 읽어 '이 기능이 일곱 번 반려됐다'로 선해할 여지가 있어 확신도를 medium으로 둔다.",
+    "[test][low-severity][high-confidence] 판별력 사각 (1): 표 1행과 2행은 '기준선' 열 값이 **둘 다 '디스크 내용'** 이고 계측값도 **둘 다 ARM=disk** 라, 1↔2 행을 맞바꿔도 테스트가 초록으로 남는다(실측 M7). 4행 표에 대해 실제로는 3값 벡터(disk/head/none)만 고정한다.",
+    "[test][low-severity][high-confidence] 판별력 사각 (2): awk의 `if (n<=4)` 절단 때문에 표에 **5번째 행을 덧붙이면** 보이지 않는다(실측 M5 — 기준선 열에 '조작된값'을 넣은 5행 추가에도 통과). 중간 삽입은 잡히므로(M1) 재발 클래스의 주요 형태는 덮이지만, 갈래가 하나 늘어나는 미래 변경은 무커버다.",
+    "[docs][low-severity][medium-confidence] docs/INVARIANTS.md:450 의 신규 괄호가 '461행의 올바른 참조' 를 인용하는데, **이 커밋이 스스로 한 줄을 늘려** 그 참조는 462행으로 밀렸고 현재 461행은 빈 줄이다. 과거 시제로 dea7ee0 상태를 서술한 것이라 그 리비전에 대해서는 참이지만, 자기가 실린 파일에서는 어긋나는 포인터다. 산문에 행 번호를 하드코딩하는 것 자체가 이 기능이 최근 두 라운드 반려된 것과 같은 취약 클래스다.",
+    "[docs][low-severity][medium-confidence] INV-13:429-431 이 '단순화 하나를 정직하게 적어 둔다' 뒤에 '(1)' 만 두고 '(2)' 가 없다 — F76이 '두 가지'를 '하나'로 줄이며 남은 잔재로, 잘린 목록처럼 읽힌다. 내용상 거짓은 아니다.",
+    "[test][style][low-severity][high-confidence] 신규 테스트의 `local base d` 에서 `d` 는 선언만 되고 쓰이지 않는다.",
+    "[process][info][medium-confidence] 커밋 메시지의 'a human sweep has now missed something eight times' 역시 세지 않은 수치다(판정 7회, 그중 산문 결함 반려 2회). issues 1·2와 같은 계열로, INV-13:558-561 이 스스로 이름 붙인 실패 모드('정정하는 자리에서 새 미측정 주장을 만드는 것')에 해당한다."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1 파싱 불가 디스크(prepend 손상) + HEAD 기준선에서 invariant-guard 배선 제거 = exit 2 — 저장소 밖 mktemp git 픽스처로 직접 실측. 통제군: 정상 디스크 + 배선 제거 = exit 2, 정상 디스크 + 무변경 = exit 0",
+      "AC-1b F76이 실제로 닫은 델타를 직접 확인 — append-garbage 디스크 + 배선 제거가 3d19382에서 exit 0, a4357da에서 exit 2 (6ac0561의 '추출 가능한 배선' 갈래)",
+      "AC-2/3/4 킬스위치·면제·복구 경로는 bats #100~#113 전건 ok. 무기준선 갈래(4행)는 exit 0이면서 stderr 경고를 실제로 출력함을 직접 확인: '…파싱할 수 없고 HEAD 기준선도 없어 배선 보존 검사를 수행하지 못했습니다 — 이 편집은 킬스위치 검사만 거쳤습니다 (INV-13)'",
+      "AC-5 bats tests/ 파이프 없이 저장소 루트에서 실행 — 1..799, ok 799, not ok 0, skip 5(전부 case-insensitive FS·플러그인 캐시 부재 사유 명시), BATS_EXIT=0. 실행 후 git status --short 비어 있음",
+      "AC-6 회귀 테스트 존재 + 신규 테스트의 판별력을 **구현자 스크립트를 쓰지 않고** 자체 뮤테이션 7종으로 재현 — 표 2↔3 스왑 FAIL / 표 헤더 컬럼명 변경(파싱 붕괴) FAIL / ba9dc19 가드 FAIL(arms=disk,none,head,none — 구현자가 적은 시퀀스와 정확히 일치) / 계측 sed no-op FAIL(arms 전부 공백). 기대값이 하드코딩 non-empty 리터럴이라 **빈 파싱 결과와의 우연한 일치가 구조적으로 불가능**하다(부모가 지목한 tautology 가설 반증)"
+    ],
+    "security": [
+      "SC-1 어떤 축에서도 축소 없음 — `git diff dea7ee0..a4357da -- hooks/` 0바이트(가드 무변경, 주석 포함). @test 총수 798 → 799 (+1, 감소 0). 변경 파일은 docs/INVARIANTS.md · tests/hook-wiring-parity.bats · progress/* 뿐",
+      "SC-2 조용한 통과 없음 — 무기준선 갈래의 stderr 경고를 직접 실측(위 AC-4). bats #99 '조용한 통과가 아니라 명시적 skip이다' ok",
+      "SC-3 잔여 노출 정직성 — INV-13:505-509(BOM·nan·Infinity 클래스 미종결), 515-522(무기준선 비-deny 사유 + 남는 노출), 524-543(세 가지 대가), 545-556(HEAD 기준선 미검증 · 플러그인 캐시 미도달)이 모두 현존하고 실측 동작과 일치. affordance 과장 없음(exit 2를 승인 가능으로 적지 않음)",
+      "SC-4 INV-13 전문(365-592행)을 직접 통독 — 동작을 서술하는 구절 중 상충하는 것 없음. 7차가 지목한 두 건이 참이 되었음을 각각 독립 확인: (a) 450행 '둘째 줄' — 표 이력 대조로 261758d·3d19382·6ac0561 = 3행, 7807135부터 4행이며 삽입된 행이 `실패 | 가능 | — | 디스크 내용`(2행)임을 확인, 462행의 '두 번째 줄' 과 이제 일치. (b) 492행 — 오인용이 제거되고 방향이 538행 원문('배선 제거가 exit 2 다') 및 실측(append-garbage 디스크 + 배선 제거 = exit 2)과 일치",
+      "서수 참조 전수 대조 — 450행 '둘째 줄'(=2행) · 462행 '두 번째 줄'(=2행) · 515행 '네 번째 줄(무기준선)'(=4행) · 538행 '두 번째 줄'(=2행) · 545행 '세 번째 갈래(HEAD 기준선)'(=3행) 전부 계측한 분기 순서(disk/disk/head/none)로 정합"
+    ],
+    "error_scenarios": [
+      "ES-1 도구 부재 fail-closed 우선 — PATH의 모든 실행파일을 심링크하고 대상 하나만 뺀 shim으로 실측. jq 부재 → exit 2 'jq 부재 상태에서 보호 파일 편집을 차단합니다 (fail-closed)', awk 부재 → exit 2 'awk 부재…'. 저장소 밖 temp settings.json · 저장소 자신의 settings.json · hooks/invariant-guard.sh 세 대상 모두 동일. 배선 파일이 has_jq/has_awk 게이트에 포함된다는 INV-13:584 의 주장이 참임을 확인",
+      "ES-2 디스크·HEAD 모두 부재 + 배선 없는 신규 생성 경로는 bats 전건 ok로 무회귀",
+      "ES-3 HEAD 정상 + 디스크 파싱 불가 + 넓히는 편집 = 통과(과잉차단 회귀 없음) — 통제군 실측 및 bats 전건 ok",
+      "ES-4 디스크 파싱 불가 + NEW도 파싱 불가 = deny. 무기준선 갈래에서도 킬스위치 축은 살아 있음을 bats #100~#113 및 기존 '선두 온전 + 전체 손상 입력에서 킬스위치 켜기' 테스트 ok로 확인"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "이번 라운드의 잔여 결함(issues 1·2·8)은 **신규 주석과 커밋 메시지의 사실 주장**에 있는데, sprint-62의 어떤 criterion도 이 산출물을 범위에 넣지 않는다. SC-4는 'INV-13 본문'에만 걸려 있어 문언대로 적용하면 이 결함들은 무게가 실리지 않는다. 아홉 라운드 연속 같은 클래스가 나온 만큼, '이 커밋이 새로 추가하는 모든 사실 주장(문서·주석·커밋 메시지)은 측정된 것이어야 한다'는 기준을 명시적으로 두는 편이 낫다",
+      "표 행 수가 늘어나는 변경(5번째 갈래 추가)과 1↔2 행 스왑을 덮는 기준이 없다 — 신규 테스트의 실측된 두 사각(issues 3·4). '기준선' 열 하나가 아니라 (디스크 파싱 · 배선 추출 · HEAD 기준선 · 기준선) 4열 튜플을 대조하고 행 수 자체를 고정하면 둘 다 닫힌다"
+    ],
+    "ambiguous_criteria": [
+      "SC-4 범위가 여전히 미정이다. 문언은 'INV-13 본문'인데 5~7차 판정은 F76 시리즈 안에서 태어난 문장까지 넓게 적용했고, 이번 라운드의 결함은 본문 밖(.bats 주석·커밋 메시지)에 있다. 판정 일관성을 위해 이번 판정은 **문언대로 INV-13 본문에 SC-4를 적용**하고 본문 밖 결함은 issues로만 보고했다 — 계약 문언을 실제 적용 범위에 맞춰 갱신할 것"
+    ],
+    "security_criteria_insufficient": [],
+    "meta_question_answer": "**기계화 테스트는 SC-4를 충족시키지 못한다 — SC-4의 '전문을 읽고 상충 구절이 없는지 확인'은 여전히 사람의 전수 읽기를 요구한다.** 근거는 추정이 아니라 실측이다: 이 테스트를 5·6·7차 반려 리비전의 문서+가드에 그대로 돌리면 셋 다 통과한다(위 issues 1). 즉 이 테스트가 덮는 것은 '표의 행 순서 ↔ 코드 분기 순서' 한 축이고, 실제로 아홉 번 재발한 것은 '산문 서수·인용·단정의 사실성' 이라는 더 넓은 축이다. 후자는 현재 어떤 기계 검사로도 닫혀 있지 않다. 따라서 이번 SC-4 충족은 **내가 수행한 전문 통독**이 근거이지 신규 테스트가 근거가 아니다. 그럼에도 이 테스트는 유지할 가치가 있다 — 6ac0561에서 실제로 존재했던 '표 3행 vs 코드 4갈래' 상태를 잡고, 4열 튜플·행 수 고정으로 확장하면 종료 조건 있는 게이트로 자랄 수 있다. **계약 문언 개정을 권고한다**(SC-4를 '기계 검사가 덮는 부분'과 '사람 통독이 남는 부분'으로 분리 명시). 다만 계약 수정은 change-request 사안이므로 이 판정에서는 손대지 않았다.",
+    "action_required": "후속 change-request 1건 권고(구현 불필요, 문서·기준): (1) 신규 테스트 주석의 두 문장(issues 1·2)을 실측에 맞게 정정 — '이 테스트는 5~7차의 실제 결함을 잡지 못하며, 6ac0561형 표/코드 갈래 수 불일치를 잡는다'. (2) INVARIANTS.md:450 의 '461행' 하드코딩 참조 제거(행 번호 대신 인용구로). (3) 대조 테스트를 4열 튜플 + 행 수 고정으로 확장해 issues 3·4 사각 폐쇄. (4) 계약 SC-4 문언을 위 meta_question_answer 대로 분리 개정."
+  },
+  "evidence": {
+    "tests": "bats tests/ — 파이프 없이 저장소 루트에서 실행(스크래치패드로 리다이렉트, 종료코드 보존). `1..799`, ok 799, not ok 0, skip 5, BATS_EXIT=0. 신규 테스트는 'ok 113 INV-13(F76): 문서의 갈래 표와 가드의 실제 분기 순서가 일치한다'. 실행 후 `git status --short` 출력 없음(작업트리 무변경)",
+    "guard_unchanged": "`git diff dea7ee0..a4357da -- hooks/` → 0 바이트. `git diff --name-only dea7ee0..a4357da` = docs/INVARIANTS.md, tests/hook-wiring-parity.bats, progress/{feature_list.json,lessons.md,agent-comms/…}. 가드는 주석·비주석 모두 무변경",
+    "test_count": "@test 총수 dea7ee0=798 → a4357da=799 (+1). 감소 0 (SC-1)",
+    "mutation_audit_own": "구현자 스크립트를 쓰지 않고 신규 테스트 로직을 독립 재구현(scratchpad/probe.sh)해 7종 뮤테이션 실행. M0 기준선 PASS / M1 표 2↔3 스왑 FAIL / M2 표 헤더 컬럼명 변경 FAIL(rows 빈 문자열 — 기대값이 non-empty 리터럴이라 fail-closed) / M3 ba9dc19 가드 FAIL(arms=disk,none,head,none) / M4 계측 sed no-op FAIL(arms 전부 공백) / M5 5행 추가 PASS(사각) / M6 셀 패딩 제거 PASS(gsub 트림, 정상 허용) / M7 표 1↔2 스왑 PASS(사각 — 두 행의 기준선 열·ARM 값이 동일)",
+    "historical_discrimination": "신규 테스트 로직을 각 반려 리비전의 자기 문서+자기 가드에 실행: 6ac0561 FAIL(rows 빈 문자열 — 3행 표에 '배선 추출' 열 없음, 코드는 arms=disk,disk,head,none) / 7807135 PASS / d05d778 PASS / ecb5b21 PASS / dea7ee0 PASS",
+    "table_history": "`git show <rev>:docs/INVARIANTS.md` 표 추출 — 261758d·3d19382·6ac0561 = 3행(배선 추출 열 없음), 7807135부터 4행이며 신규 삽입행은 `| 실패 | **가능** | — | 디스크 내용 |`(2행). 450행의 '둘째 줄' 은 참",
+    "behavioural_matrix": "저장소 밖 mktemp git 픽스처. a4357da: AC-1(prepend 손상 + HEAD 기준선 + 배선 제거)=2, row2(append-garbage + HEAD 없음 + 배선 제거)=2, row4(prepend 손상 + HEAD 없음 + 배선 제거)=0+경고, 통제군(정상 + 배선 제거)=2, 통제군(정상 + 무변경)=0. 3d19382 동일 입력: 2 / **0** / 0 / 2 / 0 — row2 축이 F76이 닫은 델타",
+    "es1_toolgate": "PATH의 모든 실행파일을 심링크한 뒤 대상 하나만 제외한 shim(scratchpad/es1.sh)으로 실측. jq 부재 → exit 2 'jq 부재 상태에서 보호 파일 편집을 차단합니다 (fail-closed)', awk 부재 → exit 2 'awk 부재 상태에서…'. 대상 3종(저장소 밖 temp settings.json · 저장소 settings.json · hooks/invariant-guard.sh) 모두 동일. 첫 시도의 shim은 grep을 빠뜨려 무효였고, 재작성 후의 결과만 근거로 채택",
+    "no_baseline_warning": "무기준선 갈래 stderr 실측 — 'invariant-guard: <path> 를 파싱할 수 없고 HEAD 기준선도 없어 배선 보존 검사를 수행하지 못했습니다 — 이 편집은 킬스위치 검사만 거쳤습니다 (INV-13)' + 무결성 티켓 미발급 경고",
+    "doc_full_read": "docs/INVARIANTS.md INV-13 전 범위(365-592행)를 직접 통독. 서수 참조 5건 전수 대조 완료(위 passed_criteria.security 마지막 항목)"
+  },
+  "unverified": [],
+  "second_judgment_required": {
+    "reason": "F76은 security_tier=critical 이므로 F37에 따라 pass 판정에 **독립 컨텍스트의 2차 판정이 반드시 뒤따른다**. 단일 judge 1회 호출에 게이트를 걸지 않는다.",
+    "escalation_rule": "두 판정의 verdict가 불일치하면 자동 pass 금지 — 사람 에스컬레이션.",
+    "focus_for_second_judge": "1차가 pass로 판단한 핵심 쟁점은 '신규 주석의 미측정 단정(issues 1·2)을 SC-4 위반으로 볼 것인가' 다. 1차는 SC-4 문언이 'INV-13 본문'으로 한정되고 본문 통독 결과 상충 구절이 없으므로 범위 밖으로 보아 issues로만 보고했다. 2차는 이 범위 판단을 독립적으로 재검토할 것 — 범위를 넓게 보면 fail이 될 수 있다."
+  }
+}
