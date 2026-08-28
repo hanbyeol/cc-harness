@@ -69,6 +69,13 @@ setup() {
     echo "jq is required for wiring-parity verification (fail-closed)" >&2
     return 1
   }
+  # **hermetic 보증 (F77)** — 이 파일의 다수 테스트가 저장소 밖 mktemp 픽스처에 $GUARD를
+  # 서브프로세스로 건다. CLAUDE_PROJECT_DIR를 명시적으로 제어하지 않으면 호스트 세션(또는
+  # CI 환경)이 세팅한 값이 그대로 새어 들어가 그 픽스처를 엉뚱한 저장소로 오판하게 만든다 —
+  # 실제로 F76의 F37 2차 판정이 정확히 이 경로로 AC-1 뒤집힘을 우연히 발견했다. run_guard()가
+  # 다루는 이 저장소 자신의 settings.json은 CLAUDE_PROJECT_DIR 없이도 $FILE 위치에서 git으로
+  # 올바르게 root를 유도하므로(__derive_root의 git 폴백), unset이 그 경로를 깨지 않는다.
+  unset CLAUDE_PROJECT_DIR
 }
 
 @test "배선 파일 두 개가 모두 유효한 JSON이다" {
@@ -841,6 +848,122 @@ f76_guard() {   # 대상: settings.json
   echo -n "$f2" | jq -e '.' >/dev/null 2>&1 \
     && { echo "행2 픽스처가 실제로는 파싱 성공이다(GARBAGE가 붙었는데도)" >&2; return 1; }
   true
+}
+
+# ─── F77: CLAUDE_PROJECT_DIR가 $FILE 실제 위치와 다르면 root 유도가 조용히 어긋나던 결함 ───
+#
+# __derive_root(hooks/invariant-guard.sh)가 CLAUDE_PROJECT_DIR를 $FILE의 물리 경로가 실제로
+# 그 안에 있을 때만 채택하고, 아니면 $FILE 위치에서 git으로 직접 유도한다. 수정 전에는
+# CLAUDE_PROJECT_DIR를 무조건 믿어 (1) HEAD 기준선을 잃거나 (2) 무결성 티켓 발급이 경고도
+# 없이 스킵됐다.
+
+@test "F77: CLAUDE_PROJECT_DIR가 다른 저장소를 가리켜도 HEAD 기준선을 정상적으로 얻는다" {
+  # __head_content_for 축. 저장소 밖 LAB을 만들고, CLAUDE_PROJECT_DIR는 **이 저장소**(LAB이
+  # 아닌 다른 곳)를 가리키게 한다 — 수정 전에는 이 상태에서 배선 제거가 exit 0으로 뒤집혔다.
+  local base d st
+  base=$(jq -c '.' settings.json)
+  d=$(mktemp -d) || return 99; d=$(cd "$d" && pwd -P) || return 99
+  git init -q "$d" 2>/dev/null || { rm -rf "$d"; return 99; }
+  printf '%s' "$base" > "$d/settings.json"
+  ( cd "$d" && git add -A && git -c user.email=t@example.com -c user.name=t commit -qm base ) >/dev/null 2>&1
+  printf '// c\n%s' "$base" > "$d/settings.json"
+  st=0
+  jq -n --arg f "$d/settings.json" --arg c "$(mutate_guard_entry '.hooks.PreToolUse |= map(select(
+    any(.hooks[]; .command | test("invariant-guard")) | not))')" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' \
+    | CLAUDE_PROJECT_DIR="$(pwd)" bash "$GUARD" >/dev/null 2>&1 || st=$?
+  rm -rf "$d"
+  [ "$st" -eq 2 ] || { echo "CLAUDE_PROJECT_DIR가 다른 저장소를 가리킬 때 배선 제거가 통과했다 (exit=$st)" >&2; return 1; }
+}
+
+@test "F77: CLAUDE_PROJECT_DIR가 다른 저장소를 가리켜도 그 저장소 원장을 오염시키지 않고 올바른 저장소에 티켓을 남긴다" {
+  # record_guarded_edit 축 — 이전엔 root 해석이 '성공'한 것처럼 보이면서(다른 저장소에도
+  # progress/가 있으므로) 경고 없이 티켓 발급이 스킵됐다. 지금은 CLAUDE_PROJECT_DIR를
+  # 신뢰하지 않고 $FILE 위치에서 유도한 올바른 저장소(LAB)에 티켓을 남겨야 한다.
+  local hc new_hc d st before after
+  hc=$(jq -c '.' progress/harness-config.json)
+  new_hc=$(jq -c '. + {_f77_probe:1}' progress/harness-config.json)
+  d=$(mktemp -d) || return 99; d=$(cd "$d" && pwd -P) || return 99
+  git init -q "$d" 2>/dev/null || { rm -rf "$d"; return 99; }
+  mkdir -p "$d/progress"
+  printf '%s' "$hc" > "$d/progress/harness-config.json"
+  ( cd "$d" && git add -A && git -c user.email=t@example.com -c user.name=t commit -qm base ) >/dev/null 2>&1
+  before=$(wc -l < progress/.guarded-edits 2>/dev/null || echo 0)
+  jq -n --arg f "$d/progress/harness-config.json" --arg c "$new_hc" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' \
+    | CLAUDE_PROJECT_DIR="$(pwd)" bash "$GUARD" >/dev/null 2>&1
+  after=$(wc -l < progress/.guarded-edits 2>/dev/null || echo 0)
+  local leaked_here="$((after - before))"
+  local ticket_in_lab
+  ticket_in_lab=$(grep -c 'harness-config.json' "$d/progress/.guarded-edits" 2>/dev/null || echo 0)
+  rm -rf "$d"
+  [ "$leaked_here" -eq 0 ] || { echo "CLAUDE_PROJECT_DIR가 가리키던 이 저장소의 원장이 오염됐다 (+$leaked_here줄)" >&2; return 1; }
+  [ "$ticket_in_lab" -ge 1 ] || { echo "\$FILE이 속한 저장소(LAB)에 티켓이 발급되지 않았다" >&2; return 1; }
+}
+
+@test "F77: CLAUDE_PROJECT_DIR가 존재하지 않거나 git이 아니어도 \$FILE 위치로 폴백해 여전히 차단한다" {
+  local base d st plain
+  base=$(jq -c '.' settings.json)
+  d=$(mktemp -d) || return 99; d=$(cd "$d" && pwd -P) || return 99
+  git init -q "$d" 2>/dev/null || { rm -rf "$d"; return 99; }
+  printf '%s' "$base" > "$d/settings.json"
+  ( cd "$d" && git add -A && git -c user.email=t@example.com -c user.name=t commit -qm base ) >/dev/null 2>&1
+  printf '// c\n%s' "$base" > "$d/settings.json"
+  local stripped
+  stripped=$(mutate_guard_entry '.hooks.PreToolUse |= map(select(
+    any(.hooks[]; .command | test("invariant-guard")) | not))')
+
+  st=0
+  jq -n --arg f "$d/settings.json" --arg c "$stripped" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' \
+    | CLAUDE_PROJECT_DIR="/no/such/path/f77" bash "$GUARD" >/dev/null 2>&1 || st=$?
+  [ "$st" -eq 2 ] || { echo "존재하지 않는 CLAUDE_PROJECT_DIR에서 배선 제거가 통과했다 (exit=$st)" >&2; rm -rf "$d"; return 1; }
+
+  plain=$(mktemp -d)
+  st=0
+  jq -n --arg f "$d/settings.json" --arg c "$stripped" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' \
+    | CLAUDE_PROJECT_DIR="$plain" bash "$GUARD" >/dev/null 2>&1 || st=$?
+  rm -rf "$d" "$plain"
+  [ "$st" -eq 2 ] || { echo "git 아닌 CLAUDE_PROJECT_DIR에서 배선 제거가 통과했다 (exit=$st)" >&2; return 1; }
+}
+
+@test "F77: 진짜 저장소 밖(git 없음)은 CLAUDE_PROJECT_DIR 무관하게 여전히 티켓을 만들지 않는다 (SC-3)" {
+  # F65의 원래 방어(테스트가 실 저장소 원장을 오염시키던 문제)가 이번 수정으로 되살아나지
+  # 않는지 확인한다 — $FILE이 어떤 git 저장소에도 속하지 않으면 티켓 없음을 유지해야 한다.
+  local hc new_hc d before after
+  hc=$(jq -c '.' progress/harness-config.json)
+  new_hc=$(jq -c '. + {_f77_probe2:1}' progress/harness-config.json)
+  d=$(mktemp -d) || return 99; d=$(cd "$d" && pwd -P) || return 99
+  mkdir -p "$d/progress"
+  printf '%s' "$hc" > "$d/progress/harness-config.json"
+  before=$(wc -l < progress/.guarded-edits 2>/dev/null || echo 0)
+  jq -n --arg f "$d/progress/harness-config.json" --arg c "$new_hc" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' \
+    | bash "$GUARD" >/dev/null 2>&1
+  after=$(wc -l < progress/.guarded-edits 2>/dev/null || echo 0)
+  local ticket_in_d
+  ticket_in_d=$([ -f "$d/progress/.guarded-edits" ] && wc -l < "$d/progress/.guarded-edits" || echo 0)
+  rm -rf "$d"
+  [ "$((after - before))" -eq 0 ] || { echo "이 저장소 원장이 오염됐다" >&2; return 1; }
+  [ "$ticket_in_d" -eq 0 ] || { echo "진짜 저장소 밖인데 티켓이 발급됐다" >&2; return 1; }
+}
+
+@test "F77: CLAUDE_PROJECT_DIR가 \$FILE을 올바르게 포함하는 정상 케이스는 회귀 없다" {
+  local base d st
+  base=$(jq -c '.' settings.json)
+  d=$(mktemp -d) || return 99; d=$(cd "$d" && pwd -P) || return 99
+  git init -q "$d" 2>/dev/null || { rm -rf "$d"; return 99; }
+  printf '%s' "$base" > "$d/settings.json"
+  ( cd "$d" && git add -A && git -c user.email=t@example.com -c user.name=t commit -qm base ) >/dev/null 2>&1
+  printf '// c\n%s' "$base" > "$d/settings.json"
+  st=0
+  jq -n --arg f "$d/settings.json" --arg c "$(mutate_guard_entry '.hooks.PreToolUse |= map(select(
+    any(.hooks[]; .command | test("invariant-guard")) | not))')" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' \
+    | CLAUDE_PROJECT_DIR="$d" bash "$GUARD" >/dev/null 2>&1 || st=$?
+  rm -rf "$d"
+  [ "$st" -eq 2 ] || { echo "CLAUDE_PROJECT_DIR가 올바른 값일 때 배선 제거가 통과했다 (exit=$st)" >&2; return 1; }
 }
 
 @test "INV-13 완전성: HOOK_KILL_SWITCHES가 스키마의 hook-affecting boolean을 전부 덮는다" {
