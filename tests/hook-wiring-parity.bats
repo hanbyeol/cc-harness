@@ -756,6 +756,65 @@ f76_guard() {   # 대상: settings.json
   [ "$st" -eq 2 ] || { echo "선두 온전 + 전체 손상 입력에서 킬스위치 켜기가 통과했다 (exit=$st)" >&2; return 1; }
 }
 
+@test "INV-13(F76): 문서의 갈래 표와 가드의 실제 분기 순서가 일치한다" {
+  # **서수 참조가 코드 순서와 어긋나는 것이 이 기능의 반려 사유가 일곱 번 반복됐다** — 표에
+  # 행이 추가되면서 뒤이은 산문의 "세 번째 줄"·"두 번째 갈래" 같은 서수 참조가 갱신되지 않았다.
+  # 매번 사람이 전문을 다시 훑는 방식으로 잡았는데, 그 스윕에는 종료 조건이 없다(7차 판정 지적).
+  # 그래서 표 자체를 기계로 읽어 실제 분기와 대조한다 — 산문 속 모든 서수 참조를 검증하지는
+  # 못하지만, 표의 행 순서가 코드의 분기 순서와 어긋나는 재발(이번까지 실제 원인이었던 자리)은
+  # 이 테스트가 잡는다.
+  local doc="docs/INVARIANTS.md"
+  [ -f "$doc" ] || return 99
+
+  # 표에서 "기준선" 열(4번째 컬럼)만 순서대로 뽑는다. 헤더 구분선(---)은 제외.
+  local rows
+  rows=$(awk '
+    /^\| 디스크 파싱 \| 배선 추출 \| HEAD 기준선 \| 기준선 \| 검사 범위 \|$/ { found=1; next }
+    found && /^\|---/ { next }
+    found && /^\|/ { n++; if (n<=4) { split($0,a,"|"); gsub(/^[ \t]+|[ \t]+$/,"",a[5]); print a[5] } }
+    found && !/^\|/ { exit }
+  ' "$doc")
+  local expect=$'디스크 내용\n디스크 내용\nHEAD 내용\n없음'
+  [ "$rows" = "$expect" ] || {
+    echo "표의 기준선 열 순서가 기대와 다르다:" >&2; echo "$rows" >&2; return 1; }
+
+  # 이제 코드가 실제로 그 네 순서를 만드는지 각 대표 입력으로 계측한다.
+  local base d
+  base=$(jq -c '.' settings.json)
+  local instr; instr=$(mktemp)
+  sed 's|^  __wiring_baseline_for "\$FILE"$|  __wiring_baseline_for "$FILE"; echo "ARM=$__baseline_kind" >\&2|' \
+    "$GUARD" > "$instr"
+
+  arm_of() {   # $1 = 디스크에 쓸 내용
+    local dd; dd=$(mktemp -d); dd=$(cd "$dd" && pwd -P)
+    if [ "$2" = "commit" ]; then
+      git init -q "$dd" 2>/dev/null
+      printf '%s' "$base" > "$dd/settings.json"
+      ( cd "$dd" && git add -A && git -c user.email=t@t -c user.name=t commit -qm b ) >/dev/null 2>&1
+    else
+      git init -q "$dd" 2>/dev/null
+    fi
+    printf '%s' "$1" > "$dd/settings.json"
+    jq -n --arg f "$dd/settings.json" --arg c "$base" \
+      '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' \
+      | bash "$instr" 2>&1 >/dev/null | grep -o 'ARM=[a-z]*' | head -1
+    rm -rf "$dd"
+  }
+
+  local a1 a2 a3 a4
+  a1=$(arm_of "$base" nocommit)                                             # 행1: 파싱 OK
+  a2=$(arm_of "$(printf '%s\nGARBAGE' "$base")" nocommit)                   # 행2: 파싱 실패, 배선 추출 가능
+  a3=$(arm_of "$(printf '// c\n%s' "$base")" commit)                        # 행3: 파싱 실패, HEAD 기준선 있음
+  a4=$(arm_of "$(printf '// c\n%s' "$base")" nocommit)                      # 행4: 파싱 실패, 기준선 없음
+  rm -f "$instr"
+
+  local got=$'ARM=disk\nARM=disk\nARM=head\nARM=none'
+  local actual="$a1"$'\n'"$a2"$'\n'"$a3"$'\n'"$a4"
+  [ "$actual" = "$got" ] || {
+    echo "가드의 실제 분기 순서가 기대와 다르다 (disk,disk,head,none 이어야 함):" >&2
+    echo "$actual" >&2; return 1; }
+}
+
 @test "INV-13 완전성: HOOK_KILL_SWITCHES가 스키마의 hook-affecting boolean을 전부 덮는다" {
   # 인스턴스 열거가 아니라 클래스 봉쇄의 핵심 — 가드의 하드코딩 목록이 공식 스키마의
   # 'hook 실행에 영향을 주는 최상위 boolean' 전체와 일치해야 한다. 새 스위치가 스키마에
