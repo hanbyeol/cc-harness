@@ -1,0 +1,109 @@
+{
+  "timestamp": "2026-08-28T12:11:03+0900",
+  "sprint": 62,
+  "iteration": 9,
+  "features_evaluated": [
+    "F76"
+  ],
+  "security_tier": "critical",
+  "judgment_role": "F37 critical 2차 독립 판정 (second, independent context)",
+  "target_commit": "ecb2c89",
+  "first_judgment_ref": "progress/agent-comms/evaluator-feedback-2026-08-28T10-29-23+0900.json",
+  "independence_note": "1차의 결론·픽스처·코퍼스를 재사용하지 않고 검증을 독립 설계했다. 저장소 밖 /tmp 샌드박스를 `git archive`로 ecb2c89·a4357da 두 리비전에 대해 각각 만들고, 문서 스냅샷 교체와 뮤테이션을 그 안에서만 수행했다(실 저장소는 read-only). 1차가 하지 않은 대조군을 추가했다: (a) a4357da 구버전 테스트에 같은 뮤테이션을 돌린 counterfactual, (b) 내가 설계한 4종 추가 뮤테이션(M3~M6), (c) jq 교차검증 자체에 대한 뮤테이션 2종(J1·J2).",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 7,
+    "security": 8,
+    "error_handling": 9,
+    "test_coverage": 8
+  },
+  "score": 7,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "pass",
+  "agreement_with_first_judgment": {
+    "verdict": "일치 (pass = pass)",
+    "composite_score": "일치 (7 = 7, min-of-5)",
+    "security_gate": "일치 (critical tier, 보안 8 ≥ 7)",
+    "escalation_required": false,
+    "note": "차원별 점수는 미세하게 다르다(1차 code_quality 7/security 8/test_coverage 7 → 2차 7/8/8). 최솟값과 verdict가 같으므로 F37 교차검증 불일치가 아니며 사람 에스컬레이션 사유가 없다."
+  },
+  "core_question_1차가_표시한_경계는_해소되었는가": {
+    "answer": "해소되었다 — 그리고 완화가 아니라 강화 방향으로 해소되었다.",
+    "detail": [
+      "1차가 지목한 미측정 단정 2건이 모두 제거됐다. '일곱 번 반복됐다' 과장은 삭제됐고, '이번까지 실제 원인이었던 자리는 이 테스트가 잡는다'는 거짓 주장은 삭제된 뒤 **정반대의 정확한 한계 서술**로 대체됐다.",
+      "그 새 한계 서술('6·7차 반려 스냅샷 셋 다 여전히 통과한다 = 이 테스트는 그 결함을 못 잡는다')을 내가 직접 재현해 **참임을 확인**했다. 주장을 낮춘 것이 아니라 측정된 사실로 교체했다.",
+      "추가로 기계화 테스트 자체의 판별력 사각 2건을 닫았고, 그 2건이 **실재하는 사각이었음**을 구버전 counterfactual로 확인했다(구버전은 두 뮤테이션을 모두 통과시켰다 = 진짜 blind spot).",
+      "즉 1차가 '범위를 넓게 보면 fail이 될 수 있다'고 표시한 근거 자체가 사라졌다."
+    ]
+  },
+  "SC-4_해석_판단": {
+    "question": "SC-4를 'INV-13 본문'으로 좁게 보는 것이 여전히 타당한가, 아니면 테스트 파일 자체의 정확성도 봐야 하는가?",
+    "conclusion": "좁은 해석이 텍스트상 옳다 — 다만 이번 판정에서는 그 구분이 결과를 바꾸지 않는다.",
+    "reasoning": [
+      "SC-4의 criterion은 'INV-13 **본문**의 기존 서술'이고 verification은 'INV-13 **전문**을 읽고 상충 구절이 없는지 확인'이다. 기준과 검증방법 **양쪽 모두** 문서 본문으로 명시 스코프돼 있다. bats 주석은 INV-13 본문이 아니다.",
+      "그러나 이번엔 넓은 해석을 적용해도 verdict가 바뀌지 않는다 — ecb2c89가 문제의 두 문장을 이미 정정했기 때문이다. 남은 것은 아래 issue A·D(주석 안의 경미한 표현 부정확)뿐이고, 이는 동작에 영향이 없어 '사소한 이슈로 반려하지 않는다'는 판정 원칙에 해당한다.",
+      "다만 issue A는 **이 커밋이 스스로 새로 만든 같은 클래스의 부정확**이라 보고 대상이며, criteria_gaps에 후속 조치를 남긴다."
+    ]
+  },
+  "issues": [
+    "[test-doc/low, confidence:high] ecb2c89가 **새로 추가한** 주석 765행이 자기 커밋의 메커니즘과 어긋난다. 765행은 이 테스트가 '표 자체(**기준선 열**)의 행 순서'를 잡는다고 적지만, 같은 커밋의 776-778행은 '**기준선 한 열만 보면 안 된다**'고 명시하고 코드는 실제로 2개 열(디스크 파싱 + 기준선)을 읽는다. 11행 간격의 자기모순이며, 하필 이 커밋이 고치려던 결함 클래스(구조 변경 후 산문이 안 따라감)와 동일하다. 동작 영향 없음.",
+    "[test-doc/low, confidence:high] 같은 765행의 '행 순서가 어긋나는 것**만** 기계로 잡는다'는 실제보다 좁게 적었다. 내 뮤테이션 M4(3행 기준선 'HEAD 내용'→'디스크 내용')·M6(1행 파싱 'OK'→'실패')은 행 순서가 아니라 **셀 값** 변경인데도 테스트가 잡는다. 실제 커버리지는 '2·4열의 표 내용 드리프트 전반'이다.",
+    "[test-hermeticity/medium, confidence:high] 테스트 스위트가 `CLAUDE_PROJECT_DIR`에 대해 **hermetic하지 않다**. 이 변수가 export된 상태에서는 AC-1의 핵심 단언이 뒤집힌다 — 'INV-13(F76): 파싱 불가 + HEAD 기준선 — 배선 제거를 deny한다'가 exit 2가 아니라 exit 0으로 **실패**하고, 교차검증 테스트의 3행도 ARM=head 대신 ARM=none을 낸다. 실 저장소와 샌드박스 양쪽에서 재현했다. 원인은 invariant-guard.sh:515 `__root=\"${CLAUDE_PROJECT_DIR:-$(git -C \"$__anc\" rev-parse --show-toplevel ...)}\"` — CLAUDE_PROJECT_DIR이 F72의 '루트를 $FILE 자신의 위치에서 유도한다' 수정보다 **우선**하므로, 프로젝트 루트 밖에 있는 배선 파일은 line 520의 `[[ \"$__file_phys\" == \"$__root\"/* ]]` 에서 탈락해 HEAD 기준선을 잃고 무기준선 갈래로 떨어진다. **이 커밋의 회귀가 아니다**(F72 유래, 선재). 정규 실행 환경(`bats tests/`, 변수 미설정)에서는 799/799이므로 구현자의 evidence는 정직하다.",
+    "[product/low, confidence:medium] 위 항목의 제품 측면: 파싱 불가한 배선 파일이 **선언된 프로젝트 루트 밖**에 있으면(다른 저장소 편집·워크트리·서브에이전트 cwd 불일치 등) 그 파일이 자기 저장소 HEAD에는 존재하더라도 HEAD 기준선이 적용되지 않고, 무기준선 갈래에서 배선 제거가 경고만 남기고 통과한다. SC-3이 문서화한 남는 노출은 'HEAD에 **없는** 배선 파일'이라 이 경로(HEAD에는 있으나 루트 밖)를 문언상 덮지 않는다. 범위가 좁고 sprint-62 스코프 밖이라 반려 사유로 쓰지 않는다.",
+    "[test/low, confidence:high] 새 jq 교차검증의 **절반은 죽은 단언**이다. `echo -n \"$f2\" | jq -e '.'`(행2가 정말 파싱 실패인지)는 실질 판별력이 있다 — f2를 파싱 가능하게 약화시키는 뮤테이션 J1을 **이 단언이 직접 잡았다**(ARM 체크는 여전히 disk,disk라 못 잡는다). 반면 `echo -n \"$f1\" | jq -e '.'`는 앞선 ARM 단언에 **지배(dominated)**된다 — f1을 깨뜨린 뮤테이션 J2는 jq 단언이 아니라 'ARM 분기 순서가 다르다'에서 먼저 걸렸다. f1이 파싱 실패면 a1이 disk가 아니게 되므로 jq 단언이 첫 실패가 될 경로가 없다. 유해하진 않으나 load-bearing하지 않다.",
+    "[commit-message/low, confidence:high] 커밋 메시지의 'A direct jq -e \\'.\\' check on the fixtures backs the table-column read'는 f2에 대해서만 참이다. f1 쪽은 ARM 단언이 이미 고정하는 것을 중복 서술할 뿐 backing을 추가하지 않는다(J2로 실측).",
+    "[doc/low, confidence:medium] INV-13 451행의 '461행의 올바른 참조'는 하드코딩 행 번호다. 현재 문서에서 그 올바른 참조는 **462행**에 있다(문서가 한 줄 늘었다). 과거 스냅샷을 가리키는 역사적 서술로 읽으면 정확하지만, 현재 문서 포인터로 읽으면 off-by-one이다. 산문 속 하드코딩 행 번호는 SC-4가 겨냥하는 드리프트 클래스와 같은 성질이다."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1 파싱 불가 + HEAD 기준선에서 배선 제거 deny (정규 환경 실측 PASS)",
+      "AC-2~AC-4 킬스위치 3종 deny / 복구 편집 통과 / 무기준선 경고 (14개 F76 테스트 전부 PASS)",
+      "AC-5 bats tests/ 파이프 없이 전체 실행 — 799/799, exit 0, 실패 0, skip 5(환경 사유, F76 무관)",
+      "AC-6 회귀 테스트 존재 + 뮤테이션으로 판별력 확인 — 구버전 counterfactual로 blind spot 2건이 실재했음을 입증"
+    ],
+    "security": [
+      "SC-1 어떤 축에서도 축소 없음 — hooks/ diff 0줄, invariant-guard.sh SHA 동일(9e2519db…), 즉 8차가 검증한 가드와 바이트 동일",
+      "SC-2 조용한 통과 없음 — 무기준선 경고 테스트 PASS",
+      "SC-3 남는 노출 문서화 — INV-13에 명시(단 issue #4의 경로는 문언상 미포함)",
+      "SC-4 INV-13 본문 역방향 점검 — 현재 본문의 서수 참조 전수 확인 결과 상충 없음(450 '둘째 줄' 정정 + 사유 명기, 462·484·492·494·515·538·545 모두 일관)"
+    ],
+    "error_scenarios": [
+      "ES-1 jq/awk 부재 fail-closed 우선순위 유지 — 관련 17개 fail-closed 테스트 전부 PASS",
+      "ES-2 무기준선 분기 — PASS",
+      "ES-3/ES-4 다중 문서·선두 온전 손상 — 4개 테스트 전부 PASS"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "테스트 환경 hermeticity에 대한 기준이 없다 — `CLAUDE_PROJECT_DIR` 같이 **제품 코드가 직접 읽는** 환경변수에 스위트의 green/red가 좌우되는데 이를 금지·고정하는 criterion이 어디에도 없다. 최소한 bats setup에서 픽스처용으로 명시 설정하거나 unset하도록 고정할 것을 권고한다.",
+      "SC-3의 '남는 노출' 서술이 'HEAD에 없는 배선 파일'만 열거한다 — 'HEAD에는 있으나 선언된 프로젝트 루트 밖' 경로(issue #4)가 문언상 빠져 있다."
+    ],
+    "ambiguous_criteria": [
+      "SC-4의 스코프('INV-13 본문')가 이 기능에서 반복적으로 판정 경계가 됐다(8차·9차 연속). 본문 밖 산출물(테스트 주석·커밋 메시지)의 정확성을 요구할지 여부를 계약에 **명시**하면 이 논쟁이 종결된다. 현재는 좁은 해석이 텍스트상 옳으나, 두 판정이 연속으로 이 경계를 언급했다는 사실 자체가 기준 모호성의 신호다."
+    ],
+    "security_criteria_insufficient": [],
+    "action_required": "issue A(765행 자기모순 주석)와 위 두 missing_criteria는 후속 경량 수정으로 처리 권고. 어느 것도 F76 반려 사유는 아니다."
+  },
+  "evidence": {
+    "full_suite": "cd /Users/hanbyeol/Project/studioj/cc-harness && bats tests/ > /tmp/f76-2nd/full-canonical.txt 2>&1 (파이프 없음, 종료코드 보존) → FULL_SUITE_EXIT=0, '1..799', ok=799, not ok=0, skip=5. skip 5건은 case-insensitive FS 4건 + v1.4.0 플러그인 캐시 부재 1건으로 F76과 무관.",
+    "guard_unchanged": "git diff a4357da..ecb2c89 -- hooks/ → 0줄. shasum(git show a4357da:hooks/invariant-guard.sh) == shasum(git show ecb2c89:hooks/invariant-guard.sh) == 9e2519dba0868c8694ea7e781f9c3f72f165c048. 변경 파일은 tests/hook-wiring-parity.bats + progress/ 2건뿐.",
+    "snapshot_reproduction": "샌드박스(/tmp/f76-2nd/sb, git archive ecb2c89)에 d05d778·ecb5b21·dea7ee0의 docs/INVARIANTS.md를 차례로 넣고 ecb2c89의 교차검증 테스트 실행 → 셋 다 'ok 1', EXIT=0. pristine ecb2c89 문서 대조군도 EXIT=0. **새 주석의 한계 서술이 참임을 독립 확인.** 세 스냅샷의 표 추출 결과는 모두 동일(OK|디스크 내용 / 실패|디스크 내용 / 실패|HEAD 내용 / 실패|없음)이라 표 검사가 통과할 수밖에 없었다.",
+    "mutation_new_test": "ecb2c89 테스트 대상 6종 뮤테이션 — M0 무변경:PASS(대조군) / M1 1↔2행 스왑:FAIL(잡음) / M2 5번째 행 추가:FAIL / M3 3↔4행 스왑:FAIL / M4 3행 'HEAD 내용'→'디스크 내용':FAIL / M5 4행 삭제:FAIL / M6 1행 'OK'→'실패':FAIL. M3~M6은 내가 독립 설계한 추가 뮤테이션.",
+    "mutation_counterfactual_old_test": "동일 뮤테이션을 a4357da 구버전 테스트(/tmp/f76-2nd/old)에 실행 — M1:**PASS(=진짜 blind spot)** / M2:**PASS(=진짜 blind spot)** / M3:FAIL(구버전도 잡음). 구현자가 주장한 판별력 사각 2건이 실재했고 수정이 vacuous하지 않음을 입증.",
+    "mutation_jq_crosscheck": "J1 f2를 파싱 가능하게 약화(base+'\\n{}') → 'not ok', 실패 지점이 **'행2 픽스처가 실제로는 파싱 성공이다'** = 새 jq 단언이 직접 잡았다(ARM은 여전히 disk,disk라 못 잡는 뮤테이션). J2 f1을 '{invalid'로 손상 → 'not ok'이나 실패 지점이 '가드의 실제 분기 순서가 기대와 다르다' = **ARM 단언이 먼저** 걸림 ⇒ f1측 jq 단언은 dominated. jq 의미론 실측: base+GARBAGE→rc=5, base+'{}'→rc=0, 빈 입력→rc=4.",
+    "env_hermeticity": "동일 단일 테스트를 두 환경에서 실행 — CLAUDE_PROJECT_DIR 설정(context-mode 샌드박스): 'not ok', ARM=disk,disk,**none**,none / `env -u CLAUDE_PROJECT_DIR`: 'ok'. F76 HEAD-기준선 3개 테스트도 설정 시 'INV-13(F76): 파싱 불가 + HEAD 기준선 — 배선 제거를 deny한다'가 **not ok**(status≠2), 미설정 시 3개 모두 ok. 실 저장소·샌드박스 양쪽에서 동일 재현. 원인 귀속: invariant-guard.sh:515·520.",
+    "historical_claim_audit": "커밋 메시지·주석의 역사적 단정을 원본 대조 — 7807135는 표의 **2번째** 행(| 실패 | **가능** | — | 디스크 내용 |)을 삽입했으므로 스냅샷의 450행 '세 번째 줄이 뒤늦게 들어온 것'은 거짓이고 461행 '두 번째 줄'이 옳다 ⇒ 주석의 '자기모순' 규정은 **정확**. 세 스냅샷 모두 450/461 쌍을 보유(dea7ee0 포함) ⇒ '모두 담고 있었다'도 **참**. 현재 본문 450행은 '둘째 줄'로 정정되고 정정 사유까지 명기됨.",
+    "criteria_sweep": "full-canonical.txt에서 F76 태그 테스트 14개 전수 PASS 확인(배선 제거·킬스위치 3종·복구 편집·무기준선 3종·배선 없음 면제·hooks.json 클래스·선두 온전 손상 2종·다중 문서 2종·6차 반례·표 교차검증). fail-closed 계열 17개 PASS로 ES-1 확인."
+  },
+  "f37_second_judgment": {
+    "status": "complete",
+    "outcome": "1차와 verdict·종합점수 일치 — 에스컬레이션 불요",
+    "passes_action": "F76의 passes는 이미 true이므로 변경하지 않음(2차가 재확인)"
+  }
+}
