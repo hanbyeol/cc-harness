@@ -1,0 +1,89 @@
+{
+  "timestamp": "2026-08-28T09:15:41+09:00",
+  "sprint": 62,
+  "iteration": 7,
+  "commit": "dea7ee0",
+  "features_evaluated": [
+    "F76"
+  ],
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 8,
+    "security": 6,
+    "error_handling": 9,
+    "test_coverage": 7
+  },
+  "score": 6,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 6 < 7 (critical tier auto-fail)",
+    "min-of-5 = 6 < pass_threshold 7",
+    "SC-4 unmet for the 9th consecutive round — the reverse-consistency sweep this commit performed on INV-13 row references missed the table's own topic sentence, which is false"
+  ],
+  "summary": "코드 축은 확정됐고 이번에도 무변경이다 — 독립 계측으로 재확인했다. 반려 사유는 6차와 동일한 문서 축(SC-4)이며, 이번 커밋이 스스로 '완료했다'고 선언한 바로 그 스윕이 세 번째 갈래 참조를 놓쳤다.",
+  "issues": [
+    "[docs][security][SC-4][high-confidence] docs/INVARIANTS.md:450 '지금은 기준선을 **네 갈래**로 정한다. **세 번째 줄이 뒤늦게 들어온 것이다**' — 거짓이다. 뒤늦게 들어온 갈래는 **두 번째 줄**(`실패 | 가능 | — | 디스크 내용`)이다. 근거: 261758d·3d19382·6ac0561 시점 문서는 모두 3행 표(OK / 실패+HEAD있음 / 실패+HEAD없음)였고, 7807135에서 표가 4행으로 커지며 새로 삽입된 행이 '실패 + 배선 추출 가능 → 디스크 내용'이다. 같은 문장이 그 갈래를 '파싱 실패를 배선을 못 읽음과 같게 취급해 실제로 읽히는 배선을 버렸고, 그것이 보안 감사가 잡은 약화다'라고 정확히 서술하는데(=6ac0561이 닫은 것, 표 2행), 번호만 3으로 적었다. 같은 문서 461행은 그 갈래를 '두 번째 줄'이라 올바로 부르므로 **문서가 자기 자신과 충돌**한다. 데이터행·원시행 어느 계수 규약으로도 3이 될 수 없음을 확인했다. 이 문장은 표를 도입하는 첫 문장이고, 이번 커밋의 선언된 목적이 바로 '표가 3행→4행이 되며 낡은 갈래 참조 두 건'을 쓸어내는 것이었다 — 세 번째 건을 놓쳤다.",
+    "[docs][SC-4][medium-confidence] docs/INVARIANTS.md:491 '그래서 위 표의 \"두 번째 줄로 흡수되어 통과한다\"는 …' — 따옴표 안 문자열이 문서·표 어디에도 없다. 실제로 가리키는 535행은 '위 표의 두 번째 줄로 흡수되어 **배선 제거가 exit 2 다**'로, 인용은 통과를 말하는데 원문은 deny다. 실측도 deny 쪽이다(truncated-append 디스크 → ROW2 → 배선 제거 = exit 2). '배선 축은 통과한다'로 읽는 선해가 가능해 확신도를 medium으로 둔다 — 그래도 존재하지 않는 문장을 인용부호로 감싼 것은 정정 대상이다.",
+    "[test][enhancement] 아홉 번 반복된 결함 클래스(문서의 갈래 번호·단정이 코드와 어긋남)를 기계적으로 고정하는 것이 하나도 없다. INV-13 본문의 서수 참조('첫째/둘째/셋째/넷째 줄·갈래')가 실제 `__wiring_baseline_for` 분기 순서와 일치하는지 대조하는 테스트가 있었다면 (a)·(b) 둘 다 커밋 전에 잡혔다. 이 저장소는 HOOK_KILL_SWITCHES 완전성에 이미 같은 기법(스키마 대조 테스트)을 쓰고 있다.",
+    "[docs][low] 커밋 메시지 'The reverse-consistency check also stopped at one sentence last time. … Both are corrected.' — 'both'가 전수임을 함의하나 실제로는 3건 중 2건이다. 미측정 완전성 단정이며, INV-13 555-558행이 스스로 지목한 실패 모드('정정하는 자리에서 새 미측정 주장을 만드는 것')에 해당한다."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1 파싱 불가 디스크 + 배선 제거 편집 deny — ROW2(배선 추출 가능)=exit 2, ROW3(HEAD 기준선)=exit 2, ROW4(무기준선)=exit 0+경고(설계대로). pre-F76(e830dd0) 동일 입력 ROW2는 exit 0+warn이었다 → 강화 확인",
+      "AC-2 킬스위치 3종 × 3갈래(ROW2/ROW3/ROW4) 전부 exit 2",
+      "AC-3 파싱 가능하지만 배선 없는 settings의 면제 유지 — 킬스위치 3종 모두 exit 0",
+      "AC-4 배선 보존 복구 편집 통과 — ROW2=0, ROW3=0, ROW4=0+경고",
+      "AC-5 bats tests/ 파이프 없이 798/798 ok, BATS_EXIT=0, not-ok 0건 (커밋 메시지 주장과 일치)",
+      "AC-6 신규 회귀 테스트가 6차 반례를 고정하고 판별력이 있다 — 구현자 스크립트를 쓰지 않고 독립 재현: `{sw:true}\\n<settings>\\nGARBAGE` 픽스처가 7807135=exit 0(실제 우회), d05d778=exit 2, dea7ee0=exit 2. 킬스위치 3종 모두 동일"
+    ],
+    "security": [
+      "SC-1 어떤 축에서도 축소 없음 — 독립 코퍼스 12손상 × 8편집 × 2기준선 = 192셀 × 3리비전 = 576 가드 실행. pre-F76(e830dd0) 대비 완화 0 / 강화 86, d05d778 대비 완화 0 / 강화 0, 종료코드 {0,2} 외 없음. HOOK_KILL_SWITCHES·matcher_covers·is_protected()·is_wiring_file()·has_jq/has_awk·wired_rows() 출현수 전부 불변",
+      "SC-1(코드 무변경) 가드 비주석 diff 0줄 — 주석·공백 제거 후 d05d778과 dea7ee0 파일이 완전 동일. shellcheck 3건으로 동수이며 코드·메시지 동일(행번호만 이동)",
+      "SC-2 조용한 no-op 없음 — 무기준선 갈래는 stderr 경고를 남기고 킬스위치는 NEW 단독으로 deny",
+      "SC-3 새 대가가 사용자 관점 결과·대안과 함께 기록되고 테스트로 고정됨 — '단일 문서 요구가 만든 새 비용' 문단(494-500행)의 두 주장을 실측 확인: 스위치 유지 편집 exit 2, 우회 경로(스위치 없이 단일 문서로 복구) exit 0. affordance 과장 없음('승인 프롬프트는 없다(exit 2)')",
+      "SC-3(잔여 노출 정직성) '단일 문서 검사는 인스턴스를 닫지 클래스를 닫지 않는다' 문단(502-506행)을 실측 검증 — BOM 접두·nan·Infinity 전부 `jq -e '.'` rc=0 이고 `JSON.parse` rc=1 이며, 세 리비전 모두에서 exit 0(통과). 문단의 주장이 참이다",
+      "SC-4(부분) 6차 판정이 지적한 두 건은 실제로 닫혔다 — 표 1행 '종전과 동일'에 다중 문서 예외가 달렸고(실측 exit 0→2 확인), 512행 '네 번째 줄(무기준선)'·542행 '세 번째 갈래(HEAD 기준선)'가 계측한 분기 순서와 일치한다",
+      "가드 주석의 정정된 문장이 참이다 — 계측(ROW 마커 삽입한 저장소 밖 사본)으로 `{sw:true}\\n<valid>`=ROW1, `{sw:true}\\n<valid>\\nGARBAGE`=ROW2, 전체 손상+HEAD 있음=ROW3, 전체 손상+HEAD 없음=ROW4 확인. 계측본과 원본의 종료코드 일치"
+    ],
+    "error_scenarios": [
+      "ES-1 jq 부재 시 fail-closed 우선 — exit 2 + 'jq 부재 상태에서 보호 파일 편집을 차단합니다', pre-F76(3d19382)과 dea7ee0 동일. awk 부재도 exit 2로 동일",
+      "ES-2 디스크·HEAD 모두 부재 + 배선 없는 신규 생성 = exit 0, HEAD에 배선이 있으면 exit 2 (F68/F72 경로 무손상)",
+      "ES-3 HEAD 정상 + 디스크 파싱 불가 + 넓히는 편집 = ROW2/ROW3 모두 exit 0",
+      "ES-4 디스크 파싱 불가 + NEW도 파싱 불가 = ROW2/ROW3/ROW4 전부 exit 2. 다중 문서 NEW(5차 반려 사유)도 exit 2"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [
+      "SC-4 'INV-13 전문을 읽고 상충 구절이 없는지 확인' — 상충 구절이 남아 있다. 450행이 461행 및 표 자신의 이력과 충돌한다(위 issues (a)). 491행 인용은 535행 원문과 방향이 반대다(issues (b))"
+    ],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "SC-4에 종료 조건이 없다 — '전문을 읽고 상충 구절이 없는지'는 라운드마다 길어지는 120행 산문에 대한 무한 수작업 의무이고, 그 결과가 아홉 번의 동일 클래스 반려다. 기계적 정의로 바꿔야 한다: 'INV-13 절의 모든 서수 참조(첫째~넷째 줄/갈래)가 `__wiring_baseline_for`의 실제 분기 순서로 해석된다'를 테스트로 고정하면 사람 스윕 없이 종료한다"
+    ],
+    "ambiguous_criteria": [
+      "SC-4 문언('이 수정으로 참이 되거나 거짓이 되는 문장')은 이번 수정이 뒤집은 문장만 범위로 읽히지만, 5·6차 판정은 F76 시리즈 안에서 태어날 때부터 거짓이던 문장도 범위로 다뤘다. 판정 일관성을 위해 이 판정도 넓은 범위를 적용했다 — 계약 문언을 실제 적용 범위에 맞춰 갱신할 것"
+    ],
+    "security_criteria_insufficient": [],
+    "action_required": "다음 iteration은 코드 수정 불필요. (1) 450행 '세 번째 줄' → '두 번째 줄', (2) 491행의 존재하지 않는 인용 정정 또는 삭제, (3) 서수 참조 ↔ 분기 순서 대조 테스트 1건 추가(이 클래스의 재발을 사람 스윕이 아니라 CI로 종료시킨다), (4) 계약 SC-4 문언을 (3)에 맞춰 기계적 기준으로 갱신"
+  },
+  "evidence": {
+    "tests": "bats tests/ (파이프 없이, 저장소 루트) — 1..798, ok 798, not ok 0, BATS_EXIT=0. F76 테스트 13건(#100~#112) 전부 ok. 실행 후 `git status --short` 비어 있음(작업트리 무변경)",
+    "guard_code_unchanged": "git diff d05d778..dea7ee0 -- hooks/invariant-guard.sh → +/- 14줄 전부 주석(비주석 0줄). 주석·공백 제거 정규화 후 두 리비전 파일 diff 없음 → 코드 축 무변경 확정",
+    "mutation_independent": "저장소 밖 mktemp git 픽스처 + 3리비전 가드 사본으로 자체 작성한 매트릭스(구현자 스크립트 미사용). 디스크=`{sw:true}\\n<settings>\\nGARBAGE`, NEW=해당 스위치 on → 7807135=0 / d05d778=2 / dea7ee0=2 (disableAllHooks·allowManagedHooksOnly·disableCommandPluginSources 3종 모두 동일). 디스크=`{sw:true}\\n<settings>`(전체 유효)도 0/2/2",
+    "branch_instrumentation": "dea7ee0 가드 사본에 `__wiring_baseline_for`의 네 종료점마다 ROWMARK를 삽입(저장소 밖). 측정: 정상=ROW1, `{sw:true}\\n<valid>`=ROW1, `{sw:true}\\n<valid>\\nGARBAGE`=ROW2, 잘린 append=ROW2, 전체손상+HEAD있음=ROW3, 전체손상+HEAD없음=ROW4. 계측본·원본 종료코드 일치(모두 2). 코드 분기 순서(478 jq -e → 495 wired_rows → 499 HEAD → 말미 none)와 문서 표 4행이 1:1 대응",
+    "sc1_corpus": "12 디스크 손상형태(valid·unwired·후행쉼표·잘린append·잉여중괄호·뒤잡문자열·전체손상·선두위조·선두위조+잡문자열·중복문서·선두주석·빈파일) × 8 편집(배선제거·킬스위치3종·복구·확장·NEW무효·NEW다중문서) × 2 기준선(HEAD 유/무) = 192셀, e830dd0(pre-F76)·d05d778·dea7ee0 3리비전 = 576 가드 실행. pre-F76 대비 완화 0·강화 86, d05d778 대비 완화 0·강화 0, 종료코드 {0,2} 외 0건",
+    "prose_factcheck": "jq 스트림 의미론: `{a}\\n{b}` rc=0, `{a}\\nGARBAGE` rc=5, `GARBAGE\\n{a}` rc=5 → '모든 문서가 유효해야 통과' 참. BOM/nan/Infinity: jq rc=0 · node JSON.parse rc=1 · 가드는 3리비전 모두 exit 0 → 502-506행 문단 참. gitignore: `git ls-files settings.json`=추적됨, `.claude/settings.json`=미추적이며 .gitignore:9 `.claude/`로 무시 → 512-513행 참",
+    "table_history": "git show {261758d,3d19382,6ac0561,7807135,d05d778,dea7ee0}:docs/INVARIANTS.md 로 표 이력 대조 — 6ac0561까지 3행(OK / 실패+HEAD있음 / 실패+HEAD없음), 7807135부터 4행이며 신규 삽입행은 2행 `실패 | 가능 | — | 디스크 내용`. 따라서 450행 '세 번째 줄이 뒤늦게 들어온 것' 은 거짓",
+    "shellcheck": "d05d778·dea7ee0 각각 3건, 코드(SC2329·SC2012)·메시지 동일, 행번호만 주석 추가분만큼 이동 → 커밋 메시지의 'identical to HEAD' 는 실질 참",
+    "es1_toolgate": "PATH를 jq 없는 shim으로 교체 → 3d19382·dea7ee0 모두 exit 2 + 'jq 부재 상태에서 보호 파일 편집을 차단합니다 (fail-closed)'. awk만 제거해도 양쪽 exit 2 + 대응 메시지"
+  },
+  "unverified": [],
+  "next_judgment_note": "F76은 critical 티어이므로 다음 라운드에서 pass가 나오더라도 F37에 따라 **독립 컨텍스트의 2차 판정이 반드시 뒤따라야 한다**. 두 판정의 verdict가 불일치하면 자동 pass 금지, 사람 에스컬레이션."
+}
