@@ -1,0 +1,113 @@
+{
+  "timestamp": "2026-08-30T01:08:42+09:00",
+  "sprint": 63,
+  "iteration": 2,
+  "features_evaluated": [
+    "F77"
+  ],
+  "security_tier": "critical",
+  "judgment_role": "F37 second independent critical judgment",
+  "_scope_note": "1차(최종) 판정 evaluator-feedback-2026-08-29T23-47-04+0900.json은 **9c7e222**를 대상으로 했고(그 파일의 repo_state가 'HEAD=9c7e222'라고 적는다), passes:true는 5a04f31에서 전환됐다. 대상 커밋 d48f6f1은 그 뒤에 올라와 **어떤 evaluator 판정도 받지 않은 상태**였다. 따라서 이 2차 판정은 1차와 같은 코드를 다시 보는 것이 아니라 상위집합을 본다 — 1차 verdict가 d48f6f1에도 적용되는지는 '리팩터가 정말 동작 보존인가'에 달려 있어, 그것을 이 판정의 첫 번째 실측 항목으로 삼았다.",
+  "_blinding_disclosure": "완전한 블라인드 판정은 아니다. 가드 주석이 근거로 인용한 '2차 판정이 14형태로 확인'·'2차 판정이 종단 재현'이라는 귀속을 검증하려면 1차 피드백 파일을 열어야 했고, 그 시점에 1차의 점수(9/7/8/8/7)가 노출됐다. 다만 아래 모든 실측은 1차의 픽스처·코퍼스·랩을 재사용하지 않고 독립 설계했으며(자체 4리비전 × 13형태 × 3축 매트릭스, 자체 worktree 랩 2배치, 자체 뮤테이션 프로브 2종), 차원 점수는 각각 앵커에 대해 내 실측만으로 산정한 뒤 마지막에 비교했다. 새로 발견한 항목과 1차가 이미 지적한 항목을 issues에서 구분해 표기했다.",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 7,
+    "security": 8,
+    "error_handling": 8,
+    "test_coverage": 7
+  },
+  "score": 7,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_floor_critical": 7,
+  "verdict": "pass",
+  "fail_reasons": [],
+  "agreement_with_first_judgment": {
+    "first": {
+      "file": "progress/agent-comms/evaluator-feedback-2026-08-29T23-47-04+0900.json",
+      "target_commit": "9c7e222",
+      "verdict": "pass",
+      "score": 7,
+      "security": 8
+    },
+    "second": {
+      "target_commit": "d48f6f1",
+      "verdict": "pass",
+      "score": 7,
+      "security": 8
+    },
+    "verdict_match": true,
+    "score_match": true,
+    "escalation_required": false,
+    "note": "verdict·종합점수·보안점수 모두 일치. 차원별 점수도 9/7/8/8/7로 동일하게 나왔다(위 _blinding_disclosure 참조). 1차가 9c7e222를, 2차가 d48f6f1을 봤음에도 판정이 겹치는 근거는 두 리비전이 39셀 전수에서 행동 동일하다는 실측이다 — 즉 이 일치는 우연이 아니라 '리팩터가 동작 보존'이라는 사실에서 나온다."
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1 __head_content_for: CLAUDE_PROJECT_DIR가 다른 저장소·조상·비존재·비git을 가리켜도 $FILE 위치 root로 HEAD 기준선 확보 — 자체 매트릭스 13형태 전부 exit 2",
+      "AC-2 record_guarded_edit: 올바른 저장소 원장에만 티켓 발급, 다른 저장소·조상 원장 오염 0 — 13형태 전부 ticket=yes/leak=no",
+      "AC-3 정상 케이스(CPD == 실제 toplevel) 무회귀 — 매트릭스 correct-toplevel 행이 unset 행과 동일",
+      "AC-4 CLAUDE_PROJECT_DIR 미설정 기존 동작 불변 — env -u로 F68/F72/F76 스위트 227건 전건 통과",
+      "AC-5 두 호출부가 같은 __derive_root 하나를 사용 — diff 및 코드 확인, 사본 없음",
+      "AC-6 bats tests/ 파이프 없이 808/808, not ok 0, exit 0",
+      "AC-7 CLAUDE_PROJECT_DIR를 이 저장소로 export한 전체 재실행도 808/808 exit 0으로 동일 — 헬퍼 setup()의 unset(:78)이 실제로 격리를 만든다"
+    ],
+    "security": [
+      "SC-1 F68/F72/F76 축 무회귀 — 4리비전 × 13형태 × 3축(=156셀) 실측에서 d48f6f1이 이전 어느 리비전보다 나쁜 셀 0개, 완화 0건",
+      "SC-2 fail-closed + 관측 가능 — $FILE이 비git 디렉터리일 때 CPD 3형태 모두 티켓 0 + stderr '해석 실패' 경고 발화",
+      "SC-3 저장소 밖 경로에 티켓 미발급 유지 — 위 프로브에서 티켓 0, 이 저장소 원장 1602줄 전후 불변",
+      "SC-4 이 커밋은 행동 무변경(순수 리팩터+테스트)이라 참·거짓이 뒤집히는 INVARIANTS.md 문장이 없다 — :212-229는 F72 시점 역사 서술이고 :544-560의 F76/INV-13 문단은 9c7e222에서 이미 동일성 규칙으로 갱신됐음을 확인"
+    ],
+    "error_scenarios": [
+      "ES-1 존재하지 않는 CLAUDE_PROJECT_DIR → $FILE 위치로 폴백, 3축 전부 정상 차단",
+      "ES-2 git 아닌 일반 디렉터리 → 같은 폴백, 3축 전부 정상 차단",
+      "ES-3 심볼릭 링크 → pwd -P가 링크를 풀어 진짜 toplevel과 동일 판정(8형태 정규화 실측)",
+      "ES-4 jq/awk fail-closed 게이트는 __derive_root보다 앞단이라 상호작용 없음 — 매트릭스 전 셀에서 root 유도 경로가 그 게이트를 우회하지 않음"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "issues": [
+    "[test][medium][confidence:high][NEW — 1차 미지적] **동기 시나리오(worktree) 테스트가 판별력 없는 배치로만 고정됐다.** 신규 테스트는 `wt=$(mktemp -d)`로 워크트리를 메인 저장소 **밖**에 만든다. 그 배치에서는 1차 수정(0983cdd)의 컨테인먼트 검사가 이미 '워크트리가 메인 저장소의 하위 디렉터리가 아님'을 근거로 CPD를 거부하므로, 이 테스트는 9c98a28만 죽이고 0983cdd는 죽이지 못한다(구현자도 커밋 메시지에 그렇게 적었다 — 정직한 서술이다). 자체 worktree 랩으로 두 배치를 대조 실측: OUTSIDE는 9c98a28=0 / 0983cdd=2 / 9c7e222=2 / d48f6f1=2. INSIDE(워크트리를 메인 저장소 트리 안에 생성)는 9c98a28=0 **및 0983cdd=0** / 9c7e222=2 / d48f6f1=2 — 배선 축·INV-3 축 둘 다 그렇고, 티켓 축에서는 0983cdd가 티켓을 **워크트리가 아니라 메인 저장소 원장에** 남긴다(wt:no/main:yes). 계약 problem 문단이 지목한 '조용히 잘못된 원장에 기록' 실패 그 자체다. 즉 직전 리비전을 죽이는 판별형은 INSIDE 배치뿐인데 그것이 미커버다. `git worktree add`를 저장소 안 경로에 두는 레이아웃(.worktrees/ 등)은 드물지 않으므로 가상 시나리오도 아니다.",
+    "[test][medium][confidence:high][NEW — 1차 미지적] **신규 표기-위조 테스트 3서브케이스 중 2개가 주석이 표방한 것을 실제로는 단언하지 않는다.** trailing slash 서브케이스는 '과잉차단 아님을 함께 확인', 심볼릭 링크 서브케이스는 '과잉차단 방지 확인 겸용'이라고 적지만, 이 픽스처에서는 CPD를 **채택하는 경로**와 **거부하고 __real_top으로 폴백하는 경로**가 같은 root를 내므로 단언값(exit 2)이 두 경로를 구분하지 못한다. 실측(뮤턴트 M1 — `__derive_root`의 CPD 채택 분기를 통째로 비활성화): hook-wiring-parity + invariant-guard 210건이 **전건 그대로 통과**하며 이 테스트도 통과한다. 반면 뮤턴트 M2(동일성 → 컨테인먼트로 되돌림)는 4건을 죽이는데 그중 이 테스트가 포함되며, 죽이는 주체는 세 번째(상대경로 `..`) 서브케이스다. 정리하면 상대경로 서브케이스만 뮤테이션 가치가 있고 나머지 둘의 표방 목적은 미검증이다. **이 기능이 8회 넘게 반복한 '정정하는 자리에서 새 미측정 단정을 만드는' 패턴의 9번째이며, 이번에는 대상이 동작 서술이 아니라 테스트 강도 서술이다.**",
+    "[security][low][confidence:high][1차 지적 — d48f6f1에서 미해결] **CLAUDE_PROJECT_DIR 분기가 행동상 죽은 코드인데 코드는 여전히 살아 있는 신뢰 결정처럼 서술한다.** `__cand == __real_top`일 때만 `__cand`를 반환하므로 반환값은 모든 입력에서 `__real_top`과 같고, 분기를 삭제해도 관측 가능한 변화가 없다(M1: 210/210 그대로 통과). 헤더 주석 ':508 정확히 같을 때만 신뢰한다'와 ':529-531'은 채택 여부에 결과가 달린 것처럼 읽힌다. 취약점은 아니다 — 오히려 가장 안전한 형태이고, 어떤 표기 트릭도 통하지 않는 이유가 열거가 아니라 **클래스 폐쇄**임을 보증하는 성질이다. 다만 그 사실이 코드 어디에도 기록돼 있지 않아, 다음 유지보수가 '이 분기가 뭔가를 한다'고 읽고 되살리려 할 여지가 남는다.",
+    "[process][low][confidence:medium][NEW — 1차 미지적] **Plan 게이트에서 승인된 축 결정(AX-1 B)이 계약 갱신 없이 A로 이동했다.** 계약 `_agreed_note`는 지금도 'AX-1은 B안(CLAUDE_PROJECT_DIR가 $FILE 물리 경로를 포함할 때만 채택) 그대로 승인됐다'고 적는다. 2차 수정의 동일성 좁히기로 실제 동작은 A안('$FILE 위치에서 유도한 root를 항상 우선, CLAUDE_PROJECT_DIR 완전 무시')과 **구별 불가능**해졌고(위 항목의 M1 증명), B안을 A안과 갈랐던 근거 — '정상 세션에서는 그 값이 그대로 쓰이므로 A처럼 그 값의 존재 이유를 버리지 않는다' — 는 더 이상 성립하지 않는다(그 값이 '쓰이는' 경우가 정확히 써도 안 써도 같은 경우다). 방향은 엄격히 더 안전하므로 범위 확장도 요건 완화도 아니지만, 이 저장소 자신의 기준 역전파 원칙대로라면 계약에 반영됐어야 한다. criteria_backfill 항목으로 계수하되 3건 미만이므로 spec/architecture 재검토 권고 대상은 아니다.",
+    "[docs][low][confidence:medium][1차 지적 — d48f6f1에서 미해결] **docs/INVARIANTS.md:212-229가 pre-F72 코드를 현재형 문장으로 인용한다.** '위 실체화 로직은 `root=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel ...)}\"`로 저장소 루트를 구하고'. 문맥상 이 문단은 '세 번째 함정 (F72, 2026-08-08)'이라는 역사 서술이고 뒤따르는 '수정(F72, 1차 시도)'·'수정(F72, 최종)'이 그것을 대체하므로 **F77이 이 자리의 어떤 문장도 거짓으로 만들지 않았다**(CPD 분기가 무해하게 죽어 있으므로 'root는 $FILE 위치에서 유도한다'는 서술은 오히려 완전히 참이다). 따라서 SC-4 실패로는 계수하지 않는다. 다만 INV-3 항목만 읽는 독자는 두 기능 전의 메커니즘을 현재 설계로 학습하게 된다.",
+    "[code_quality][low][confidence:high][NEW — 경미] **worktree 괄호주석의 귀속이 한 단계 부정확하다.** :519-522는 실사용 경로를 설명하며 '(2차 판정이 종단 재현: … 둘 다 통과하다가 **이 수정으로** 둘 다 차단됨)'이라고 적는다. 내 실측으로는 그 종단 재현이 쓴 배치(메인 저장소 밖 워크트리)에서 '둘 다 통과'는 9c98a28에서만 성립하고 차단은 이미 1차 수정(0983cdd)이 만들었다 — 동일성 좁히기(이 수정)가 새로 닫는 것은 저장소 **안** 배치다. 문장이 F77 전체를 '이 수정'으로 뭉뚱그리면 읽을 수는 있으나, 어느 라운드가 어느 형태를 닫았는지는 바로 위 문단이 공들여 구분하고 있어 같은 정밀도를 기대하게 된다.",
+    "[test][info][confidence:high] 참고(결함 아님): 신규 2건을 포함한 F77 전용 테스트 9건은 M2(동일성→컨테인먼트 회귀)에서 4건이 죽어 동일성 술어 자체는 충분히 고정돼 있다. 위 두 test 이슈는 '술어가 안 고정됐다'가 아니라 '동기 시나리오와 과잉차단 축이 표방만큼 고정되지 않았다'는 지적이다."
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [
+      "회귀 테스트의 뮤테이션 강도에 대한 기준이 없다 — '이 시나리오를 고정하는 테스트가 있는가'만 요구하고 '그 테스트가 **직전** 리비전에서 실패하는가'를 요구하지 않는다. 그래서 어느 옛 리비전에서든 실패하기만 하면 통과로 보이고, 이번처럼 판별력 없는 배치가 남는다(issues 1번).",
+      "테스트 주석이 표방한 목적이 그 단언으로 실제 검증되는지를 요구하는 기준이 없다 — '과잉차단 방지'라고 적힌 서브케이스가 과잉차단을 전혀 검출하지 못해도 어떤 criterion에도 걸리지 않는다(issues 2번). M1식 국소 뮤테이션 한 번이면 기계적으로 확인된다.",
+      "AX-1처럼 Plan 게이트에서 선택된 설계 옵션이 구현 도중 다른 옵션으로 수렴했을 때 계약을 갱신하도록 요구하는 기준이 없다(issues 4번)."
+    ],
+    "ambiguous_criteria": [
+      "AC-5 '두 지점이 같은 헬퍼를 통해 root를 결정한다'는 헬퍼의 **인자가 전부 살아 있어야 한다**는 요구를 담지 않는다 — 죽은 `$1`이 1차 판정을 통과해 살아남은 경로가 정확히 이 틈이다. d48f6f1이 그 인자를 제거했지만 기준 자체는 여전히 같은 틈을 허용한다.",
+      "SC-4가 문언상 docs/INVARIANTS.md로 한정돼, 같은 실패 클래스(서술이 코드보다 느슨하거나 자기모순)가 코드 주석·테스트 주석에서 발생하면 어떤 기준에도 걸리지 않는다. 이번 커밋이 고친 것도, 이번 커밋이 새로 만든 것(issues 2번)도 전부 그 사각이다. 1차도 같은 지적을 했고 아직 기준이 넓혀지지 않았다."
+    ],
+    "security_criteria_insufficient": [],
+    "criteria_backfill_count": 1,
+    "action_required": "다음 iteration(또는 후속 change-request)에서 (1) worktree 회귀 테스트를 저장소 **안** 배치로 바꾸거나 한 서브케이스를 추가해 0983cdd를 죽이도록 강화, (2) trailing slash·심볼릭 링크 서브케이스의 주석을 실제 단언 범위에 맞게 정정하거나 채택/폴백을 구분하는 관측을 추가, (3) __derive_root의 CPD 분기가 행동상 무영향임을 코드에 명시, (4) sprint-63 _agreed_note에 AX-1이 B에서 A와 구별 불가능한 형태로 수렴했음을 기록, (5) SC-4 문언을 '코드·테스트 주석 포함'으로 확장."
+  },
+  "evidence": {
+    "full_suite": "`bats tests/ > file 2>&1` (파이프 없음, 종료 코드 별도 기록) → ok=808, not ok=0, EXIT=0. 신규 2건(#121 worktree, #122 표기 위조) 포함 확인",
+    "ac7_hermetic": "`CLAUDE_PROJECT_DIR=/Users/hanbyeol/Project/studioj/cc-harness bats tests/` 전체 → ok=808, not ok=0, skip=5, EXIT=0 — env -u 실행과 완전 동일. 헬퍼 setup():78의 `unset CLAUDE_PROJECT_DIR`가 실효",
+    "refactor_equivalence": "자체 격리 랩(/tmp mktemp, 구현자 픽스처 미사용, 자체 배선 JSON + $LAB/anc/main 진짜 저장소 · $LAB/other 디코이 저장소 · $LAB/anc 조상(progress/ 보유) 레이아웃). CPD 13형태(unset·정상·trailing slash·이중 슬래시·`/.`·조상·타 저장소·비존재·비git·심볼릭 링크·왕복 상대경로·부모로 가는 상대경로·빈 문자열) × 3축(배선 제거 exit / 티켓 발급+원장 오염 / INV-3 삭제-후-재생성 exit) × 4리비전 = 156셀. **9c7e222와 d48f6f1이 39셀 전부에서 완전 동일** — 리팩터는 동작 보존이다(구현자 주장 독립 확인). 코드 근거도 일치: 9c7e222의 `local __fp=\"$1\"`은 함수 본문 어디서도 읽히지 않고, `__physicalize_under`·`__nearest_existing_dir`는 전역 부작용이 없어 두 호출부의 순서 교체가 관측 불가",
+    "mutation_evidence_matrix": "같은 156셀에서 축별 붕괴 지점: 배선 축 — 9c98a28은 조상·타 저장소·비존재·비git·부모상대경로 5형태에서 exit 0, 0983cdd는 조상·부모상대경로 2형태에서 exit 0, 9c7e222/d48f6f1은 0형태. INV-3 축 동일 패턴. 티켓 축 — 9c98a28은 타 저장소에서 완전 침묵(ticket=no, 어느 원장에도 흔적 0), 9c98a28·0983cdd는 조상·부모상대경로에서 **조상 원장에 오배송**(leak_anc=yes), 9c7e222/d48f6f1은 13형태 전부 올바른 원장에만 발급",
+    "worktree_two_placements": "자체 worktree 랩(구현자 픽스처 미사용): 메인 저장소 + `git worktree add` 2개(하나는 밖, 하나는 메인 트리 안), CPD는 메인 저장소로 고정. OUTSIDE — 배선 9c98a28=0/0983cdd=2/9c7e222=2/d48f6f1=2, INV-3 동일, 티켓 9c98a28=wt:no·main:no / 나머지 wt:yes·main:no. INSIDE — 배선 9c98a28=0/**0983cdd=0**/9c7e222=2/d48f6f1=2, INV-3 동일, 티켓 9c98a28·0983cdd=**wt:no·main:yes**(오배송), 9c7e222·d48f6f1=wt:yes·main:no",
+    "mutation_probe": "저장소 밖 사본 3벌(`git archive HEAD | tar -x` 후 자체 git init)에 `bats tests/hook-wiring-parity.bats tests/invariant-guard.bats` 실행. control 210 ok / 0 not ok. **M1**(CPD 채택 조건에 `&& 1 -eq 0` 삽입 = 분기 완전 비활성화) 210 ok / **0 not ok** → CPD 분기는 스위트가 전혀 관측하지 못하는 죽은 코드. **M2**(동일성 → 컨테인먼트, 0983cdd 의미로 회귀) 206 ok / **4 not ok**(SC-3 비git 자기지정, 조상 디렉터리, 조상 INV-3, 표기 위조) → 동일성 술어 자체는 잘 고정됨. 실 저장소는 이 실험에 일절 사용하지 않음",
+    "relative_path_recomputation": "구현자의 자기정정을 독립 재계산: `cd \"$d/../$(basename $d)/..\" && pwd -P` = `/private/tmp/f77-wt.llaVjL` = `cd \"$d/..\" && pwd -P`(= $d의 부모). `python3 os.path.realpath`로 교차 확인 동일. 대조군 `cd \"$d/hooks/..\"` = $d(제자리 왕복). **구현자의 정정이 정확하다** — 그 표기는 같은 위치의 별칭이 아니라 조상 우회의 변형이고 차단(exit 2)이 옳은 기대값이다. 매트릭스에서도 `rel-parent-trick` 행이 `ancestor` 행과 4리비전 × 3축 전부 동일한 값을 내 이 계산을 행동으로 재확인",
+    "normalization_forms": "`cd \"$p\" && pwd -P`로 8형태 실측 — `$d`, `$d/`, `$d//`, `$d/.`, `$d/./`, 심볼릭 링크, 심볼릭 링크+슬래시, `$d/progress/..` 전부 같은 물리 경로로 정규화. 매트릭스에서도 이 형태들이 correct-toplevel 행과 4리비전 × 3축 전부 동일 → trailing slash·심볼릭 링크가 동일성 비교를 속일 수 없음이 표기 수준과 행동 수준 양쪽에서 확인",
+    "sc2_sc3_probe": "$FILE이 **어떤 git 저장소에도 속하지 않는** mktemp 디렉터리(단 progress/는 보유)에 있을 때 CPD 3형태(unset · 그 비git 디렉터리 자신 · 실제 하네스 저장소): 세 경우 모두 exit 0, 그 디렉터리에 티켓 미발급, stderr에 '해석 실패' 경고 2줄 발화. 실 저장소 원장은 1602줄로 전후 불변 — SC-2 fail-closed 관측성과 SC-3 원장 비오염이 동시에 성립",
+    "regression_axes": "개별 실행(env -u CLAUDE_PROJECT_DIR): tests/invariant-guard.bats 148 ok / 0 not ok / exit 0(F68·F72), tests/protected-integrity.bats 17 ok / 0 not ok / exit 0(F65 워킹트리-HEAD 동일성 포함), tests/hook-wiring-parity.bats 62 ok / 0 not ok / exit 0(F76 관련 21개 언급 포함). 전건이 위 808 안에도 포함",
+    "guard_diff_review": "`git diff 9c7e222..d48f6f1 -- hooks/invariant-guard.sh` = +28/-19. 실제 변경은 (a) 헤더 주석을 동일성 규칙으로 재서술, (b) `__derive_root` 시그니처에서 `$1` 제거, (c) 두 호출부에서 root 유도를 file_phys 물리화보다 **앞으로** 이동. (c)가 유일한 구조 변경인데 `__file_phys`/`file_phys`는 양쪽 모두 local이고 root 실패 시 조기 반환하므로 관측 차이가 없다 — 위 refactor_equivalence가 이를 39셀로 확증",
+    "docs_check": "docs/INVARIANTS.md의 CLAUDE_PROJECT_DIR 언급 4곳(:213·214·218·550) 정독. :544-560 F76/INV-13 문단은 9c7e222에서 동일성 규칙 서술로 갱신 완료(`git diff 26b9261..9c7e222 -- docs/INVARIANTS.md`로 확인). :212-229는 F72 시점 역사 서술이며 F77이 참·거짓을 뒤집지 않음. d48f6f1은 docs를 건드리지 않았고, 행동 무변경이므로 그것이 옳다",
+    "overclaim_scan": "d48f6f1의 커밋 메시지·가드 주석·테스트 주석을 문장 단위로 대조. 검증된 주장 — '808/808 exit 0'(재현), '225/225 동작 보존'(내 39셀 대조로 더 강하게 확인), 'worktree 테스트가 9c98a28에서 실패하고 0983cdd에서는 이미 통과'(OUTSIDE 배치 실측 일치, 정직한 서술), '상대경로가 실제로는 부모를 가리킨다'(재계산 일치), '2차 판정이 14형태로 확인'·'2차 판정이 종단 재현'(1차 피드백 파일의 independent_bypass_matrix·worktree_end_to_end와 대조해 귀속 정확). 검증에 실패한 주장 — 테스트 주석의 '과잉차단 아님을 함께 확인'/'과잉차단 방지 확인 겸용'(M1이 반증, issues 2번), 가드 :519-522의 '이 수정으로 둘 다 차단됨'(귀속 한 단계 부정확, issues 6번)",
+    "repo_state": "판정 전·중·후 워킹트리 clean(git status --porcelain 빈 출력), HEAD=d48f6f1. 모든 실험은 저장소 밖 /tmp mktemp 랩과 저장소 밖 사본에서만 수행했고 보호 파일은 일절 수정하지 않았다"
+  },
+  "escaped_defect_note": "issues 1·2는 통과 후 발견된 결함이 아니라 **판정을 받은 적 없는 커밋(d48f6f1)에서 새로 발견된** 결함이다 — 5a04f31의 passes:true는 9c7e222를 근거로 했다. 따라서 false-positives 코퍼스의 escaped-defect가 아니라 이 2차 판정의 1차 발견으로 기록한다. 다만 issues 2번은 F76~F77이 반복해 온 '정정하는 자리에서 새 미측정 단정을 만든다'는 패턴의 9번째 사례이므로 progress/lessons.md에 환류한다.",
+  "verdict_rationale": "5차원 최솟값 7 ≥ pass_threshold 7이고 critical 티어 보안 하한 7에 대해 보안 8이므로 pass. 계약의 acceptance 7건·security 4건·error 4건이 모두 이 세션의 실행 결과로 충족됐고, 미충족 기준은 0건이다. 반려하지 않는 이유: 발견된 6건 중 어느 것도 기능·안전성 축을 열지 않는다 — 두 test 이슈는 '방어가 뚫린다'가 아니라 '방어가 표방만큼 고정되지 않았다'이고(동일성 술어 자체는 M2가 4건으로 고정 확인), 나머지는 죽은 분기의 미기록·계약 문언·역사 서술·귀속 정밀도다. 반대로 통과시키는 근거는 약하지 않다: 리팩터의 동작 보존을 39셀로 확증했고, 우회 형태 13종 어디에서도 d48f6f1이 이전 리비전보다 나쁜 셀이 없으며, 동일성 좁히기가 열거가 아니라 클래스 폐쇄임이 M1의 구조적 죽음 증명으로 뒷받침된다. code_quality와 test_coverage를 8이 아닌 7로 둔 것이 이 6건에 대한 반영이다."
+}
