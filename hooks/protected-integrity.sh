@@ -39,12 +39,21 @@ command -v git &>/dev/null || exit 0
 GITDIR=$(git rev-parse --git-dir 2>/dev/null) || exit 0
 
 # 데이터 플레인 — git 추적이라 HEAD로 복구 가능한 검증 장치.
-# tests/protected-integrity.bats 가 invariant-guard 의 is_protected() 와 집합 정합성을 검사한다.
-# protected-integrity.sh 자신과 티켓 파일은 여기 **없다** — 자기를 복구할 수 없으므로 컨트롤 플레인이다.
-# **invariant-guard의 is_protected()와 같은 집합이어야 한다.** 넓으면 편집 시 티켓이 발급되지
-# 않는 파일이 복구 대상에 들어가 정당한 편집이 되돌려지고(실측: hooks/lib.sh 가 그랬다),
-# 좁으면 그 경로는 예측도 탐지도 없이 남는다. tests/protected-integrity.bats 가 동등성을 검사한다.
-# pre-bash-firewall.sh·invariant-guard.sh 는 여기 없다 — 자기를 복구할 수 없으므로 컨트롤 플레인이다.
+# **invariant-guard의 is_protected()와 같은 집합이어야 한다 — 단, 문서화된 예외는 남는다**
+# (F65 4차 판정 이후 step 13: SC-8 테스트는 이 예외 목록을 근거로 두 집합의 대칭차를 기계
+# 대조한다). 예외가 아닌 불일치는 그대로 위험이다 — 넓으면 편집 시 티켓이 발급되지 않는
+# 파일이 복구 대상에 들어가 정당한 편집이 되돌려지고(실측: hooks/lib.sh 가 그랬다), 좁으면
+# 그 경로는 예측도 탐지도 없이 남는다.
+# 문서화된 예외:
+#   - `protected-integrity.sh` 자신 — is_protected()에는 있지만 여기 없다. 파괴되면 자기를
+#     복구할 수 없으므로 컨트롤 플레인이고, 방화벽이 예측으로 막는다.
+#   - 티켓 파일(`.guarded-edits`·`.integrity-baseline`) — 같은 이유로 여기 없다.
+#   - `evaluator-runs.jsonl` — gitignore 대상이라 HEAD 자체가 없어 원리적으로 여기 넣을 수
+#     없다. is_protected()(Edit/Write 경유)에는 있고, Bash 경유는 방화벽 자기보호 arm이
+#     대신한다(INV-14 참조).
+# `pre-bash-firewall.sh`·`invariant-guard.sh`·`pre-tool-firewall.sh`는 예외가 **아니다** —
+# is_protected()에도 있고 여기에도 있다(아래 배열). 이 셋은 편집 시 티켓이 발급되므로
+# 복구 대상에 넣어도 정당한 편집이 되돌려지지 않는다(2차 판정).
 PROTECTED_GLOBS=(
   'progress/harness-config.json'
   'progress/feature_list.json'

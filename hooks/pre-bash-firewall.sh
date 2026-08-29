@@ -528,7 +528,15 @@ ASK_PATTERNS=(
   # 빠져나가던 것을 2차 판정이 실증했다. F-1에서 feature_list.json 에 이미 적용한 방식이다.
   # 명령행에 경로가 아예 없는 형태(`python3 script.py`)는 여전히 열려 있다 — 예측의 원리적
   # 한계이며 INV-14에 적었다. 티켓 파일은 셸을 쥔 상대에게 위조 불가능하지 않다.
-  '[^;|&]*(protected-integrity\.sh|\.guarded-edits|\.integrity-baseline)'
+  #
+  # `evaluator-runs.jsonl`도 같은 arm에 넣는다(F65 4차 판정, step 12). 이 파일은
+  # `progress/agent-comms/`에 있어 `is_protected()`(Edit/Write 경유)에는 이미 등록돼 있지만,
+  # gitignore 대상이라 protected-integrity.sh(PostToolUse:Bash, HEAD 기준 사후 복구)의
+  # 관할 밖이다 — INV-14/INV-15가 이미 명문화한 "gitignore 대상은 사후 복구가 성립하지 않고
+  # 예측이 유일한 통제"인 정확히 그 클래스다. INV-11이 이 파일을 근거로 "evaluator가 실제로
+  # 실행됐는가"를 판정하므로, Bash로 자유롭게 조작 가능하면 evaluator 실행 없이 로그를
+  # 위조해 passes:true를 정당화할 수 있다(실측: Bash 직접 덮어쓰기·삭제가 allow였다).
+  '[^;|&]*(protected-integrity\.sh|\.guarded-edits|\.integrity-baseline|evaluator-runs\.jsonl)'
   # git 메타 조작 — 파일을 바꾸지 않고 **탐지를 실명시킨다**. 도구 이름이 확정적이고
   # 정상 개발에서 거의 쓰지 않으므로 게이트해도 마찰이 없다.
   'git\b[^;|&]*update-index[^;|&]*(--assume-unchanged|--skip-worktree|--no-assume-unchanged)'
@@ -849,6 +857,33 @@ CONTROL_PLANE_NAMES=(
 )
 control_plane_location() {
   local t="$1" rest pd cand
+  # **중괄호 확장을 먼저 편다 (F65 4차 판정, step 10).** 셸은 명령을 실제로 실행할 때만
+  # `{a,b}` 를 펼친다 — 우리는 문자열만 파싱하므로 `.claude/{settings.json,hooks}` 가 아래
+  # 어떤 case 문에도 매치하지 않는 통짜 토큰으로 들어온다(실측: `rm -rf .claude/{settings.json,
+  # hooks}` 가 이 함수를 우회해 allow였다). 정규화가 아니라 여기서 여는 이유: 정규화
+  # (`normalize_path_token`)는 토큰 하나를 문자열 하나로 축약하는데, 중괄호는 토큰 하나가
+  # **여러** 후보로 갈라지는 경우라 그 함수의 계약(1 in → 1 out)과 안 맞는다 — 갈라진 후보마다
+  # 이 함수를 재귀 호출하는 편이 정직하다. 중첩 중괄호·범위 확장(`{1..3}`)은 다루지 않는다 —
+  # bash 파서 전체를 재구현하는 것은 F63이 10회전 걸려 실패를 증명한 방향이다(같은 계열의
+  # 알려진 갭으로 남긴다, 방향은 안전 — 못 펴면 아래 case로 떨어져 원래 판정을 받을 뿐이다).
+  case "$t" in
+    *'{'*,*'}'*)
+      local pre body post item
+      pre="${t%%\{*}"
+      body="${t#*\{}"
+      body="${body%%\}*}"
+      post="${t#*\{*\}}"
+      local IFS=','
+      local -a items=()
+      read -r -a items <<<"$body"
+      unset IFS
+      for item in "${items[@]}"; do
+        item="${item# }"; item="${item% }"   # `{a, b}` 처럼 콤마 뒤 공백이 있는 흔한 표기
+        if control_plane_location "${pre}${item}${post}"; then return 0; fi
+      done
+      return 1
+      ;;
+  esac
   # 글로브가 남은 토큰 — 셸이 무엇으로 펼칠지 실행 전에는 모른다. 그래서 **패턴이 컨트롤 플레인
   # 이름을 덮을 수 있는가**를 본다(`rm -rf .clau*` 는 `.claude` 를 덮는다 — 이 라운드의 자체
   # 프로브가 잡은 반례다). `dir/<패턴>` 형태는 이 지점에 오기 전에 디렉터리로 접히므로 여기 남는
@@ -886,6 +921,13 @@ control_plane_location() {
       esac
       case "$rest" in
         hooks|*/hooks) return 0 ;;
+        # F65 4차 판정, step 11: 디렉터리 자체(위)뿐 아니라 그 **안의 개별 훅 파일**도 잡는다.
+        # 같은 경로(`.claude/hooks/invariant-guard.sh` 등)에 대한 **쓰기**는 이미 F73의
+        # in-place arm이 ask로 막는데 **삭제**만 빠져 있었다(실측: `rm .claude/hooks/
+        # invariant-guard.sh` allow, 같은 파일 `echo > ...` 는 ask — 대칭이 깨져 있었다).
+        # `.sh` 로 한정한다 — 확장자 없이 `hooks/*` 전부를 잡으면 `.claude/**/hooks/README.md`
+        # 처럼 컨트롤 플레인과 무관한 파일까지 걸려 과잉차단이 된다.
+        hooks/*.sh|*/hooks/*.sh) return 0 ;;
       esac
       ;;
   esac

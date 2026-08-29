@@ -203,18 +203,64 @@ dirty()     { ( cd "$LAB" && git diff --name-only | wc -l | tr -d ' ' ) }
   done
 }
 
-@test "F65: PROTECTED_GLOBS와 is_protected()는 hooks/*.sh 에 대해 대칭이다" {
-  # 한쪽만 넓으면 티켓이 발급되지 않는 파일이 복구 대상이 되어 정당한 편집이 되돌려진다 —
-  # F65 때 hooks/lib.sh 가 실제로 그랬다(글롭에는 있고 is_protected()에는 없었다).
-  # F65 는 글롭에서 빼는 쪽으로 풀었고, **F67 은 양쪽에 함께 넣는 쪽으로 풀었다** —
-  # 방화벽 면제 arm 이 훅 스크립트 전체를 덮으므로 탐지 대상도 같아야 했기 때문이다.
-  # 어느 방향이든 **대칭**이 지켜지는지가 이 테스트가 지키는 것이다.
-  local ig="$BATS_TEST_DIRNAME/../hooks/protected-integrity.sh"
-  local guard="$BATS_TEST_DIRNAME/../hooks/invariant-guard.sh"
-  if grep -qE "^  'hooks/\*\.sh'" "$ig"; then
-    grep -qE 'hooks/\*\.sh\) return 0' "$guard"
-  fi
-  # invariant-guard 심사를 거친 편집(티켓 있음)은 보존된다 — 대칭이 지켜지면 오탐이 없다
+@test "F65 step 13: PROTECTED_GLOBS와 is_protected()는 전체 추적 파일에서 문서화된 예외 밖으로 어긋나지 않는다 (SC-8 기계 대조)" {
+  # 4차 판정 지적: 이전 테스트는 hooks/*.sh 글롭 하나의 대칭만 봤다 — evaluator-runs.jsonl 류의
+  # 개별 불일치는 그 표본 밖에 있으면 놓친다. 여기서는 저장소가 실제로 추적하는 파일 **전체**를
+  # 대상으로 두 판정을 직접 호출해 대조한다 — 손으로 고른 표본이 아니라 `git ls-tree`가 반환하는
+  # 실제 집합이다. 한쪽만 넓으면 티켓 미발급 파일이 복구 대상이 되어 정당한 편집이 되돌려지고
+  # (F65 때 hooks/lib.sh 가 실제로 그랬다), 좁으면 그 경로는 예측도 탐지도 없이 남는다.
+  local repo="$BATS_TEST_DIRNAME/.."
+  local ig="$repo/hooks/protected-integrity.sh"
+  local guard="$repo/hooks/invariant-guard.sh"
+
+  local -a GLOBS=()
+  while IFS= read -r line; do GLOBS+=("$line"); done < <(
+    sed -n '/^PROTECTED_GLOBS=($/,/^)$/p' "$ig" | grep -oE "'[^']+'" | tr -d "'"
+  )
+  [ "${#GLOBS[@]}" -ge 10 ] || { echo "PROTECTED_GLOBS 추출 실패 — 배열 형식이 바뀌었는지 확인하라"; false; }
+
+  source <(sed -n '/^is_protected() {$/,/^}$/p' "$guard")
+
+  in_globs() {
+    local p="$1" g
+    for g in "${GLOBS[@]}"; do
+      # shellcheck disable=SC2053
+      [[ "$p" == $g ]] && return 0
+    done
+    return 1
+  }
+
+  # 문서화된 예외 — protected-integrity.sh 자신(파괴되면 자기를 복구할 수 없으므로 is_protected()
+  # 에는 있지만 PROTECTED_GLOBS에는 못 넣는다; hooks/protected-integrity.sh 헤더 주석 참조).
+  # `.guarded-edits`·`.integrity-baseline`·`evaluator-runs.jsonl`은 gitignore 대상이라 애초에
+  # `git ls-tree`에 나타나지 않으므로 이 배터리의 표본에서 구조적으로 제외된다 — 별도 예외 처리가
+  # 필요 없다.
+  local -a EXCEPTIONS=('hooks/protected-integrity.sh')
+  is_exception() {
+    local p="$1" e
+    for e in "${EXCEPTIONS[@]}"; do [[ "$p" == "$e" ]] && return 0; done
+    return 1
+  }
+
+  local -a FILES=()
+  while IFS= read -r f; do [[ -n "$f" ]] && FILES+=("$f"); done < <(
+    git -C "$repo" ls-tree -r --name-only HEAD
+  )
+  [ "${#FILES[@]}" -ge 50 ] || { echo "git ls-tree 결과가 비정상적으로 적다"; false; }
+
+  local mismatches="" f a b
+  for f in "${FILES[@]}"; do
+    is_exception "$f" && continue
+    a=1; in_globs "$f" && a=0
+    b=1; is_protected "$f" && b=0
+    [[ "$a" == "$b" ]] || mismatches="$mismatches
+$f (PROTECTED_GLOBS=$([ "$a" = 0 ] && echo yes || echo no), is_protected=$([ "$b" = 0 ] && echo yes || echo no))"
+  done
+  [[ -z "$mismatches" ]] || { echo "두 집합이 문서화된 예외 밖에서 어긋난다:$mismatches"; false; }
+}
+
+@test "F65: invariant-guard 심사를 거친 hooks/*.sh 편집은 대칭 보호 하에서도 보존된다 (오탐 없음)" {
+  # 위 대칭 대조가 통과하는 상태에서, 정당한 편집(티켓 있음)이 복구로 되돌려지지 않는지 확인한다.
   ( cd "$LAB" && printf '\n# legit\n' >> hooks/lib.sh && \
     printf '%s hooks/lib.sh\n' "$(printf '%s' "$(cat hooks/lib.sh)" | git hash-object --stdin)" \
       > progress/.guarded-edits )

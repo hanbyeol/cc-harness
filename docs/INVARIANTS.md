@@ -147,7 +147,9 @@ delete-then-recreate(파일 삭제 후 `passes:true`로 재생성)로 primary �
 SubagentStop 훅에 캡처됨'으로 올렸지만 **완전 차단은 아니다**(self-referential 한계 — 검증 장치의 상태도
 결국 파일이다). evaluator-runs.jsonl도 파일이라, 위조자가 (a) 실제로 evaluator를 최근 돌렸거나(그러면
 위조할 이유가 없다) (b) 실행 로그에 그럴듯한 `epoch` 레코드를 직접 append하면 시간창 검사를 통과할 수 있다.
-(b)는 append-only 보호(기존 라인 사후 변조·삭제 차단)와 Bash firewall ASK(`progress/` 쓰기 게이트)가
+(b)는 append-only 보호(기존 라인 사후 변조·삭제 차단)와 Bash firewall ASK(탐지기 자기보호 arm —
+`.guarded-edits`·`.integrity-baseline`과 동일한 basename 앵커, F65 4차 판정 이후 이 파일에도 편입됨.
+`progress/` 하위 전체를 잡는 일반 게이트가 아니라 이 basename 하나를 겨냥한 arm이다)가
 speed-bump로 막지만 append 자체를 원천 봉쇄하지는 못한다. 또한 시간창 검사는 per-feature 정밀 대응이
 아니다 — 같은 창(≤48h) 안의 정당한 evaluator 실행 1건이 다른 전환도 만족시킨다. 목표는 '완전 방지'가
 아니라 '위조 난이도 상향'이다(F38 과대주장 정정 교훈). Bash로 feature_list.json을 직접 쓰는 우회는
@@ -877,6 +879,33 @@ heredoc 본문·`|`/`&&` 뒤 줄바꿈·`(`/`{` 블록과 절 사이가 모두 �
 **배선이 없으면 예측이 되살아난다**: 방화벽은 탐지 훅의 배선을 확인해 데이터 플레인 게이트를 끄고,
 확인에 실패하면 켜진 상태로 남긴다(fail-safe). `tests/protected-integrity.bats`가 이 성질과
 두 설치 경로(hooks.json·settings.json)의 배선 대칭(INV-13)을 함께 고정한다.
+
+**4차 판정(2026-08-08)이 실측한 3개 우회와 그 수정 (2026-08-30)**: 계약이 정의한 33종 표기 축은
+전수 통과한 상태에서도 그 밖의 축 세 곳이 뚫려 있었다 — 개별 표기가 아니라 **분류 로직 자체의
+사각지대**였다.
+1. **중괄호 확장**(`rm -rf .claude/{settings.json,hooks}`): 방화벽은 명령 문자열만 파싱하는데
+   `{a,b}`는 셸이 실행 시점에만 펼치므로, `control_plane_location()`의 어떤 case 문에도 매치하지
+   않는 통짜 토큰으로 들어와 통과했다. 수정: 그 함수의 앞단에서 콤마를 포함한 중괄호를 분해해 각
+   대안을 재귀 검사한다(`normalize_path_token()`이 아니라 여기서 연다 — 그 함수는 토큰 하나를
+   문자열 하나로 축약하는 1-in-1-out 계약이라 하나가 여럿으로 갈라지는 이 변환과 안 맞는다).
+   콤마 없는 `{x}`는 bash 자신도 펼치지 않는 리터럴이므로 대상에서 뺀다(실측: `rm -rf {.claude}`는
+   셸이 그대로 `{.claude}`라는 이름의 파일을 찾는다 — 존재하지 않는 파일이라 애초에 무해하다).
+2. **설치 훅 개별 파일 삭제**(`rm .claude/hooks/invariant-guard.sh`): (b) 분기가 `.claude/hooks`
+   **디렉터리**는 잡지만 그 안의 개별 `.sh` 파일은 대상 밖이었다 — 같은 경로에 대한 **쓰기**는
+   F73의 in-place arm이 이미 ask였는데 **삭제**만 비대칭으로 열려 있었다. 수정: 꼬리가 `hooks/*.sh`
+   꼴이면 (b) 분기가 함께 잡는다. 확장자를 `.sh`로 좁혀 `.claude/**/hooks/README.md` 같은 무관한
+   파일까지 걸리는 과잉차단은 만들지 않는다.
+3. **`evaluator-runs.jsonl`**: 이 파일은 gitignore 대상이라 위 "두 집합은 같아야 한다"의
+   `PROTECTED_GLOBS`/`is_protected()` 어느 쪽에도 넣을 수 없다 — `.guarded-edits`·
+   `.integrity-baseline`과 같은 클래스(자기를 복구할 수 없는 상태 파일)인데 방화벽 자기보호 arm
+   에는 빠져 있었다. INV-11이 "evaluator가 실제로 실행됐는가"를 이 파일 하나로 판정하므로, Bash로
+   자유롭게 조작 가능하면 evaluator 없이 실행 로그를 위조해 `passes:true`를 정당화할 수 있었다
+   (INV-1의 독립성 전제를 흔드는 갭이었다). 수정: 자기보호 arm에 이 basename을 추가한다. 이 파일의
+   정당한 쓰기는 `SubagentStop` 훅(`hooks/subagent-evaluator-log.sh`)이 담당하며 그 이벤트는
+   `Bash` 도구의 `PreToolUse`를 거치지 않으므로 이 방화벽 arm과 아예 마주치지 않는다 — 정당한
+   기록 경로는 이 수정으로 막히지 않는다.
+
+세 갭 모두 add-only 수정이다 — 기존 33종 표기 축의 판정은 바뀌지 않는다.
 
 ### INV-15. Layer 1(BLOCKED)도 사용자 override로 개별 제거될 수 있다 — 단, 사후 복구는 없다 (F74)
 

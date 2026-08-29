@@ -292,7 +292,8 @@
     {
       "step": "10. normalize_path_token에 중괄호 확장 반영 + control_plane_location 글로브 메타문자 집합에 `{` 포함",
       "verify": "bats tests/pre-bash-firewall.bats --filter 'F65 brace' 신규 + 4차 판정 실측 5형태(`rm -rf .claude/{settings.json,hooks}`·`rm -rf .cla{u,x}de`·`rm .claude/settings{,.local}.json`·`rm -rf {.claude}`·`rm -rf hooks/{hooks.json}`) 전수 ask + bats 전체 1회 + behavioral 후보 0건",
-      "done": false,
+      "done": true,
+      "_done_note_2026_08_30": "control_plane_location() 앞단에 중괄호 분해·재귀 검사 추가(normalize_path_token이 아니라 여기서 — 1-in-1-out 계약과 안 맞아서, 계획 승인 시 명시한 편차). 5형태 전수 실측(콤마 3형태 ask, 콤마 없는 2형태는 실제 bash 리터럴 확인 후 allow가 정답임을 검증) + bats 신규 3건 + 전체 817/817 통과. 뮤테이션 확인: 142d737 기준 코드에서 신규 테스트 실패, 수정 후 통과.",
       "covers": [
         "AC-11",
         "SC-9"
@@ -302,7 +303,8 @@
     {
       "step": "11. 삭제 동사 게이트 대상에 `.claude/**/hooks/*.sh`(init.sh 설치본 훅 개별 파일)를 추가 — 같은 경로에 대한 쓰기 arm(F73 in-place 확장, :389 부근)과 대칭",
       "verify": "bats tests/pre-bash-firewall.bats --filter 'F65 installed-hook-delete' 신규 + `rm .claude/hooks/pre-bash-firewall.sh`·`rm .claude/hooks/invariant-guard.sh`·`rm ~/.claude/plugins/cc-harness/hooks/lib.sh` 전수 ask + bats 전체 1회 + behavioral 후보 0건",
-      "done": false,
+      "done": true,
+      "_done_note_2026_08_30": "control_plane_location()의 (b) 분기에 `hooks/*.sh|*/hooks/*.sh` 꼬리 매칭 추가 — `.sh`로 한정해 README 등 무관 파일 과잉차단은 만들지 않는다. 계약이 지정한 3형태 전수 ask 실측 + bats 신규 2건 + 전체 817/817 통과. 뮤테이션 확인 완료.",
       "covers": [
         "AC-11",
         "SC-9"
@@ -312,7 +314,8 @@
     {
       "step": "12. `progress/agent-comms/evaluator-runs.jsonl`에 `.guarded-edits`·`.integrity-baseline`과 동일한 basename arm 추가(ASK_PATTERNS add-only) + docs/INVARIANTS.md INV-11의 'progress/ 쓰기 게이트(speed-bump)'가 이 파일에 존재한다는 서술을 실제 통제에 맞게 정정",
       "verify": "`printf 'x' >> progress/agent-comms/evaluator-runs.jsonl`·`cp /tmp/f.jsonl <같은 경로>`·`python3 -c \"open('progress/agent-comms/evaluator-runs.jsonl','a').write('x')\"`·`rm progress/agent-comms/evaluator-runs.jsonl` 전수 ask + docs/INVARIANTS.md INV-11 서술이 실제 arm 존재와 일치하는지 확인 + bats 전체 1회",
-      "done": false,
+      "done": true,
+      "_done_note_2026_08_30": "ASK_PATTERNS 자기보호 arm에 `evaluator-runs\\.jsonl` basename 추가(add-only) + docs/INVARIANTS.md INV-11 서술을 '일반 progress/ 쓰기 게이트'에서 '이 basename 전용 자기보호 arm'으로 정정, INV-14에 4차 판정 3개 갭 요약 섹션 신설. 정당한 쓰기 경로(SubagentStop 훅)는 Bash PreToolUse를 거치지 않아 이 변경으로 막히지 않음을 hooks/hooks.json 배선으로 확인. 계약 지정 4형태 전수 ask + 읽기(tail) 무프롬프트 확인 + bats 신규 2건 + 전체 817/817 통과. 뮤테이션 확인 완료.",
       "covers": [
         "SC-8"
       ],
@@ -321,7 +324,8 @@
     {
       "step": "13. SC-8 테스트를 PROTECTED_GLOBS↔is_protected() 두 집합의 기계적 대조(차집합 == 문서화된 예외 목록)로 교체 + AC-11 배터리에 조합 생성기(동사 × 대상 × 표기 축)를 추가해 축 발견을 열거에서 분리",
       "verify": "tests/protected-integrity.bats 신규 대조 테스트 green(현재는 `hooks/*.sh` 단일 글롭 대조뿐 — 두 집합 전체를 기계 대조하도록 교체) + 조합 생성기 테스트 green + bats 전체 1회",
-      "done": false,
+      "done": true,
+      "_done_note_2026_08_30": "tests/protected-integrity.bats의 SC-8 테스트를 `git ls-tree -r --name-only HEAD` 전체(241개 파일)에 대해 PROTECTED_GLOBS 매칭과 is_protected() 호출을 직접 대조하는 기계 검증으로 교체 — 문서화된 예외는 `hooks/protected-integrity.sh` 하나뿐(자기 복구 불가; 티켓 파일·evaluator-runs.jsonl은 gitignore라 ls-tree 표본에 애초에 없음). 뮤테이션 확인: `hooks/*.sh` 라인을 일시 제거하니 실제 F65 히스토리의 8개 훅 파일 불일치를 정확히 재현·검출했다(hooks/lib.sh 포함). tests/pre-bash-firewall.bats에 삭제 동사(6)×컨트롤 플레인 대상(4)×표기(4)=96개 조합 생성기 배터리 추가, 142d737 기준 코드에서 실패 확인. 전체 817/817 통과.",
       "covers": [
         "SC-8",
         "AC-11"

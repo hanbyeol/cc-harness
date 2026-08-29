@@ -2257,6 +2257,123 @@ delete_decision() {
   done
 }
 
+# === F65 4차 판정 (2026-08-08) 실측 3개 우회의 수정 (step 10-12) ===
+#
+# 계약(sprint-51.json)이 정의한 33종 표기 축은 전수 통과한 상태에서 그 밖의 축 세 곳이 뚫려
+# 있었다 — 아래 배터리는 4차 판정이 실측한 정확한 문자열을 그대로 옮긴다.
+
+@test "F65 brace: comma-bearing brace expansions of control-plane deletions are gated (step 10)" {
+  # 콤마가 있으면 셸이 실제로 여러 후보로 펼친다 — 그중 하나라도 컨트롤 플레인이면 ask.
+  local c
+  for c in "rm -rf .claude/{settings.json,hooks}" \
+           "rm -rf .cla{u,x}de" \
+           "rm .claude/settings{,.local}.json"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "중괄호 확장 표기의 컨트롤 플레인 삭제가 무프롬프트다: $c"; false; }
+  done
+}
+
+@test "F65 brace: comma-less braces are literal in real bash and stay frictionless (step 10)" {
+  # 콤마가 없으면 bash 자신도 펼치지 않는다 — `{.claude}`·`hooks/{hooks.json}`은 그 이름 그대로의
+  # (존재하지 않는) 파일을 찾는 리터럴 토큰이다. 직접 확인한 실제 셸 동작과 일치해야 한다.
+  [[ "$(cd /tmp && echo {.claude})" == '{.claude}' ]] \
+    || { echo "전제가 깨졌다 — bash가 콤마 없는 중괄호를 펼친다"; false; }
+  local c
+  for c in "rm -rf {.claude}" "rm -rf hooks/{hooks.json}"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "콤마 없는 리터럴 중괄호 표기에 마찰이 생겼다: $c"; false; }
+  done
+}
+
+@test "F65 brace: brace expansions outside the control plane stay frictionless (step 10, over-blocking check)" {
+  local c
+  for c in "rm -rf {node_modules,dist}" "rm -rf {build,coverage}/*"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "컨트롤 플레인 밖 중괄호 확장 삭제에 마찰이 생겼다: $c"; false; }
+  done
+}
+
+@test "F65 installed-hook-delete: deleting an individual installed hook file is gated (step 11)" {
+  # 같은 경로에 대한 쓰기(F73 in-place arm)는 이미 ask다 — 삭제도 같은 대칭이어야 한다.
+  local c
+  for c in "rm .claude/hooks/pre-bash-firewall.sh" \
+           "rm .claude/hooks/invariant-guard.sh" \
+           "rm ~/.claude/plugins/cc-harness/hooks/lib.sh"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "설치 훅 개별 파일 삭제가 무프롬프트다: $c"; false; }
+  done
+}
+
+@test "F65 installed-hook-delete: non-.sh files under an installed hooks dir stay frictionless (step 11, over-blocking check)" {
+  # `.sh` 로 한정했다 — 확장자 없이 hooks/* 전부를 잡으면 README 등 무관한 파일까지 걸린다.
+  run delete_decision "rm .claude/hooks/README.md"
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "hooks 디렉터리 안의 비-.sh 파일 삭제에 마찰이 생겼다"; false; }
+}
+
+@test "F65 evaluator-runs.jsonl: every Bash write form is gated (step 12)" {
+  # INV-11이 이 파일 하나로 "evaluator가 실제로 실행됐는가"를 판정한다 — Bash로 자유롭게
+  # 조작 가능하면 evaluator 없이 실행 로그를 위조해 passes:true를 정당화할 수 있다.
+  local c
+  for c in 'printf x >> progress/agent-comms/evaluator-runs.jsonl' \
+           'echo "{}" > progress/agent-comms/evaluator-runs.jsonl' \
+           'cp /tmp/f.jsonl progress/agent-comms/evaluator-runs.jsonl' \
+           'rm progress/agent-comms/evaluator-runs.jsonl'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "evaluator-runs.jsonl 조작이 무프롬프트다: $c"; false; }
+  done
+}
+
+@test "F65 evaluator-runs.jsonl: read access is unaffected (step 12, over-blocking check)" {
+  run delete_decision "tail -5 progress/agent-comms/evaluator-runs.jsonl"
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "evaluator-runs.jsonl 읽기에 마찰이 생겼다"; false; }
+}
+
+@test "F65 step 13: AC-11 combinatorial battery — delete-verb x control-plane-target x notation (all ask)" {
+  # 손으로 고른 개별 사례가 아니라 **곱**으로 생성한다: 삭제 동사 6종 x 컨트롤 플레인 대상 4곳 x
+  # 표기 4종 = 96개 명령. 개별 축은 이미 다른 테스트가 커버하지만, 이 배터리는 축의 **교차**에서만
+  # 드러나는 조합을 놓치지 않기 위한 것이다(4차 판정이 실측한 갭 세 개가 전부 "아는 축만 물어서"
+  # 생긴 것이었다).
+  local -a VERBS=("rm -rf %s" "rmdir %s" "unlink %s" "shred --remove %s" "mv %s /tmp/gone" "find %s -delete")
+  local -a TARGETS=(".claude/settings.json" ".claude/hooks" "hooks/hooks.json" ".claude/hooks/invariant-guard.sh")
+
+  notate_plain()    { printf '%s' "$1"; }
+  notate_quoted()   { printf "'%s'" "$1"; }
+  notate_brace()    {
+    local t="$1" d b
+    d="$(dirname "$t")"; b="$(basename "$t")"
+    if [[ "$d" == "." ]]; then printf '{%s,unused_placeholder}' "$b"
+    else printf '%s/{%s,unused_placeholder}' "$d" "$b"; fi
+  }
+  notate_dotslash() {
+    local t="$1" first rest
+    first="${t%%/*}"; rest="${t#*/}"
+    printf './%s//%s' "$first" "$rest"
+  }
+
+  local target notate_fn notated verb cmd failed=""
+  for target in "${TARGETS[@]}"; do
+    for notate_fn in notate_plain notate_quoted notate_brace notate_dotslash; do
+      notated="$("$notate_fn" "$target")"
+      for verb in "${VERBS[@]}"; do
+        # shellcheck disable=SC2059
+        cmd=$(printf "$verb" "$notated")
+        run delete_decision "$cmd"
+        [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+          || failed="$failed
+$cmd"
+      done
+    done
+  done
+  [[ -z "$failed" ]] || { echo "조합 배터리에서 무프롬프트가 발견됐다:$failed"; false; }
+}
+
 # === F73 (2026-08-08, 사용자 override) — sed/awk in-place(-i/--in-place) 쓰기까지 ASK 면제 확대 ===
 # F65는 sed/awk의 순수 읽기만 면제했다. 사용자가 F71과 같은 무게로 in-place 쓰기까지 요청했고,
 # 명시 확인했다: "쓰기까지 모두 — sed -i/awk -i inplace도 무프롬프트로". 구현 중 실측으로 발견한
