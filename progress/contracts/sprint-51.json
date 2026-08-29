@@ -330,7 +330,8 @@
     }
   ],
   "_parallelizable": false,
-  "agreed": false,
+  "agreed": true,
+  "_agreed_note_2026_08_30": "**재승인 — 2026-08-30, Plan 게이트(ExitPlanMode) 승인.** 4차 판정(fail, score 5)이 실측한 3개 우회(중괄호 확장·설치 훅 개별 파일 rm 삭제·evaluator-runs.jsonl 무방비)를 F73~F77 이후 코드베이스로 이 세션에서 독립 재현해 여전히 뚫려 있음을 확인했다. 승인 범위는 implementation_steps 10~13(이미 계약에 정의됨, done:false)의 구현으로 한정된다 — step 1~9(done:true)는 이미 릴리스된 원 구현이라 재작업 대상이 아니다.",
   "_agreed_note": "**재승인 — 2026-08-03, Plan 게이트(ExitPlanMode) 승인(AC-11/SC-9 추가 반영).** 최초 승인 — 2026-07-28 사용자 지시: '기존에 작성했던 무의미하고 정상적으로 작동하지 않는 코드와 테스트케이스를 제거하고 올바른 방향을 설계하고 진행해.' 근본원인 분석(예측 불가능성)과 해결 방향(탐지·복구 전환)을 제시한 뒤 받은 명시적 진행 지시를 Plan 게이트 승인으로 기록했었다. 아래 `_gap_2026_08_03`으로 acceptance_criteria/security_criteria가 바뀌었으므로 `agreed`를 false로 되돌리고 재합의를 다시 받는다(change-request Step 6).",
   "_agreed_note_2026_08_08": "4차 판정(fail, score 5)이 계약 밖 우회 3건을 실측해 `_gap_2026_08_08`·`verification_axes_2026_08_08`·SC-8 `_gap_2026_08_08`·implementation_steps 10~13을 추가했다 — 범위가 다시 바뀌었으므로 `agreed`를 재차 false로 되돌린다(change-request Step 6, 2026-08-12). 재합의는 `/implement`의 Plan 게이트(ExitPlanMode)에서 받는다.",
   "_gap_2026_08_03": "F68 검증 라운드의 security-auditor가 이 계약이 한 번도 검증한 적 없는 구체적 반례를 실측했다: `rm .claude/settings.json`(firewall allow, ask조차 아님) -> 배선 뺀 내용 재생성 Write -> invariant-guard exit 0. AC-4는 vim·sed -i·mv 같은 편집 명령만 검증 목록에 넣었고 순수 삭제(rm)를 넣지 않았다 — 그 공백이 실제로 뚫려 있었다. AC-11·SC-9로 명문화했다. F65는 이미 2회 판정 fail(보안 3->4, 2차 지적 수정은 독립 검증 미실시 — F63 release_note 참조)이므로, 이 갭도 다음 재작업·재판정에서 함께 닫아야 한다. implementation_steps는 그대로 두되(1~7은 이미 done), 재작업이 필요하면 AC-11/SC-9를 커버하는 새 step을 추가할 것.",
