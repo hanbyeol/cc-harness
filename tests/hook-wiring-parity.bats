@@ -1034,17 +1034,27 @@ f76_guard() {   # 대상: settings.json
   # 채로 남는다(2차 판정 지적). 이 저장소가 권장하는 isolation:"worktree" 서브에이전트가
   # 원 저장소의 CLAUDE_PROJECT_DIR를 물려받은 채 워크트리 파일을 편집하는 형태를 그대로
   # 재현한다: 메인 저장소는 CLAUDE_PROJECT_DIR 값 그대로 두고, $FILE만 그 워크트리 안에 둔다.
+  #
+  # **워크트리를 메인 저장소 안(서브디렉터리)에 만든다 — 밖이 아니라.** F37 2차 판정 지적:
+  # 워크트리를 저장소 밖(mktemp 형제 디렉터리)에 두면 1차 컨테인먼트 검사(0983cdd, $FILE이
+  # CLAUDE_PROJECT_DIR 밑에 있으면 채택)가 애초에 그 경로를 거부해, 이 테스트가 실제로는
+  # 1차 반려 사유(조상/무관계 디렉터리를 컨테인먼트만으로 채택)를 판별하지 못했다 — 오직
+  # F77 이전(9c98a28, CLAUDE_PROJECT_DIR 무조건 채택)만 죽였다. 워크트리를 메인 저장소
+  # **밑**에 두면 file_phys가 컨테인먼트 조건도 만족시키므로, 1차 코드도 CLAUDE_PROJECT_DIR
+  # (메인 저장소)을 채택한다 — 하지만 진짜 toplevel은 워크트리 자신이라(git worktree는
+  # 독립된 워킹 디렉터리를 가지며 `rev-parse --show-toplevel`이 그것을 반환한다) `git -C
+  # <메인> show HEAD:<워크트리이름>/settings.json`이 그 경로를 못 찾아 조용히 실패하고
+  # 무기준선 갈래로 떨어진다. 이 형태라야 1차·F77 이전 양쪽에서 실제로 죽는 판별력 있는
+  # 테스트가 된다.
   local main_repo wt st
   main_repo=$(mktemp -d) || return 99; main_repo=$(cd "$main_repo" && pwd -P) || return 99
   git init -q "$main_repo" 2>/dev/null || { rm -rf "$main_repo"; return 99; }
   printf '%s' "$(jq -c '.' settings.json)" > "$main_repo/settings.json"
   ( cd "$main_repo" && git add -A && git -c user.email=t@example.com -c user.name=t commit -qm base ) >/dev/null 2>&1
 
-  wt=$(mktemp -d) || { rm -rf "$main_repo"; return 99; }
-  wt=$(cd "$wt" && pwd -P) || { rm -rf "$main_repo" "$wt"; return 99; }
-  rmdir "$wt"   # git worktree add가 스스로 만들어야 하므로 미리 비워 둔다
+  wt="$main_repo/f77-worktree-inside"
   ( cd "$main_repo" && git worktree add -q -b f77-wt "$wt" ) >/dev/null 2>&1 \
-    || { rm -rf "$main_repo" "$wt"; return 99; }
+    || { rm -rf "$main_repo"; return 99; }
   printf '// c\n%s' "$(jq -c '.' settings.json)" > "$wt/settings.json"
   st=0
   jq -n --arg f "$wt/settings.json" --arg c "$(mutate_guard_entry '.hooks.PreToolUse |= map(select(
@@ -1052,7 +1062,7 @@ f76_guard() {   # 대상: settings.json
     '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' \
     | CLAUDE_PROJECT_DIR="$main_repo" bash "$GUARD" >/dev/null 2>&1 || st=$?
   ( cd "$main_repo" && git worktree remove -f "$wt" ) >/dev/null 2>&1
-  rm -rf "$main_repo" "$wt"
+  rm -rf "$main_repo"
   [ "$st" -eq 2 ] || { echo "워크트리 파일 편집이 메인 저장소 CLAUDE_PROJECT_DIR 하에서 통과했다 (exit=$st)" >&2; return 1; }
 }
 
