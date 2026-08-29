@@ -1028,6 +1028,81 @@ f76_guard() {   # 대상: settings.json
   [ "$st" -eq 2 ] || { echo "조상 CLAUDE_PROJECT_DIR에서 삭제-후-재생성 임계값 하향이 통과했다 (exit=$st)" >&2; return 1; }
 }
 
+@test "F77: git worktree 안의 파일을 메인 저장소 CLAUDE_PROJECT_DIR로 편집해도 정상 차단된다 (계약이 든 실사용 근거)" {
+  # 이 change-request의 존재 이유였던 실사용 경로 자체를 고정한다 — 다른 축을 아무리
+  # 촘촘히 덮어도 이 시나리오를 한 번도 실행하지 않으면 "왜 고치는가"가 검증되지 않은
+  # 채로 남는다(2차 판정 지적). 이 저장소가 권장하는 isolation:"worktree" 서브에이전트가
+  # 원 저장소의 CLAUDE_PROJECT_DIR를 물려받은 채 워크트리 파일을 편집하는 형태를 그대로
+  # 재현한다: 메인 저장소는 CLAUDE_PROJECT_DIR 값 그대로 두고, $FILE만 그 워크트리 안에 둔다.
+  local main_repo wt st
+  main_repo=$(mktemp -d) || return 99; main_repo=$(cd "$main_repo" && pwd -P) || return 99
+  git init -q "$main_repo" 2>/dev/null || { rm -rf "$main_repo"; return 99; }
+  printf '%s' "$(jq -c '.' settings.json)" > "$main_repo/settings.json"
+  ( cd "$main_repo" && git add -A && git -c user.email=t@example.com -c user.name=t commit -qm base ) >/dev/null 2>&1
+
+  wt=$(mktemp -d) || { rm -rf "$main_repo"; return 99; }
+  wt=$(cd "$wt" && pwd -P) || { rm -rf "$main_repo" "$wt"; return 99; }
+  rmdir "$wt"   # git worktree add가 스스로 만들어야 하므로 미리 비워 둔다
+  ( cd "$main_repo" && git worktree add -q -b f77-wt "$wt" ) >/dev/null 2>&1 \
+    || { rm -rf "$main_repo" "$wt"; return 99; }
+  printf '// c\n%s' "$(jq -c '.' settings.json)" > "$wt/settings.json"
+  st=0
+  jq -n --arg f "$wt/settings.json" --arg c "$(mutate_guard_entry '.hooks.PreToolUse |= map(select(
+    any(.hooks[]; .command | test("invariant-guard")) | not))')" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' \
+    | CLAUDE_PROJECT_DIR="$main_repo" bash "$GUARD" >/dev/null 2>&1 || st=$?
+  ( cd "$main_repo" && git worktree remove -f "$wt" ) >/dev/null 2>&1
+  rm -rf "$main_repo" "$wt"
+  [ "$st" -eq 2 ] || { echo "워크트리 파일 편집이 메인 저장소 CLAUDE_PROJECT_DIR 하에서 통과했다 (exit=$st)" >&2; return 1; }
+}
+
+@test "F77: 물리화가 표기 차이를 흡수한다 — trailing slash·심볼릭 링크는 과잉차단 없이, 상대경로(..)는 실제로 가리키는 곳 기준으로 판정된다" {
+  # __derive_root의 비교는 두 값 모두 pwd -P로 물리화한 뒤 이뤄진다.
+  #
+  # **여기서 실측 없이 가정하면 안 되는 것**: 처음 이 테스트를 짤 때 `$d/../$(basename
+  # "$d")/..` 가 "제자리로 돌아오는 표기라 여전히 $d를 가리킨다"고 가정하고 "과잉차단
+  # 방지"로 분류했는데, 직접 `cd`로 풀어 보면 그 표기는 실제로 **$d의 부모**를 가리킨다
+  # (2단계 `..`가 우세). 즉 이건 trailing slash·심볼릭 링크와 다른 클래스다 — "같은 곳을
+  # 가리키는 다른 표기"가 아니라 "표기상으로만 그럴듯해 보이는 조상 우회"이고, 조상이므로
+  # 차단되는 게 맞다(테스트 6·7과 같은 클래스). 세 형태를 한 자리에 고정한다.
+  local base d link st
+  base=$(jq -c '.' settings.json)
+  d=$(mktemp -d) || return 99; d=$(cd "$d" && pwd -P) || return 99
+  git init -q "$d" 2>/dev/null || { rm -rf "$d"; return 99; }
+  printf '%s' "$base" > "$d/settings.json"
+  ( cd "$d" && git add -A && git -c user.email=t@example.com -c user.name=t commit -qm base ) >/dev/null 2>&1
+  printf '// c\n%s' "$base" > "$d/settings.json"
+  local stripped
+  stripped=$(mutate_guard_entry '.hooks.PreToolUse |= map(select(
+    any(.hooks[]; .command | test("invariant-guard")) | not))')
+
+  # trailing slash — 여전히 올바른 root이므로 통과해야 한다(과잉차단 아님을 함께 확인).
+  st=0
+  jq -n --arg f "$d/settings.json" --arg c "$stripped" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' \
+    | CLAUDE_PROJECT_DIR="$d/" bash "$GUARD" >/dev/null 2>&1 || st=$?
+  [ "$st" -eq 2 ] || { echo "trailing slash로 배선 제거가 통과했다 (exit=$st)" >&2; rm -rf "$d"; return 1; }
+
+  # `..`를 포함한 상대 경로 — 물리화하면 실제로는 $d의 **부모**를 가리킨다(위 주석 참조).
+  # 진짜 toplevel($d)과 같지 않으므로 조상 검사에 걸려 차단되는 것이 정확한 기대값이다.
+  st=0
+  jq -n --arg f "$d/settings.json" --arg c "$stripped" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' \
+    | CLAUDE_PROJECT_DIR="$d/../$(basename "$d")/.." bash "$GUARD" >/dev/null 2>&1 || st=$?
+  [ "$st" -eq 2 ] || { echo "상대 경로(..)로 조상을 가리키는 표기에서 배선 제거가 통과했다 (exit=$st)" >&2; rm -rf "$d"; return 1; }
+
+  # 심볼릭 링크로 다른 이름을 통해 같은 저장소를 가리키는 경우 — pwd -P가 링크를 풀므로
+  # 여전히 같은 진짜 toplevel과 동일해야 한다(과잉차단 방지 확인 겸용).
+  link=$(mktemp -u) || { rm -rf "$d"; return 99; }
+  ln -s "$d" "$link" 2>/dev/null || { rm -rf "$d"; return 99; }
+  st=0
+  jq -n --arg f "$d/settings.json" --arg c "$stripped" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' \
+    | CLAUDE_PROJECT_DIR="$link" bash "$GUARD" >/dev/null 2>&1 || st=$?
+  rm -rf "$d" "$link"
+  [ "$st" -eq 2 ] || { echo "심볼릭 링크 경유로 배선 제거가 통과했다 (exit=$st)" >&2; return 1; }
+}
+
 @test "INV-13 완전성: HOOK_KILL_SWITCHES가 스키마의 hook-affecting boolean을 전부 덮는다" {
   # 인스턴스 열거가 아니라 클래스 봉쇄의 핵심 — 가드의 하드코딩 목록이 공식 스키마의
   # 'hook 실행에 영향을 주는 최상위 boolean' 전체와 일치해야 한다. 새 스위치가 스키마에

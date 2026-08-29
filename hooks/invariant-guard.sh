@@ -505,8 +505,8 @@ __wiring_baseline_for() {
 }
 
 # root를 정한다. 두 후보를 이 우선순위로 시도한다:
-#   1. CLAUDE_PROJECT_DIR — **단, $file_phys 를 실제로 포함할 때만.**
-#   2. $anc(=$FILE의 가장 가까운 존재하는 조상)에서 git으로 직접 유도.
+#   1. CLAUDE_PROJECT_DIR — **단, $anc에서 유도한 진짜 git toplevel과 정확히 같을 때만.**
+#   2. 그 진짜 toplevel 자체(=$anc에서 git으로 직접 유도한 값).
 #
 # **왜 CLAUDE_PROJECT_DIR을 무조건 믿지 않는가 (F77).** F72가 이 자리에 심은 원칙은 "root는
 # 프로세스 cwd가 아니라 $FILE 자신의 위치에서 유도한다"였는데, `CLAUDE_PROJECT_DIR`를 무조건
@@ -517,17 +517,24 @@ __wiring_baseline_for() {
 # 있으면 경고조차 안 뜬다) 티켓 발급이 침묵 속에 스킵된다 — 이 훅이 F72에서 막으려던 것과
 # 정확히 같은 결과(정당한 편집이 protected-integrity에 의해 되돌려짐)가 다른 경로로 재현된다.
 # 실사용 경로: 이 저장소가 권장하는 `isolation:"worktree"` 서브에이전트가 원 저장소의
-# CLAUDE_PROJECT_DIR를 물려받은 채 워크트리 파일을 편집하는 경우.
+# CLAUDE_PROJECT_DIR를 물려받은 채 워크트리 파일을 편집하는 경우(2차 판정이 종단 재현:
+# 워크트리 파일 편집 + 메인 저장소를 가리키는 CLAUDE_PROJECT_DIR에서 배선 제거·임계값 하향
+# 재생성 둘 다 통과하다가 이 수정으로 둘 다 차단됨).
 #
-# 그래서 CLAUDE_PROJECT_DIR는 **$file_phys를 실제로 포함할 때만** 신뢰한다. 아니면(미설정·
-# 존재하지 않는 경로·다른 저장소를 가리킴) $anc에서 git으로 직접 유도한다 — F72의 원래
-# 폴백을 그대로 둔다. 값이 뭐든 마지막엔 물리 경로(pwd -P)로 맞춘다.
+# **1차 수정("$anc의 물리 경로가 CLAUDE_PROJECT_DIR 밑에 있으면 신뢰")은 방향이 부족했다
+# (F77 재판정 지적, 실측 반증).** $FILE이 속한 진짜 저장소의 **조상** 디렉터리도 그 컨테인먼트
+# 조건을 만족시킨다 — 조상을 root로 채택하면 `git -C "$root" show HEAD:...`가 엉뚱한 위치를
+# 대상으로 조용히 실패해 HEAD 기준선을 잃고(exit 2 → 0), 같은 원인으로 `record_guarded_edit`
+# 축에서는 F68/F72가 닫은 삭제-후-재생성 방어까지 재개방됐다. 그래서 지금은 CLAUDE_PROJECT_DIR가
+# **$anc에서 git으로 유도한 진짜 toplevel과 정확히 같을 때만** 신뢰한다 — 부분 포함이 아니라
+# 동일성이다. 이 비교가 물리 경로(pwd -P)끼리 이뤄지므로 trailing slash·상대 경로·심볼릭
+# 링크 표기 차이는 애초에 비교 전에 정규화되어 영향이 없다(2차 판정이 14형태로 확인).
 #
 # 이 함수를 두 호출부(__head_content_for·record_guarded_edit) 모두가 쓴다 — 사본을 두 벌
 # 만들면 F76이 이미 겪은 실패 모드("추출기가 두 벌이고 강도가 다르면 약한 쪽이 실제
 # 방어선이 된다")를 root 유도 로직 자체에서 반복하게 된다.
-__derive_root() {   # $1=file_phys(물리 경로) $2=anc(가장 가까운 존재하는 조상)
-  local __fp="$1" __anc2="$2" __cand="" __real_top=""
+__derive_root() {   # $1=anc(가장 가까운 존재하는 조상 — $FILE의 진짜 git toplevel을 유도하는 기준점)
+  local __anc2="$1" __cand="" __real_top=""
   # $FILE 위치에서 유도한 **진짜** git toplevel을 먼저 구해 둔다 — CLAUDE_PROJECT_DIR 후보를
   # 검증하는 기준이자, 그 후보가 없거나 탈락했을 때의 폴백이기도 하다.
   __real_top=$(git -C "$__anc2" rev-parse --show-toplevel 2>/dev/null || echo "")
@@ -551,11 +558,11 @@ __head_content_for() {
   local __f="$1" __anc __root __file_phys __rel __real_rel
   __head_content=""; __head_root=""; __head_rel=""; __head_root_failed=0
   __anc="$(__nearest_existing_dir "$__f")"
-  # $FILE을 root보다 먼저 물리화한다 — __derive_root가 CLAUDE_PROJECT_DIR 채택 여부를
-  # 판단하려면 물리 경로가 먼저 있어야 한다(__physicalize_under 위 정의 참조).
-  __file_phys="$(__physicalize_under "$__f" "$__anc")"
-  __root="$(__derive_root "$__file_phys" "$__anc")"
+  __root="$(__derive_root "$__anc")"
   [[ -z "$__root" ]] && { __head_root_failed=1; return 0; }
+  # $FILE을 root와 같은 기준(물리 경로)으로 맞춘 뒤에야 root 밑에 있는지 비교할 수 있다
+  # (__physicalize_under 위 정의 참조).
+  __file_phys="$(__physicalize_under "$__f" "$__anc")"
   [[ "$__file_phys" == "$__root"/* ]] || return 0
   __rel="${__file_phys#"$__root"/}"
   if [[ "${FS_CI:-0}" == 1 ]]; then
@@ -628,19 +635,21 @@ record_guarded_edit() {
   # **CLAUDE_PROJECT_DIR을 무조건 믿던 시절엔 이 함수가 더 나쁜 방식으로 같은 결과를 냈다
   # (F77)**: CLAUDE_PROJECT_DIR이 $FILE이 속하지 않은 다른 저장소를 가리켜도 그 저장소에
   # `progress/`가 있으면 아래 root 해석이 '성공'해 경고조차 없이 티켓 발급이 스킵됐다 —
-  # 원장에도 stderr에도 흔적이 없는 완전한 침묵이었다. __derive_root가 $FILE의 물리 경로를
-  # 실제로 포함할 때만 CLAUDE_PROJECT_DIR을 채택하므로 이 경로는 이제 $FILE 위치에서 직접
+  # 원장에도 stderr에도 흔적이 없는 완전한 침묵이었다. 1차 수정(컨테인먼트: $FILE 물리
+  # 경로를 포함하기만 하면 채택)은 $FILE이 속한 저장소의 **조상** 디렉터리는 여전히
+  # 통과시켜, 그 조상에 `progress/`가 있으면(예: 여러 프로젝트를 담은 상위 디렉터리) 같은
+  # 침묵이 재발했다. `__derive_root`가 지금은 CLAUDE_PROJECT_DIR을 `$anc`에서 유도한 진짜
+  # git toplevel과 **정확히 같을 때만** 채택하므로, 이 경로는 이제 $FILE 위치에서 직접
   # 유도한 올바른 root로 떨어진다.
   anc="$(__nearest_existing_dir "$FILE")"
-  # $FILE을 root보다 먼저 물리화한다 — __derive_root가 CLAUDE_PROJECT_DIR 채택 여부를
-  # 판단하려면 물리 경로가 먼저 있어야 한다. $FILE의 바로 위 디렉터리가 없으면
-  # canon_file()이 정규화를 포기해 물리화되지 않은 채로 남는다(F72 2차 판정 반려 대응).
-  file_phys="$(__physicalize_under "$FILE" "$anc")"
-  root="$(__derive_root "$file_phys" "$anc")"
+  root="$(__derive_root "$anc")"
   if [[ -z "$root" || ! -d "$root/progress" ]]; then
     echo "invariant-guard: root 해석 실패 — 이 편집에 무결성 티켓이 발급되지 않습니다 (file: $FILE)" >&2
     return 0
   fi
+  # $FILE을 root와 같은 기준(물리 경로)으로 맞춘다 — $FILE의 바로 위 디렉터리가 없으면
+  # canon_file()이 정규화를 포기해 물리화되지 않은 채로 남는다(F72 2차 판정 반려 대응).
+  file_phys="$(__physicalize_under "$FILE" "$anc")"
   # 저장소 밖 경로는 티켓을 만들지 않는다 — 테스트가 임시 디렉터리에서 돌 때 실 저장소
   # 티켓을 오염시키던 원인이다(실제로 209줄까지 쌓였고 그중 160줄이 보호 파일 경로였다).
   # __derive_root가 CLAUDE_PROJECT_DIR을 채택하지 않은 경우에도 이 검사는 그대로 유효하다 —
