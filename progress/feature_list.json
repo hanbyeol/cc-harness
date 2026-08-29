@@ -1058,11 +1058,12 @@
       "name": "CLAUDE_PROJECT_DIR이 $FILE 실제 위치와 다르면 root 유도가 조용히 어긋나는 결함 수정",
       "description": "[2026-08-28, F76의 F37 2차 판정이 발견 + 메인 루프 독립 재현] hooks/invariant-guard.sh가 root를 유도하는 두 지점(__head_content_for:515, record_guarded_edit:589) 모두 `__root=\"${CLAUDE_PROJECT_DIR:-$(git -C \"$__anc\" rev-parse --show-toplevel ...)}\"` 패턴을 쓴다 — CLAUDE_PROJECT_DIR가 설정되어 있으면 무조건 그것을 root로 믿고, $FILE이 실제로 그 안에 있는지 확인하지 않는다. F72가 이 함수들에 심어 둔 원칙은 'root는 프로세스 cwd가 아니라 $FILE 자신의 위치에서 유도한다'였는데, CLAUDE_PROJECT_DIR 우선 순위가 그 원칙을 비대칭적으로 비켜간다.\n\n독립 재현(저장소 밖 격리 랩, 저장소 밖을 가리키는 CLAUDE_PROJECT_DIR export):\n- __head_content_for 축: 파싱 불가한 배선 파일 + HEAD 기준선이 있는 정상 케이스는 CLAUDE_PROJECT_DIR 미설정 시 배선 제거를 exit 2로 차단한다. 같은 입력에 CLAUDE_PROJECT_DIR를 다른 저장소(이 저장소 자신)로 export하면 exit 0으로 뒤집힌다 — HEAD 기준선을 잃고 F76의 무기준선 갈래로 조용히 떨어진다.\n- record_guarded_edit 축(더 심각): CLAUDE_PROJECT_DIR 미설정 시 정상 편집은 $root/progress/.guarded-edits에 티켓이 정확히 발급된다. CLAUDE_PROJECT_DIR를 다른(존재하는 progress/를 가진) 저장소로 export하면, root 해석 자체는 '성공'하지만(-d \"$root/progress\" 통과) $FILE이 그 root 밑에 있지 않아 :601의 `[[ \"$file_phys\" == \"$root\"/* ]] || return 0`에서 경고 없이 티켓 발급이 스킵된다. 원장에도, stderr에도 아무 흔적이 남지 않는다.\n\n이 두 번째 축은 이 함수 자신의 주석이 명시한 존재 이유와 정확히 같은 실패 모드다 — 'protected-integrity.sh가 정당한 편집을 미승인으로 보고 되돌렸다'(F72 실측). CLAUDE_PROJECT_DIR 오설정/불일치는 F72가 막았던 'root 미해석'과 다른 경로로 같은 결과(티켓 미발급 → 정당한 편집이 다음 Bash 호출에서 복구됨)를 만든다.\n\n실사용 시나리오: 이 하네스 자신의 CLAUDE.md가 권장하는 isolation:\"worktree\" 서브에이전트 디스패치에서, 서브에이전트 프로세스가 원 저장소의 CLAUDE_PROJECT_DIR를 물려받은 채 워크트리 안의 파일을 편집하면 이 경로를 탄다 — 가상의 시나리오가 아니라 이 저장소가 스스로 쓰는 패턴이다. 테스트 환경(bats가 CLAUDE_PROJECT_DIR를 명시적으로 unset하지 않고 $GUARD를 서브프로세스로 호출)에서도 같은 방식으로 새어 들어간다 — 실제로 F76의 F37 2차 판정이 이 경로로 AC-1을 실측 중 우연히 발견했다.\n\n변경 범위: hooks/invariant-guard.sh(보호, __head_content_for·record_guarded_edit 공유 헬퍼로 정합화), tests/*.bats(보호, hermetic 보증 회귀 테스트).",
       "security_tier": "critical",
-      "status": "pending",
-      "passes": false,
-      "iteration": 0,
+      "status": "done",
+      "passes": true,
+      "iteration": 2,
       "dependencies": ["F68", "F72", "F76"],
-      "assigned_sprint": 63
+      "assigned_sprint": 63,
+      "_evaluator_note": "[2026-08-29] 독립 evaluator 2차 iteration 판정: pass (min-of-5 = 7, security 8, pass_threshold 7). 근거: progress/agent-comms/evaluator-feedback-2026-08-29T23-47-04+0900.json. security_tier=critical이므로 F37 2차 독립 판정이 뒤따라야 확정된다."
     }
   ]
 }

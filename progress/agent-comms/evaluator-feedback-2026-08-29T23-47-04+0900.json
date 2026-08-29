@@ -1,0 +1,96 @@
+{
+  "timestamp": "2026-08-29T23:47:04+0900",
+  "sprint": 63,
+  "iteration": 2,
+  "features_evaluated": [
+    "F77"
+  ],
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "commit_evaluated": "9c7e222",
+  "baseline_commits": [
+    "9c98a28 (pre-F77)",
+    "0983cdd (F77 round-1, rejected)"
+  ],
+  "judgment_round": "2차 반려 후 재판정 (1차 독립 판정)",
+  "f37_second_judgment_required": true,
+  "f37_note": "security_tier=critical이므로 이 pass 판정만으로 확정되지 않는다. 메인 루프는 독립 컨텍스트의 2차 evaluator를 디스패치해 교차검증해야 하며, 두 판정의 verdict가 불일치하면 자동 pass 없이 사람 에스컬레이션한다 (F37). 이 판정은 그 교차검증의 한 축이다.",
+  "scores": {
+    "functionality": 9,
+    "code_quality": 7,
+    "security": 8,
+    "error_handling": 8,
+    "test_coverage": 7
+  },
+  "score": 7,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_floor_critical": 7,
+  "verdict": "pass",
+  "verdict_summary": "1차 반려 사유(SC-4: INV-13 정정문이 실측으로 반증되는 폐쇄 주장을 만듦)가 해소됐고, 그 과정에서 술어가 '컨테인먼트'에서 '진짜 git toplevel과의 동일성'으로 좁혀지며 1차가 남긴 실제 우회(조상 CLAUDE_PROJECT_DIR로 INV-3 삭제-후-재생성 방어 재개방 포함)까지 함께 닫혔다. 독립 격리 랩에서 CLAUDE_PROJECT_DIR 14가지 형태 × 3축(배선 제거·티켓 발급·INV-3 하향) × 3리비전(9c98a28/0983cdd/9c7e222) = 126회 실측했고, HEAD가 어떤 셀에서도 이전 두 리비전보다 나쁘지 않았으며 우회는 한 형태도 남지 않았다. 이번 폐쇄는 열거가 아니라 **구조적**이다 — CLAUDE_PROJECT_DIR 분기를 통째로 제거한 변형 가드와 HEAD 가드의 결과가 6가지 CPD 형태 × 3축에서 완전히 동일하므로, 그 값은 이제 root 유도 결과에 영향을 주지 못한다(= 우회할 신뢰 자체가 없다). 계약이 동기로 지목한 실사용 경로(isolation:\"worktree\" 서브에이전트가 부모 CLAUDE_PROJECT_DIR를 물려받는 경우)도 종단으로 재현해 pre-F77 exit 0 → HEAD exit 2, 티켓이 워크트리에 정상 발급됨을 확인했다. 남은 지적은 판정에 영향을 주지 않는 서술 정합성 문제이며(아래 issues 1~3), 계약의 어떤 AC/SC/ES도 미충족이 아니다.",
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1: 격리 랩 독립 재현(구현자 픽스처 미사용, 자체 배선 JSON·중첩 저장소 레이아웃). CLAUDE_PROJECT_DIR=다른 저장소 + 파싱 불가 settings.json + 정상 HEAD에서 배선 제거 → 9c98a28 exit 0 / 0983cdd exit 2 / 9c7e222 exit 2. 통제군(unset·정상값) 3리비전 모두 exit 2",
+      "AC-2: 같은 조건에서 보호 파일 편집 → 9c7e222는 $FILE이 속한 저장소에 티켓 1줄, 다른 저장소 원장 오염 0. 9c98a28은 티켓 0줄(침묵). 중첩 저장소 케이스에서는 9c98a28·0983cdd가 엉뚱한 저장소에 원장을 만들었고(stray ledger 1), 9c7e222만 0",
+      "AC-3: 정상 케이스(CLAUDE_PROJECT_DIR == 실제 toplevel)는 3리비전 전부 동일 — 배선 exit 2 / 티켓 1 / INV-3 exit 2. 회귀 없음",
+      "AC-4: unset 케이스도 3리비전 전부 동일(위와 같은 값). tests/invariant-guard.bats(F68/F72 축) 전건 통과 — 806/806 안에 포함, 실패 0",
+      "AC-5: 두 호출부가 같은 헬퍼를 쓴다 — __head_content_for:557과 record_guarded_edit:639가 모두 __derive_root() 호출. grep으로 사본 없음 확인(정의 1곳, 호출 2곳)",
+      "AC-6: `env -u CLAUDE_PROJECT_DIR bats tests/`를 **파이프 없이** 1회 실행(파일 리다이렉트, 종료 코드 직접 포획) — 1..806, ok=806, not ok=0, skip=5, EXIT=0",
+      "AC-7: CLAUDE_PROJECT_DIR를 이 저장소로 export한 채 tests/hook-wiring-parity.bats 재실행 → 1..60, ok=60, not ok=0, exit 0. setup()의 명시적 `unset CLAUDE_PROJECT_DIR`(:72 주석 포함) 코드 확인"
+    ],
+    "security": [
+      "SC-1: F68/F72/F76 어떤 축도 축소 없음. 14 CPD 형태(unset·정상·다른 저장소·존재하지 않는 경로·비git·조상1/2/3단계·trailing slash·심볼릭 링크·대문자·`..` 상대경로·하위 디렉터리·중첩 저장소) × 3축 × 3리비전 실측에서 9c7e222가 이전 리비전보다 나쁜 셀이 **하나도 없다**. @test 개수 799→806(축소 0, hook-wiring-parity만 53→60 증가). shellcheck 지적 히스토그램 pre-F77과 완전 동일(SC2010·SC2012·SC2329 각 1건, 전부 선재). bats 806/806",
+      "SC-2: CLAUDE_PROJECT_DIR·git 둘 다 실패하는 진짜 비git 픽스처에서 티켓 0 + stderr '무결성 티켓이 발급되지 않습니다' 1줄 — unset·그 디렉터리 자신·상위 디렉터리 3조건 전부. 조용한 통과 없음",
+      "SC-3: $FILE이 어떤 git 저장소에도 속하지 않으면 CLAUDE_PROJECT_DIR 값과 무관하게 티켓 미발급 확인(위 3조건). 1차(0983cdd)가 컨테인먼트만 봐서 남겨 둔 '비git 디렉터리 자신을 CLAUDE_PROJECT_DIR로 지정' 누출을 이번 라운드가 닫았다 — 뮤테이션으로 독립 확인(그 테스트가 0983cdd에서 not ok)",
+      "SC-4: docs/INVARIANTS.md:550-558 정정문이 이제 실측과 일치한다. '다른 저장소·조상 디렉터리·존재하지 않는 경로·git 아닌 디렉터리 전부 폴백'이라 열거하고 그 4가지를 내가 전부 재현했다 — 문서가 코드보다 강해지지 않았고, 오히려 실제 폐쇄 범위(14형태)보다 좁게(안전한 방향으로) 적혀 있다. :212-229(F72 1차 시도 역사 서술)는 F77로 참·거짓이 바뀌지 않았고(그 자리의 `${CLAUDE_PROJECT_DIR:-...}` 인용은 F72 시점의 **결함 코드** 인용), :231-241의 '최종' 서술('$FILE 위치에서 유도')은 F77로 오히려 처음으로 무조건 참이 됐다"
+    ],
+    "error_scenarios": [
+      "ES-1: CLAUDE_PROJECT_DIR=/no/such/path/f77lab → $FILE 위치로 폴백. 배선 제거 9c98a28 exit 0 → 9c7e222 exit 2, 티켓 0줄 → 1줄",
+      "ES-2: CLAUDE_PROJECT_DIR=git 아닌 일반 디렉터리 → ES-1과 동일(exit 2 / 티켓 1). 그 디렉터리가 $FILE의 컨테이너인 서브케이스도 SC-3대로 티켓 미발급",
+      "ES-3: 양방향 실측. (a) CLAUDE_PROJECT_DIR가 저장소를 가리키는 심볼릭 링크 → 물리화 후 동일성 성립, 정상 동작. (b) $FILE 경로 자체가 심볼릭 링크를 경유($LAB/alias/progress/harness-config.json)하고 CLAUDE_PROJECT_DIR는 무관한 디렉터리 → 실제 저장소에 티켓 1줄, 다른 위치 원장 0. __physicalize_under/pwd -P 재사용 확인",
+      "ES-4: PATH=/usr/bin:/bin(jq 부재)에서 배선 제거 시도 → unset·조상 CLAUDE_PROJECT_DIR 양쪽 모두 exit 2(fail-closed). has_jq 게이트가 우선하며 이 수정과 상호작용하지 않음"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [],
+    "error_scenarios": []
+  },
+  "issues": [
+    "[code_quality][medium][confidence:high] **술어를 좁히면서 그 술어를 서술하는 주석 6곳을 함께 좁히지 않았다 — 한 함수 안에서 주석이 서로 모순한다.** hooks/invariant-guard.sh:508('1. CLAUDE_PROJECT_DIR — 단, $file_phys 를 실제로 포함할 때만')과 :522('$file_phys를 실제로 포함할 때만 신뢰한다')는 1차(0983cdd)의 컨테인먼트 규칙을 현재 설계로 서술하는데, 20줄 아래 :541-542는 '부분 포함이 아니라 동일성이다'라고 정반대로 적는다. git blame: 여섯 자리 전부 0983cdd 도입 + 9c7e222가 미갱신. 같은 오류가 :631-633(record_guarded_edit)과 tests/hook-wiring-parity.bats:855-858(F77 섹션 헤더 주석)에도 있다. **이것은 1차 반려 사유(SC-4)와 정확히 같은 클래스 — 서술이 코드보다 느슨함 — 이 docs/에서 코드 주석으로 자리만 옮긴 것이다.** 자기보호 파일에서 헤더 주석은 사실상 스펙이고, 이 저장소 자신의 교훈('강도가 다르면 약한 쪽이 실제 방어선이 된다', :527-528)대로 후속 유지보수가 헤더를 믿고 컨테인먼트를 '복원'하면 이번에 닫은 구멍이 그대로 다시 열린다. 판정에는 영향이 없다(SC-4는 문언상 docs/INVARIANTS.md로 한정되고 그 문서는 정확하다) — 다음 iteration 필수 정리 항목",
+    "[code_quality][medium][confidence:high] **__derive_root의 $1(file_phys)이 죽은 인자가 됐다.** :530 `local __fp=\"$1\"`은 선언만 되고 함수 본문 어디에서도 참조되지 않는다(grep: __fp 출현 1회). 그런데 :529 시그니처 주석은 여전히 `$1=file_phys(물리 경로)`를 문서화하고, 두 호출부의 주석(:554-555, :635-637)은 '__derive_root가 CLAUDE_PROJECT_DIR 채택 여부를 판단하려면 물리 경로가 먼저 있어야 한다'고 그 물리화의 **이유를 __derive_root에 귀속**시킨다 — 지금은 거짓이다. 물리화 자체는 여전히 필요하지만 이유가 다르다(호출부 자신의 `[[ \"$file_phys\" == \"$root\"/* ]]` 검사, :559·:648). shellcheck는 local 선언이라 SC2034를 내지 않아 자동으로는 잡히지 않는다",
+    "[security][low][confidence:high] **CLAUDE_PROJECT_DIR 분기가 행동상 죽은 코드가 됐다는 사실이 어디에도 기록되지 않았다.** :543-545는 `__cand == __real_top`일 때 `__cand`를 출력하는데, 두 문자열이 같으므로 이 분기는 `printf '%s' \"$__real_top\"`과 출력이 항상 동일하다. 실측 확인: 분기를 통째로 삭제한 변형 가드와 HEAD 가드가 6가지 CPD 형태(unset·정상·조상·무관·심볼릭 링크·trailing slash) × 3축에서 전부 동일한 결과(SAME). 즉 CLAUDE_PROJECT_DIR는 이제 root 유도에 **아무 영향이 없다**. 보안상으로는 최선(신뢰가 없으므로 우회할 대상도 없다)이지만, 승인된 AX-1 B안이 A안(값을 통째로 버림) 대신 선택된 근거가 '(2) CLAUDE_PROJECT_DIR가 정말 맞는 값일 때는 그대로 쓰이므로 A처럼 그 값의 존재 이유를 버리지 않는다'였다 — 행동상 B는 A로 수렴했는데 코드는 여전히 B처럼 보인다. 승인 범위 위반은 아니고(1차 판정의 시정 지시에 정확히 응답한 결과이며 엄격히 더 안전하다) 실측상 fail-open도 없다. 다만 '조건부 신뢰'로 읽히는 형태를 남길지, 정직하게 단순화(또는 '이 값은 이제 자문용일 뿐'이라고 명시)할지는 기록되어야 할 결정이다",
+    "[test][medium][confidence:high] **동일성 술어를 속이려는 형태들이 테스트에 고정되지 않았다.** 신규 7건은 '다른 저장소'와 '조상 1단계'만 고정한다. 내가 실측한 나머지 형태 — trailing slash, CLAUDE_PROJECT_DIR가 심볼릭 링크, 대문자 변형(대소문자 무시 FS), `..` 포함 상대 경로, 조상 2·3단계, 저장소 하위 디렉터리, 중첩/상위 저장소 — 는 전부 현재 올바르게 거부되지만 회귀 테스트가 없다. 구조적 폐쇄(위 issue 3)라 조용한 회귀 위험은 열거식 수정보다 낮지만, 누군가 헤더 주석(issue 1)을 믿고 컨테인먼트를 되돌리면 이 형태들 중 다수가 테스트 없이 다시 열린다",
+    "[test][medium][confidence:high] **계약이 동기로 지목한 실사용 경로(git worktree)에 테스트가 없다.** sprint-63의 problem 문단과 feature_list 설명 모두 'isolation:\"worktree\" 서브에이전트가 원 저장소의 CLAUDE_PROJECT_DIR를 물려받은 채 워크트리 파일을 편집'을 이 결함의 실사용 경로로 지목하는데, 신규 테스트 7건 중 이 형태를 도는 것이 없다(전부 독립 `git init` 픽스처). 내가 직접 재현했고 결과는 옳다 — pre-F77: 워크트리 안 배선 제거 exit 0 + INV-3 임계값 하향 exit 0 + 티켓 0줄(정당한 편집이 되돌려지는 조건), HEAD: 양쪽 exit 2 + 워크트리 원장에 `progress/harness-config.json` 티켓 1줄. 이 시나리오가 이 수정의 존재 이유이므로 테스트로 고정할 값어치가 크다",
+    "[test][low][confidence:high] tests/hook-wiring-parity.bats:964와 :965가 동일한 단언(`[ \"$ticket_in_d\" -eq 0 ]`)을 서로 다른 메시지로 두 번 반복한다 — 복붙 잔여물로 보인다. 무해하지만 한 줄은 죽은 코드",
+    "[docs][low][confidence:medium] docs/INVARIANTS.md:212-229(F72 '세 번째 함정')는 `${CLAUDE_PROJECT_DIR:-...}` 패턴을 현재형으로 서술한 뒤 아래 두 '수정' 문단으로 해소하는 구조다. F77이 새 오독 소지를 **만들지는 않았다**(그 인용은 F72 시점의 결함 코드이고, :231-241의 '최종' 서술은 F77로 오히려 처음 무조건 참이 됐다). 다만 이 자리에서 'root를 무엇이 결정하는가'를 추적하는 독자는 CLAUDE_PROJECT_DIR가 지금은 사실상 무시된다는 사실에 도달하려면 다른 불변식 절(:550-558)까지 가야 한다 — F72 문단 끝에 한 줄 상호참조가 있으면 좋다"
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [
+      "계약이 동기로 지목한 git worktree 시나리오에 대한 acceptance criterion이 없다 — problem 문단은 이것을 실사용 경로로 명시하는데 AC-1~AC-7 중 어느 것도 이 형태를 요구하지 않아, 구현·테스트가 독립 저장소 픽스처만으로 충족된다",
+      "'CLAUDE_PROJECT_DIR를 신뢰할 조건'을 규정할 뿐, 그 조건이 만족될 때 그 값을 쓰는 것과 안 쓰는 것이 **구별 가능해야 하는가**에 대한 기준이 없다. 그래서 분기가 행동상 죽어도 어떤 기준도 위반되지 않는다(위 issues 3)"
+    ],
+    "ambiguous_criteria": [
+      "SC-4가 'docs/INVARIANTS.md의 기존 서술'로 문언상 한정되어, 같은 실패 클래스(서술이 코드보다 느슨함)가 **코드 주석·테스트 파일 헤더**에서 발생하면 어떤 기준에도 걸리지 않는다. 이번 라운드가 정확히 그 자리에 남았다(issues 1~2). 다음 sprint에서 SC-4의 범위를 '이 변경이 참·거짓을 바꾸는 모든 서술(주석 포함)'로 확정할 것을 권고한다"
+    ],
+    "security_criteria_insufficient": [],
+    "action_required": "다음 iteration에서 (1) hooks/invariant-guard.sh:508·522·554-555·631-633·635-637과 tests/hook-wiring-parity.bats:855-858의 '포함할 때만' 서술을 동일성으로 정정, (2) 죽은 인자 __fp 정리 또는 시그니처 주석 정정, (3) worktree 시나리오 회귀 테스트 추가, (4) SC-4 범위 확정. (1)~(2)는 이번 pass의 조건이 아니라 후속 필수 정리 항목이다"
+  },
+  "criteria_backfill_review": {
+    "verdict": "해당 없음",
+    "detail": "implementer의 criteria_backfill 없음. 계약은 change-request 시점 그대로다. 술어를 승인된 B안('포함')보다 좁은 '동일성'으로 강화한 것은 1차 판정의 시정 지시에 직접 응답한 결과이고 요건 완화가 아니라 강화이므로 범위 확장으로 보지 않는다"
+  },
+  "evidence": {
+    "full_suite": "`env -u CLAUDE_PROJECT_DIR bats tests/ > file 2>&1` (파이프 없음, 종료 코드 직접 포획) → plan 1..806, ok=806, not ok=0, skip=5, EXIT=0",
+    "independent_bypass_matrix": "자체 작성 격리 랩(/tmp, 구현자 픽스처 미사용, 자체 배선 JSON + $LAB/outer/mid/repo 중첩 레이아웃). CPD 14형태 × 3축(배선 제거 exit / 티켓 발급 / INV-3 삭제-후-재생성 exit) × 3리비전(9c98a28·0983cdd·9c7e222) = 126회. 9c7e222는 14형태 전부에서 배선 exit 2 / 실제 저장소 티켓 1줄 / 타 위치 원장 0 / INV-3 exit 2. 9c98a28은 8형태에서, 0983cdd는 4형태(조상1·2·3단계, 중첩)에서 붕괴. 이 저장소 자신의 원장은 랩 전후 1548줄로 불변",
+    "structural_deadness_proof": "__derive_root의 CLAUDE_PROJECT_DIR 분기를 물리적으로 삭제한 변형 가드를 만들어 HEAD 가드와 대조 — CPD 6형태(unset·정상·조상·무관 디렉터리·심볼릭 링크·trailing slash) × 3축 전부 결과 동일(SAME). 따라서 CLAUDE_PROJECT_DIR는 root 유도 결과에 영향을 주지 못하며, 문자열 비교를 속이는 어떤 형태로도 우회가 성립할 수 없다(열거가 아닌 클래스 폐쇄)",
+    "worktree_end_to_end": "계약이 지목한 실사용 경로 재현 — `git worktree add`로 만든 워크트리 안의 파일을 편집하며 CLAUDE_PROJECT_DIR는 메인 저장소로 export. 9c98a28: 배선 제거 exit 0, INV-3 pass_threshold 7→1 하향 exit 0, 티켓 워크트리 0/메인 0(= 정당한 편집이 protected-integrity에 되돌려지는 조건). 9c7e222: 양쪽 exit 2, 티켓이 워크트리 원장에 `progress/harness-config.json` 1줄, 메인 0",
+    "mutation_check": "저장소 밖 clone에 각 리비전 가드를 넣고 `bats --filter 'F77' tests/hook-wiring-parity.bats` — HEAD 가드 7/7 ok(exit 0), 0983cdd 가드 4 ok / **3 not ok**(SC-3 비git 자기지정, 조상 디렉터리, 조상 INV-3), 9c98a28 가드 1 ok / 6 not ok. 구현자의 '3/7' 주장을 독립 재현 확인",
+    "ac7_hermetic": "`CLAUDE_PROJECT_DIR=/Users/hanbyeol/Project/studioj/cc-harness bats tests/hook-wiring-parity.bats` → 1..60, ok=60, not ok=0, exit 0",
+    "regression_axes": "tests/invariant-guard.bats(F68/F72)·tests/protected-integrity.bats(F65)·hook-wiring-parity.bats(F76) 전건이 위 806/806 안에 포함되며 실패 0. @test 개수 pre-F77 799 → HEAD 806, 축소된 파일 0개(hook-wiring-parity만 53→60)",
+    "shellcheck": "9c98a28 가드 vs 9c7e222 가드 지적 히스토그램 diff — 완전 동일(SC2010 1건, SC2012 1건, SC2329 1건, 전부 선재)",
+    "es_probes": "ES-1 존재하지 않는 경로 / ES-2 비git 디렉터리 / ES-3 심볼릭 링크 양방향 / ES-4 PATH=/usr/bin:/bin(jq 부재) 전부 위 매트릭스·전용 프로브로 실측. SC-2 fail-closed는 3조건 모두에서 티켓 0 + stderr 경고 1줄 확인",
+    "code_review": "hooks/invariant-guard.sh:507-548(__derive_root), :550-571(__head_content_for), :620-649(record_guarded_edit) 정독. git blame으로 주석 6자리의 도입 리비전 확인(전부 0983cdd, 9c7e222 미갱신). docs/INVARIANTS.md:200-232·536-566 정독 + CLAUDE_PROJECT_DIR 전체 언급 4곳 대조",
+    "repo_state": "판정 시점 워킹트리 clean(변경 0), HEAD=9c7e222. 모든 실험은 저장소 밖 mktemp 랩과 저장소 밖 clone에서만 수행"
+  }
+}
