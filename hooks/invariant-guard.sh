@@ -527,16 +527,24 @@ __wiring_baseline_for() {
 # 만들면 F76이 이미 겪은 실패 모드("추출기가 두 벌이고 강도가 다르면 약한 쪽이 실제
 # 방어선이 된다")를 root 유도 로직 자체에서 반복하게 된다.
 __derive_root() {   # $1=file_phys(물리 경로) $2=anc(가장 가까운 존재하는 조상)
-  local __fp="$1" __anc2="$2" __cand=""
+  local __fp="$1" __anc2="$2" __cand="" __real_top=""
+  # $FILE 위치에서 유도한 **진짜** git toplevel을 먼저 구해 둔다 — CLAUDE_PROJECT_DIR 후보를
+  # 검증하는 기준이자, 그 후보가 없거나 탈락했을 때의 폴백이기도 하다.
+  __real_top=$(git -C "$__anc2" rev-parse --show-toplevel 2>/dev/null || echo "")
+  [[ -n "$__real_top" ]] && { __real_top=$(cd "$__real_top" 2>/dev/null && pwd -P) || __real_top=""; }
   if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
     __cand=$(cd "${CLAUDE_PROJECT_DIR}" 2>/dev/null && pwd -P) || __cand=""
-    if [[ -n "$__cand" && "$__fp" == "$__cand"/* ]]; then
+    # **"$fp가 $cand 밑에 있다"만으로는 부족하다 (F77 재판정 지적, 실측 반증).** $FILE을
+    # 물리적으로 포함하기만 하고 실제 git toplevel보다 **위**에 있는 조상 디렉터리를 넘기면,
+    # 그 컨테인먼트 검사만 보는 이전 버전은 그 조상을 root로 채택했다 — `git -C "$root" show
+    # HEAD:...`가 엉뚱한(또는 저장소가 아닌) 위치를 대상으로 조용히 실패해 HEAD 기준선을
+    # 잃었다(exit 2 → 0, 격리 랩 재현). 그래서 CLAUDE_PROJECT_DIR는 **$FILE이 속한 git
+    # 저장소의 진짜 toplevel과 정확히 같을 때만** 채택한다 — 부분 포함이 아니라 동일성이다.
+    if [[ -n "$__cand" && -n "$__real_top" && "$__cand" == "$__real_top" ]]; then
       printf '%s' "$__cand"; return 0
     fi
   fi
-  __cand=$(git -C "$__anc2" rev-parse --show-toplevel 2>/dev/null || echo "")
-  [[ -n "$__cand" ]] && { __cand=$(cd "$__cand" 2>/dev/null && pwd -P) || __cand=""; }
-  printf '%s' "$__cand"
+  printf '%s' "$__real_top"
 }
 
 __head_content_for() {

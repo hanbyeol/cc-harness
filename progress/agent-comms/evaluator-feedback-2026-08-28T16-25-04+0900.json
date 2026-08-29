@@ -1,0 +1,109 @@
+{
+  "timestamp": "2026-08-28T16:25:04+0900",
+  "sprint": 63,
+  "iteration": 1,
+  "features_evaluated": [
+    "F77"
+  ],
+  "security_tier": "critical",
+  "verification_tier": "critical",
+  "commit_evaluated": "0983cdd",
+  "baseline_commit": "9c98a28 (pre-F77)",
+  "judgment_round": "1차 독립 판정",
+  "f37_second_judgment_required": true,
+  "f37_note": "security_tier=critical이므로 이 1차 판정만으로 확정되지 않는다. 메인 루프는 독립 컨텍스트의 2차 evaluator를 디스패치해 교차검증해야 하며, 두 판정의 verdict가 불일치하면 자동 pass 없이 사람 에스컬레이션한다 (F37).",
+  "scores": {
+    "functionality": 8,
+    "code_quality": 8,
+    "security": 6,
+    "error_handling": 7,
+    "test_coverage": 7
+  },
+  "score": 6,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 6 < 7 (critical tier 최소선) — SC-4 미충족: docs/INVARIANTS.md 정정문이 실측으로 반증되는 폐쇄 주장을 새로 만들었다",
+    "min-of-5 = 6 < pass_threshold 7"
+  ],
+  "verdict_summary": "코드 수정 자체는 견고하고 실측으로 가치가 확인됐다 — 계약의 AC-1~AC-7이 전부 충족되고, 부모 커밋 대비 어떤 축도 약화되지 않았으며, 종단(guard→protected-integrity)에서 '정당한 편집이 되돌려지던' 실제 해악이 닫혔다. 반려 사유는 단 하나, SC-4다: INV-13 문단을 정정하면서 참인 문장을 '그 경로는 닫혔다'는 주장으로 대체했는데, CLAUDE_PROJECT_DIR를 저장소의 **조상 디렉터리**로 돌리면 같은 붕괴가 그대로 일어난다(실측). 이 sprint의 SC-4는 정확히 그 재발(F74~F76에서 반복된 '정정하는 자리에서 새 미측정 주장을 만드는' 패턴)을 막으려고 쓰인 기준이다. 코드 변경 없이 문장 하나와 테스트 이름 하나를 실측에 맞추면 해소된다.",
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1: 격리 랩 독립 재현(구현자 픽스처 미사용). CLAUDE_PROJECT_DIR를 $FILE이 속하지 않은 다른 저장소로 export한 채 파싱 불가 settings.json + 정상 HEAD에서 배선 제거 → OLD(9c98a28) exit 0 / NEW exit 2. 통제군(unset) 양쪽 exit 2",
+      "AC-2: 같은 조건에서 보호 파일 편집 → NEW는 $FILE이 속한 저장소의 progress/.guarded-edits에 티켓 1줄 발급(sha 3e39b752… + rel 'progress/harness-config.json'), CLAUDE_PROJECT_DIR가 가리키던 저장소 원장은 0줄 증가. OLD는 양쪽 모두 0줄(침묵 스킵) — 계약이 기술한 결함 그대로 재현",
+      "AC-3: CLAUDE_PROJECT_DIR == 실제 저장소인 정상 케이스는 두 축 모두 OLD/NEW 동일(exit 2 / 티켓 1줄). 회귀 없음",
+      "AC-4: CLAUDE_PROJECT_DIR unset 상태에서 두 축 OLD/NEW 동일. tests/invariant-guard.bats(148건, F68/F72 축) 전건 통과",
+      "AC-5: 두 호출부가 같은 헬퍼를 쓴다 — __head_content_for:549와 record_guarded_edit:631이 모두 __derive_root() 호출. 사본 없음(코드 확인)",
+      "AC-6: `env -u CLAUDE_PROJECT_DIR bats tests/` 파이프 없이 1회 실행 — 1..804, ok=804, not ok=0, skip=5, exit 0",
+      "AC-7: CLAUDE_PROJECT_DIR를 이 저장소로 export한 채 tests/hook-wiring-parity.bats 재실행 → 58/58 exit 0. unset 실행 결과와 테스트별 diff 완전 일치. setup()의 `unset CLAUDE_PROJECT_DIR` 코드도 확인"
+    ],
+    "security": [
+      "SC-1: 부모 커밋 대비 완화 0건. 내가 돌린 모든 조합(unset·다른 저장소·존재하지 않는 경로·비git·정상·조상·하위·심볼릭 링크)에서 NEW가 OLD보다 나쁜 경우가 하나도 없었다. bats 804/804, invariant-guard.bats 148, protected-integrity.bats 17 전건 통과. shellcheck 지적 히스토그램 OLD/NEW 완전 동일(3건, 선재)",
+      "SC-2: CLAUDE_PROJECT_DIR·git 둘 다 실패하는 진짜 비git 픽스처에서 fail-closed + stderr 경고 '무결성 티켓이 발급되지 않습니다' 1줄 출력 확인(unset·다른 저장소·존재하지 않는 경로 3조건 전부). 조용한 통과 없음"
+    ],
+    "error_scenarios": [
+      "ES-1: CLAUDE_PROJECT_DIR=/no/such/path/f77 → 두 축 모두 $FILE 위치로 폴백. 배선 제거 OLD exit 0 → NEW exit 2, 티켓 OLD 0줄 → NEW 1줄",
+      "ES-2: CLAUDE_PROJECT_DIR=git 아닌 일반 디렉터리 → ES-1과 동일하게 폴백(exit 2 / 티켓 1줄)",
+      "ES-3: 심볼릭 링크 경로($LAB/link → $LAB/real)로 보호 파일 편집. CLAUDE_PROJECT_DIR가 다른 저장소일 때 실제 저장소(real)에 티켓 1줄, 다른 저장소 0줄. CLAUDE_PROJECT_DIR가 심볼릭 링크 자신일 때도 물리 경로로 정규화되어 정상 발급 — __physicalize_under/pwd -P 재사용 확인",
+      "ES-4: jq 없는 PATH(/usr/bin:/bin)로 실행 → OLD/NEW 모두 exit 2(fail-closed). 전체 PATH와 동일. has_jq 게이트가 우선 적용되며 이 수정과 상호작용하지 않음"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [
+      "SC-4 (부분 미충족): docs/INVARIANTS.md:550-553의 정정문이 실측으로 반증되는 주장을 새로 만들었다. 원문 '`CLAUDE_PROJECT_DIR` 를 저장소 밖으로 돌리면 이 갈래가 무기준선으로 붕괴한다'는 참이었는데, 이를 '…F77이 고쳐 그 경로는 닫혔다'로 대체했다. 실측: CLAUDE_PROJECT_DIR를 저장소의 **조상 디렉터리**(예: 저장소를 담고 있는 상위 폴더)로 돌리면 배선 제거가 여전히 exit 0이고(OLD=0 NEW=0), 저장소 **하위 디렉터리**로 돌려도 exit 0이다(같은 파일 unset 통제군은 exit 2). 근거절('다른 저장소를 가리켜도')은 정직하지만 주장절('그 경로는 닫혔다')이 근거보다 넓다 — SC-4의 rationale이 명시한 '문서가 코드보다 강해지는' 실패다"
+    ],
+    "error_scenarios": []
+  },
+  "issues": [
+    "[security][high][confidence:high] **INV-13 정정문 과잉주장 (SC-4 직접 위반)** — docs/INVARIANTS.md:550-553. 실측 표: CLAUDE_PROJECT_DIR가 (a) 다른 저장소 → 닫힘(exit 2), (b) 존재하지 않는 경로 → 닫힘, (c) 비git 디렉터리 → 닫힘, (d) **저장소의 조상 디렉터리 → 여전히 붕괴(exit 0)**, (e) **저장소의 하위 디렉터리 → 여전히 붕괴(exit 0)**. 문서는 (d)·(e)를 언급하지 않고 '그 경로는 닫혔다'로 끝난다. 이 문단은 '보호의 상한'을 적는 자리이므로 상한을 실제보다 높게 적으면 후속 판정이 그 경로를 테스트하지 않게 된다. 수정: 실측 그대로 (a)(b)(c)는 닫혔고 (d)(e)는 열려 있다고 적을 것",
+    "[security][high][confidence:high] **조상 CLAUDE_PROJECT_DIR로 INV-3 삭제-후-재생성 방어가 통째로 우회된다(선재, F77이 닫지 않음)** — 격리 랩 실측: 저장소를 상위 폴더 밑에 두고 CLAUDE_PROJECT_DIR를 그 상위 폴더로 export한 뒤 progress/harness-config.json을 삭제하고 pass_threshold 7→1로 재생성 → exit 0(통과). CLAUDE_PROJECT_DIR unset 또는 올바른 값이면 exit 2(차단). OLD도 동일하므로 회귀는 아니지만, F77의 신규 술어($file_phys가 그 안에 있는가)가 조상 경로를 그대로 통과시키기 때문에 **이 수정으로 닫혔다고 오해되기 쉬운 자리**다. 근본 해법: 채택 후보가 $FILE의 git toplevel과 일치하는지도 함께 확인하거나, 불일치 시 최소한 stderr 경고를 낼 것",
+    "[security][high][confidence:high] **조상 CLAUDE_PROJECT_DIR에서 티켓이 엉뚱한 원장에 오기록되고, 종단에서 정당한 편집이 되돌려진다(선재)** — 실측: 상위 폴더에 progress/가 있으면 티켓이 상위 폴더의 .guarded-edits에 `<sha> nested/progress/harness-config.json`으로 기록되고, 실제 저장소 원장은 0줄, stderr는 0바이트(완전한 침묵). 이어서 protected-integrity.sh를 올바른 CLAUDE_PROJECT_DIR로 돌리면 그 정당한 편집이 **REVERTED**된다. 계약의 problem 문단이 '더 심각'하다고 지목한 실패 모드가 다른 입력값으로 그대로 살아 있다",
+    "[test][medium][confidence:high] **신규 테스트 이름이 측정하지 않은 것을 단정한다** — tests/hook-wiring-parity.bats의 'F77: 진짜 저장소 밖(git 없음)은 **CLAUDE_PROJECT_DIR 무관하게** 여전히 티켓을 만들지 않는다 (SC-3)'. 본문은 setup()이 unset한 상태의 1회 호출뿐이라 '무관하게'는 미측정이며, 실제로 거짓이다: CLAUDE_PROJECT_DIR를 그 비git 임시 디렉터리 **자신**으로 지정하면 티켓이 그 비git 디렉터리에 발급된다(실측, OLD/NEW 동일). 이 sprint가 없애려던 '정정하는 자리에서 새 미측정 주장을 만드는' 패턴이 테스트 이름에서 재발했다",
+    "[security][medium][confidence:high] **SC-3의 문언은 무조건형인데 한 조합에서 성립하지 않는다(선재)** — SC-3 rationale: '$FILE이 어떤 git 저장소에도 속하지 않으면 여전히 티켓을 만들지 않아야 한다'. CLAUDE_PROJECT_DIR가 그 비git 디렉터리를 가리키면 __derive_root가 그것을 root로 채택하고 `-d $root/progress`도 통과해 티켓이 만들어진다. SC-3이 겨냥한 방향(AC-2 과잉교정)의 실패는 아니므로 의도는 충족되나 문언은 미충족",
+    "[quality][medium][confidence:high] **__derive_root가 채택 후보를 '저장소 루트인가'로 검증하지 않는다** — 술어가 '포함하는가'뿐이라 조상·하위 디렉터리가 모두 통과한다. 위 세 이슈의 공통 뿌리다. `git -C \"$__cand\" rev-parse --show-toplevel`이 $__cand와 같은지(또는 $anc의 toplevel과 같은지) 한 줄 더 확인하면 클래스 전체가 닫힌다",
+    "[quality][low][confidence:high] **CLAUDE_PROJECT_DIR=/ 는 우연히 안전하다** — `\"$__fp\" == \"$__cand\"/*` 에서 __cand='/' 이면 패턴이 '//*'가 되어 절대 매치되지 않고 git 폴백으로 떨어진다(실측 exit 2, OLD는 exit 0). 의도된 방어가 아니라 문자열 결합의 부산물이므로, 위 quality 이슈를 고칠 때 이 경로가 우연이 아니라 명시적으로 닫히도록 할 것",
+    "[test][low][confidence:high] **신규 테스트의 `grep -c … || echo 0` 이 실패 경로에서 정수 두 줄을 만든다** — `ticket_in_lab=$(grep -c 'harness-config.json' \"$d/progress/.guarded-edits\" 2>/dev/null || echo 0)` 는 매치가 없을 때 grep이 '0'을 출력하고 exit 1을 내므로 '0\\n0'이 담긴다. 이후 `[ \"$ticket_in_lab\" -ge 1 ]`이 정수 오류로 죽어 '티켓 미발급'이라는 진짜 사유 대신 셸 에러로 보고된다. 현재는 매치되므로 잠복",
+    "[docs][low][confidence:medium] **docs/INVARIANTS.md:212-214가 현행 코드로 오독될 여지가 있다** — `root=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel …)}\"` 를 현재형('구하고 … 발동한다')으로 적는다. 바로 뒤의 '**수정(F72, 1차 시도)**'·'**수정(F72, 최종)**' 소제목이 역사적 서술임을 알려 주므로 거짓 진술은 아니지만, F72가 이미 `git -C \"$__anc\"`로 바꿨고 F77이 `CLAUDE_PROJECT_DIR:-` 자체를 없앤 지금 이 코드 형태는 **어느 리비전에도 존재하지 않는다**. SC-4가 'F72 항목의 CLAUDE_PROJECT_DIR 언급'을 콕 집어 점검하라고 했으므로 '(F72 이전 코드)' 한 마디를 넣는 것이 맞다. :218의 'CLAUDE_PROJECT_DIR 미설정이 실제 세션 조건임이 실측됐다'는 과거 실측 서술로 여전히 참이며 정정 불필요 — 이 점은 구현자 판단이 옳다",
+    "[docs][low][confidence:medium] **커밋 메시지의 두 문장이 실측보다 넓다** — (1) 'a repo-mismatched CLAUDE_PROJECT_DIR no longer breaks either axis': 조상·하위 디렉터리도 repo-mismatched인데 두 축 모두 여전히 깨진다. (2) 'a file genuinely outside any repository still gets no ticket': CLAUDE_PROJECT_DIR가 그 디렉터리 자신을 가리키면 티켓이 생긴다. 나머지 주장(804/804·mutation 3/5·148/148·shellcheck 동일·hermetic 재실행)은 전부 내가 재현해 일치했다",
+    "[observation][medium][confidence:high] **탐지 쪽 짝(hooks/protected-integrity.sh:36)은 여전히 `REPO=\"${CLAUDE_PROJECT_DIR:-…}\"` 무조건 채택이다** — 이번 계약 범위 밖이지만, 계약의 why_this_class_matters가 '예측(invariant-guard)과 탐지(protected-integrity) 사이의 이음매'를 근거로 든 만큼 짝이 비대칭으로 남았다는 사실은 기록해 둘 값어치가 있다. 실측상 이 비대칭이 새 해악을 만들지는 않았다(잘못된 CLAUDE_PROJECT_DIR면 탐지가 다른 저장소를 보므로 되돌리지 않는다) — 다만 워크트리 안의 편집은 예측(티켓 발급, 이제 올바름)만 있고 탐지는 도달하지 않는다"
+  ],
+  "criteria_gaps": {
+    "missing_criteria": [
+      "CLAUDE_PROJECT_DIR가 $FILE의 **조상 또는 하위 디렉터리**인 경우에 대한 기준이 없다. AC-1·AC-2는 '다른 저장소'만 규정하고, AX-1 B안의 술어('포함할 때만 채택')는 이 두 형태를 모두 통과시킨다. 실사용 가능성도 낮지 않다 — 여러 저장소를 담은 상위 폴더에서 Claude를 시작하고 그 안의 저장소를 편집하는 경우가 정확히 조상 케이스다",
+      "채택된 root 후보가 **$FILE의 git toplevel과 일치하는가**에 대한 기준이 없다. 현재 술어는 경로 포함만 본다"
+    ],
+    "ambiguous_criteria": [
+      "SC-3의 '$FILE이 어떤 git 저장소에도 속하지 않으면 여전히 티켓을 만들지 않아야 한다'가 CLAUDE_PROJECT_DIR 값에 대해 무조건인지 조건부인지 불명확하다. 무조건으로 읽으면 현 구현은 미충족(비git 디렉터리를 CLAUDE_PROJECT_DIR로 지정한 경우)",
+      "SC-4의 '역방향 점검' 범위가 '정정이 필요한 문장'인지 '오독 가능한 문장'인지 불명확하다. :212-214를 두고 구현자와 판정이 갈리는 지점이다"
+    ],
+    "security_criteria_insufficient": [],
+    "action_required": "다음 iteration에서 (1) INV-13 정정문을 실측대로 좁히고, (2) SC-3 문언의 조건 범위를 확정하며, (3) 조상/하위 CLAUDE_PROJECT_DIR를 다룰지 여부를 AX로 올려 판단할 것(별도 change-request 후보로 분리해도 좋다 — 이번 sprint 승인 범위 밖이다)"
+  },
+  "criteria_backfill_review": {
+    "verdict": "해당 없음",
+    "detail": "implementer의 criteria_backfill 없음. 계약은 change-request 시점 그대로이고 구현이 승인 범위(헬퍼 추출 + 두 호출부 교체 + AC-7 + SC-4)를 벗어나지 않았다"
+  },
+  "remediation": [
+    "필수(반려 해소): docs/INVARIANTS.md:550-553을 실측대로 좁힌다. 예: 'CLAUDE_PROJECT_DIR가 **다른 저장소·존재하지 않는 경로·비git 디렉터리**를 가리키는 경우는 F77이 닫았다(실측). 다만 그 값이 $FILE의 **조상 또는 하위 디렉터리**이면 술어가 통과해 여전히 무기준선으로 붕괴한다(실측: 배선 제거 exit 0, 삭제-후-재생성 임계값 하향 exit 0) — 이는 F77 승인 범위 밖의 선재 경로다.'",
+    "필수(반려 해소): 'CLAUDE_PROJECT_DIR 무관하게' 테스트 이름을 본문이 실제로 측정하는 범위로 좁히거나, 이름이 주장하는 대로 CLAUDE_PROJECT_DIR 변형(최소한 그 비git 디렉터리 자신)을 본문에 추가한다",
+    "권고(별도 change-request): __derive_root가 채택 후보를 git toplevel로도 검증하도록 한 줄 추가. 위 3개 high 이슈가 한 번에 닫힌다",
+    "권고: `grep -c … || echo 0` 관용구를 `$(grep -c … 2>/dev/null | head -1)` 형태로 교체"
+  ],
+  "evidence": {
+    "full_suite": "`env -u CLAUDE_PROJECT_DIR bats tests/` (파이프 없음, 백그라운드 리다이렉트) → `1..804`, ok=804, not ok=0, skip=5, exit 0. F77 신규 5건은 #114~#118로 전부 ok",
+    "suite_counts": "bats --count: tests/invariant-guard.bats=148, tests/protected-integrity.bats=17, tests/hook-wiring-parity.bats=58. 전건이 위 804 안에 포함되며 실패 0",
+    "ac7_hermetic": "`CLAUDE_PROJECT_DIR=/Users/hanbyeol/Project/studioj/cc-harness bats tests/hook-wiring-parity.bats` → 1..58, ok=58, exit 0. `env -u CLAUDE_PROJECT_DIR` 실행과 테스트별 결과 diff 없음 (RESULTS IDENTICAL)",
+    "mutation": "헤더+F77 5건만 추출한 사본(/private/tmp/f77-mutation.bats)에 GUARD를 주입 가능하게 바꿔 실행. pre-fix 가드(9c98a28)로 → not ok 1·2·3 / ok 4·5, exit 1. 현행 가드로 → 5/5 ok, exit 0. 구현자 주장(3/5 kill, 2건은 보존 동작)과 정확히 일치. 저장소 원본 파일은 건드리지 않았고 실행 후 `git status --short` 비어 있음",
+    "axis1_head_baseline": "저장소 밖 격리 랩(직접 작성, 구현자 픽스처 미사용). 배선 제거 exit — unset: OLD 2/NEW 2 · 다른 저장소: OLD 0/NEW 2 · 존재하지 않는 경로: OLD 0/NEW 2 · 비git: OLD 0/NEW 2 · 올바른 값: OLD 2/NEW 2 · **조상 디렉터리: OLD 0/NEW 0** · **하위 디렉터리: OLD 0/NEW 0**(같은 파일 unset 통제군 2) · `/`: OLD 0/NEW 2",
+    "axis2_ticket": "같은 랩, 보호 파일 정당 편집. 티켓 줄 수(대상 저장소/다른 저장소) — unset: OLD 1/0, NEW 1/0 · 다른 저장소: **OLD 0/0**, NEW 1/0 · 존재하지 않는 경로: OLD 0/0, NEW 1/0 · 비git: OLD 0/0, NEW 1/0 · 올바른 값: OLD 1, NEW 1. NEW 티켓 내용 `3e39b75218ab2529166bcb5be8536306e6e98dd6 progress/harness-config.json` (sha+상대경로 정확)",
+    "sc3": "$FILE이 어떤 git 저장소에도 없는 mktemp 픽스처(git init 없음) — CLAUDE_PROJECT_DIR unset / 다른 저장소 / 존재하지 않는 경로 3조건 모두 티켓 0줄(임시 디렉터리·다른 저장소 양쪽), stderr 경고 1줄. **예외**: CLAUDE_PROJECT_DIR를 그 비git 디렉터리 자신으로 지정하면 티켓 1줄 생성(OLD/NEW 동일)",
+    "end_to_end": "guard → 실제 write → protected-integrity.sh 순으로 종단 측정. 'CLAUDE_PROJECT_DIR가 편집 시점엔 다른 저장소, 이후 호출에선 올바른 값' 시나리오: **OLD=REVERTED(티켓 0) / NEW=SURVIVED(티켓 1)**. '/no/such → 올바른 값': OLD=REVERTED / NEW=SURVIVED. 정상 세션 통제군: 양쪽 SURVIVED. 이 수정이 실제 해악을 닫는다는 직접 증거",
+    "residual_inv3_bypass": "상위 폴더 밑에 중첩 저장소를 두고 CLAUDE_PROJECT_DIR를 상위 폴더로 export → progress/harness-config.json 삭제 후 pass_threshold 7→1 재생성이 **OLD·NEW 모두 exit 0(통과)**. unset·올바른 값에서는 양쪽 exit 2(차단). 같은 조건에서 티켓은 상위 폴더 원장에 `<sha> nested/progress/harness-config.json`으로 오기록되고 실제 저장소는 0줄, stderr 0바이트, 이어진 protected-integrity가 정당한 편집을 REVERTED",
+    "es4": "PATH=/usr/bin:/bin(jq 부재)로 배선 제거 시도 → OLD exit 2 / NEW exit 2. 전체 PATH와 동일. fail-closed 게이트가 이 수정과 독립",
+    "shellcheck": "`shellcheck hooks/invariant-guard.sh` 와 `shellcheck -s bash <9c98a28 사본>` — 각 3건, SC 코드 히스토그램 diff 없음 (IDENTICAL)",
+    "code_review": "hooks/invariant-guard.sh:529-540 __derive_root 신설, :549 __head_content_for 호출, :631 record_guarded_edit 호출 — 단일 구현이 양쪽에서 쓰인다(AC-5). :640의 `[[ \"$file_phys\" == \"$root\"/* ]]` 저장소 밖 방어는 그대로 유지",
+    "repo_state": "모든 실행 후 `git status --short` 비어 있음 — 판정 과정이 워킹트리를 바꾸지 않았다. 랩 픽스처는 전부 /private/tmp 하위이며 CLAUDE_PROJECT_DIR를 이 저장소로 지정한 것은 AC-7 재실행뿐"
+  }
+}

@@ -931,6 +931,11 @@ f76_guard() {   # 대상: settings.json
 @test "F77: 진짜 저장소 밖(git 없음)은 CLAUDE_PROJECT_DIR 무관하게 여전히 티켓을 만들지 않는다 (SC-3)" {
   # F65의 원래 방어(테스트가 실 저장소 원장을 오염시키던 문제)가 이번 수정으로 되살아나지
   # 않는지 확인한다 — $FILE이 어떤 git 저장소에도 속하지 않으면 티켓 없음을 유지해야 한다.
+  #
+  # **"무관하게"를 실제로 검증한다 (재판정 지적).** 이전 버전은 이 단언을 unset 1회로만
+  # 확인해 놓고 이름은 "무관하게"라 적었는데, CLAUDE_PROJECT_DIR을 그 비git 디렉터리
+  # 자신으로 지정하면(컨테인먼트만 보던 시절) 실제로 티켓이 새 나갔다 — toplevel 동일성
+  # 검사가 이 케이스도 함께 닫는지 아래에서 별도로 확인한다.
   local hc new_hc d before after
   hc=$(jq -c '.' progress/harness-config.json)
   new_hc=$(jq -c '. + {_f77_probe2:1}' progress/harness-config.json)
@@ -944,8 +949,19 @@ f76_guard() {   # 대상: settings.json
   after=$(wc -l < progress/.guarded-edits 2>/dev/null || echo 0)
   local ticket_in_d
   ticket_in_d=$([ -f "$d/progress/.guarded-edits" ] && wc -l < "$d/progress/.guarded-edits" || echo 0)
+  [ "$((after - before))" -eq 0 ] || { rm -rf "$d"; echo "이 저장소 원장이 오염됐다" >&2; return 1; }
+  [ "$ticket_in_d" -eq 0 ] || { rm -rf "$d"; echo "unset 케이스에서 티켓이 발급됐다" >&2; return 1; }
+
+  # 서브케이스: CLAUDE_PROJECT_DIR = 그 비git 디렉터리 자신
+  before=$(wc -l < progress/.guarded-edits 2>/dev/null || echo 0)
+  jq -n --arg f "$d/progress/harness-config.json" --arg c "$new_hc" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' \
+    | CLAUDE_PROJECT_DIR="$d" bash "$GUARD" >/dev/null 2>&1
+  after=$(wc -l < progress/.guarded-edits 2>/dev/null || echo 0)
+  ticket_in_d=$([ -f "$d/progress/.guarded-edits" ] && wc -l < "$d/progress/.guarded-edits" || echo 0)
   rm -rf "$d"
-  [ "$((after - before))" -eq 0 ] || { echo "이 저장소 원장이 오염됐다" >&2; return 1; }
+  [ "$((after - before))" -eq 0 ] || { echo "CLAUDE_PROJECT_DIR 자기지정 케이스에서 이 저장소 원장이 오염됐다" >&2; return 1; }
+  [ "$ticket_in_d" -eq 0 ] || { echo "CLAUDE_PROJECT_DIR을 그 비git 디렉터리 자신으로 지정했을 때 티켓이 발급됐다" >&2; return 1; }
   [ "$ticket_in_d" -eq 0 ] || { echo "진짜 저장소 밖인데 티켓이 발급됐다" >&2; return 1; }
 }
 
@@ -964,6 +980,52 @@ f76_guard() {   # 대상: settings.json
     | CLAUDE_PROJECT_DIR="$d" bash "$GUARD" >/dev/null 2>&1 || st=$?
   rm -rf "$d"
   [ "$st" -eq 2 ] || { echo "CLAUDE_PROJECT_DIR가 올바른 값일 때 배선 제거가 통과했다 (exit=$st)" >&2; return 1; }
+}
+
+@test "F77: CLAUDE_PROJECT_DIR가 \$FILE을 포함하는 조상 디렉터리여도 진짜 toplevel이 아니면 신뢰하지 않는다 (독립 evaluator 지적)" {
+  # **1차 판정이 반려한 실제 결함.** \$FILE을 물리적으로 포함하기만 하는 컨테인먼트 검사는
+  # $FILE이 속한 git 저장소보다 **위**에 있는 조상 디렉터리도 통과시켰다 — 그 조상을 root로
+  # 채택하면 `git -C "$root" show HEAD:...`가 엉뚱한 위치를 대상으로 조용히 실패해 HEAD
+  # 기준선을 잃었다(exit 2 → 0, 실측). __derive_root가 CLAUDE_PROJECT_DIR을 "$FILE이 속한
+  # git 저장소의 진짜 toplevel과 정확히 같을 때만" 채택하도록 좁혀 닫는다 — 부분 포함이
+  # 아니라 동일성 검사다.
+  local base d st ancestor
+  base=$(jq -c '.' settings.json)
+  d=$(mktemp -d) || return 99; d=$(cd "$d" && pwd -P) || return 99
+  git init -q "$d" 2>/dev/null || { rm -rf "$d"; return 99; }
+  printf '%s' "$base" > "$d/settings.json"
+  ( cd "$d" && git add -A && git -c user.email=t@example.com -c user.name=t commit -qm base ) >/dev/null 2>&1
+  printf '// c\n%s' "$base" > "$d/settings.json"
+  ancestor="$(dirname "$d")"
+  st=0
+  jq -n --arg f "$d/settings.json" --arg c "$(mutate_guard_entry '.hooks.PreToolUse |= map(select(
+    any(.hooks[]; .command | test("invariant-guard")) | not))')" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' \
+    | CLAUDE_PROJECT_DIR="$ancestor" bash "$GUARD" >/dev/null 2>&1 || st=$?
+  rm -rf "$d"
+  [ "$st" -eq 2 ] || { echo "CLAUDE_PROJECT_DIR가 진짜 저장소의 조상일 때 배선 제거가 통과했다 (exit=$st)" >&2; return 1; }
+}
+
+@test "F77: 조상 CLAUDE_PROJECT_DIR로 삭제-후-재생성 INV-3 우회도 함께 닫힌다" {
+  # 같은 원인(컨테인먼트만 보고 toplevel 동일성은 안 봄)이 record_guarded_edit 축에서는
+  # F68/F72가 닫은 삭제-후-재생성 방어를 재개방했다 — harness-config.json을 지우고 조상
+  # CLAUDE_PROJECT_DIR로 pass_threshold를 하향 재생성하면 통과했다(실측, 독립 evaluator 보고).
+  local hc lowered d ancestor st
+  hc=$(jq -c '.' progress/harness-config.json)
+  d=$(mktemp -d) || return 99; d=$(cd "$d" && pwd -P) || return 99
+  git init -q "$d" 2>/dev/null || { rm -rf "$d"; return 99; }
+  mkdir -p "$d/progress"
+  printf '%s' "$hc" > "$d/progress/harness-config.json"
+  ( cd "$d" && git add -A && git -c user.email=t@example.com -c user.name=t commit -qm base ) >/dev/null 2>&1
+  rm "$d/progress/harness-config.json"
+  lowered=$(jq -c '.scoring.pass_threshold = 1' progress/harness-config.json)
+  ancestor="$(dirname "$d")"
+  st=0
+  jq -n --arg f "$d/progress/harness-config.json" --arg c "$lowered" \
+    '{tool_name:"Write", tool_input:{file_path:$f, content:$c}}' \
+    | CLAUDE_PROJECT_DIR="$ancestor" bash "$GUARD" >/dev/null 2>&1 || st=$?
+  rm -rf "$d"
+  [ "$st" -eq 2 ] || { echo "조상 CLAUDE_PROJECT_DIR에서 삭제-후-재생성 임계값 하향이 통과했다 (exit=$st)" >&2; return 1; }
 }
 
 @test "INV-13 완전성: HOOK_KILL_SWITCHES가 스키마의 hook-affecting boolean을 전부 덮는다" {
