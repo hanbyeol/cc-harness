@@ -1,0 +1,121 @@
+{
+  "timestamp": "2026-08-30T18:17:49+09:00",
+  "sprint": 51,
+  "iteration": 9,
+  "features_evaluated": [
+    "F65"
+  ],
+  "scope": "implementation_steps 10-13 (5번째 독립 판정), 대상 커밋 dec9293",
+  "security_tier": "critical",
+  "scores": {
+    "functionality": 5,
+    "code_quality": 5,
+    "security": 3,
+    "error_handling": 4,
+    "test_coverage": 5
+  },
+  "score": 3,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 3 < 7 (critical tier 자동 fail)",
+    "score 3 < pass_threshold 7",
+    "AC-11/SC-9 미충족: 컨트롤 플레인 삭제 3형태가 ask가 아니라 allow — 격리 랩에서 .claude/settings.json·settings.local.json·.claude/hooks/invariant-guard.sh 실제 삭제 확인. 세 파일 모두 gitignore이고 PROTECTED_GLOBS에 없어 사후 복구가 없다(예측이 유일한 통제)",
+    "신규 fail-open 회귀(dec9293이 도입): bash 3.2에서 방화벽이 rc=1로 죽어 **판정을 아예 내지 않는다** — 컨트롤 플레인 삭제 게이트와 ASK_PATTERNS 자기보호·시크릿 arm이 함께 무력화된다"
+  ],
+  "_root_cause_one_line": "8차 판정 수정의 전제 — `printf %b`로 'bash 자신의 이스케이프 표를 빌린다' — 가 틀렸다. `printf %b`의 표는 (a) `$'...'`의 표와 다르고(`\\c`·`\\u`·`\\U`), (b) bash 버전마다 다르며(3.2는 `\\u`/`\\U` 미지원), (c) 실제 명령을 실행하는 셸의 표와도 다르다(이 세션의 Bash 도구 실행 셸은 `/bin/zsh 5.9`로 실측 확인). 세 갭이 각각 독립적인 우회를 만든다.",
+  "issues": [
+    "[security][critical][confidence:high] **Class K — `\\c` 이스케이프. 방화벽 bash 버전과 무관하게 양쪽 다 allow.** `printf %b`는 `\\c`를 만나면 출력을 **중단**하고, zsh의 `$'...'`는 `\\c`를 리터럴 `c`로 본다. 그래서 `$'.\\claude'`를 방화벽은 `.`로 디코딩해(→ 매치 없음) allow하고, 실행 셸 zsh는 `.claude`로 편다. 실측: `rm -rf $'.\\claude'` → B5=allow B32=allow, /bin/zsh 확장 `.claude`. 같은 형태로 `$'.\\claude/settings.json'`·`$'.\\claude/hooks'`도 allow. **이 세션의 Bash 도구 실행 셸이 실제로 /bin/zsh 5.9임을 직접 확인했다**(`printf 'expands_to=[%s]' $'.\\claude'` → `[.claude]`). 격리 랩 실증: 3파일 전부 삭제됨.",
+    "[security][critical][confidence:high] **Class J — `\\u`/`\\U` 유니코드 이스케이프. 방화벽이 bash 3.2로 실행될 때 allow.** bash 3.2의 `printf %b`는 `\\uHHHH`/`\\UHHHHHHHH`를 디코딩하지 않는다(리터럴로 남김). 반면 bash≥4.2와 zsh의 `$'...'`는 디코딩한다. hooks.json은 `bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash-firewall.sh\"`로 PATH의 bash를 쓰므로, homebrew bash가 없는 표준 macOS에서 방화벽은 3.2로 실행된다 — 구현자 자신이 커밋 메시지에 적은 전제다. 실측(7형태 전수 B5=ask / B32=allow): `rm -rf $'\\u002e\\u0063laude'`·`$'\\U0000002e'claude`·`$'\\u002eclaude/settings.json'`·`$'\\u002eclaude'/hooks`·`hooks/$'\\u0068ooks.json'` 등. 격리 랩에서 zsh 실행으로 `.claude` 전체 삭제 확인.",
+    "[security][critical][confidence:high] **Class L — dec9293이 새로 도입한 fail-open 크래시(bash 3.2).** bash 3.2의 `printf -v v '%b' \"\"`는 **결과가 빈 문자열이면 변수를 아예 만들지 않는다** — `set -u` 하에서 다음 줄의 `$__ansi_decoded`가 unbound가 되어 훅이 `line 852: __ansi_decoded: unbound variable`로 rc=1 종료하고 **JSON 판정을 전혀 내지 않는다**. 트리거: ANSI-C 문자열이 빈 문자열로 디코딩되는 모든 형태(`$''`, `$'\\cx'`)가 삭제 동사 뒤 피연산자보다 **앞**에 오면 된다. 실측 대조(B5 → B32): `rm -rf $'' .claude` ask → NO-DECISION(rc=1) / `mv ~/.ssh/id_rsa /tmp/x $''` ask → NO-DECISION / `mv progress/feature_list.json /tmp/x $''` ask → NO-DECISION. Layer 1/2 deny는 이 지점보다 앞이라 살아있지만(확인함), 컨트롤 플레인 삭제 게이트·ASK_PATTERNS 전체(하네스 검증 파일·시크릿 키 arm 포함)가 한꺼번에 무력화된다. 이것은 기존 갭이 아니라 **이번 커밋이 만든 회귀**다(`git log -S__ansi_decoded` → dec9293).",
+    "[security][high][confidence:high] **같은 클래스가 형제 훅에 미청소로 남아 있다 — protected-integrity.sh.** 구현자가 방화벽에서 고친 `\"${arr[@]}\"` 빈 배열 전개(bash 3.2 + set -u에서 unbound)가 F65 탐지·복구 평면 본체에는 적용되지 않았다. `hooks/protected-integrity.sh:188` `for f in \"${FILES[@]}\"`는 가드가 없다. 실측(HEAD에 보호 파일이 하나도 없는 임시 저장소, 즉 cc-harness가 플러그인으로 설치된 **사용자 저장소의 일반적 상태**): bash 5.3 rc=0 / **bash 3.2 `line 188: FILES[@]: unbound variable`, rc=1**. 그 환경에서 F65의 탐지·복구가 통째로 죽는다. ES-3('git 저장소가 아닌/대상 없는 프로젝트에서 훅이 조용히 exit 0')의 취지에도 어긋난다. (본 판정 대상 step 밖이지만 사용자 요청 3번의 스윕 결과로 보고한다.)",
+    "[perf][medium][confidence:high] **8차 Class F는 스캐너 몫에서는 닫혔으나 훅 전체로는 5초 타임아웃이 남아 있다.** 512자 캡을 진입점으로 옮긴 수정은 실효가 있다 — 60KB 토큰 OLD 6.70s(B5)/6.08s(B32) → NEW 1.82s/1.90s. 하지만 남은 비용은 스캐너가 아니라 **파일 최상단 awk 정규화**(:46-57)다: 동사 없는 같은 길이 명령의 기준선이 60KB 1.61s / 120KB 5.50s이고, 삭제 동사가 붙어도 120KB에서 5.81s(B5)/6.27s(B32)로 스캐너 몫은 0.3~0.8s에 불과하다. 즉 8차가 지적한 '초과분은 F65 스캐너 몫'은 해소됐지만, 120KB 근처부터는 **allow/ask/무관하게 훅 전체가 타임아웃**한다(200KB 15.5s). F65 step 10-13 범위 밖이나 critical 티어의 잔여 위험으로 계약에 등재할 것.",
+    "[test][high][confidence:high] 교차 버전 검증이 3케이스 표본이다. `F65 bash3.2: the same battery agrees under macOS's bundled bash`는 `.claude/hooks/../settings.json`·`$'.claude'`·`.claude/{.,zz}/settings.json` 세 개만 /bin/bash로 돌린다 — `\\u`/`\\U`(Class J)도, `printf -v` 빈 결과(Class L)도 이 표본에 없다. 스위트 전체를 두 바이너리로 돌리는 배선이 없어서, 구현자가 커밋 메시지에 적은 '이후 모든 검증은 두 버전을 함께 재현한다'는 약속이 **테스트로 고정되어 있지 않다**.",
+    "[test][medium][confidence:high] ANSI-C 축 테스트가 `\\xHH`·평문·`$\"...\"`만 덮는다 — 이스케이프 표 자체를 축으로 삼는 테스트(`\\c`·`\\u`·`\\U`·`\\0`·미지원 이스케이프)가 없다. 이번에 열린 세 클래스 전부가 그 공백과 정확히 겹친다(8차 판정이 지적한 것과 같은 형태의 반복).",
+    "[test][medium][confidence:medium] 판정 측이 3라운드 연속 **차동 오라클**(후보 토큰을 실제 셸에 확장시켜 컨트롤 플레인을 건드리는지 본 뒤 방화벽 판정과 대조)로 결함을 찾고 있는데, 그 오라클이 스위트에 들어와 있지 않다. step 13이 넣은 조합 생성기(동사×대상×표기 96조합)는 **표기를 사람이 열거**하므로 새 축을 발견하지 못한다 — 이번 세 클래스도 그 생성기를 그대로 통과했다. 실제 셸 확장을 정답지로 쓰는 프로퍼티 테스트로 바꾸면 축 발견이 열거에서 분리된다(step 13의 원래 의도).",
+    "[docs][medium][confidence:high] docs/INVARIANTS.md 8차 문단과 코드 주석(:842-843)이 `printf %b`가 '`$'...'`와 같은 이스케이프 표를 쓴다'고 서술한다 — 실측으로 반증됐다(`\\c`: %b는 출력 중단 / `$'...'`는 제어문자 또는 zsh에서 리터럴 `c`; `\\u`·`\\U`: bash 3.2 %b 미지원). 미측정 주장이며, 이번 세 클래스의 근원이다. 정정 필요.",
+    "[docs][low][confidence:high] 커밋 메시지가 'Every verification from here on re-runs against both `bash` and `/bin/bash`'라고 적었으나, 그 재현이 잡지 못한 결함 둘(Class J·L)이 정확히 `/bin/bash`에서만 드러나는 형태다 — 약속의 범위가 '이미 알던 반례 배터리'로 한정돼 있었다는 뜻이다. 다음 라운드에서 범위를 명시할 것.",
+    "[docs][low][confidence:medium] f275d6c 커밋 제목이 여전히 'F65 5th verdict'로 65bdce7과 중복이다(8차 판정 지적 미반영). 판정에 영향은 없다.",
+    "[positive] 8차 판정이 요구한 두 캡의 fail-closed 전환 중 **따옴표분리 캡은 정확히 옳다**. 구현자가 재현하지 못했다고 밝힌 경계를 이번 판정이 직접 재구성해 확인했다 — 패딩 x×2025(세그먼트 2048자)에서 f275d6c도 ask, x×2026(2049자)에서 f275d6c는 **allow**, dec9293은 **ask**. 양 bash 버전 동일. 우연히 통과한 것이 아니라 그 경계를 실제로 닫는다.",
+    "[positive] Class G(ANSI-C 평문·`\\xHH`)·Class H(내부 `..`) 8차 반례 8종은 양 bash 버전에서 전수 ask로 재현됐다. 상위 참조(`../`) 과잉접기도 없다.",
+    "[positive] 중괄호 파서는 이번에도 무결하다. 인용·백슬래시·`{}`·`//`·`/./`·후행 `/`·중간 `..`·글로브를 무작위 조합한 300토큰 차동 퍼즈에서 **오판 0건**. 8차 판정의 '파서 자체는 건전하다'가 재확인됐다.",
+    "[positive] 과잉차단 회귀 없음 — `rm -rf node_modules`·`dist`·`src/hooks`·`web/src/hooks`·`/tmp/foo/hooks`·`.claude/worktrees/…`·`../…`, `find . -name '*.pyc' -delete`, sed/awk/gsed 읽기 26종 전수 allow(양 bash).",
+    "[positive] 계약 step 10이 ask를 요구한 5형태 중 `rm -rf {.claude}`·`rm -rf hooks/{hooks.json}`는 allow인데, 이는 **정답이다** — bash 5.3·bash 3.2·zsh 세 셸 모두 이 토큰을 펴지 않고 리터럴로 둔다는 것을 직접 확인했다. 계약 verify 목록 쪽이 부정확하며, 구현자의 `_done_note`가 이 편차를 미리 밝혀 두었다."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-11 표기 축 중 글로브·장문옵션·일반 인용·경로표기·구분자접두·동사·중괄호(콤마/범위/중첩/퇴화) 축은 양 bash 버전에서 전수 ask (44케이스 배터리 중 42, 나머지 2는 실제 셸이 펴지 않는 리터럴로 확인)",
+      "AC-2 과잉차단 없음 — 26종 정상 워크플로우 전수 allow(양 bash)",
+      "AC-9 회귀 없음 — bats tests/ 838/838 pass, EXIT=0",
+      "step 11: `.claude/**/hooks/*.sh` 개별 삭제 3형태 전수 ask + 비-.sh 무마찰",
+      "step 12: evaluator-runs.jsonl append·cp 전수 ask"
+    ],
+    "security": [
+      "SC-1 add-only 유지(BLOCKED·INDIRECT_PATTERNS 무변경, harness-config.json 무변경)",
+      "8차 Class I(따옴표분리 캡 fail-open) 완전 해소 — 경계 2025/2026자 직접 재구성 확인",
+      "8차 Class G/H(ANSI-C 평문·`\\xHH`, 내부 `..`) 반례 8종 전수 ask"
+    ],
+    "error_scenarios": [
+      "캡 초과 시 allow가 아니라 ask로 fail-closed (QUOTE_SPLIT_UNSAFE 경로, 양 bash 실측)",
+      "브레이스 예산·suspicious 범위 초과 시 ask"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-11: `rm -rf $'.\\claude'`(및 `/settings.json`·`/hooks` 변형)이 allow — 양 bash 버전 모두. 실행 셸 zsh에서 실제 삭제",
+      "AC-11: `\\u`/`\\U` 표기 7형태가 bash 3.2 방화벽에서 allow"
+    ],
+    "security": [
+      "SC-9: 계약이 명시한 '인용' 표기 축이 ANSI-C 이스케이프 표 방향으로 재개통 — gitignored 컨트롤 플레인(settings.json·settings.local.json)이 무프롬프트로 삭제 가능",
+      "SC-6/SC-9: bash 3.2에서 훅이 rc=1로 죽어 컨트롤 플레인 삭제 게이트 + ASK_PATTERNS(시크릿·하네스 자기보호) 전체가 무판정으로 통과"
+    ],
+    "error_scenarios": [
+      "ES-3 취지 위반: 보호 파일이 없는 저장소에서 protected-integrity.sh가 bash 3.2에서 rc=1(unbound variable)로 죽는다 — '조용히 exit 0'가 아니다",
+      "dec9293이 도입한 `printf -v` 빈-결과 경로가 예외 처리 없이 스크립트 전체를 종료시킨다(fail-open)"
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "**실행 셸(zsh)과 훅 셸(bash) 의 표기 해석 차이**가 어느 기준에도 없다. AC-11의 표기 축은 전부 '문자열 표기'로만 정의돼 있는데, 이번 세 클래스는 표기가 아니라 **해석기 불일치**에서 나왔다. 새 축으로 등재 필요: `interpreter_divergence: 실행 셸 × 훅 셸 버전`.",
+      "AC/SC 어디에도 '방화벽 훅이 어떤 bash 버전으로 실행되든 같은 판정을 낸다'는 기준이 없다 — 지금은 3케이스 bats 표본으로만 암묵 고정돼 있다.",
+      "'훅이 비정상 종료해 판정을 못 내는 상태'에 대한 기준이 없다. Class L 같은 크래시는 allow도 ask도 아니어서 기존 기준의 판정 어휘로는 표현되지 않는다."
+    ],
+    "ambiguous_criteria": [
+      "step 10의 verify 목록이 `rm -rf {.claude}`·`rm -rf hooks/{hooks.json}`를 '전수 ask'로 요구하지만 실제 셸은 이를 펴지 않는다 — 목록을 실제 셸 확장 기준으로 정정할 것(구현자 `_done_note`가 이미 지적)."
+    ],
+    "security_criteria_insufficient": [
+      "SC-9가 '표기 축 전수'를 요구하면서 축 목록을 사람이 열거한 7개로 고정한다. 4차 이후 여섯 라운드 연속으로 **열거 밖의 새 축**이 나왔다 — 축 정의를 '실제 셸 확장과의 차동 대조에서 미탐 0건'으로 바꿔야 판정 가능한 기준이 된다."
+    ],
+    "action_required": "다음 iteration에서 progress/contracts/sprint-51.json의 AC-11.verification_axes에 interpreter_divergence 축을 추가하고, SC-9의 검증을 차동 오라클(실제 셸 확장 정답지) 기준으로 재정의할 것. evals/acceptance-criteria.json도 동반 갱신."
+  },
+  "convergence_assessment": {
+    "verdict": "not_converged, 단 8차와 성격이 다르다",
+    "detail": "중괄호 파서 축은 두 라운드 연속 오판 0건으로 **수렴했다고 볼 근거가 있다**(8차 4000토큰, 9차 300토큰 차동 퍼즈). 이번에 열린 세 클래스는 새 표기 축이 아니라 **8차 수정 자체가 도입한 새 표면**이다 — `printf %b`라는 외부 디코더에 의존하기로 한 결정이 (a) `$'...'`와의 표 차이, (b) bash 버전 차이, (c) 실행 셸 차이라는 세 축을 한꺼번에 열었다. 즉 '남은 축을 하나씩 닫는' 국면이 아니라 **최근 수정의 설계 선택 하나가 세 갈래로 새는** 국면이다.",
+    "recommendation": "표를 빌리지 말고 `$'...'` 안에서 **컨트롤 플레인 이름으로 디코딩될 수 있는가**를 보수적으로 판정할 것을 권한다 — 정확한 디코딩을 재현하려는 방향은 실행 셸이 무엇인지 모르는 이상 원리적으로 닫히지 않는다(F63이 열 라운드에 걸쳐 확인한 결정 불가능 축과 같은 계열). 안전한 대안: `$'...'`/`$\"...\"`가 토큰에 **존재하기만 하면** 삭제 동사 문맥에서 최소 ask. 실제 명령에서 삭제 대상 경로를 ANSI-C로 쓰는 일은 없으므로 마찰 비용이 사실상 0이고, 해석기 불일치 축 전체가 한 번에 닫힌다. 이 방향이면 Class G·J·K·L이 동시에 닫히고 이후 이스케이프 표 변화에도 영향받지 않는다."
+  },
+  "evidence": {
+    "_note": "모든 판정은 이 세션에서 직접 실행한 결과다. 방화벽 판정은 hooks/pre-bash-firewall.sh에 PreToolUse JSON을 stdin으로 넣어 permissionDecision을 읽는 방식이며, `bash`(5.3.15)와 `/bin/bash`(3.2.57) 두 바이너리로 각각 실행했다.",
+    "environment": "bash=GNU bash 5.3.15(1) (PATH), /bin/bash=GNU bash 3.2.57(1) (macOS 기본). **Bash 도구의 실행 셸은 /bin/zsh 5.9** — `ps -p $$ -o comm=` → /bin/zsh, `ZSH_VERSION=5.9`, `printf 'expands_to=[%s]' $'.\\claude'` → `[.claude]`로 직접 확인.",
+    "tests": "bats tests/ → 838/838 ok, 0 not-ok, EXIT=0 (1회 실행, 파이프 없이 파일로 캡처)",
+    "class_K_backslash_c": "차동 오라클 실측 — `rm -rf $'.\\claude'` B5=allow B32=allow / zsh 확장 `.claude`. 격리 랩(/tmp/cp-lab-CGQv): BEFORE `.claude/settings.json`·`.claude/settings.local.json`·`.claude/hooks/invariant-guard.sh`·`hooks/hooks.json` → `/bin/zsh -c \"cd LAB && rm -rf \\$'.\\\\claude'\"` → AFTER `hooks/hooks.json`만 남음. 같은 형태 `$'.\\claude/settings.json'`·`$'.\\claude/hooks'`도 B5=allow B32=allow.",
+    "class_J_unicode_escape": "7형태 전수 B5=ask / B32=allow: `rm -rf $'\\u002e'claude`, `$'\\u002e\\u0063laude'`, `$'\\U0000002e'claude`, `$'\\U0000002e\\U00000063laude'`, `$'\\u002eclaude/settings.json'`, `$'\\u002eclaude'/hooks`, `hooks/$'\\u0068ooks.json'`. 격리 랩(/tmp/cp-lab2-2oCC): zsh 실행으로 `.claude` 전체 삭제 확인. 이스케이프 표 대조: `printf -v x %b '\\u002e'` → bash5.3 `.` / bash3.2 `\\u002e`; `$'\\u002e'` → bash5.3 `.`, zsh `.`, bash3.2 `\\u002e`.",
+    "class_L_crash": "`printf -v v '%b' \"\"` → bash5.3 `assigned=[]` / bash3.2 `v: unbound variable`. 훅 실측(B5 → B32): `rm -rf $'' .claude` ask → NO-DECISION rc=1 (`line 852: __ansi_decoded: unbound variable`); `mv ~/.ssh/id_rsa /tmp/x $''` ask → NO-DECISION rc=1; `mv progress/feature_list.json /tmp/x $''` ask → NO-DECISION rc=1. Layer1 deny(`rm -rf /`)는 rc=2로 양쪽 정상. 도입 커밋: `git log -1 -S__ansi_decoded -- hooks/pre-bash-firewall.sh` → dec9293.",
+    "class_I_boundary_reconfirmed": "`rm -rf <x×N> {.claude,'a b'}` — N=2020: OLD ask / NEW ask; N=2025(세그먼트 2048): OLD ask / NEW ask; **N=2026(세그먼트 2049): OLD allow / NEW ask**; N=2030·2100·5000: OLD allow / NEW ask. 양 bash 버전 동일. (구현자가 재현하지 못했다고 밝힌 경계를 이 판정이 직접 재구성해 확인)",
+    "class_F_perf": "`rm -rf <x×N> .claude` 판정 소요(B5/B32) — 30K: OLD 1.95/1.80 → NEW 0.72/0.75; 60K: OLD 6.70/6.08 → NEW 1.82/1.90; 90K: OLD 14.41/13.14 → NEW 3.39/4.07; 120K: NEW 5.81/6.27; 200K: NEW 15.48/16.65. 동사 없는 기준선(`echo <x×N> done`): 60K 1.61/1.60, 120K 5.50/5.59 → 잔여 초과분은 스캐너가 아니라 최상단 awk 정규화. normalize_path_token 단독 벤치는 선형(30K 0.067s / 120K 0.093s).",
+    "class_G_H_reconfirmed": "8차 반례 8종 전수 B5=ask B32=ask: `$'.claude'`, `.clau$'d'e`, `$\".claude\"`, `$'\\x2eclaude'`, `.claude/hooks/../settings.json`, `.claude/plugins/../settings.local.json`, `.claude/a/b/../../settings.json`, `./.claude/./hooks/../settings.json`.",
+    "brace_parser_fuzz": "300토큰 차동 퍼즈(인용·백슬래시·`$'\\xHH'`·`$'\\ooo'`·중괄호·글로브·`//`·`/./`·중간 `..`·후행 `/` 무작위 조합, 대상 6종) → BYPASS 0건. 오라클: 각 토큰을 bash5.3·bash3.2·zsh에 확장시켜 랩 트리의 컨트롤 플레인 경로에 닿는지 확인한 뒤 방화벽 판정과 대조.",
+    "ask_battery": "AC-11 표기 축 44케이스 — 42 ask(양 bash), 2 allow(`{.claude}`·`hooks/{hooks.json}`; 세 셸 모두 확장하지 않음을 확인해 정답으로 판정).",
+    "overblock_battery": "26케이스 전수 allow(양 bash) — node_modules·dist·build/·.claude/worktrees·src/hooks·web/src/hooks·/tmp/foo/hooks·coverage·mv·find -delete·rmdir·unlink·sed/awk/gsed 읽기·상위 참조·`$HOME` 변수 경로.",
+    "protected_integrity_bash32": "보호 파일 없는 임시 git 저장소에서 `protected-integrity.sh` 실행 — bash5.3 rc=0 / bash3.2 rc=1 `line 188: FILES[@]: unbound variable`.",
+    "recovery_coverage": "`git check-ignore -v .claude/settings.json` → `.gitignore:9:.claude/`; `git ls-files .claude/` 비어 있음; PROTECTED_GLOBS에 `.claude/**` 없음 → Class J·K가 삭제하는 대상에 사후 복구 경로가 없다."
+  },
+  "next_actions_for_implementer": [
+    "1. `$'...'`/`$\"...\"`의 정확한 디코딩을 재현하려는 방향을 재검토할 것 — 실행 셸을 모르는 이상 표를 맞출 수 없다. 삭제 동사 문맥에서 토큰에 ANSI-C/로케일 인용이 **존재하면** 최소 ask 로 두는 보수적 판정을 권고(마찰 비용 사실상 0, Class G·J·K·L 동시 폐쇄).",
+    "2. Class L 크래시는 위 1번과 무관하게 즉시 수정 — `printf -v` 뒤 `${__ansi_decoded-}` 형태의 기본값 사용 또는 `__ansi_decoded=\"\"` 선초기화. bash 3.2에서 `printf -v`가 빈 결과에 변수를 만들지 않는다는 사실을 주석에 남길 것.",
+    "3. `hooks/protected-integrity.sh:188`의 `\"${FILES[@]}\"`를 `\"${FILES[@]+\"${FILES[@]}\"}\"`로 교체하고, 저장소 전체에서 같은 관용구를 기계적으로 스윕할 것(`grep -nE '\"\\$\\{[A-Za-z_]+\\[@\\]\\}\"' hooks/*.sh` → 정적 리터럴 배열이 아닌 것 전부).",
+    "4. 테스트: (a) bats 스위트 전체를 두 bash 바이너리로 도는 배선을 추가할 것 — 3케이스 표본으로는 이 클래스가 안 잡힌다. (b) 이스케이프 표 자체를 축으로 하는 테스트(`\\c`·`\\u`·`\\U`·`\\0`·`$''`). (c) step 13의 조합 생성기를 실제 셸 확장을 정답지로 쓰는 차동 프로퍼티 테스트로 승격.",
+    "5. 계약·문서: AC-11.verification_axes에 `interpreter_divergence` 축 추가, SC-9의 검증 정의를 차동 대조 기준으로 재작성, INVARIANTS.md 8차 문단과 코드 주석(:842-843)의 'printf %b가 bash 자신의 표를 빌린다' 서술 정정, 120KB 이상 명령의 훅 타임아웃을 잔여 위험으로 등재."
+  ],
+  "note_for_orchestrator": "verdict가 fail이므로 progress/feature_list.json의 F65 passes는 false 그대로 유지한다(변경 없음). F65는 security_tier critical이므로, 이후 어느 라운드에서든 pass가 나오면 그 판정만으로 게이트를 통과시키지 말고 (a) security-auditor 감사와 (b) F37 규정에 따른 독립 컨텍스트 2차 evaluator 판정을 함께 수행할 것 — 두 판정의 verdict가 불일치하면 자동 pass 금지, 사람 에스컬레이션. 이번 요청 범위에는 포함되지 않았다."
+}

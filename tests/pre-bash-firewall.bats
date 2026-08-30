@@ -2597,6 +2597,64 @@ delete_decision() {
   done
 }
 
+# === F65 9차 판정 (2026-08-30) 반려 — ANSI-C "디코딩" 자체를 포기하고 존재 신호로 전환 ===
+#
+# 9차 판정: 8차의 `printf %b` 디코딩이 세 갈래로 샜다 — 이스케이프 표가 `$'...'`의 표와
+# 다르고(`\c`), bash 버전마다 다르고(`\u`/`\U`는 bash 3.2의 %b가 지원 안 함), **이 훅을
+# 실행하는 셸(zsh)의 표와도 다르다.** 빈 콘텐츠 디코딩은 bash 3.2에서 변수를 만들지 않아
+# `set -u`로 훅 전체가 죽어(Class L) ASK_PATTERNS 전체가 무력화됐다. 재작업: 디코딩을
+# 재현하려 하지 않고 `$'...'`/`$"..."` **존재 자체**를 삭제 문맥의 fail-closed 신호로 쓴다.
+
+@test "F65 ansi-c: any \$'...'/\$\"...\" in a delete segment asks without crashing (9th verdict)" {
+  local c out
+  for c in "rm -rf \$'.\\claude'" \
+           "rm -rf \$'.claude'" \
+           "rm -rf \$'' .claude" \
+           "mv ~/.ssh/id_rsa /tmp/x \$''" \
+           'rm -rf $".claude"'; do
+    out=$(delete_decision "$c")
+    [[ "$out" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "ANSI-C/로케일 인용이 무프롬프트이거나 훅이 죽었다: $c -> $out"; false; }
+  done
+}
+
+@test "F65 ansi-c: a disguised verb token is still gated, not silently unarmed (9th verdict)" {
+  # \$'rm' -rf .claude 처럼 동사 자체를 위장하면 armed 가 안 걸려 게이트를 통째로 비껴갈 수
+  # 있었다 — 그래서 판정은 토큰이 아니라 세그먼트 단위로 존재 여부를 본다.
+  run delete_decision "\$'rm' -rf .claude"
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "위장된 삭제 동사가 게이트를 비껴갔다"; false; }
+}
+
+@test "F65 ansi-c: ordinary commands without dollar-quoting are unaffected" {
+  run delete_decision "rm -rf node_modules"
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "\$' 신호 도입이 평범한 삭제에 마찰을 만들었다"; false; }
+}
+
+@test "F65 sibling: protected-integrity.sh does not crash when no protected file exists (9th verdict)" {
+  # 9차 판정이 훑기 요청(요청 3번)에서 형제 훅의 같은 결함을 찾았다: PROTECTED_GLOBS 어느
+  # 패턴도 매치하지 않는 저장소(플러그인이 설치된 사용자 저장소의 흔한 상태)에서 FILES 가
+  # 비고, `"${FILES[@]}"` 를 그대로 펼치면 bash 3.2가 unbound variable 로 죽어 탐지·복구
+  # 평면 자체가 무력화됐다.
+  # **저장소를 cc-harness 자신에서 파생시키지 않는다** — 이 저장소는 이미 hooks/*.sh·
+  # skills/*·templates/* 등 PROTECTED_GLOBS 가 매치하는 파일로 가득해서, 그중 몇 개만
+  # 지우는 정도로는 FILES 가 절대 비지 않는다(직접 재현하며 자체 발견 — 처음 만든 픽스처가
+  # 정확히 이 이유로 판정력이 없었다). 훅 스크립트 자체도 **추적 트리 밖에서**(원본 경로를
+  # 절대경로로) 실행해야 한다 — 트리 안에 두면 그 사본 자체가 `hooks/*.sh` 에 걸린다.
+  local lab bin fw="$BATS_TEST_DIRNAME/../hooks/protected-integrity.sh"
+  lab="$(mktemp -d)"
+  mkdir -p "$lab/repo" "$lab/repo/progress"
+  echo "hello world" > "$lab/repo/README.md"
+  ( cd "$lab/repo" && git init -q . && git add -A && git -c user.email=t@t -c user.name=t commit -qm base )
+  for bin in bash /bin/bash; do
+    run bash -c "cd '$lab/repo' && CLAUDE_PROJECT_DIR='$lab/repo' '$bin' '$fw'"
+    [ "$status" -eq 0 ] \
+      || { echo "$bin: 보호 파일 없는 저장소에서 exit=$status (죽음): $output"; false; }
+  done
+  rm -rf "$lab"
+}
+
 @test "F65 installed-hook-delete: deleting an individual installed hook file is gated (step 11)" {
   # 같은 경로에 대한 쓰기(F73 in-place arm)는 이미 ask다 — 삭제도 같은 대칭이어야 한다.
   local c

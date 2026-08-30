@@ -169,11 +169,16 @@ while IFS= read -r f; do [[ -n "$f" ]] && FILES+=("$f"); done \
       done)
 
 if [[ ! -f "$BASELINE" ]]; then
-  for f in "${FILES[@]}"; do printf '%s %s\n' "$(file_sha "$f")" "$f"; done > "$BASELINE" 2>/dev/null || true
+  # `"${FILES[@]}"` 를 FILES 가 빈 배열일 때 그대로 펼치면 bash 3.2(4.4 이전 공통 결함,
+  # set -u 상태)에서 "unbound variable" 로 죽는다 — F65 9차 판정이 실제로 잡은 형태다:
+  # PROTECTED_GLOBS 어느 패턴도 매치하지 않는 저장소(플러그인이 설치된 일반 사용자 저장소의
+  # 흔한 상태)에서는 FILES 가 비어 있고, 그러면 이 훅이 통째로 죽어 탐지·복구 평면 자체가
+  # 무력화된다. `"${arr[@]+"${arr[@]}"}"` 관용구가 두 버전 모두에서 안전하다.
+  for f in "${FILES[@]+"${FILES[@]}"}"; do printf '%s %s\n' "$(file_sha "$f")" "$f"; done > "$BASELINE" 2>/dev/null || true
 fi
 
 CHANGED=(); COMMITTED=()
-for f in "${FILES[@]}"; do
+for f in "${FILES[@]+"${FILES[@]}"}"; do
   if git diff --quiet HEAD -- "$f" 2>/dev/null; then
     # HEAD와 같다 = 변경이 정착했다(커밋했거나 되돌렸거나). 남은 티켓은 여기서 소비한다.
     consume_ticket "$f" || true
