@@ -294,6 +294,7 @@
       "verify": "bats tests/pre-bash-firewall.bats --filter 'F65 brace' 신규 + 4차 판정 실측 5형태(`rm -rf .claude/{settings.json,hooks}`·`rm -rf .cla{u,x}de`·`rm .claude/settings{,.local}.json`·`rm -rf {.claude}`·`rm -rf hooks/{hooks.json}`) 전수 ask + bats 전체 1회 + behavioral 후보 0건",
       "done": true,
       "_done_note_2026_08_30": "control_plane_location() 앞단에 중괄호 분해·재귀 검사 추가(normalize_path_token이 아니라 여기서 — 1-in-1-out 계약과 안 맞아서, 계획 승인 시 명시한 편차). 5형태 전수 실측(콤마 3형태 ask, 콤마 없는 2형태는 실제 bash 리터럴 확인 후 allow가 정답임을 검증) + bats 신규 3건 + 전체 817/817 통과. 뮤테이션 확인: 142d737 기준 코드에서 신규 테스트 실패, 수정 후 통과.",
+      "_done_note_2026_08_30_round5": "**독립 evaluator 5차 판정(fail, score 4, security 4<7) 이 이 구현의 결함 2건을 실측으로 반려**: (1) 중첩 중괄호(`{.claude,{x,y}}`)가 이전의 '첫 `}`에서 자르는' 파서를 완전히 우회 — 격리 랩에서 .claude 삭제까지 실증. (2) 순차 중괄호 N개가 O(2^N) — N=16이 22.7초(훅 타임아웃 5초 초과). 재작업: __brace_find_group()/__brace_split_top_level() 로 균형 괄호 기반 파서로 교체(바깥 그룹에 콤마가 없으면 안쪽으로 점점 좁혀가며 찾는다 — 실제 bash가 `{a{b,c}}`를 `{ab} {ac}`로 펴는 것과 정합, 직접 확인) + __BRACE_BUDGET=64 로 확장 개수 상한을 두고 초과 시 allow가 아니라 ask로 fail-closed(5차 판정 권고 그대로). 재작업 도중 자체 발견(판정 대상 아님): BRACE_PRE/POST가 전역이라 그룹1의 두 번째 대안을 조립하기 전에 재귀가 그 전역을 덮어써 위험한 대안을 놓치는 결함(`{a{p,q},.claude}/settings.json`)을 실제 bash 확장과 대조해 찾아 지역 변수 복사로 수정. bats 신규 4건(중첩 배터리·오염 재현·성능 회귀·과잉차단 방지) + 전체 821/821 통과. 뮤테이션 확인: e2be94e(5차 판정 대상 커밋) 기준 코드에서 중첩·오염 테스트 실패, 수정 후 통과(성능 테스트는 e2be94e가 지수 폭발해 안전하게 재실행할 수 없어 평가자 자신의 실측 타이밍을 사전 기준으로 채택).",
       "covers": [
         "AC-11",
         "SC-9"

@@ -855,33 +855,113 @@ CONTROL_PLANE_NAMES=(
   '.claude/plugins'
   'hooks/hooks.json'
 )
-control_plane_location() {
+# $1 에서 **콤마를 담은, 균형 잡힌** 첫 중괄호 그룹을 찾는다(F65 5차 판정 반려 반영).
+# 콤마 없는 바깥 그룹은 실제 bash 에서도 리터럴이다 — `echo {a{b,c}}` 는 `{ab} {ac}` 를 낸다
+# (바깥 `{`·`}` 는 글자 그대로 남고 안쪽 `{b,c}` 만 펴진다, 직접 확인). 그래서 바깥에서 안쪽으로
+# **점점 좁혀가며** 콤마 있는 그룹을 찾는다 — 첫 번째 시도에서 콤마가 없으면 그 `{` 를 리터럴로
+# 치고 바로 다음 `{` 부터 다시 찾는다. 짝이 맞는 `}` 는 깊이 카운터로 찾는다(5차 판정이 실측한
+# 우회 — `{.claude,{x,y}}` — 는 이전 구현이 "첫 `}`" 로 끊어 안쪽 그룹과 뒤섞인 결과였다).
+# 성공하면 BRACE_PRE/BRACE_BODY/BRACE_POST 를 채우고 0, 확장 가능한 그룹이 아예 없으면 1.
+__brace_find_group() {
+  local t="$1"
+  # 주의: `n=${#t}` 를 위 선언과 같은 `local` 문에 두면 안 된다 — bash 는 그 우변을 t 가
+  # 아직 이 스코프에 대입되기 **전**에 평가한다. set -u 라서 t 가 아무 데도 없으면 즉시
+  # 죽지만, 호출자 스코프에 우연히 같은 이름 t 가 남아 있으면 **그 값으로 조용히 계산되는**
+  # 쪽이 더 위험하다(실측: __control_plane_location_impl 이 같은 이름 t 를 갖고 있어 이
+  # 형태로도 우연히 통과했었다 — 이름이 겹치지 않았다면 늘 죽었을 것이다).
+  local n=${#t} start=0 i j depth c body bn k has_comma
+  while :; do
+    i=-1; k=$start
+    while [[ $k -lt $n ]]; do [[ "${t:k:1}" == '{' ]] && { i=$k; break; }; k=$((k+1)); done
+    [[ $i -ge 0 ]] || return 1
+    depth=1; j=-1; k=$((i+1))
+    while [[ $k -lt $n ]]; do
+      c="${t:k:1}"
+      if [[ "$c" == '{' ]]; then depth=$((depth+1))
+      elif [[ "$c" == '}' ]]; then
+        depth=$((depth-1))
+        [[ $depth -eq 0 ]] && { j=$k; break; }
+      fi
+      k=$((k+1))
+    done
+    if [[ $j -lt 0 ]]; then start=$((i+1)); continue; fi   # 짝 없음 — 리터럴, 다음 `{` 로
+    body="${t:i+1:j-i-1}"; bn=${#body}
+    has_comma=0; depth=0; k=0
+    while [[ $k -lt $bn ]]; do
+      c="${body:k:1}"
+      if [[ "$c" == '{' ]]; then depth=$((depth+1))
+      elif [[ "$c" == '}' ]]; then depth=$((depth-1))
+      elif [[ "$c" == ',' && $depth -eq 0 ]]; then has_comma=1; break; fi
+      k=$((k+1))
+    done
+    if [[ $has_comma -eq 1 ]]; then
+      BRACE_PRE="${t:0:i}"; BRACE_BODY="$body"; BRACE_POST="${t:j+1}"
+      return 0
+    fi
+    start=$((i+1))   # 이 그룹은 콤마가 없다 — 리터럴이다, 안쪽에서 계속 찾는다
+  done
+}
+
+# $1(그룹 본문)을 **최상위(깊이 0) 콤마** 기준으로 나눠 BRACE_ITEMS 배열에 담는다.
+# 중첩된 그룹 안의 콤마는 분리 지점이 아니다 — `a,{b,c}` 는 2개(`a`·`{b,c}`)로 나뉜다.
+__brace_split_top_level() {
+  local body="$1"
+  local n=${#body} depth=0 k=0 c cur=""   # 위 함수와 같은 이유로 별도 local 문 — 자기참조 회피
+  BRACE_ITEMS=()
+  while [[ $k -lt $n ]]; do
+    c="${body:k:1}"
+    if [[ "$c" == '{' ]]; then depth=$((depth+1)); cur+="$c"
+    elif [[ "$c" == '}' ]]; then depth=$((depth-1)); cur+="$c"
+    elif [[ "$c" == ',' && $depth -eq 0 ]]; then BRACE_ITEMS+=("$cur"); cur=""
+    else cur+="$c"
+    fi
+    k=$((k+1))
+  done
+  BRACE_ITEMS+=("$cur")
+}
+
+__control_plane_location_impl() {
   local t="$1" rest pd cand
-  # **중괄호 확장을 먼저 편다 (F65 4차 판정, step 10).** 셸은 명령을 실제로 실행할 때만
-  # `{a,b}` 를 펼친다 — 우리는 문자열만 파싱하므로 `.claude/{settings.json,hooks}` 가 아래
-  # 어떤 case 문에도 매치하지 않는 통짜 토큰으로 들어온다(실측: `rm -rf .claude/{settings.json,
-  # hooks}` 가 이 함수를 우회해 allow였다). 정규화가 아니라 여기서 여는 이유: 정규화
-  # (`normalize_path_token`)는 토큰 하나를 문자열 하나로 축약하는데, 중괄호는 토큰 하나가
-  # **여러** 후보로 갈라지는 경우라 그 함수의 계약(1 in → 1 out)과 안 맞는다 — 갈라진 후보마다
-  # 이 함수를 재귀 호출하는 편이 정직하다. 중첩 중괄호·범위 확장(`{1..3}`)은 다루지 않는다 —
-  # bash 파서 전체를 재구현하는 것은 F63이 10회전 걸려 실패를 증명한 방향이다(같은 계열의
-  # 알려진 갭으로 남긴다, 방향은 안전 — 못 펴면 아래 case로 떨어져 원래 판정을 받을 뿐이다).
+  # **중괄호 확장을 먼저 편다 (F65 4차 판정 step 10, 5차 판정이 중첩·폭발 결함을 반려해 재작업).**
+  # 셸은 명령을 실제로 실행할 때만 `{a,b}` 를 펼친다 — 우리는 문자열만 파싱하므로 `.claude/
+  # {settings.json,hooks}` 가 아래 어떤 case 문에도 매치하지 않는 통짜 토큰으로 들어온다.
+  # 정규화가 아니라 여기서 여는 이유: 정규화(`normalize_path_token`)는 토큰 하나를 문자열
+  # 하나로 축약하는데, 중괄호는 토큰 하나가 **여러** 후보로 갈라지는 경우라 그 함수의 계약
+  # (1 in → 1 out)과 안 맞는다.
+  #
+  # **폭발 상한 (5차 판정 반려 사유 2).** 순차로 이어진 콤마 그룹은 곱으로 늘어난다 — N 개면
+  # 최악 2^N 경로다. 완전 전개는 대상과 무관하게 대상 판정 자체를 얼릴 수 있다(훅 타임아웃은
+  # 5초인데 N=16 이 22.7초 걸렸다, 실측). 그래서 이 토큰 하나가 쓸 수 있는 "그룹 처리 예산"을
+  # 두고, 소진되면 **펴는 것을 멈추고 안전한 쪽(ask)으로 즉시 반환**한다 — 대상이 컨트롤
+  # 플레인인지 끝까지 확인하지 못했다는 뜻이므로, 모르면 allow 가 아니라 ask 다. 이 반환은
+  # 즉시 호출 스택을 타고 위로 전파되어(부모의 `if ...; then return 0` 가 첫 성공에 바로
+  # 멈춘다) 남은 형제 분기를 펴지 않는다 — 그래서 예산을 넘긴 뒤의 총 작업량도 예산에
+  # 비례해 유계다(지수가 아니다). 대가: 컨트롤 플레인과 무관한데 그룹이 매우 많은(수십 개)
+  # 명령도 이 상한에 걸리면 ask 로 뜬다 — 실제 명령에서 그런 형태는 나타나지 않는다는 것과
+  # 맞바꾼 승인된 트레이드오프다(5차 판정 권고).
   case "$t" in
-    *'{'*,*'}'*)
-      local pre body post item
-      pre="${t%%\{*}"
-      body="${t#*\{}"
-      body="${body%%\}*}"
-      post="${t#*\{*\}}"
-      local IFS=','
-      local -a items=()
-      read -r -a items <<<"$body"
-      unset IFS
-      for item in "${items[@]}"; do
-        item="${item# }"; item="${item% }"   # `{a, b}` 처럼 콤마 뒤 공백이 있는 흔한 표기
-        if control_plane_location "${pre}${item}${post}"; then return 0; fi
-      done
-      return 1
+    *'{'*)
+      if __brace_find_group "$t"; then
+        __brace_split_top_level "$BRACE_BODY"
+        # BRACE_PRE/BRACE_POST 를 즉시 지역 변수로 복사한다 — 전역이라 아래 재귀 호출(중첩
+        # 그룹을 만나면 __brace_find_group 을 다시 부른다)이 이 루프가 두 번째 이후 item 에
+        # 쓰려는 값을 덮어쓴다. 복사 없이 `${BRACE_PRE}${item}${BRACE_POST}` 를 루프 안에서
+        # 직접 읽으면, 첫 item 처리 중 재귀가 전역을 갈아치운 뒤 두 번째 item 은 엉뚱한
+        # pre/post 로 재구성돼 실제로 위험한 대안을 놓친다(실측: `{a{p,q},.claude}/
+        # settings.json` — 실제 bash 는 `.claude/settings.json` 을 포함해 세 단어로 펴는데,
+        # 이 복사가 없으면 `.claude` 앞에 이전 분기의 pre(`a`)가 섞여 `a.claude/settings.json`
+        # 으로 재구성되어 allow 로 샜다).
+        local pre="$BRACE_PRE" post="$BRACE_POST"
+        __BRACE_BUDGET=$((__BRACE_BUDGET - ${#BRACE_ITEMS[@]}))
+        if [[ $__BRACE_BUDGET -lt 0 ]]; then return 0; fi
+        local item
+        for item in "${BRACE_ITEMS[@]}"; do
+          if __control_plane_location_impl "${pre}${item}${post}"; then return 0; fi
+        done
+        return 1
+      fi
+      # 콤마 있는 그룹이 하나도 없다 — 중괄호가 전부 리터럴이다(예: `{.claude}`·`hooks/{hooks.json}`,
+      # 실제 bash 도 펴지 않는다, 직접 확인). 정규화·글로브·경로 판정으로 그대로 떨어진다.
       ;;
   esac
   # 글로브가 남은 토큰 — 셸이 무엇으로 펼칠지 실행 전에는 모른다. 그래서 **패턴이 컨트롤 플레인
@@ -948,6 +1028,14 @@ control_plane_location() {
       ;;
   esac
   return 1
+}
+
+# 공개 진입점 — 토큰 하나를 판정할 때마다 중괄호 확장 예산을 새로 채운다. 재귀 호출
+# (`__control_plane_location_impl`)은 이 예산을 공유해야 상한이 의미가 있으므로 이 함수를
+# 다시 부르지 않는다 — 재귀마다 다시 채우면 상한이 매 분기에서 리셋돼 무력해진다.
+control_plane_location() {
+  __BRACE_BUDGET=64
+  __control_plane_location_impl "$1"
 }
 
 # 명령을 세그먼트로 나눠 삭제 동사 뒤의 피연산자 토큰을 판정한다.

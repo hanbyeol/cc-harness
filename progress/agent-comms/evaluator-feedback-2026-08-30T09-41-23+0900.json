@@ -1,0 +1,120 @@
+{
+  "timestamp": "2026-08-30T09:41:23+09:00",
+  "sprint": 51,
+  "iteration": 5,
+  "features_evaluated": [
+    "F65"
+  ],
+  "security_tier": "critical",
+  "commit_under_test": "e2be94ec4371e33b35feadbb10f52c440e7514f5",
+  "baseline_commit": "142d737",
+  "scores": {
+    "functionality": 5,
+    "code_quality": 4,
+    "security": 4,
+    "error_handling": 4,
+    "test_coverage": 6
+  },
+  "score": 4,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 4 < 7 (critical tier) — 컨트롤 플레인 게이트가 중첩 중괄호로 완전 우회된다(무프롬프트 allow). 격리 랩에서 `.claude/settings.json`·`.claude/hooks/`·`.claude` 전체 삭제를 종단 실행으로 확인했고, `.claude/`는 .gitignore:9 대상이라 protected-integrity.sh의 HEAD 복구가 원리적으로 미치지 않는다 — 예측이 유일한 통제인 자리에서 그 예측이 뚫렸다.",
+    "score 4 < threshold 7 (min-of-5)",
+    "step 10이 닫겠다고 선언한 축(중괄호 확장)이 평평한 부분집합에서만 닫혔다 — 4차 판정 갭 (1)과 동일 클래스가 열려 있다",
+    "control_plane_location()에 O(2^N) 재귀 회귀 도입 — 동일 입력에서 142d737은 138ms, e2be94e는 22,682ms. 훅의 설정 타임아웃은 5초(hooks/hooks.json)라 게이트가 자기 예산을 초과한다"
+  ],
+  "issues": [
+    "[security][critical][confidence:high] 중첩 중괄호가 control_plane_location()의 분해 로직을 빠져나가 무프롬프트 allow가 된다. 재현(전부 실측 allow, wired/unwired 양쪽 동일): `rm -rf {.claude,{x,y}}` · `rm -rf .claude/{a,{settings.json,hooks}}` · `rm -rf .cla{u,{x,y}}de` · `rm -rf .claude/{settings.json,hooks{,2}}` · `rm -rf .claude/{x,{y,{z,hooks}}}` · `rm -rf .claude/hooks/{a,{b,invariant-guard.sh}}`(step 11 대상도 같은 방식으로 우회). 전부 실제 bash에서 진짜 컨트롤 플레인 경로로 펼쳐진다. 원인: body는 `${body%%\\}*}`로 **첫** `}`까지만 잘리고 post는 `${t#*\\{*\\}}`로 **첫** `{...}`만 소비되므로, 두 번째 대안이 중첩 그룹이면 재구성된 후보가 `.claude/a}`·`.claude/{b}`·`.claude/hooks}` 같은 깨진 토큰이 되어 어떤 case에도 매치하지 않는다.",
+    "[security][high][confidence:high] hooks/pre-bash-firewall.sh:866-868 주석이 중첩·범위 미지원을 '방향은 안전 — 못 펴면 아래 case로 떨어져 원래 판정을 받을 뿐이다'라고 단정한다. 실측이 이를 반증한다: 그 '원래 판정'이 정확히 allow다(fail-open). 이 feature가 라운드마다 반려된 '정정하는 자리에서 새 미측정 단정을 만드는' 패턴의 재발이며, 이번에는 그 단정이 실제 방어 구멍을 안전한 것으로 서술하고 있다.",
+    "[quality][high][confidence:high] control_plane_location()의 재귀가 콤마 중괄호 그룹 수 N에 대해 O(2^N)이다(가지치기·깊이 상한·확장 개수 상한 없음). 실측: 12그룹 1.5s · 15그룹 11.6s · 16그룹 22.7s · 17그룹 47.3s. 훅 타임아웃은 5초다(hooks/hooks.json PreToolUse:Bash timeout=5). 동일 입력이 142d737에서는 138ms였으므로 이 커밋이 도입한 회귀다. 삭제 동사 경로면 컨트롤 플레인과 무관한 대상도 걸린다(`rm -rf build{a,b}x15` → 12.9s). 재현: `rm -rf x{a,b}{a,b}...(x16) .claude/hooks` → 게이트가 ask에 도달하는 데 22.7s(=5s 예산 초과).",
+    "[error][high][confidence:high] 병리적 입력에 대한 방어가 없다 — 중괄호 분해에 확장 개수/깊이 상한이 없고, 분해 실패 시 fail-closed로 떨어지지 않고 allow로 떨어진다. 컨트롤 플레인은 사후 복구가 없는 평면이므로 이 자리의 기본값은 ask여야 한다.",
+    "[docs][medium][confidence:high] docs/INVARIANTS.md INV-14 신설 문단 3번이 evaluator-runs.jsonl에 대해 \"`PROTECTED_GLOBS`/`is_protected()` 어느 쪽에도 넣을 수 없다\"고 쓰는데, `is_protected()`에는 이미 `evaluator-runs.jsonl` arm이 있다(hooks/invariant-guard.sh, basename case 26행). 같은 커밋의 hooks/pre-bash-firewall.sh 주석은 이를 정확히 서술한다(\"is_protected()에는 이미 등록돼 있지만 … protected-integrity.sh의 관할 밖\") — 문서가 자기 코드와 모순된다. 낡은 주장을 정정하는 문단에서 새 오기술이 생긴 사례다.",
+    "[test][medium][confidence:high] step 13 조합 배터리(96종)의 표기 축이 평평한 중괄호만 생성한다(`notate_brace`가 `dir/{base,unused_placeholder}` 형태만 만든다). 배터리의 선언된 목적('축의 교차에서만 드러나는 조합')이 4차 판정이 지목한 바로 그 축에서 달성되지 않아, 위 중첩 우회가 96종을 전부 통과한 채로 남았다.",
+    "[test][low][confidence:high] SC-8 기계 대조는 `git ls-tree`(추적 파일)만 표본으로 삼으므로 gitignore 대상 — 즉 4차 판정 갭 (3)이 지목한 바로 그 클래스(evaluator-runs.jsonl·.guarded-edits·.integrity-baseline) — 는 구조적으로 검증 범위 밖이다. 테스트 주석이 이 한계를 정직하게 밝히고 있어 오기술은 아니지만, SC-8의 '두 집합은 같아야 한다'가 추적 부분집합에서만 기계 검증된다는 점은 남는다.",
+    "[test][low][confidence:medium] SC-8 테스트가 `source <(sed -n '/^is_protected() {$/,/^}$/p' \"$guard\")`로 함수를 추출한다. 추출 실패 시 조용히 통과하지는 않는다(GLOBS>=10·FILES>=50 단언 + 함수 부재 시 불일치로 실패). 다만 함수가 참조하는 외부 상태(`FS_CI`)는 프로덕션과 다른 값으로 평가될 수 있어, 대소문자 무시 경로는 이 대조가 커버하지 않는다.",
+    "[quality][low][confidence:high] `${item# }`/`${item% }`는 공백을 한 칸만 제거한다(`{a,  b}`는 여전히 선행 공백이 남는다). 실제 bash는 공백이 끼면 중괄호 확장을 하지 않으므로(실측: `.claude/{settings.json, hooks}` → `[.claude/{settings.json,] [hooks}]`) 보안 영향은 없으나, 도달 불가능한 처리로 남아 오해를 부른다."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-11 step 10 계약 명시 5형태: 콤마 3형태(`rm -rf .claude/{settings.json,hooks}`·`rm -rf .cla{u,x}de`·`rm .claude/settings{,.local}.json`) 전수 ask 실측 확인. 콤마 없는 2형태(`rm -rf {.claude}`·`rm -rf hooks/{hooks.json}`)의 allow가 정답임을 실제 bash 확장으로 독립 확인 — 셸이 펼치지 않는 리터럴이다.",
+      "AC-11 step 11: `rm .claude/hooks/invariant-guard.sh` · `rm .claude/hooks/pre-bash-firewall.sh` · `.claude/plugins/cc-harness/hooks/lib.sh` 전수 ask. 쓰기(`echo x > .claude/hooks/invariant-guard.sh`)와의 대칭 회복 확인.",
+      "AC-9 회귀 없음: bats 전체 817/817 통과, exit 0 (파이프 없이 1회 실행, 종료 코드 직접 확인)."
+    ],
+    "security": [
+      "SC-8 step 12: evaluator-runs.jsonl 계약 명시 4형태(`printf >>`·`echo >`·`cp`·`rm`) 전수 ask. 추가로 cwd 이동형(`cd progress/agent-comms && echo >> evaluator-runs.jsonl`)·간접 피연산자(`V=…; … >> …/$V`)·`truncate`·`python3 -c open(...,'a')`도 ask로 확인.",
+      "정당한 기록 경로 무손상: hooks/hooks.json의 SubagentStop(matcher `^cc-harness:evaluator$`) → subagent-evaluator-log.sh 배선을 확인했고, 방화벽은 PreToolUse matcher=Bash에만 걸리므로 두 경로가 만나지 않는다 — 구현자 주장을 배선으로 독립 확인.",
+      "과잉차단 회귀 없음(10/10 allow 유지): `rm -rf src/hooks` · `rm -rf .claude/worktrees/foo` · `rm -rf node_modules/{a,b}` · `rm -rf dist/{js,css}` · `rm -rf build/{out,tmp}` · `sed -i \"\" s/a/b/ src/app.ts` · `tail -5 …/evaluator-runs.jsonl` · `cat …/evaluator-runs.jsonl` · `rm .claude/hooks/README.md` · `git checkout -- hooks/pre-bash-firewall.sh`."
+    ],
+    "error_scenarios": [
+      "읽기 마찰 없음: evaluator-runs.jsonl에 대한 tail/cat이 무프롬프트로 유지된다(step 12가 읽기를 잡지 않는다).",
+      "`.sh` 한정이 의도대로 동작: `.claude/hooks/README.md` 삭제는 allow로 남아 step 11이 과잉차단을 만들지 않는다."
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-11 step 10 — '중괄호 확장 반영'이 평평한 중괄호에서만 성립한다. 중첩 형태 6종이 무프롬프트 allow로 남았고 그중 `rm -rf {.claude,{x,y}}`는 `.claude` 전체를 실제로 삭제한다(격리 랩 종단 확인)."
+    ],
+    "security": [
+      "SC-9 / AC-11 — 컨트롤 플레인 삭제가 최소 ask에서 걸려야 한다는 요건이 중첩 중괄호 축에서 미충족. `.claude/`는 gitignore 대상이라 데이터 플레인의 사후 복구가 성립하지 않으므로 이 allow는 되돌릴 수 없는 손실 경로다.",
+      "게이트가 자기 타임아웃 예산(5s) 안에 판정을 반환하지 못하는 입력이 존재한다 — 크래프팅된 패딩 토큰으로 22.7s까지 지연 가능(원 코드 138ms)."
+    ],
+    "error_scenarios": [
+      "분해 실패 시의 기본값이 fail-closed(ask)가 아니라 allow다 — 컨트롤 플레인에는 사후 복구가 없으므로 이 기본값 선택이 곧 우회 경로다."
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "AC-11의 표기 축 목록에 '중첩 중괄호'와 '범위 확장(`{1..N}`)'이 없다 — step 10이 닫겠다고 한 축의 하위 구조가 계약에 명시되지 않아, 구현이 평평한 부분집합만 닫고도 계약상 '완료'로 보고될 수 있었다. 다음 라운드 계약은 축을 '중괄호 확장' 대신 '셸이 실제로 펼치는 모든 중괄호 형태(평평·중첩·범위)'로 적고, 검증을 '실제 bash 확장 결과와 방화벽 판정의 대조'로 기계화할 것을 권고한다.",
+      "훅 판정의 **시간 예산**에 대한 기준이 어디에도 없다. hooks.json이 timeout=5를 선언하는데 그 예산을 지키는지 검증하는 acceptance/security 기준이 없어, 이번처럼 지수 재귀가 들어가도 기능 테스트는 전수 통과한다. '컨트롤 플레인 판정은 입력 길이와 무관하게 X ms 안에 반환한다'를 SC로 추가할 것을 권고한다.",
+      "'분해·정규화 실패 시 fail-closed' 원칙이 계약에 없다. INV-7/F41이 jq 부재에 대해 이미 fail-closed를 채택했는데, 컨트롤 플레인 토큰 파싱 실패에는 같은 원칙이 적용되지 않고 있다."
+    ],
+    "ambiguous_criteria": [
+      "step 10의 verify가 '4차 판정 실측 5형태 전수 ask'로 **열거**돼 있어, 열거된 5형태만 통과하면 축이 닫힌 것처럼 읽힌다. 이 계약은 이미 `_residual_risk_AC11`에서 '열거는 커버리지 상한'이라는 교훈을 명문화했는데 step 10의 verify가 다시 열거형으로 쓰였다."
+    ],
+    "security_criteria_insufficient": [
+      "SC-8의 '두 집합은 같아야 한다'가 기계 검증되는 범위는 git 추적 파일뿐이다. gitignore 대상(컨트롤 플레인·상태 파일)은 대칭 검증의 표본에 구조적으로 들어올 수 없으므로, 그 클래스에 대해서는 별도의 '방화벽 arm 존재' 검증이 SC로 필요하다(현재는 step 12의 개별 테스트가 대신하고 있으나 SC 차원의 규정은 없다)."
+    ],
+    "action_required": "다음 iteration에서 progress/contracts/sprint-51.json의 AC-11 표기 축을 '중첩·범위 포함'으로 확장하고, 훅 시간 예산 SC와 파싱 실패 시 fail-closed SC를 신설한 뒤 재구현할 것. 열거 대신 '실제 bash 확장 vs 방화벽 판정' 대조를 기계화할 것을 강하게 권고한다."
+  },
+  "criteria_issues": [],
+  "recommendation": {
+    "priority_1": "control_plane_location()의 중괄호 분해를 **완전 확장**으로 바꾼다. 첫 `{`~첫 `}`만 잘라내는 현재 방식은 중첩에서 토큰을 깨뜨린다. 균형 잡힌 중괄호를 세어 짝을 찾고(depth counter), 각 대안에 대해 재귀하되 (a) 확장 결과 총 개수에 상한(예: 256)을 두고 (b) 상한 초과 시 allow가 아니라 **ask로 fail-closed** 한다. 이 두 가지가 함께 가야 지수 폭발과 우회가 동시에 닫힌다.",
+    "priority_2": "메모화 또는 총 확장 개수 상한으로 O(2^N)을 제거하고, '어떤 입력에서도 판정이 hooks.json의 timeout 예산 안에 반환된다'는 테스트를 추가한다(예: 20개 그룹 입력이 1초 안에 판정).",
+    "priority_3": "테스트를 열거에서 대조로 바꾼다 — 후보 토큰 집합에 대해 `printf '%s\\n' <token>`으로 **실제 bash 확장 결과**를 구하고, 확장 결과 중 하나라도 CONTROL_PLANE_NAMES에 해당하면 방화벽 판정이 ask인지 기계 대조한다. 이러면 표기를 손으로 열거할 필요가 없어지고 step 13 배터리의 표기 축 한계도 사라진다.",
+    "priority_4": "docs/INVARIANTS.md INV-14 문단 3의 `is_protected()` 관련 서술을 코드에 맞게 정정한다(is_protected()에는 있고 PROTECTED_GLOBS에는 없다). 정정 시 각 주장에 대해 확인 명령을 함께 남길 것."
+  },
+  "evidence": {
+    "_note": "모든 판정은 이 세션에서 직접 실행한 결과다. 방화벽 판정은 `jq -n --arg c \"<cmd>\" '{tool_name:\"Bash\",tool_input:{command:$c}}' | bash hooks/pre-bash-firewall.sh` 로 직접 파이프해 `.hookSpecificOutput.permissionDecision` 을 읽었다.",
+    "three_round4_bypasses_reproduced_closed": "ask/ask/ask — `rm -rf .claude/{settings.json,hooks}` · `rm .claude/hooks/invariant-guard.sh` · `printf x >> progress/agent-comms/evaluator-runs.jsonl` (대조군 `rm .claude/settings.json`·`echo x > .claude/hooks/invariant-guard.sh` 도 ask)",
+    "new_bypass_nested_braces": "allow — `rm -rf {.claude,{x,y}}` · `rm -rf .claude/{a,{settings.json,hooks}}` · `rm -rf .cla{u,{x,y}}de` · `rm -rf .claude/{settings.json,hooks{,2}}` · `rm -rf .claude/{x,{y,{z,hooks}}}` · `rm -rf .claude/hooks/{a,{b,invariant-guard.sh}}`. CLAUDE_PLUGIN_ROOT 미설정/설정(wired_firewall 동등 환경) 양쪽에서 동일.",
+    "new_bypass_end_to_end_lab": "격리 랩(scratchpad/f65-lab)에서 실제 실행: `rm -rf .claude/{a,{settings.json,hooks}}` 후 settings.json=NO, hooks dir=NO. `rm -rf {.claude,{x,y}}` 후 .claude exists=NO. 즉 방화벽이 allow 한 명령이 컨트롤 플레인을 실제로 삭제한다.",
+    "unrecoverable": "git check-ignore -v .claude/settings.json .claude/hooks → `.gitignore:9:.claude/` — HEAD 기준 사후 복구(protected-integrity.sh) 관할 밖이다.",
+    "real_bash_expansion_ground_truth": "`.claude/{a,{settings.json,hooks}}` → [.claude/a] [.claude/settings.json] [.claude/hooks] · `{.claude,{x,y}}` → [.claude] [x] [y] · `{.claude}` → [{.claude}] (리터럴, allow가 정답) · `.claude/{settings.json, hooks}` → [.claude/{settings.json,] [hooks}] (공백은 확장 안 됨)",
+    "complexity_regression": "N개 콤마 중괄호 그룹, 삭제 동사 경로: N=12 1,529ms · N=15 11,961ms · N=16 22,682ms · N=17 47,273ms. 동일 입력(N=15)이 142d737(git show 142d737:hooks/pre-bash-firewall.sh)에서는 138ms. 훅 예산은 hooks/hooks.json PreToolUse matcher=Bash timeout=5.",
+    "doc_code_contradiction": "sed -n '/^is_protected() {$/,/^}$/p' hooks/invariant-guard.sh | grep evaluator-runs → `evaluator-runs.jsonl | \\` (26행, PRESENT). PROTECTED_GLOBS(hooks/protected-integrity.sh)에는 없음. docs/INVARIANTS.md INV-14 문단 3은 '어느 쪽에도 넣을 수 없다'고 서술.",
+    "over_blocking_regression": "10/10 allow 유지 — src/hooks · .claude/worktrees/foo · node_modules/{a,b} · dist/{js,css} · build/{out,tmp} · sed -i src/app.ts · tail/cat evaluator-runs.jsonl · .claude/hooks/README.md · git checkout -- hooks/pre-bash-firewall.sh",
+    "legit_writer_unaffected": "jq -r '.hooks.SubagentStop' hooks/hooks.json → matcher `^cc-harness:evaluator$` → subagent-evaluator-log.sh. 방화벽은 PreToolUse matcher=Bash 전용 — 두 경로가 만나지 않음(구현자 주장 독립 확인).",
+    "tests": "bats tests/ — 817 ok / 0 not ok, EXIT=0 (백그라운드 1회 실행, 파일로 캡처 후 카운트)",
+    "sc8_test_soundness": "테스트 소스 검토: GLOBS>=10·FILES>=50 단언이 추출 실패 시의 조용한 통과를 막고, is_protected() 미정의 시에도 불일치로 실패한다. 예외는 hooks/protected-integrity.sh 1건. 한계는 추적 파일 한정(주석에 명시됨)."
+  },
+  "verification_axes_2026_08_30": {
+    "_note": "이번 라운드가 실제로 물어본 축. 계약 열거 밖에서 스스로 고른 축을 포함한다 — 닫힘의 증명이 아니라 물어본 것의 기록이다.",
+    "closed": [
+      "평평한 콤마 중괄호(접두·중위·접미·빈 대안·3대안·순서 교체)",
+      "중괄호 + 경로 표기 조합(./ · // · 따옴표 · 후행 슬래시)",
+      "설치 훅 개별 파일 삭제(.claude/hooks/*.sh · plugins/**/hooks/*.sh)",
+      "글롭 표기(.claude/* · .claude/hooks/* · .claude/hooks/*.sh · invariant-guard.*)",
+      "evaluator-runs.jsonl 직접 표기 8종(리다이렉트·cp·rm·truncate·python·cwd 이동·간접 변수)",
+      "과잉차단 회귀 10종"
+    ],
+    "open": [
+      "중첩 중괄호(이번 라운드 실측 우회 — priority_1)",
+      "범위 확장 `{1..N}`(미검증, 같은 분해 로직을 통과하지 못함)",
+      "evaluator-runs.jsonl 우회 표기: `rm -rf progress/agent-comms`(디렉터리 통삭제) · `rm progress/agent-comms/*.jsonl`(글롭) · `evaluator-runs.js\"onl\"`(인용 분할) 전부 allow. 앞의 둘은 로그 위조가 아니라 소실이므로 INV-11이 fail-closed면 위협이 아니나 확인하지 않았다; 인용 분할은 append 위조가 성립한다. basename 정규식 arm이 normalize_path_token의 인용 제거를 쓰지 않는 비대칭이 원인이다.",
+      "계약이 이미 명시한 원리적 개방 축(cwd_shift·indirect_operand·unenumerated_verbs)"
+    ]
+  },
+  "notes_for_next_round": "이번 구현은 계약이 지시한 4개 step을 그 문면대로는 정확히 수행했고(전수 실측 확인), 테스트 작성 품질(뮤테이션 검증·과잉차단 음성 테스트·96종 곱 배터리·SC-8 기계 대조)은 이 저장소 기준으로도 높은 편이다. 반려 사유는 작업의 성실성이 아니라 **축을 열거로 닫으려 한 계약 구조**가 다시 재현된 데 있다 — 4차 판정이 '중괄호는 닫을 수 있다'고 한 것은 맞지만, 닫는 방법이 '판정이 지목한 5형태를 통과시키는 것'이 되면 축의 나머지가 그대로 남는다. priority_3(실제 bash 확장과의 기계 대조)이 이 구조를 반복하지 않는 유일한 방법이다."
+}

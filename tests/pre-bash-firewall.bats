@@ -2296,6 +2296,67 @@ delete_decision() {
   done
 }
 
+# === F65 5차 판정 (2026-08-30) 반려 — 중첩 중괄호 완전 우회 + 지수 폭발 (step 10 재작업) ===
+#
+# 5차 판정 실측: 위 배터리가 전부 통과하는 상태에서도 **중첩** 중괄호(`{a,{x,y}}` 꼴)가
+# control_plane_location() 을 완전히 우회했다 — 이전 구현이 "첫 `}`" 로 잘라 안쪽 그룹과
+# 뒤섞인 결과였다. 재작업(균형 괄호 파서 + 폭발 상한)이 실제로 이 클래스를 닫는지 고정한다.
+
+@test "F65 brace: nested comma-bearing braces are gated, not just flat ones (5th verdict regression)" {
+  # 5차 판정이 격리 랩에서 실제로 .claude 를 지우는 것까지 실증한 정확한 문자열들이다.
+  local c
+  for c in "rm -rf {.claude,{x,y}}" \
+           "rm -rf .claude/{a,{settings.json,hooks}}" \
+           "rm -rf .cla{u,{x,y}}de" \
+           "rm -rf .claude/{settings.json,hooks{,2}}" \
+           "rm -rf .claude/hooks/{a,{b,invariant-guard.sh}}"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "중첩 중괄호 표기의 컨트롤 플레인 삭제가 무프롬프트다: $c"; false; }
+  done
+}
+
+@test "F65 brace: an earlier branch's recursion must not corrupt a later sibling's reconstruction" {
+  # 구현 중 자체 발견(5차 판정 재작업 과정에서, 판정 대상은 아니었다): BRACE_PRE/BRACE_POST 를
+  # 전역으로 두면 그룹1의 두 번째 대안을 조립하기 전에 그룹1의 첫 대안 처리 중 벌어진 재귀가
+  # (중첩 그룹을 만나 __brace_find_group 을 다시 부르면서) 그 전역을 갈아치운다. 실제 bash 는
+  # `{a{p,q},.claude}/settings.json` 을 `ap/settings.json`·`aq/settings.json`·
+  # `.claude/settings.json` 세 단어로 편다(둘째 대안이 첫 대안과 무관하게 중첩 그룹을 갖고
+  # 있다는 점이 핵심 — 재귀가 전역을 더럽힐 기회를 만든다). 이 형태가 뚫리면 위 배터리처럼
+  # 단순한 사례만으로는 드러나지 않는다.
+  run delete_decision 'rm -rf {a{p,q},.claude}/settings.json'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "형제 대안 재구성이 재귀로 오염돼 .claude/settings.json 대안을 놓쳤다"; false; }
+}
+
+@test "F65 brace: many sequential groups stay fast, not exponential (5th verdict perf regression)" {
+  # 5차 판정 실측: 순차 중괄호 N개는 최악 2^N 경로다 — N=16 이 22.7초(훅 타임아웃 5초 초과)
+  # 였다. 폭발 상한이 지켜지는지 벽시계로 고정한다 — 대상이 무엇이든(컨트롤 플레인이 아니어도)
+  # 상한을 넘기면 ask 로 fail-closed 해야 하고, 그 판정 자체가 수 초가 아니라 즉시 나와야 한다.
+  local s="build" i cmd t0 t1 elapsed
+  for ((i=0;i<40;i++)); do s="${s}{a,b}"; done
+  cmd="rm -rf $s"
+  t0=$(date +%s%N)
+  run delete_decision "$cmd"
+  t1=$(date +%s%N)
+  elapsed=$(( (t1 - t0) / 1000000 ))
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "상한 초과 시 안전한 쪽(ask)으로 떨어지지 않았다"; false; }
+  [ "$elapsed" -lt 2000 ] \
+    || { echo "N=40 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처거나 지수 폭발이 되살아난 것"; false; }
+}
+
+@test "F65 brace: a handful of sequential groups on an unrelated path stays frictionless" {
+  # 폭발 상한이 너무 작으면 평범한 스캐폴딩 삭제(그룹 2~3개)에도 마찰이 생긴다 — 상한이
+  # 실전 크기에서는 발동하지 않는지 확인한다(과잉차단 방지).
+  local c
+  for c in "rm -rf project/{src,test}" "rm -rf {a,b}/{c,d}" "rm -rf out/{x,y}/{p,q}"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "실전 크기의 순차 중괄호 삭제에 마찰이 생겼다: $c"; false; }
+  done
+}
+
 @test "F65 installed-hook-delete: deleting an individual installed hook file is gated (step 11)" {
   # 같은 경로에 대한 쓰기(F73 in-place arm)는 이미 ask다 — 삭제도 같은 대칭이어야 한다.
   local c

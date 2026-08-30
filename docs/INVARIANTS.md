@@ -895,12 +895,15 @@ heredoc 본문·`|`/`&&` 뒤 줄바꿈·`(`/`{` 블록과 절 사이가 모두 �
    F73의 in-place arm이 이미 ask였는데 **삭제**만 비대칭으로 열려 있었다. 수정: 꼬리가 `hooks/*.sh`
    꼴이면 (b) 분기가 함께 잡는다. 확장자를 `.sh`로 좁혀 `.claude/**/hooks/README.md` 같은 무관한
    파일까지 걸리는 과잉차단은 만들지 않는다.
-3. **`evaluator-runs.jsonl`**: 이 파일은 gitignore 대상이라 위 "두 집합은 같아야 한다"의
-   `PROTECTED_GLOBS`/`is_protected()` 어느 쪽에도 넣을 수 없다 — `.guarded-edits`·
-   `.integrity-baseline`과 같은 클래스(자기를 복구할 수 없는 상태 파일)인데 방화벽 자기보호 arm
-   에는 빠져 있었다. INV-11이 "evaluator가 실제로 실행됐는가"를 이 파일 하나로 판정하므로, Bash로
-   자유롭게 조작 가능하면 evaluator 없이 실행 로그를 위조해 `passes:true`를 정당화할 수 있었다
-   (INV-1의 독립성 전제를 흔드는 갭이었다). 수정: 자기보호 arm에 이 basename을 추가한다. 이 파일의
+3. **`evaluator-runs.jsonl`**: `is_protected()`(`hooks/invariant-guard.sh`)에는 이미 basename으로
+   등록돼 있어 Edit/Write 경로는 막힌다. 문제는 `PROTECTED_GLOBS`(`hooks/protected-integrity.sh`,
+   Bash 경로 사후 탐지·복구) 쪽이다 — 이 파일은 gitignore 대상이라 `git ls-tree`에 나타나지 않으므로
+   HEAD와 비교할 대상 자체가 없다. 넣어도 절대 매치되지 않는 죽은 항목이 될 뿐이라 위 "두 집합은
+   같아야 한다"의 대상이 아니다 — `.guarded-edits`·`.integrity-baseline`과 같은 클래스(자기를
+   복구할 수 없는 상태 파일)인데, 이 파일들과 달리 **Bash 방화벽 자기보호 arm에는 빠져 있었다**.
+   INV-11이 "evaluator가 실제로 실행됐는가"를 이 파일 하나로 판정하므로, Bash로 자유롭게 조작
+   가능하면 evaluator 없이 실행 로그를 위조해 `passes:true`를 정당화할 수 있었다(INV-1의 독립성
+   전제를 흔드는 갭이었다). 수정: 자기보호 arm에 이 basename을 추가한다. 이 파일의
    정당한 쓰기는 `SubagentStop` 훅(`hooks/subagent-evaluator-log.sh`)이 담당하며 그 이벤트는
    `Bash` 도구의 `PreToolUse`를 거치지 않으므로 이 방화벽 arm과 아예 마주치지 않는다 — 정당한
    기록 경로는 이 수정으로 막히지 않는다.
