@@ -835,9 +835,50 @@ pure_read_only "$CMD" && PURE_READ=1
 NORM_TOK=""
 normalize_path_token() {
   local t="$1" sl='/' dsl='//' dot='/./'
+  # ANSI-C/로케일 인용을 먼저 벗긴다(F65 8차 판정 반려, Class 재정규화 이전 단계) — 아래
+  # 일반 따옴표 제거(`t=${t//\'/}` 등)보다 **먼저** 해야 한다. 그 줄은 `'`·`"` 문자를 지울 뿐
+  # 앞의 `$`는 남기므로, 먼저 지나가면 `$'.claude'`가 `$.claude`(매치 대상 밖)가 된다(실측:
+  # `rm -rf $'.claude'`가 allow — 격리 랩에서 settings.json 등 실제 삭제). 실제 bash는
+  # `$'...'` 안의 백슬래시 이스케이프(`\xHH` 등)를 해석해 편다 — bash 자신의 `printf %b` 가
+  # 같은 이스케이프 표를 쓰므로 그것을 빌린다(직접 다시 구현하지 않는다). `$"..."`는 로케일
+  # 문자열이라 이스케이프 없이 `$`와 따옴표만 벗긴다. 치환은 **반드시 인용된 변수**로 한다
+  # (`${t/"$whole"/...}`) — 인용하지 않으면 캡처된 내용의 글로브 메타문자(`*` 등)가 패턴으로
+  # 재해석돼 엉뚱한 위치가 지워지거나(실측: 무한 루프까지 갔다) 아예 매치가 안 될 수 있다.
+  # 상한(100회)은 디코딩 결과가 다시 매치되는 인위적 연쇄에 대한 방어다.
+  local __ansi_i=0 __ansi_decoded __ansi_whole
+  while [[ "$t" =~ \$\'([^\']*)\' && $__ansi_i -lt 100 ]]; do
+    printf -v __ansi_decoded '%b' "${BASH_REMATCH[1]}"
+    __ansi_whole="\$'${BASH_REMATCH[1]}'"
+    t="${t/"$__ansi_whole"/$__ansi_decoded}"
+    __ansi_i=$((__ansi_i+1))
+  done
+  __ansi_i=0
+  while [[ "$t" =~ \$\"([^\"]*)\" && $__ansi_i -lt 100 ]]; do
+    __ansi_whole="\$\"${BASH_REMATCH[1]}\""
+    t="${t/"$__ansi_whole"/${BASH_REMATCH[1]}}"
+    __ansi_i=$((__ansi_i+1))
+  done
   t=${t//\'/}; t=${t//\"/}; t=${t//\\/}          # 따옴표·백슬래시 제거 (`'.claude'`·`\rm`)
   while [[ "$t" == *"$dsl"* ]]; do t=${t//"$dsl"/"$sl"}; done
   while [[ "$t" == *"$dot"* ]]; do t=${t//"$dot"/"$sl"}; done
+  # 내부 `..` 세그먼트를 접는다(F65 8차 판정 반려) — 2차 판정부터 열려 있던 축이다. `a/../`
+  # 는 a로 들어갔다 나오는 것과 같아 통째로 지워진다. 앞쪽에 남는 `../`(상위로 나가는 참조,
+  # `../.claude`)는 접지 않는다 — 그 위가 무엇인지 문자열만으로 알 수 없다. 캡처는 세그먼트
+  # 이름만 받는다(`([^/]+)/\.\./ `) — 전체 매치를 `../`와 문자열 비교하면 `../../` 처럼 세그먼트
+  # 자체가 `..`로 시작하는 경우를 놓친다(자체 발견: 최초 버전이 정확히 이 형태로 뚫렸다).
+  local __dd_seg __dd_whole
+  while [[ "$t" =~ ([^/]+)/\.\./ ]]; do
+    __dd_seg="${BASH_REMATCH[1]}"
+    [[ "$__dd_seg" == ".." ]] && break
+    # 치환 패턴은 **별도 변수에 먼저 담는다**(F65 8차 판정 재작업 중 자체 발견 — 판정 대상은
+    # 아니었다). `t="${t/"$seg/../"/}"` 처럼 따옴표 안에서 변수와 리터럴을 바로 이어 쓰면
+    # bash 3.2(이 훅이 실제로 실행되는 macOS 기본 셸)에서 패턴이 깨져 아무것도 지우지 못한다
+    # (실측: 결과가 `../"//../"//../settings.json` 같은 쓰레기 문자열이 됐다 — bash 5.3에서는
+    # 같은 코드가 문제없이 동작해 이 결함을 처음엔 놓쳤다). `whole="${seg}/../"` 로 먼저
+    # 완성한 뒤 그 변수를 패턴 자리에 쓰면 두 버전 모두에서 동일하게 동작한다.
+    __dd_whole="${__dd_seg}/../"
+    t="${t/"$__dd_whole"/}"
+  done
   while [[ "$t" == ./* ]]; do t=${t#./}; done
   while [[ "$t" == */ && ${#t} -gt 1 ]]; do t=${t%/}; done
   NORM_TOK="$t"
@@ -1021,6 +1062,13 @@ __control_plane_location_impl() {
   # `.claude` 그 자체다). normalize_path_token 은 중괄호를 건드리지 않으므로 몇 번을 다시
   # 불러도 안전하다(멱등) — 매 재귀 진입점에서 다시 부른다.
   normalize_path_token "$t"; t="$NORM_TOK"
+  # 길이 상한을 **모든** 토큰에 건다(F65 8차 판정 반려) — 중괄호가 있는 토큰만 걸던 이전
+  # 버전은 틀린 전제 위에 있었다: "중괄호 없는 토큰은 __brace_prescan() 을 안 타니 안전하다"고
+  # 봤는데, 실측해 보니 아래 (b)/(c) 분기의 `${t##*/}`·`${t##*.claude/}` 류 와일드카드 파라미터
+  # 확장(추출)이 **이 bash에서 매칭 성공 여부와 무관하게 문자열 길이에 대해 이차식**이었다 —
+  # 중괄호가 있든 없든 똑같이 느리다(실측: 6만자 문자열 1회 추출에 4.3~5.0초, 훅 타임아웃
+  # 5초 근처/초과). 그래서 상한을 브레이스 분기 안이 아니라 여기, 진입점 전체에 건다.
+  if [[ ${#t} -gt 512 ]]; then return 0; fi
   # **중괄호 확장을 먼저 편다 (F65 4차 판정 step 10, 5차 판정이 중첩·폭발 결함을 반려해 재작업).**
   # 셸은 명령을 실제로 실행할 때만 `{a,b}` 를 펼친다 — 우리는 문자열만 파싱하므로 `.claude/
   # {settings.json,hooks}` 가 아래 어떤 case 문에도 매치하지 않는 통짜 토큰으로 들어온다.
@@ -1040,16 +1088,8 @@ __control_plane_location_impl() {
   # 맞바꾼 승인된 트레이드오프다(5차 판정 권고).
   case "$t" in
     *'{'*)
-      # 길이 상한 — __brace_prescan()/__brace_find_group() 는 문자 단위로 훑는다. 처음에는
-      # "그룹 개수는 예산이 막으니 길이만 4096(PATH_MAX)으로 넉넉히 막으면 된다"고 가정했는데
-      # (7차 판정 반려, Class E 수정 당시) **그 가정 자체가 실측 없이 세운 것**이었다 — 직접
-      # 재보니 `${t:k:1}` 문자 단위 인덱싱이 이 bash에서 **문자열 길이에 대해 이차식**이다
-      # (다른 작업은 전혀 없이 인덱싱만 반복해도 32000자가 9.4초, 4x 늘리면 시간이 대략 16배).
-      # 4096자는 이 인덱싱 한 번만 놓고 보면 안전해 보이지만(추정 0.1~0.3초), 재귀 한 단계마다
-      # 새 후보 문자열에 대해 또 스캔하므로(예산이 허용하는 한 최대 64회) 누적되면 5초 훅
-      # 타임아웃을 넘을 수 있다 — 그래서 상한을 512로 크게 낮춘다(64회 반복해도 이차식 상수
-      # 실측치 기준 1초 미만). 실제 경로 토큰이 512자를 넘는 경우는 사실상 없다.
-      if [[ ${#t} -gt 512 ]]; then return 0; fi
+      # 길이 상한은 위(진입점)에서 이미 걸었다 — __brace_prescan()/__brace_find_group() 도
+      # 문자 단위 스캔이라 같은 이차식 비용을 받으므로 별도로 다시 걸 필요가 없다.
       if __brace_find_group "$t"; then
         # BRACE_PRE/BRACE_POST 를 즉시 지역 변수로 복사한다 — 전역이라 아래 재귀 호출(중첩
         # 그룹을 만나면 __brace_find_group 을 다시 부른다)이 이 루프가 두 번째 이후 item 에
@@ -1088,7 +1128,7 @@ __control_plane_location_impl() {
             if [[ $__BRACE_BUDGET -lt 0 ]]; then return 0; fi
             __brace_split_top_level "$BRACE_BODY"
             local item
-            for item in "${BRACE_ITEMS[@]}"; do
+            for item in "${BRACE_ITEMS[@]+"${BRACE_ITEMS[@]}"}"; do
               if __control_plane_location_impl "${pre}${item}${post}"; then return 0; fi
             done
             return 1
@@ -1198,17 +1238,25 @@ control_plane_location() {
 # 지우지 않고 그대로 토큰에 남긴다(어차피 이후 normalize_path_token 이 지운다).
 __quote_aware_split() {
   local s="$1"
+  QUOTE_SPLIT_UNSAFE=0
   # 문자 단위 스캔이라 비용이 길이에 붙는다(F65 7차 판정 Class E 수정 때 실측: 이 인덱싱
   # 방식 자체가 길이에 대해 이차식이다). 이 함수가 막는 우회(Class D)는 **중괄호와 따옴표가
   # 함께 있을 때만** 성립하므로, `{` 가 아예 없으면 이 스캔이 낼 수 있는 값이 없다 — 기존
-  # 빠른 `read -a` 로 되돌아간다(대다수 명령에 해당하며 비용 변화가 전혀 없다). `{` 가 있어도
-  # 세그먼트가 비정상적으로 길면(실제 명령에서 나타나지 않는 크기) 상한을 넘지 않을 때만
-  # 이 스캔을 쓰고, 넘으면 같은 이유로 빠른 경로로 물러난다 — 이 경우 그 특정 긴 세그먼트에
-  # 한해 Class D 가 이론적으로 남지만(모르는 척하지 않고 여기 정직하게 적는다), 정상적인
-  # 명령 길이 안에서는 전혀 발동하지 않는다.
-  if [[ "$s" != *'{'* || ${#s} -gt 2048 ]]; then
+  # 빠른 `read -a` 로 되돌아간다(대다수 명령에 해당하며 비용 변화가 전혀 없다).
+  if [[ "$s" != *'{'* ]]; then
     SPLIT_TOKS=()
     read -r -a SPLIT_TOKS <<<"$s"
+    return
+  fi
+  # `{` 가 있는데 세그먼트가 비정상적으로 길면(실제 명령에서 나타나지 않는 크기) 이 스캔
+  # 비용을 감수하지 않는다 — 그렇다고 **예전처럼 빠른(안전하지 않은) 분리로 물러나지도
+  # 않는다**(F65 8차 판정 반려: 그 폴백 자체가 실측 경계 2025→2026자에서 allow로 새는
+  # fail-open이었다). 안전하게 나눌 수 없으면 "나눌 수 없었다"고 신호하고, 호출자가 이
+  # 세그먼트 전체를 ask 로 처리한다 — 모르면 allow 가 아니라 ask 라는 이 파일 전체의 원칙과
+  # 여기서도 같다.
+  if [[ ${#s} -gt 2048 ]]; then
+    QUOTE_SPLIT_UNSAFE=1
+    SPLIT_TOKS=()
     return
   fi
   local n=${#s} k=0 c inS=0 inD=0 cur="" started=0
@@ -1240,11 +1288,19 @@ scan_control_plane_delete() {
   # (첫 구현이 그랬고, 배터리가 전부 allow 로 나와 즉시 드러났다).
   while IFS= read -r seg || [[ -n "$seg" ]]; do
     [[ -z "$seg" ]] && continue
-    __quote_aware_split "$seg"; toks=("${SPLIT_TOKS[@]}")
+    __quote_aware_split "$seg"
+    # 빈 배열을 `"${arr[@]}"` 로 그대로 펼치면 bash 3.2(이 훅이 실제로 실행되는 macOS 기본
+    # 셸, set -u 상태)에서 "unbound variable" 로 죽는다 — bash 4.4 이전의 알려진 결함이다
+    # (실측: __quote_aware_split() 이 길이 상한을 넘겨 SPLIT_TOKS=() 로 반환하는 정확히 그
+    # 경로에서 재현됐다). `"${arr[@]+"${arr[@]}"}"` 관용구가 두 버전 모두에서 안전하다.
+    toks=("${SPLIT_TOKS[@]+"${SPLIT_TOKS[@]}"}")
+    # 안전하게 나눌 수 없었다(중괄호+과도한 길이) — 이 세그먼트를 계속 진행하는 대신 즉시
+    # ask 로 fail-closed 한다(F65 8차 판정 반려, __quote_aware_split() 주석 참조).
+    if [[ "$QUOTE_SPLIT_UNSAFE" -eq 1 ]]; then CP_DELETE_HIT="$seg"; return 0; fi
     armed=0
     # `find … -delete` 는 동사가 술어로 온다. `-exec … rm` 은 아래 동사 검사가 무장한다.
     if [[ "$seg" == *"-delete"* ]]; then
-      for tok in "${toks[@]}"; do
+      for tok in "${toks[@]+"${toks[@]}"}"; do
         normalize_path_token "$tok"
         # `${NORM_TOK##*/}` (basename 추출) 대신 접미사 패턴 **판정**을 쓴다 — F65 7차 판정
         # 재작업 도중 자체 발견(판정 대상 아님): `${var##pattern}` 처럼 와일드카드가 든 추출은
@@ -1256,7 +1312,7 @@ scan_control_plane_delete() {
         if [[ "$NORM_TOK" == "find" || "$NORM_TOK" == */find ]]; then armed=1; break; fi
       done
     fi
-    for tok in "${toks[@]}"; do
+    for tok in "${toks[@]+"${toks[@]}"}"; do
       normalize_path_token "$tok"
       # 위와 같은 이유로 `${NORM_TOK##*/}` 추출이 아니라 접미사 판정을 쓴다.
       if [[ "$NORM_TOK" == rm || "$NORM_TOK" == */rm \

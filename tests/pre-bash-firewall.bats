@@ -2507,6 +2507,96 @@ delete_decision() {
     || { echo "1만 콤마 단일 그룹 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처"; false; }
 }
 
+# === F65 8차 판정 (2026-08-30) 반려 — ANSI-C/로케일 인용·내부 `..`·두 캡의 fail-open ===
+#
+# 8차 판정: 차동 퍼저(4000개 토큰, 실제 bash 확장과 대조)로 중괄호 파서 자체는 0건 오판임을
+# 확인했다 — 5~7차의 재작업 대상은 이제 건전하다. 남은 결함 4개는 파서 밖(오래된
+# normalize_path_token()과 이번 라운드의 캡 두 곳)에 있었다.
+
+@test "F65 quoting: ANSI-C and locale-quoted forms of a control-plane name are gated (8th verdict)" {
+  # 실제 bash는 \$'...'/\$"..." 를 펴서 인용부호와 \$ 를 없앤 내용판(이스케이프 해석 포함)을
+  # 만든다. normalize_path_token()은 따옴표만 지우고 \$ 는 남겨(\$'.claude' -> \$.claude)
+  # 매치를 놓쳤었다.
+  local c
+  for c in "rm -rf \$'.claude'" \
+           "rm -rf .clau\$'d'e" \
+           'rm -rf $".claude"' \
+           "rm -rf \$'\x2eclaude'"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "ANSI-C/로케일 인용 표기의 컨트롤 플레인 삭제가 무프롬프트다: $c"; false; }
+  done
+}
+
+@test "F65 path: an interior .. segment that resolves onto the control plane is gated (8th verdict)" {
+  # .claude/hooks/../settings.json 은 문자열 그대로는 .claude/hooks/ 안이 아니라
+  # .claude/settings.json 을 가리킨다 — 2차 판정부터 열려 있던 축이다.
+  local c
+  for c in "rm -rf .claude/hooks/../settings.json" \
+           "rm -rf .claude/a/b/../../settings.json"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "내부 .. 세그먼트가 컨트롤 플레인 삭제를 가렸다: $c"; false; }
+  done
+}
+
+@test "F65 path: a leading .. reference is left alone, not mistakenly collapsed" {
+  # 상위로 나가는 참조는 그 위가 무엇인지 문자열만으로 알 수 없다 — 접지 않는 것이 맞고,
+  # 접었다가 엉뚱한 것과 같아지는 과잉 정규화가 없는지 확인한다(과잉차단 방지 겸용).
+  run delete_decision "rm -rf ../.claude"
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "상위 참조 형태의 컨트롤 플레인 삭제가 무프롬프트다"; false; }
+}
+
+@test "F65 fail-closed: the quote-split length cap asks instead of falling back unsafely (8th verdict)" {
+  # 7차 수정의 2048자 캡은 넘으면 예전의(안전하지 않은) read -a 로 되돌아갔다 — 실측 경계
+  # 2025자(ask)/2026자(allow)에서 fail-open이었다. 지금은 넘으면 분리를 포기하고 그 세그먼트
+  # 전체를 ask 로 처리해야 한다 — 상한 바로 위/아래 모두 확인한다.
+  local pad c i
+  for LEN in 2025 2026 2100; do
+    pad=""
+    for ((i=0;i<LEN;i++)); do pad="${pad}x"; done
+    c="rm -rf {.claude,${pad}}"
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "따옴표 분리 캡 경계(길이 $LEN)에서 fail-open이 재발했다"; false; }
+  done
+}
+
+@test "F65 fail-closed: the 512-char guard applies to brace-free tokens too (8th verdict)" {
+  # 이전 버전은 길이 상한을 \`case \"\$t\" in *'{'*)\` 안에만 걸어 중괄호 없는 토큰은 무방비로
+  # \${t##*/} 류 이차식 추출까지 도달했다(실측: 6만자 토큰 1회 추출에 4~5초). 상한을 진입점
+  # 전체로 옮긴 뒤, 중괄호 없는 대형 토큰도 정상 시간 안에 ask 로 떨어지는지 고정한다.
+  local pad c i t0 t1 elapsed
+  pad=""
+  for ((i=0;i<60000;i++)); do pad="${pad}x"; done
+  c="rm -rf ${pad}.claude"
+  t0=$(date +%s%N)
+  run delete_decision "$c"
+  t1=$(date +%s%N)
+  elapsed=$(( (t1 - t0) / 1000000 ))
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "중괄호 없는 대형 토큰이 상한 없이 통과했다"; false; }
+  [ "$elapsed" -lt 3000 ] \
+    || { echo "중괄호 없는 대형 토큰 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처"; false; }
+}
+
+@test "F65 bash3.2: the same battery agrees under macOS's bundled bash" {
+  # 8차 판정 재작업 도중 자체 발견(판정 대상 아님): 재구성 패턴을 따옴표 안에서 변수와
+  # 리터럴을 바로 이어 쓰면(\`\${t/\"\$seg/../\"/}\`) bash 5.3에서는 되는데 macOS 기본
+  # bash 3.2에서는 패턴이 깨진다(별도 변수에 먼저 담아야 두 버전 모두 안전 — 코드 주석 참조).
+  # 이 훅은 실제로 이 3.2 위에서도 실행되므로 같은 배터리를 그 바이너리로 직접 재확인한다.
+  local bin="/bin/bash" fw="$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh" c out
+  [ -x "$bin" ] || skip "이 머신에 /bin/bash 가 없다"
+  for c in "rm -rf .claude/hooks/../settings.json" \
+           "rm -rf \$'.claude'" \
+           "rm -rf .claude/{.,zz}/settings.json"; do
+    out=$(jq -n --arg c "$c" '{tool_name:"Bash",tool_input:{command:$c}}' | "$bin" "$fw" 2>&1)
+    [[ "$out" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "bash 3.2에서 판정이 어긋난다: $c -> $out"; false; }
+  done
+}
+
 @test "F65 installed-hook-delete: deleting an individual installed hook file is gated (step 11)" {
   # 같은 경로에 대한 쓰기(F73 in-place arm)는 이미 ask다 — 삭제도 같은 대칭이어야 한다.
   local c
