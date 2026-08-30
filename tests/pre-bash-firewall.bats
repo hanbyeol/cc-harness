@@ -2357,6 +2357,85 @@ delete_decision() {
   done
 }
 
+# === F65 6차 판정 (2026-08-30) 반려 — 범위 확장 + glob-fold 순서 우회 (step 10 3차 재작업) ===
+#
+# 6차 판정 실측: 5차 판정의 수정이 실제로 닫혔음을 확인한 상태에서도 그 밖의 두 축이 뚫려
+# 있었다 — (A) 퇴화 범위(`{d..d}`)는 콤마가 없다는 이유로 리터럴로 오판됐고, (B) 삭제 동사
+# 스캐너의 후행 글로브 접기가 중괄호 확장보다 먼저 실행돼 `{.claude/*,x}` 를 `{.claude` 로
+# 깨뜨렸다. 둘 다 격리 랩에서 실제 파일 삭제까지 실증됐다.
+
+@test "F65 range: degenerate ranges that expand to a control-plane name are gated (6th verdict Class A)" {
+  # 실제 bash 확인: {d..d}는 콤마가 없어도 리터럴이 아니다 — 범위라서 "d" 하나로 편다.
+  local c
+  for c in "rm -rf .clau{d..d}e" \
+           "rm -rf .claude/setting{s..s}.json" \
+           "rm -rf hooks/hooks.jso{n..n}"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "퇴화 범위 표기의 컨트롤 플레인 삭제가 무프롬프트다: $c"; false; }
+  done
+}
+
+@test "F65 range: ordinary ranges unrelated to the control plane stay frictionless" {
+  local c
+  for c in "rm -rf backup{1..5}" "rm -rf log{01..03}.txt" "rm -rf archive{a..e}"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "무관한 범위 삭제에 마찰이 생겼다: $c"; false; }
+  done
+}
+
+@test "F65 range: unrecognized dot-dot forms and oversized literals fail closed to ask" {
+  # 이 코드가 다루는 깔끔한 형태(정수-정수·단일문자-단일문자)가 아니면 "못 폈으니 리터럴"이라고
+  # 단정하지 않는다 — 6차 판정의 교훈. 64비트 산술 오버플로를 피하려 15자리 초과 숫자도 같이 뺀다.
+  local c
+  for c in "rm -rf x{1..a}" "rm -rf x{a..1}" "rm -rf x{1..999999999999999999999}"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "인식 못한 dot-dot 표기가 무프롬프트다(fail-closed 실패): $c"; false; }
+  done
+}
+
+@test "F65 glob-fold: brace alternatives with a trailing glob are gated (6th verdict Class B)" {
+  # 6차 판정 실측: 삭제 스캐너의 후행 글로브 접기가 중괄호 확장보다 먼저 실행돼
+  # `{.claude/*,x}` 를 `{.claude` 로 깨뜨렸다 — 격리 랩에서 .claude 전체가 실제로 지워졌다.
+  local c
+  for c in "rm -rf {.claude/*,x}" "rm -rf {hooks/hooks.js*,x}"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "중괄호 대안 안의 후행 글로브가 무프롬프트다: $c"; false; }
+  done
+}
+
+@test "F65 glob-fold: ordinary (brace-free) trailing-glob folding is unaffected" {
+  local c
+  for c in "rm -rf .claude/*" "rm -rf node_modules/*" "rm -rf dist/*"; do
+    run delete_decision "$c"
+    local want="allow"
+    [[ "$c" == *".claude/*"* ]] && want="ask"
+    [[ "$output" == *"\"permissionDecision\": \"$want\""* ]] \
+      || { echo "글로브 접기 이관 후 판정이 바뀌었다: $c (기대: $want)"; false; }
+  done
+}
+
+@test "F65 brace: a single group with a huge comma count fails closed without hanging" {
+  # 6차 판정 부수 지적: 예산 확인이 배열 생성 **뒤**에 있으면 콤마 한 그룹에 수만 개를 몰아
+  # 넣는 것만으로 무겁다. 길이 상한(4096) 이 통짜 토큰 단계에서 먼저 걸려야 한다 — 이 테스트는
+  # 벽시계로 유계성을 고정한다(장문 토큰이라 bats 배터리에 넣기엔 다른 축과 성격이 달라 단독 테스트).
+  local body="x0" i
+  for ((i=1;i<3000;i++)); do body="${body},x${i}"; done
+  local c="rm -rf {${body}}"
+  local t0 t1 elapsed
+  t0=$(date +%s%N)
+  run delete_decision "$c"
+  t1=$(date +%s%N)
+  elapsed=$(( (t1 - t0) / 1000000 ))
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "대형 단일 그룹이 상한 없이 통과했다"; false; }
+  [ "$elapsed" -lt 3000 ] \
+    || { echo "대형 단일 그룹 처리가 ${elapsed}ms 걸렸다 — 길이 상한이 무력화된 것"; false; }
+}
+
 @test "F65 installed-hook-delete: deleting an individual installed hook file is gated (step 11)" {
   # 같은 경로에 대한 쓰기(F73 in-place arm)는 이미 ask다 — 삭제도 같은 대칭이어야 한다.
   local c

@@ -1,0 +1,118 @@
+{
+  "timestamp": "2026-08-30T11:05:00+09:00",
+  "sprint": 51,
+  "iteration": 6,
+  "features_evaluated": [
+    "F65"
+  ],
+  "security_tier": "critical",
+  "commit_under_test": "65bdce7951acf62000945474c15a0836454b9746",
+  "scope": "sprint-51 implementation_steps 10-13 (6th independent judgment; 5th was fail, score 4)",
+  "scores": {
+    "functionality": 5,
+    "code_quality": 6,
+    "security": 4,
+    "error_handling": 5,
+    "test_coverage": 4
+  },
+  "score": 4,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 4 < 7 (critical tier — automatic fail regardless of other scores)",
+    "score 4 < pass_threshold 7",
+    "AC-11 / SC-9 unmet: control-plane deletion still reaches permissionDecision=allow (no prompt) on two notation axes; end-to-end confirmed to actually delete .claude/settings.json, .claude/hooks and hooks/hooks.json in an isolated lab"
+  ],
+  "what_the_commit_did_close": {
+    "_note": "Independently re-measured, not taken from implementer claims. All six nested counterexamples from the 5th verdict and the implementer's self-found pollution counterexample are genuinely closed.",
+    "nested_braces_6_of_6": "ask/ask/ask/ask/ask/ask — `rm -rf {.claude,{x,y}}` · `rm -rf .claude/{a,{settings.json,hooks}}` · `rm -rf .cla{u,{x,y}}de` · `rm -rf .claude/{settings.json,hooks{,2}}` · `rm -rf .claude/{x,{y,{z,hooks}}}` · `rm -rf .claude/hooks/{a,{b,invariant-guard.sh}}`",
+    "reconstruction_pollution": "ask — `rm -rf {a{p,q},.claude}/settings.json` and 6 further stress variants (`{a{p,q},b{r,s},c{t,u},.claude}/settings.json`, `{{a,b}{c,d},.claude}`, `{x/{y,z},hooks}/hooks.json`, …) all ask. The BRACE_PRE/BRACE_POST→local copy is correct; BRACE_ITEMS is recursion-safe because bash snapshots a `for … in` word list once.",
+    "exponential_blowup": "closed — N sequential comma groups now flat: N=12 161ms · N=16 158ms · N=20 162ms · N=40 163ms · N=100 168ms (5th verdict measured N=16 at 22,682ms). Budget is fail-closed and the boundary is exact: a single group with 64 items → allow, 65 items → ask.",
+    "doc_defect_from_5th_verdict": "fixed — docs/INVARIANTS.md INV-14 paragraph 3 now correctly states is_protected() already carries evaluator-runs.jsonl and that PROTECTED_GLOBS cannot (gitignored, no HEAD baseline). Verified against hooks/invariant-guard.sh:26 and hooks/protected-integrity.sh:51.",
+    "over_blocking": "no regression — 15/15 control commands still allow (node_modules · {node_modules,dist} · dist/{js,css} · build/{out,tmp} · src/hooks · .claude/worktrees/foo · project/{src,test} · .claude/hooks/README.md · sed -i src/app.ts · tail evaluator-runs.jsonl · git checkout -- hooks/pre-bash-firewall.sh · sed -n hooks/lib.sh · awk tests/probes.bats · ~/.cache/myapp/* · coverage{,-final})"
+  },
+  "issues": [
+    "[security][critical][confidence:high] CLASS A — brace RANGE expansion (`{x..y}`) is treated as a literal and reaches every control-plane name with permissionDecision=allow (no prompt). Reproduce: `rm -rf .clau{d..d}e` · `rm -rf .claude/setting{s..s}.json` · `rm -rf .claude/settings.local.jso{n..n}` · `rm -rf .claude/hook{s..s}` · `rm -rf .claude/plugin{s..s}` · `rm -rf hooks/hooks.jso{n..n}` · `rm -rf .claude/hooks/invariant-guard.s{h..h}` · `rm -rf .claud{e..e}/settings.json` · `rm -rf {zz,.claud{e..e}}`. Root cause: __brace_find_group() only accepts groups containing a top-level comma; comma-less groups are dropped as literals (hooks/pre-bash-firewall.sh:897-901, :963-964), but bash expands `{d..d}` → `d`. Lab-confirmed real deletion: `rm -rf .clau{d..d}e` removed .claude entirely.",
+    "[security][critical][confidence:high] CLASS B — the caller's trailing-glob fold runs BEFORE brace expansion and severs the group, turning a control-plane hit into allow. Reproduce: `rm -rf {.claude/*,x}` (bash expands to the whole .claude contents incl. settings.json, settings.local.json, hooks) · `rm -rf {x,.claude/*}` · `rm -rf {.claude/settings.jso*,x}` · `rm -rf {hooks/hooks.js*,x}` · `rm -rf {.claude/hooks/*,x}` · `rm -rf .claude/{hooks/*,y}` · also with other armed verbs: `mv {.claude/*,x} /tmp`, `shred {.claude/settings.jso*,x}`. Root cause at hooks/pre-bash-firewall.sh:1069-1074: `base=${NORM_TOK##*/}` sees `*,x}`, matches the glob case, and folds `NORM_TOK=${NORM_TOK%/*}` → `{.claude` — an unbalanced fragment that matches no case arm. Instrumented proof: control_plane_location('{.claude/*,x}') = CONTROL-PLANE, control_plane_location('{.claude') = not CP. The new parser is correct here; the caller destroys the token before it is ever asked.",
+    "[security][high][confidence:high] Mechanical differential oracle (real bash expansion vs. firewall decision) over generated notations: 19 of 71 control-plane-reaching tokens answer allow (27%). Per axis — RANGE 7/7 bypassed, RANGE+empty-group 7/7, glob-inside-brace-alternative 4/5, glob-inside-brace-trailing 1/5; the five hand-enumerated axes the commit targeted are 0/7 each. The pattern is identical to rounds 4 and 5: the enumerated axes close, an unenumerated neighbour stays fully open.",
+    "[security][high][confidence:high] Both classes land on an unrecoverable plane. `git check-ignore` puts .claude/ under .gitignore:9, so protected-integrity.sh has no HEAD baseline and there is no post-hoc recovery — allow here is permanent loss, which is why the contract requires at minimum ask.",
+    "[docs][high][confidence:high] Recurrence (11th) of 'a new unmeasured assertion introduced while correcting one'. docs/INVARIANTS.md:891-892 states 콤마 없는 `{x}`는 bash 자신도 펼치지 않는 리터럴이므로 대상에서 뺀다, and hooks/pre-bash-firewall.sh:963-964 repeats it (중괄호가 전부 리터럴이다 … 실제 bash 도 펴지 않는다, 직접 확인). The claim is false for ranges — `echo .clau{d..d}e` prints `.claude` — and it is precisely the sentence that rationalizes CLASS A. The verification cited ('직접 확인') was run only on `{.claude}`, then generalized to all comma-less groups.",
+    "[quality][medium][confidence:high] The budget bounds the number of expansions but not the pre-budget scan. __brace_split_top_level()/__brace_find_group() walk the body one character at a time with bash substring extraction (quadratic), and the budget check at :955-956 happens only after the whole item array is built. Measured on a single flat comma group: 5,000 items 2,825ms · 10,000 items 9,403ms · 20,000 items 38,328ms · 40,000 items 143,599ms. hooks/hooks.json declares PreToolUse:Bash timeout=5, so a ~20KB crafted token still overruns the gate's own declared budget — the same criterion the 5th verdict recorded as unmet, now via a quadratic scan rather than exponential expansion. Mitigating: the decision is ask (fail-closed), and the deny layer is unaffected (`rm -rf /` with 10k-item padding still exits 2 in 359ms). Amplification, not a new class: the same input costs 2,262ms at 142d737 and 3,949ms at e2be94e.",
+    "[error][medium][confidence:high] Fail-closed is applied inside the parser but not at its boundary. Budget exhaustion correctly returns ask (64→allow / 65→ask, exact). But a token that the caller has folded into an unbalanced fragment (`{.claude`) falls through every case arm to return 1 = allow. On a plane with no recovery the default for 'I could not finish parsing this' must be ask in both places, not just one.",
+    "[test][high][confidence:high] The four new tests re-encode the 5th verdict's exact counterexample list. progress/lessons.md, added in this same commit, writes the correct prescription — 표기를 손으로 열거하지 말고 실제 셸 확장 결과와 방화벽 판정을 기계 대조하라(토큰을 실제로 확장시킨 뒤, 그 결과가 CONTROL_PLANE_NAMES에 걸리면 ask 단언) — and the tests do not implement it. A ~40-line generator built exactly to that prescription found 19 bypasses in one run. The lesson was recorded but not acted on.",
+    "[test][medium][confidence:high] The test named `F65 brace: comma-less braces are literal in real bash and stay frictionless (step 10)` (tests/pre-bash-firewall.bats:2277) asserts its premise only for `{.claude}` and `hooks/{hooks.json}` but its name generalizes to all comma-less braces — the same false generalization as the INVARIANTS.md sentence, now green in the suite. A passing test carrying that name is what makes CLASS A read as covered.",
+    "[test][medium][confidence:high] The perf regression test pins only the axis that failed last round (40 sequential groups < 2000ms). It does not bound the gate on token length or on comma count within one group, which is where the remaining 9.4s input lives.",
+    "[contract][low][confidence:medium] implementation_steps step 10 says control_plane_location 글로브 메타문자 집합에 `{` 포함, but the glob arms remain `*'*'*|*'?'*|*'['*` (hooks/pre-bash-firewall.sh:972, :1071) with no `{`. Handling braces in the dedicated parser instead is arguably the better design, but the contract text and the code have silently diverged and neither was updated.",
+    "[process][low][confidence:high] The implementer's self-report is accurate on everything it claims and explicitly flags what it did not reproduce (the e2be94e timing, taken from the 5th verdict rather than re-run). Independent re-measurement agreed with every claim checked. The failure is not overclaiming — it is that the verification stayed inside the enumerated list."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-9 회귀 없음 — full bats suite green, over-blocking battery 15/15 allow, control battery 5/5 ask",
+      "step 12 — evaluator-runs.jsonl self-protection arm present and firing (`printf x >> …/evaluator-runs.jsonl` → ask)",
+      "step 11 — `rm .claude/hooks/invariant-guard.sh` → ask (plain notation)"
+    ],
+    "security": [
+      "SC-1 게이트·임계값 불변 — harness-config.json unchanged (pass_threshold 7, critical 7)",
+      "flat and nested comma-brace notations of control-plane deletion are gated (0 bypasses across 5 enumerated axes × 7 targets)"
+    ],
+    "error_scenarios": [
+      "budget exhaustion fails closed to ask, with an exact and correct boundary (64 items allow / 65 items ask)",
+      "unbalanced braces and quoted/escaped braces do not crash and err toward ask"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-11 — 컨트롤 플레인 파일을 지우는 경로가 최소 ask다: unmet on the brace-range axis (7/7 targets allow) and the glob-inside-brace axis (5/10 allow)"
+    ],
+    "security": [
+      "SC-9 — control-plane deletion gate is bypassable by two trivially-discoverable notations, both confirmed to delete real files in an isolated lab, on a gitignored plane with no post-hoc recovery",
+      "the gate still cannot return a decision within its declared 5s budget for a crafted ~20KB single-group token (9.4s at 10k items)"
+    ],
+    "error_scenarios": [
+      "fail-open remains the default when the token reaching control_plane_location() has been folded into an unparseable fragment"
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "AC-11 has no criterion demanding a GENERATED oracle. Proposed replacement for its verification field: '실제 bash 확장(printf)으로 토큰을 펴서 결과 단어가 CONTROL_PLANE_NAMES에 걸리면 방화벽 판정이 ask 이상임을 단언하는 생성기 배터리에서 allow 0건'. This is the only formulation that does not re-create the enumeration ceiling, and it is already written down in progress/lessons.md.",
+      "No criterion bounds the gate's wall-clock decision time as a function of input size. Proposed: '임의의 단일 토큰(길이 100KB, 콤마 40,000개 포함)에 대해 판정이 1초 이내 반환된다'.",
+      "The brace-range axis (`{a..b}`, `{1..3}`) is recorded nowhere in sprint-51.json — neither as closed nor as an accepted open axis — while INVARIANTS.md asserts the opposite of the truth about it."
+    ],
+    "ambiguous_criteria": [
+      "step 10's '글로브 메타문자 집합에 `{` 포함' no longer describes the implementation and does not say what behaviour it was meant to buy."
+    ],
+    "security_criteria_insufficient": [
+      "SC-9 is stated over notations rather than over the shell's actual expansion semantics, so every round it is satisfiable by the round's enumerated list."
+    ],
+    "action_required": "Before the next implementation round, rewrite AC-11.verification as the generated differential oracle and add the wall-clock bound to security_criteria; do not re-run the loop against a hand-enumerated list of this verdict's counterexamples."
+  },
+  "recommended_fix_direction": {
+    "_note": "Direction only — the evaluator does not modify implementer code.",
+    "class_B": "Expand braces before the trailing-glob fold, not after. The fold at hooks/pre-bash-firewall.sh:1069-1074 must operate on each expanded alternative, not on the raw token; control_plane_location() already answers '{.claude/*,x}' correctly.",
+    "class_A": "Either expand `{a..b}`/`{1..9}` ranges too, or — cheaper and closed by construction — treat any residual `{` in a token as 'I cannot decide what this expands to' and fail closed to ask, exactly as the budget path already does.",
+    "perf": "Check the budget against the comma count before materializing BRACE_ITEMS, and cap total token length; both are O(1) guards ahead of the quadratic scan.",
+    "tests": "Replace the enumerated brace tests with the generator described in criteria_gaps.missing_criteria[0]; it subsumes them and would have caught both classes."
+  },
+  "evidence": {
+    "_note": "Every line below was executed in this session against commit 65bdce7 (working tree clean). Firewall decisions were read by piping directly into the hook: `jq -n --arg c \"<cmd>\" '{tool_name:\"Bash\",tool_input:{command:$c}}' | bash hooks/pre-bash-firewall.sh` and reading .hookSpecificOutput.permissionDecision. No `rm` was executed against the repository — expansion ground truth used `printf` only, and destructive confirmation ran in a disposable lab.",
+    "fifth_verdict_counterexamples_reproduced": "6/6 now ask (list in what_the_commit_did_close.nested_braces_6_of_6). Independently re-run, not taken from the implementer.",
+    "pollution_counterexample_reproduced": "ask — `rm -rf {a{p,q},.claude}/settings.json`; ground truth `printf '[%s] ' {a{p,q},.claude}/settings.json` → [ap/settings.json] [aq/settings.json] [.claude/settings.json]. 6 further stress variants also ask.",
+    "new_bypass_class_A_range": "allow — `rm -rf .clau{d..d}e` · `.claude/setting{s..s}.json` · `.claude/settings.local.jso{n..n}` · `.claude/hook{s..s}` · `.claude/plugin{s..s}` · `hooks/hooks.jso{n..n}` · `.claude/hooks/invariant-guard.s{h..h}` · `.claud{e..e}/settings.json` · `{zz,.claud{e..e}}`. hook exit=0 (no deny either).",
+    "new_bypass_class_B_glob_fold": "allow — `rm -rf {.claude/*,x}` · `{x,.claude/*}` · `{.claude/settings.jso*,x}` · `{hooks/hooks.js*,x}` · `{.claude/hooks/*,x}` · `.claude/{hooks/*,y}` · `mv {.claude/*,x} /tmp` · `shred {.claude/settings.jso*,x}`.",
+    "end_to_end_lab": "Disposable lab (scratchpad/f65-lab6) seeded with .claude/settings.json, .claude/settings.local.json, .claude/hooks/invariant-guard.sh, hooks/hooks.json. `rm -rf {.claude/*,x}` → settings.json NO, whole .claude emptied. `rm -rf .clau{d..d}e` → .claude NO. `rm -rf {hooks/hooks.js*,x}` → hooks/hooks.json NO. All three are firewall-allow.",
+    "root_cause_instrumented": "Functions extracted verbatim (sed -n '/^normalize_path_token() {/,/^control_plane_location() {/p'). control_plane_location('{.claude/*,x}') = CONTROL-PLANE; caller fold (base=${NORM_TOK##*/} → glob case → NORM_TOK=${NORM_TOK%/*}) rewrites it to '{.claude'; control_plane_location('{.claude') = not CP. control_plane_location('.claud{e..e}') = not CP while bash expands it to .claude.",
+    "differential_oracle": "scratchpad/oracle.sh — 7 control-plane targets × 11 notation generators, keeping only tokens whose REAL bash expansion contains a control-plane name. 71 generated, 19 answered allow. Per axis: RANGE 7/7, RANGE+empty 7/7, glob-in-brace-alt 4/5, glob-in-brace-trail 1/5, all five enumerated axes 0/7.",
+    "budget_boundary": "single flat group, item count vs decision: 2→allow 30→allow 63→allow 64→allow 65→ask 70→ask 200→ask. Fail-closed, exact boundary at the declared __BRACE_BUDGET=64.",
+    "exponential_closed": "N sequential {a,b} groups + .claude/hooks: N=12 161ms · 16 158ms · 20 162ms · 40 163ms · 100 168ms, all ask (5th verdict: N=16 22,682ms).",
+    "residual_perf": "single group comma count vs latency: 5,000→2,825ms · 10,000→9,403ms · 20,000→38,328ms · 40,000→143,599ms (all ask). Same 10,000-item input: 142d737 2,262ms · e2be94e 3,949ms · HEAD 9,403ms. hooks/hooks.json PreToolUse matcher=Bash timeout=5. Deny layer unaffected: `rm -rf / <10k padding>` exit=2 in 359ms; padding-first exit=2 in 262ms.",
+    "regression_provenance": "Both new classes are pre-existing, not introduced by this commit — `{.claude/*,x}`, `.clau{d..d}e`, `{hooks/hooks.js*,x}` are allow at 142d737, at e2be94e, and at HEAD.",
+    "over_blocking": "15/15 allow (list in what_the_commit_did_close.over_blocking); control group 5/5 ask (`rm .claude/settings.json` · `rm -rf .claude/{settings.json,hooks}` · `rm .claude/hooks/invariant-guard.sh` · `printf x >> …/evaluator-runs.jsonl` · `rm -rf .clau*`).",
+    "pollution_class_audit": "BRACE_PRE/BRACE_POST copied to locals at :954 — correct. BRACE_BODY is consumed at :945 before any recursion. BRACE_ITEMS is read by `for item in \"${BRACE_ITEMS[@]}\"`, whose word list bash snapshots once, so the recursive overwrite in __brace_split_top_level cannot affect the running loop; confirmed empirically by 7 stress variants. control_plane_location() never calls normalize_path_token(), so NORM_TOK cannot be clobbered mid-use in scan_control_plane_delete. No further instance of the pattern found in this file.",
+    "doc_check": "docs/INVARIANTS.md INV-14 ¶3 now matches hooks/invariant-guard.sh:26 and hooks/protected-integrity.sh:51 — the 5th verdict's doc defect is fixed. New defect at INVARIANTS.md:891-892 and pre-bash-firewall.sh:963-964 (comma-less braces asserted to be literals bash does not expand).",
+    "tests": "bats tests/ — see tests_result below (single run, captured to file, exit code read directly)."
+  },
+  "tests_result": "bats tests/ — 821 ok / 0 not ok, EXIT=0 (single run, captured to file, exit code read directly). The four new F65 brace tests are green (ok 566-569), as are the pre-existing step 10/11 tests (ok 563-565, 570-571). The suite is green and still misses both bypass classes — which is the test-coverage finding, not a suite failure.",
+  "second_judgment_required": true,
+  "second_judgment_note": "F37: security_tier critical — this verdict must be cross-checked by an independent-context judge before any passes transition. Since the verdict is fail and passes stays false, no gate is being opened by this judgment alone."
+}

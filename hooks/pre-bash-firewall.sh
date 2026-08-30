@@ -855,13 +855,74 @@ CONTROL_PLANE_NAMES=(
   '.claude/plugins'
   'hooks/hooks.json'
 )
-# $1 에서 **콤마를 담은, 균형 잡힌** 첫 중괄호 그룹을 찾는다(F65 5차 판정 반려 반영).
-# 콤마 없는 바깥 그룹은 실제 bash 에서도 리터럴이다 — `echo {a{b,c}}` 는 `{ab} {ac}` 를 낸다
-# (바깥 `{`·`}` 는 글자 그대로 남고 안쪽 `{b,c}` 만 펴진다, 직접 확인). 그래서 바깥에서 안쪽으로
-# **점점 좁혀가며** 콤마 있는 그룹을 찾는다 — 첫 번째 시도에서 콤마가 없으면 그 `{` 를 리터럴로
-# 치고 바로 다음 `{` 부터 다시 찾는다. 짝이 맞는 `}` 는 깊이 카운터로 찾는다(5차 판정이 실측한
-# 우회 — `{.claude,{x,y}}` — 는 이전 구현이 "첫 `}`" 로 끊어 안쪽 그룹과 뒤섞인 결과였다).
-# 성공하면 BRACE_PRE/BRACE_BODY/BRACE_POST 를 채우고 0, 확장 가능한 그룹이 아예 없으면 1.
+# BRACE_R_*(위 __brace_range_info 가 채움)로 인덱스 $1(0-based) 번째 값을 만든다.
+__brace_range_value() {
+  local idx="$1" v
+  v=$((BRACE_R_START + idx * BRACE_R_STEP * BRACE_R_DIR))
+  if [[ "$BRACE_R_ALPHA" == 1 ]]; then
+    printf "\\$(printf '%03o' "$v")"
+  elif [[ "$BRACE_R_PAD" -gt 0 ]]; then
+    local av=$v neg=""
+    [[ $v -lt 0 ]] && { av=$((-v)); neg="-"; }
+    printf '%s%0*d' "$neg" "$BRACE_R_PAD" "$av"
+  else
+    printf '%d' "$v"
+  fi
+}
+
+# $1(콤마 없는 그룹 본문)이 bash 의 범위 확장(`{X..Y}`·`{X..Y..S}`)인지 판정한다(F65 6차
+# 판정 반려 반영 — `.clau{d..d}e` 처럼 시작=끝인 **퇴화 범위**도 실제 bash 는 펴서 한 값을
+# 낸다, 직접 확인: `echo {d..d}` → `d`. "콤마 없으면 리터럴"은 범위에는 성립하지 않았다).
+# 성공하면 BRACE_R_START/END/STEP/DIR/PAD/ALPHA/COUNT 를 채우고 0. 실패(범위가 아님)면 1 —
+# 그러면 몸통이 콤마도 `..` 도 없는 **진짜** 리터럴인지, 아니면 `..` 는 있으나 이 함수가 다루는
+# 깔끔한 형태(정수-정수 또는 단일문자-단일문자, 선택적 정수 step)가 아닌 **알 수 없는** 형태인지는
+# 호출자(`__brace_find_group`)가 `..` 존재 여부로 가른다 — 후자는 안전한 쪽(ask)으로 둔다.
+# 숫자 자릿수를 15 자로 제한한다 — bash 정수는 64비트라 그 이상은 조용히 오버플로해 산술이
+# 틀린 값을 낸다(실측: `{1..99999999999999999999}` 가 겉보기엔 안 죽고 계산되지만 값이
+# 틀리다). 그 상황에서 "안전해 보이는 작은 카운트"로 잘못 계산되면 예산 검사가 무력화된다 —
+# 자릿수 제한이 있으면 이런 입력은 애초에 범위로 인식되지 않아 suspicious(ask)로 떨어진다.
+__brace_range_info() {
+  local body="$1"
+  local re_num='^(-?[0-9]+)\.\.(-?[0-9]+)(\.\.([0-9]+))?$'
+  local re_alpha='^([A-Za-z])\.\.([A-Za-z])(\.\.([0-9]+))?$'
+  if [[ "$body" =~ $re_num ]]; then
+    local s="${BASH_REMATCH[1]}" e="${BASH_REMATCH[2]}" st="${BASH_REMATCH[4]:-1}"
+    local sdig="${s#-}" edig="${e#-}"
+    [[ ${#sdig} -gt 15 || ${#edig} -gt 15 || ${#st} -gt 15 ]] && return 1
+    [[ "$st" == "0" ]] && return 1   # step 0 은 bash 에서도 정의되지 않은 형태
+    BRACE_R_PAD=0
+    if [[ "$sdig" == 0[0-9]* || "$edig" == 0[0-9]* ]]; then
+      BRACE_R_PAD=${#sdig}
+      [[ ${#edig} -gt $BRACE_R_PAD ]] && BRACE_R_PAD=${#edig}
+    fi
+    BRACE_R_START=$((s)); BRACE_R_END=$((e)); BRACE_R_STEP=$((st)); BRACE_R_ALPHA=0
+    BRACE_R_DIR=1; [[ $BRACE_R_START -gt $BRACE_R_END ]] && BRACE_R_DIR=-1
+    BRACE_R_COUNT=$(( ( (BRACE_R_END - BRACE_R_START) * BRACE_R_DIR / BRACE_R_STEP ) + 1 ))
+    return 0
+  fi
+  if [[ "$body" =~ $re_alpha ]]; then
+    local s="${BASH_REMATCH[1]}" e="${BASH_REMATCH[2]}" st="${BASH_REMATCH[4]:-1}"
+    [[ ${#st} -gt 15 ]] && return 1
+    [[ "$st" == "0" ]] && return 1
+    BRACE_R_START=$(printf '%d' "'$s")
+    BRACE_R_END=$(printf '%d' "'$e")
+    BRACE_R_STEP=$((st)); BRACE_R_PAD=0; BRACE_R_ALPHA=1
+    BRACE_R_DIR=1; [[ $BRACE_R_START -gt $BRACE_R_END ]] && BRACE_R_DIR=-1
+    BRACE_R_COUNT=$(( ( (BRACE_R_END - BRACE_R_START) * BRACE_R_DIR / BRACE_R_STEP ) + 1 ))
+    return 0
+  fi
+  return 1
+}
+
+# $1 에서 **콤마 또는 범위를 담은, 균형 잡힌** 첫 중괄호 그룹을 찾는다(F65 5·6차 판정 반려 반영).
+# 콤마도 `..` 도 없는 바깥 그룹은 실제 bash 에서도 리터럴이다 — `echo {a{b,c}}` 는 `{ab} {ac}` 를
+# 낸다(바깥 `{`·`}` 는 글자 그대로 남고 안쪽 `{b,c}` 만 펴진다, 직접 확인). 그래서 바깥에서
+# 안쪽으로 **점점 좁혀가며** 확장 가능한 그룹을 찾는다 — 첫 번째 시도에서 콤마도 `..` 도 없으면
+# 그 `{` 를 리터럴로 치고 바로 다음 `{` 부터 다시 찾는다. 짝이 맞는 `}` 는 깊이 카운터로 찾는다
+# (5차 판정이 실측한 우회 — `{.claude,{x,y}}` — 는 이전 구현이 "첫 `}`" 로 끊어 안쪽 그룹과
+# 뒤섞인 결과였다).
+# 성공하면 BRACE_PRE/BRACE_BODY/BRACE_POST/BRACE_KIND(comma|range|suspicious) 를 채우고 0,
+# 확장 가능한(또는 확장 여부가 불확실한) 그룹이 아예 없으면 1.
 __brace_find_group() {
   local t="$1"
   # 주의: `n=${#t}` 를 위 선언과 같은 `local` 문에 두면 안 된다 — bash 는 그 우변을 t 가
@@ -886,19 +947,33 @@ __brace_find_group() {
     done
     if [[ $j -lt 0 ]]; then start=$((i+1)); continue; fi   # 짝 없음 — 리터럴, 다음 `{` 로
     body="${t:i+1:j-i-1}"; bn=${#body}
+    # 콤마 유무만 보지 않고 **개수까지** 센다(끝까지 스캔) — F65 6차 판정 부수 지적: 콤마를
+    # 찾자마자 멈추면 항목 개수를 모른 채 __brace_split_top_level() 로 배열을 통째로 만들게
+    # 되는데, 그 배열 생성 자체가 예산 확인보다 **먼저** 일어난다. 콤마 하나짜리 그룹은
+    # 무해하지만 한 그룹 안에 콤마가 수만 개면(`{x1,x2,...,x10000}`) 배열 생성 자체가 이미
+    # 무겁다(실측: 1만 콤마가 9.4초). 개수를 먼저 O(길이)로 세 두면 예산 확인이 배열 생성
+    # **전에** 일어날 수 있다(아래 range 분기와 같은 패턴).
     has_comma=0; depth=0; k=0
     while [[ $k -lt $bn ]]; do
       c="${body:k:1}"
       if [[ "$c" == '{' ]]; then depth=$((depth+1))
       elif [[ "$c" == '}' ]]; then depth=$((depth-1))
-      elif [[ "$c" == ',' && $depth -eq 0 ]]; then has_comma=1; break; fi
+      elif [[ "$c" == ',' && $depth -eq 0 ]]; then has_comma=$((has_comma+1)); fi
       k=$((k+1))
     done
-    if [[ $has_comma -eq 1 ]]; then
-      BRACE_PRE="${t:0:i}"; BRACE_BODY="$body"; BRACE_POST="${t:j+1}"
+    if [[ $has_comma -gt 0 ]]; then
+      BRACE_PRE="${t:0:i}"; BRACE_BODY="$body"; BRACE_KIND=comma
+      BRACE_POST="${t:j+1}"; BRACE_COMMA_COUNT=$((has_comma+1))
       return 0
     fi
-    start=$((i+1))   # 이 그룹은 콤마가 없다 — 리터럴이다, 안쪽에서 계속 찾는다
+    # 콤마가 없다 — 범위인지 본다(F65 6차 판정: 콤마 없다고 곧장 리터럴로 단정한 것이 반려
+    # 사유였다). `..` 가 아예 없으면 bash 문법상 범위일 수 없으므로 진짜 리터럴이다.
+    if [[ "$body" == *..* ]]; then
+      BRACE_PRE="${t:0:i}"; BRACE_BODY="$body"; BRACE_POST="${t:j+1}"
+      if __brace_range_info "$body"; then BRACE_KIND=range; else BRACE_KIND=suspicious; fi
+      return 0
+    fi
+    start=$((i+1))   # 콤마도 `..` 도 없다 — 진짜 리터럴이다, 안쪽에서 계속 찾는다
   done
 }
 
@@ -921,7 +996,7 @@ __brace_split_top_level() {
 }
 
 __control_plane_location_impl() {
-  local t="$1" rest pd cand
+  local t="$1" rest pd cand base
   # **중괄호 확장을 먼저 편다 (F65 4차 판정 step 10, 5차 판정이 중첩·폭발 결함을 반려해 재작업).**
   # 셸은 명령을 실제로 실행할 때만 `{a,b}` 를 펼친다 — 우리는 문자열만 파싱하므로 `.claude/
   # {settings.json,hooks}` 가 아래 어떤 case 문에도 매치하지 않는 통짜 토큰으로 들어온다.
@@ -941,8 +1016,15 @@ __control_plane_location_impl() {
   # 맞바꾼 승인된 트레이드오프다(5차 판정 권고).
   case "$t" in
     *'{'*)
+      # 길이 상한 — __brace_find_group()/__brace_split_top_level() 는 문자 단위로 훑는다
+      # (순수 bash 문자열 인덱싱이라 글자당 비용이 붙는다). 그룹 **개수**는 __BRACE_BUDGET 이
+      # 막지만, 그 판단을 하기 위한 스캔 자체가 토큰 **길이**에 비례한다 — 한 그룹 안에 콤마
+      # 수만 개를 몰아넣으면(`{x1,x2,...,x10000}`) 예산 확인 이전의 탐색·계수만으로도 무겁다
+      # (6차 판정 부수 지적, 실측: 이 스캔 없이 예산만 있던 중간 상태에서 1만 콤마가 초 단위).
+      # 실제 경로 토큰이 이 길이를 넘는 경우는 없다(전통적 PATH_MAX 도 4096) — 넘으면 스캔을
+      # 시작하지 않고 안전한 쪽(ask)으로 fail-closed한다.
+      if [[ ${#t} -gt 4096 ]]; then return 0; fi
       if __brace_find_group "$t"; then
-        __brace_split_top_level "$BRACE_BODY"
         # BRACE_PRE/BRACE_POST 를 즉시 지역 변수로 복사한다 — 전역이라 아래 재귀 호출(중첩
         # 그룹을 만나면 __brace_find_group 을 다시 부른다)이 이 루프가 두 번째 이후 item 에
         # 쓰려는 값을 덮어쓴다. 복사 없이 `${BRACE_PRE}${item}${BRACE_POST}` 를 루프 안에서
@@ -952,16 +1034,59 @@ __control_plane_location_impl() {
         # 이 복사가 없으면 `.claude` 앞에 이전 분기의 pre(`a`)가 섞여 `a.claude/settings.json`
         # 으로 재구성되어 allow 로 샜다).
         local pre="$BRACE_PRE" post="$BRACE_POST"
-        __BRACE_BUDGET=$((__BRACE_BUDGET - ${#BRACE_ITEMS[@]}))
-        if [[ $__BRACE_BUDGET -lt 0 ]]; then return 0; fi
-        local item
-        for item in "${BRACE_ITEMS[@]}"; do
-          if __control_plane_location_impl "${pre}${item}${post}"; then return 0; fi
-        done
-        return 1
+        case "$BRACE_KIND" in
+          suspicious)
+            # `..` 는 있는데 이 코드가 인식하는 깔끔한 범위 형태(정수-정수·단일문자-단일문자,
+            # 선택적 정수 step)가 아니다 — 무엇으로 펴지는지 모른다. F65 6차 판정의 교훈대로
+            # "못 펴면 안전"이라고 단정하지 않는다 — 모르면 안전한 쪽(ask).
+            return 0
+            ;;
+          range)
+            # 카운트는 산술로 먼저 구했다(__brace_range_info, O(1)) — 실제 값을 만들기 전에
+            # 예산부터 확인해야 `{1..999999999}` 류가 배열을 만들다 멈추지 않는다.
+            __BRACE_BUDGET=$((__BRACE_BUDGET - BRACE_R_COUNT))
+            if [[ $__BRACE_BUDGET -lt 0 ]]; then return 0; fi
+            local ridx=0 rval
+            while [[ $ridx -lt $BRACE_R_COUNT ]]; do
+              rval=$(__brace_range_value "$ridx")
+              if __control_plane_location_impl "${pre}${rval}${post}"; then return 0; fi
+              ridx=$((ridx+1))
+            done
+            return 1
+            ;;
+          comma)
+            # 예산은 배열을 만들기 **전에** 확인한다 — range 분기와 같은 이유다. 콤마 개수는
+            # __brace_find_group() 이 이미 세어 뒀으므로(BRACE_COMMA_COUNT) 여기서 다시 셀
+            # 필요가 없고, `__brace_split_top_level()`(배열 생성)은 예산 통과 후에만 부른다.
+            __BRACE_BUDGET=$((__BRACE_BUDGET - BRACE_COMMA_COUNT))
+            if [[ $__BRACE_BUDGET -lt 0 ]]; then return 0; fi
+            __brace_split_top_level "$BRACE_BODY"
+            local item
+            for item in "${BRACE_ITEMS[@]}"; do
+              if __control_plane_location_impl "${pre}${item}${post}"; then return 0; fi
+            done
+            return 1
+            ;;
+        esac
       fi
-      # 콤마 있는 그룹이 하나도 없다 — 중괄호가 전부 리터럴이다(예: `{.claude}`·`hooks/{hooks.json}`,
+      # 콤마도 범위도 없다 — 중괄호가 전부 리터럴이다(예: `{.claude}`·`hooks/{hooks.json}`,
       # 실제 bash 도 펴지 않는다, 직접 확인). 정규화·글로브·경로 판정으로 그대로 떨어진다.
+      ;;
+  esac
+  # 후행 글로브는 **그 디렉터리 안**을 비운다 — 디렉터리로 접어 판정한다(`rm -rf dir/*`).
+  #
+  # **F65 6차 판정 반려: 이 접기는 중괄호 확장이 끝난 뒤(여기)에서 해야 한다.** 예전에는
+  # `scan_control_plane_delete()` 가 이 접기를 중괄호 처리보다 **먼저** 했다 — `{.claude/*,x}`
+  # 같은 토큰에서 마지막 `/` 뒤 꼬리(`*,x}`)에 글로브 문자가 있다고 보고 그 앞을 잘라
+  # `{.claude` 라는 깨진 토큰을 만들었고, 그 반쪽짜리 중괄호는 다음 단계에서 짝을 찾지 못해
+  # 리터럴로 떨어져 결국 아무 것도 매치하지 않았다(격리 랩 실측: `.claude/settings.json`·
+  # `.claude/hooks`·`hooks/hooks.json` 이 실제로 지워졌다). 접기를 여기(중괄호 확장이 이미
+  # 끝나 `$t` 에 미확정 중괄호가 남아있지 않은 지점)로 옮기면, 콤마/범위 확장으로 나온 각
+  # 후보 문자열(`.claude/*` 등) 위에서 접기가 실행되어 `.claude` 를 올바르게 되찾는다.
+  base=${t##*/}
+  case "$base" in
+    *'*'*|*'?'*|*'['*)
+      if [[ "$t" == */* ]]; then t=${t%/*}; fi
       ;;
   esac
   # 글로브가 남은 토큰 — 셸이 무엇으로 펼칠지 실행 전에는 모른다. 그래서 **패턴이 컨트롤 플레인
@@ -1043,7 +1168,7 @@ control_plane_location() {
 # 않기 위해서다(열거하면 접두 한 단어로 게이트가 무력해진다 — F67 2차 판정이 `env` 로 실증했다).
 CP_DELETE_HIT=""
 scan_control_plane_delete() {
-  local seg tok base armed
+  local seg tok armed
   local -a toks
   # 마지막 세그먼트에는 개행이 없다 — `read` 의 종료 상태만 보면 그 세그먼트를 통째로 흘린다
   # (첫 구현이 그랬고, 배터리가 전부 allow 로 나와 즉시 드러났다).
@@ -1065,13 +1190,12 @@ scan_control_plane_delete() {
       esac
       [[ "$armed" -eq 1 ]] || continue
       [[ -z "$NORM_TOK" || "$NORM_TOK" == -* ]] && continue
-      # 후행 글로브는 **그 디렉터리 안**을 비운다 — 디렉터리로 접어 판정한다.
-      base=${NORM_TOK##*/}
-      case "$base" in
-        *'*'*|*'?'*|*'['*)
-          if [[ "$NORM_TOK" == */* ]]; then NORM_TOK=${NORM_TOK%/*}; fi
-          ;;
-      esac
+      # 후행 글로브 접기는 더 이상 여기서 하지 않는다(F65 6차 판정 반려) — 이 지점은 중괄호
+      # 확장보다 **먼저** 실행되므로, `{.claude/*,x}` 같은 토큰의 마지막 `/` 뒤 꼬리(`*,x}`)를
+      # 글로브로 오인해 앞을 잘라 `{.claude` 라는 깨진 토큰을 만들었다 — 그 반쪽짜리 중괄호는
+      # 짝을 잃어 리터럴로 떨어지고 결국 아무 것도 매치하지 못했다(실측: `.claude` 삭제 성공).
+      # 접기는 이제 `__control_plane_location_impl()` 안, 중괄호 확장이 끝난 뒤로 옮겼다 —
+      # 그래야 콤마/범위 확장으로 나온 각 후보(`.claude/*` 등) 위에서 접기가 실행된다.
       if control_plane_location "$NORM_TOK"; then CP_DELETE_HIT="$tok"; return 0; fi
     done
   done < <(printf '%s' "$NORMALIZED_CMD" | tr ';|&' '\n\n\n')
