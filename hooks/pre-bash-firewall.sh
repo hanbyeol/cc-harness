@@ -1271,19 +1271,43 @@ __quote_aware_split() {
 # 명령을 세그먼트로 나눠 삭제 동사 뒤의 피연산자 토큰을 판정한다.
 # 동사는 세그먼트 **어디에 있어도** 무장한다 — `sudo rm …`·`time rm …` 같은 접두 명령을 열거하지
 # 않기 위해서다(열거하면 접두 한 단어로 게이트가 무력해진다 — F67 2차 판정이 `env` 로 실증했다).
+# $1 안에 **진짜** ANSI-C/로케일 인용 시작(`$'`·`$"`)이 있는지 본다 — 이미 열린 따옴표
+# **밖**에서 `$` 바로 뒤에 `'`·`"` 가 오는 경우만 진짜다. F65 10차 판정이 실측한 과잉차단:
+# `grep -F 'end$' log.txt` 는 `$` 문자를 부분 문자열로만 보면 걸리는데, 그 `$` 는 이미
+# 열린 작은따옴표 **안**에 있는 정규식 앵커 문자일 뿐 새 인용을 여는 것이 아니다(`'end$'`
+# 를 통째로 보면 명확하다). 나이브한 부분 문자열 검사는 이 구분을 못 한다 — 인용부호
+# 상태를 추적해야 한다. 세그먼트가 너무 길면(2048자 초과, __quote_aware_split() 과 같은
+# 상한) 스캔하지 않고 **안전한 쪽으로 판단한다(진짜로 침)** — 못 보면 allow 가 아니라
+# ask 여야 한다.
+__has_real_dollar_quote() {
+  local s="$1" n k c inS=0 inD=0
+  if [[ ${#s} -gt 2048 ]]; then return 0; fi
+  n=${#s}; k=0
+  while [[ $k -lt $n ]]; do
+    c="${s:k:1}"
+    if [[ "$c" == "'" && $inD -eq 0 ]]; then inS=$((1-inS))
+    elif [[ "$c" == '"' && $inS -eq 0 ]]; then inD=$((1-inD))
+    elif [[ "$c" == '$' && $inS -eq 0 && $inD -eq 0 ]]; then
+      local nc="${s:k+1:1}"
+      [[ "$nc" == "'" || "$nc" == '"' ]] && return 0
+    fi
+    k=$((k+1))
+  done
+  return 1
+}
+
 CP_DELETE_HIT=""
 scan_control_plane_delete() {
-  local seg tok armed __d __sq __dqc
+  local seg tok armed
   local -a toks
-  # ANSI-C/로케일 인용(`$'...'`/`$"..."`) 이 세그먼트 어디에든 있으면 펴 보지 않고 곧장
-  # ask 로 처리한다(F65 9차 판정 반려 — 디코딩을 시도하는 대신 존재 자체를 신호로 쓰는
+  # ANSI-C/로케일 인용(`$'...'`/`$"..."`) 이 세그먼트 어디에든 진짜로 있으면 펴 보지 않고
+  # 곧장 ask 로 처리한다(F65 9차 판정 반려 — 디코딩을 시도하는 대신 존재 자체를 신호로 쓰는
   # 쪽으로 전환. normalize_path_token() 헤더 주석 참조). 동사 토큰(`\$'rm'`)과 피연산자
   # 토큰(`\$'.claude'`) 어느 쪽에 있어도 같은 문제라 **토큰 단위가 아니라 세그먼트 단위**로
   # 본다 — 동사를 이 표기로 위장하면 armed 자체가 안 걸려 게이트를 전부 비껴갈 수 있었다.
-  __d='$'; __sq="'"; __dqc='"'
   while IFS= read -r seg || [[ -n "$seg" ]]; do
     [[ -z "$seg" ]] && continue
-    if [[ "$seg" == *"${__d}${__sq}"* || "$seg" == *"${__d}${__dqc}"* ]]; then
+    if __has_real_dollar_quote "$seg"; then
       CP_DELETE_HIT="$seg"; return 0
     fi
     __quote_aware_split "$seg"
@@ -1334,10 +1358,20 @@ scan_control_plane_delete() {
   return 1
 }
 
-# 삭제 동사가 아예 없는 명령(대부분)은 토큰 순회를 건너뛴다.
-if [ "$PURE_READ" -eq 0 ] \
-   && [[ "$NORMALIZED_CMD" =~ (^|[^A-Za-z0-9_])(rm|rmdir|unlink|shred|mv|find)([^A-Za-z0-9_]|$) ]] \
-   && scan_control_plane_delete; then
+# **동사 이름을 사전 필터로 쓰지 않는다 (F65 10차 판정 반려).** 예전에는 "삭제 동사가
+# 아예 없는 명령은 건너뛴다"며 `(rm|rmdir|unlink|shred|mv|find)` 리터럴 부분 문자열을
+# NORMALIZED_CMD 에서 먼저 찾고, 맞을 때만 scan_control_plane_delete() 를 불렀다 — 순전히
+# 성능 최적화였는데 조용히 보안 게이트가 됐다. `'r'm -rf .claude` 처럼 동사 단어를 따옴표로
+# 쪼개면 이 부분 문자열 검사가 실패해 **scan_control_plane_delete() 자체가 호출되지 않는다**
+# — 그 함수 안의 정규화(따옴표 제거)는 이미 이 형태를 정확히 처리하는데, 그 앞의 문(gate)이
+# 정규화 이전 원문에서 똑같은 실수(동사 철자를 문자 그대로 찾는 것)를 반복해 안쪽 로직에
+# 도달하지도 못하게 막았다(실측: 격리 랩에서 zsh·bash 5.3·bash 3.2 전부 `.claude` 삭제
+# 성공). 이 사전 필터가 막던 성능 문제(모든 명령마다 토큰 순회)는 이제 없다 — 5~9차에서
+# 넣은 길이 상한들(512·2048자)이 이미 무거운 입력을 안쪽에서 막으므로, 짧은 정상 명령에서
+# scan_control_plane_delete() 를 매번 부르는 비용은 무시할 만하다. 그래서 PURE_READ 여부만
+# 보고 항상 부른다 — "이 명령엔 동사가 없다"는 판단을 내부 로직보다 먼저, 더 허술한
+# 방법으로 내리지 않는다.
+if [ "$PURE_READ" -eq 0 ] && scan_control_plane_delete; then
   log_decision ask
   jq -n --arg reason "컨트롤 플레인(배선 파일·설치 디렉터리)을 지우는 명령입니다 (pattern: control-plane-delete → $CP_DELETE_HIT). 실행 전 확인이 필요합니다." \
     '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "ask", permissionDecisionReason: $reason}}'

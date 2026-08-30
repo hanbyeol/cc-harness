@@ -2632,6 +2632,47 @@ delete_decision() {
     || { echo "\$' 신호 도입이 평범한 삭제에 마찰을 만들었다"; false; }
 }
 
+# === F65 10차 판정 (2026-08-30) 반려 — 동사 사전 필터가 안쪽 로직 자체를 우회 ===
+#
+# 10차 판정: 9차의 세그먼트 단위 \$'/\$" 검사는 정확했지만, 그 코드에 도달하기 **전**의
+# 성능 최적화용 사전 필터(`NORMALIZED_CMD` 에서 삭제 동사 리터럴 부분 문자열을 먼저 찾고
+# 맞을 때만 scan_control_plane_delete() 를 부른다)가 정규화 이전 원문에서 같은 실수를
+# 반복했다 — 동사 철자를 따옴표로 쪼개면(`'r'm -rf .claude`) 이 사전 필터부터 실패해
+# scan_control_plane_delete() 자체가 호출되지 않았다. 격리 랩에서 zsh·bash 5.3·bash 3.2
+# 전부 .claude 삭제까지 실증됐다. 재작업: 사전 필터를 제거하고 PURE_READ 가 아니면 항상
+# 안쪽 로직을 부른다 — 5~9차의 길이 상한들이 이미 무거운 입력을 안쪽에서 막으므로 성능
+# 걱정 없이 뺄 수 있었다.
+
+@test "F65 verb-disguise: quote-split delete verbs still reach the gate (10th verdict)" {
+  local c
+  for c in "'r'm -rf .claude" \
+           "r''m -rf .claude" \
+           'r\m -rf .claude' \
+           '"r"m -rf .claude' \
+           "m''v .claude /tmp/x" \
+           "f''ind .claude -delete" \
+           "unlin''k .claude/settings.json" \
+           "shre''d .claude/settings.json"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "따옴표로 쪼갠 삭제 동사가 사전 필터를 빠져나가 게이트를 통째로 비껴갔다: $c"; false; }
+  done
+}
+
+@test "F65 ansi-c: a dollar sign inside an already-open quote does not falsely trigger (10th verdict, over-blocking)" {
+  # 9차 수정의 "\$' 존재만 보고 ask" 검사가 나이브한 부분 문자열 비교였을 때, 이미 열린
+  # 작은따옴표 **안**의 정규식 앵커(`'end\$'`)나 awk 필드 참조(`'{print \$1}'`)까지
+  # 새 인용 시작으로 오판했다 — 인용부호 상태를 추적해야 구분된다.
+  local c
+  for c in "grep -F 'end\$' log.txt; rm -f tmp.o" \
+           "awk '{print \$1}' file.txt" \
+           "echo 'price: \$5'; rm -f tmp.o"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "따옴표 안의 \$ 가 ANSI-C 인용 시작으로 오판돼 마찰이 생겼다: $c"; false; }
+  done
+}
+
 @test "F65 sibling: protected-integrity.sh does not crash when no protected file exists (9th verdict)" {
   # 9차 판정이 훑기 요청(요청 3번)에서 형제 훅의 같은 결함을 찾았다: PROTECTED_GLOBS 어느
   # 패턴도 매치하지 않는 저장소(플러그인이 설치된 사용자 저장소의 흔한 상태)에서 FILES 가
