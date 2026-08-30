@@ -2436,6 +2436,77 @@ delete_decision() {
     || { echo "대형 단일 그룹 처리가 ${elapsed}ms 걸렸다 — 길이 상한이 무력화된 것"; false; }
 }
 
+# === F65 7차 판정 (2026-08-30) 반려 — 재정규화 누락·따옴표/분리 순서·미매치 중괄호 O(n²) ===
+#
+# 7차 판정 실측: 5·6차가 닫은 것은 검증했지만 그 밖의 세 축이 남아 있었다 — (C) 중괄호 확장
+# 후보가 normalize_path_token()을 다시 거치지 않아 `//`·`/./`·후행 `/`가 남는다, (D) 삭제
+# 스캐너의 토큰 분리가 따옴표 제거보다 먼저 실행돼 인용부호 안 공백에서 잘못 쪼갠다, (E) 짝
+# 없는 `{`가 많으면 매 위치마다 문자열 끝까지 재스캔해 O(n²)다(600개가 5.26초, 훅 타임아웃
+# 초과). 격리 랩에서 (C)·(D) 모두 실제 삭제·덮어쓰기까지 실증됐다.
+
+@test "F65 renormalize: brace candidates with // or /./ or trailing / are gated (7th verdict Class C)" {
+  # 중괄호 확장이 만드는 후보(`.claude/` + `.` + `/settings.json` 등)가 정규화를 다시 거치지
+  # 않으면 (a)/(b) 의 정확 일치 case 문을 피해간다.
+  local c
+  for c in "rm -rf {.claude/,zz}" \
+           "rm -rf .claude/{.,zz}/settings.json" \
+           "rm -rf hooks/{.,zz}/hooks.json"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "재정규화 누락으로 컨트롤 플레인 삭제가 무프롬프트다: $c"; false; }
+  done
+}
+
+@test "F65 tokenize: a quoted space inside a brace alternative does not break the group (7th verdict Class D)" {
+  # 셸은 `{.claude,'a b'}` 를 한 단어로 보고 중괄호를 편 뒤 따옴표를 벗긴다. 공백 기준으로
+  # 먼저 쪼개면 중괄호 그룹이 반쪽만 남아 컨트롤 플레인 대안을 놓친다.
+  run delete_decision "rm -rf {.claude,'a b'}"
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "인용부호 안 공백이 중괄호 그룹을 깨뜨려 무프롬프트가 됐다"; false; }
+}
+
+@test "F65 tokenize: ordinary quoted arguments without braces still split correctly" {
+  # 이관한 분리 로직이 흔한 인용부호 사용(따옴표로 감싼 평범한 경로)을 깨지 않는지 확인한다.
+  run delete_decision "rm -rf '.claude/worktrees/agent x'"
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "따옴표로 감싼 평범한 경로 삭제에 마찰이 생겼다"; false; }
+}
+
+@test "F65 brace: many unmatched braces stay fast, not O(n^2) (7th verdict Class E perf)" {
+  # 짝 없는 `{` 가 많으면(닫는 `}` 가 전혀 없는 경우) 예전 구현은 위치마다 문자열 끝까지
+  # 재스캔했다 — 600개가 5.26초(훅 타임아웃 5초 초과)였다. 스택 기반 단일 패스 계산 이후
+  # 벽시계로 유계성을 고정한다.
+  local body="x" i t0 t1 elapsed
+  for ((i=0;i<600;i++)); do body="${body}{"; done
+  local c="rm -rf ${body}"
+  t0=$(date +%s%N)
+  run delete_decision "$c"
+  t1=$(date +%s%N)
+  elapsed=$(( (t1 - t0) / 1000000 ))
+  [ "$elapsed" -lt 3000 ] \
+    || { echo "짝 없는 중괄호 600개 처리가 ${elapsed}ms 걸렸다 — O(n^2) 재발"; false; }
+}
+
+@test "F65 verb-check: an oversized delete-verb operand does not hang the arm/verb comparison" {
+  # 7차 판정 재작업 도중 자체 발견(판정 대상 아님): scan_control_plane_delete()의 동사 판정이
+  # \${NORM_TOK##*/}(와일드카드 포함 추출)를 썼는데, 이 bash에서 그 추출 자체가 문자열
+  # 길이에 대해 이차식이었다(매칭 성공/실패와 무관 — 직접 실측). 콤마 그룹의 피연산자 토큰은
+  # __control_plane_location_impl()의 512자 상한을 거치기 **전**이라 무방비였다. 접미사
+  # 판정(`[[ == 패턴 ]]`)으로 바꿔 고쳤다 — 만 단위 콤마 단일 그룹이 여전히 정상 시간 안에
+  # 끝나는지 고정한다(다른 성능 테스트와 성격이 달라 단독 테스트).
+  local body="x0" i t0 t1 elapsed
+  for ((i=1;i<10000;i++)); do body="${body},x${i}"; done
+  local c="rm -rf {${body}}"
+  t0=$(date +%s%N)
+  run delete_decision "$c"
+  t1=$(date +%s%N)
+  elapsed=$(( (t1 - t0) / 1000000 ))
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "1만 콤마 단일 그룹이 상한 없이 통과했다"; false; }
+  [ "$elapsed" -lt 4000 ] \
+    || { echo "1만 콤마 단일 그룹 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처"; false; }
+}
+
 @test "F65 installed-hook-delete: deleting an individual installed hook file is gated (step 11)" {
   # 같은 경로에 대한 쓰기(F73 in-place arm)는 이미 ask다 — 삭제도 같은 대칭이어야 한다.
   local c

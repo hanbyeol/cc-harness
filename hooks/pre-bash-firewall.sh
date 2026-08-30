@@ -914,13 +914,37 @@ __brace_range_info() {
   return 1
 }
 
+# $1 전체를 **한 번만** 훑어 모든 `{`의 짝(있으면)을 스택으로 계산한다(F65 7차 판정 반려,
+# Class E). 이전 구현은 `__brace_find_group()` 안에서 "짝을 못 찾으면 다음 `{`부터 끝까지
+# 다시 스캔"을 반복했다 — 짝 없는 `{`가 N개면 O(n²)이다(실측: 열린 중괄호 600개가 훅
+# 타임아웃(5초)을 넘는 5.26초, 4096자 상한 지점에서는 517초). 스택 기반 단일 패스는 문자
+# 하나당 O(1) 작업만 하므로 총 O(n)이다 — bash 3.2 에는 연관배열이 없어(이 훅이 실행되는
+# 실제 환경, `/bin/bash --version` 확인됨) 열린 위치를 **인덱스로 쓰는 일반 배열**
+# MATCHCLOSE 에 닫힌 위치를 담는다(성긴 배열 대입은 3.2 에서도 된다).
+__brace_prescan() {
+  local t="$1"
+  local n=${#t} k=0 c sp=0
+  local -a stack=()
+  MATCHCLOSE=()
+  while [[ $k -lt $n ]]; do
+    c="${t:k:1}"
+    if [[ "$c" == '{' ]]; then
+      stack[$sp]=$k; sp=$((sp+1))
+    elif [[ "$c" == '}' && $sp -gt 0 ]]; then
+      sp=$((sp-1)); MATCHCLOSE[${stack[$sp]}]=$k
+    fi
+    k=$((k+1))
+  done
+}
+
 # $1 에서 **콤마 또는 범위를 담은, 균형 잡힌** 첫 중괄호 그룹을 찾는다(F65 5·6차 판정 반려 반영).
 # 콤마도 `..` 도 없는 바깥 그룹은 실제 bash 에서도 리터럴이다 — `echo {a{b,c}}` 는 `{ab} {ac}` 를
 # 낸다(바깥 `{`·`}` 는 글자 그대로 남고 안쪽 `{b,c}` 만 펴진다, 직접 확인). 그래서 바깥에서
 # 안쪽으로 **점점 좁혀가며** 확장 가능한 그룹을 찾는다 — 첫 번째 시도에서 콤마도 `..` 도 없으면
-# 그 `{` 를 리터럴로 치고 바로 다음 `{` 부터 다시 찾는다. 짝이 맞는 `}` 는 깊이 카운터로 찾는다
-# (5차 판정이 실측한 우회 — `{.claude,{x,y}}` — 는 이전 구현이 "첫 `}`" 로 끊어 안쪽 그룹과
-# 뒤섞인 결과였다).
+# 그 `{` 를 리터럴로 치고 바로 다음 `{` 부터 다시 찾는다. 짝은 위 __brace_prescan() 이 미리
+# 계산해 둔 것을 O(1)로 조회한다(5차 판정이 실측한 우회 — `{.claude,{x,y}}` — 는 짝을 "첫
+# `}`"로 끊어 안쪽 그룹과 뒤섞인 결과였다 — 스택 기반 계산은 깊이를 정확히 추적하므로 같은
+# 결함이 재발하지 않는다).
 # 성공하면 BRACE_PRE/BRACE_BODY/BRACE_POST/BRACE_KIND(comma|range|suspicious) 를 채우고 0,
 # 확장 가능한(또는 확장 여부가 불확실한) 그룹이 아예 없으면 1.
 __brace_find_group() {
@@ -930,22 +954,14 @@ __brace_find_group() {
   # 죽지만, 호출자 스코프에 우연히 같은 이름 t 가 남아 있으면 **그 값으로 조용히 계산되는**
   # 쪽이 더 위험하다(실측: __control_plane_location_impl 이 같은 이름 t 를 갖고 있어 이
   # 형태로도 우연히 통과했었다 — 이름이 겹치지 않았다면 늘 죽었을 것이다).
-  local n=${#t} start=0 i j depth c body bn k has_comma
+  local n=${#t} start=0 i j c body bn k has_comma
+  __brace_prescan "$t"
   while :; do
     i=-1; k=$start
     while [[ $k -lt $n ]]; do [[ "${t:k:1}" == '{' ]] && { i=$k; break; }; k=$((k+1)); done
     [[ $i -ge 0 ]] || return 1
-    depth=1; j=-1; k=$((i+1))
-    while [[ $k -lt $n ]]; do
-      c="${t:k:1}"
-      if [[ "$c" == '{' ]]; then depth=$((depth+1))
-      elif [[ "$c" == '}' ]]; then
-        depth=$((depth-1))
-        [[ $depth -eq 0 ]] && { j=$k; break; }
-      fi
-      k=$((k+1))
-    done
-    if [[ $j -lt 0 ]]; then start=$((i+1)); continue; fi   # 짝 없음 — 리터럴, 다음 `{` 로
+    if [[ -z "${MATCHCLOSE[$i]+x}" ]]; then start=$((i+1)); continue; fi   # 짝 없음 — 리터럴, 다음 `{` 로
+    j=${MATCHCLOSE[$i]}
     body="${t:i+1:j-i-1}"; bn=${#body}
     # 콤마 유무만 보지 않고 **개수까지** 센다(끝까지 스캔) — F65 6차 판정 부수 지적: 콤마를
     # 찾자마자 멈추면 항목 개수를 모른 채 __brace_split_top_level() 로 배열을 통째로 만들게
@@ -997,6 +1013,14 @@ __brace_split_top_level() {
 
 __control_plane_location_impl() {
   local t="$1" rest pd cand base
+  # **재귀할 때마다 다시 정규화한다 (F65 7차 판정 반려, Class C).** 호출자(scan_control_plane_
+  # delete)는 원본 토큰 하나에만 normalize_path_token()을 한 번 부른다 — 중괄호 확장이 만드는
+  # 후보 문자열(`.claude/` + `.` + `/settings.json` = `.claude/./settings.json`)은 그 정규화를
+  # 한 번도 거치지 않는다. `//`·`/./`·후행 `/`가 남으면 (a)/(b)/(c) 의 정확 일치 case 문이
+  # 매치하지 못한다(실측: `rm -rf {.claude/,zz}` → `.claude/` 가 그대로 남아 allow, 실제로는
+  # `.claude` 그 자체다). normalize_path_token 은 중괄호를 건드리지 않으므로 몇 번을 다시
+  # 불러도 안전하다(멱등) — 매 재귀 진입점에서 다시 부른다.
+  normalize_path_token "$t"; t="$NORM_TOK"
   # **중괄호 확장을 먼저 편다 (F65 4차 판정 step 10, 5차 판정이 중첩·폭발 결함을 반려해 재작업).**
   # 셸은 명령을 실제로 실행할 때만 `{a,b}` 를 펼친다 — 우리는 문자열만 파싱하므로 `.claude/
   # {settings.json,hooks}` 가 아래 어떤 case 문에도 매치하지 않는 통짜 토큰으로 들어온다.
@@ -1016,14 +1040,16 @@ __control_plane_location_impl() {
   # 맞바꾼 승인된 트레이드오프다(5차 판정 권고).
   case "$t" in
     *'{'*)
-      # 길이 상한 — __brace_find_group()/__brace_split_top_level() 는 문자 단위로 훑는다
-      # (순수 bash 문자열 인덱싱이라 글자당 비용이 붙는다). 그룹 **개수**는 __BRACE_BUDGET 이
-      # 막지만, 그 판단을 하기 위한 스캔 자체가 토큰 **길이**에 비례한다 — 한 그룹 안에 콤마
-      # 수만 개를 몰아넣으면(`{x1,x2,...,x10000}`) 예산 확인 이전의 탐색·계수만으로도 무겁다
-      # (6차 판정 부수 지적, 실측: 이 스캔 없이 예산만 있던 중간 상태에서 1만 콤마가 초 단위).
-      # 실제 경로 토큰이 이 길이를 넘는 경우는 없다(전통적 PATH_MAX 도 4096) — 넘으면 스캔을
-      # 시작하지 않고 안전한 쪽(ask)으로 fail-closed한다.
-      if [[ ${#t} -gt 4096 ]]; then return 0; fi
+      # 길이 상한 — __brace_prescan()/__brace_find_group() 는 문자 단위로 훑는다. 처음에는
+      # "그룹 개수는 예산이 막으니 길이만 4096(PATH_MAX)으로 넉넉히 막으면 된다"고 가정했는데
+      # (7차 판정 반려, Class E 수정 당시) **그 가정 자체가 실측 없이 세운 것**이었다 — 직접
+      # 재보니 `${t:k:1}` 문자 단위 인덱싱이 이 bash에서 **문자열 길이에 대해 이차식**이다
+      # (다른 작업은 전혀 없이 인덱싱만 반복해도 32000자가 9.4초, 4x 늘리면 시간이 대략 16배).
+      # 4096자는 이 인덱싱 한 번만 놓고 보면 안전해 보이지만(추정 0.1~0.3초), 재귀 한 단계마다
+      # 새 후보 문자열에 대해 또 스캔하므로(예산이 허용하는 한 최대 64회) 누적되면 5초 훅
+      # 타임아웃을 넘을 수 있다 — 그래서 상한을 512로 크게 낮춘다(64회 반복해도 이차식 상수
+      # 실측치 기준 1초 미만). 실제 경로 토큰이 512자를 넘는 경우는 사실상 없다.
+      if [[ ${#t} -gt 512 ]]; then return 0; fi
       if __brace_find_group "$t"; then
         # BRACE_PRE/BRACE_POST 를 즉시 지역 변수로 복사한다 — 전역이라 아래 재귀 호출(중첩
         # 그룹을 만나면 __brace_find_group 을 다시 부른다)이 이 루프가 두 번째 이후 item 에
@@ -1163,6 +1189,46 @@ control_plane_location() {
   __control_plane_location_impl "$1"
 }
 
+# $1 을 **따옴표를 존중해** 공백으로 나눠 SPLIT_TOKS 배열에 담는다(F65 7차 판정 반려, Class D).
+# `read -a` 는 IFS 공백만 보고 따옴표를 문자 그대로 취급한다 — 따옴표 제거는 그보다 뒤,
+# 토큰마다 부르는 normalize_path_token() 에서 일어난다. 그래서 `{.claude,'a b'}` 는 셸에게는
+# (중괄호+따옴표를 포함한) 한 단어인데 `read -a` 에게는 공백에서 둘로 쪼개져, 중괄호 그룹이
+# 반쪽만 남는다(실측: `rm -rf {.claude,'a b'}` 가 allow — 실제로는 `.claude` 를 지운다). 이
+# 함수는 인용부호 상태를 추적해 그 안의 공백을 분리 지점으로 보지 않는다 — 인용부호 문자는
+# 지우지 않고 그대로 토큰에 남긴다(어차피 이후 normalize_path_token 이 지운다).
+__quote_aware_split() {
+  local s="$1"
+  # 문자 단위 스캔이라 비용이 길이에 붙는다(F65 7차 판정 Class E 수정 때 실측: 이 인덱싱
+  # 방식 자체가 길이에 대해 이차식이다). 이 함수가 막는 우회(Class D)는 **중괄호와 따옴표가
+  # 함께 있을 때만** 성립하므로, `{` 가 아예 없으면 이 스캔이 낼 수 있는 값이 없다 — 기존
+  # 빠른 `read -a` 로 되돌아간다(대다수 명령에 해당하며 비용 변화가 전혀 없다). `{` 가 있어도
+  # 세그먼트가 비정상적으로 길면(실제 명령에서 나타나지 않는 크기) 상한을 넘지 않을 때만
+  # 이 스캔을 쓰고, 넘으면 같은 이유로 빠른 경로로 물러난다 — 이 경우 그 특정 긴 세그먼트에
+  # 한해 Class D 가 이론적으로 남지만(모르는 척하지 않고 여기 정직하게 적는다), 정상적인
+  # 명령 길이 안에서는 전혀 발동하지 않는다.
+  if [[ "$s" != *'{'* || ${#s} -gt 2048 ]]; then
+    SPLIT_TOKS=()
+    read -r -a SPLIT_TOKS <<<"$s"
+    return
+  fi
+  local n=${#s} k=0 c inS=0 inD=0 cur="" started=0
+  SPLIT_TOKS=()
+  while [[ $k -lt $n ]]; do
+    c="${s:k:1}"
+    if [[ "$c" == "'" && $inD -eq 0 ]]; then
+      inS=$((1-inS)); cur+="$c"; started=1
+    elif [[ "$c" == '"' && $inS -eq 0 ]]; then
+      inD=$((1-inD)); cur+="$c"; started=1
+    elif [[ $inS -eq 0 && $inD -eq 0 && ( "$c" == ' ' || "$c" == $'\t' ) ]]; then
+      [[ $started -eq 1 ]] && { SPLIT_TOKS+=("$cur"); cur=""; started=0; }
+    else
+      cur+="$c"; started=1
+    fi
+    k=$((k+1))
+  done
+  [[ $started -eq 1 ]] && SPLIT_TOKS+=("$cur")
+}
+
 # 명령을 세그먼트로 나눠 삭제 동사 뒤의 피연산자 토큰을 판정한다.
 # 동사는 세그먼트 **어디에 있어도** 무장한다 — `sudo rm …`·`time rm …` 같은 접두 명령을 열거하지
 # 않기 위해서다(열거하면 접두 한 단어로 게이트가 무력해진다 — F67 2차 판정이 `env` 로 실증했다).
@@ -1174,20 +1240,32 @@ scan_control_plane_delete() {
   # (첫 구현이 그랬고, 배터리가 전부 allow 로 나와 즉시 드러났다).
   while IFS= read -r seg || [[ -n "$seg" ]]; do
     [[ -z "$seg" ]] && continue
-    read -r -a toks <<<"$seg"
+    __quote_aware_split "$seg"; toks=("${SPLIT_TOKS[@]}")
     armed=0
     # `find … -delete` 는 동사가 술어로 온다. `-exec … rm` 은 아래 동사 검사가 무장한다.
     if [[ "$seg" == *"-delete"* ]]; then
       for tok in "${toks[@]}"; do
         normalize_path_token "$tok"
-        if [[ "${NORM_TOK##*/}" == "find" ]]; then armed=1; break; fi
+        # `${NORM_TOK##*/}` (basename 추출) 대신 접미사 패턴 **판정**을 쓴다 — F65 7차 판정
+        # 재작업 도중 자체 발견(판정 대상 아님): `${var##pattern}` 처럼 와일드카드가 든 추출은
+        # 이 bash에서 문자열 길이에 대해 이차식이다(직접 실측: 29KB 토큰 하나에 1.17초,
+        # 5.8만자 토큰은 4.8초 — 매칭 성공/실패와 무관하게 똑같이 느리다). 반면 `[[ x == 패턴 ]]`
+        # **판정**은 같은 조건에서 0.01초대다. 중괄호 그룹 콤마 하나짜리 피연산자 토큰은 실제로
+        # 수만 자까지 커질 수 있고(F65 축), 이 자리는 그 토큰이 __control_plane_location_impl()
+        # 의 512자 상한을 거치기 **전**이라 무방비였다.
+        if [[ "$NORM_TOK" == "find" || "$NORM_TOK" == */find ]]; then armed=1; break; fi
       done
     fi
     for tok in "${toks[@]}"; do
       normalize_path_token "$tok"
-      case "${NORM_TOK##*/}" in
-        rm|rmdir|unlink|shred|mv) armed=1; continue ;;
-      esac
+      # 위와 같은 이유로 `${NORM_TOK##*/}` 추출이 아니라 접미사 판정을 쓴다.
+      if [[ "$NORM_TOK" == rm || "$NORM_TOK" == */rm \
+         || "$NORM_TOK" == rmdir || "$NORM_TOK" == */rmdir \
+         || "$NORM_TOK" == unlink || "$NORM_TOK" == */unlink \
+         || "$NORM_TOK" == shred || "$NORM_TOK" == */shred \
+         || "$NORM_TOK" == mv || "$NORM_TOK" == */mv ]]; then
+        armed=1; continue
+      fi
       [[ "$armed" -eq 1 ]] || continue
       [[ -z "$NORM_TOK" || "$NORM_TOK" == -* ]] && continue
       # 후행 글로브 접기는 더 이상 여기서 하지 않는다(F65 6차 판정 반려) — 이 지점은 중괄호
