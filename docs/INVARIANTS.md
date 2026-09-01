@@ -1114,9 +1114,37 @@ ask). 남는 몫은 동사 자체가 통째로 치환 안에 숨어 있고(리�
 `open_axes_2026_08_04`에 새로 선언했다(11차 판정의 `V=rm; $V -rf .claude` 발견과 같은 계열의,
 임의 계산을 문자열 예측으로 결정할 수 없다는 F65/INV-14 의 원리적 한계).
 
-**여덟 라운드(4~11차), 11차 재작업 중 자체 발견 포함 전부 add-only다** — 회귀 스위트
-`tests/pre-bash-firewall.bats` 284/284, 저장소 전체 `tests/` 849/849, 두 bash 버전
-(5.3·3.2) 모두에서 확인.
+**12차 독립 판정 — 위 "Layer 2가 이미 deny 한다"는 주장은 틀렸다, 28건 lab 확인
+(2026-09-02)**: 11차 재작업 중 자체 발견(위)이 명령 치환의 안전망으로 든 근거를 12차
+독립 판정이 실측으로 반증했다. Layer 2 INDIRECT_PATTERNS 는 백틱·`$(...)` 안에서
+`\b(rm|chmod|chown|mkfs|eval)\b` 만 본다 — `scan_control_plane_delete()` 가 무장하는
+`rm|rmdir|unlink|shred|mv|find` 6개 중 5개(`rmdir`·`unlink`·`shred`·`mv`·`find`)가
+빠져 있고, `rmdir` 은 `\brm\b` 로도 안 잡힌다(단어 경계 앞에 "dir" 이 이어져 있어서).
+`__tokenize_segment()` 가 치환 안쪽 내용을 통째로 건너뛰므로, 이 다섯 동사가 치환 안에
+**평범한 낱말로 그대로** 있어도(`` `mv .claude /tmp/sink` ``·`$(find .claude -delete)`·
+`` `rmdir .claude/plugins` ``) 리터럴 동사 토큰이 세그먼트 어디에도 나타나지 않아 armed
+가 0으로 남고, 그 결과 이 커밋이 도입한 `SEGMENT_HAS_OPAQUE` 검사 자체가 호출되지
+않았다. argv 오라클 차동 퍼저(5동사 × 여러 표기 × 3대상)가 28건을 zsh·bash 5.3·bash 3.2
+전부에서 `.claude`·`.claude/hooks`·`.claude/plugins` 실제 삭제까지 확인했다 — parent
+commit(6085b80)도 전부 allow 였으므로 이번 재작업의 회귀는 아니지만, `verb_via_substitution`
+axis 의 최초 선언(`compensating` 필드)이 "hex/base64 인코딩된 경우만 남는다"고 적어 잔여
+범위를 실제보다 훨씬 좁게 서술했다는 것이 12차 판정의 핵심 지적이다.
+
+**수정**: `__note_opaque_verb()` 를 추가했다 — 백틱·`$(...)` 구간의 **원문**을 단어 경계
+정규식(`(^|[^A-Za-z0-9_])(rm|rmdir|unlink|shred|mv|find)([^A-Za-z0-9_]|$)`)으로 훑어,
+매치되면 그 동사 이름을 별도 토큰으로 `SPLIT_TOKS` 에 흘려보낸다 — `scan_control_plane_delete()`
+의 기존 armed 판정 로직은 손대지 않고, 이 합성 토큰을 다른 리터럴 동사 토큰과 똑같이
+본다. 안쪽을 여전히 파싱하지 않으므로(원문 존재만 확인), 치환 **안에서** 다시 따옴표로
+동사를 쪼개는 경우(`` `r'm' -rf .claude` ``)나 인코딩된 경우는 여전히 못 잡는다 — 이 좁혀진
+잔여를 `progress/contracts/sprint-51.json`의 `verb_via_substitution.remaining_gap` 에
+정확히 다시 적었다. 28건 재확인 결과 전부 ask.
+
+**여덟 라운드(4~11차), 11차 재작업 중 자체 발견과 12차 독립 판정 포함 전부 add-only다** —
+회귀 스위트 `tests/pre-bash-firewall.bats` 286/286(12차 대응 새 테스트 2건 포함), 저장소
+전체 `tests/` 851/851, 두 bash 버전(5.3·3.2) 모두에서 확인. **이 숫자는 회귀가 없다는
+증거이지 안전 자체의 증거가 아니다** — 284/284가 초록이던 바로 그 커밋에서 12차 판정이
+28건의 실제 우회를 찾았다(12차 판정의 지적). 안전은 이 숫자가 아니라 개별 판정이 재현한
+반례들이 뒷받침한다.
 
 ### INV-15. Layer 1(BLOCKED)도 사용자 override로 개별 제거될 수 있다 — 단, 사후 복구는 없다 (F74)
 

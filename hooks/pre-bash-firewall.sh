@@ -1296,6 +1296,24 @@ __skip_dollar_paren() {
   if [[ $depth -gt 0 ]]; then __OPAQUE_END=-1; else __OPAQUE_END=$j; fi
 }
 
+# 명령 치환 구간의 **원문**에 삭제 동사가 리터럴 단어로 있으면 그 동사를 별도 토큰으로
+# SPLIT_TOKS 에 흘려보낸다(F65 12차 판정 — 커밋 1096d5e 반려). 안쪽을 해석하지 않고
+# 건너뛰기만 하면, `` `mv .claude /tmp/sink` `` 처럼 동사와 피연산자가 통째로 치환 안에
+# 있는 세그먼트는 armed 가 끝내 안 걸려 아래 `SEGMENT_HAS_OPAQUE` 검사 자체가 호출되지
+# 않는다 — Layer 2 INDIRECT_PATTERNS 는 `rm|chmod|chown|mkfs|eval` 만 보고
+# `scan_control_plane_delete()` 가 무장하는 `rm|rmdir|unlink|shred|mv|find` 6개 중 5개를
+# 몰라서, 그 다섯 동사가 치환 안에 있으면 이 함수 앞에서도 아무도 안 잡는다(실측: 28건
+# lab 확인 우회 — mv 12·find 12·rmdir 4). 이 목록은 아래 `scan_control_plane_delete()` 의
+# 무장 동사 목록과 반드시 같아야 한다(하나만 고치면 다시 벌어진다 — 아래 패리티 테스트로
+# 고정). 이름이 우연히 겹치는 문맥(예: URL 경로의 "rm")까지 무장하는 과잉은 이 파일 전체가
+# 이미 받아들인 트레이드오프다("동사는 세그먼트 어디에 있어도 무장한다" 참조).
+__note_opaque_verb() {
+  local span="$1"
+  if [[ "$span" =~ (^|[^A-Za-z0-9_])(rm|rmdir|unlink|shred|mv|find)([^A-Za-z0-9_]|$) ]]; then
+    SPLIT_TOKS+=("${BASH_REMATCH[2]}")
+  fi
+}
+
 __tokenize_segment() {
   local s="$1"
   SEGMENT_UNSAFE=0
@@ -1335,6 +1353,7 @@ __tokenize_segment() {
       elif [[ "$c" == '`' ]]; then
         __skip_backtick "$s" "$k"
         [[ $__OPAQUE_END -lt 0 ]] && { SEGMENT_UNSAFE=1; return; }
+        __note_opaque_verb "${s:k:$((__OPAQUE_END-k))}"
         cur+="${s:k:$((__OPAQUE_END-k))}"; SEGMENT_HAS_OPAQUE=1
         k=$__OPAQUE_END; started=1; continue
       elif [[ "$c" == '$' ]]; then
@@ -1342,6 +1361,7 @@ __tokenize_segment() {
         if [[ "$nc" == '(' ]]; then
           __skip_dollar_paren "$s" "$k"
           [[ $__OPAQUE_END -lt 0 ]] && { SEGMENT_UNSAFE=1; return; }
+          __note_opaque_verb "${s:k:$((__OPAQUE_END-k))}"
           cur+="${s:k:$((__OPAQUE_END-k))}"; SEGMENT_HAS_OPAQUE=1
           k=$__OPAQUE_END; started=1; continue
         fi
@@ -1361,6 +1381,7 @@ __tokenize_segment() {
     elif [[ "$c" == '`' ]]; then
       __skip_backtick "$s" "$k"
       [[ $__OPAQUE_END -lt 0 ]] && { SEGMENT_UNSAFE=1; return; }
+      __note_opaque_verb "${s:k:$((__OPAQUE_END-k))}"
       cur+="${s:k:$((__OPAQUE_END-k))}"; started=1; SEGMENT_HAS_OPAQUE=1
       k=$__OPAQUE_END; continue
     elif [[ "$c" == '$' ]]; then
@@ -1369,6 +1390,7 @@ __tokenize_segment() {
       if [[ "$nc" == '(' ]]; then
         __skip_dollar_paren "$s" "$k"
         [[ $__OPAQUE_END -lt 0 ]] && { SEGMENT_UNSAFE=1; return; }
+        __note_opaque_verb "${s:k:$((__OPAQUE_END-k))}"
         cur+="${s:k:$((__OPAQUE_END-k))}"; started=1; SEGMENT_HAS_OPAQUE=1
         k=$__OPAQUE_END; continue
       fi

@@ -2713,15 +2713,18 @@ delete_decision() {
   done
 }
 
-# === F65 12차 판정 — 11차 재작업의 명령 치환 처리가 무장 여부와 무관해 새 회귀를 냈다 ===
+# === F65 11차 재작업 중 자체 발견(판정 대상 아님) — 명령 치환 처리가 무장 여부와 무관해
+#     새 회귀를 냈다 ===
 #
 # 11차 반려 재작업(위)은 백틱·`$(` 도 $'...'와 같은 방식으로, 삭제 동사 유무와 무관하게
 # 세그먼트 전체를 즉시 ask 로 처리했다. 그런데 이 두 구문은 평범한 명령에 흔하다
-# (`git commit -m "...`code`..."`, `ls $(pwd)`) — 기존 회귀 테스트 2건이 깨졌다. 수정:
-# 백틱·`$(` 는 SEGMENT_UNSAFE 대신 SEGMENT_HAS_OPAQUE 만 세우고 토큰화를 계속하며,
-# scan_control_plane_delete() 가 **삭제 동사가 리터럴로 확정된(armed) 세그먼트에서만**
-# 이 플래그를 ask 사유로 본다 — Layer 2 INDIRECT_PATTERNS 가 치환 안의 리터럴 위험 동사를,
-# `open_axes_2026_08_04.indirect_operand` 가 임의 계산 피연산자를 이미 나눠 맡고 있어서다.
+# (`git commit -m "...`code`..."`, `ls $(pwd)`) — 기존 회귀 테스트 2건이 깨졌다(커밋 전
+# 회귀 스위트로 자체 발견, 독립 판정 대상 아님). 수정: 백틱·`$(` 는 SEGMENT_UNSAFE 대신
+# SEGMENT_HAS_OPAQUE 만 세우고 토큰화를 계속하며, scan_control_plane_delete() 가
+# **삭제 동사가 리터럴로 확정된(armed) 세그먼트에서만** 이 플래그를 ask 사유로 본다 —
+# Layer 2 INDIRECT_PATTERNS 가 치환 안의 리터럴 위험 동사를, `open_axes_2026_08_04.
+# indirect_operand` 가 임의 계산 피연산자를 이미 나눠 맡고 있다는 (틀린) 전제였다 — 아래
+# 12차 독립 판정 참조.
 
 @test "F65 substitution: command substitution inside an armed segment still asks" {
   local c
@@ -2734,7 +2737,7 @@ delete_decision() {
   done
 }
 
-@test "F65 substitution: command substitution with no delete verb stays frictionless (12th verdict fix)" {
+@test "F65 substitution: command substitution with no delete verb stays frictionless" {
   local c
   for c in 'git commit -m "docs: use `code` style"' \
            'ls $(pwd)' \
@@ -2743,6 +2746,41 @@ delete_decision() {
     [[ "$output" == *'"permissionDecision": "allow"'* ]] \
       || { echo "삭제 동사 없는 명령 치환이 11차 재작업 탓에 ask 로 새 마찰을 만들었다: $c"; false; }
   done
+}
+
+# === F65 12차 독립 판정 — 치환 안의 리터럴 동사를 아무도 안 봤다 ===
+#
+# 11차 재작업 중 자체 발견(위)이 "치환 안의 위험 동사는 Layer 2 INDIRECT_PATTERNS 가 이미
+# deny 한다"고 전제했는데, 그 전제가 틀렸다. Layer 2 는 `rm|chmod|chown|mkfs|eval` 만 보고
+# scan_control_plane_delete() 가 무장하는 `rm|rmdir|unlink|shred|mv|find` 6개 중 5개를
+# 모른다. 그래서 그 다섯 동사가 치환 안에 리터럴로 있으면(예: `` `mv .claude /tmp/sink` ``)
+# armed 가 안 걸려 SEGMENT_HAS_OPAQUE 검사 자체가 호출되지 않았다 — 12차 독립 판정이
+# argv 오라클 차동 퍼저로 28건(mv 12·find -delete 12·rmdir 4)을 zsh·bash 5.3·bash 3.2
+# 전부에서 실제 삭제까지 확인했다. 수정: `__note_opaque_verb()` 가 치환 구간의 **원문**을
+# 훑어 삭제 동사가 리터럴 단어로 있으면 그 동사를 별도 토큰으로 SPLIT_TOKS 에 흘려보내
+# 기존 armed 판정이 그대로 잡게 한다.
+
+@test "F65 substitution: every arming delete verb hidden inside a substitution still asks (12th verdict)" {
+  local c
+  for c in '`mv .claude /tmp/f65sink`' \
+           '$(find .claude -delete)' \
+           '`rmdir .claude/plugins`' \
+           '`unlink .claude`' \
+           '`shred .claude`' \
+           '`rm .claude`'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* || "$output" == *'BLOCKED'* ]] \
+      || { echo "치환 안에 리터럴로 있는 삭제 동사가 allow 로 샜다: $c"; false; }
+  done
+}
+
+@test "F65 substitution: verb literal inside substitution with the whole command indirect still asks" {
+  # 12차 판정의 대표 반례 형태 — 동사·피연산자가 통째로 치환 안에 있어 리터럴 피연산자
+  # 토큰 자체가 아예 없다. armed 는 __note_opaque_verb() 가 흘려보낸 합성 토큰으로만 걸리고,
+  # 실제 판정은 armed && SEGMENT_HAS_OPAQUE 검사가 낸다.
+  run delete_decision '$(mv .claude/hooks /tmp/f65sink)'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "동사·피연산자가 통째로 치환 안에 있는 삭제가 allow 로 샜다"; false; }
 }
 
 @test "F65 sibling: protected-integrity.sh does not crash when no protected file exists (9th verdict)" {

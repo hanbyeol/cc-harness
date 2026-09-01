@@ -188,9 +188,10 @@
         "status": "부분 — 인터프리터 계열은 별도 arm 이 컨트롤 플레인 경로에 대해 이미 ask 다. 그 밖의 이름은 열거되어 있지 않다. **'동사 열거가 수렴한다'고 주장하지 않는다** — 12차 판정이 그 주장을 반증했다."
       },
       "verb_via_substitution": {
-        "example": "``printf '\\x72\\x6d'` -rf .claude` · `$(base64 -d <<<cm0=) -rf .claude` — 삭제 동사 이름이 명령 치환 **안에서 계산**되고 치환 문자열 자체에는 동사 리터럴이 나타나지 않는 경우",
-        "status": "미해결 — 11차 판정 반려 이후 재작업 도중 자체 발견(판정 대상 아님, 커밋 전 회귀 스위트가 반려)으로 좁혀진 axis. 재작업이 처음엔 세그먼트 안의 백틱·`$(` 를 무장(armed) 여부와 무관하게 전부 ask 로 막았으나, 이는 삭제와 무관한 평범한 명령(`git commit -m \"...`code`...\"`, `ls $(pwd)`)까지 깨뜨리는 새 회귀였다(회귀 테스트 2건). 수정은 이 축을 **무장된 세그먼트에서만** 위험한 것으로 좁혔다 — 그 결과 동사 자체가 통째로 치환 안에 숨어 있고 다른 리터럴 동사 토큰이 세그먼트에 없으면 armed 가 걸리지 않는다.",
-        "compensating": "치환 내용에 위험 동사 이름이 **리터럴로** 있으면 Layer 2 INDIRECT_PATTERNS 가 이 함수 이전에 이미 deny 한다(`` `rm ...` ``·`$(...rm...)`). 이 축은 그 리터럴 대조조차 피하는(hex/base64 등으로 인코딩된) 경우만 남는다 — `unenumerated_verbs`·`indirect_operand` 와 같은 계열의, 임의 계산을 문자열 예측으로 결정할 수 없다는 F65/INV-14 의 원리적 한계다."
+        "example": "``printf '\\x72\\x6d'` -rf .claude` · `$(base64 -d <<<cm0=) -rf .claude` — 삭제 동사 이름이 명령 치환 **안에서 계산**되고 치환 문자열 자체에는 동사 리터럴이 (공백으로 구분된 낱말로도) 나타나지 않는 경우",
+        "status": "미해결 — **12차 독립 판정이 이 axis 최초 선언(11차 재작업 자체 발견 당시)의 `compensating` 주장을 반증했다.** 최초 선언은 '치환 안에 위험 동사가 리터럴로 있으면 Layer 2 INDIRECT_PATTERNS 가 이미 deny 한다'고 적었는데 틀렸다 — Layer 2 는 `rm|chmod|chown|mkfs|eval` 만 보고, `scan_control_plane_delete()` 가 무장하는 `rm|rmdir|unlink|shred|mv|find` 6개 중 5개를 모른다. 그래서 그 다섯 동사가 치환 안에 **평범한 낱말로 그대로** 있어도(예: `` `mv .claude /tmp/sink` ``) 아무도 안 잡았다 — 12차 판정이 argv 오라클 차동 퍼저로 28건(mv 12·find -delete 12·rmdir 4)을 zsh·bash 5.3·bash 3.2 전부에서 실제 삭제까지 확인했다.",
+        "fixed_2026_09_02": "`__note_opaque_verb()` 가 치환 구간의 **원문**을 단어 경계 정규식(`rm|rmdir|unlink|shred|mv|find`)으로 훑어, 매치되면 그 동사를 별도 토큰으로 흘려보내 기존 armed 판정이 잡게 한다 — 28건 전부 재확인 결과 ask. 이 목록은 `scan_control_plane_delete()` 의 무장 동사 목록과 반드시 같아야 한다(하나만 고치면 다시 벌어진다) — `tests/pre-bash-firewall.bats`의 '12차 독립 판정' 절이 6개 동사 전부를 회귀 테스트로 고정한다.",
+        "remaining_gap": "낱말 경계 정규식조차 피하는 경우만 남는다 — (1) 인코딩(hex/base64/`printf`)으로 리터럴 동사 문자열 자체가 없는 경우, (2) 치환 **안에서** 다시 따옴표로 동사를 쪼개는 경우(`` `r'm' -rf .claude` `` — `__note_opaque_verb()` 는 치환 내부를 파싱하지 않고 원문만 훑으므로 이 형태는 못 잡는다). `unenumerated_verbs`·`indirect_operand` 와 같은 계열의, 임의 계산·중첩 표기를 문자열 예측으로 결정할 수 없다는 F65/INV-14 의 원리적 한계다."
       }
     }
   },
