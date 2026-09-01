@@ -1,0 +1,155 @@
+{
+  "timestamp": "2026-09-02T07:14:24+09:00",
+  "sprint": 51,
+  "iteration": 13,
+  "round_label": "F65 13th independent verdict",
+  "features_evaluated": [
+    "F65"
+  ],
+  "security_tier": "critical",
+  "commit_under_review": "978d8f2 fix(guard): arm on delete verbs found literally inside command substitution (F65 12th verdict)",
+  "parent_commit": "1096d5e",
+  "responds_to": "progress/agent-comms/evaluator-feedback-2026-09-02T00-24-24+0900.json (12th verdict, fail, security 3/10)",
+  "execution_environment": {
+    "shells": [
+      "/usr/local/bin/bash 5.3.15",
+      "/bin/bash 3.2.57",
+      "/usr/local/bin/zsh 5.9.2"
+    ],
+    "method": "argv-oracle differential fuzzer, independently written for this round (not reused from prior verdicts): every payload is (a) fed to the hook for a decision and (b) executed in a freshly rebuilt isolated lab whose HOME is redirected into the lab, then the surviving control-plane paths are diffed against a canary baseline. 2192 payloads x 3 shells.",
+    "lab_artifacts_controlled_for": [
+      "macOS has no shred(1) and no timeout(1) — shred payloads can never destroy here, so they are reported as decision-only, never as 'closed'",
+      "rmdir/unlink cannot act on a non-empty directory — corpus2 was re-run against file and empty-dir targets so every verb could actually act",
+      "a shared mv sink caused false 'intact' results — corpus3 was re-run with the sink cleared before every payload, which raised the confirmed count from 8 to 32",
+      ".claude/empty was verified NOT to be a control-plane path (baseline allow), so the 23 'bypasses' against it are excluded as lab artifacts"
+    ]
+  },
+  "scores": {
+    "functionality": 6,
+    "code_quality": 5,
+    "security": 4,
+    "error_handling": 7,
+    "test_coverage": 5
+  },
+  "score": 4,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 4 < 7 (critical tier) — automatic fail regardless of other scores",
+    "score 4 < pass_threshold 7",
+    "32 lab-confirmed bypasses on all three shells use PLAIN literal delete verbs inside a command substitution — the exact class this commit claims to have closed"
+  ],
+  "what_this_commit_got_right": [
+    "The 12th verdict's 28 bypasses are genuinely closed. All 29 replayed representative payloads (10 representative_bypasses + 5 class_extends_to + the 18-payload 3-verb x 3-target x 2-wrapper grid) return ask; 0 allow.",
+    "Broader confirmation: 342 payloads with a plain literal arming verb inside a substitution (6 verbs x 13 wrapper shapes x 7 targets) return 285 ask + 57 deny and 0 allow — provided the verb is the first arming-verb word in the span (see ISSUE-1).",
+    "No regression on earlier rounds. 11th-verdict backslash class: 54/54 ask, 0 bypasses. 9th-verdict ANSI-C verb-disguise class ($'rm', $\"rm\"): 18 ask + 1 deny, 0 bypasses.",
+    "No new friction: 24/24 ordinary commands (ls $(pwd), git commit -m with backticks, for f in $(ls), find . -name, mv src/a src/b, rm -f /tmp/...) still allow.",
+    "Regression suites independently reproduced: tests/pre-bash-firewall.bats 286/286 on bash 5.3 AND bash 3.2; full tests/ 851/851. The implementer's numbers are accurate.",
+    "The retraction is honest and specific. The false Layer 2 compensating-control claim is correctly identified, named, and withdrawn in both docs/INVARIANTS.md and progress/contracts/sprint-51.json, including the detail that \\brm\\b does not match rmdir.",
+    "Design restraint is correct: scan_control_plane_delete()'s armed/operand logic is untouched, so the synthetic token flows through the existing path rather than adding a parallel decision surface.",
+    "The two new bats tests are behaviourally meaningful (all 6 arming verbs inside a substitution, plus the whole-command-indirect form), not tautological.",
+    "Confirms by construction that the detect-and-recover split works as designed: progress/harness-config.json and tests/*.bats correctly get firewall allow because they are in PROTECTED_GLOBS and protected-integrity.sh restores them. The 6 corpus hits on those paths are by design, not defects."
+  ],
+  "issues": [
+    "[security][critical][confidence:high] ISSUE-1 find-shadow — __note_opaque_verb() records only the FIRST regex match. It pushes ${BASH_REMATCH[2]} once and returns, so a span containing the literal word `find` before the real delete verb never arms: bare `find` arms only when the segment also contains -delete, and the real verb (mv/unlink/rmdir/shred) is never pushed at all. 32 payloads were confirmed ALLOW + real destruction on bash 5.3, bash 3.2 and zsh simultaneously, e.g. `$(FOO=find mv .claude /tmp/sink)`, `$(env FIND=find mv .claude/hooks /tmp/sink)`, `$(F=find B=x unlink .claude/hooks/x.sh)`, `$(find= mv .claude/plugins /tmp/sink)`. An environment-variable prefix is an ordinary shell form, not an obfuscation. This is the very class the commit says it closed, and the declared remaining_gap does not admit it.",
+    "[security][high][confidence:high] ISSUE-2 residual understated for the third consecutive round. 204 in-substitution bypasses remain (lab-confirmed, allow + destruction). remaining_gap names two mechanisms; fuzzing found four: quote-split (108, declared), empty-quote r\"\"m / r''m (48, same family as declared), backslash-in-verb r\\m / f\\ind (24, NOT declared), hex encoding (24, declared). The umbrella phrase '낱말 경계 정규식조차 피하는 경우만 남는다' is technically true, but the named enumeration omits backslash — the exact mechanism the immediately preceding commit (1096d5e, 'unify quote/backslash tokenizer') was about — and omits verb-shadowing entirely.",
+    "[security][high][confidence:high] ISSUE-3 a cheap structural fix was available and not taken. Counterfactual B (~7 lines: loop over ALL matches in the span, and also scan a quote/backslash-stripped copy) measures: find-shadow 32 -> 0, verb-obfuscation 204 -> 24 (only genuine hex encoding survives), broad corpus 40 -> 21 (remainder is the by-design PROTECTED_GLOBS recovery set), ZERO new friction on non-protected targets, tests/pre-bash-firewall.bats still 286/286, and no measurable perf change on a 20KB span, a 2000-`find` span, or a brace bomb (0.25s / 0.17s / 0.15s, identical to HEAD). So roughly 88% of what this commit declares an accepted architectural limit is closable at near-zero cost using tokenizer machinery the previous round already added to this same file.",
+    "[quality][medium][confidence:high] ISSUE-4 the code comment asserts a control that does not exist. __note_opaque_verb()'s comment says the verb list is '아래 패리티 테스트로 고정' (pinned by the parity test below), and sprint-51.json repeats the pinning claim. `grep -rn 'note_opaque_verb|parity' tests/` returns no such test. The arming verb list is now duplicated (the regex at hooks/pre-bash-firewall.sh:1312 and the NORM_TOK chain in scan_control_plane_delete()); the added test pins the current 6 verbs behaviourally, but nothing fails if a 7th arming verb is added to scan_control_plane_delete() and forgotten in __note_opaque_verb(). That is exactly the list-drift that produced the Layer 2 bug this commit is fixing — an unverified compensating-control claim for the third round running.",
+    "[test][medium][confidence:high] ISSUE-5 no test covers verb-shadowing (ISSUE-1), and no test pins the declared residual. There is no negative/xfail test recording that `r'm'` or `r\\m` inside a substitution is knowingly allowed, so a future change cannot tell an intentional limit from a new regression.",
+    "[design][info][confidence:high] ISSUE-6 (out of scope, corroborates the 12th verdict) .claude/ is absent from PROTECTED_GLOBS because it is gitignored, so it has neither prediction nor detection/recovery. Every bypass above therefore destroys it permanently. Confirmed by contrast: identical deletions of progress/harness-config.json and tests/a.bats are correctly allowed at the firewall because protected-integrity.sh restores them. This commit does not address it and does not claim to."
+  ],
+  "counterexamples": {
+    "issue1_find_shadow_confirmed_on_all_three_shells": [
+      "$(FOO=find mv .claude /tmp/f65sink13c)",
+      "`FOO=find mv .claude /tmp/f65sink13c`",
+      "$(FOO=find mv .claude/hooks /tmp/f65sink13c)",
+      "$(FOO=find mv .claude/plugins /tmp/f65sink13c)",
+      "$(FOO=find unlink .claude/hooks/x.sh)",
+      "$(F=find B=x mv .claude /tmp/f65sink13c)",
+      "$(env FIND=find mv .claude /tmp/f65sink13c)",
+      "$(env FIND=find unlink .claude/hooks/x.sh)",
+      "$(find= mv .claude /tmp/f65sink13c)",
+      "$(find= unlink .claude/hooks/x.sh)"
+    ],
+    "issue1_total": "32 payloads, allow + destruction reproduced independently on bash 5.3, bash 3.2 and zsh 5.9 in the same run",
+    "issue1_is_not_a_regression": "parent 1096d5e allows the same forms — pre-existing. The defect is that the commit's claim ('a literal delete verb inside a substitution now arms the segment') generalises falsely, repeating the rounds 11/12 failure mode.",
+    "issue1_negative_control": "$(myfind mv .claude /tmp/s) and $(find_x mv .claude /tmp/s) correctly ask — 'find' preceded by a word character does not match, so mv becomes the first match. Only a non-word char before 'find' (space, /, -, =, digit) triggers the shadow.",
+    "issue2_undeclared_backslash_mechanism": [
+      "`r\\m -rf .claude/settings.json`",
+      "$(r\\m -rf .claude/hooks/x.sh)",
+      "`f\\ind .claude/settings.json -delete`",
+      "$(f\\ind .claude/plugins/p.json -delete)"
+    ],
+    "counterfactual_B": {
+      "patch": "in __note_opaque_verb(), replace the single `if [[ $span =~ ... ]]` with a loop over both $span and a quote/backslash-stripped copy, pushing every match and shortening the remainder each iteration (terminates because each strip shortens the string)",
+      "measured": "find-shadow 32->0; verb-obfuscation 204->24; broad corpus 40->21; new friction 0; bats 286/286; perf unchanged",
+      "caveat": "this is evaluator-side evidence that the gap is cheaply closable, not a production-ready patch — the tr subshell per opaque span and the over-arming it introduces on incidental verb names should be reviewed by the implementer"
+    }
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "the 28 bypasses named by the 12th verdict are closed — 29/29 replayed payloads ask, 0 allow",
+      "no friction regression — 24/24 ordinary commands still allow, including the two the 11th round fought to preserve",
+      "tests/pre-bash-firewall.bats 286/286 and full tests/ 851/851 reproduced independently on bash 5.3 and bash 3.2",
+      "the retraction of the false Layer 2 compensating-control claim is accurate in both INVARIANTS.md and sprint-51.json"
+    ],
+    "security": [
+      "plain literal arming verb inside a substitution now arms, when it is the first arming-verb word in the span (342 payloads, 0 allow)",
+      "11th-verdict backslash class did not reopen (54/54 ask)",
+      "9th-verdict ANSI-C verb-disguise class did not reopen (19/19 ask-or-deny)",
+      "fail-closed behaviour preserved: unterminated backtick and unbalanced $( still ask",
+      "bash 3.2 set -u empty-array safety preserved — suite green on 3.2"
+    ],
+    "error_scenarios": [
+      "no perf regression on pathological inputs (20KB span, 2000-verb span, brace bomb): identical to HEAD",
+      "detect-and-recover split behaves as designed for PROTECTED_GLOBS paths"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "'a delete verb written literally inside a substitution arms the segment' is false in general — verb-shadowing defeats it (ISSUE-1)"
+    ],
+    "security": [
+      "32 lab-confirmed bypasses with plain literal verbs inside a substitution (ISSUE-1)",
+      "204 lab-confirmed in-substitution bypasses remain, of which the backslash mechanism (24) is undeclared (ISSUE-2)",
+      "~88% of the declared residual is closable at near-zero cost and was not (ISSUE-3)"
+    ],
+    "error_scenarios": [],
+    "quality": [
+      "code comment and contract assert a parity test that does not exist (ISSUE-4)"
+    ]
+  },
+  "convergence_judgment": "Genuine forward progress, third consecutive round of the same meta-defect. Rounds 11, 12 and 13 each closed the previously named class and each shipped a fresh over-broad claim about what the new control covers: round 11 claimed Layer 2 covered literal verbs in substitutions (false, 28 bypasses), round 13 claims literal verbs in substitutions now arm (false, 32 bypasses). The pattern is that the compensating-control claim is asserted rather than fuzzed before commit. The fix for the loop is not another round of the same shape but a pre-commit differential fuzz over the arming surface, plus a parity test binding the two verb lists.",
+  "recommendation": "Return to implementer for a 14th round. (1) Make __note_opaque_verb() scan every match in the span, not just the first — this alone closes all 32 ISSUE-1 bypasses. (2) Also scan a quote/backslash-stripped copy of the span, which closes 180 of the 204 ISSUE-2 bypasses at zero measured friction and zero perf cost, leaving only genuine encoding as residual. (3) Add the parity test the comment already claims, asserting the __note_opaque_verb() verb list equals scan_control_plane_delete()'s arming list. (4) Add regression tests for the verb-shadow form and an explicit xfail-style test recording whatever residual genuinely remains. (5) Before committing, run the differential fuzzer over the arming surface rather than asserting the compensating control — every round that skipped this step shipped a false claim.",
+  "criteria_gaps": {
+    "missing_criteria": [
+      "sprint-51 has no acceptance criterion requiring that a declared residual be empirically bounded (fuzzed) before it is accepted — all three false claims would have been caught by such a criterion",
+      "no criterion requires a parity/consistency test when a security-relevant list is duplicated across functions"
+    ],
+    "ambiguous_criteria": [
+      "verb_via_substitution.remaining_gap is written as prose examples rather than an enumerated mechanism list with a payload corpus, which is why 'backslash' and 'verb shadowing' could fall out of it silently"
+    ],
+    "security_criteria_insufficient": [
+      "for a critical-tier gate, security_criteria should require a lab-confirmed bypass count (with the fuzz corpus committed) rather than a green regression suite — the 28 and the 32 both existed under a fully green suite"
+    ],
+    "action_required": "implementer should add an acceptance criterion binding declared residuals to a committed fuzz corpus, and a parity test for duplicated verb lists, in the 14th round"
+  },
+  "evidence": {
+    "fuzzer": "independently written for this round: /private/tmp/.../scratchpad/f65lab.sh + gen_corpus.py + gen3.py — 2192 payloads x 3 shells, each payload decision-probed against the hook and executed in a freshly rebuilt isolated lab with HOME redirected into the lab",
+    "verdict12_replay": "29/29 representative payloads from evaluator-feedback-2026-09-02T00-24-24+0900.json -> 29 ask, 0 allow, 0 deny-miss",
+    "plain_literal_verb_in_substitution": "342 payloads -> 285 ask + 57 deny + 0 allow",
+    "issue1_find_shadow": "corpus3, 700 payloads, 3 shells serial with sink cleared per payload -> 32 allow+DESTROYED identically on /usr/local/bin/bash 5.3.15, /bin/bash 3.2.57, /usr/local/bin/zsh 5.9.2",
+    "issue2_obfuscation": "corpus2, 516 payloads against file and empty-dir targets -> 204 allow+DESTROYED on genuinely protected targets; mechanism split quote-split 108 / empty-quote 48 / backslash 24 / hex 24",
+    "regression_prior_rounds": "11th-verdict backslash class 54/54 ask (0 bypasses); 9th-verdict ANSI-C class 18 ask + 1 deny (0 bypasses)",
+    "friction": "24/24 benign commands allow, unchanged from HEAD",
+    "tests": "bats tests/pre-bash-firewall.bats -> 286/286 (bash 5.3 and bash 3.2, run separately); bats tests/ -> 851/851",
+    "counterfactual_B": "proto2.sh (all-matches + quote/backslash-strip) -> find-shadow 32->0, obfuscation 204->24, broad 40->21, new friction 0, bats 286/286, perf identical (20KB span 0.25s, 2000-find span 0.17s, brace bomb 0.15s on both HEAD and proto)",
+    "parity_test_absence": "grep -rn 'note_opaque_verb|패리티|parity' tests/ -> no test binds the two verb lists; only hook-wiring-parity.bats (unrelated, F52/INV-13) matches",
+    "regression_baseline": "parent 1096d5e replayed on the ISSUE-1 payloads -> also allow, so ISSUE-1 is pre-existing and not introduced by this commit",
+    "recovery_scope_check": "hooks/protected-integrity.sh PROTECTED_GLOBS contains progress/harness-config.json, progress/feature_list.json, docs/INVARIANTS.md, tests/*.bats, hooks/*.sh — but not .claude/*, confirming ISSUE-6"
+  },
+  "passes_updated": false,
+  "passes_value": false,
+  "note_for_main_loop": "verdict=fail, so F65.passes stays false and no F37 cross-check is strictly required to withhold the gate. However F65 is critical tier: if a subsequent round reaches a pass verdict, it MUST NOT be gated on a single judge — dispatch a 2nd independent-context evaluator (F37) and escalate to the user on any verdict disagreement, and run security-auditor in parallel. Two further items need the user, not the implementer: (a) ISSUE-6, .claude/ has neither prediction nor detection/recovery because it is gitignored — that is a design decision above this commit's scope and the 12th verdict raised it too; (b) this is the third consecutive round where a compensating-control claim was asserted without fuzzing, so consider making a pre-commit differential fuzz over the arming surface a hard requirement in sprint-51's security_criteria rather than relying on the evaluator to find it each round. The evaluator-side fuzzer and the counterfactual patch are in the session scratchpad and are worth committing as a test asset."
+}

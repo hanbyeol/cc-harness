@@ -2783,6 +2783,74 @@ delete_decision() {
     || { echo "동사·피연산자가 통째로 치환 안에 있는 삭제가 allow 로 샜다"; false; }
 }
 
+# === F65 13차 독립 판정 — __note_opaque_verb() 가 매치를 한 번만 잡았다(동사 가리기) ===
+#
+# 12차 재작업(위)의 `__note_opaque_verb()` 는 `[[ =~ ]]` 로 첫 매치 하나만 SPLIT_TOKS 에
+# 흘려보내고 반환했다. 치환 안에 `find` 가 진짜 삭제 동사보다 먼저 나타나면(`$(FOO=find mv
+# .claude /tmp/sink)`) 첫 매치인 `find` 만 잡히고 — `find` 는 `-delete` 를 동반해야만
+# 무장하는데 이 세그먼트엔 그 글자가 없으므로 — 진짜 동사 `mv` 는 영영 토큰으로 안
+# 흘러갔다. 13차 판정이 32건을 zsh·bash 5.3·bash 3.2 전부에서 실제 삭제까지 확인했다.
+# 또한 원문만 훑어서는 치환 **안에서** 다시 백슬래시로 쪼갠 동사(`` `r\m -rf .claude` ``)도
+# 못 봤다(204건 잔여 중 24건 — 나머지는 원래도 따옴표 제거 사본 스캔으로 잡혔어야 했다).
+# 수정: `__scan_opaque_verb_matches()` 가 매치할 때마다 그 뒤로 계속 스캔해 span 안의
+# 모든 동사 낱말을 흘려보내고, `__note_opaque_verb()` 가 따옴표·백슬래시만 제거한 사본에도
+# 같은 스캔을 한 번 더 돌린다(문맥은 안 보고 문자만 지우므로 더 찾을 수만 있다).
+
+@test "F65 substitution: a verb-shadowing word before the real delete verb no longer hides it (13th verdict)" {
+  local c
+  for c in '$(FOO=find mv .claude /tmp/f65sink)' \
+           '$(env FIND=find mv .claude/hooks /tmp/f65sink)' \
+           '$(F=find B=x unlink .claude/hooks/x.sh)' \
+           '$(find= mv .claude/plugins /tmp/f65sink)'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "find 가 진짜 동사를 가려 뒤의 삭제 동사가 allow 로 샜다: $c"; false; }
+  done
+}
+
+@test "F65 substitution: a backslash-split verb inside the substitution itself still asks (13th verdict)" {
+  local c
+  for c in '`r\m -rf .claude`' '`f\ind .claude -delete`'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "치환 안에서 백슬래시로 쪼갠 동사가 allow 로 샜다: $c"; false; }
+  done
+}
+
+@test "F65 substitution: verb list is a single source of truth, not a duplicated pair (13th verdict ISSUE-4)" {
+  # 13차 판정 ISSUE-4: 최초 버전은 "패리티 테스트로 고정"이라는 주석만 있고 실제 테스트도,
+  # 실제 공유도 없었다(__note_opaque_verb() 안에 동사 목록을 리터럴로 중복시켰을 뿐). 재작업은
+  # 두 목록을 대조하는 테스트 대신 애초에 하나만 두도록 고쳤다 — ARM_DELETE_VERBS_UNCONDITIONAL·
+  # ARM_DELETE_VERB_DELETE_GATED 를 scan_control_plane_delete() 의 armed 판정과
+  # __note_opaque_verb() 양쪽이 직접 순회/참조한다. 이 테스트는 그 공유가 실제로 이뤄지고
+  # 있는지(동사 하나가 목록에서 빠지면 즉시 알 수 있게) 고정한다 — "패리티 테스트가 있다"는
+  # 주석을 다시 거짓으로 만들지 않기 위해서다.
+  local verb tmpfile
+  tmpfile="$BATS_TEST_TMPDIR/f65-arm-verbs.sh"
+  sed -n '/^ARM_DELETE_VERBS_UNCONDITIONAL=/,/^ARM_DELETE_VERBS_RE=/p' "$HOOK" > "$tmpfile"
+  run bash -c "source '$tmpfile'; printf '%s\n' \"\${ARM_DELETE_VERBS_UNCONDITIONAL[@]}\" \"\$ARM_DELETE_VERB_DELETE_GATED\""
+  [ "$status" -eq 0 ] || { echo "ARM_DELETE_VERBS_UNCONDITIONAL/ARM_DELETE_VERB_DELETE_GATED 정의를 못 찾았다 — 이름이 바뀌었는가?"; false; }
+  for verb in rm rmdir unlink shred mv find; do
+    [[ "$output" == *"$verb"* ]] \
+      || { echo "무장 동사 목록(단일 출처)에 $verb 가 없다: $output"; false; }
+  done
+  # scan_control_plane_delete() 안에 동사 이름이 리터럴로 다시 나열돼 있으면(예전처럼)
+  # 그 자체가 재중복의 신호다 — 배열 순회로 대체된 자리에는 동사 리터럴이 없어야 한다.
+  run sed -n '/^scan_control_plane_delete() {/,/^}/p' "$HOOK"
+  [[ "$output" != *'"$NORM_TOK" == rm '* ]] \
+    || { echo "scan_control_plane_delete() 안에 동사 목록이 다시 리터럴로 중복됐다 — ARM_DELETE_VERBS_UNCONDITIONAL 을 참조하도록 되돌려라"; false; }
+}
+
+@test "F65 substitution: genuinely encoded verbs remain a declared, accepted residual (not a regression)" {
+  # 13차 판정이 확인한 진짜 잔여 — hex 등으로 인코딩돼 리터럴 낱말 자체가 없는 경우는
+  # __note_opaque_verb() 의 원문·따옴표제거 스캔 둘 다로 못 잡는다. 이 테스트는 그 지점을
+  # "아직 안 고쳤다"고 정직하게 기록한다(sprint-51.json open_axes_2026_08_04.
+  # verb_via_substitution.remaining_gap 참조) — 회귀가 아니라 알려진 한계임을 고정한다.
+  run delete_decision '`printf "\x72\x6d" -rf .claude`'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "인코딩된 동사 취급이 바뀌었다 — 잡혔다면 sprint-51.json remaining_gap 을 좁히고 이 테스트를 뒤집어라"; false; }
+}
+
 @test "F65 sibling: protected-integrity.sh does not crash when no protected file exists (9th verdict)" {
   # 9차 판정이 훑기 요청(요청 3번)에서 형제 훅의 같은 결함을 찾았다: PROTECTED_GLOBS 어느
   # 패턴도 매치하지 않는 저장소(플러그인이 설치된 사용자 저장소의 흔한 상태)에서 FILES 가
