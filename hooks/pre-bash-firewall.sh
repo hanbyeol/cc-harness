@@ -1220,105 +1220,199 @@ control_plane_location() {
   __control_plane_location_impl "$1"
 }
 
-# $1 을 **따옴표를 존중해** 공백으로 나눠 SPLIT_TOKS 배열에 담는다(F65 7차 판정 반려, Class D).
-# `read -a` 는 IFS 공백만 보고 따옴표를 문자 그대로 취급한다 — 따옴표 제거는 그보다 뒤,
-# 토큰마다 부르는 normalize_path_token() 에서 일어난다. 그래서 `{.claude,'a b'}` 는 셸에게는
-# (중괄호+따옴표를 포함한) 한 단어인데 `read -a` 에게는 공백에서 둘로 쪼개져, 중괄호 그룹이
-# 반쪽만 남는다(실측: `rm -rf {.claude,'a b'}` 가 allow — 실제로는 `.claude` 를 지운다). 이
-# 함수는 인용부호 상태를 추적해 그 안의 공백을 분리 지점으로 보지 않는다 — 인용부호 문자는
-# 지우지 않고 그대로 토큰에 남긴다(어차피 이후 normalize_path_token 이 지운다).
-__quote_aware_split() {
+# $1 을 토큰으로 나눈다(SPLIT_TOKS) — 따옴표·백슬래시를 **하나의 상태 기계**로 함께
+# 추적한다(F65 11차 판정 반려로 재설계). 9·10차는 이 일을 두 개의 독립된 스캐너
+# (__quote_aware_split·__has_real_dollar_quote)로 나눠 했는데, **둘 다 백슬래시를 몰랐다**
+# — `normalize_path_token()`은 백슬래시를 지우는데, 이 두 스캐너는 백슬래시를 평범한
+# 글자처럼 취급해 `\"` 를 "이스케이프된 리터럴 따옴표"가 아니라 "따옴표 문자 자체"로
+# 잘못 셌다. 그러면 인용부호 상태가 실제 셸과 어긋나기 시작하고(짝이 하나씩 밀린다), 그
+# 어긋난 상태 안에서 진짜 `$'...'` 이 "이미 열린 따옴표 안"으로 잘못 보여 검출을 피해간다
+# — 격리 랩에서 zsh·bash 5.3·bash 3.2 전부 45가지 형태로 `.claude` 삭제까지 실증됐다
+# (`rm -rf "\"" $'.claude'` 가 대표 사례).
+#
+# **원칙 전환(11차 판정 권고 채택, 12차 판정으로 스코프 수정)**: "위험한 표기를 하나씩
+# 열거해 막는" 대신 "이 스캐너가 확실히 이해하는 형태(작은따옴표·큰따옴표·그 안팎의 백슬래시
+# 이스케이프)가 아니면 펴 보지 않고 ask" 로 바꾼다. ANSI-C/로케일 인용(`$'`·`$"`)과 세그먼트
+# 끝에서 안 닫힌 따옴표는 **무장(armed) 여부와 무관하게** 그 즉시 UNSAFE 로 반환한다 — 삭제
+# 동사 자체를 `$'rm'` 처럼 위장하면 armed 판정 전에 걸러야 하고(9차 판정이 이미 실증), 이
+# 표기를 잡아 주는 다른 층이 없다. 실제 셸도 안 닫힌 인용부호는 구문 오류로 거부하므로(직접
+# 확인: `bash -c 'echo "x'` → 파싱 오류), 이 경우 ask 는 실행되지도 않을 명령에 대한 무해한
+# 마찰이거나, 이 스캐너 자신이 어딘가에서 다시 어긋났다는 신호 둘 중 하나다.
+#
+# **명령 치환(`` ` ``·`$(`)은 11차 판정 반려 당시 같은 취급을 받았으나(무조건 UNSAFE), 12차
+# 판정에서 회귀 테스트 2건("git commit -m \"...`code`...\"", "ls $(pwd)")으로 반려됐다** —
+# 삭제 동사가 전혀 없는 세그먼트까지 막아, 11차 자신이 지적한 "과잉차단 회귀"를 오히려
+# 더 넓혔다. 명령 치환은 두 층이 이미 나눠 맡는다: (1) 치환 **안에** 위험 동사가 리터럴로
+# 있으면 Layer 2 INDIRECT_PATTERNS 가 이 함수보다 먼저 deny 한다(`` `rm ...` ``·`$(...rm...)`).
+# (2) 치환이 **피연산자**를 만들어내는 경우(`rm $(cat list)`)는 `indirect_operand` 로
+# `progress/contracts/sprint-51.json`의 `open_axes_2026_08_04`에 이미 선언된 수용 잔여
+# 위험이다 — 경로가 명령문에 리터럴로 없으면 예측 계층은 원리적으로 그 값을 알 수 없다.
+# 남는 몫은 "동사는 리터럴인데 피연산자 자리에 치환이 있어 그 값을 확정 못 하는" 경우뿐이고,
+# 그건 **무장된 세그먼트에서만** 위험하다 — 그래서 백틱·`$(`는 즉시 UNSAFE 로 반환하지
+# 않고 `SEGMENT_HAS_OPAQUE` 플래그만 세운 채 안전하게 건너뛰어 토큰화를 계속하고,
+# `scan_control_plane_delete()` 가 armed 확정 후 이 플래그를 함께 본다(아래 참조).
+#
+# 백슬래시 규칙(직접 확인한 실제 bash 동작): 작은따옴표 안에서는 백슬래시가 전혀 특별하지
+# 않다(`'a\b'` → `a\b`). 큰따옴표 안에서는 `\$`·`` \` ``·`\"`·`\\` 만 그 다음 글자를
+# 이스케이프하고(예: `"a\$X"` → `a$X`, 변수 확장 안 됨) 그 외(`\z`)는 백슬래시까지 그대로
+# 남는다(`"a\zb"` → `a\zb`). 따옴표 밖에서는 백슬래시가 다음 글자 하나를 무조건 리터럴로
+# 만든다(`a\"b` → `a"b`, 새 인용을 열지 않는다 — 라운드 10 우회의 정확한 메커니즘).
+# 백틱 쌍의 짝을 찾는다 — $2 는 여는 백틱의 인덱스. 안쪽 내용은 해석하지 않고 경계만
+# 찾는다(중첩 백틱은 실제 셸에서도 백슬래시 이스케이프가 필요하므로 같은 규칙을 따른다).
+# 짝을 못 찾으면 __OPAQUE_END=-1 — 호출자가 이를 SEGMENT_UNSAFE 로 처리한다.
+__skip_backtick() {
+  local s="$1" j=$(($2 + 1)) n=${#s} cj
+  while [[ $j -lt $n ]]; do
+    cj="${s:j:1}"
+    if [[ "$cj" == '\' ]]; then
+      j=$((j + 2)); continue
+    elif [[ "$cj" == '`' ]]; then
+      __OPAQUE_END=$((j + 1)); return
+    fi
+    j=$((j + 1))
+  done
+  __OPAQUE_END=-1
+}
+
+# `$(...)` 의 짝 맞는 `)` 를 찾는다 — $2 는 `$` 의 인덱스(`${s:$2+1:1}` 이 `(` 임을 호출자가
+# 보장한다). 중첩 괄호는 깊이 카운트로 짝을 맞춘다 — **안쪽 따옴표는 보지 않는 근사치**다
+# (예: `$(echo "(")` 처럼 문자열 리터럴 안에 홀수 괄호가 있으면 경계를 놓칠 수 있다). 이
+# 함수는 피연산자 값 자체를 확정하려는 게 아니라 토큰 분리가 안 깨지게 구간만 건너뛰는
+# 것이므로, 경계를 놓쳐도 이후 안 닫힌 따옴표 검사나 SEGMENT_HAS_OPAQUE 처리가 안전한
+# 쪽(ask)으로 떨어뜨린다.
+__skip_dollar_paren() {
+  local s="$1" j=$(($2 + 2)) n=${#s} depth=1 cj
+  while [[ $j -lt $n && $depth -gt 0 ]]; do
+    cj="${s:j:1}"
+    if [[ "$cj" == '\' ]]; then
+      j=$((j + 2)); continue
+    elif [[ "$cj" == '(' ]]; then
+      depth=$((depth + 1))
+    elif [[ "$cj" == ')' ]]; then
+      depth=$((depth - 1))
+    fi
+    j=$((j + 1))
+  done
+  if [[ $depth -gt 0 ]]; then __OPAQUE_END=-1; else __OPAQUE_END=$j; fi
+}
+
+__tokenize_segment() {
   local s="$1"
-  QUOTE_SPLIT_UNSAFE=0
-  # 문자 단위 스캔이라 비용이 길이에 붙는다(F65 7차 판정 Class E 수정 때 실측: 이 인덱싱
-  # 방식 자체가 길이에 대해 이차식이다). 이 함수가 막는 우회(Class D)는 **중괄호와 따옴표가
-  # 함께 있을 때만** 성립하므로, `{` 가 아예 없으면 이 스캔이 낼 수 있는 값이 없다 — 기존
-  # 빠른 `read -a` 로 되돌아간다(대다수 명령에 해당하며 비용 변화가 전혀 없다).
-  if [[ "$s" != *'{'* ]]; then
-    SPLIT_TOKS=()
+  SEGMENT_UNSAFE=0
+  SEGMENT_HAS_OPAQUE=0
+  SPLIT_TOKS=()
+  # 빠른 경로 — 따옴표·백슬래시·`$`·백틱·중괄호가 하나도 없으면 이 스캐너가 할 일이
+  # 없다(네이티브 패턴 테스트라 길이에 안전하다, 직접 실측 확인됨). 대다수 명령이 여기서
+  # 끝난다.
+  if [[ "$s" != *"'"* && "$s" != *'"'* && "$s" != *'\'* && "$s" != *'$'* && "$s" != *'`'* ]]; then
     read -r -a SPLIT_TOKS <<<"$s"
     return
   fi
-  # `{` 가 있는데 세그먼트가 비정상적으로 길면(실제 명령에서 나타나지 않는 크기) 이 스캔
-  # 비용을 감수하지 않는다 — 그렇다고 **예전처럼 빠른(안전하지 않은) 분리로 물러나지도
-  # 않는다**(F65 8차 판정 반려: 그 폴백 자체가 실측 경계 2025→2026자에서 allow로 새는
-  # fail-open이었다). 안전하게 나눌 수 없으면 "나눌 수 없었다"고 신호하고, 호출자가 이
-  # 세그먼트 전체를 ask 로 처리한다 — 모르면 allow 가 아니라 ask 라는 이 파일 전체의 원칙과
-  # 여기서도 같다.
+  # 문자 단위 스캔이라 비용이 길이에 붙는다(F65 7차 판정 Class E 수정 때 실측: 이 인덱싱
+  # 방식 자체가 이 bash에서 길이에 대해 이차식이다). 상한을 넘기면 스캔을 시작하지 않고
+  # **안전한 쪽으로 판단한다(진짜로 침)** — 못 보면 allow 가 아니라 ask 다(F65 8차 판정
+  # 반려: 예전엔 상한 초과 시 안전하지 않은 분리로 물러났다가 그 자리가 fail-open이었다).
   if [[ ${#s} -gt 2048 ]]; then
-    QUOTE_SPLIT_UNSAFE=1
-    SPLIT_TOKS=()
+    SEGMENT_UNSAFE=1
     return
   fi
-  local n=${#s} k=0 c inS=0 inD=0 cur="" started=0
-  SPLIT_TOKS=()
+  local n=${#s} k=0 c nc inS=0 inD=0 cur="" started=0
   while [[ $k -lt $n ]]; do
     c="${s:k:1}"
-    if [[ "$c" == "'" && $inD -eq 0 ]]; then
-      inS=$((1-inS)); cur+="$c"; started=1
-    elif [[ "$c" == '"' && $inS -eq 0 ]]; then
-      inD=$((1-inD)); cur+="$c"; started=1
-    elif [[ $inS -eq 0 && $inD -eq 0 && ( "$c" == ' ' || "$c" == $'\t' ) ]]; then
-      [[ $started -eq 1 ]] && { SPLIT_TOKS+=("$cur"); cur=""; started=0; }
-    else
-      cur+="$c"; started=1
+    if [[ $inS -eq 1 ]]; then
+      [[ "$c" == "'" ]] && inS=0
+      cur+="$c"; started=1; k=$((k+1)); continue
     fi
-    k=$((k+1))
+    if [[ $inD -eq 1 ]]; then
+      if [[ "$c" == '\' ]]; then
+        nc="${s:k+1:1}"
+        case "$nc" in
+          '$'|'`'|'"'|'\') cur+="${c}${nc}"; k=$((k+2)); started=1; continue ;;
+        esac
+        cur+="$c"; k=$((k+1)); started=1; continue
+      elif [[ "$c" == '"' ]]; then
+        inD=0; cur+="$c"; k=$((k+1)); started=1; continue
+      elif [[ "$c" == '`' ]]; then
+        __skip_backtick "$s" "$k"
+        [[ $__OPAQUE_END -lt 0 ]] && { SEGMENT_UNSAFE=1; return; }
+        cur+="${s:k:$((__OPAQUE_END-k))}"; SEGMENT_HAS_OPAQUE=1
+        k=$__OPAQUE_END; started=1; continue
+      elif [[ "$c" == '$' ]]; then
+        nc="${s:k+1:1}"
+        if [[ "$nc" == '(' ]]; then
+          __skip_dollar_paren "$s" "$k"
+          [[ $__OPAQUE_END -lt 0 ]] && { SEGMENT_UNSAFE=1; return; }
+          cur+="${s:k:$((__OPAQUE_END-k))}"; SEGMENT_HAS_OPAQUE=1
+          k=$__OPAQUE_END; started=1; continue
+        fi
+        cur+="$c"; k=$((k+1)); started=1; continue
+      else
+        cur+="$c"; k=$((k+1)); started=1; continue
+      fi
+    fi
+    # 어느 따옴표 안도 아니다.
+    if [[ "$c" == '\' ]]; then
+      nc="${s:k+1:1}"
+      cur+="${c}${nc}"; k=$((k+2)); started=1; continue
+    elif [[ "$c" == "'" ]]; then
+      inS=1; cur+="$c"; k=$((k+1)); started=1; continue
+    elif [[ "$c" == '"' ]]; then
+      inD=1; cur+="$c"; k=$((k+1)); started=1; continue
+    elif [[ "$c" == '`' ]]; then
+      __skip_backtick "$s" "$k"
+      [[ $__OPAQUE_END -lt 0 ]] && { SEGMENT_UNSAFE=1; return; }
+      cur+="${s:k:$((__OPAQUE_END-k))}"; started=1; SEGMENT_HAS_OPAQUE=1
+      k=$__OPAQUE_END; continue
+    elif [[ "$c" == '$' ]]; then
+      nc="${s:k+1:1}"
+      if [[ "$nc" == "'" || "$nc" == '"' ]]; then SEGMENT_UNSAFE=1; return; fi
+      if [[ "$nc" == '(' ]]; then
+        __skip_dollar_paren "$s" "$k"
+        [[ $__OPAQUE_END -lt 0 ]] && { SEGMENT_UNSAFE=1; return; }
+        cur+="${s:k:$((__OPAQUE_END-k))}"; started=1; SEGMENT_HAS_OPAQUE=1
+        k=$__OPAQUE_END; continue
+      fi
+      cur+="$c"; k=$((k+1)); started=1; continue
+    elif [[ "$c" == ' ' || "$c" == $'\t' ]]; then
+      [[ $started -eq 1 ]] && { SPLIT_TOKS+=("$cur"); cur=""; started=0; }
+      k=$((k+1)); continue
+    else
+      cur+="$c"; k=$((k+1)); started=1; continue
+    fi
   done
+  if [[ $inS -eq 1 || $inD -eq 1 ]]; then
+    SEGMENT_UNSAFE=1; return
+  fi
   [[ $started -eq 1 ]] && SPLIT_TOKS+=("$cur")
 }
 
 # 명령을 세그먼트로 나눠 삭제 동사 뒤의 피연산자 토큰을 판정한다.
 # 동사는 세그먼트 **어디에 있어도** 무장한다 — `sudo rm …`·`time rm …` 같은 접두 명령을 열거하지
 # 않기 위해서다(열거하면 접두 한 단어로 게이트가 무력해진다 — F67 2차 판정이 `env` 로 실증했다).
-# $1 안에 **진짜** ANSI-C/로케일 인용 시작(`$'`·`$"`)이 있는지 본다 — 이미 열린 따옴표
-# **밖**에서 `$` 바로 뒤에 `'`·`"` 가 오는 경우만 진짜다. F65 10차 판정이 실측한 과잉차단:
-# `grep -F 'end$' log.txt` 는 `$` 문자를 부분 문자열로만 보면 걸리는데, 그 `$` 는 이미
-# 열린 작은따옴표 **안**에 있는 정규식 앵커 문자일 뿐 새 인용을 여는 것이 아니다(`'end$'`
-# 를 통째로 보면 명확하다). 나이브한 부분 문자열 검사는 이 구분을 못 한다 — 인용부호
-# 상태를 추적해야 한다. 세그먼트가 너무 길면(2048자 초과, __quote_aware_split() 과 같은
-# 상한) 스캔하지 않고 **안전한 쪽으로 판단한다(진짜로 침)** — 못 보면 allow 가 아니라
-# ask 여야 한다.
-__has_real_dollar_quote() {
-  local s="$1" n k c inS=0 inD=0
-  if [[ ${#s} -gt 2048 ]]; then return 0; fi
-  n=${#s}; k=0
-  while [[ $k -lt $n ]]; do
-    c="${s:k:1}"
-    if [[ "$c" == "'" && $inD -eq 0 ]]; then inS=$((1-inS))
-    elif [[ "$c" == '"' && $inS -eq 0 ]]; then inD=$((1-inD))
-    elif [[ "$c" == '$' && $inS -eq 0 && $inD -eq 0 ]]; then
-      local nc="${s:k+1:1}"
-      [[ "$nc" == "'" || "$nc" == '"' ]] && return 0
-    fi
-    k=$((k+1))
-  done
-  return 1
-}
-
 CP_DELETE_HIT=""
 scan_control_plane_delete() {
   local seg tok armed
   local -a toks
-  # ANSI-C/로케일 인용(`$'...'`/`$"..."`) 이 세그먼트 어디에든 진짜로 있으면 펴 보지 않고
-  # 곧장 ask 로 처리한다(F65 9차 판정 반려 — 디코딩을 시도하는 대신 존재 자체를 신호로 쓰는
-  # 쪽으로 전환. normalize_path_token() 헤더 주석 참조). 동사 토큰(`\$'rm'`)과 피연산자
-  # 토큰(`\$'.claude'`) 어느 쪽에 있어도 같은 문제라 **토큰 단위가 아니라 세그먼트 단위**로
-  # 본다 — 동사를 이 표기로 위장하면 armed 자체가 안 걸려 게이트를 전부 비껴갈 수 있었다.
   while IFS= read -r seg || [[ -n "$seg" ]]; do
     [[ -z "$seg" ]] && continue
-    if __has_real_dollar_quote "$seg"; then
-      CP_DELETE_HIT="$seg"; return 0
-    fi
-    __quote_aware_split "$seg"
+    __tokenize_segment "$seg"
     # 빈 배열을 `"${arr[@]}"` 로 그대로 펼치면 bash 3.2(이 훅이 실제로 실행되는 macOS 기본
-    # 셸, set -u 상태)에서 "unbound variable" 로 죽는다 — bash 4.4 이전의 알려진 결함이다
-    # (실측: __quote_aware_split() 이 길이 상한을 넘겨 SPLIT_TOKS=() 로 반환하는 정확히 그
-    # 경로에서 재현됐다). `"${arr[@]+"${arr[@]}"}"` 관용구가 두 버전 모두에서 안전하다.
+    # 셸, set -u 상태)에서 "unbound variable" 로 죽는다 — bash 4.4 이전의 알려진 결함이다.
+    # `"${arr[@]+"${arr[@]}"}"` 관용구가 두 버전 모두에서 안전하다.
     toks=("${SPLIT_TOKS[@]+"${SPLIT_TOKS[@]}"}")
-    # 안전하게 나눌 수 없었다(중괄호+과도한 길이) — 이 세그먼트를 계속 진행하는 대신 즉시
-    # ask 로 fail-closed 한다(F65 8차 판정 반려, __quote_aware_split() 주석 참조).
-    if [[ "$QUOTE_SPLIT_UNSAFE" -eq 1 ]]; then CP_DELETE_HIT="$seg"; return 0; fi
+    # ANSI-C/로케일 인용($'·$") 이나 안 닫힌 따옴표를 만났다 — 펴 보려 하지 않고 세그먼트
+    # 전체를 즉시 ask 로 처리한다(위 __tokenize_segment() 주석 참조). 동사 토큰(`$'rm'`)과
+    # 피연산자 토큰(`$'.claude'`) 어느 쪽에 있어도 같은 문제라 **토큰 단위가 아니라
+    # 세그먼트 단위**로, 그리고 **무장 여부와 무관하게** 본다 — 동사 자체를 이 표기로
+    # 위장하면 armed 판정 전에 걸러야 하고, 이 표기를 잡아 주는 다른 층이 없다(9차 판정).
+    # 대가: `$'...'`을 쓰는, 삭제와 무관한 명령(예: `git commit -m $'여러\n줄'`)도 이
+    # 세그먼트에 걸리면 마찰이 생긴다 — 승인된 트레이드오프다.
+    #
+    # 명령 치환(백틱·`$(`)은 다르게 다룬다 — `SEGMENT_UNSAFE` 대신 `SEGMENT_HAS_OPAQUE` 만
+    # 세우고 토큰화는 계속된다(위 __tokenize_segment() 주석: Layer 2 가 위험 동사 내용을,
+    # `open_axes_2026_08_04.indirect_operand` 가 임의 계산 피연산자를 이미 나눠 맡는다).
+    # 그래서 여기서는 **무장이 확정된 뒤에만** 그 플래그를 본다 — 아래 armed 계산 이후.
+    if [[ "$SEGMENT_UNSAFE" -eq 1 ]]; then CP_DELETE_HIT="$seg"; return 0; fi
     armed=0
     # `find … -delete` 는 동사가 술어로 온다. `-exec … rm` 은 아래 동사 검사가 무장한다.
     if [[ "$seg" == *"-delete"* ]]; then
@@ -1354,6 +1448,13 @@ scan_control_plane_delete() {
       # 그래야 콤마/범위 확장으로 나온 각 후보(`.claude/*` 등) 위에서 접기가 실행된다.
       if control_plane_location "$NORM_TOK"; then CP_DELETE_HIT="$tok"; return 0; fi
     done
+    # 삭제 동사가 리터럴로 확정됐는데(armed) 세그먼트 어딘가에 명령 치환이 있었다
+    # (SEGMENT_HAS_OPAQUE) — 그 치환이 만들어내는 피연산자 값은 정적으로 알 수 없으므로
+    # (`rm -rf $(malicious)`), 리터럴 대조로는 못 잡았어도 안전한 쪽으로 ask 한다.
+    if [[ "$armed" -eq 1 && "$SEGMENT_HAS_OPAQUE" -eq 1 ]]; then
+      CP_DELETE_HIT="$seg (피연산자에 명령 치환이 있어 정적으로 확정할 수 없음)"
+      return 0
+    fi
   done < <(printf '%s' "$NORMALIZED_CMD" | tr ';|&' '\n\n\n')
   return 1
 }

@@ -1,0 +1,241 @@
+{
+  "timestamp": "2026-08-31T09:54:44+0900",
+  "sprint": 51,
+  "iteration": 11,
+  "round_label": "F65 11th independent verdict (evaluating commit 6085b80)",
+  "features_evaluated": [
+    "F65"
+  ],
+  "security_tier": "critical",
+  "commit_under_review": "6085b80 fix(guard): remove verb-substring pre-filter that bypassed the delete gate entirely (F65 10th verdict)",
+  "parent_commit": "a94f564",
+  "execution_environment": {
+    "session_shell": "/bin/zsh (measured: ps -p $$ -o comm=; BASH_VERSION unset)",
+    "hook_shebang": "#!/usr/bin/env bash -> /usr/local/bin/bash 5.3.15",
+    "system_bash": "/bin/bash 3.2.57",
+    "_note": "All firewall decisions below were measured on BOTH hook interpreters (bash 5.3 and bash 3.2). All destructiveness confirmations were run under all three shells (zsh, bash 5.3, bash 3.2). Decisions were identical across interpreters in every case."
+  },
+  "scores": {
+    "functionality": 4,
+    "code_quality": 5,
+    "security": 3,
+    "error_handling": 5,
+    "test_coverage": 4
+  },
+  "score": 3,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 3 < 7 (critical tier) -> automatic fail regardless of other scores",
+    "score 3 < pass_threshold 7",
+    "SC-9 violated: the '인용'(quoting) notation axis is claimed closed but 45 lab-confirmed control-plane destructions pass as silent `allow`; the axis is not listed in _residual_risk_AC11.open_axes_2026_08_04",
+    "AC-11 violated: control-plane deletion is not 'at minimum ask' under backslash-escaped quote notation",
+    "New over-blocking regression introduced by this commit: ordinary non-read commands containing a genuine $'...' now ask, with a misleading control-plane-delete reason"
+  ],
+  "what_this_commit_got_right": [
+    "The round-10 fix is real and independently verified. All 8 round-10 counterexamples ('r'm, r''m, r\\m, \"r\"m, m''v, f''ind, unlin''k, shre''d) now return ask on BOTH bash 5.3 and bash 3.2. Measured against parent a94f564 they returned allow, so the fix genuinely discriminates.",
+    "Removing the verb pre-filter was the correct direction, and the performance justification holds up under measurement. A 200-segment command and a 400-brace-token command both decide in 0.40-0.62s on both interpreters, far under the 5s hook timeout.",
+    "The pre-filter removal introduced zero new friction on a 30-command corpus of ordinary dev commands (git/npm/docker/find/grep/awk/sed/jq/rsync/brace-mkdir): parent and HEAD agree on all 30, all allow.",
+    "The round-9 ANSI-C bypasses (rm -rf $'.claude', $'rm' -rf .claude, rm -rf $\".claude\") remain ask on both interpreters.",
+    "Full suite verified independently: 844 ok / 0 not-ok, bats exit code 0, captured to a file rather than through a pipe (the earlier piped run could not prove this, since a pipeline's exit status comes from `tail`).",
+    "The commit message's claim that the new tests fail against the parent is accurate — I verified the discriminating payload `grep -F 'end$' log.txt; rm -f tmp.o` is ask at parent and allow at HEAD."
+  ],
+  "issues": [
+    "[security][critical][confidence:high] Neither __has_real_dollar_quote() nor __quote_aware_split() implements backslash escaping, while normalize_path_token() strips backslashes. A backslash-escaped quote character (\\\" inside a double-quoted string, or a bare \\' outside quotes) is a LITERAL quote character to the real shell, but both scanners toggle their quote state on it, leaving a spuriously-open quote for the rest of the segment. 45 distinct commands were confirmed by argv-oracle differential fuzzing to be both `allow` and genuinely destructive of the control plane, on both interpreters.",
+    "[security][critical][confidence:high] Regression introduced by THIS commit: `rm -rf \"\\\"\" $'.claude'` was ask at parent a94f564 and is allow at HEAD. The naive substring check that this commit replaced was over-broad but fail-CLOSED; the new quote-state tracker is more precise but fail-OPEN on notation it does not model. The over-blocking fix traded a false ask for a false allow on a genuinely destructive command.",
+    "[security][high][confidence:high] The bypass needs only one extra argument. `rm -rf {.claude,t}` is ask; `rm -rf \\' {.claude,t}` is allow. `rm -rf .claude` is ask; `rm -rf \"\\\"\" $'.claude'` is allow.",
+    "[security][medium][confidence:medium] `V=rm; $V -rf .claude` is allow and lab-confirmed destructive on all three shells. Verb-via-parameter-expansion is not covered by any declared open axis: `unenumerated_verbs` covers verbs outside the list (rm IS in the list), and `indirect_operand` covers operands, not the verb. `$(echo rm)` and backtick forms are correctly caught by the Layer 1/2 INDIRECT_PATTERNS deny, so this is specifically the plain-variable form.",
+    "[error][medium][confidence:high] Removing the pre-filter exposed a defect that the pre-filter had been masking, which is exactly the risk the review asked about. The segment-wide ANSI-C fail-closed check now runs on EVERY non-pure-read command, so any ordinary command containing a real $'...' is asked with the reason '컨트롤 플레인(배선 파일·설치 디렉터리)을 지우는 명령입니다', which is false. Measured parent=allow -> HEAD=ask on 8/8: `git commit -m $'feat: x\\n\\nbody line'`, `git commit -m $'sub\\ttab'`, `make build ARG=$'a\\tb'`, `npm run x -- --sep $'\\t'`, `docker run img sh -c $'echo hi'`, `python3 script.py --delim $'\\t'`, `sort -t $'\\t' -k2 data.tsv > out.tsv`, `join -t $'\\t' a.tsv b.tsv > c.tsv`. `sort -t $'\\t'` and multi-line `git commit -m` are common, so this is real friction with a wrong explanation.",
+    "[quality][medium][confidence:high] __has_real_dollar_quote() duplicates __quote_aware_split()'s quote state machine by copy rather than sharing one tokenizer, and therefore inherited its exact defect (no backslash handling) on the day it was introduced. The header comment even advertises the duplication ('__quote_aware_split() 과 같은 패턴'). One correct tokenizer used by both call sites would have made this a single fix rather than two divergent scanners.",
+    "[quality][low][confidence:high] The ANSI-C fail-closed check is applied segment-wide BEFORE arming is determined. Scoping it to segments that actually arm a delete verb would remove the false-ask regression above without weakening the gate, since arming is computed from normalized tokens and already handles quote splitting.",
+    "[test][high][confidence:high] The bats file has 279 @tests for this hook and zero coverage of backslash-escaped quote characters, which is precisely the axis now open. The declared axis list in AC-11.verification_axes_2026_08_04 includes `\\rm` (backslash before the verb) and a full 인용 axis, but never backslash-before-a-quote.",
+    "[test][medium][confidence:high] After seven rounds of the same failure class (one un-modeled shell notation per round), the suite is still an enumeration of specific payloads. There is no property-based or differential test that would find the next un-modeled notation without a human thinking of it. A ~120-line argv-oracle differential fuzzer found 45 bypasses in a single run; something equivalent belongs in the suite.",
+    "[docs][medium][confidence:high] docs/INVARIANTS.md and the commit body describe the __has_real_dollar_quote change as a '부수 발견(자체, 판정 대상 아님)' and present it purely as friction removal. Neither notes that it converts a fail-closed check into a fail-open one, which is the security-relevant property of the change.",
+    "[docs][low][confidence:medium] The commit body states the 844/844 run is clean after re-running without concurrent edits. I independently confirmed 844/844, so the claim is accurate; noting it only because the first of my own two runs was captured through a pipe and could not have proven it either."
+  ],
+  "counterexamples": {
+    "_how_to_reproduce": "printf '%s' \"$CMD\" | jq -Rs '{tool_name:\"Bash\",tool_input:{command:.}}' | CLAUDE_PROJECT_DIR=<repo> <bash> hooks/pre-bash-firewall.sh | jq -r .hookSpecificOutput.permissionDecision",
+    "_measured_on": [
+      "/usr/local/bin/bash 5.3.15",
+      "/bin/bash 3.2.57"
+    ],
+    "_destructiveness_confirmed_on": [
+      "/bin/zsh",
+      "/usr/local/bin/bash 5.3.15",
+      "/bin/bash 3.2.57"
+    ],
+    "_result": "identical on every interpreter: permissionDecision = allow",
+    "root_cause_trace": {
+      "segment": "rm -rf \"\\\"\" $'.claude'",
+      "__has_real_dollar_quote": "FALSE (proceeds) — it toggled inD on the backslash-escaped quote, so it believes the $' sits inside an open double quote",
+      "__quote_aware_split_tokens": [
+        "rm",
+        "-rf",
+        "\"\\\"\"",
+        "$'.claude'"
+      ],
+      "normalize_path_token_of_operand": "$.claude  (quotes and backslashes stripped, the $ survives) -> no control-plane match",
+      "real_shell_argv": [
+        "rm",
+        "-rf",
+        "\"",
+        ".claude"
+      ],
+      "second_segment": "rm -rf \\' {.claude,t}",
+      "second_tokens": [
+        "rm",
+        "-rf",
+        "\\' {.claude,t}"
+      ],
+      "second_note": "the spuriously-open single quote makes the splitter glue the payload onto the previous token; normalization yields ' .claude' with a leading space, which fails the exact-name match",
+      "second_real_shell_argv": [
+        "rm",
+        "-rf",
+        "'",
+        ".claude",
+        "t"
+      ]
+    },
+    "full_bypass_list_45": [
+      "rm -rf \"\\\"\" $'.claude'",
+      "rm -rf \"\\\"\" {.claude,t}",
+      "rm -rf \"\\\"\" {.claude/hooks,t}",
+      "rm -rf \"a\\\"b\" $'.claude'",
+      "rm -rf \"a\\\"b\" {.claude,t}",
+      "rm -rf \"a\\\"b\" {.claude/hooks,t}",
+      "rm -rf \\' $'.claude'",
+      "rm -rf \\' {.claude,t}",
+      "rm -rf \\' {.claude/hooks,t}",
+      "mv \"\\\"\" $'.claude' /tmp/f65dest",
+      "mv \"\\\"\" {.claude,t} /tmp/f65dest",
+      "mv \"\\\"\" {.claude/hooks,t} /tmp/f65dest",
+      "mv \"a\\\"b\" $'.claude' /tmp/f65dest",
+      "mv \"a\\\"b\" {.claude,t} /tmp/f65dest",
+      "mv \"a\\\"b\" {.claude/hooks,t} /tmp/f65dest",
+      "mv \\' $'.claude' /tmp/f65dest",
+      "mv \\' {.claude,t} /tmp/f65dest",
+      "mv \\' {.claude/hooks,t} /tmp/f65dest",
+      "find \"\\\"\" $'.claude' -delete",
+      "find \"\\\"\" {.claude,t} -delete",
+      "find \"\\\"\" {.claude/hooks,t} -delete",
+      "find \"a\\\"b\" $'.claude' -delete",
+      "find \"a\\\"b\" {.claude,t} -delete",
+      "find \"a\\\"b\" {.claude/hooks,t} -delete",
+      "find \\' $'.claude' -delete",
+      "find \\' {.claude,t} -delete",
+      "find \\' {.claude/hooks,t} -delete",
+      "shred \"\\\"\" $'.claude'",
+      "shred \"\\\"\" {.claude,t}",
+      "shred \"\\\"\" {.claude/hooks,t}",
+      "shred \"a\\\"b\" $'.claude'",
+      "shred \"a\\\"b\" {.claude,t}",
+      "shred \"a\\\"b\" {.claude/hooks,t}",
+      "shred \\' $'.claude'",
+      "shred \\' {.claude,t}",
+      "shred \\' {.claude/hooks,t}",
+      "unlink \"\\\"\" $'.claude'",
+      "unlink \"\\\"\" {.claude,t}",
+      "unlink \"\\\"\" {.claude/hooks,t}",
+      "unlink \"a\\\"b\" $'.claude'",
+      "unlink \"a\\\"b\" {.claude,t}",
+      "unlink \"a\\\"b\" {.claude/hooks,t}",
+      "unlink \\' $'.claude'",
+      "unlink \\' {.claude,t}",
+      "unlink \\' {.claude/hooks,t}"
+    ],
+    "regression_vs_parent": [
+      {
+        "cmd": "rm -rf \"\\\"\" $'.claude'",
+        "parent_a94f564": "ask",
+        "head_6085b80": "allow",
+        "classification": "REGRESSION introduced by this commit"
+      },
+      {
+        "cmd": "rm -rf \"\\\"\" {.claude,tmp}",
+        "parent_a94f564": "allow",
+        "head_6085b80": "allow",
+        "classification": "pre-existing since the round-7 __quote_aware_split, still open"
+      }
+    ],
+    "not_bypassed_note": "Targets whose control-plane match is a `*/`-suffix rule (hooks/hooks.json, .claude/settings.json) still return ask, because the suffix wildcard absorbs the stray leading space that the mis-split produces. Only targets requiring exact-name equality (.claude, .claude/hooks) leak. This is accidental, not a designed defense."
+  },
+  "passed_criteria": {
+    "acceptance": [
+      "AC-9 (회귀 없음): 844/844 bats, exit 0, full output captured",
+      "AC-11 partial — the round-10 quote-split verb axis ('r'm, r''m, r\\m, \"r\"m, m''v, f''ind, unlin''k, shre''d) is now ask on both interpreters",
+      "AC-2 partial — the 30-command ordinary-dev corpus shows no new friction from the pre-filter removal"
+    ],
+    "security": [
+      "SC-1 (게이트·임계값·deny 목록 불변): harness-config thresholds untouched; no deny-list weakening in the diff",
+      "round-9 ANSI-C axis ($'.claude', $'rm', $\".claude\") remains ask"
+    ],
+    "error_scenarios": [
+      "No crash on either bash version across the entire probe battery (the bash 3.2 empty-array and set -u hazards from rounds 8-9 did not recur)",
+      "Length-cap fail-closed paths (512-char brace token, 2048-char quote-split segment) behave as documented"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-11: 컨트롤 플레인 삭제가 표기와 무관하게 최소 ask — 45 notations return silent allow",
+      "AC-2/AC-3 (정상 워크플로우 무마찰): 8/8 ordinary commands containing $'...' newly ask with a false control-plane-delete reason"
+    ],
+    "security": [
+      "SC-9: the 인용 notation axis is asserted closed in AC-11.verification_axes_2026_08_04 while 45 measured notations in that same axis destroy the control plane at allow, and the axis is absent from _residual_risk_AC11.open_axes_2026_08_04. SC-9 explicitly requires that an axis that is not closed be declared rather than claimed closed."
+    ],
+    "error_scenarios": [
+      "Un-modeled shell notation fails OPEN in __has_real_dollar_quote()/__quote_aware_split() rather than fail-closed, contradicting the file-wide stated principle '모르면 allow 가 아니라 ask'"
+    ]
+  },
+  "convergence_judgment": {
+    "question_asked": "Has this round actually converged, or is there still another axis around scan_control_plane_delete()?",
+    "answer": "Not converged. A new axis remains, and it is the same class as the previous seven.",
+    "pattern": "Rounds 4-6 modeled brace expansion (flat, nested, ranges) and glob-fold ordering; round 7 modeled quote-aware splitting; round 8 modeled ANSI-C quoting and internal '..'; round 9 abandoned ANSI-C decoding for an existence signal; round 10 removed the verb pre-filter; round 11 (this review) finds backslash escaping unmodeled. Each round adds one POSIX shell word-splitting feature, discovered adversarially rather than enumerated from the grammar.",
+    "why_it_recurs": "The implementation is incrementally re-implementing a shell tokenizer in bash, and the stopping condition is 'no evaluator thought of the next notation' rather than 'every construct in the grammar is either modeled or fail-closed'. Round 8's finding that the brace parser itself is sound (0 false verdicts over 4000 fuzzed tokens) remains valid and is not contradicted here — the defect is again outside the brace parser, in the quote/escape layer that feeds it.",
+    "remaining_unmodeled_constructs_to_enumerate": [
+      "backslash escaping (this round's finding)",
+      "line continuation (backslash-newline)",
+      "here-strings and here-documents",
+      "parameter expansion producing the verb (V=rm; $V) or the operand (declared open as indirect_operand)",
+      "$\"...\" locale quoting is checked for existence but its content is never modeled",
+      "aliases and shell functions"
+    ]
+  },
+  "recommendation": {
+    "priority_1_do_not_patch_one_more_notation": "Adding backslash handling to the two scanners would close this round's 45 cases and, on the evidence of seven prior rounds, would not close round 12. The stopping condition itself has to change.",
+    "priority_2_invert_the_default_inside_armed_segments": "Round 9 already established the right pattern for $' — do not try to model it, fail closed on its presence. Generalize that: inside a segment that is delete-ARMED, if the segment contains any construct the tokenizer does not fully model (a backslash anywhere, an unbalanced quote, $(, `, ${), return ask. That turns 'did we model this notation?' from an open-ended question into a closed whitelist, which is the only formulation that can converge.",
+    "priority_3_scope_the_fail_closed_check_to_armed_segments": "Apply the check AFTER arming is determined, not segment-wide before it. That removes the new $'...' false-ask regression on git commit / sort -t without weakening the gate, since arming is computed from normalized tokens which already handle quote splitting correctly.",
+    "priority_4_share_one_tokenizer": "__has_real_dollar_quote() and __quote_aware_split() must not carry two copies of the same quote state machine. One scanner that returns both the tokens and an 'unmodeled construct present' flag makes every future fix single-sited.",
+    "priority_5_add_a_differential_test": "Add an argv-oracle differential test to the suite: shim the delete verbs to record argv, run candidates under a real shell in a sandbox, and assert that any candidate whose recorded argv touches a control-plane path is not `allow`. My throwaway version found 45 bypasses in one run over 360 candidates. Without this, round 12 depends again on an evaluator guessing the right notation.",
+    "priority_6_declare_what_stays_open": "Whatever is not closed must be appended to _residual_risk_AC11.open_axes_2026_08_04 (verb-via-parameter-expansion at minimum), because SC-9 forbids claiming a notation axis closed when it is not."
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "AC-11.verification_axes_2026_08_04 has an '인용' axis and a '구분자·접두' axis containing `\\rm`, but no axis for a backslash escaping a QUOTE character. The axis list is an enumeration of notations someone thought of, and this round shows an enumeration cannot serve as the closure criterion for a critical-tier gate.",
+      "No acceptance criterion caps the false-ask rate, so the $'...' friction regression on git commit / sort -t violates no measurable criterion even though it degrades ordinary use."
+    ],
+    "ambiguous_criteria": [
+      "SC-9 says the notation axes must hold '전수(대상 × 표기)' but 표기 is defined only by the example list, so 'exhaustive' is unfalsifiable as written. It should be restated against the shell grammar: every quoting/escaping construct is either modeled or fail-closed."
+    ],
+    "security_criteria_insufficient": [
+      "SC-9's escape hatch (declare unclosed axes in open_axes) is the right mechanism, but nothing forces a newly discovered axis to be either closed or declared before the feature can pass. Seven rounds have each discovered an axis that was neither."
+    ],
+    "action_required": "Before round 12, restate AC-11/SC-9 so closure is defined by 'modeled or fail-closed against the shell grammar' rather than by an example list, and add the differential test as a standing gate."
+  },
+  "evidence": {
+    "environment": "ps -p $$ -o comm= -> /bin/zsh ; BASH_VERSION unset ; which bash -> /usr/local/bin/bash 5.3.15 ; /bin/bash --version -> 3.2.57",
+    "tests": "bats tests/ > bats-full.txt 2>&1 ; BATS_EXIT=0 ; grep -cE '^ *ok ' -> 844 ; grep -cE '^ *not ok ' -> 0. (An earlier run piped through `tail` was discarded as non-probative: a pipeline's exit status comes from tail, not bats.)",
+    "round10_counterexample_replay": "8/8 payloads ask on /usr/local/bin/bash AND /bin/bash; same 8 measured allow against parent a94f564 -> the round-10 fix is real",
+    "overblocking_replay": "grep -F 'end$' log.txt / awk '{print $1}' file.txt / echo 'price: $5'; rm -f tmp.o -> allow on both interpreters",
+    "ansic_replay": "rm -rf $'.claude' / $'rm' -rf .claude / rm -rf $\".claude\" -> ask on both interpreters",
+    "differential_fuzz": "argv-oracle fuzzer, 360 candidates (5 verbs x 8 escape decorations x 9 target forms). Verbs shimmed to record argv instead of deleting; a candidate counts as a bypass only if the firewall says allow AND a recorded operand resolves to a control-plane path. Result: 45 bypasses, identical set on hook=bash5.3/shell=zsh and hook=bash3.2/shell=bash3.2. Oracle validated for sensitivity (rm -rf .claude -> True) and specificity (rm -rf node_modules, rm -rf src/hooks -> False); one known benign over-count (.claude/worktrees) that none of the 45 rely on.",
+    "destructiveness_lab": "Isolated sandbox with .claude/hooks + .claude/settings.json; representative payloads run under /bin/zsh, /usr/local/bin/bash, /bin/bash. rm -rf \"\\\"\" $'.claude' / rm -rf \"\\\"\" {.claude,tmp} / rm -rf \"a\\\"b\" {.claude,t} / rm -rf \"\\\"\"'' {.claude,t} / find \"\\\"\" {.claude,t} -delete / rm -rf \"\\\"\" {.claude/hooks,t} / V=rm; $V -rf .claude -> .claude DESTROYED on all three shells.",
+    "regression_vs_parent": "git worktree at a94f564; same driver on both hooks. rm -rf \"\\\"\" $'.claude': parent=ask, HEAD=allow. Eight $'...' ordinary commands: parent=allow, HEAD=ask.",
+    "friction_corpus": "30 ordinary dev commands, parent vs HEAD: 0 changed, all allow -> pre-filter removal itself adds no friction",
+    "performance": "200-segment command and 400-brace-token command: 0.48s/0.62s and 0.46s/0.40s on bash 5.3 / bash 3.2 -> the commit's performance argument for removing the pre-filter is sound",
+    "root_cause_isolation": "Extracted __quote_aware_split and __has_real_dollar_quote verbatim from the hook and invoked them directly; compared their tokenization against the real shell's argv via printf. Divergence reproduced exactly as described in counterexamples.root_cause_trace.",
+    "decision_tier_confirmation": "rm -rf \"\\\"\" {.claude,t} returns permissionDecision:\"allow\" with reason '위험 명령(deny/ask)에 해당하지 않는 명령 — cc-harness firewall이 자동 허용했습니다', i.e. the Layer 4 auto-allow tier, which SUPPRESSES Claude Code's own permission prompt. The failure mode is a silent destructive execution, not a downgraded prompt."
+  },
+  "passes_updated": false,
+  "note_for_main_loop": "passes remains false for F65. Because the verdict is fail, the F37 critical-tier second independent judgment and the security-auditor dispatch are not triggered by this round — they become required only once a round reaches a pass verdict. If a future round does pass, F65 is critical tier and needs BOTH the independent second judge (verdict disagreement -> human escalation, no auto-pass) and security-auditor before passes may be set."
+}

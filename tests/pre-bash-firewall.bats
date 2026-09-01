@@ -2673,6 +2673,78 @@ delete_decision() {
   done
 }
 
+# === F65 11차 판정 (2026-08-30) 반려 — 백슬래시 이스케이프를 두 스캐너 모두 몰랐다 ===
+#
+# 11차 판정: 인용부호 상태 추적기 두 개(__quote_aware_split·__has_real_dollar_quote)가
+# 백슬래시를 평범한 글자로 취급해, `\"` 를 "이스케이프된 리터럴"이 아니라 "따옴표 자체"로
+# 잘못 셌다. 그러면 인용부호 짝이 실제 셸과 어긋나고, 그 어긋난 상태 안에서 진짜 `$'...'`
+# 이 숨어 검출을 피해간다 — 45가지 형태가 격리 랩에서 실제 삭제까지 갔다. 재작업(11차
+# 판정 권고 채택): 두 스캐너를 하나(__tokenize_segment)로 합치고 백슬래시를 정확히
+# 모델링한다 — 그리고 이 스캐너가 확실히 이해 못 하는 구문(명령 치환·안 닫힌 따옴표)을
+# 만나면 펴 보지 않고 곧장 ask 한다.
+
+@test "F65 escape: backslash-confused quote tracking no longer hides real ansi-c quotes (11th verdict)" {
+  local c
+  for c in 'rm -rf "\"" $'"'"'.claude'"'"'' \
+           'rm -rf "a\"b" {.claude,t}' \
+           "unlink \\' \$'.claude'" \
+           'shred "a\"b" {.claude/hooks,t}'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "백슬래시가 인용부호 상태를 어긋나게 해 진짜 ANSI-C 인용을 놓쳤다: $c"; false; }
+  done
+}
+
+@test "F65 escape: an unclosed quote at segment end fails closed, not open" {
+  # 실제 bash 도 안 닫힌 인용부호는 구문 오류로 거부한다(직접 확인) — 이 경우 ask 는
+  # 실행되지도 않을 명령에 대한 무해한 마찰이거나, 스캐너 자신의 재발 신호다.
+  run delete_decision 'rm -rf "unterminated'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "안 닫힌 따옴표가 allow 로 fail-open 됐다"; false; }
+}
+
+@test "F65 escape: ordinary backslash-escaped filenames still work with no new friction" {
+  # 통합 재작성이 정상적인 이스케이프 사용(파일명 안 공백)까지 깨지 않았는지 확인한다.
+  local c
+  for c in "rm -rf 'my file.txt'" 'rm -rf "my file.txt"' 'rm -rf my\ file.txt'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "정상적인 이스케이프/인용 파일명 삭제에 새 마찰이 생겼다: $c"; false; }
+  done
+}
+
+# === F65 12차 판정 — 11차 재작업의 명령 치환 처리가 무장 여부와 무관해 새 회귀를 냈다 ===
+#
+# 11차 반려 재작업(위)은 백틱·`$(` 도 $'...'와 같은 방식으로, 삭제 동사 유무와 무관하게
+# 세그먼트 전체를 즉시 ask 로 처리했다. 그런데 이 두 구문은 평범한 명령에 흔하다
+# (`git commit -m "...`code`..."`, `ls $(pwd)`) — 기존 회귀 테스트 2건이 깨졌다. 수정:
+# 백틱·`$(` 는 SEGMENT_UNSAFE 대신 SEGMENT_HAS_OPAQUE 만 세우고 토큰화를 계속하며,
+# scan_control_plane_delete() 가 **삭제 동사가 리터럴로 확정된(armed) 세그먼트에서만**
+# 이 플래그를 ask 사유로 본다 — Layer 2 INDIRECT_PATTERNS 가 치환 안의 리터럴 위험 동사를,
+# `open_axes_2026_08_04.indirect_operand` 가 임의 계산 피연산자를 이미 나눠 맡고 있어서다.
+
+@test "F65 substitution: command substitution inside an armed segment still asks" {
+  local c
+  for c in 'rm -rf $(echo .claude)' \
+           'rm -rf `echo .claude`' \
+           'mv "$(echo .claude)" /tmp/f65dest'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "무장된 세그먼트의 명령 치환 피연산자가 allow 로 샜다: $c"; false; }
+  done
+}
+
+@test "F65 substitution: command substitution with no delete verb stays frictionless (12th verdict fix)" {
+  local c
+  for c in 'git commit -m "docs: use `code` style"' \
+           'ls $(pwd)' \
+           'echo "build: $(date)"'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "삭제 동사 없는 명령 치환이 11차 재작업 탓에 ask 로 새 마찰을 만들었다: $c"; false; }
+  done
+}
+
 @test "F65 sibling: protected-integrity.sh does not crash when no protected file exists (9th verdict)" {
   # 9차 판정이 훑기 요청(요청 3번)에서 형제 훅의 같은 결함을 찾았다: PROTECTED_GLOBS 어느
   # 패턴도 매치하지 않는 저장소(플러그인이 설치된 사용자 저장소의 흔한 상태)에서 FILES 가
