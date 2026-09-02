@@ -1261,7 +1261,13 @@ control_plane_location() {
 # 찾는다(중첩 백틱은 실제 셸에서도 백슬래시 이스케이프가 필요하므로 같은 규칙을 따른다).
 # 짝을 못 찾으면 __OPAQUE_END=-1 — 호출자가 이를 SEGMENT_UNSAFE 로 처리한다.
 __skip_backtick() {
-  local s="$1" j=$(($2 + 1)) n=${#s} cj
+  # 주의: `n=${#s}` 를 `s="$1"` 과 같은 `local` 문에 두면 안 된다 — bash 는 그 우변을 s 가
+  # 아직 이 스코프에 대입되기 **전**에 평가한다(F65 7차 판정이 __brace_find_group() 에서
+  # 이미 겪은 함정 — 호출자 스코프에 우연히 같은 이름 s 가 남아 있으면 그 값으로 조용히
+  # 계산돼 겉보기엔 통과한다. 실측: __tokenize_segment() 의 지역변수도 이름이 s 라서 이
+  # 형태로 처음엔 우연히 통과했었다). 반드시 별도 문으로 나눈다.
+  local s="$1"
+  local j=$(($2 + 1)) n=${#s} cj
   while [[ $j -lt $n ]]; do
     cj="${s:j:1}"
     if [[ "$cj" == '\' ]]; then
@@ -1281,7 +1287,9 @@ __skip_backtick() {
 # 것이므로, 경계를 놓쳐도 이후 안 닫힌 따옴표 검사나 SEGMENT_HAS_OPAQUE 처리가 안전한
 # 쪽(ask)으로 떨어뜨린다.
 __skip_dollar_paren() {
-  local s="$1" j=$(($2 + 2)) n=${#s} depth=1 cj
+  # 위 __skip_backtick() 과 같은 이유로 별도 local 문 — 자기참조 회피.
+  local s="$1"
+  local j=$(($2 + 2)) n=${#s} depth=1 cj
   while [[ $j -lt $n && $depth -gt 0 ]]; do
     cj="${s:j:1}"
     if [[ "$cj" == '\' ]]; then
@@ -1342,10 +1350,52 @@ __scan_opaque_verb_matches() {
   done
 }
 
+# `${...}` 블록을 통째로 지운다(비어 있는 것으로 취급) — $1 은 원문. 안쪽은 해석하지
+# 않고 중첩 깊이만 센다(F65 14차 독립 판정: `$(r${Z}m -rf .claude)` 처럼 파라미터 확장이
+# 동사 한가운데 끼어 낱말을 쪼개는 경우 — `${Z}` 가 미정의/빈 값이면 실제 셸에서도 아무
+# 것도 안 남으므로 "지운다"가 정확한 근사다). 안전 방향: 지워서 더 많은 낱말이 이어 붙을
+# 수만 있고, 원래 안 이어 붙던 걸 억지로 이어 붙이지는 않는다 — 못 찾던 걸 찾을 수만 있다.
+__strip_dollar_brace() {
+  # 주의: 아래 n=${#s} 를 s="$1" 과 같은 local 문에 두지 않는다(__skip_backtick() 참조 —
+  # 이 파일이 F65 7차 판정 이래 반복 겪은 자기참조 함정).
+  local s="$1"
+  local out="" n=${#s} k=0 c depth j
+  while [[ $k -lt $n ]]; do
+    c="${s:k:1}"
+    if [[ "$c" == '$' && "${s:k+1:1}" == '{' ]]; then
+      depth=1; j=$((k + 2))
+      while [[ $j -lt $n && $depth -gt 0 ]]; do
+        case "${s:j:1}" in
+          '{') depth=$((depth + 1)) ;;
+          '}') depth=$((depth - 1)) ;;
+        esac
+        j=$((j + 1))
+      done
+      k=$j
+      continue
+    fi
+    out+="$c"
+    k=$((k + 1))
+  done
+  __STRIPPED="$out"
+}
+
 __note_opaque_verb() {
-  local span="$1" stripped
+  local span="$1"
+  local stripped
   __scan_opaque_verb_matches "$span"
-  stripped="${span//\'/}"; stripped="${stripped//\"/}"; stripped="${stripped//\\/}"
+  # 백슬래시-공백 쌍을 **가장 먼저** 통째로 지운다(줄 이음 폴딩 대응 — 순서가 중요하다,
+  # 아래 일반 백슬래시 제거보다 나중이면 백슬래시가 이미 사라져 이 쌍을 못 찾는다). 이
+  # 훅의 개행 정규화(파일 위쪽 NORMALIZED_CMD 구성)는 실제 줄 이음(`\<LF>`, 셸에서
+  # 아무 것도 안 남기고 사라짐)을 공백으로 접어(`\<space>`) 넘긴다 — 그대로 두면
+  # `` `r\<LF>m -rf .claude` `` 같은 흔한 줄바꿈 표기가 검출을 피한다(F65 14차 판정
+  # 실측). 정상적인 "공백을 이스케이프한 파일명"(`my\ file.txt`)도 같이 뭉쳐지지만,
+  # 이 사본은 동사 존재 여부만 보는 용도라 무해하다(뭉쳐진 결과가 우연히 무장 동사 6개
+  # 중 하나와 정확히 같지 않은 한 아무 일도 안 난다).
+  stripped="${span//\\ /}"
+  stripped="${stripped//\'/}"; stripped="${stripped//\"/}"; stripped="${stripped//\\/}"
+  __strip_dollar_brace "$stripped"
+  stripped="$__STRIPPED"
   [[ "$stripped" != "$span" ]] && __scan_opaque_verb_matches "$stripped"
 }
 

@@ -2864,6 +2864,49 @@ delete_decision() {
     || { echo "인코딩된 동사 취급이 바뀌었다 — 잡혔다면 sprint-51.json remaining_gap 을 좁히고 이 테스트를 뒤집어라"; false; }
 }
 
+@test "F65 substitution: nested command substitution remains a declared, accepted residual (not a regression)" {
+  # 14차 판정이 확인한 진짜 잔여 — 동사 일부가 안쪽 $(...) 의 출력으로 만들어지는 경우는
+  # 실행 전에는 값을 알 수 없다(F65/INV-14 원리적 한계, indirect_operand·unenumerated_verbs
+  # 와 같은 계열). 이 테스트는 그 지점이 "아직 안 고쳤다"를 정직하게 기록한다.
+  run delete_decision '$(r$(echo m) -rf .claude)'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "중첩 치환 취급이 바뀌었다 — 잡혔다면 sprint-51.json remaining_gap 을 좁히고 이 테스트를 뒤집어라"; false; }
+}
+
+# === F65 14차 판정 잔여 착수 — 파라미터 확장·백슬래시-개행 연속 (사용자 승인, 2026-09-02) ===
+#
+# find -exec 순서 버그(operand_before_verb_ordering)는 사용자 확인 후 별도 /change-request 로
+# 분리했다 — 이 절은 verb_via_substitution 축 중 값싸게 닫을 수 있는 두 가지만 다룬다.
+
+@test "F65 substitution: a verb split by parameter expansion inside the substitution still asks" {
+  # `${Z}` 가 미정의/빈 값이면 실제 셸에서도 아무 것도 안 남는다 — __strip_dollar_brace() 가
+  # 그 블록을 통째로 지워 원래 낱말을 복원한다.
+  local c
+  for c in '$(r${Z}m -rf .claude)' '`mv${X} .claude /tmp/f65sink`'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "치환 안에서 파라미터 확장으로 쪼갠 동사가 allow 로 샜다: $c"; false; }
+  done
+}
+
+@test "F65 substitution: a verb split by backslash-newline continuation inside the substitution still asks" {
+  # 이 훅의 개행 정규화가 실제 줄 이음(아무 것도 안 남기고 사라짐)을 공백으로 접어
+  # (`\<space>`) 넘긴다 — __note_opaque_verb() 가 그 폴딩을 되돌리지 않으면 놓친다.
+  local c
+  c="$(printf '\140r\\\nm -rf .claude\140')"
+  run delete_decision "$c"
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "치환 안에서 백슬래시-개행으로 쪼갠 동사가 allow 로 샜다"; false; }
+}
+
+@test "F65 substitution: legitimate backslash-escaped spaces inside a substitution create no new friction" {
+  # 파라미터 확장·개행 폴딩 대응이 정상적인 "공백 이스케이프 파일명" 사용까지 깨지 않았는지
+  # 확인한다 — 삭제 동사가 없는 세그먼트라 뭉쳐지든 말든 allow 여야 한다.
+  run delete_decision '`ls my\ file.txt`'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "정상적인 이스케이프 공백 파일명이 새 마찰을 만들었다"; false; }
+}
+
 @test "F65 sibling: protected-integrity.sh does not crash when no protected file exists (9th verdict)" {
   # 9차 판정이 훑기 요청(요청 3번)에서 형제 훅의 같은 결함을 찾았다: PROTECTED_GLOBS 어느
   # 패턴도 매치하지 않는 저장소(플러그인이 설치된 사용자 저장소의 흔한 상태)에서 FILES 가
