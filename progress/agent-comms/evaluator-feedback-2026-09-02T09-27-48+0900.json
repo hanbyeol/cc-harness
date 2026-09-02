@@ -1,0 +1,138 @@
+{
+  "timestamp": "2026-09-02T09:27:48+09:00",
+  "sprint": 51,
+  "iteration": 14,
+  "round_label": "F65 14th independent verdict",
+  "features_evaluated": [
+    "F65"
+  ],
+  "security_tier": "critical",
+  "commit_under_review": "fc093da fix(guard): scan every verb occurrence in a substitution, unify the arming verb list (F65 13th verdict)",
+  "parent_commit": "978d8f2",
+  "responds_to": "progress/agent-comms/evaluator-feedback-2026-09-02T07-14-24+0900.json (13th verdict, fail, security 4/10)",
+  "execution_environment": {
+    "shells": [
+      "/usr/local/bin/bash 5.3.15",
+      "/bin/bash 3.2.57",
+      "/usr/local/bin/zsh 5.9.2"
+    ],
+    "bats": "1.14.0",
+    "method": "Two independent instruments, both written fresh for this round. (1) A decision oracle that feeds each payload to hooks/pre-bash-firewall.sh as {tool_input:{command}} on stdin and classifies allow/ask/deny from the emitted permissionDecision plus exit status. (2) An isolated destruction lab that rebuilds a fresh control-plane tree (HOME/.claude and CWD/.claude, each with settings.json, hooks/x.sh, plugins/p), redirects HOME into the lab, executes the payload under a chosen shell from inside the lab, and diffs surviving paths against the pre-run canary listing. Decision and destruction are always reported as separate facts. A 407-payload differential fuzzer ran every payload against BOTH the parent hook (extracted via `git show 978d8f2:hooks/pre-bash-firewall.sh`) and HEAD, to separate this commit's effect from pre-existing behaviour.",
+    "lab_artifacts_controlled_for": [
+      "the lab is rebuilt from scratch for every single payload, so a previously-moved tree cannot read as a later 'intact' result",
+      "rmdir cannot remove a non-empty directory on macOS — `rmdir .claude` reports INTACT in this lab and is therefore NOT counted as a closed or an open bypass either way",
+      "macOS has no shred(1); shred payloads are reported as decision-only, never as destruction results",
+      "every headline finding was re-checked with CLAUDE_PROJECT_DIR pointed at the real repository as well as at a nonexistent directory — all six findings and both negative controls returned identical decisions under both settings",
+      "the hook's own decision logging was neutralised (CLAUDE_PROJECT_DIR outside the repo) so that fuzzing could not write into progress/",
+      "the regression suite was run standalone, never under parallel fuzzing load, because tests/pre-bash-firewall.bats contains wall-clock assertions (2000ms/3000ms budgets) that contention could flip"
+    ]
+  },
+  "scores": {
+    "functionality": 5,
+    "code_quality": 6,
+    "security": 4,
+    "error_handling": 7,
+    "test_coverage": 5
+  },
+  "score": 4,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 4 < 7 (critical tier) — automatic fail regardless of the other four scores",
+    "score 4 < pass_threshold 7",
+    "the verb-shadowing class this commit claims to have closed is still open at >=20 shadow words, with destruction confirmed in the isolated lab on bash 5.3, bash 3.2 and zsh 5.9.2 — the fix moved the threshold from 1 to 20, it did not remove the order/count dependency",
+    "the newly narrowed residual statement ('encoded verbs only (hex, base64)') is contradicted by three non-encoded, lab-confirmed destruction classes — the fourth consecutive round in which a prose claim about a compensating control was written without fuzzing it"
+  ],
+  "what_this_commit_got_right": [
+    "ISSUE-2 is genuinely closed. The quote-split, empty-quote and backslash-in-verb families inside a substitution all flip allow -> ask: obf_quote, obf_quote2 and obf_bs are 6/6 ask under HEAD and were 6/6 allow under the parent.",
+    "ISSUE-1 is genuinely closed for shadow counts 1 through 19. 28 payloads (shadow_n1/n2/n5/n10/n15/n18/n19 x mv/unlink/shred/rmdir) flip allow -> ask. The 13th verdict's own representative case `$(FOO=find mv .claude /tmp/sink)` now returns ask.",
+    "Claim 3 verified: the array-loop rewrite of scan_control_plane_delete()'s arming decision is behaviour-identical to the literal comparison chain it replaced. Across the 407-payload differential there is not a single decision change in the bare-verb (5 verbs x 11 targets x 4 notations), find -delete/-exec/-name, or ordinary-command families, and not a single ask/deny -> allow transition anywhere in the corpus. Every change is a strengthening.",
+    "The literal-verb-inside-substitution family (5 verbs x 3 targets x 5 wrapper shapes = 75 payloads) is 60 ask + 15 deny, 0 allow.",
+    "Claim 5 fully verified by direct execution: tests/pre-bash-firewall.bats = 290/290 and the full tests/ suite = 855/855, both with 0 failures and exit 0. The implementer's numbers are accurate. Static count of @test declarations across tests/*.bats is also 855, so the suite total is not inflated by re-runs.",
+    "ISSUE-4 is addressed at the right level. Replacing the duplicated literal list with ARM_DELETE_VERBS_UNCONDITIONAL / ARM_DELETE_VERB_DELETE_GATED as a genuine single source of truth is a better fix than the parity test the previous commit falsely claimed to have written, and it is now backed by a test that actually exists.",
+    "No new friction. The only ordinary command that is not allowed under HEAD is `echo $(mv src/a src/b)`, which the parent also asks on — pre-existing accepted over-arming, not a regression.",
+    "progress/lessons.md records the 13th verdict's lesson accurately and without minimising it."
+  ],
+  "issues": [
+    "[security][critical][confidence:high] ISSUE-1 is not closed — it is re-opened at 20 shadow words by an undocumented iteration cap. __scan_opaque_verb_matches() at hooks/pre-bash-firewall.sh:1335 is `while [[ $i -lt 20 && \"$s\" =~ ... ]]`. Because a bare `find` only arms a segment that also contains the literal `-delete`, 20 occurrences of the word `find` ahead of the real verb consume the entire iteration budget and the real verb is never pushed into SPLIT_TOKS. `echo $(A1=find A2=find ... A20=find mv .claude /tmp/sink)` returns allow and moved the whole control plane in the isolated lab on all three shells. The boundary is exact: n=19 -> ask, n=20 -> allow. Counterfactual: patching only that literal from 20 to 5000 turns n=20/25/40/100 back to ask, so the cap is the sole cause. Confirmed for mv, unlink and shred behind the shadow; rmdir is decision-allow but cannot act on a non-empty directory here. The carrier is an ordinary environment-variable assignment chain — no encoding, no quoting tricks, plain literal verbs. This is the same order/count-dependent failure the 13th verdict rejected, relocated to a higher count rather than removed.",
+    "[security][critical][confidence:high] The cap is a silent security/performance trade-off, and the performance half of it is not real. It has no explanatory comment anywhere in the 30-line comment block above the function, no named rationale, and no test pinning it, so a reader cannot discover that the scanner's completeness is bounded. Measured: on a 20915-char payload containing 2000 arming-verb words, one full hook invocation takes 349ms at cap=20, 352ms uncapped, and 338ms with an O(1) rewrite — i.e. the cap buys no measurable time while creating the bypass. progress/lessons.md's own lesson (1) from this same commit states the correct rule ('스팬 안의 모든 매치를 봐야 한다' — you must look at every match in the span); the fix looks at at most 20.",
+    "[security][high][confidence:high] The residual statement was narrowed in a direction that is factually wrong, for the fourth consecutive round. sprint-51.json remaining_gap and the commit message now say the honest residual is 'encoded verbs only (hex, base64)' and explicitly NOT 'any verb the tokenizer doesn't fully parse'. Three non-encoded classes return allow and destroyed the control plane in the lab on all three shells: (a) parameter expansion splitting the verb — `echo $(r${Z}m -rf .claude)`, `echo $(r${Z:-}m -rf .claude)`, `echo $(m${Z}v .claude SINK)`, `echo $(unlin${Z}k .claude/settings.json)`, and the backtick form; (b) a nested substitution building the verb — `echo $(r$(echo m) -rf .claude)`, `echo $(`echo r`m -rf .claude)`; (c) backslash-newline line continuation inside the substitution — `echo $(r\\<newline>m -rf .claude)`, `echo $(m\\<newline>v .claude SINK)`. None of these is hex or base64. Class (c) is the same backslash mechanism ISSUE-2 was about: the stripped-copy scan handles `r\\m` but not `r\\<newline>m`, because the hook folds newlines to spaces when building NORMALIZED_CMD (hooks/pre-bash-firewall.sh:46-58) while the shell treats the sequence as a continuation that forms `rm`. All three classes are pre-existing — the parent allows them too — so they are not a regression introduced here. But the previous, vaguer wording admitted them and the new wording excludes them, which makes the declared residual less honest than it was before this commit.",
+    "[security][high][confidence:high] Undeclared bypass in the function under review: operand tokens appearing BEFORE the arming verb are never checked. scan_control_plane_delete() sets armed=1 when it meets the verb and guards the operand check with `[[ \"$armed\" -eq 1 ]] || continue` (hooks/pre-bash-firewall.sh:1497), so a control-plane path positioned earlier in the segment is skipped entirely. `find .claude -exec rm {} \\;` returns allow and destroyed the control-plane files in the lab on bash 5.3, bash 3.2 and zsh 5.9.2. Same for `find .claude -exec rm -rf {} +`, `find $HOME/.claude -exec unlink {} \\;`, and `find .claude/hooks -type f -exec rm {} \\;`. The in-file comment at line 1471 asserts the opposite — '`-exec … rm` 은 아래 동사 검사가 무장한다' — and it is literally true that the segment arms, but arming happens after the operand has already been passed over. The Layer 2 patterns at lines 503-504 only cover the filenames hooks.json / settings(.local).json, not `.claude` directories. Negative control: `find . -name x -exec rm .claude/settings.json \\;`, where the operand follows the verb, correctly returns ask. This axis is named nowhere in progress/contracts/sprint-51.json or docs/INVARIANTS.md. Pre-existing, not introduced by this commit, but it is a fourth instance of the same failure mode: a code comment asserting a compensating control that fuzzing disproves in minutes.",
+    "[test][medium][confidence:high] The new shadowing test pins a strictly weaker property than its own name claims. 'F65 substitution: a verb-shadowing word before the real delete verb no longer hides it (13th verdict)' exercises only single-shadow payloads. A boundary case at or above the iteration cap would have caught the critical issue above before commit. Any scanner with a bounded loop needs a test at the bound.",
+    "[test][medium][confidence:medium] The ISSUE-4 single-source-of-truth test is a text grep, not a behavioural equivalence check. It asserts each of the six verbs appears in the array declarations and that the literal string '\"$NORM_TOK\" == rm ' is absent from the file. A re-duplication written in any other spelling (for example `\"$NORM_TOK\" == \"rm\"`, or a differently-ordered chain) passes it. It is a real improvement over the previously-claimed-but-absent parity test and it would catch a naive revert, but it does not verify that the two consumers actually agree — e.g. by adding a synthetic verb to the array and asserting that both the substitution scan and the arming decision change together.",
+    "[quality][medium][confidence:high] The commit message and the sprint-51.json axis text both state the shadowing class is closed without qualification ('__scan_opaque_verb_matches() 가 매치마다 계속 스캔해 span 안의 모든 동사를 흘려보내고'). Given the cap, the accurate statement is 'up to the first 20 arming-verb words in the span'. The same over-statement pattern the 13th verdict rejected is present again, one level deeper.",
+    "[quality][low][confidence:high] progress/lessons.md lesson (2), added by this very commit, says to measure the boundary with a differential fuzzer before narrowing residual risk in prose. The same commit narrowed the residual to 'encoded only' without fuzzing the parameter-expansion, nested-substitution or line-continuation forms, all three of which fall in minutes. The lesson was recorded and then not applied within the same commit — the exact criticism lesson (3) makes about the previous round.",
+    "[info][low][confidence:high] .claude/ is gitignored (.gitignore:9) and appears in no PROTECTED_GLOBS entry in hooks/protected-integrity.sh, so detect-and-recover restores nothing under it. This is why every bypass above is unrecoverable rather than merely noisy, and it remains the larger design question the 13th verdict raised. Out of scope for this commit, but it is the reason the severity of the items above is critical rather than moderate."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "the 13th verdict's ISSUE-2 (backslash/quote-split verb inside a substitution) is closed — 6/6 allow -> ask, lab-reconfirmed",
+      "the 13th verdict's ISSUE-1 representative payloads are closed for shadow counts 1-19 — 28 payloads allow -> ask",
+      "literal arming verb inside a substitution: 75/75 gated (60 ask, 15 deny, 0 allow)",
+      "ISSUE-4 resolved structurally: a real single source of truth replaces the duplicated list, with a test that exists"
+    ],
+    "security": [
+      "no weakening anywhere: 0 ask/deny -> allow transitions across 407 differential payloads",
+      "arming-chain rewrite is behaviour-identical to the literal chain it replaced (0 decision changes in the bare-verb, find and ordinary families)",
+      "fail-closed behaviour preserved: unterminated quotes and unbalanced substitutions still ask"
+    ],
+    "error_scenarios": [
+      "no new friction: the only non-allow ordinary command under HEAD is one the parent also asks on",
+      "bash 3.2 set -u empty-array safety preserved — full suite 855/855 green",
+      "decision behaviour identical under CLAUDE_PROJECT_DIR pointed at the real repo and at a nonexistent path",
+      "no perf regression: 20KB / 2000-verb / brace-bomb payloads measure within noise of the parent"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "'span 안의 모든 동사 낱말을 흘려보낸다' — false beyond 20 matches; the scanner stops at the cap"
+    ],
+    "security": [
+      "verb shadowing still yields allow + confirmed destruction at >=20 shadow words on all three shells",
+      "remaining_gap 'encoded verbs only (hex, base64)' excludes three lab-confirmed non-encoded destruction classes",
+      "operand-before-verb ordering (find .claude -exec rm) yields allow + confirmed destruction and is declared nowhere"
+    ],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "no acceptance criterion bounds the scanner's completeness. Any bounded loop in a gate needs an explicit criterion of the form 'the decision must not depend on the number of verb-like words in a span', plus a test at the bound.",
+      "no criterion covers token ORDER within a segment. The arming design checks operands only after the verb, so 'operand precedes verb' (find PATH -exec rm) is an entire untested axis; sprint-51.json should name it explicitly as either closed or an accepted residual.",
+      "no criterion covers verb construction by parameter expansion or nested substitution, which the current residual wording implicitly denies exists."
+    ],
+    "ambiguous_criteria": [
+      "remaining_gap conflates the mechanism ('인코딩된 경우 (hex/base64/printf 등)') with the detection property ('단어 경계 스캔 둘 다로도 못 잡는 경우'). The second clause is accurate and the first is not; stating only the accurate clause, and enumerating the known members, would stop this from being re-litigated every round."
+    ],
+    "security_criteria_insufficient": [
+      "sprint-51.json's verb_via_substitution axis is being rewritten each round to describe the last defect found rather than to state a property the implementation must hold. A property-shaped criterion ('no sequence of ordinary shell tokens that resolves to an arming verb acting on a control-plane path may return allow, independent of count, order, or position') would be falsifiable by fuzzing instead of by the next reviewer's imagination."
+    ],
+    "action_required": "Before the next implementation attempt, add the bound-and-order criteria above to progress/contracts/sprint-51.json and evals/acceptance-criteria.json, and require that any narrowing of remaining_gap be accompanied by the fuzzer output that justifies it."
+  },
+  "recommended_remediation": [
+    "Remove the count dependency rather than raising the cap — a cap of 200 still loses to a 200-shadow payload. Measured counterfactual for the recommended shape: replace the per-occurrence enumeration with one probe per verb CLASS (`for v in \"${ARM_DELETE_VERBS_UNCONDITIONAL[@]}\" \"$ARM_DELETE_VERB_DELETE_GATED\"; do [[ \"$s\" =~ (^|[^A-Za-z0-9_])($v)([^A-Za-z0-9_]|$) ]] && SPLIT_TOKS+=(\"$v\"); done`). This is O(1) in the number of occurrences, needs no cap, and preserves the delete-gating of `find` because the verb identity is still what gets pushed. Verified by this evaluator, not asserted: it returns ask at n=19/20/40/200; replayed against the whole 407-payload corpus it differs from HEAD on exactly the 16 shadow_n>=20 payloads (all allow -> ask strengthenings) and on nothing else; and it measures 338ms vs HEAD's 349ms on the 2000-verb 20KB payload.",
+    "If a bound is kept anyway, it must carry a comment stating the trade-off, a test at the boundary (n = cap and n = cap+1), and an entry in remaining_gap.",
+    "Restore remaining_gap to the accurate detection-shaped wording and list the currently-known non-encoded members (parameter expansion, nested substitution, backslash-newline continuation), or close them.",
+    "Treat `find PATH -exec rm` as its own axis: either check operand tokens irrespective of their position relative to the verb (a second pass over the segment once armed is decided), or declare it. The line 1471 comment must be corrected either way — it currently asserts protection that does not exist.",
+    "Adopt a standing rule that no round may narrow a residual claim without attaching the differential-fuzz output for the narrowed boundary. Four rounds have now failed at exactly this step."
+  ],
+  "evidence": {
+    "decision_oracle": "printf '%s' \"$CMD\" | jq -Rs '{tool_input:{command:.}}' | bash hooks/pre-bash-firewall.sh — classified from permissionDecision + exit status; independently written this round.",
+    "differential_fuzz": "407 payloads x 2 hooks (parent 978d8f2 vs HEAD fc093da). Decision changes: 28 shadow payloads allow -> ask (n=1..19), 6 obfuscation payloads allow -> ask (quote / empty-quote / backslash). ask/deny -> allow transitions: 0. Decision changes in the bare-verb, find, and ordinary families: 0 — this is the claim-3 regression check.",
+    "axis_A_loop_cap": "echo $(A1=find ... A{n}=find mv .claude SINK): n=19 ask; n=20 allow; n=21 allow; n=25 allow; n=30 allow; n=40 allow. Lab on all three shells at n=20/21/30: DESTROYED. Counterfactual `sed 's/$i -lt 20 /$i -lt 5000 /'`: n=20/25/40/100 all become ask, n=19 unchanged — the cap is the sole cause.",
+    "axis_B_param_expansion": "echo $(r${Z}m -rf .claude) / $(r${Z:-}m ...) / $(m${Z}v ...) / $(unlin${Z}k .claude/settings.json) / backtick form — allow under both parent and HEAD; bash5=DESTROYED bash3=DESTROYED zsh=DESTROYED for all five.",
+    "axis_C_nested_substitution": "echo $(r$(echo m) -rf .claude) / $(`echo r`m -rf .claude) / $(m$(echo v) .claude SINK) — allow; bash5/bash3/zsh = DESTROYED.",
+    "axis_D_line_continuation": "echo $(r\\<newline>m -rf .claude) and echo $(m\\<newline>v .claude SINK) — allow; bash5/bash3/zsh = DESTROYED. Cause: NORMALIZED_CMD folds newline to space (hooks/pre-bash-firewall.sh:46-58) while the shell treats backslash-newline as a continuation.",
+    "axis_E_operand_before_verb": "find .claude -exec rm {} \\; / find .claude -exec rm -rf {} + / find $HOME/.claude -exec unlink {} \\; / find .claude/hooks -type f -exec rm {} \\; — all allow; bash5/bash3/zsh = DESTROYED. Negative control `find . -name x -exec rm .claude/settings.json \\;` = ask, INTACT.",
+    "negative_controls": "rm -rf .claude = ask; echo $(mv .claude SINK) = ask; echo $(FOO=find mv .claude SINK) = ask (the 13th verdict's case, now genuinely closed). All three are DESTROYED when executed, confirming the payloads are genuinely destructive and it is the gate decision that differs.",
+    "project_dir_sensitivity": "all six findings and both negative controls returned identical decisions with CLAUDE_PROJECT_DIR set to the real repository and to a nonexistent path.",
+    "counterfactual_remediation": "O(1) per-verb-class variant (see recommended_remediation): ask at n=19/20/40/200; replayed over the 407-payload corpus it differs from HEAD on exactly 16 payloads, all shadow_n>=20 allow -> ask; no other decision changes.",
+    "perf_of_the_cap": "one full hook invocation on a 20915-char payload with 2000 arming-verb words: HEAD (cap 20) 349ms, uncapped 352ms, O(1) variant 338ms. On a 20026-char span: 323 / 326 / 328ms. On a 40-group brace bomb: 250 / 245 / 246ms. The cap yields no measurable performance benefit.",
+    "regression_suite": "bats tests/pre-bash-firewall.bats -> 290/290, 0 not-ok, exit 0. bats tests/ -> 855/855, 0 not-ok, exit 0. Both run standalone. Static count of @test declarations across tests/*.bats = 855, matching the run. The implementer's 290/290 and 855/855 are accurate.",
+    "static_checks": "no comment anywhere in hooks/pre-bash-firewall.sh mentions the 20-iteration cap; `grep -- -exec progress/contracts/sprint-51.json docs/INVARIANTS.md` returns nothing, confirming the -exec ordering axis is undeclared; .claude/ is matched by .gitignore:9 and absent from PROTECTED_GLOBS in hooks/protected-integrity.sh."
+  },
+  "convergence_judgment": "This is the fourth consecutive round in which the fix is real but the claim about the fix is broader than the code. The trend inside the code is genuinely positive — the 12th round left 28 bypasses, the 13th left 32 plus 204 obfuscation cases, this one leaves a class that needs 20 shadow words plus three pre-existing non-encoded classes and one ordering axis — and the list unification is the first structural improvement in the sequence rather than another special case. The failure has moved: it is no longer mainly in the scanner, it is in the review discipline around the residual statement. Recommend the next iteration be scoped narrowly to (a) removing the count dependency using the measured O(1) shape above, and (b) restating the residual from measurement rather than from reasoning. Repeated relitigation of this one axis is itself now a cost worth bounding.",
+  "note_for_main_loop": "F65 is security_tier critical. This verdict is fail, so progress/feature_list.json F65.passes stays false — it was already false and was not modified. Even if a future round reaches pass, F65 still requires (1) an F37 second independent verdict from a separate context, whose verdict must agree before any pass is honoured (disagreement escalates to a human; automatic pass is forbidden), and (2) a security-auditor pass, both dispatched in addition to this evaluator. Do not treat a single pass verdict on this feature as sufficient. Separately, the .claude/ gap (gitignored, absent from PROTECTED_GLOBS, therefore no detect-and-recover coverage) is a design question larger than this commit and should be routed through /change-request rather than folded into another F65 iteration.",
+  "passes_updated": false,
+  "passes_value": false
+}

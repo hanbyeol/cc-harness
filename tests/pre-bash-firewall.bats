@@ -2808,6 +2808,19 @@ delete_decision() {
   done
 }
 
+@test "F65 substitution: no iteration cap to exhaust — 25 shadow words still cannot hide the real verb (14th verdict)" {
+  # 14차 판정: 13차 재작업의 __scan_opaque_verb_matches() 는 매치마다 지우며 반복했는데
+  # 그 반복에 20회 상한을 뒀다 — 상한 자체가 우회였다(가리는 낱말 20개부터 allow로 샘,
+  # 실제 삭제까지 확인). 재작업은 "몇 번 나오든" 대신 "동사 6개 각각 있는지 없는지"만
+  # 독립적으로 묻는 O(1) 방식으로 바꿔 상한 자체를 없앴다 — 낱말 수와 무관하게 항상 닫혀야
+  # 한다는 것을 25개(구 상한보다 많이)로 고정한다.
+  local shadow="" i
+  for i in $(seq 1 25); do shadow="${shadow}A${i}=find "; done
+  run delete_decision "\$(${shadow}mv .claude /tmp/f65sink)"
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "가리는 낱말이 상한을 넘자 진짜 동사가 다시 allow 로 샜다"; false; }
+}
+
 @test "F65 substitution: a backslash-split verb inside the substitution itself still asks (13th verdict)" {
   local c
   for c in '`r\m -rf .claude`' '`f\ind .claude -delete`'; do
@@ -2827,7 +2840,7 @@ delete_decision() {
   # 주석을 다시 거짓으로 만들지 않기 위해서다.
   local verb tmpfile
   tmpfile="$BATS_TEST_TMPDIR/f65-arm-verbs.sh"
-  sed -n '/^ARM_DELETE_VERBS_UNCONDITIONAL=/,/^ARM_DELETE_VERBS_RE=/p' "$HOOK" > "$tmpfile"
+  sed -n '/^ARM_DELETE_VERBS_UNCONDITIONAL=/,/^ARM_DELETE_VERB_DELETE_GATED=/p' "$HOOK" > "$tmpfile"
   run bash -c "source '$tmpfile'; printf '%s\n' \"\${ARM_DELETE_VERBS_UNCONDITIONAL[@]}\" \"\$ARM_DELETE_VERB_DELETE_GATED\""
   [ "$status" -eq 0 ] || { echo "ARM_DELETE_VERBS_UNCONDITIONAL/ARM_DELETE_VERB_DELETE_GATED 정의를 못 찾았다 — 이름이 바뀌었는가?"; false; }
   for verb in rm rmdir unlink shred mv find; do

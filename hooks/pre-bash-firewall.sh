@@ -1298,17 +1298,15 @@ __skip_dollar_paren() {
 
 # 무장 동사의 유일한 출처(F65 13차 독립 판정 — 커밋 978d8f2 가 이 목록을 __note_opaque_verb()
 # 안에 리터럴로 중복시켰다가 반려됐다: "다른 곳도 같은 목록일 것"이라는 산문 주장은 검증된
-# 적이 없었다). `ARM_DELETE_VERBS_RE` 는 이 두 배열에서 **파생**된다 — 아래
-# `scan_control_plane_delete()` 의 무장 판정도 같은 배열을 직접 순회한다. 그래서 동사를
-# 하나 더하거나 빼려면 이 자리 하나만 고치면 되고, __note_opaque_verb() 의 치환-원문
-# 스캔과 실제 armed 판정이 조용히 어긋날 길이 없다(텍스트 중복도, 그걸 대조하는 별도
-# 패리티 테스트도 필요 없다 — 애초에 하나이므로).
+# 적이 없었다). 아래 `scan_control_plane_delete()` 의 무장 판정도 이 두 배열을 직접 순회한다
+# — 그래서 동사를 하나 더하거나 빼려면 이 자리 하나만 고치면 되고, __note_opaque_verb() 의
+# 치환-원문 스캔과 실제 armed 판정이 조용히 어긋날 길이 없다(텍스트 중복도, 그걸 대조하는
+# 별도 패리티 테스트도 필요 없다 — 애초에 하나이므로).
 ARM_DELETE_VERBS_UNCONDITIONAL=(rm rmdir unlink shred mv)
 # `find` 는 술어(`-delete`)를 동반할 때만 무장한다(평범한 `find .claude` 는 읽기다) — 그래서
-# 무조건 무장 배열과 분리한다. `scan_control_plane_delete()` 의 `-delete` 사전 검사가 이
-# 변수를 직접 쓴다.
+# 무조건 무장 배열과 분리한다. `scan_control_plane_delete()` 의 `-delete` 사전 검사와
+# `__scan_opaque_verb_matches()` 양쪽이 이 변수를 직접 쓴다.
 ARM_DELETE_VERB_DELETE_GATED="find"
-ARM_DELETE_VERBS_RE="$(IFS='|'; echo "${ARM_DELETE_VERBS_UNCONDITIONAL[*]}")|${ARM_DELETE_VERB_DELETE_GATED}"
 
 # 명령 치환 구간의 **원문**에 삭제 동사가 리터럴 단어로 있으면 그 동사를 별도 토큰으로
 # SPLIT_TOKS 에 흘려보낸다(F65 12차 판정 — 커밋 1096d5e 반려, 13차 판정 — 커밋 978d8f2
@@ -1330,12 +1328,17 @@ ARM_DELETE_VERBS_RE="$(IFS='|'; echo "${ARM_DELETE_VERBS_UNCONDITIONAL[*]}")|${A
 # **더 찾을 수만** 있고 못 찾게 만들지는 않는다 — 안전한 보조 스캔). 이름이 우연히
 # 겹치는 문맥(예: URL 경로의 "rm")까지 무장하는 과잉은 이 파일 전체가 이미 받아들인
 # 트레이드오프다("동사는 세그먼트 어디에 있어도 무장한다" 참조).
+# F65 14차 독립 판정이 반려한 결함: 이전 버전은 매치를 찾을 때마다 지우며 반복했는데,
+# 그 반복에 상한(20회)을 뒀다 — **상한 자체가 우회였다**. 가리는 낱말(예: `find`)을 상한
+# 개수만큼 쓰면 진짜 동사에 도달하기 전에 스캔이 멈췄다(`A1=find A2=find ... A20=find mv
+# .claude ...` 가 20개째부터 allow로 샜다, 실측). 수정: 동사 **개수**를 세지 않는다 —
+# 6개 무장 동사 각각에 대해 "이 span 안에 이 동사가 한 번이라도 있는가"만 독립적으로
+# 한 번씩 묻는다(존재 여부는 몇 번 나오든 같다). 이러면 span 안에 같은/다른 동사가 몇
+# 개가 있든 검사 횟수가 항상 6번으로 고정돼 상한이 애초에 필요 없다.
 __scan_opaque_verb_matches() {
-  local s="$1" i=0
-  while [[ $i -lt 20 && "$s" =~ (^|[^A-Za-z0-9_])($ARM_DELETE_VERBS_RE)([^A-Za-z0-9_]|$) ]]; do
-    SPLIT_TOKS+=("${BASH_REMATCH[2]}")
-    s="${s#*"${BASH_REMATCH[0]}"}"
-    i=$((i + 1))
+  local s="$1" verb
+  for verb in "${ARM_DELETE_VERBS_UNCONDITIONAL[@]}" "$ARM_DELETE_VERB_DELETE_GATED"; do
+    [[ "$s" =~ (^|[^A-Za-z0-9_])${verb}([^A-Za-z0-9_]|$) ]] && SPLIT_TOKS+=("$verb")
   done
 }
 
