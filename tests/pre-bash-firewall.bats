@@ -2907,6 +2907,33 @@ delete_decision() {
     || { echo "정상적인 이스케이프 공백 파일명이 새 마찰을 만들었다"; false; }
 }
 
+# === F65 15차 독립 판정 — 파라미터 확장 제거가 회귀를 냈다 ===
+#
+# 14차 후속(위)이 `__strip_dollar_brace()` 의 결과로 사본을 **덮어썼는데**, 그 함수의
+# 중첩 깊이 카운팅이 `${A:-{}` 같은 형태(안쪽 `{` 가 진짜 중첩이 아닌데 중첩으로 잘못
+# 셈) 에서 스팬 끝까지 과하게 지워, 방금 따옴표 제거로 이미 드러났던 동사까지 함께
+# 사라졌다 — 부모 커밋보다 약해진 회귀(40건, 32건 lab 확인 파괴). 재작업: (1) 변환마다
+# 독립된 사본으로 스캔한다(대체 아님 — 뒤 단계가 지나쳐도 앞 단계가 이미 찾은 매치는
+# 남는다). (2) `${...}` 는 안쪽이 순수 변수명일 때만 지운다 — `:-`·`#`·`%` 등 연산자가
+# 있으면 지우지 않는다(그런 형태는 미정의 상태에서도 실제 텍스트를 남길 수 있어
+# `${Z:-r}${Z:-m}` 같은 경우 통째로 지우면 오히려 놓친다 — 이 형태는 declared residual
+# 로 남는다).
+
+@test "F65 substitution: the exact 15th-verdict regression payload still asks (overshoot no longer eats a found verb)" {
+  run delete_decision "\$(PFX=\${A:-{} r'm' -rf .claude)"
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "\${...} 제거의 오버슈트가 이미 찾은 동사를 지워 allow 로 회귀했다"; false; }
+}
+
+@test "F65 substitution: parameter expansion with a default-value operator remains a declared, accepted residual" {
+  # `\${Z:-r}\${Z:-m}` 는 Z 가 미정의면 실제 셸에서 "rm" 으로 펴진다 — __strip_dollar_brace()
+  # 는 연산자 있는 블록을 지우지 않으므로(안전한 쪽으로 보수적) 이 형태는 아직 못 잡는다.
+  # 회귀가 아니라 알려진 한계임을 고정한다(sprint-51.json verb_via_substitution 참조).
+  run delete_decision '$(${Z:-r}${Z:-m} -rf .claude)'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "defval 파라미터 확장 취급이 바뀌었다 — 잡혔다면 sprint-51.json 잔여 서술을 좁히고 이 테스트를 뒤집어라"; false; }
+}
+
 @test "F65 sibling: protected-integrity.sh does not crash when no protected file exists (9th verdict)" {
   # 9차 판정이 훑기 요청(요청 3번)에서 형제 훅의 같은 결함을 찾았다: PROTECTED_GLOBS 어느
   # 패턴도 매치하지 않는 저장소(플러그인이 설치된 사용자 저장소의 흔한 상태)에서 FILES 가

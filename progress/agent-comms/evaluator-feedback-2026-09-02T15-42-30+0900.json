@@ -1,0 +1,127 @@
+{
+  "timestamp": "2026-09-02T15:42:30+09:00",
+  "title": "F65 15th independent verdict",
+  "sprint": 51,
+  "iteration": 15,
+  "features_evaluated": [
+    "F65"
+  ],
+  "security_tier": "critical",
+  "commit_under_review": "edbcdff",
+  "parent_commit": "11c8db7",
+  "scores": {
+    "functionality": 5,
+    "code_quality": 5,
+    "security": 3,
+    "error_handling": 4,
+    "test_coverage": 4
+  },
+  "score": 3,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 3 < 7 (critical tier → automatic fail regardless of other scores)",
+    "score 3 < pass_threshold 7",
+    "REGRESSION: 40 payloads gated by the parent commit (ask) are now allow; 32 of them destroy the control plane in a real shell. __strip_dollar_brace() over-consumes and eats a verb that the quote/backslash strip had already revealed.",
+    "verb_via_substitution.remaining_gap and backslash_newline_fold.status in sprint-51.json assert a closure that execution falsifies (64 live bypasses remain, incl. 21 inside substitutions)."
+  ],
+  "what_the_commit_genuinely_achieved": {
+    "confirmed_fixes": "84 of 615 fuzzed payloads moved from allow→gated AND are confirmed control-plane-destructive in a real shell — parameter expansion (${Z}, ${Z:-}, ${Z:+x}, ${Z%%*}, nested ${Z:-${Y}}) and backslash-newline continuation, in both `...` and $(...) wrappers, across 5 arming verbs.",
+    "real_newline_reconfirmed": "A3/A4 reproduced with an actual LF byte (not a space): `r\\<LF>m -rf .claude` inside both substitution forms → ask. Verified destructive in the lab on bash 5.3, bash 3.2 and zsh 5.9.",
+    "local_scoping_fix_verified": "The self-referencing `local` claim is accurate and the fix is correct. Direct measurement on bash 5.3 and 3.2: `local s=\"$1\" n=${#s}` computes n from the OUTER scope (16 with an outer s of 16 chars, 0 with none); split into two statements it computes 2, the correct value. Differential over 40 random brace/backtick/paren strings: old vs new agree 40/40 when the caller's local is named `s` (the real call site __tokenize_segment) and disagree 13–14/40 when it is not — exactly corroborating the 'passed four verdicts by coincidence' account. No behavioral change at the real call site.",
+    "no_regressions_in_the_authors_own_axis": "0 regressions across the 615-payload verb-splitting corpus."
+  },
+  "issues": [
+    "[security][critical][confidence:high] REGRESSION — __strip_dollar_brace() destroys detections that the quote/backslash strip had produced. Its result REPLACES `stripped` instead of being scanned as an ADDITIONAL copy, so when the depth counter runs past the real end of a ${...} it deletes the rest of the span together with the verb. Reproduced end-to-end: span `` `PFX=${A:-{} r'm' -rf .claude` `` → quote-strip yields `` `PFX=${A:-{} rm -rf .claude` `` (rm IS a word; parent commit armed on this and returned ask) → brace-strip yields `` `PFX= `` (verb gone) → new hook returns allow, and the command really deletes .claude on bash 5.3. Real bash terminates ${A:-{} at the FIRST `}` yielding `{`, so the inner `{` is not nesting at all. 40 such payloads regress (32 destructive), across trap shapes innerbrace/innerbrace2/pat_brace/dbl_open × verb spellings squote/squote2/dquote/bslash/mv_sq × btick/dparen.",
+    "[security][critical][confidence:high] The code comment on __strip_dollar_brace() states the opposite of the truth: '안전 방향: 지워서 더 많은 낱말이 이어 붙을 수만 있고 … 못 찾던 걸 찾을 수만 있다' (deleting can only find more, never less). That monotonicity holds only if the brace-stripped text is scanned in ADDITION to the quote-stripped text. As written it replaces it, and the regression above is the direct consequence. The wrong invariant in the comment is what made the defect invisible to the author.",
+    "[security][critical][confidence:high] The 'delete the ${...} block' approximation is unsound for every expansion form that YIELDS text. `${Z:-r}${Z:-m}` expands to `rm` in real bash but is deleted entirely by the helper, so the stripped copy contains no verb. Live bypass in ALL THREE wrappers including `...` and $(...) — i.e. inside the verb_via_substitution axis this commit declares closed. 21 confirmed destructive payloads (7 per wrapper × 3). Same for the whole-verb form `${Z:-mv} .claude sink_dir` in plain position.",
+    "[security][critical][confidence:high] Both fixes are wired ONLY into __note_opaque_verb(), which runs only for backtick/$( ) spans. The identical mechanisms in PLAIN position (no substitution) are untouched, because normalize_path_token() — the plain-token path — strips quotes and backslashes but never ${...} and never backslash-space. Confirmed live and destructive: `r${Z}m -rf .claude`, `m${Z}v .claude sink_dir`, `r${Z:-}m …`, `r${Z:+junk}m …`, `r${Z%%*}m …`, `r${Z:-${Y}}m …` and `r\\<LF>m -rf .claude` all return allow and all destroy the control plane on bash 5.3, 3.2 and zsh. 43 confirmed payloads.",
+    "[criteria][high][confidence:high] sprint-51.json backslash_newline_fold.status now reads '**닫힘(2026-09-02)**' unqualified. The axis's own prior status correctly identified the root cause as the NORMALIZED_CMD newline folding, which affects the WHOLE hook; the fix deliberately did not touch that and patched only the substitution-span copy. Marking the axis closed while the plain form still folds and still leaks is a false closure, not a narrowed one.",
+    "[criteria][high][confidence:high] verb_via_substitution.remaining_gap now claims the only residuals are '(1) 인코딩, (2) 중첩 명령 치환'. Falsified: `${Z:-r}${Z:-m}` inside $(...) is neither encoding nor nested substitution and is a live destructive bypass. This is the SAME narrowed-residual error the 14th verdict flagged one round ago, recurring in the same field.",
+    "[error][medium][confidence:high] __strip_dollar_brace() fails OPEN on a brace it cannot parse. When the depth counter never returns to 0 it silently drops the remainder of the span. Everywhere else in this file an unparseable construct raises SEGMENT_UNSAFE=1 and falls to ask (see __tokenize_segment's $'…' and unterminated-quote handling, and __skip_dollar_paren returning -1). This helper is the one place that resolves a parse failure toward allow.",
+    "[test][high][confidence:high] The 4 new tests cover only cases the author already knew about. Nothing exercises the plain (non-substitution) form of either mechanism, default-value parameter expansion, or brace-counter over-consumption. The whole suite was green (860/860) while 1 regression class and 3 live bypass classes existed — the suite did not detect the regression this very commit introduced.",
+    "[test][medium][confidence:medium] There is no differential-vs-parent gate. A 10-minute old-hook/new-hook comparison over the existing corpus would have surfaced the 40-payload regression before commit; each round currently re-derives this by hand in the evaluator.",
+    "[quality][low][confidence:medium] __strip_dollar_brace() does not special-case `${` forms it cannot represent (`${A/x/{}`, `${A[0]:-{}`, `${#A[@]}`). Treating an inner `{` as nesting is the specific modelling error; bash's `${…}` terminator rules are not brace-balanced in the general case.",
+    "[quality][low][confidence:high] The backslash-space fold and the ${…} strip are applied unconditionally to the same single copy, so their effects compose in ways neither comment reasons about. Scanning each transformation as its own additional copy would be both safer and easier to argue about.",
+    "[friction][low][confidence:high] 72 harmless payloads moved allow→ask (e.g. `` `r${Z}mdir .claude/emptydir` `` on a non-control-plane path). This is the documented '동사는 세그먼트 어디에 있어도 무장한다' trade-off and is NOT counted against the verdict — recorded for completeness only."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "Parameter expansion splitting a verb INSIDE a substitution is gated (A1, A2 — reconfirmed independently)",
+      "Backslash-newline continuation INSIDE a substitution is gated, reproduced with a real LF byte (A3, A4)",
+      "Legitimate backslash-escaped-space filenames create no new friction (E1, E2 → allow)",
+      "The three self-referencing `local` declarations are corrected; behavior at the real call site is unchanged (verified 40/40 differential + 0 regressions over 615 payloads)",
+      "operand_before_verb_ordering is honestly recorded in sprint-51.json as explicitly out of scope by user decision, with the next action named (separate /change-request)"
+    ],
+    "security": [
+      "84 previously-live, execution-confirmed control-plane bypasses are closed",
+      "No regression within the verb-splitting corpus the commit targeted (615 payloads, 0 regressions)"
+    ],
+    "error_scenarios": [
+      "No crash, hang or unbound-variable failure across 1086 probe invocations on bash 5.3 and bash 3.2",
+      "Existing fail-safe paths (SEGMENT_UNSAFE, 512/2048 length caps, bash 3.2 empty-array idiom) are untouched and still gate"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "backslash_newline_fold declared closed, but the plain (non-substitution) form still folds and leaks",
+      "verb_via_substitution declared to have only encoding + nested-substitution residuals, falsified by default-value parameter expansion inside $(...)"
+    ],
+    "security": [
+      "REGRESSION: 40 payloads parent-gated → now allowed (32 execution-confirmed destructive)",
+      "64 live, execution-confirmed control-plane bypasses remain, 21 of them inside the substitution axis claimed closed",
+      "__strip_dollar_brace() resolves a parse failure toward allow rather than toward ask"
+    ],
+    "error_scenarios": [
+      "Unparseable ${...} falls open (drops span remainder) instead of raising SEGMENT_UNSAFE"
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "No criterion requires a verb-splitting defense to be wired into BOTH the substitution path (__note_opaque_verb) and the plain-token path (normalize_path_token). Every round so far has closed only the substitution half and then declared the axis closed; a criterion stating 'a mechanism counts as closed only when gated in plain, backtick and $( ) position' would have caught rounds 13, 14 and 15 mechanically.",
+      "No criterion requires a differential comparison against the parent commit before a fix in this file is declared done. This round's regression is the first in five rounds and would have been caught by it.",
+      "No criterion requires each new stripping/normalizing transform to be scanned as an ADDITIONAL copy (monotonic) rather than replacing the prior copy."
+    ],
+    "ambiguous_criteria": [
+      "'닫힘' on an axis is used without stating the position scope (plain vs substitution). Both this round and the previous one, an axis was marked closed on the strength of a substitution-only fix."
+    ],
+    "security_criteria_insufficient": [
+      "For a critical-tier gate, the contract records residuals in prose only. The residual set should be pinned by executable tests (as the encoded-verb and nested-substitution tests already do) so that a narrowing claim cannot be made without a test proving it."
+    ],
+    "action_required": "Next iteration must (1) fix the regression by scanning the brace-stripped copy in addition to, not instead of, the quote-stripped copy; (2) stop deleting ${...} blocks that yield text, or treat any ${...} whose value cannot be determined as a fail-closed signal; (3) either wire both mechanisms into the plain-token path or restate both axis statuses as substitution-only; (4) add the three missing criteria above to evals/acceptance-criteria.json."
+  },
+  "criteria_issues": [
+    "backslash_newline_fold.status was changed from 미해결 to 닫힘 on the strength of a fix that does not address the root cause the axis itself names (NORMALIZED_CMD folding). This is a requirement relaxation recorded as a completion — flagging for user confirmation.",
+    "verb_via_substitution.remaining_gap was narrowed for the second consecutive round in a way execution falsifies."
+  ],
+  "criteria_backfill_count": 2,
+  "recommended_minimal_fix": {
+    "regression": "In __note_opaque_verb(), scan each transform as an additional copy instead of chaining destructively: keep the quote/backslash-stripped text, scan it, THEN brace-strip a copy of it and scan that too. This restores the monotonicity the existing comment already claims and removes all 40 regressed payloads.",
+    "defval_unsoundness": "A ${...} block is only safely deletable when it cannot yield text. For :- / :+ / :? / pattern forms, either retain the literal default text in the stripped copy or treat the block as an unknown-value marker; deleting it is what lets `${Z:-r}${Z:-m}` through.",
+    "plain_path": "Give normalize_path_token() (or a pre-pass over plain tokens) the same backslash-space and ${...} handling, or explicitly restate both axes as substitution-only in sprint-51.json."
+  },
+  "evidence": {
+    "full_suite": "bats tests/ → 860 tests, 860 ok, 0 not ok, EXIT=0 (independently re-run this session; the author's 860/860 claim is confirmed)",
+    "firewall_suite": "tests/pre-bash-firewall.bats contains 295 @test blocks, all included in the 860/860 green run — the author's 295/295 claim is confirmed",
+    "probe_harness": "scratchpad/probe.sh — replicates the bats wired_firewall/delete_decision wiring standalone (CLAUDE_PLUGIN_ROOT with a wired protected-integrity.sh + hooks.json), returns deny/ask/allow per payload",
+    "destruction_lab": "scratchpad/lab.sh — per-payload throwaway sandbox containing .claude/{settings.json,hooks/h.sh}; DESTROYED means an actual control-plane object was lost, not merely any file (the first criterion was too broad and was tightened after it miscounted `rmdir .claude/emptydir`)",
+    "corpus_1_targeted": "15 payloads (A/B/C/D/E). A1–A4 ask; B1–B4 allow; C1 allow; controls D1 ask / D2 deny; E1/E2 allow. Destruction confirmed on bash 5.3, bash 3.2 and zsh 5.9 — B1/B3/C1 are allow+DESTROYED on all three.",
+    "corpus_2_differential": "615 payloads = 5 verbs × 14 split mechanisms × 3 wrappers, scored against the parent hook (git show 11c8db7:hooks/pre-bash-firewall.sh) and against real-shell ground truth on bash 5.3 and 3.2. Result: 228 genuinely destructive; 84 newly fixed; 0 regressions within this corpus; 64 live bypasses; 72 new-friction (accepted trade-off).",
+    "corpus_3_brace_traps_separated": "240 payloads (brace trap × hidden verb, trap separated by &&) — 0 bypasses, 0 regressions. Negative result: the && separator split the segment, so this corpus could not reach the defect.",
+    "corpus_4_brace_traps_adjacent": "216 payloads using an assignment prefix (`PFX=<trap> <verb> -rf .claude`) so the trap precedes the verb with NO separator. Result: 40 REGRESSIONS (old ask → new allow), 32 of them execution-confirmed destructive. Trap shapes that regress: ${A:-{}, ${A:-a{b}, ${A/x/{}, ${A:-{{}.",
+    "regression_root_cause_proof": "scratchpad/confirm.sh, run under bash 5.3 — (1) real bash yields '{' for ${A:-{}, terminating at the FIRST }; (2) the commit's own __strip_dollar_brace() turns the quote-stripped span `` `PFX=${A:-{} rm -rf .claude` `` into `` `PFX= ``, deleting the verb; (3) the payload DESTROYS the control plane in a sandbox.",
+    "local_scoping_proof": "scratchpad/localtest.sh on bash 5.3 and 3.2 — one-statement form computes len 16 (outer s) or 0 (no outer s) instead of 2; two-statement form computes 2. Differential of old vs new __skip_backtick over 40 random strings: 0/40 mismatch from a caller whose local is named `s`, 13–14/40 from one that is not.",
+    "operand_ordering_still_open": "5 payloads — `find .claude -exec rm {} \\;`, `-exec rm -rf {} +`, `-exec unlink {} \\;` all allow + DESTROYED; controls `find .claude -delete` and `rm -rf .claude` ask. Confirms the axis remains open, as sprint-51.json honestly records. NOT counted as a fail reason per explicit user scoping.",
+    "shells": "bash 5.3.15 (/usr/local/bin/bash), bash 3.2.57 (/bin/bash), zsh 5.9 (/bin/zsh)"
+  },
+  "scope_decisions_respected": {
+    "operand_before_verb_ordering": "Verified that sprint-51.json records this axis as 미해결 with '사용자 확인 결과 이번 사이클에서 다루지 않는다(2026-09-02)' and names the next action (separate /change-request). The record is honest and complete. Per explicit user instruction this axis is NOT a fail reason for this round; its still-open status is independently re-confirmed above and must remain recorded until closed."
+  },
+  "note_for_main_loop": {
+    "verdict_is_fail": "F65 passes remains false. Do not set it true.",
+    "f37_second_verdict": "F65 is security_tier critical, so even a PASS from this evaluator would not be sufficient on its own: F37 requires a second independent-context judge, and a passing round additionally requires security-auditor. Because this round is a fail with a concretely reproduced regression (not a judgment call), a second judge is not required to settle it — but the moment a future round reaches pass, dispatch BOTH the F37 second-context judge and security-auditor before flipping passes.",
+    "next_round_priority": "The regression (issue 1) is strictly more urgent than the remaining bypasses: this commit made the guard weaker than its parent for 32 execution-confirmed destructive payloads. Fixing it is a 3-line change (scan additionally, not destructively).",
+    "process_observation": "Five consecutive rounds have followed the shape 'close the substitution half, declare the axis closed, next verdict finds the other half'. Recommend adding the position-scope criterion and the parent-diff gate named in criteria_gaps before the next implementation round, so this stops being re-derived by hand each time."
+  }
+}

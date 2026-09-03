@@ -1350,29 +1350,42 @@ __scan_opaque_verb_matches() {
   done
 }
 
-# `${...}` 블록을 통째로 지운다(비어 있는 것으로 취급) — $1 은 원문. 안쪽은 해석하지
-# 않고 중첩 깊이만 센다(F65 14차 독립 판정: `$(r${Z}m -rf .claude)` 처럼 파라미터 확장이
-# 동사 한가운데 끼어 낱말을 쪼개는 경우 — `${Z}` 가 미정의/빈 값이면 실제 셸에서도 아무
-# 것도 안 남으므로 "지운다"가 정확한 근사다). 안전 방향: 지워서 더 많은 낱말이 이어 붙을
-# 수만 있고, 원래 안 이어 붙던 걸 억지로 이어 붙이지는 않는다 — 못 찾던 걸 찾을 수만 있다.
+# **순수 변수명뿐인** `${VAR}` 블록만 통째로 지운다(비어 있는 것으로 취급) — $1 은 원문.
+# 안쪽에 `:`·`#`·`%`·`/` 등 연산자가 하나라도 있으면(`${VAR:-word}`·`${VAR#pattern}` 등)
+# **지우지 않는다** — F65 15차 독립 판정이 반려한 결함: 그런 형태는 미정의 상태에서도
+# 기본값·치환 문자열이 실제로 텍스트를 남길 수 있어(`${Z:-r}${Z:-m}` → `rm`), 통째로
+# 지우는 근사가 오히려 그 리터럴 텍스트를 놓친다("낱말을 못 찾게 만들지는 않는다"는
+# 불변식이 이 형태에서는 성립하지 않는다). 순수 변수명(`${Z}`)만 미정의/빈 값일 때
+# 실제 셸에서도 아무 것도 안 남으므로 "지운다"가 유일하게 안전한 근사다. 변수명 자체는
+# `{` 를 가질 수 없으므로 첫 `}` 까지만 보면 된다 — 중첩 깊이 계산이 필요 없고, 그래서
+# 15차 판정이 지적한 "`${A:-{}` 를 중첩으로 잘못 세어 스캔이 스팬 끝까지 밀리는" 종류의
+# 오버슈트 자체가 생기지 않는다.
 __strip_dollar_brace() {
   # 주의: 아래 n=${#s} 를 s="$1" 과 같은 local 문에 두지 않는다(__skip_backtick() 참조 —
   # 이 파일이 F65 7차 판정 이래 반복 겪은 자기참조 함정).
   local s="$1"
-  local out="" n=${#s} k=0 c depth j
+  local out="" n=${#s} k=0 c inner end j
   while [[ $k -lt $n ]]; do
     c="${s:k:1}"
-    if [[ "$c" == '$' && "${s:k+1:1}" == '{' ]]; then
-      depth=1; j=$((k + 2))
-      while [[ $j -lt $n && $depth -gt 0 ]]; do
-        case "${s:j:1}" in
-          '{') depth=$((depth + 1)) ;;
-          '}') depth=$((depth - 1)) ;;
-        esac
-        j=$((j + 1))
-      done
-      k=$j
-      continue
+    if [[ "$c" == '$' ]]; then
+      case "${s:k+1:1}" in
+        '{')
+          end=-1; j=$((k + 2))
+          while [[ $j -lt $n ]]; do
+            case "${s:j:1}" in
+              '}') end=$j; break ;;
+            esac
+            j=$((j + 1))
+          done
+          if [[ $end -ge 0 ]]; then
+            inner="${s:$((k + 2)):$((end - k - 2))}"
+            if [[ -z "$inner" || "$inner" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+              k=$((end + 1))
+              continue
+            fi
+          fi
+          ;;
+      esac
     fi
     out+="$c"
     k=$((k + 1))
@@ -1394,9 +1407,17 @@ __note_opaque_verb() {
   # 중 하나와 정확히 같지 않은 한 아무 일도 안 난다).
   stripped="${span//\\ /}"
   stripped="${stripped//\'/}"; stripped="${stripped//\"/}"; stripped="${stripped//\\/}"
-  __strip_dollar_brace "$stripped"
-  stripped="$__STRIPPED"
+  # 이 사본을 **독립적으로** 스캔한다(아래 __strip_dollar_brace() 결과로 대체하지
+  # 않는다) — F65 15차 독립 판정이 실측한 회귀: 이전 버전은 이 사본을 `${...}` 제거
+  # 결과로 **덮어썼다**, 그래서 그 제거의 근사가 스팬 끝까지 과하게 밀리면 방금 이
+  # 사본에서 이미 보이던 동사까지 함께 사라져 부모 커밋보다 약해졌다(40건 회귀, 32건
+  # lab 확인 파괴). 변환마다 별도 사본을 두고 각각 독립적으로 스캔하면, 뒤 단계가
+  # 무언가를 지나치게 지워도 앞 단계가 이미 찾은 매치는 그대로 남는다.
+  local braced
   [[ "$stripped" != "$span" ]] && __scan_opaque_verb_matches "$stripped"
+  __strip_dollar_brace "$stripped"
+  braced="$__STRIPPED"
+  [[ "$braced" != "$stripped" ]] && __scan_opaque_verb_matches "$braced"
 }
 
 __tokenize_segment() {
