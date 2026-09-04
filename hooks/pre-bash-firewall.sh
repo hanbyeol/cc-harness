@@ -1364,20 +1364,26 @@ __strip_dollar_brace() {
   # 주의: 아래 n=${#s} 를 s="$1" 과 같은 local 문에 두지 않는다(__skip_backtick() 참조 —
   # 이 파일이 F65 7차 판정 이래 반복 겪은 자기참조 함정).
   local s="$1"
-  local out="" n=${#s} k=0 c inner end j
+  local out="" n=${#s} k=0 c inner end idx
+  local -a close_pos=()
+  idx=0
+  while [[ $idx -lt $n ]]; do
+    case "${s:idx:1}" in
+      '}') close_pos+=("$idx") ;;
+    esac
+    idx=$((idx + 1))
+  done
+  local ci=0 nclose=${#close_pos[@]}
   while [[ $k -lt $n ]]; do
     c="${s:k:1}"
     if [[ "$c" == '$' ]]; then
       case "${s:k+1:1}" in
         '{')
-          end=-1; j=$((k + 2))
-          while [[ $j -lt $n ]]; do
-            case "${s:j:1}" in
-              '}') end=$j; break ;;
-            esac
-            j=$((j + 1))
+          while [[ $ci -lt $nclose && ${close_pos[$ci]} -lt $((k + 2)) ]]; do
+            ci=$((ci + 1))
           done
-          if [[ $end -ge 0 ]]; then
+          if [[ $ci -lt $nclose ]]; then
+            end=${close_pos[$ci]}
             inner="${s:$((k + 2)):$((end - k - 2))}"
             if [[ -z "$inner" || "$inner" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
               k=$((end + 1))
@@ -1514,6 +1520,74 @@ __tokenize_segment() {
   [[ $started -eq 1 ]] && SPLIT_TOKS+=("$cur")
 }
 
+# $1(NORMALIZED_CMD)을 `;`·`|`·`&` 로 세그먼트 나누되, 그 문자가 명령 치환(백틱·`$(`)
+# **안**에 있으면 구분자로 보지 않는다 — security-auditor 감사(2026-09-04, AUDIT-2)가
+# 실증: 예전의 순진한 `tr ';|&' '\n\n\n'` 는 `echo $(git rev-parse HEAD | cut -c1-7)`
+# 의 `|` 도 구분자로 봐서 세그먼트를 반으로 잘랐다. 잘린 앞쪽 조각은 짝 잃은 `$(` 만 남고
+# __skip_dollar_paren() 이 닫는 `)` 를 못 찾아 SEGMENT_UNSAFE=1(ask) 로 fail-closed 됐다
+# — 삭제 동사가 전혀 없는 명령에 새 마찰이 생겼다(dec9293 은 allow, 12차 이후 ask). 이
+# 함수는 **세그먼트 경계만** 정한다 — 세그먼트 안의 토큰 분리는 여전히
+# __tokenize_segment() 가 한다. 이미 만든 __skip_backtick()/__skip_dollar_paren() 을
+# 그대로 재사용해 치환 구간을 건너뛴다(따옴표 안의 구분자는 이 훅 최상단 NORMALIZED_CMD
+# 정규화가 이미 공백으로 중화해 뒀으므로 여기서 다시 추적하지 않는다 — 남은 몫은 치환
+# 안쪽뿐이다). 치환이 문자열 끝까지 안 닫히면(진짜로 깨진 명령) 남은 전체를 마지막
+# 세그먼트 하나로 넘긴다 — 그 세그먼트를 __tokenize_segment() 가 다시 보고 똑같이
+# SEGMENT_UNSAFE=1 로 fail-closed 하므로 안전 방향은 그대로 유지된다.
+#
+# **길이 상한(자체 발견, 판정 대상 아님 — F37 이 지적한 __strip_dollar_brace() 의
+# 이차식 결함을 고치던 중, 이 함수 자체에 같은 계열의 결함이 있는 것을 커밋 전 실측으로
+# 찾았다)**: 이 bash 는 `${s:k:1}` 같은 단일 문자 인덱싱 비용이 위치와 무관하게 문자열
+# **전체 길이**에 비례한다(실측: 6만자 문자열에서 인덱싱 1회가 항상 ~4ms — 위치 0이든
+# 59999든 동일). 이 함수는 세그먼트가 아니라 `NORMALIZED_CMD` **전체**를 훑으므로, 다른
+# 문자 단위 스캐너들(세그먼트 2048자·브레이스 토큰 512자 상한)과 달리 상한이 없었다 —
+# 6만자 명령에서 21초(5초 타임아웃을 훌쩍 넘긴다). 상한을 넘으면 정밀 분리를 포기하고
+# 예전의 `tr` 분리로 되돌아간다 — 이 되돌아감은 F65 8차 판정이 겪은 함정과 방향이
+# 반대다(그때는 상한 초과 시 안전하지 않은 분리로 물러나 fail-open 이었다). 여기서는
+# `tr` 분리가 세그먼트를 **더 잘게만** 쪼갠다 — 놓치는 방향이 아니라 AUDIT-2 마찰이
+# 극단적으로 긴 명령에서만 되살아나는 방향이라 게이트를 약화하지 않는다.
+__split_segments() {
+  local s="$1"
+  local n=${#s}
+  SEGMENTS=()
+  if [[ $n -gt 8192 ]]; then
+    local seg
+    while IFS= read -r seg || [[ -n "$seg" ]]; do
+      SEGMENTS+=("$seg")
+    done < <(printf '%s' "$s" | tr ';|&' '\n\n\n')
+    return
+  fi
+  local out="" k=0 c
+  while [[ $k -lt $n ]]; do
+    c="${s:k:1}"
+    if [[ "$c" == '`' ]]; then
+      __skip_backtick "$s" "$k"
+      if [[ $__OPAQUE_END -lt 0 ]]; then
+        out+="${s:k}"; break
+      fi
+      out+="${s:k:$((__OPAQUE_END-k))}"
+      k=$__OPAQUE_END
+      continue
+    elif [[ "$c" == '$' && "${s:k+1:1}" == '(' ]]; then
+      __skip_dollar_paren "$s" "$k"
+      if [[ $__OPAQUE_END -lt 0 ]]; then
+        out+="${s:k}"; break
+      fi
+      out+="${s:k:$((__OPAQUE_END-k))}"
+      k=$__OPAQUE_END
+      continue
+    elif [[ "$c" == ';' || "$c" == '|' || "$c" == '&' ]]; then
+      SEGMENTS+=("$out")
+      out=""
+      k=$((k + 1))
+      continue
+    else
+      out+="$c"
+      k=$((k + 1))
+    fi
+  done
+  SEGMENTS+=("$out")
+}
+
 # 명령을 세그먼트로 나눠 삭제 동사 뒤의 피연산자 토큰을 판정한다.
 # 동사는 세그먼트 **어디에 있어도** 무장한다 — `sudo rm …`·`time rm …` 같은 접두 명령을 열거하지
 # 않기 위해서다(열거하면 접두 한 단어로 게이트가 무력해진다 — F67 2차 판정이 `env` 로 실증했다).
@@ -1521,7 +1595,8 @@ CP_DELETE_HIT=""
 scan_control_plane_delete() {
   local seg tok armed __arm_verb __verb_armed
   local -a toks
-  while IFS= read -r seg || [[ -n "$seg" ]]; do
+  __split_segments "$NORMALIZED_CMD"
+  for seg in "${SEGMENTS[@]}"; do
     [[ -z "$seg" ]] && continue
     __tokenize_segment "$seg"
     # 빈 배열을 `"${arr[@]}"` 로 그대로 펼치면 bash 3.2(이 훅이 실제로 실행되는 macOS 기본
@@ -1585,7 +1660,7 @@ scan_control_plane_delete() {
       CP_DELETE_HIT="$seg (피연산자에 명령 치환이 있어 정적으로 확정할 수 없음)"
       return 0
     fi
-  done < <(printf '%s' "$NORMALIZED_CMD" | tr ';|&' '\n\n\n')
+  done
   return 1
 }
 

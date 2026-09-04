@@ -2934,6 +2934,81 @@ delete_decision() {
     || { echo "defval 파라미터 확장 취급이 바뀌었다 — 잡혔다면 sprint-51.json 잔여 서술을 좁히고 이 테스트를 뒤집어라"; false; }
 }
 
+# === F37 2차 독립 판정 — __strip_dollar_brace() 의 이차식 결함 (2026-09-05) ===
+#
+# 16차 독립 판정이 pass 를 냈으나, F37 2차 독립 판정이 반려했다: __strip_dollar_brace()
+# 가 `${` 를 만날 때마다 그 자리에서 새로 닫는 `}` 를 찾아 O(길이) 스캔을 했다 — `${`
+# 가 m 번 연속이면 총 비용이 O(길이×m), 사실상 이차식이었다(680개 연속 `${` 가 7.27초,
+# 1000개가 19.47초 — 이 훅의 5초 타임아웃을 넘긴다). scan_control_plane_delete() 는
+# 세그먼트를 순서대로 검사하다 첫 히트에서 반환하므로, 느린 세그먼트를 진짜 삭제
+# 세그먼트보다 앞에 두면 타임아웃이 예산을 다 써버려 뒤의 삭제가 검사되지 않는다.
+# 수정: `}` 위치를 먼저 단일 패스로 전부 인덱싱해 두고, 메인 루프는 그 포인터를
+# 단조 전진만 시킨다 — 전체가 O(길이) 다.
+
+@test "F65 perf: many consecutive dollar-brace opens no longer blow the hook timeout budget (F37 verdict)" {
+  local brace="" i t0 t1 elapsed
+  for ((i=0; i<1000; i++)); do brace="${brace}\${"; done
+  local c="\`echo ${brace}"
+  t0=$(date +%s%N)
+  run delete_decision "$c"
+  t1=$(date +%s%N)
+  elapsed=$(( (t1 - t0) / 1000000 ))
+  [ "$elapsed" -lt 3000 ] \
+    || { echo "1000개 연속 \${ 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처(F37 이 지적한 이차식 재발)"; false; }
+}
+
+@test "F65 perf: the exact F37 timing-bypass payload asks within budget, not after it" {
+  # F37 이 만든 대표 공격 형태 — 느린 세그먼트를 진짜 삭제 세그먼트보다 앞에 둔다. 상한
+  # 안에서 ask 가 나와야 의미가 있다(타임아웃으로 죽은 뒤에야 ask 가 나오면 이미 늦었다).
+  local brace="" i t0 t1 elapsed
+  for ((i=0; i<680; i++)); do brace="${brace}\${"; done
+  local c="echo \`${brace}\`; rm -rf .claude"
+  t0=$(date +%s%N)
+  run delete_decision "$c"
+  t1=$(date +%s%N)
+  elapsed=$(( (t1 - t0) / 1000000 ))
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "느린 세그먼트 뒤의 진짜 삭제 세그먼트가 검사되지 못했다"; false; }
+  [ "$elapsed" -lt 3000 ] \
+    || { echo "판정 자체가 ${elapsed}ms 걸렸다 — 5000ms 예산 안에서 낸 ask 가 아니다"; false; }
+}
+
+# === security-auditor AUDIT-2 — 치환 안 파이프·세미콜론이 무조건 세그먼트를 갈랐다 (2026-09-04) ===
+#
+# 순진한 `tr ';|&' '\n\n\n'` 세그먼트 분리가 `$(git rev-parse HEAD | cut -c1-7)` 의 `|`
+# 도 구분자로 봐서 세그먼트를 반으로 잘랐다 — 잘린 앞쪽은 짝 잃은 `$(` 만 남아
+# __skip_dollar_paren() 이 닫는 `)` 를 못 찾고 SEGMENT_UNSAFE=1(ask) 로 fail-closed
+# 됐다. dec9293 은 allow, 12차 이후 ask — 삭제 동사가 전혀 없는 명령에 새 마찰이었다.
+# 수정: __split_segments() 가 __skip_backtick()/__skip_dollar_paren() 을 재사용해
+# 치환 구간 안의 구분자는 건너뛴다.
+
+@test "F65 substitution: a pipe or semicolon inside a substitution no longer over-blocks (AUDIT-2)" {
+  local c
+  for c in 'echo $(git rev-parse HEAD | cut -c1-7)' \
+           'echo `git rev-parse HEAD | cut -c1-7`' \
+           'echo $(echo $(echo hi | cat))'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "치환 안의 파이프·세미콜론이 삭제 동사 없는 명령에 새 마찰을 만들었다: $c"; false; }
+  done
+}
+
+@test "F65 substitution: real top-level separators around a substitution still gate correctly" {
+  # AUDIT-2 수정이 진짜 최상위 구분자까지 무시하게 되면 그게 새 우회다 — 세그먼트 경계
+  # 자체는 여전히 정확해야 한다.
+  local c
+  for c in 'echo $(date | grep x); rm -rf .claude' \
+           'rm -rf $(echo .claude | cat)' \
+           '`echo hi | cat`; rm -rf .claude' \
+           'echo hi | rm -rf .claude' \
+           'echo hi && rm -rf .claude' \
+           'rm -rf .claude & echo bg'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "치환 밖의 진짜 구분자가 무시돼 삭제 세그먼트가 안 잡혔다: $c"; false; }
+  done
+}
+
 @test "F65 sibling: protected-integrity.sh does not crash when no protected file exists (9th verdict)" {
   # 9차 판정이 훑기 요청(요청 3번)에서 형제 훅의 같은 결함을 찾았다: PROTECTED_GLOBS 어느
   # 패턴도 매치하지 않는 저장소(플러그인이 설치된 사용자 저장소의 흔한 상태)에서 FILES 가

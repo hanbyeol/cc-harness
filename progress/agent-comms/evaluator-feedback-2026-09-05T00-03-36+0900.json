@@ -1,0 +1,153 @@
+{
+  "timestamp": "2026-09-05T00:03:36+0900",
+  "title": "F37 second independent critical judgment for F65",
+  "sprint": 51,
+  "iteration": 16,
+  "features_evaluated": [
+    "F65"
+  ],
+  "security_tier": "critical",
+  "judgment_role": "F37 second independent judge (separate context). Not a re-run of the 16th verdict — judged from scratch, reproducing every claim rather than reading its conclusions.",
+  "commit_under_review": "1c6c1db (docs only); last substantive code change cc71ce8",
+  "baseline_commit": "11c8db7 (parent of the reworked commit)",
+  "rejected_intermediate_commit": "edbcdff (the commit the 15th verdict rejected)",
+  "first_judgment_compared": "progress/agent-comms/evaluator-feedback-2026-09-04T23-14-28+0900.json (verdict: pass, min-of-5=7, security=7)",
+  "scores": {
+    "functionality": 6,
+    "code_quality": 5,
+    "security": 4,
+    "error_handling": 5,
+    "test_coverage": 5
+  },
+  "score": 4,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_threshold_for_tier": 7,
+  "verdict": "fail",
+  "agrees_with_first_judgment": false,
+  "escalation_required": true,
+  "fail_reasons": [
+    "security 4 < 7 (critical tier) — automatic fail regardless of other dimensions (INV-4)",
+    "score (min-of-5) 4 < pass_threshold 7",
+    "NEW bypass class introduced by the commit under review (cc71ce8), inside the axis under review, not declared in _residual_risk_AC11.open_axes_2026_08_04 — violates SC-9's 'do not claim closed what is not closed' and, more importantly, is a live hole in the control plane where prediction is the only control"
+  ],
+  "primary_finding": {
+    "id": "TIMEOUT-DOS-BYPASS",
+    "summary": "cc71ce8's new __strip_dollar_brace() makes the control-plane delete scan quadratic in segment length, pushing the firewall past its wired 5s hook timeout. A cheap, meaningless prefix defeats the gate on the very command it exists to stop.",
+    "mechanism": "__strip_dollar_brace() (hooks/pre-bash-firewall.sh:1363-1394) scans forward from every '${' looking for the first '}'. When no '}' follows, it scans to end of span — O(n) per '${', so O(n^2) per segment. It is reached only through __note_opaque_verb() (line 1418), i.e. only for text inside a command substitution (backticks or $( )). The segment cap is 2048 chars, so the worst case sits just under the cap; segments are split on ;|& so N slow segments compound without bound.",
+    "measured_wall_clock_single_hook_invocation": {
+      "harness": "payload piped as {tool_input:{command:...}} to hooks/pre-bash-firewall.sh with CLAUDE_PLUGIN_ROOT pointing at a wired plugin root (protected-integrity.sh + hooks.json present), mirroring tests/pre-bash-firewall.bats wired_firewall()",
+      "bash_5_3_15": {
+        "echo `${ x100`": "0.22s",
+        "echo `${ x200`": "0.54s",
+        "echo `${ x400`": "2.15s",
+        "echo `${ x680` (len 1367)": "7.27s",
+        "echo `${ x1000` (len 2007, just under the 2048 cap)": "19.47s"
+      },
+      "bash_3_2_57_the_shell_at_/bin/bash_on_this_machine": {
+        "echo `${ x680`": "21.19s"
+      },
+      "parent_11c8db7_same_payloads": "0.16s - 0.17s, flat (no quadratic path existed)",
+      "multi_segment_amplification": "5 slow segments + trailing deletion: 27.24s"
+    },
+    "bypass_payload": {
+      "command": "echo `${ x680`; rm -rf .claude",
+      "decision_if_allowed_to_finish": "ask (the gate reaches the right answer)",
+      "time_to_reach_it_HEAD": "7.25s",
+      "time_to_reach_it_parent_11c8db7": "0.13s",
+      "wired_timeout": "5s (hooks/hooks.json PreToolUse matcher 'Bash' -> pre-bash-firewall.sh, \"timeout\": 5)",
+      "consequence": "The hook cannot deliver its ask inside the budget. Ordering matters and is attacker-controlled: scan_control_plane_delete() returns on the first hit, so putting the slow segment FIRST guarantees the budget is burned before the deletion segment is ever examined."
+    },
+    "why_this_is_a_security_finding_and_not_only_performance": [
+      "The control plane is precisely where the contract states prediction is the ONLY control — .claude/settings.json is gitignored, so there is no post-hoc recovery (see _residual_risk_AC11.measured).",
+      "This repository has already twice ruled 'exceeds the 5s hook timeout' a defect requiring an algorithmic rewrite, in this same file: docs/INVARIANTS.md:919 and :963, and hooks/pre-bash-firewall.sh:952 ('타임아웃(5초)을 넘는 5.26초, 4096자 상한 지점에서는 517초' — fixed by making __brace_prescan() a stack-based single pass). 5.26s was judged over the line then; 7.27s (and 21.19s on bash 3.2) is the same class, reintroduced.",
+      "hooks/pre-bash-firewall.sh:1071 already warns in-file that freezing the decision is itself the failure ('완전 전개는 대상과 무관하게 대상 판정 자체를 얼릴 수 있다(훅 타임아웃은 …)')."
+    ],
+    "inference_vs_measurement": "The timings, the decisions, and the 5s wiring are DIRECTLY MEASURED in this session. That a killed PreToolUse hook yields no decision and the tool call proceeds (fail-open) is an INFERENCE, not observed here — but it is the behaviour this hook is written around (the jq-missing branch at line 4-8 deliberately warns and exit 0s) and the behaviour the project's own two prior timeout fixes assumed. Under the contrary assumption (fail-closed) the finding does not disappear: it becomes a 21s stall on any Bash call carrying repeated '${' inside a substitution, against 0.16s at the parent commit.",
+    "regression_attribution": "Introduced by cc71ce8, the commit under review. Parent 11c8db7 is flat-fast on every one of these payloads. This is not a pre-existing limitation and is not listed in any open_axes entry."
+  },
+  "why_the_first_judgment_missed_it": {
+    "claim": "The 16th verdict's evidence.performance states: '닫히지 않은 `${` ×1000(세그먼트 상한 근처) HEAD 0.14s vs 부모 0.38s'.",
+    "reproduced": "With NO substitution wrapper, `echo ${ x1000` measures 0.12s on HEAD — matching their number. Wrapped in backticks, the identical input measures 19.02s on HEAD and 0.17s on the parent.",
+    "root_cause": "__strip_dollar_brace() is reachable ONLY from __note_opaque_verb(), which runs only on text inside backticks/$( ). The pathological input was measured outside the code path the commit added, so the performance probe never exercised the new function. This is a measurement-construction flaw, not dishonesty — the rest of that verdict's evidence reproduced faithfully for me."
+  },
+  "what_i_independently_confirmed_as_genuinely_good": {
+    "15th_verdict_regression_is_really_fixed": "3-way differential on my own payloads: `echo `${A:-{} r'm' -rf .claude`` and its $( ) twin are allow at edbcdff, ask at cc71ce8/HEAD. The rejected regression is closed, reproduced independently.",
+    "strict_strengthening_over_parent_on_the_notation_axes": "47-payload battery: HEAD is never weaker than 11c8db7 on any row; it is strictly stronger on 2 (backslash-newline fold inside a substitution, and `r${EMPTY}m`). Zero weakenings.",
+    "the_transform_independence_redesign_is_sound": "__note_opaque_verb() now scans span, quote/backslash-stripped copy, and ${}-stripped copy as three INDEPENDENT copies, appending to SPLIT_TOKS. Matches are therefore a union across transforms — a later over-eager strip can no longer erase a verb an earlier pass already found. This is the correct fix for what the 15th verdict rejected, and it is monotone-safe by construction.",
+    "the_${}_stripping_is_now_sound": "Only inner text matching ^[A-Za-z_][A-Za-z0-9_]*$ is removed, so the ${A:-{} overshoot that caused the regression cannot recur (no depth counting at all).",
+    "bash_3_2_vs_5_3_parity": "All 47 payloads identical between /bin/bash 3.2.57 and bash 5.3.15. Zero divergence.",
+    "no_gate_or_threshold_weakening": "INDIRECT_PATTERNS and ASK_PATTERNS byte-identical (sha e8a316f693eb / e1e910ab556a) across 6085b80, 11c8db7, edbcdff, cc71ce8, HEAD. progress/harness-config.json untouched by every commit in the arc. All hook changes confined to lines 1264-1420. SC-1 holds.",
+    "residual_declaration_is_honest_and_predictive": "This was the SC-9 check I weighted most. I chose residual probes without reading the doc's answer first — `r$Xm`, `${Z}m`, ${Z:-r}${Z:-m}, ${1}, ${Z[0]}, ${!Z} — and every one of them lands inside the mechanism-complement wording that 1c6c1db installed, all measured allow on BOTH HEAD and the parent (so none is a regression). The 16th verdict's doc correction (examples -> mechanism) is what makes this hold. I found no false 'closed' claim anywhere in sprint-51.json."
+  },
+  "issues": [
+    "[security][critical][confidence:high] TIMEOUT-DOS-BYPASS (see primary_finding): __strip_dollar_brace() is O(n^2) per segment and reachable inside any command substitution. `echo `${ x680`; rm -rf .claude` needs 7.25s (bash 5.3) / 21.19s (bash 3.2) to reach its correct 'ask' against a wired 5s timeout; parent needs 0.13s. Segments compound (27.24s at 5 segments). Suggested fix, in the shape this file has used before: give __strip_dollar_brace() a single left-to-right pass that never rescans (remember the last '}' position, or bail out of ${-stripping entirely once a '$' is seen with no '}' remaining in the span), matching the stack-based rewrite that closed the __brace_prescan() timeout at hooks/pre-bash-firewall.sh:952. A cheap interim belt: cap the number of '${' occurrences considered per span and treat the overflow as SEGMENT_UNSAFE=1 (ask) rather than as work to do — fail-safe, not fail-slow.",
+    "[test][high][confidence:high] There is no performance/timeout regression test anywhere in the suite, despite this file having been burned by the identical class twice before (INVARIANTS.md:919, :963). Both prior incidents were found by a judge, fixed, documented — and left unpinned, which is exactly why a third instance could be introduced and pass 862 green tests. A test asserting that a wired hook invocation on a pathological span returns within, say, 2s would have caught this commit.",
+    "[test][medium][confidence:high] The suite is NOT fully green in my environment: 861/862, with `F65: 저장소 밖 편집은 티켓을 오염시키지 않는다` (tests/protected-integrity.bats) failing 6/6 deterministically, and also failing in a CLEAN worktree at HEAD while passing 3/3 in clean worktrees at 11c8db7, 6085b80 and a94f564. The assertion itself passes; the failure is in teardown, where `rm -rf \"$LAB\"` races a background git process that recreates an empty .git/objects/pack (instrumented: the only survivors are $LAB, .git, .git/objects, .git/objects/pack, all empty). The test file is untouched by this arc, so this is test hygiene rather than a firewall defect — but AC-9 ('bats 전체 1회') is not currently satisfiable, and the 16th verdict's 'not ok 0 / 862/862' did not reproduce for me. Fix: make teardown tolerant (`rm -rf \"$LAB\" 2>/dev/null || true`) or disable background maintenance in the lab (`git -c gc.auto=0 -c maintenance.auto=false`).",
+    "[security][medium][confidence:high] The 16th verdict's own issue list records 4 undeclared residual forms; 1c6c1db corrected the wording to a mechanism complement, which I verified covers them. But the trade it names is still unrecorded: ${1}, ${Z[0]}, ${!Z} were ASK at the rejected edbcdff (which stripped every ${...}) and are ALLOW now. Soundness was bought by giving up coverage on those three. That is defensible, but sprint-51.json should say so explicitly rather than leaving it implicit in the mechanism wording.",
+    "[test][low][confidence:high] Of the residual forms, only the defval and nested-substitution cases are pinned by 'accepted-not-regression' tests. ${1}, ${Z[0]}, ${!Z} and the same-span-defined-variable case are not pinned, so a future change that silently closes or further opens them would not make noise.",
+    "[quality][low][confidence:high] Pre-existing conservative friction, identical at parent so not introduced here: `rm -rf node_modules $(pwd)/dist` is ask, because an armed segment containing any command substitution asks unconditionally. Deliberate (there is a test fixing it) and safe-direction, but it is real friction on a common command and worth revisiting when the ordering refactor lands.",
+    "[process][low][confidence:high] progress/agent-comms/implementer-output-F65.json is still dated 2026-08-04 / iteration 4 and carries no security_self_check for this change — the same gap the 16th verdict flagged, still open.",
+    "[process][low][confidence:medium] progress/feature_list.json F65 still reads iteration: 0 after sixteen judgments, so the iteration counter is not being maintained and cannot be used to reason about loop progress. Also, 15 evaluator-feedback JSONs are deleted in the working tree (uncommitted); since INV-11 resolves passes authority by globbing that directory, thinning the audit trail there is worth a deliberate decision rather than drift."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-11 (notation axes): all 27 gating payloads I wrote — plain, glob, quoted, backslashed, env-prefixed, brace, substitution — are ask or deny",
+      "AC-2 / no-friction: all 10 friction payloads (rm -rf tmp.o, escaped-space filenames, $(date), ${HOME}, awk field refs, build/dist cleanup) remain allow"
+    ],
+    "security": [
+      "SC-1: INDIRECT_PATTERNS and ASK_PATTERNS byte-identical across the whole arc; harness-config.json untouched; no threshold lowered",
+      "SC-9 (declaration honesty): no false 'closed' claim found; every residual I probed independently falls inside the declared mechanism complement",
+      "15th-verdict regression closed (3-way differential)",
+      "No weakening vs parent on any notation axis (0/47 rows weaker)"
+    ],
+    "error_scenarios": [
+      "Oversized segment (>2048) -> SEGMENT_UNSAFE -> ask (fail-safe)",
+      "Unbalanced backtick / $( -> SEGMENT_UNSAFE -> ask (fail-safe)",
+      "bash 3.2 vs 5.3: zero behavioural divergence"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-9 (회귀 없음, bats 전체 1회): 861/862 — one deterministic teardown failure at HEAD that passes at the parent commit"
+    ],
+    "security": [
+      "SC-9: a new bypass class reachable inside the axis under review, introduced by cc71ce8 and not declared in open_axes_2026_08_04 — the control-plane delete gate can be pushed past its 5s budget by an attacker-ordered prefix",
+      "AC-11's 'minimum ask' guarantee does not hold for crafted input, because the decision is correct but undeliverable within the wired timeout"
+    ],
+    "error_scenarios": [
+      "Hook-timeout is an unhandled failure mode: the code fails SLOW where every other unparseable-input path in this file deliberately fails SAFE (SEGMENT_UNSAFE -> ask)"
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "Neither sprint-51.json's acceptance_criteria nor its security_criteria contains a BUDGET criterion, even though this file has had two prior timeout-class defects. Recommend adding, as an explicit criterion: 'the firewall returns a decision within the wired hook timeout for every input up to the segment cap, including pathological ones, on both bash 3.2 and 5.x' — with a test to match. Without it, 'minimum ask' is silently conditional on the gate finishing in time, and that condition is attacker-controlled.",
+      "No criterion covers the interaction between the 2048 segment cap and multi-segment amplification: each segment is individually capped, but the number of segments is not, so per-segment bounds do not bound the whole invocation."
+    ],
+    "ambiguous_criteria": [
+      "SC-9 says the declared axes must be 'at least ask'. It does not say ask must be REACHED — this finding sits precisely in that ambiguity, which is why a green suite and an honest residual list could coexist with a live hole."
+    ],
+    "security_criteria_insufficient": [
+      "For a critical tier whose stated threat model is a capable adversary editing the control plane, availability of the gate itself must be a security criterion, not a performance note."
+    ],
+    "action_required": "Add the budget criterion + a pathological-input timing test before the next judgment; record the ${1}/${Z[0]}/${!Z} coverage trade explicitly in sprint-51.json."
+  },
+  "evidence": {
+    "harness": "Self-built, independent of the repo's assertions: /private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/cdafbc69-27b3-469f-b03e-6b8fdb80c81b/scratchpad/{f65-run.sh,f65-payloads.json,f65-payloads2.json}. Pipes {tool_input:{command:...}} to the hook under CLAUDE_PLUGIN_ROOT with the detection hook wired (the harder, more permissive condition — mirrors bats wired_firewall()), classifies exit 2 = deny / permissionDecision ask / else allow. Runs the same battery against arbitrary git refs so every claim is differential.",
+    "battery_1": "47 payloads x 5 configurations (WORKTREE, cc71ce8, edbcdff, 11c8db7, and WORKTREE under /bin/bash 3.2). Regression group 7, substitution group 20, plain baseline 4, friction 10, declared-open 6. HEAD: 0 mismatches outside the informational declared-open group; the 3 'mismatches' there are STRONGER than expected (ask where I predicted allow), never weaker.",
+    "differential_edgcdff_vs_HEAD": "R1 and R6 (the 15th-verdict regression payload, backtick and $( ) forms): edbcdff=allow -> HEAD=ask. Regression independently reproduced AND independently confirmed fixed.",
+    "differential_parent_vs_HEAD": "11c8db7 vs HEAD over both batteries (65 payloads): HEAD weaker on 0 rows, stronger on 2 (S6 backslash-newline fold, S11 r${EMPTY}m). Corroborates the 16th verdict's 'no regression' by a different method and a different corpus.",
+    "cross_version": "bash 5.3.15 vs /bin/bash 3.2.57 on all 47 payloads: zero differing rows.",
+    "bats": "bats tests/ (full suite, one run, background): 1..862, ok 861, not ok 1, 5 skipped. The single failure is tests/protected-integrity.bats 'F65: 저장소 밖 편집은 티켓을 오염시키지 않는다', reproduced 6/6 in isolation and in a clean HEAD worktree, passing 3/3 in clean worktrees at 11c8db7 / 6085b80 / a94f564. Instrumented teardown shows the only survivors are an empty .git/objects/pack recreated by a background git process during rm -rf; the assertion body itself passes (before=0 after=0).",
+    "timing": "Direct wall-clock of single hook invocations, both shells, HEAD vs parent — see primary_finding.measured_wall_clock_single_hook_invocation. Growth is cleanly quadratic (0.22 / 0.54 / 2.15 / 7.27 / 19.47s at n=100/200/400/680/1000) against a flat 0.16-0.17s at the parent.",
+    "timeout_wiring": "hooks/hooks.json PreToolUse matcher 'Bash' -> bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash-firewall.sh\", \"timeout\": 5. Read directly from the file.",
+    "measurement_flaw_in_first_judgment": "bare `echo ${ x1000` = 0.12s (reproduces their 0.14s) vs backtick-wrapped identical input = 19.02s; grep shows __strip_dollar_brace is called from exactly one site, line 1418 inside __note_opaque_verb, i.e. substitution-only.",
+    "gate_integrity": "INDIRECT_PATTERNS sha e8a316f693eb (15 entries) and ASK_PATTERNS sha e1e910ab556a (271 entries) identical at 6085b80 / 11c8db7 / edbcdff / cc71ce8 / HEAD; git log shows progress/harness-config.json untouched across 6085b80..HEAD; git diff -U0 confines all hook changes to lines 1264-1420.",
+    "code_read": "hooks/pre-bash-firewall.sh 1263-1590 read directly (tokenizer, __skip_backtick, __skip_dollar_paren, __scan_opaque_verb_matches, __strip_dollar_brace, __note_opaque_verb, scan_control_plane_delete) to establish the union-of-three-copies property and the single reachability path into the new function.",
+    "contract_read": "progress/contracts/sprint-51.json in full — acceptance_criteria, security_criteria, error_scenarios, and _residual_risk_AC11.open_axes_2026_08_04 including the 1c6c1db mechanism rewrite.",
+    "inv11_preconditions": "progress/agent-comms/evaluator-runs.jsonl has 111 runs within 48h, so the machine gate would not have blocked a passes flip — I am not flipping it because my verdict is fail."
+  },
+  "passes_updated": false,
+  "passes_update_reason": "F37 mismatch. My independent judgment is fail; the 16th verdict was pass. Per the F37 protocol a disagreement between the two independent judgments on a critical-tier feature goes to human escalation and MUST NOT be auto-resolved in either direction. progress/feature_list.json F65 is left untouched (passes:false, status:pending).",
+  "note_for_main_loop": "ESCALATE TO A HUMAN — do not auto-resolve. The two independent critical-tier judgments on F65 disagree: the 16th (2026-09-04T23-14-28) says pass with security 7; this F37 second judgment says fail with security 4. The disagreement is NOT a matter of taste or of how strictly the declared residuals are read — on that question I agree with the 16th verdict, and I verified its residual declaration is honest and even predictive. The disagreement rests on one new, reproducible finding it did not have: cc71ce8's __strip_dollar_brace() is quadratic and reachable inside any command substitution, so `echo `${ x680`; rm -rf .claude` takes 7.25s on bash 5.3 and 21.19s on bash 3.2 to produce its (correct) ask against a hook wired with \"timeout\": 5 — while the parent commit answers the same payload in 0.13s. Ordering is attacker-controlled because scan_control_plane_delete() returns on first hit, and segments compound (27.24s at five). The 16th verdict did measure performance and got 0.14s; I reproduced that number and found why it was clean — the payload was not wrapped in a command substitution, so it never entered the function the commit added. That is a measurement-construction flaw, not bad faith, and the rest of its evidence reproduced faithfully for me. Weight this in the human decision: this repository has ruled the same 'exceeds the 5s hook timeout' class a defect twice before in this same file (docs/INVARIANTS.md:919 and :963; the fix comment survives at hooks/pre-bash-firewall.sh:952, where 5.26s was judged over the line), and both times it was fixed and documented but never pinned by a test — which is how a third instance passed 862 green tests. My concrete recommendation: (1) treat this as the 17th rework rather than a pass, (2) make __strip_dollar_brace() single-pass or cap '${' occurrences per span and treat overflow as SEGMENT_UNSAFE=1 (fail-safe, not fail-slow), (3) add the budget criterion and a pathological-timing test to sprint-51.json so this class is finally pinned, (4) separately fix the protected-integrity.bats teardown race so the suite can be green again. Also note for scheduling: F65 is at iteration 16 against harness-config max_iterations 5 — the loop budget question is itself worth a human decision."
+}

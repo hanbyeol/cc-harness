@@ -1,0 +1,229 @@
+{
+  "timestamp": "2026-09-04T23:58:32+0900",
+  "auditor": "security-auditor (independent, opus-5)",
+  "target": {
+    "feature": "F65",
+    "security_tier": "critical",
+    "head": "1c6c1db",
+    "file": "hooks/pre-bash-firewall.sh",
+    "functions": [
+      "scan_control_plane_delete",
+      "__tokenize_segment",
+      "__skip_backtick",
+      "__skip_dollar_paren",
+      "__scan_opaque_verb_matches",
+      "__strip_dollar_brace",
+      "__note_opaque_verb",
+      "normalize_path_token",
+      "__control_plane_location_impl",
+      "ARM_DELETE_VERBS_UNCONDITIONAL",
+      "ARM_DELETE_VERB_DELETE_GATED"
+    ]
+  },
+  "method": {
+    "lab": "firewall copied to an isolated scratchpad, CLAUDE_PROJECT_DIR pointed at a synthetic project (hooks/hooks.json + .claude/settings.json present) so no repo state was touched; decision read from hookSpecificOutput.permissionDecision, exit 2 = deny",
+    "oracle": "every allow-decided payload re-executed in a disposable tmpdir under /bin/bash and /bin/zsh against a real .claude tree, and the tree checked for actual deletion",
+    "differential": "same payloads replayed against 1c6c1db, cc71ce8, 978d8f2, dec9293 to separate regressions from pre-existing defects",
+    "static": "automated scan of every local/declare/typeset statement for the self-referencing-RHS trap; enumeration of all references to the shared verb arrays"
+  },
+  "scan_tools": [
+    "manual code audit",
+    "isolated-lab decision probe (37 payloads)",
+    "real-shell argv/deletion oracle (bash 5.x, zsh)",
+    "cross-commit differential probe",
+    "static local-scoping scanner",
+    "git-history secret scan",
+    "npm audit"
+  ],
+  "supply_chain": {
+    "vulnerable_deps": 0,
+    "outdated_critical": 0,
+    "details": [
+      "package.json declares zero dependencies and zero devDependencies; there is no lockfile and none is required. npm audit correctly refuses (ENOLOCK).",
+      "No go.mod / pubspec.yaml / requirements.txt / Cargo.toml. Repository is 26 shell + 25 bats + 135 json + 52 md files with no third-party runtime code.",
+      "Attack surface is the shell hooks themselves, which this audit targets directly."
+    ]
+  },
+  "secrets_scan": {
+    "git_history_commits_scanned": 40,
+    "findings": 0,
+    "note": "Only regex hit in the working tree is tests/pre-commit-gate.bats:56, the AWS documentation example key AKIAIOSFODNN7EXAMPLE1, deliberately planted as a fixture for the leak gate. Not a leak."
+  },
+  "checklist_compliance": {
+    "source": "docs/SECURITY-CHECKLIST.md does NOT exist; fell back to progress/contracts/sprint-51.json security_criteria and docs/INVARIANTS.md",
+    "total_items": 4,
+    "passed": 3,
+    "failed": 1,
+    "failed_items": [
+      "SC-9 / F65 core promise: a command that deletes a control-plane path must land at minimum on ask. FALSIFIED — see AUDIT-1. Twenty-plus ordinary-notation payloads return allow (auto-approved, no user prompt) and were verified to actually delete .claude in both bash and zsh."
+    ],
+    "passed_items": [
+      "Verb list is genuinely single-source (AUDIT-4)",
+      "No self-referencing `local` traps remain (AUDIT-5)",
+      "Threat model accurately records that .claude/ is outside the detection/recovery plane (AUDIT-6)"
+    ]
+  },
+  "threat_model_coverage": {
+    "threats_identified": 7,
+    "mitigations_verified": 5,
+    "gaps": [
+      "Prediction gate does not actually hold for the plainest shell notations, so the documented posture ('.claude/ is gitignored, therefore prediction is the only control, therefore the prediction gate must hold') is stronger than measured behaviour — the premise is right, the conclusion is not yet earned (AUDIT-1).",
+      "Layer 1 (BLOCKED / deny tier) is defeated by the same mechanism — `rm -rf /etc>/dev/null` and `(rm -rf /)` return allow. The harness's highest-severity tier has never been tested against a metacharacter-adjacent operand."
+    ],
+    "verified_claims": [
+      {
+        "claim": ".claude/ is gitignored and therefore absent from protected-integrity.sh PROTECTED_GLOBS, so a successful delete is permanent",
+        "verdict": "CONFIRMED",
+        "evidence": "`git check-ignore -v .claude/settings.json .claude/settings.local.json .claude/hooks` -> all three matched by .gitignore:9 (`.claude/`). PROTECTED_GLOBS (hooks/protected-integrity.sh:57-) contains progress/*, docs/INVARIANTS.md, tests/*.bats, skills/*, agents/evaluator.md, hooks/*.sh, hooks/hooks.json, templates/progress/* — no .claude/ entry of any kind. Recorded in docs/INVARIANTS.md:543, 701, 717, 828."
+      },
+      {
+        "claim": "Layer 2 covers rm|chmod|chown|mkfs|eval inside substitutions and the F65 gate covers the remaining rmdir|unlink|shred|mv|find",
+        "verdict": "CONFIRMED (with a maintenance caveat, AUDIT-7)",
+        "evidence": "Measured: `echo `rm .claude`` -> DENY(L2); `echo $(chmod 777 x)` -> DENY(L2); `echo `mv .claude /tmp/sink``, `` `rmdir .claude` ``, `` `unlink .claude/settings.json` ``, `` `shred .claude/settings.json` ``, `` `find .claude -delete` ``, `$(mv .claude /tmp/sink)` -> all ask (F65 gate)."
+      }
+    ]
+  },
+  "findings": [
+    {
+      "id": "AUDIT-1",
+      "severity": "critical",
+      "confidence": "high",
+      "file": "hooks/pre-bash-firewall.sh",
+      "line": 1504,
+      "also": [
+        90,
+        127,
+        128,
+        852,
+        1167,
+        1566,
+        1588
+      ],
+      "issue": "Shell-metacharacter welding: the hook's word boundary is literal whitespace only, the shell's is whitespace + metacharacters + IFS. Both the F65 control-plane gate and Layer 1/2 fall to it, and the result is `allow` (auto-approved, no prompt) — not a fallthrough.",
+      "root_cause": "Three places share one wrong model of what ends a word. (1) __tokenize_segment() ends a token only on ' ' or TAB (:1504). (2) normalize_path_token() strips only quotes and backslashes (:852) — it never strips '>', '<', '(' or ')'. (3) scan_control_plane_delete() segments on `tr ';|&'` (:1588), three of the shell's metacharacters. The real shell also terminates a word at '>', '>>', '<', '>&', '(' and ')', and re-splits unquoted expansions on $IFS. Layer 1/2 have the identical defect for a different reason: BLOCKED's trailing anchor is `( |$|[;&|])` (:90) and INDIRECT_PATTERNS' eval anchors are `^eval\\b` / `[;&|] *eval\\b` (:127-128) — '>' and ')' are in neither character class.",
+      "sub_mechanisms": [
+        "(a) verb welded to a PRECEDING metacharacter defeats arming: `(rm -rf .claude)` tokenizes as `(rm`, which matches neither `rm` nor `*/rm` at :1566, so armed stays 0 and the operand loop never runs.",
+        "(b) operand welded to a FOLLOWING metacharacter defeats the path match: `rm -rf .claude>/dev/null` tokenizes as `.claude>/dev/null`, which matches none of the case arms at :1167-1211 (it is not `.claude`, not `.claude/*`, has no glob character)."
+      ],
+      "measured_bypasses_control_plane": [
+        "rm -rf .claude>/dev/null",
+        "rm -rf .claude>>log",
+        "rm -rf \".claude\">/dev/null",
+        "rm -rf .claude>&2",
+        "rm -rf .claude>out.txt",
+        "rm -rf .claude/hooks>/dev/null",
+        "rm -rf .claude/plugins>/dev/null",
+        "rm -rf .claude/hooks/session-handoff.sh>/dev/null",
+        "rmdir .claude>/dev/null",
+        "(rm -rf .claude)",
+        "(rm -rf .claude/hooks)",
+        "(mv .claude /tmp/sink)",
+        "(rmdir .claude)",
+        "true && (rm -rf .claude)",
+        "if true; then (rm -rf .claude); fi",
+        "cat <(rm -rf .claude)",
+        "cat >(rm -rf .claude)",
+        "diff <(mv .claude /tmp/x) /dev/null",
+        "rm -rf ~/.claude>/dev/null",
+        "(rm -rf ~/.claude)",
+        "rm -rf ~/.claude/plugins/cc-harness>/dev/null",
+        "(rm -rf ~/.claude/plugins/cc-harness)"
+      ],
+      "measured_bypasses_layer1_deny_tier": [
+        "rm -rf />/dev/null",
+        "(rm -rf /)",
+        "cat <(rm -rf /)",
+        "rm -rf /etc>/dev/null",
+        "(rm -rf /etc)",
+        "rm -rf ~>/dev/null",
+        "(rm -rf $HOME)",
+        "(eval \"rm -rf /\")"
+      ],
+      "measured_bypasses_bash_only_ifs": [
+        "rm$IFS-rf$IFS.claude",
+        "rm -rf$IFS.claude",
+        "rm${IFS}-rf${IFS}.claude"
+      ],
+      "oracle": "Six representative payloads re-executed against a real .claude tree: `rm -rf .claude>/dev/null`, `(rm -rf .claude)`, `cat <(rm -rf .claude)`, `true && (rm -rf .claude)`, `rm -rf .claude/hooks>/dev/null`, `rm -rf .claude>out.txt` — DELETED under /bin/bash AND /bin/zsh, 6/6 both shells. The $IFS variants DELETED under bash, INTACT under zsh (zsh does not word-split unquoted expansions by default). `rm -rf .claude<x` is decided allow but aborts when x is absent, so it is listed for completeness only.",
+      "impact": "The two highest-value targets are fully exposed: the .claude directory itself (gitignored, absent from PROTECTED_GLOBS — permanent loss, no detection, no recovery) and ~/.claude/plugins/cc-harness (the installed plugin, i.e. this firewall). Deleting the latter removes the control that is supposed to prevent it. `(eval \"rm -rf /\")` additionally shows the deny tier's eval anchors are position-anchored to separators the shell does not require.",
+      "not_a_regression": "Identical decisions at dec9293, 978d8f2, cc71ce8 and 1c6c1db. Pre-existing across the whole F65 cycle, not introduced by any of the last six rounds.",
+      "not_in_any_declared_residual": "Checked every axis in progress/contracts/sprint-51.json open_axes_2026_08_04: operand_before_verb_ordering (verb here precedes the operand normally), verb_via_substitution (verb is a literal ordinary word, no substitution, no encoding), scope_note (no parameter expansion in the '>' and '(' forms), indirect_operand (operand is a literal in the command string), cwd_shift (no cd), unenumerated_verbs (rm/rmdir/mv are all enumerated). None applies.",
+      "controls_that_still_hold": "rm -rf .claude / rm -rf .claude/ / rm -rf .clau* / find .claude -delete / { rm -rf .claude;} / rm -rf .claude; / rm -rf .claude& / rm -rf .claude|true -> all ask. rm .claude/settings.json>/dev/null and (rm .claude/settings.local.json) -> ask, because the named-file ASK arms carry no trailing anchor; that coverage does NOT extend to the .claude directory, .claude/hooks or .claude/plugins.",
+      "no_friction_baseline_for_a_fix": "A fix must keep these allow: `rm -rf dist>/dev/null`, `(rm -rf node_modules)`, `cat <(ls)`, `ls $(pwd)`, `echo $(date)`.",
+      "remediation_direction": "Do not enumerate more path notations — that is the failure mode this file has hit for sixteen rounds. Make the hook's word boundary the shell's word boundary: treat unquoted '>', '<', '(', ')', ';', '&', '|' as token terminators inside __tokenize_segment() (and let the segment splitter see the same set), and replace Layer 1/2's `( |$|[;&|])` trailing class with a general not-a-path-character class. The property to assert is falsifiable and already has a harness: the 12th round built an argv oracle — assert that the hook's tokenization agrees with the real shell's argv for generated payloads, rather than adding case-by-case tests."
+    },
+    {
+      "id": "AUDIT-2",
+      "severity": "medium",
+      "confidence": "high",
+      "file": "hooks/pre-bash-firewall.sh",
+      "line": 1588,
+      "also": [
+        1289,
+        1304,
+        1543
+      ],
+      "issue": "Over-ask regression introduced during this F65 cycle: any command containing an UNQUOTED command substitution that itself contains ';', '|' or '&' is asked unconditionally, even when no delete verb and no control-plane path is present anywhere.",
+      "root_cause": "scan_control_plane_delete() splits on `tr ';|&'` (:1588) BEFORE tokenizing, which cuts `$( ... | ... )` in half. __skip_dollar_paren() then scans to end of segment without finding the close paren, returns __OPAQUE_END=-1 (:1304), and :1543 raises SEGMENT_UNSAFE -> ask. The fail-closed reflex is right in principle; the defect is that the imbalance is manufactured by the hook's own pre-split, not present in the input.",
+      "measured": [
+        "echo $(git rev-parse HEAD | cut -c1-7) -> ask",
+        "echo `ls | wc -l` -> ask",
+        "BRANCH=$(git branch --show-current | tr -d \" \"); echo $BRANCH -> ask",
+        "npm run build && echo $(date +%s | tail -c4) -> ask",
+        "echo $(cd /tmp && pwd) -> ask"
+      ],
+      "regression_proof": "dec9293 decides `echo $(ls | wc -l)` allow; 978d8f2, cc71ce8 and 1c6c1db all decide ask. Introduced by the 12th-verdict commit (978d8f2) that started treating command substitutions in __tokenize_segment().",
+      "why_existing_tests_miss_it": "The 12th verdict added exactly two over-blocking regression tests — `ls $(pwd)` and a backtick inside a quoted commit message — and both still pass, because neither contains a separator INSIDE the substitution. `echo \"count: $(ls -1 | wc -l)\"` also passes, because NORMALIZED_CMD neutralises the pipe inside the double quotes. The uncovered shape is the common one: an unquoted substitution with a pipe.",
+      "security_relevance": "This is the same over-blocking failure the 12th verdict rejected, re-entering through a different door. Routine ask prompts on read-only commands train reflexive approval, and the ask tier's entire value rests on the user still reading it."
+    },
+    {
+      "id": "AUDIT-3",
+      "severity": "low",
+      "confidence": "high",
+      "file": "hooks/pre-bash-firewall.sh",
+      "line": 1363,
+      "issue": "Confirmation, not a new finding: unbraced `$Z` splitting a verb inside a substitution is open. `echo `r$Zm -rf .claude`` -> allow. __strip_dollar_brace() only recognises `${...}`, so `$Z` is never removed and the adjacent literals never join into `rm`.",
+      "status": "WITHIN the declared residual. Commit 1c6c1db restated verb_via_substitution.remaining_gap at mechanism level — 'every case where erasing does not expose an adjacent literal verb word' — and this payload is inside that set. Reported only to confirm the restatement's coverage is accurate rather than example-shaped; no action requested."
+    },
+    {
+      "id": "AUDIT-4",
+      "severity": "info",
+      "confidence": "high",
+      "file": "hooks/pre-bash-firewall.sh",
+      "line": 1313,
+      "issue": "Question 3 answered: the single-source structure is real, and both consumers do read it. Enumerated every reference — L1348 (__scan_opaque_verb_matches iterates both arrays), L1556 (scan_control_plane_delete reads ARM_DELETE_VERB_DELETE_GATED in the -delete branch), L1565 (scan_control_plane_delete iterates ARM_DELETE_VERBS_UNCONDITIONAL). The only other textual verb enumerations in the file are comments at L829 and L1593. No duplicated live list exists; the 13th verdict's fix holds.",
+      "caveat": "Same list, different matching semantics. The token consumer matches AFTER normalize_path_token() with `== verb || == */verb`, so `/bin/rm` arms. The span consumer matches with a word-boundary regex on raw and stripped copies. Both directions are more permissive at finding verbs, so the asymmetry opens no gap — but the comment at :1307-1312 slightly overstates it as full equivalence. Also: the arrays are plain globals, not readonly; no code path can assign them, so this is documentation-level only."
+    },
+    {
+      "id": "AUDIT-5",
+      "severity": "info",
+      "confidence": "high",
+      "file": "hooks/pre-bash-firewall.sh",
+      "issue": "Question 5 answered: no self-referencing `local` traps remain. An automated scan of every local/declare/typeset statement found zero cases where a variable assigned earlier in the SAME statement is dereferenced later in it. All nine sites where a later `local` legitimately uses an earlier one — L897 (__brace_range_value), L922 (__brace_range_info), L958 (__brace_prescan), L989 (__brace_find_group), L1032 (__brace_split_top_level), L1270 (__skip_backtick), L1292 (__skip_dollar_paren), L1367 (__strip_dollar_brace), L1443 (__tokenize_segment) — are correctly split into separate statements. The 7th- and 12th-verdict class is closed."
+    },
+    {
+      "id": "AUDIT-6",
+      "severity": "info",
+      "confidence": "high",
+      "issue": "Question 2 answered: the .claude/ recovery-plane claim is factually correct and correctly recorded. What is NOT earned is the conclusion the docs draw from it — docs/INVARIANTS.md:701 treats prediction as the control that covers this path, and AUDIT-1 shows the prediction gate does not hold for the plainest notations. Recommend the threat model state the residual as measured, not as covered. Note the asymmetry that hooks/hooks.json IS tracked and IS in PROTECTED_GLOBS (recovery exists), while .claude/** has neither prediction (per AUDIT-1) nor detection nor recovery."
+    },
+    {
+      "id": "AUDIT-7",
+      "severity": "low",
+      "confidence": "high",
+      "file": "hooks/pre-bash-firewall.sh",
+      "line": 131,
+      "also": [
+        133,
+        1313
+      ],
+      "issue": "Question 4 answered: the designed division of labour between Layer 2 and the F65 gate matches the code and was verified by measurement. Caveat worth recording — the two halves are kept in sync by hand. INDIRECT_PATTERNS hardcodes `(rm|chmod|chown|mkfs|eval)` at :131 and :133 with no reference to ARM_DELETE_VERBS_UNCONDITIONAL. Adding a verb to the F65 array does not add it to Layer 2, and vice versa. Not a live gap — the union currently covers the intent — but it is the same 'prose claim of parity with no mechanism' the 13th verdict rejected inside F65, now living one layer up. The 13th's own remedy (make it one source) applies here too."
+    }
+  ],
+  "summary": "1 critical, 1 medium, 2 low, 3 info. The critical one blocks: a plain-notation, no-encoding, no-substitution class — shell metacharacters welded to the verb or the operand — returns allow (auto-approved, no prompt) for the whole control plane including the plugin install root, and for Layer 1's deny tier as well; deletion verified in bash and zsh. Pre-existing across the entire F65 cycle and not covered by any declared residual axis. The single-source verb structure, the self-referencing-local class, the Layer 1/2 division of labour, and the .claude/ recovery-plane claim all check out.",
+  "verdict": {
+    "checklist_failed": 1,
+    "verification_phase": "BLOCKED on the gate's own promise (SC-9). AUDIT-1 is pre-existing and outside the substitution axis F65 scoped itself to, so whether it blocks F65's pass or becomes a separate change-request (as operand_before_verb_ordering already did) is a scoping decision for the user — but it must not be recorded as covered.",
+    "recommended_next": "New /change-request for AUDIT-1 (tokenizer word boundary = shell word boundary, plus Layer 1/2 trailing anchor class), with the argv-oracle differential test as the acceptance criterion rather than another counterexample list. AUDIT-2 is small and independent and can ride along or go as a hotfix."
+  }
+}
