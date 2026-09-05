@@ -99,6 +99,15 @@
         ],
         "_note": "step 10~11이 이 두 축을 닫는다. 이 목록도 위 2026-08-04와 같은 성질이다 — 확인한 것이지 닫힘의 최종 증명이 아니다."
       },
+      "verification_axes_2026_09_06": {
+        "_why": "20차 독립 판정: 위 2026-08-04 axes 는 **표기**만 열거하고 '그 표기가 `sh -c \"...\"`·인터프리터 `-c`/`-e` 인용 인자 **안에** 들어갔을 때'를 별도 차원으로 두지 않았다. 그래서 구현자가 표기 하나(경로 표기: `//`·`/./`)를 인용 래퍼 안에서 닫고 '축을 닫았다'고 정직하게 보고할 수 있었는데, 실제로는 나머지 6개 축(글로브·이름글로브·장문옵션·인용·구분자접두·동사)이 인용 래퍼 안에서 여전히 열려 있었다 — 20차 실측: 22개 페이로드를 `sh -c \"...\"` 로 감싸면 6/22 만 ask(경로 표기 3/3, 인용 1/3, 동사 2/5, 나머지 0). 11~20차가 반복해 온 '열거된 축은 닫혔는데 통제는 계속 열려 있다' 실패 모드의 구조적 원인이 이 누락이었다.",
+        "axes": [
+          "래퍼: `sh -c \"...\"` · `bash -lc \"...\"` · `zsh -c \"...\"` · `env sh -c \"...\"` · `python3 -c \"...\"` · `python3 -e`(pathlib) · `perl -e \"...\"` · `node -e \"...\"` · `ruby -e \"...\"` — 위 2026-08-04 의 axes 7개 카테고리 각각을 이 래퍼들로 감싼 조합",
+          "래퍼 × 디렉터리 전체 삭제: `sh -c 'rm -rf .claude'` 류(따옴표 종류 무관) — 파일 단위 표기 축과 별개로 명시. 성립 시 컨트롤 플레인 전체가 사라진다"
+        ],
+        "_status_2026_09_06_20th": "**미해결.** 위 2026-08-04 axes 7개 카테고리 중 '경로 표기' 하나만 래퍼 안에서 닫혔다(20차 판정 대응, 커밋 4f813bb). 나머지 6개 카테고리(인용 분할·백슬래시 이스케이프·글로브·상위경로 traversal·구분자 접두·장문 옵션)와 디렉터리 전체 삭제는 래퍼 안에서 allow 이고 격리 랩에서 실제로 삭제된다 — 자세한 것은 `_residual_risk_AC11.open_axes_2026_08_04.interpreter_wrapped_path_notation` 참조. **SC-9 는 이 래퍼 차원을 포함해 판정한다** — 아래 SC-9 criterion 정정 참조.",
+        "_note": "이 목록도 위 항목들과 같은 성질이다 — 확인한 것이지 닫힘의 최종 증명이 아니다. 축을 닫힌 것으로 다시 선언하려면 여기 열거한 조합이 새로 전수 ask 임을 실측해야 한다."
+      },
       "_origin": "2026-08-03, F68 검증 라운드 security-auditor 실측 — F-1. `rm .claude/settings.json`이 firewall allow(ask조차 아님) → 배선 뺀 내용으로 재생성하는 Write → invariant-guard도 exit 0으로, 무프롬프트 체인이 끝까지 성립했다."
     }
   ],
@@ -152,7 +161,7 @@
     },
     {
       "id": "SC-9",
-      "criterion": "**컨트롤 플레인 삭제의 예측이 명시된 표기 축에서 성립한다** — 컨트롤 플레인은 예측이 유일한 통제이므로, 삭제 동사에 대해 `AC-11.verification_axes_2026_08_04` 가 정의한 표기 축 전수(대상 × 표기)가 최소 ask 여야 한다. HEAD에 없는 파일 클래스(gitignored `.claude/settings.json`·`settings.local.json`, 프로젝트 루트 밖에 설치된 `hooks/hooks.json`)도 그 축 안에서 성립해야 한다. **닫히지 않는 축은 `_residual_risk_AC11.open_axes_2026_08_04` 에 명시하고, 그 축에 대해서는 닫혔다고 주장하지 않는다.**",
+      "criterion": "**컨트롤 플레인 삭제의 예측이 명시된 표기 축에서 성립한다** — 컨트롤 플레인은 예측이 유일한 통제이므로, 삭제 동사에 대해 `AC-11.verification_axes_2026_08_04` 가 정의한 표기 축 전수(대상 × 표기)가 최소 ask 여야 한다. HEAD에 없는 파일 클래스(gitignored `.claude/settings.json`·`settings.local.json`, 프로젝트 루트 밖에 설치된 `hooks/hooks.json`)도 그 축 안에서 성립해야 한다. **'표기'는 명령행에 bare 로 놓인 형태와 `verification_axes_2026_09_06` 이 정의하는 래퍼(`sh -c \"...\"`·인터프리터 `-c`/`-e` 등)로 감싼 형태를 모두 포함한다 — 20차 독립 판정이 이 문면의 모호함(래퍼를 표기의 일부로 볼지 별개 차원으로 볼지가 불명확했던 것) 자체를 SC-9 미충족 사유로 지목했다. 축을 '닫혔다'고 선언하려면 그 축의 정의(대상 × 표기 × {bare, 래퍼})를 만족하는 페이로드가 전수 ask 임을 이번 판정이 보고한 인스턴스 밖에서도 새로 확인하거나, 코드 경로로(예: 인용 인자가 실제로 토큰 계층에 들어간다) 구조적으로 논증해야 한다 — 판정문이 보고한 인스턴스 집합을 축의 정의로 대체할 수 없다.** **닫히지 않는 축은 `_residual_risk_AC11.open_axes_2026_08_04` 에 명시하고, 그 축에 대해서는 닫혔다고 주장하지 않는다.**",
       "_superseded_criterion_2026_08_04": {
         "text": "**예측이 실제로 성립한다** — 컨트롤 플레인은 예측이 유일한 통제이므로, 그 계층에 동사 하나만큼의 공백도 남기지 않는다.",
         "why_lowered": "12차 판정이 이 문구를 두 축에서 반증했다. (1) 판정 가능한 형태가 아니다 — '무엇을 다 확인하면 충족인가'가 없어 열거 목록만 통과해도 충족으로 보고될 여지를 남겼고 실제로 그렇게 보고됐다. (2) `cd .claude && rm settings.json` 처럼 경로 토큰이 명령에서 사라지는 축은 **문자열 예측으로 원리적으로 닫을 수 없다**(판정자도 같은 결론). 닫을 수 없는 것을 요구하는 기준은 구현자가 '닫았다'고 적게 만들 뿐이다 — 이번 라운드가 정확히 그 실패였다. 그래서 기준을 **닫힌 검증 집합 + 명시된 잔여 축**으로 바꾼다. 게이트(최소 ask)나 임계값은 낮추지 않는다.",
@@ -185,12 +194,12 @@
       },
       "unenumerated_verbs": {
         "example": "`rm`·`rmdir`·`unlink`·`shred`·`mv`·`find -delete` 밖의 삭제 수단(예: 인터프리터로 unlink 호출, `trash` 류 외부 도구)",
-        "status": "부분 — 인터프리터 계열은 별도 arm 이 컨트롤 플레인 경로에 대해 ask 다(20차 판정 대응 수정으로 인용 래퍼 안의 `//`·`/./` 표기까지 이제 포함 — 아래 `interpreter_wrapped_path_notation` 참조). 그 밖의 이름은 열거되어 있지 않다. **'동사 열거가 수렴한다'고 주장하지 않는다** — 12차 판정이 그 주장을 반증했다."
+        "status": "부분 — 인터프리터 계열은 별도 arm 이 컨트롤 플레인 경로에 대해 **bare 표기에서는** ask 다. 인용 래퍼(`sh -c \"...\"` 등) 안에서는 아래 `interpreter_wrapped_path_notation` 이 명시하는 대로 여러 표기 축이 여전히 allow 다 — '인터프리터 계열은 ask 다' 를 단서 없이 주장하지 않는다(20차 독립 판정이 이 문장 자체가 SC-9 위반이라고 지적했다). 그 밖의 삭제 동사 이름도 열거되어 있지 않다. **'동사 열거가 수렴한다'고 주장하지 않는다** — 12차 판정이 그 주장을 반증했다."
       },
       "interpreter_wrapped_path_notation": {
-        "example": "`env rm -f .claude//settings.json` 은 ask, `sh -c \"rm -f .claude//settings.json\"` 도 이제 ask다(20차 판정 대응 수정 전에는 후자가 allow였다 — 19차 독립 판정 실측 18개 셀).",
-        "status": "해결(2026-09-06, 20차 판정 대응) — ASK_PATTERNS 중 `.claude/settings(.local)?.json`·`hooks/hooks.json`·`hooks/*.json`·`hooks/*.(sh|json)` 리터럴을 담은 8개 arm(라인 415·416·432·433·437·485·520·521·543·591, 인터프리터·에디터·cp/mv/tee·리다이렉트·rm/unlink/shred·sed/awk/perl in-place)에서 경로 조각을 `\\.claude(/\\.?)+settings(\\.local)?\\.json` / `hooks(/\\.?)+hooks\\.json` 형태로 넓혀 `/`·`/.`  반복 표기를 허용했다. `normalize_path_token()` 이 bare 토큰에 이미 하던 `//`→`/` 접기와 같은 관용구를 문자열 정규식 층에 그대로 옮긴 것이라 add-only이며 SC-1과 충돌하지 않는다. 19차가 실증한 18셀(python3 os.remove·pathlib.unlink·perl unlink·node unlinkSync·ruby File.delete·sh -c rm × `.claude//settings.json`·`.claude/./settings.json`·`.claude//settings.local.json`) 전부 ask로 확인(회귀 테스트로 고정, tests/pre-bash-firewall.bats 참조). 3중 이상 반복(`.claude///settings.json`)이나 `~/`·심볼릭 링크 경유 등 더 낯선 표기는 여전히 별도 축이다 — 새로 열거하지 않는다.",
-        "_note": "20차 판정이 이 수정을 확인하기 전까지는 미해결(19차 판정 발견)로 남아 있었다."
+        "example": "`env rm -f .claude//settings.json` 은 ask 이고, 같은 표기를 `sh -c \"...\"`·인터프리터 `-c`/`-e` 로 감싼 것도 이제 ask 다(20차 판정 대응 전에는 allow — 19차 독립 판정 실측 18개 셀). 그러나 **표기가 아니라 인용·이스케이프·글로브·상위경로·디렉터리 삭제로 감싼 것은 여전히 allow 이고 격리 랩에서 실제로 삭제된다**: 인용 분할(`.claude/'settings.json'` 등, 래핑 시 4종) · 백슬래시 이스케이프(2종) · 글로브(`.claude/settings*.json` 등, 4종) · 상위경로 traversal(`.claude/agents/../settings.json` 등, 3종) · **컨트롤 플레인 디렉터리 전체 삭제**(`sh -c 'rm -rf .claude'` 등, 3종 — 단일 파일보다 폭발 반경이 크다). 20차 독립 판정이 격리 랩 실행으로 16종 전부의 실제 삭제를 확인했다.",
+        "status": "부분(2026-09-06, 20차 판정) — **반복 구분자/점 세그먼트 표기 축만 닫혔다.** 20차가 실측: `AC-11.verification_axes_2026_08_04.axes` 22개 페이로드를 bare 로 돌리면 22/22 ask 인데 `sh -c \"...\"` 로 감싸면 6/22 만 ask 다(글로브 0/3·이름글로브 0/2·장문옵션 0/2·인용 1/3·경로표기 3/3·구분자접두 0/3·동사 2/5) — 즉 이번 수정이 닫은 것은 7개 축 중 **경로표기 축 하나뿐**이다. 원인은 표기별 리터럴 정규식을 계속 넓히는 방식 자체의 한계다 — 인용 래퍼 안의 인자는 `scan_control_plane_delete()`의 토큰 계층에 애초에 도달하지 못하고 Layer 3 ASK_PATTERNS 의 평문 정규식만이 유일한 통제라서, 셸이 투명하게 처리하는 다음 표기(인용·백슬래시·글로브·traversal)가 나올 때마다 같은 구멍이 재현된다. **근본 수정은 `sh|bash|zsh|dash -c` 및 인터프리터 `-c`/`-e` 의 인용 인자를 한 겹 벗겨 같은 스캐너(`scan_control_plane_delete()`)에 재귀적으로 태우는 것**(20차 판정 `recommended_fix.primary`) — bare 에서 이미 22/22 를 성립시키는 `normalize_path_token()`·`CONTROL_PLANE_NAMES`·`ARM_DELETE_VERBS_UNCONDITIONAL` 을 래퍼에도 그대로 적용하는 방식이라 표기를 하나씩 열거할 필요가 없고, `rm -rf .claude` 디렉터리 케이스도 함께 닫힌다. 이 리팩터는 `operand_before_verb_ordering`·`shell_metacharacter_adjacent_tokenization` 과 같은 계열의 토크나이저 변경이라 사용자 확인 후 범위를 정한다 — 이번 사이클에서 진행할지 별도 `/change-request` 로 분리할지는 SC-9 준수를 위해 코드를 만지기 전에 먼저 결정한다.",
+        "_note": "19차 → 20차로 오면서 이 항목을 '해결' 로 잘못 선언한 적이 있었다(SC-9 둘째 절 재위반, 20차 독립 판정이 반려 사유로 지목) — 위 status 는 그 정정판이다. 축이 닫혔다고 다시 주장하려면 20차가 실증한 16종(및 그 상위 클래스)이 새로 ask 로 확인되어야 한다."
       },
       "verb_via_substitution": {
         "example": "``printf '\\x72\\x6d'` -rf .claude` · `$(base64 -d <<<cm0=) -rf .claude` — 삭제 동사 이름이 명령 치환 **안에서 계산**되고 치환 문자열 자체에는 동사 리터럴이 (공백으로 구분된 낱말로도) 나타나지 않는 경우",
