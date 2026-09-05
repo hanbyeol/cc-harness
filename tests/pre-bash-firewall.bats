@@ -3077,6 +3077,27 @@ delete_decision() {
     || { echo "상한 아래의 평범한 대형 명령이 새 마찰을 만들었다"; false; }
 }
 
+@test "F65 perf: a multibyte command under the character count but over the byte cap still asks fast (18th verdict)" {
+  # 18차 독립 판정이 반려한 결함: 상한이 문자 수(\${#CMD})를 쟀는데, 이 상한이 막으려는
+  # 모든 비용(awk 정규화·Layer 3 정규식·세그먼트 스캔)은 **바이트** 에 비례한다. 3바이트
+  # 한글 문자로 채우면 문자 수(32760)는 상한 아래인데 실제로는 9.8만 바이트 — 문자 수만
+  # 쟀다면 이 명령이 정밀 분석까지 들어가 느려졌어야 한다. 배로 늘리는 방식(doubling)으로
+  # 만든다 — 반복 이어붙이기는 그 자체가 이차식이다(이 라운드가 겪은 것과 같은 함정).
+  local kr c t0 t1 elapsed
+  kr="가"
+  while [[ ${#kr} -lt 32760 ]]; do kr="${kr}${kr}"; done
+  kr="${kr:0:32760}"
+  c="echo \"${kr}\""
+  t0=$(date +%s%N)
+  run delete_decision "$c"
+  t1=$(date +%s%N)
+  elapsed=$(( (t1 - t0) / 1000000 ))
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "문자 수는 상한 아래지만 바이트 수는 상한을 넘는 명령이 allow 로 샜다(문자 수로 재는 결함 재발)"; false; }
+  [ "$elapsed" -lt 15000 ] \
+    || { echo "바이트 상한 판정 자체가 ${elapsed}ms 걸렸다 — 정밀 분석을 실제로 건너뛰지 않았다"; false; }
+}
+
 @test "F65 sibling: protected-integrity.sh does not crash when no protected file exists (9th verdict)" {
   # 9차 판정이 훑기 요청(요청 3번)에서 형제 훅의 같은 결함을 찾았다: PROTECTED_GLOBS 어느
   # 패턴도 매치하지 않는 저장소(플러그인이 설치된 사용자 저장소의 흔한 상태)에서 FILES 가

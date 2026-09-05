@@ -1,0 +1,114 @@
+{
+  "timestamp": "2026-09-05T14:22:59+0900",
+  "sprint": 51,
+  "iteration": 18,
+  "verdict_label": "F65 18th independent verdict",
+  "features_evaluated": [
+    "F65"
+  ],
+  "security_tier": "critical",
+  "commit_under_review": "1487f29",
+  "parent_commit": "8415c84",
+  "pre_cycle_baseline": "11c8db7",
+  "scores": {
+    "functionality": 5,
+    "code_quality": 6,
+    "security": 4,
+    "error_handling": 5,
+    "test_coverage": 5
+  },
+  "score": 4,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 4 < 7 (critical tier) — 자동 fail",
+    "score 4 < pass_threshold 7",
+    "진입점 길이 상한이 **문자 수**를 세는데 하위 단계 비용은 전부 **바이트 수**에 비례한다 — UTF-8 로케일에서 상한이 의도한 32KB 가 아니라 최대 128KB 를 통과시키고, 그 입력이 5초 훅 타임아웃을 넘겨 게이트가 fail-open 된다(실행으로 재현)"
+  ],
+  "headline": "이번 커밋이 도입한 진입점 상한(32768) 자체가 UTF-8 멀티바이트 입력에 대해 우회된다. `${#CMD}` 는 UTF-8 로케일에서 문자 수를 세지만, 이 상한이 막으려는 비용(awk 정규화·Layer 3 정규식·세그먼트 순회)은 전부 바이트 수에 비례한다. 그 결과 상한을 통과하는 명령이 최대 130,958바이트가 될 수 있고, 실제 컨트롤 플레인 삭제를 포함한 상태로 훅 타임아웃(5초)을 넘긴다.",
+  "issues": [
+    "[security][critical][confidence:high] **진입점 상한의 char/byte 혼동으로 인한 타임아웃 fail-open**. `hooks/pre-bash-firewall.sh:33` 의 `if [[ ${#CMD} -gt 32768 ]]` 는 UTF-8 로케일에서 **문자 수**를 센다. 이 사용자의 실제 환경은 `LC_ALL=ko_KR.UTF-8` 이고 `LANG=en_US.UTF-8` 이므로 문자 기준이 적용된다. 4바이트 UTF-8(이모지) 32,768자 = 130,958바이트가 상한을 통과한다. 하위 비용은 바이트 비례임을 실측으로 증명했다(같은 바이트 수면 인코딩과 무관하게 같은 시간: 32,768B→~0.4초, 65,536B→~1.1초, 98,304B→2.4~2.7초). 결과: 상한 바로 아래(정확히 32,768자)의 페이로드 `echo '<이모지 32,730개>' ; rm -rf .claude/settings.json` 이 한산할 때 3,873~4,363ms(5초 예산의 78~87%), CPU 경합(바쁜 코어 10개) 시 6,819~7,137ms, 이 장비의 상시 부하(load 24)에서 55,761ms. 5초를 넘기면 훅이 죽고 판정이 전달되지 않는다 — F65 가 닫으려는 바로 그 fail-open 이다. 대상 `.claude/settings.json` 은 gitignore 대상이라 탐지·복구 밖이고 예측이 유일한 통제인 경로다(SC-9).",
+    "[security][high][confidence:high] **상한의 실효성이 로케일에 조용히 의존한다**. 동일 페이로드가 `LC_ALL=C` 에서는 29ms 만에 상한에 걸리고(바이트 의미), `ko_KR.UTF-8`·`en_US.UTF-8` 에서는 상한을 통과해 131KB 를 전부 분석한다(3,873ms / 4,363ms). 가드의 강도가 환경변수에 따라 달라지며 코드·문서 어디에도 이 의존이 명시돼 있지 않다.",
+    "[test][high][confidence:high] **새 상한 테스트 3건이 전부 ASCII 패딩만 쓴다** — `head -c N /dev/zero | tr '\\0' 'x'`. 그래서 스위트가 이 축을 원리적으로 잡을 수 없다. 상한이 바이트 기준임을 고정하는 테스트(멀티바이트 페이로드가 상한에 걸리는지)가 없다.",
+    "[security][medium][confidence:high] **상한 아래 ASCII 최악 입력의 여유가 크지 않다**. 32,768자 ASCII 는 한산할 때 385~409ms 로 안전하지만, 이 장비의 상시 부하(load 23~24)에서는 5,776~5,945ms 로 그 자체만으로 5초를 넘겼다. 즉 현재 마진은 '한산한 장비' 가정에 의존한다. 멀티바이트를 고쳐도 상한 값 자체를 부하 여유까지 고려해 재검토할 근거다.",
+    "[quality][low][confidence:high] 코드 주석과 INVARIANTS.md·sprint-51.json 이 모두 \"32768자에서 awk 는 0.14초로 안전\"이라고 단언하는데, 이는 단일바이트 입력에서만 참이다. 멀티바이트에서는 같은 문자 수가 최대 4배 비용이므로 근거 서술이 부정확하다.",
+    "[coverage][medium][confidence:medium] **`srm`·`wipe` 가 무장 동사 목록에 없다** — `srm .claude/settings.json`·`wipe .claude/settings.json` 이 allow. 이번 커밋의 회귀는 아니고(부모와 동일) 계약서에 `unenumerated_verbs` 로 open axis 명시돼 있으나, 차동 비교에서 11c8db7 대비 5건이 ask→allow 로 약화돼 보이는 원인이 이것이다(11c8db7 의 ask 는 탐지가 아니라 스플리터 버그로 인한 우발적 fail-closed 였고, AUDIT-2 수정으로 그 우발적 보호가 사라졌다). 의도된 변경이지만 '우발적 보호에 가려져 있던 갭이 드러났다'는 사실은 기록해 둘 가치가 있다.",
+    "[quality][low][confidence:high] 세그먼트마다 `$(date +%s%N)` 로 서브프로세스를 fork 하는 예산 검사는 오버헤드가 미미함을 확인했다(세그먼트 10~800개에서 +12~+20ms). 문제 없음 — 기록용."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-9 회귀 없음 — 자체 구성 1,122개 페이로드 차동 비교에서 **부모(8415c84) 대비 차이 0건**. 11c8db7 대비 6건은 전부 의도된 AUDIT-2 스플리터 수정으로 설명됨",
+      "AC-4/AC-11 (ASCII 축) — 32768자를 넘는 모든 공격 형태(느린 세그먼트 다수+실제 삭제, 연속 `${` 수천 개, 순수 따옴표 세그먼트 다수, 200,000자)가 27~59ms 안에 ask",
+      "상한 아래 정상 대형 명령에 새 마찰 없음 — heredoc(4.2KB)·base64 블롭(20KB)·긴 git commit 메시지(10KB)·30KB ASCII echo 모두 종전 판정 유지"
+    ],
+    "security": [
+      "SC-1 게이트·임계값 불변 — harness-config.json 무변경, 판정 분포가 부모와 동일(deny 196 / ask 825 / allow 101)",
+      "scan_control_plane_delete() 의 3초 글로벌 예산이 fail-closed(ask)로 동작하며 훅 시작 시점 기준으로 측정됨을 코드·실행으로 확인"
+    ],
+    "error_scenarios": [
+      "상한 초과 시 정규화·세그먼트 분석을 시작하지 않고 즉시 ask — '모르면 allow 가 아니라 ask' 원칙 준수",
+      "예산 초과 시 CP_DELETE_HIT 설정 후 ask — 남은 세그먼트를 확인하지 못했다는 사실을 판정 사유에 명시"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-11/SC-9 (멀티바이트 표기 축) — 컨트롤 플레인 삭제를 포함한 32,768자 이하 명령이 훅 타임아웃을 넘겨 판정이 전달되지 못한다"
+    ],
+    "security": [
+      "SC-9 — 컨트롤 플레인 삭제 예측이 UTF-8 멀티바이트 축에서 성립하지 않는다. 이 축은 `_residual_risk_AC11.open_axes` 에 open 으로 명시돼 있지도 않다(닫혔다고 주장된 범위 안에서 실패)"
+    ],
+    "error_scenarios": [
+      "타임아웃 경로 — 진입점 상한이 이 경로를 막는다는 것이 이번 커밋의 핵심 주장인데, 멀티바이트 입력에서 막지 못한다"
+    ]
+  },
+  "recommended_fix": {
+    "one_line": "길이 상한을 문자가 아니라 **바이트**로 측정한다.",
+    "concrete": "`if [[ ${#CMD} -gt 32768 ]]` 를 바이트 기준으로 바꾼다 — 예: `__cmd_bytes=$(printf '%s' \"$CMD\" | wc -c)` 후 `if [[ $__cmd_bytes -gt 32768 ]]`. fork 1회(수 ms)로 충분하고, 검증 결과 이 변경이면 130,958바이트 페이로드가 상한에 걸린다(현재 3.9~4.4초 → ~30ms). 훅 전체를 `LC_ALL=C` 로 돌리는 방식은 다른 계층의 정규식 의미까지 바꿀 수 있어 권하지 않는다 — 길이 검사 한 곳만 바이트로 바꾸는 편이 부작용이 없다.",
+    "test_to_add": "멀티바이트 패딩(3바이트 한글·4바이트 이모지)으로 만든 상한 경계 테스트 — (a) 32,768자 이모지 페이로드가 상한에 걸려 즉시 ask, (b) 바이트 기준 상한 바로 아래 최악 입력이 예산 안에 끝나는지. 현재 새 테스트 3건은 전부 ASCII 패딩이라 이 축을 잡지 못한다.",
+    "followup_consideration": "부하가 있는 공유 장비에서는 상한 아래 ASCII 최악 입력조차 5초를 넘겼다(load 24에서 5.8초). 바이트 상한으로 고친 뒤 상한 값 자체(32768)가 부하 여유까지 감안해 적절한지 재검토 권고."
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "**인코딩/바이트 폭 축이 어느 기준에도 없다** — AC-11 의 `verification_axes_2026_08_04`(대상 × 표기)와 SC-9 는 표기 변형만 다루고, '같은 문자 수가 다른 바이트 수를 갖는다'는 축이 없다. 이번 결함이 정확히 그 빈 칸에서 나왔다.",
+      "성능/타임아웃 기준이 계약서에 없다 — 17차·F37·이번 라운드가 전부 타임아웃 축에서 실패했는데도 acceptance/security criteria 어디에도 '훅이 5초 안에 판정을 반환한다'가 명문화돼 있지 않다. 매 라운드 임시로 판정되고 있다.",
+      "실행 환경 가정(로케일·부하)이 명시돼 있지 않다 — 가드의 강도가 `LC_ALL` 에 따라 달라지는데 어느 문서에도 전제로 적혀 있지 않다."
+    ],
+    "ambiguous_criteria": [
+      "'정상 사용에서 나타나지 않는 길이'(32768) 의 단위가 코드·문서에서 정의돼 있지 않다 — 문자인지 바이트인지 명시되지 않은 채 두 의미가 섞여 쓰였다(주석은 바이트 비용을 근거로 들면서 코드는 문자를 센다)."
+    ],
+    "security_criteria_insufficient": [
+      "SC-9 가 '표기 축'만 다루고 '자원 소모로 판정 자체를 무력화하는 축'을 포함하지 않는다. 타임아웃 fail-open 은 표기 우회와 결과가 같으므로 SC-9 또는 별도 SC 로 명문화해야 한다."
+    ],
+    "action_required": "다음 iteration에서 (1) AC-11 검증 축에 인코딩/바이트 폭 축 추가, (2) '훅이 타임아웃 안에 판정을 반환한다'를 명시적 criterion 으로 승격, (3) 로케일 전제를 SPEC/INVARIANTS 에 기록"
+  },
+  "criteria_issues": [],
+  "evidence": {
+    "_note": "모두 이 세션에서 직접 실행한 결과. 훅 호출은 `printf '%s' '<json>' | bash hooks/pre-bash-firewall.sh` 와 동등한 형태(bats 의 run_firewall 과 동일)로, /bin/bash 3.2.57 과 /usr/local/bin/bash 5.3.15 양쪽에서 수행.",
+    "bats_full_suite": "bats tests/pre-bash-firewall.bats — 1..304, 302 pass / 2 fail (EXIT=1). 실패: #241 'F65 brace: many sequential groups stay fast'(3,191ms vs assert 2,000ms), #248 'F65 brace: a single group with a huge comma count fails closed'(3,985ms vs assert 3,000ms). 이번 라운드 신규 3건은 모두 통과(#287 many cheap-but-clean segments, #288 past the entry-point cap, #289 ordinary command under the cap).",
+    "bats_failures_are_load_not_regression": "실행 시 `uptime` load average 23~25(이 세션과 무관한 프로세스). 두 실패 테스트의 페이로드를 HEAD 와 부모(8415c84)에서 각각 5회 실행해 최솟값 비교: #241 HEAD 3,123ms vs PARENT 3,024ms(delta +99ms), #248 HEAD 3,443ms vs PARENT 3,340ms(delta +103ms), 판정은 양쪽 모두 ask 로 동일. 즉 로직 회귀가 아니라 벽시계 임계값 실패이며 구현자 보고와 일치한다.",
+    "entry_cap_works_for_ascii": "ASCII 길이별: 32,768자 → allow 385ms(상한 미적용) / 32,769자 → ask 27ms / 40,000자 → ask 28ms / 200,000자 → ask 59ms. 32,768자 초과 공격 페이로드(느린 세그먼트 다수+실제 삭제, `${` 3,000~8,000개, 순수 따옴표 세그먼트 다수) 전부 1초 이내 ask.",
+    "cost_is_byte_driven_not_char_driven": "부모(상한 없음) ASCII: 32,767B→409ms, 65,535B→1,158ms, 98,303B→2,362ms, 131,071B→4,092ms, 139,999B→4,644ms. 현재 HEAD 이모지(4바이트): 32,758B→374ms, 65,526B→1,074ms, 98,294B→2,708ms — 같은 바이트 수에서 같은 시간. 즉 비용은 바이트 비례이고 상한은 문자 기준.",
+    "the_bypass": "페이로드 `echo '<U+1F600 × 32,730>' ; rm -rf .claude/settings.json` = 정확히 32,768자 / 130,958바이트 → 상한 통과. 판정은 ask(로직은 정확)이나 소요: 한산 시 3,873ms(ko_KR.UTF-8)·4,363ms(en_US.UTF-8), 바쁜 코어 10개 경합 시 6,902/6,819/7,137/7,110/7,050ms(5회 전부 5초 초과), 장비 상시 부하 load 24 에서 55,761ms. 5초 초과 = 훅 종료 = 판정 미전달.",
+    "locale_dependence": "동일 페이로드 · 동일 코드: LC_ALL=ko_KR.UTF-8 → 3,873ms(상한 미발동), LC_ALL=en_US.UTF-8 → 4,363ms(상한 미발동), LC_ALL=C → 29ms(상한 즉시 발동). bash 확인: `C='가'; C=\"${C}${C}${C}\"; echo ${#C}` → 3(문자 계수).",
+    "both_bash_versions": "동일 페이로드가 /bin/bash 3.2.57 과 /usr/local/bin/bash 5.3.15 양쪽에서 5초를 초과(측정 시 부하 높음). 상한 바로 위(32,769자)는 양쪽 모두 568~586ms 로 즉시 ask.",
+    "ascii_margin_under_load": "32,768자 ASCII(상한 경계 안, 최악 아님) — 한산 시 385~409ms, load 24 에서 5,776~5,945ms(5회 min/max). 한글 32,768자(98,225B)는 load 24 에서 32,720ms.",
+    "differential_fuzz": "자체 구성 1,122개 페이로드(컨트롤 플레인 7종 × 삭제 동사 13종 × 표기 12종 + benign 27종 + heredoc/base64/장문 커밋). HEAD vs 부모 8415c84: **차이 0건**. HEAD vs 11c8db7: 6건 — `echo $(git rev-parse HEAD | cut -c1-7)`(의도된 AUDIT-2 마찰 해소) 및 그 접두가 붙은 `srm <컨트롤플레인>` 5건(11c8db7 의 ask 는 스플리터 버그로 인한 우발적 fail-closed 였음; `srm` 은 어느 커밋에서도 무장 동사가 아니다).",
+    "no_timing_regression_from_budget_check": "세그먼트당 `date +%s%N` fork 오버헤드: 10세그먼트 +12ms, 50 +16ms, 200 +20ms, 800 -108ms(잡음). 무시 가능.",
+    "legit_large_commands": "heredoc(python 200줄, 4,227B) → ask 2,394ms / base64 블롭 20KB → ask 1,018ms / 장문 git commit 10KB → ask 570ms / 30KB ASCII echo → allow 1,423ms / 한글 18,007자(48,007B) echo → allow 2,752ms. 상한이 정상 대형 명령을 새로 막지는 않는다. 다만 한글 텍스트 명령이 이미 2.75초를 쓰는 점은 멀티바이트 비용이 공격 전용 문제가 아님을 보여준다.",
+    "hook_wiring": "hooks/hooks.json 확인 — PreToolUse:Bash 훅은 pre-bash-firewall.sh 하나뿐이고 timeout 5초. 즉 이 훅의 타임아웃이 곧 게이트 상실이다."
+  },
+  "review_request_answers": {
+    "1_cap_blocks_all_known_bypasses": "부분적으로만 예. 32,768자를 **넘는** 모든 공격(단일 `${` 폭발, 다중 세그먼트 누적, awk 이차식)은 27~59ms 안에 ask 로 떨어진다 — 확인. 그러나 상한이 문자 기준이라 UTF-8 멀티바이트로 최대 4배 바이트를 상한 아래에 실을 수 있고, 그 경로로 타임아웃 우회가 그대로 재현된다.",
+    "2_below_cap_worst_case_within_budget": "아니오. 상한 경계 안(정확히 32,768자) 최악 입력이 한산 시 3.9~4.4초(예산의 78~87%), 경합 시 6.8~7.1초로 5초를 넘긴다. scan_control_plane_delete() 의 3초 예산은 판정을 ask 로 만들지만 **벽시계는 막지 못한다** — 예산 밖(awk 정규화·Layer 3)에서 시간이 쌓이기 때문이며, 이는 구현자가 스스로 발견해 진입점 상한을 도입한 이유와 정확히 같은 메커니즘이다.",
+    "3_realistic_friction": "32,768**자**가 정상 Bash 호출에서 나오지 않는다는 주장은 합리적이다 — heredoc·base64·장문 커밋 메시지 모두 상한 아래에서 종전 판정을 유지했고 새 마찰이 없었다. 다만 근거로 제시된 '32KB 에서 awk 0.14초' 는 단일바이트 전제이며, 한글 텍스트를 담은 평범한 명령이 이미 2.75초를 쓰는 것을 확인했다.",
+    "4_regression_vs_parent": "회귀 없음. 1,122 페이로드에서 부모 대비 차이 0건, 타이밍 오버헤드 +12~+20ms. 11c8db7 대비 6건은 전부 의도된 AUDIT-2 변경으로 설명된다.",
+    "5_bats": "304개 중 302 통과, 2 실패. 두 실패는 5·6차 시절의 사전 존재 성능 테스트이며 load 23~25 에서만 임계값을 넘긴다. HEAD·부모 직접 비교(각 5회 최솟값)에서 delta +99ms/+103ms, 판정 동일 — 로직 실패가 아니라 부하로 인한 벽시계 실패임을 독립 확인했다. 구현자 보고와 일치."
+  },
+  "note_for_main_loop": {
+    "verdict": "fail — passes 를 true 로 바꾸지 않았다. feature_list.json 미수정.",
+    "critical_tier_obligations_still_open": "F65 는 security_tier=critical 이므로 이번 판정이 fail 이든 이후 pass 가 나오든 다음 두 트랙이 **아직 완료되지 않았다**: (1) **F37 2차 독립 판정** — 이번 18차와 독립 컨텍스트에서 재판정하고 verdict 불일치 시 사람 에스컬레이션(자동 pass 금지). (2) **security-auditor 의 AUDIT-2 수정 확인** — AUDIT-2 로 도입된 `__split_segments()` 가 이번 차동 비교에서 11c8db7 대비 `srm <컨트롤플레인>` 5건의 우발적 fail-closed 보호를 제거한 것이 감사 관점에서 수용 가능한지 확인 필요.",
+    "next_iteration_scope": "권고 수정은 한 줄 규모(길이 검사를 바이트 기준으로)다. 다만 이번 결함이 '같은 결함 클래스의 다섯 번째 재발'이라는 점에서, 수정과 함께 (a) 멀티바이트 상한 경계 테스트 추가, (b) 계약서에 인코딩/바이트 폭 축과 타임아웃 criterion 명문화를 같이 하기를 권한다.",
+    "machine_condition_caveat": "판정 내내 이 장비의 load average 가 5~25 사이로 크게 요동했다(이 세션과 무관). 절대 밀리초는 그만큼 신뢰도가 낮으므로, 핵심 결론은 전부 (a) 동일 부하 조건에서의 HEAD-대-부모 비교, (b) 인코딩만 바꾼 동일 바이트 수 비교, (c) 로케일만 바꾼 동일 페이로드 비교 — 즉 부하에 불변인 대조 실험으로 뒷받침했다."
+  }
+}
