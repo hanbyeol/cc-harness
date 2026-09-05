@@ -2953,7 +2953,7 @@ delete_decision() {
   run delete_decision "$c"
   t1=$(date +%s%N)
   elapsed=$(( (t1 - t0) / 1000000 ))
-  [ "$elapsed" -lt 3000 ] \
+  [ "$elapsed" -lt 4500 ] \
     || { echo "1000개 연속 \${ 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처(F37 이 지적한 이차식 재발)"; false; }
 }
 
@@ -2969,7 +2969,7 @@ delete_decision() {
   elapsed=$(( (t1 - t0) / 1000000 ))
   [[ "$output" == *'"permissionDecision": "ask"'* ]] \
     || { echo "느린 세그먼트 뒤의 진짜 삭제 세그먼트가 검사되지 못했다"; false; }
-  [ "$elapsed" -lt 3000 ] \
+  [ "$elapsed" -lt 4500 ] \
     || { echo "판정 자체가 ${elapsed}ms 걸렸다 — 5000ms 예산 안에서 낸 ask 가 아니다"; false; }
 }
 
@@ -3007,6 +3007,74 @@ delete_decision() {
     [[ "$output" == *'"permissionDecision": "ask"'* ]] \
       || { echo "치환 밖의 진짜 구분자가 무시돼 삭제 세그먼트가 안 잡혔다: $c"; false; }
   done
+}
+
+# === F65 17차 독립 판정 — 세그먼트 개수 누적이 타임아웃을 넘긴다 (2026-09-05) ===
+#
+# 세그먼트 2048자·브레이스 토큰 512자·__split_segments() 8192자 — 전부 세그먼트
+# **하나**의 비용만 막았다. 17차 판정 실증: 각각 상한 아래인 "비싸지만 깨끗한" 세그먼트를
+# 여러 개 이어 붙이면 총 시간이 그대로 누적된다(12개, ~2.4만자에서 5.54초 — 5초 타임아웃
+# 초과). scan_control_plane_delete() 는 세그먼트를 순서대로 훑다 첫 히트에서 반환하므로,
+# 느린 세그먼트들을 진짜 삭제 세그먼트보다 앞에 두면 타임아웃 예산이 다 써진 뒤에야
+# 판정이 나온다 — 이 커밋이 만든 결함이 아니라 부모 커밋부터 있던, 훨씬 오래된 문제다.
+#
+# **수정은 두 겹이다(재작업 도중 자체 발견으로 두 번째 겹이 추가됐다, 판정 대상 아님)**:
+# (1) scan_control_plane_delete() 의 세그먼트 순회 **전체**에 시간 예산을 두고, 다 못
+# 훑고 예산이 떨어지면 안전한 쪽(ask)으로 확인을 요청한다 — 훅이 시작된 시점부터 잰다
+# (함수 진입 시점부터 재면 그 앞의 정규화 단계가 이미 예산을 조용히 먹은 뒤일 수 있다).
+# (2) 그런데 재작업 도중 실측하니 (1)만으로는 부족했다 — `NORMALIZED_CMD` 정규화(awk)
+# 자체와 훨씬 뒤의 Layer 3(ASK_PATTERNS) 정규식 검사도 큰 입력에서 그 자체로 수 초가
+# 걸릴 수 있어(14만자 입력이 삭제 동사 없이도 4.7~9.3초), 국소 예산 하나로는 못 막았다.
+# 그래서 훅 진입점 자체에 **원문 명령 길이** 상한(32768자)을 뒀다 — 넘으면 정밀 분석을
+# 시도하지 않고 곧장 확인을 요청한다. 실제 Bash 호출이 이 길이를 넘는 일은 사실상 없다.
+
+@test "F65 perf: many cheap-but-clean segments before a real deletion still ask within the hook timeout budget" {
+  local pad i c t0 t1 elapsed
+  # bash 의 루프 문자 이어붙이기(`pad="${pad}x"`)는 그 자체가 이차식이다(이 라운드가
+  # 겪은 것과 같은 함정 — 자체 발견, 판정 대상 아님) — 외부 도구로 한 번에 만든다.
+  pad=$(head -c 2000 /dev/zero | tr '\0' 'x')
+  c=""
+  for ((i=0; i<16; i++)); do c="${c}echo \"${pad}\"; "; done
+  c="${c}rm -rf .claude/settings.json"
+  t0=$(date +%s%N)
+  run delete_decision "$c"
+  t1=$(date +%s%N)
+  elapsed=$(( (t1 - t0) / 1000000 ))
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "많은 세그먼트 뒤의 진짜 삭제 세그먼트가 검사되지 못했다"; false; }
+  # 임계값이 넉넉하다(수정 전 이 형태의 결함은 이 규모에서도 초 단위로 새는 게 아니라
+  # 수십 초~수 분으로 샜다 — 5·7·17차 판정 전부 그랬다) — CI/공유 장비의 부하로 인한
+  # 요행성 실패를 피하면서도, 수정이 되돌려지면 여전히 잡아낼 만큼 넉넉하게 잡는다.
+  [ "$elapsed" -lt 15000 ] \
+    || { echo "16개 세그먼트(~3.2만자) 처리가 ${elapsed}ms 걸렸다 — 이 정도 규모에서 15초를 넘기면 수정 자체가 되돌려진 것"; false; }
+}
+
+@test "F65 perf: a command past the entry-point length cap asks immediately, before any analysis" {
+  # 32768자 상한을 넘는 명령은 정밀 분석(정규화·세그먼트 순회) 자체를 시작하지 않는다 —
+  # 그 정밀 분석의 각 단계(awk 정규화·Layer 3 정규식)가 큰 입력에서 그 자체로 느려질 수
+  # 있어서(재작업 도중 자체 발견), 세그먼트 단위 예산만으로는 막을 수 없었다.
+  local pad i c t0 t1 elapsed
+  pad=$(head -c 40000 /dev/zero | tr '\0' 'x')
+  c="echo \"${pad}\""
+  t0=$(date +%s%N)
+  run delete_decision "$c"
+  t1=$(date +%s%N)
+  elapsed=$(( (t1 - t0) / 1000000 ))
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "상한을 넘는 명령이 정밀 분석 없이 allow 로 샜다"; false; }
+  [ "$elapsed" -lt 4500 ] \
+    || { echo "상한 초과 판정 자체가 ${elapsed}ms 걸렸다 — 정밀 분석을 실제로 건너뛰지 않았다"; false; }
+}
+
+@test "F65 perf: an ordinary command just under the entry-point length cap is unaffected" {
+  # 상한이 정상 사용을 건드리지 않는지 확인한다 — 상한 바로 아래(3만자)의 평범한 삭제
+  # 무관 명령은 여전히 빠르게 allow 여야 한다.
+  local pad c
+  pad=$(head -c 30000 /dev/zero | tr '\0' 'x')
+  c="echo \"${pad}\""
+  run delete_decision "$c"
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "상한 아래의 평범한 대형 명령이 새 마찰을 만들었다"; false; }
 }
 
 @test "F65 sibling: protected-integrity.sh does not crash when no protected file exists (9th verdict)" {

@@ -1,0 +1,114 @@
+{
+  "timestamp": "2026-09-05T09:11:30+0900",
+  "sprint": 51,
+  "iteration": 17,
+  "label": "F65 17th independent verdict",
+  "features_evaluated": [
+    "F65"
+  ],
+  "security_tier": "critical",
+  "commit_under_review": "8415c84",
+  "parent_commit": "1c6c1db",
+  "scores": {
+    "functionality": 6,
+    "code_quality": 6,
+    "security": 5,
+    "error_handling": 5,
+    "test_coverage": 6
+  },
+  "score": 5,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 5 < 7 (critical tier) — automatic fail regardless of other dimensions",
+    "score (min-of-5) 5 < pass_threshold 7",
+    "The specific criterion F37 rejected 1c6c1db on is still literally true at 8415c84: the control-plane delete gate can still be pushed past its wired 5s PreToolUse budget by an attacker-ordered prefix. Measured directly at HEAD: 12 dollar-brace segments (24,544 chars) before `rm -rf .claude/settings.json` takes 5.54s; 16 segments (32,716 chars) takes 7.79s. The decision is still correct (ask) but is not deliverable within budget, which on the control plane — where F65 states prediction is the only control — is a fail-open.",
+    "SC-9 honesty violation: sprint-51.json's new `fixed_2026_09_05_f37` entry and the INVARIANTS.md addition declare the timeout defect fixed, but the residual total-work axis is declared nowhere — not in `_residual_risk_AC11.open_axes_2026_08_04`, not in the axis table. SC-9 requires that an axis which is not closed is named as open and not claimed closed. This is the same overclaim pattern that six consecutive rounds have rejected."
+  ],
+  "what_the_commit_genuinely_achieved": [
+    "The O(n×m) defect F37 found in __strip_dollar_brace() is real and is decisively fixed. Verified by direct differential measurement under bash 3.2 with the substitution wrapper (i.e. not repeating the 16th round's measurement mistake): one 2,057-char dollar-brace segment plus a real deletion takes 62.58s at parent 1c6c1db and 0.62s at HEAD — roughly a 100x improvement. The exact F37 payloads (680 and 1000 consecutive `${` inside a backtick or `$(` wrapper, followed by a real deletion) now answer `ask` in 0.35s / 0.61s under bash 3.2 and 0.18s / 0.26s under bash 5.3, all far inside the 5s budget.",
+    "The prescan + monotonic-pointer rewrite is algorithmically correct. The main loop's `k` is non-decreasing and the close-brace cursor `ci` only advances, so for each `${` at k the cursor lands on the first `}` at position >= k+2 — the invariant the old re-scan provided, at one pass instead of m.",
+    "The self-caught __split_segments() length cap is sound and the boundary behaves as designed. Measured under bash 3.2: an 8,022-char command with a deletion takes 1.73s through the precise character path, while an 8,214-char one takes 0.14s through the `tr` fallback. The fallback direction is safe — it only over-splits, so it can add friction but cannot miss a deletion. This is the opposite of the 8th verdict's trap, as the comment claims.",
+    "AUDIT-2's friction regression is fixed without opening a bypass. Confirmed `echo $(git rev-parse HEAD | cut -c1-7)`, the backtick form, `VAR=$(ls | wc -l); echo $VAR` and `git diff --stat $(git merge-base HEAD main | head -1)` all went ask -> allow.",
+    "No weakening regression anywhere I could reach. 1,205-payload differential fuzz (verbs x control-plane and innocent targets x separator/substitution prefixes x 400 randomly structured commands) plus a 450-payload control-plane matrix (9 targets x 5 verbs x 10 substitution-bearing prefixes) plus 26 hand-built splitter-confusion probes: zero cases where HEAD is less strict than parent on a control-plane target, and zero timing regressions.",
+    "Full suite is greener than reported: I measured tests/ at 866/866 (0 `not ok`, exit 0), not 865/866, and tests/pre-bash-firewall.bats at 301 tests as claimed."
+  ],
+  "issues": [
+    "[security][high][confidence:high] TIMEOUT-BUDGET-EXHAUSTION-BY-VOLUME (primary finding). The per-unit caps in this file (2048-char segment, 512-char path token, and this commit's new 8192-char __split_segments cap) bound the cost of ONE unit of work, but nothing bounds the NUMBER of units. scan_control_plane_delete() iterates every segment and returns on the first hit, so an attacker orders N expensive-but-clean segments before the real deletion. Measured at HEAD under bash 3.2 against `rm -rf .claude/settings.json`: N=4 (8,200 chars) 1.83s, N=8 3.64s, N=12 (24,544 chars) 5.54s — over budget, N=16 7.79s, N=32 (65,404 chars) 15.28s. The verdict is always the correct `ask`; the problem is that it arrives after the hook has been killed.",
+    "[security][high][confidence:high] The same class is reachable through a second, older path this commit never touched: segments of quoted text (no dollar-braces at all) that exercise __tokenize_segment()'s character loop. Parent and HEAD are within noise of each other (32 segments / 65,372 chars: parent 6.23s, HEAD 5.86s). This one is genuinely pre-existing and is NOT a regression from this commit — but it means the class survives independently of the dollar-brace fix, and F37 did not find this path either. Its existence is the strongest evidence that the right remedy is a global budget, not another per-mechanism fix.",
+    "[security][medium][confidence:high] The remedy is small and already idiomatic in this file. scan_control_plane_delete() has no 'I could not finish looking' path — it falls through to `return 1` (no hit). Give it a total work budget (cumulative characters examined, or a segment count) and, when the budget is exhausted before every segment has been examined, return 0 (hit -> ask), exactly the SEGMENT_UNSAFE=1 fail-closed idiom the tokenizer already uses. That converts the failure mode from 'fails slow, then fails open' to 'fails safe', which is what every other unparseable-input path in this file already does.",
+    "[process][medium][confidence:high] The residual is undeclared. sprint-51.json gained `fixed_2026_09_05_f37` describing the fix and a new open axis for AUDIT-1, but nothing records that the hook's time budget can still be exhausted by total command volume. Per SC-9 an axis that is not closed must be named as open. Recommend a new axis (suggested id `hook_time_budget_exhaustion_by_volume`) recording both paths, the measured thresholds, and that the quoted-segment path predates this commit.",
+    "[test][medium][confidence:high] The four new tests are a real improvement and do pin F37's finding with both a decision assertion and a <3000ms timing assertion — this closes F37's issue #2 for the shapes F37 named. But they pin only those two shapes. There is still no test asserting a GLOBAL property ('any command, however long, is answered within budget'), so the axis I measured is unpinned and a future change could reopen or worsen it silently. A test built on total-work budget (assert the decision arrives under ~3s for a 64KB adversarial command) would pin the class rather than the instance.",
+    "[test][low][confidence:high] The perf tests' 3000ms threshold is measured against whichever bash runs the suite. On this machine `bash` is 5.3 (Homebrew) while `/bin/bash` is 3.2, and the 3.2 path is 2-3x slower on these inputs. The tests would be stronger if they asserted against the slower interpreter explicitly, since 3.2 is the one the file's own comments treat as the real runtime.",
+    "[docs][low][confidence:high] The commit message, INVARIANTS.md and sprint-51.json all report the suite as 865/866 and attribute the one failure to a pre-existing teardown race. I could not reproduce any failure at HEAD (866/866, and tests/protected-integrity.bats passes 3/3 on repeated runs). The claim is stale rather than wrong — see the protected_integrity_investigation block. Worth correcting so the record does not carry a phantom failure forward.",
+    "[quality][low][confidence:medium] `rm -rf progress/harness-config.json`, `rm progress/feature_list.json`, `rm docs/INVARIANTS.md` and `rm tests/pre-bash-firewall.bats` are all `allow` at HEAD — and equally at parent, so this is not a regression and is presumably intentional under F65's data-plane/control-plane split (these are git-tracked, so detection and recovery covers them, unlike gitignored settings.json). Flagging only so the split is confirmed deliberate rather than incidental; 200 of the 450 control-plane-matrix allows I measured are these four targets and nothing else.",
+    "[process][low][confidence:medium] progress/feature_list.json still records F65 `iteration: 0` after seventeen judgments, and 15 evaluator-feedback JSONs remain deleted-but-uncommitted in the working tree. Both were flagged by F37 (issues 7-8) and are still open; INV-11 resolves passes authority by globbing that directory, so thinning it is worth not leaving indefinitely."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-9 (no regression, full bats once): 866/866 green, exit 0 — better than the claimed 865/866",
+      "tests/pre-bash-firewall.bats 301/301 as claimed, including the 4 new tests",
+      "No weakening regression: 1,205-payload differential + 450-payload control-plane matrix + 26 splitter-confusion probes, 0 cases of HEAD less strict than parent on a control-plane target",
+      "AUDIT-2 friction fix confirmed (4/4 representative commands ask -> allow)"
+    ],
+    "security": [
+      "The F37-identified __strip_dollar_brace() quadratic defect is closed — 62.58s -> 0.62s on the same payload, and both exact F37 attack payloads answer ask well inside budget under both bash 3.2 and 5.3",
+      "The AUDIT-2 substitution-skipping does not create a new bypass: real top-level `;`/`|`/`&`/`&&`/`||` outside a substitution still split correctly, verified across 26 confusion probes and 10 prefix forms against 9 targets — `.claude`, `.claude/settings.json`, `.claude/settings.local.json`, `hooks/hooks.json` and `.claude/hooks` were never allowed in any of the 250 combinations covering them",
+      "AUDIT-1 (shell_metacharacter_adjacent_tokenization) is honestly recorded as unresolved in sprint-51.json with status 미해결, correctly noted as not a regression and as shared with Layer 1 — per explicit user direction this is out of scope for this round and is NOT counted against this verdict"
+    ],
+    "error_scenarios": [
+      "Fail-closed on unparseable input preserved: all 4 unterminated-substitution forms return ask or deny at HEAD, identical to parent",
+      "__split_segments' unterminated-substitution path hands the remainder to __tokenize_segment(), which re-fails-closed via SEGMENT_UNSAFE=1 — verified behaviourally, the safe direction is preserved",
+      "The 8192 cap's `tr` fallback only over-splits — verified the gate still fires on deletions past the cap (60,022-char command with a deletion still asks, in 1.09s)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [
+      "SC-9 / AC-11: the minimum-ask guarantee still does not hold for crafted input. The decision is correct but undeliverable within the wired 5s budget once the command carries ~24KB of expensive-but-clean segments before the deletion. This is the same sentence F37 failed 1c6c1db on; the attack's cost rose from ~2KB to ~24KB but the axis is not closed.",
+      "SC-9 honesty requirement: the timeout axis is declared fixed while an unbounded-total-work path remains, and that path is named in no open-axes list."
+    ],
+    "error_scenarios": [
+      "Hook-timeout remains an unhandled failure mode. scan_control_plane_delete() has no budget-exhausted path — it fails slow where every other unparseable-input path in this file deliberately fails safe. F37 raised exactly this; the fix addressed the mechanism that made it cheap to trigger, not the missing failure mode."
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "There is no acceptance or security criterion stating a global liveness property for the hook — something of the form 'for any input, the gate returns its decision within the wired timeout, and if it cannot, it returns ask'. Every round has verified decisions and (since F37) some timings, but the budget itself has never been a criterion, which is why two independent code paths could each grow past it undetected."
+    ],
+    "ambiguous_criteria": [
+      "SC-9's 'do not claim closed what is not closed' is enforced only by judge attention. It has now been the rejection reason in several rounds. Consider making it mechanical: require every `fixed_*` entry in the contract to name the axis it closes AND assert the complement it does not close."
+    ],
+    "security_criteria_insufficient": [
+      "The security criteria enumerate notation/target axes but contain no resource-exhaustion axis, despite this file having now been burned by that class three times (INVARIANTS.md:919, :963, and F37)."
+    ],
+    "action_required": "Add the global-budget criterion and the `hook_time_budget_exhaustion_by_volume` open axis to progress/contracts/sprint-51.json before the next implementation round."
+  },
+  "protected_integrity_investigation": {
+    "question": "Is the tests/protected-integrity.bats failure a pre-existing defect unrelated to this change?",
+    "answer": "Yes, pre-existing relative to this commit — and this commit appears to have incidentally stopped it firing.",
+    "method": "Ran tests/protected-integrity.bats three times at HEAD (working tree, 8415c84) and three times in a clean detached worktree at parent 1c6c1db.",
+    "result": "HEAD: 0 failures on 3/3 runs. Parent 1c6c1db: 1 failure on 3/3 runs, deterministically the same test F37 named — `F65: 저장소 밖 편집은 티켓을 오염시키지 않는다`, failing in teardown at `[ -n \"${LAB:-}\" ] && rm -rf \"$LAB\"` with `rm: .../.git/objects: Directory not empty`.",
+    "interpretation": "F37's diagnosis was right — it is a teardown race against a background git process, test hygiene rather than a firewall defect. F37 measured it failing at 1c6c1db and passing at 11c8db7, which I can now complete: it also passes at 8415c84. That pattern is consistent with a genuine timing race whose outcome tracks how slow the firewall is, and 1c6c1db is precisely the commit carrying the O(n×m) slowdown. The race is still latent and should be fixed on its own merits (teardown should wait for or kill the background process before removing $LAB), but it is not a reason to reject this commit, and it does not count against F65."
+  },
+  "evidence": {
+    "environment": "macOS darwin 25.5.0. Two interpreters exercised deliberately: `bash` = GNU bash 5.3.15 (Homebrew, first in PATH) and `/bin/bash` = GNU bash 3.2.57 (system). All adversarial timings below are under /bin/bash 3.2, the slower of the two and the one this file's comments treat as the real runtime. Wired budget confirmed from hooks/hooks.json: PreToolUse matcher `Bash` -> pre-bash-firewall.sh, timeout 5.",
+    "full_test_suite": "`bats tests/` at 8415c84 -> 866 ok, 0 not ok, exit code 0. Per-file @test counts sum to 866; tests/pre-bash-firewall.bats = 301.",
+    "protected_integrity": "`bats tests/protected-integrity.bats` x3 at HEAD -> 0 failures each. Same file x3 in a clean `git worktree` at 1c6c1db -> 1 failure each, teardown race in `F65: 저장소 밖 편집은 티켓을 오염시키지 않는다`.",
+    "f37_payload_reproduction": "Exact F37 shapes, substitution-wrapped as required. bash 3.2 / HEAD: `echo \\`echo ${x680\\` ; rm -rf .claude` -> ask 0.346s; `$(` form -> ask 0.421s; x1000 backtick -> ask 0.614s; x1000 `$(` -> ask 0.623s. bash 5.3 / HEAD: 0.183s, 0.182s, 0.257s, 0.270s. Parent 1c6c1db on the equivalent single-segment payload: 62.576s.",
+    "split_segments_boundary": "bash 3.2 / HEAD, command carrying a real deletion: len 4,118 -> ask 0.556s; len 8,022 (under the cap, precise path) -> ask 1.729s; len 8,214 (over the cap, `tr` fallback) -> ask 0.136s; len 9,022 -> ask 0.142s; len 20,022 -> ask 0.268s; len 60,022 -> ask 1.088s. The transition is clean and the fallback is strictly cheaper, confirming the cap does what the comment claims.",
+    "primary_finding_measurement": "Adversarial volume stacking at HEAD, bash 3.2, target `rm -rf .claude/settings.json`, N expensive segments of ~2,040 chars each placed before the deletion. Dollar-brace segments: N=4 (8,200 chars) ask 1.83s; N=8 ask 3.64s; N=12 (24,544 chars) ask 5.54s OVER BUDGET; N=16 ask 7.79s; N=20 ask 8.93s; N=24 ask 11.35s; N=32 (65,404 chars) ask 15.28s. Parent at N=4 and N=8 exceeded a 200s cap entirely. Quoted segments (path untouched by this commit): N=24 HEAD 4.37s / parent 4.13s; N=32 HEAD 5.86s / parent 6.23s.",
+    "differential_fuzz": "1,205 unique payloads, HEAD vs parent, both under /bin/bash. 187 decision differences, all in the safe-to-explain direction and all classified: 4 are the intended AUDIT-2 friction fix; 183 are prefixed forms of targets whose BARE form is already `allow` on both commits (progress/harness-config.json, progress/feature_list.json, docs/INVARIANTS.md, tests/pre-bash-firewall.bats, hooks/pre-bash-firewall.sh, hooks/invariant-guard.sh, and innocent paths) — parent's `ask` there was the AUDIT-2 bug misfiring, not protection. 0 differences where HEAD is stricter, 0 timing regressions.",
+    "control_plane_matrix": "450 payloads = 9 targets x 5 delete verbs x 10 prefixes (bare, plain separator, and 8 substitution-bearing forms including nested substitutions and substitution-internal separators). HEAD allowed 200, and every one of those 200 is one of the four already-allow-at-parent targets. `.claude`, `.claude/settings.json`, `.claude/settings.local.json`, `hooks/hooks.json`, `.claude/hooks` were allowed in 0 of the 250 combinations covering them.",
+    "splitter_confusion_probes": "26 hand-built probes aimed at tricking the new substitution-skipping into swallowing a real top-level separator: quoted and escaped substitution openers, substitutions spanning a separator, nested and interleaved backtick/`$(`, arithmetic expansion, process substitution, `${HOME}`, newline separators, `&`/`&&` forms, and unterminated openers. 0 bypasses at HEAD; HEAD's decision matched parent's on all 26.",
+    "scripts": "/private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/cdafbc69-27b3-469f-b03e-6b8fdb80c81b/scratchpad/f65/{measure,adversarial,difffuzz,classify,splitter_confusion,threshold}.py"
+  },
+  "note_for_main_loop": {
+    "verdict_is_not_a_rejection_of_the_fix": "The change under review is a genuine, well-engineered, measurement-verified improvement and should be kept, not reverted. Parent 1c6c1db is strictly worse on every axis I measured — including one it fails catastrophically (62.58s where HEAD takes 0.62s) and the protected-integrity teardown race, which fires at parent and not at HEAD. The fail is narrow: the criterion F37 rejected on is still true at a higher price, and the residual is undeclared.",
+    "smallest_path_to_pass": "Two changes, both small. (1) Give scan_control_plane_delete() a total work budget and return a hit (ask) when it is exhausted before all segments are examined — the SEGMENT_UNSAFE fail-closed idiom already in this file, applied at the loop level instead of per segment. (2) Declare the axis in sprint-51.json (suggested id `hook_time_budget_exhaustion_by_volume`) recording both reachable paths, my measured thresholds, and that the quoted-segment path predates this commit. A test asserting the global property — a 64KB adversarial command still answered under ~3s — would pin the class rather than another instance.",
+    "critical_tier_gates_still_required": "F65 is security_tier critical, so even had this been a pass it would not be final on my verdict alone. Two things must still happen and neither is satisfied by this file: (a) an F37 second independent judge in a separate context, whose focus this round should be re-verifying THIS specific O(n^2) fix — specifically whether my volume-stacking finding reproduces independently and whether the prescan/monotonic-pointer rewrite is correct for inputs I did not reach (deeply nested or interleaved brace forms); and (b) a security-auditor re-confirmation of the AUDIT-2 fix. Since my verdict is fail, the immediate next step is rework rather than those gates, but they must not be skipped once a pass verdict appears.",
+    "audit1_explicitly_excluded": "shell_metacharacter_adjacent_tokenization (AUDIT-1) is honestly recorded as open in sprint-51.json and, per explicit user direction, is split into its own change-request. I verified the record is accurate and complete — including its acknowledgement that Layer 1 (BLOCKED) shares the defect — and it forms no part of this fail. It should not be folded into the rework above.",
+    "stale_claims_to_correct": "The commit message, docs/INVARIANTS.md and sprint-51.json all state 865/866 with one pre-existing failure. I measured 866/866 at HEAD and reproduced that failure only at the parent. Correcting this matters because the current record would otherwise carry a phantom known-failure forward into later rounds."
+  }
+}
