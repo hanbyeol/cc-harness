@@ -3115,6 +3115,42 @@ delete_decision() {
     || { echo "wc 실패 시 안전한 쪽(ask)으로 떨어지지 않았다: $output"; false; }
 }
 
+@test "F65 interpreter/wrapper arm: quoted control-plane path notation is normalized, not compared literally (19th verdict, closed 20th)" {
+  # 19차 독립 판정 실증: `env rm -f .claude//settings.json` 은 ask(bare 토큰이라
+  # normalize_path_token() 이 `//` 를 접는다)인데, 같은 표기가 sh -c·인터프리터 -c/-e 의
+  # 인용된 인자 안에 있으면 ASK_PATTERNS 의 리터럴 부분문자열 대조가 `//`·`/./` 를 못 접어
+  # allow 로 샜다 — 격리 랩 실증 18셀. 대표 6개 도구 × 대표 2개 표기만 여기 고정한다
+  # (18셀 전부를 싣지 않는 이유: 나머지는 같은 정규식 넓히기 한 곳으로 함께 닫히므로
+  # 표기·도구 각 축이 최소 한 번씩만 대표되면 회귀 고정에 충분하다).
+  local c
+  for c in 'sh -c "rm -f .claude//settings.json"' \
+           'sh -c "rm -f .claude/./settings.json"' \
+           'sh -c "rm -f .claude//settings.local.json"' \
+           'python3 -c "import os; os.remove(\".claude//settings.json\")"' \
+           'perl -e "unlink(\".claude//settings.json\")"' \
+           'node -e "require(\"fs\").unlinkSync(\".claude//settings.json\")"' \
+           'ruby -e "File.delete(\".claude//settings.json\")"'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "인용 래퍼 안 경로 표기 변형이 allow 로 샜다: $c"; false; }
+  done
+  # 정상 표기(단일 슬래시)는 이번 수정 전부터 이미 ask였다 — 넓힌 정규식이 그 경로를
+  # 좁히지 않았는지 함께 확인한다.
+  run delete_decision 'sh -c "rm -f .claude/settings.json"'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]]
+}
+
+@test "F65 interpreter/wrapper arm: notation widening creates no new friction on unrelated hooks-named paths" {
+  # 넓힌 정규식(`hooks(/\.?)+...`)이 "hooks" 뒤에 아무 슬래시나 오면 걸리는 과도한 형태가
+  # 아닌지 확인 — 컨트롤 플레인과 무관한 평범한 명령은 여전히 allow 여야 한다.
+  run delete_decision 'python3 -c "print(1)"'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+  run delete_decision 'sh -c "echo hooks are great"'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+  run delete_decision 'rm -rf node_modules/hooks'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]]
+}
+
 @test "F65 sibling: protected-integrity.sh does not crash when no protected file exists (9th verdict)" {
   # 9차 판정이 훑기 요청(요청 3번)에서 형제 훅의 같은 결함을 찾았다: PROTECTED_GLOBS 어느
   # 패턴도 매치하지 않는 저장소(플러그인이 설치된 사용자 저장소의 흔한 상태)에서 FILES 가

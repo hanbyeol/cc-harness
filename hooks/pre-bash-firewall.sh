@@ -412,8 +412,8 @@ ASK_PATTERNS=(
   # **라인 수** 감소만 차단하므로(`hooks/invariant-guard.sh:767-782`, 텍스트 보존이 아니라 카운트
   # 검사) 기존 라인의 텍스트를 좁히는 것 자체는 막히지 않는다 — net 으로는 6줄이 추가돼 총수도
   # 늘어난다. perl in-place 방어는 이 두 줄에 그대로 남아 무손실이다.
-  '\bperl\b[^;|&]*(^| )-[a-zA-Z]*i[a-zA-Z]*[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
-  '\bperl\b[^;|&]*--in-place[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  '\bperl\b[^;|&]*(^| )-[a-zA-Z]*i[a-zA-Z]*[^;|&]*(harness-config\.json|hooks(/\.?)+[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude(/\.?)+settings(\.local)?\.json)'
+  '\bperl\b[^;|&]*--in-place[^;|&]*(harness-config\.json|hooks(/\.?)+[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude(/\.?)+settings(\.local)?\.json)'
   # F73: sed/awk **전용** in-place arm — 데이터 플레인에만(컨트롤 플레인 `.claude/settings*.json`·
   # `hooks/hooks.json` 제외, hooks는 `.sh`만). 도구 목록이 `READ_CAPABLE_ARM`과 정확히 같은 리터럴이라
   # `arm_is_exemptable()`의 토큰 매치를 통과해 allow가 된다.
@@ -429,12 +429,12 @@ ASK_PATTERNS=(
   # 섞어(`READ_CAPABLE_ARM` 리터럴 불일치로 영구 비면제, :339 주석과 같은 장치) `hooks/*.json`
   # 전체(즉 사실상 `hooks.json`)를 예전처럼 항상 ask로 되돌린다. `.sh`는 위에서 이미 다루므로
   # 여기 넣지 않는다 — 중복 매치는 무해하지만 의도를 흐린다.
-  '\b(g?sed|perl|g?awk|mawk)\b[^;|&]*(^| )-[a-zA-Z]*i[a-zA-Z]*[^;|&]*hooks/[A-Za-z0-9_.-]+\.json'
-  '\b(g?sed|perl|g?awk|mawk)\b[^;|&]*--in-place[^;|&]*hooks/[A-Za-z0-9_.-]+\.json'
+  '\b(g?sed|perl|g?awk|mawk)\b[^;|&]*(^| )-[a-zA-Z]*i[a-zA-Z]*[^;|&]*hooks(/\.?)+[A-Za-z0-9_.-]+\.json'
+  '\b(g?sed|perl|g?awk|mawk)\b[^;|&]*--in-place[^;|&]*hooks(/\.?)+[A-Za-z0-9_.-]+\.json'
   # sed의 w 명령/s///w 플래그 — 플래그도 리다이렉트도 없이 임의 파일에 쓴다.
   # 실측: sed -n 'w victim' src → victim에 src 내용 · sed 's/x/PWN/w victim2' → victim2=PWN.
   # F63 이전에는 에디터 이름 목록이 sed를 통째로 잡아 가려져 있었다.
-  '\bg?sed\b[^;|&]*\bw\b *[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude/settings(\.local)?\.json)'
+  '\bg?sed\b[^;|&]*\bw\b *[^;|&]*(harness-config\.json|hooks(/\.?)+[A-Za-z0-9_.-]+\.(sh|json)|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md|\.claude(/\.?)+settings(\.local)?\.json)'
   '\bof= *[^ ]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
   # === 계약 파일 (F68 8차 판정 후속) ===
   # `progress/contracts/sprint-*.json` 은 `is_protected()`·`PROTECTED_GLOBS` 에 둘 다 있는데
@@ -482,7 +482,7 @@ ASK_PATTERNS=(
   # 두 arm의 합집합은 종전과 같다: `hooks/` 아래 json 은 훅 배선 파일이므로 컨트롤 플레인이
   # 전부 받는다(현재 hooks.json 하나이며, 새 json이 생겨도 배선 계열로 보는 것이 맞다).
   '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
-  '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*(hooks/[A-Za-z0-9_.-]+\.json|\.claude/settings(\.local)?\.json)'
+  '\b(python3?|node|nodejs|ruby|perl|php|lua)\b[^;|&]*(hooks(/\.?)+[A-Za-z0-9_.-]+\.json|\.claude(/\.?)+settings(\.local)?\.json)'
   # === 복구가 원리적으로 불가능한 두 위치 (F67 2차 판정) ===
   # 일반 규칙은 exempt_paths_are_detected() 다 — 탐지 집합에 있는 경로만 면제한다. 아래 두 arm은
   # 그 규칙이 이미 덮는 자리를 **이름으로 한 번 더 못박은** 것이며, 두 위치가 다른 경로와 성질이
@@ -517,8 +517,8 @@ ASK_PATTERNS=(
   # 조건으로 쓰므로(아래 ASK 디스패치), 여기 남겨 두면 보호 파일 **읽기**까지 면제에서 빠져
   # 사용자가 보고한 마찰이 그대로 돌아온다. feature_list 자체의 게이트는 전용 패턴이 담당한다.
   '^ *(ed|ex|vi|vim|nano|emacs|dd|patch|sponge)\b[^;|&]*(harness-config\.json|hooks/[A-Za-z0-9_.-]+\.sh|tests/[A-Za-z0-9_.-]+\.bats|INVARIANTS\.md)'
-  '>>? *[^ ]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
-  '\b(cp|mv|install|rsync|ln|tee|sponge|truncate)\b[^;|&]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
+  '>>? *[^ ]*(hooks(/\.?)+hooks\.json|\.claude(/\.?)+settings(\.local)?\.json)'
+  '\b(cp|mv|install|rsync|ln|tee|sponge|truncate)\b[^;|&]*(hooks(/\.?)+hooks\.json|\.claude(/\.?)+settings(\.local)?\.json)'
   # === 순수 삭제로 컨트롤 플레인을 비우는 경로 (F65 AC-11 / SC-9) ===
   #
   # 위 두 arm 을 포함해 컨트롤 플레인 arm 은 전부 **덮어쓰기**만 잡고 있었다 — 에디터 이름·
@@ -540,7 +540,7 @@ ASK_PATTERNS=(
   # 실제 판정은 아래 리터럴 arm 이 아니라 **Layer 3.3 의 경로 토큰 대조**가 담당한다. 이 arm 들은
   # 지우지 않고 남긴다(INV-5 add-only) — 같은 대상을 다른 축(문자열)으로 한 번 더 덮는 다중 방어다.
   # 경로 토큰이 있을 때만 발동하므로 `rm -rf node_modules` 는 그대로 allow 다.
-  '\b(rm|unlink|shred)\b[^;|&]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
+  '\b(rm|unlink|shred)\b[^;|&]*(hooks(/\.?)+hooks\.json|\.claude(/\.?)+settings(\.local)?\.json)'
   # `git rm <경로>` 는 위 arm 의 `\brm\b` 가 이미 잡는다(`--cached` 는 별도 arm 이 담당).
   # `find` 는 경로가 `-name <basename>` 으로 들어와 위 arm 의 디렉터리 앵커에 걸리지 않는다.
   # 술어 순서는 자유이므로 양방향으로 둔다.
@@ -588,7 +588,7 @@ ASK_PATTERNS=(
   # 컨트롤 플레인 전용 에디터 arm (F65). 위 데이터 플레인 arm은 탐지·복구가 배선되면
   # 건너뛰지만 이 줄은 절대 건너뛰지 않는다 — hooks.json·settings*.json 을 바꾸면 탐지 훅의
   # 배선 자체를 끌 수 있고, settings.json 은 gitignore라 HEAD 복구도 불가능하다.
-  '\b(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)\b[^;|&]*(hooks/hooks\.json|\.claude/settings(\.local)?\.json)'
+  '\b(ed|ex|vi|vim|nano|emacs|g?sed|g?awk|mawk|sponge|dd|patch)\b[^;|&]*(hooks(/\.?)+hooks\.json|\.claude(/\.?)+settings(\.local)?\.json)'
   'git\b[^;|&]*-c[^;|&]*core\.hooksPath'
   'GIT_CONFIG_(COUNT|KEY|VALUE|GLOBAL|SYSTEM)'
   # S-2(F33): 시크릿 네트워크 유출(egress) — 민감 파일이 네트워크로 나갈 때 ask(무인 exfil 차단).
