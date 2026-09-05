@@ -1632,6 +1632,119 @@ __split_segments() {
   SEGMENTS+=("$out")
 }
 
+# === 인용 래퍼(sh -c "..."·인터프리터 -c/-e) 인자 언랩 (F65 20차 독립 판정) ===
+#
+# `__tokenize_segment()` 는 큰따옴표·작은따옴표로 감싼 다중 단어 인자를 공백을 보존한
+# **하나의 복합 토큰**으로 묶는다(셸이 실제로 그렇게 인자를 하나로 넘기므로 맞는 동작이다).
+# 그런데 아래 `__scan_one_segment_for_cp_delete()` 의 armed 판정은 토큰이 정확히 동사와
+# 같거나(`rm`) `/동사` 로 끝나는지만 본다 — 복합 토큰("rm -f .claude/settings.json" 전체가
+# 공백을 포함한 한 토큰)은 둘 중 무엇에도 해당하지 않아 애초에 armed 판정에 들어오지
+# 못한다. 그 결과 `sh -c "rm -f .claude/settings.json"` 같은 명령에서 실제로 ask 를
+# 내는 것은 이 토큰 계층이 아니라 Layer 3 ASK_PATTERNS 의 평문 리터럴 정규식이었다(ask
+# 사유 문자열로 확인됨) — 그런데 그 정규식은 표기 하나(예: `//`)를 넓힐 때마다 셸이
+# 투명하게 처리하는 다음 표기(인용 분할·백슬래시 이스케이프·글로브·상위경로 traversal)에서
+# 똑같이 다시 새는 것으로 19~20차 독립 판정에서 반복 확인됐다 — 리터럴을 표기별로
+# 열거하는 방식 자체가 수렴하지 않는다.
+#
+# 그래서 표기를 더 넓히는 대신, 인용 래퍼의 **인자를 한 겹 벗겨** 같은 토큰 스캐너에
+# 재귀적으로 태운다 — `normalize_path_token()`·`CONTROL_PLANE_NAMES`·
+# `ARM_DELETE_VERBS_UNCONDITIONAL` 이 bare 토큰에서 이미 성립시키는 판정을 래퍼 안의
+# 인자에도 그대로 적용하면, 표기를 하나씩 열거할 필요 없이 그 표기들이 전부 함께
+# 닫힌다(20차 판정 recommended_fix.primary). **한 겹만 벗긴다** — 중첩 래퍼
+# (`sh -c "python3 -c \"...\""`)는 별도 축으로 남긴다(진단만 무한정 늘리지 않기 위한
+# 의도적 경계, sprint-51.json 참조).
+#
+# 셸 이름 목록은 여기서 새로 정의한다(이 파일에 "셸 이름" 배열이 따로 없었다). 인터프리터
+# 이름은 `INTERPRETER_ARM` 을 다시 나열하지 않고 그 값을 파싱해서 얻는다(F67 SC-2 와
+# 같은 단일 출처 원칙 — 목록이 둘로 갈라지면 한쪽만 고쳤을 때 조용히 어긋난다).
+WRAP_SHELL_TOKENS=(sh bash zsh dash ksh)
+__wrap_interpreter_tokens_init() {
+  local re="${INTERPRETER_ARM#\(}"
+  re="${re%\)}"
+  IFS='|' read -r -a WRAP_INTERPRETER_TOKENS <<<"$re"
+}
+__wrap_interpreter_tokens_init
+
+# 토큰이 셸/인터프리터 이름인가 — 인용부호만 벗겨서 비교하고(백슬래시는 이 이름들에
+# 실무상 나타나지 않으므로 다루지 않는다), 경로가 있으면 basename 접미사로도 매치한다
+# (`/bin/sh`·`/usr/bin/env` 뒤의 `python3` 등 — 위 무장 동사 검사와 같은 관용구).
+# 결과는 반환값이 아니라 `__WRAP_CLASS`("shell"|"interp")로 준다 — 호출자가 클래스별로
+# 다른 플래그 문법을 판정해야 하기 때문이다(아래 __is_wrap_flag 참조).
+__classify_wrap_verb() {
+  local t="$1" stripped v
+  stripped="${t//\'/}"; stripped="${stripped//\"/}"
+  for v in "${WRAP_SHELL_TOKENS[@]}"; do
+    if [[ "$stripped" == "$v" || "$stripped" == */"$v" ]]; then __WRAP_CLASS="shell"; return 0; fi
+  done
+  for v in "${WRAP_INTERPRETER_TOKENS[@]}"; do
+    if [[ "$stripped" == "$v" || "$stripped" == */"$v" ]]; then __WRAP_CLASS="interp"; return 0; fi
+  done
+  return 1
+}
+
+# 이 토큰이 "다음 토큰을 코드/명령 문자열로 받는다" 는 플래그인가. 셸은 `-c` 를
+# 결합 단축옵션으로도 쓴다(`bash -lc "..."` 가 20차 판정 실증 목록에 있다) — 결합
+# 형태에서도 마지막 글자가 값을 받는 셸 관행이라 `-[A-Za-z]*c` 로 넓힌다. 인터프리터는
+# **결합하지 않는다** — 여기서 결합까지 허용하면 `perl -pe '...'`·`perl -ne '...'`
+# 같은 매우 흔한 한 줄짜리 관용구(치환·필터 스크립트, 셸 코드가 아니다)가 전부 걸려
+# 새 마찰이 된다. 그래서 인터프리터는 각 언어의 정확한 실행 플래그만 본다(`-c`: python·
+# node 도 받아 준다 · `-e`: perl·ruby·node·lua · `-r`: php).
+__is_wrap_flag() {
+  local class="$1" ftok="$2"
+  if [[ "$class" == "shell" ]]; then
+    [[ "$ftok" =~ ^-[A-Za-z]*c$ ]] && return 0
+  else
+    [[ "$ftok" == "-e" || "$ftok" == "-c" || "$ftok" == "-r" ]] && return 0
+  fi
+  return 1
+}
+
+# 인용된 코드 인자를 원래 셸 텍스트에 가깝게 되돌린다 — 정확한 셸 파싱이 아니라
+# "동사·경로가 드러나는가" 만 보는 근사다(`__note_opaque_verb()` 와 같은 성격). 과하게
+# 벗겨도 위험한 방향(더 잘 잡음)이지 안전한 방향(놓침)이 아니므로 정밀도를 더 추구하지
+# 않는다. 결과는 `__UNQUOTED` 에 담는다.
+__unquote_wrap_candidate() {
+  local c="$1" n
+  n=${#c}
+  if [[ $n -ge 2 && "${c:0:1}" == "'" && "${c: -1}" == "'" ]]; then
+    __UNQUOTED="${c:1:$((n - 2))}"
+    return
+  fi
+  if [[ $n -ge 2 && "${c:0:1}" == '"' && "${c: -1}" == '"' ]]; then
+    c="${c:1:$((n - 2))}"
+  fi
+  c="${c//\\\"/\"}"; c="${c//\\\`/\`}"; c="${c//\\\$/\$}"; c="${c//\\\\/\\}"
+  __UNQUOTED="$c"
+}
+
+# 세그먼트의 토큰 배열(`__SEG_TOKS`, 호출자가 채운다 — bash 3.2 에는 nameref 가 없어
+# 전역으로 주고받는다) 중 "셸/인터프리터 이름 ... 코드 플래그 ... <인자>" 형태를
+# 찾는다. 세그먼트당 **첫 매치만** 본다 — 래퍼가 여럿인 정상 명령은 극히 드물고, 못
+# 찾아도 이 축이 안 넓어질 뿐 다른 층의 fail-closed 는 그대로다. 찾으면 그 <인자>를
+# 벗겨 `__UNWRAP_INNER` 에 채우고 0을 반환한다.
+__find_wrapped_arg() {
+  local -a t=("${__SEG_TOKS[@]+"${__SEG_TOKS[@]}"}")
+  local n=${#t[@]} i=0 j
+  while [[ $i -lt $n ]]; do
+    if __classify_wrap_verb "${t[$i]}"; then
+      j=$((i + 1))
+      while [[ $j -lt $n ]]; do
+        if __is_wrap_flag "$__WRAP_CLASS" "${t[$j]}"; then
+          if [[ $((j + 1)) -lt $n ]]; then
+            __unquote_wrap_candidate "${t[$((j + 1))]}"
+            __UNWRAP_INNER="$__UNQUOTED"
+            return 0
+          fi
+          break
+        fi
+        j=$((j + 1))
+      done
+    fi
+    i=$((i + 1))
+  done
+  return 1
+}
+
 # 명령을 세그먼트로 나눠 삭제 동사 뒤의 피연산자 토큰을 판정한다.
 # 동사는 세그먼트 **어디에 있어도** 무장한다 — `sudo rm …`·`time rm …` 같은 접두 명령을 열거하지
 # 않기 위해서다(열거하면 접두 한 단어로 게이트가 무력해진다 — F67 2차 판정이 `env` 로 실증했다).
@@ -1652,9 +1765,96 @@ __split_segments() {
 # 절반은 이 시점까지 이미 실행된 나머지 계층(Layer 1·2·3)과 지금 처리 중인 세그먼트
 # 자신의 처리 시간(이미 각자의 상한으로 유계)에 여유를 준다.
 CP_DELETE_HIT=""
-scan_control_plane_delete() {
-  local seg tok armed __arm_verb __verb_armed
+
+# 세그먼트 하나를 검사한다. $1=세그먼트 문자열, $2=1이면 인용 래퍼 언랩을 한 겹
+# 시도한다(0이면 안 한다). 언랩된 내부를 재귀 스캔할 때는 항상 0을 넘겨 딱 한 겹으로
+# 제한한다(F65 20차 독립 판정 recommended_fix.primary — "한 겹만 벗겨도 실증된 16종이
+# 전부 닫힌다", 중첩 래퍼는 별도 축). 반환: 0=삭제 발견(CP_DELETE_HIT 설정), 1=없음.
+__scan_one_segment_for_cp_delete() {
+  local seg="$1" try_unwrap="$2"
+  local tok armed __arm_verb __verb_armed inner_seg
   local -a toks
+  __tokenize_segment "$seg"
+  # 빈 배열을 `"${arr[@]}"` 로 그대로 펼치면 bash 3.2(이 훅이 실제로 실행되는 macOS 기본
+  # 셸, set -u 상태)에서 "unbound variable" 로 죽는다 — bash 4.4 이전의 알려진 결함이다.
+  # `"${arr[@]+"${arr[@]}"}"` 관용구가 두 버전 모두에서 안전하다.
+  toks=("${SPLIT_TOKS[@]+"${SPLIT_TOKS[@]}"}")
+  # ANSI-C/로케일 인용($'·$") 이나 안 닫힌 따옴표를 만났다 — 펴 보려 하지 않고 세그먼트
+  # 전체를 즉시 ask 로 처리한다(위 __tokenize_segment() 주석 참조). 동사 토큰(`$'rm'`)과
+  # 피연산자 토큰(`$'.claude'`) 어느 쪽에 있어도 같은 문제라 **토큰 단위가 아니라
+  # 세그먼트 단위**로, 그리고 **무장 여부와 무관하게** 본다 — 동사 자체를 이 표기로
+  # 위장하면 armed 판정 전에 걸러야 하고, 이 표기를 잡아 주는 다른 층이 없다(9차 판정).
+  # 대가: `$'...'`을 쓰는, 삭제와 무관한 명령(예: `git commit -m $'여러\n줄'`)도 이
+  # 세그먼트에 걸리면 마찰이 생긴다 — 승인된 트레이드오프다.
+  #
+  # 명령 치환(백틱·`$(`)은 다르게 다룬다 — `SEGMENT_UNSAFE` 대신 `SEGMENT_HAS_OPAQUE` 만
+  # 세우고 토큰화는 계속된다(위 __tokenize_segment() 주석: Layer 2 가 위험 동사 내용을,
+  # `open_axes_2026_08_04.indirect_operand` 가 임의 계산 피연산자를 이미 나눠 맡는다).
+  # 그래서 여기서는 **무장이 확정된 뒤에만** 그 플래그를 본다 — 아래 armed 계산 이후.
+  if [[ "$SEGMENT_UNSAFE" -eq 1 ]]; then CP_DELETE_HIT="$seg"; return 0; fi
+  armed=0
+  # `find … -delete` 는 동사가 술어로 온다. `-exec … rm` 은 아래 동사 검사가 무장한다.
+  if [[ "$seg" == *"-delete"* ]]; then
+    for tok in "${toks[@]+"${toks[@]}"}"; do
+      normalize_path_token "$tok"
+      # `${NORM_TOK##*/}` (basename 추출) 대신 접미사 패턴 **판정**을 쓴다 — F65 7차 판정
+      # 재작업 도중 자체 발견(판정 대상 아님): `${var##pattern}` 처럼 와일드카드가 든 추출은
+      # 이 bash에서 문자열 길이에 대해 이차식이다(직접 실측: 29KB 토큰 하나에 1.17초,
+      # 5.8만자 토큰은 4.8초 — 매칭 성공/실패와 무관하게 똑같이 느리다). 반면 `[[ x == 패턴 ]]`
+      # **판정**은 같은 조건에서 0.01초대다. 중괄호 그룹 콤마 하나짜리 피연산자 토큰은 실제로
+      # 수만 자까지 커질 수 있고(F65 축), 이 자리는 그 토큰이 __control_plane_location_impl()
+      # 의 512자 상한을 거치기 **전**이라 무방비였다.
+      if [[ "$NORM_TOK" == "$ARM_DELETE_VERB_DELETE_GATED" || "$NORM_TOK" == */"$ARM_DELETE_VERB_DELETE_GATED" ]]; then armed=1; break; fi
+    done
+  fi
+  for tok in "${toks[@]+"${toks[@]}"}"; do
+    normalize_path_token "$tok"
+    # 위와 같은 이유로 `${NORM_TOK##*/}` 추출이 아니라 접미사 판정을 쓴다. 목록은
+    # ARM_DELETE_VERBS_UNCONDITIONAL 하나뿐이다(위 선언 참조) — 여기서 다시 나열하지
+    # 않는다.
+    __verb_armed=0
+    for __arm_verb in "${ARM_DELETE_VERBS_UNCONDITIONAL[@]}"; do
+      if [[ "$NORM_TOK" == "$__arm_verb" || "$NORM_TOK" == */"$__arm_verb" ]]; then
+        __verb_armed=1; break
+      fi
+    done
+    if [[ "$__verb_armed" -eq 1 ]]; then armed=1; continue; fi
+    [[ "$armed" -eq 1 ]] || continue
+    [[ -z "$NORM_TOK" || "$NORM_TOK" == -* ]] && continue
+    # 후행 글로브 접기는 더 이상 여기서 하지 않는다(F65 6차 판정 반려) — 이 지점은 중괄호
+    # 확장보다 **먼저** 실행되므로, `{.claude/*,x}` 같은 토큰의 마지막 `/` 뒤 꼬리(`*,x}`)를
+    # 글로브로 오인해 앞을 잘라 `{.claude` 라는 깨진 토큰을 만들었다 — 그 반쪽짜리 중괄호는
+    # 짝을 잃어 리터럴로 떨어지고 결국 아무 것도 매치하지 못했다(실측: `.claude` 삭제 성공).
+    # 접기는 이제 `__control_plane_location_impl()` 안, 중괄호 확장이 끝난 뒤로 옮겼다 —
+    # 그래야 콤마/범위 확장으로 나온 각 후보(`.claude/*` 등) 위에서 접기가 실행된다.
+    if control_plane_location "$NORM_TOK"; then CP_DELETE_HIT="$tok"; return 0; fi
+  done
+  # 삭제 동사가 리터럴로 확정됐는데(armed) 세그먼트 어딘가에 명령 치환이 있었다
+  # (SEGMENT_HAS_OPAQUE) — 그 치환이 만들어내는 피연산자 값은 정적으로 알 수 없으므로
+  # (`rm -rf $(malicious)`), 리터럴 대조로는 못 잡았어도 안전한 쪽으로 ask 한다.
+  if [[ "$armed" -eq 1 && "$SEGMENT_HAS_OPAQUE" -eq 1 ]]; then
+    CP_DELETE_HIT="$seg (피연산자에 명령 치환이 있어 정적으로 확정할 수 없음)"
+    return 0
+  fi
+  # F65 20차 독립 판정: 위 armed/operand 검사는 이 세그먼트의 **자기 자신** 토큰만
+  # 봤다. 인용 래퍼(`sh -c "..."` 등)의 인자는 하나의 복합 토큰이라 위 검사에
+  # 애초에 걸리지 않는다 — 한 겹 벗겨 같은 검사를 내부 문자열에 다시 태운다.
+  if [[ "$try_unwrap" -eq 1 ]]; then
+    __SEG_TOKS=("${toks[@]+"${toks[@]}"}")
+    if __find_wrapped_arg; then
+      __split_segments "$__UNWRAP_INNER"
+      local -a __inner_segs=("${SEGMENTS[@]+"${SEGMENTS[@]}"}")
+      for inner_seg in "${__inner_segs[@]+"${__inner_segs[@]}"}"; do
+        [[ -z "$inner_seg" ]] && continue
+        if __scan_one_segment_for_cp_delete "$inner_seg" 0; then return 0; fi
+      done
+    fi
+  fi
+  return 1
+}
+
+scan_control_plane_delete() {
+  local seg
   local __budget_ms
   __split_segments "$NORMALIZED_CMD"
   for seg in "${SEGMENTS[@]}"; do
@@ -1671,68 +1871,7 @@ scan_control_plane_delete() {
       return 0
     fi
     [[ -z "$seg" ]] && continue
-    __tokenize_segment "$seg"
-    # 빈 배열을 `"${arr[@]}"` 로 그대로 펼치면 bash 3.2(이 훅이 실제로 실행되는 macOS 기본
-    # 셸, set -u 상태)에서 "unbound variable" 로 죽는다 — bash 4.4 이전의 알려진 결함이다.
-    # `"${arr[@]+"${arr[@]}"}"` 관용구가 두 버전 모두에서 안전하다.
-    toks=("${SPLIT_TOKS[@]+"${SPLIT_TOKS[@]}"}")
-    # ANSI-C/로케일 인용($'·$") 이나 안 닫힌 따옴표를 만났다 — 펴 보려 하지 않고 세그먼트
-    # 전체를 즉시 ask 로 처리한다(위 __tokenize_segment() 주석 참조). 동사 토큰(`$'rm'`)과
-    # 피연산자 토큰(`$'.claude'`) 어느 쪽에 있어도 같은 문제라 **토큰 단위가 아니라
-    # 세그먼트 단위**로, 그리고 **무장 여부와 무관하게** 본다 — 동사 자체를 이 표기로
-    # 위장하면 armed 판정 전에 걸러야 하고, 이 표기를 잡아 주는 다른 층이 없다(9차 판정).
-    # 대가: `$'...'`을 쓰는, 삭제와 무관한 명령(예: `git commit -m $'여러\n줄'`)도 이
-    # 세그먼트에 걸리면 마찰이 생긴다 — 승인된 트레이드오프다.
-    #
-    # 명령 치환(백틱·`$(`)은 다르게 다룬다 — `SEGMENT_UNSAFE` 대신 `SEGMENT_HAS_OPAQUE` 만
-    # 세우고 토큰화는 계속된다(위 __tokenize_segment() 주석: Layer 2 가 위험 동사 내용을,
-    # `open_axes_2026_08_04.indirect_operand` 가 임의 계산 피연산자를 이미 나눠 맡는다).
-    # 그래서 여기서는 **무장이 확정된 뒤에만** 그 플래그를 본다 — 아래 armed 계산 이후.
-    if [[ "$SEGMENT_UNSAFE" -eq 1 ]]; then CP_DELETE_HIT="$seg"; return 0; fi
-    armed=0
-    # `find … -delete` 는 동사가 술어로 온다. `-exec … rm` 은 아래 동사 검사가 무장한다.
-    if [[ "$seg" == *"-delete"* ]]; then
-      for tok in "${toks[@]+"${toks[@]}"}"; do
-        normalize_path_token "$tok"
-        # `${NORM_TOK##*/}` (basename 추출) 대신 접미사 패턴 **판정**을 쓴다 — F65 7차 판정
-        # 재작업 도중 자체 발견(판정 대상 아님): `${var##pattern}` 처럼 와일드카드가 든 추출은
-        # 이 bash에서 문자열 길이에 대해 이차식이다(직접 실측: 29KB 토큰 하나에 1.17초,
-        # 5.8만자 토큰은 4.8초 — 매칭 성공/실패와 무관하게 똑같이 느리다). 반면 `[[ x == 패턴 ]]`
-        # **판정**은 같은 조건에서 0.01초대다. 중괄호 그룹 콤마 하나짜리 피연산자 토큰은 실제로
-        # 수만 자까지 커질 수 있고(F65 축), 이 자리는 그 토큰이 __control_plane_location_impl()
-        # 의 512자 상한을 거치기 **전**이라 무방비였다.
-        if [[ "$NORM_TOK" == "$ARM_DELETE_VERB_DELETE_GATED" || "$NORM_TOK" == */"$ARM_DELETE_VERB_DELETE_GATED" ]]; then armed=1; break; fi
-      done
-    fi
-    for tok in "${toks[@]+"${toks[@]}"}"; do
-      normalize_path_token "$tok"
-      # 위와 같은 이유로 `${NORM_TOK##*/}` 추출이 아니라 접미사 판정을 쓴다. 목록은
-      # ARM_DELETE_VERBS_UNCONDITIONAL 하나뿐이다(위 선언 참조) — 여기서 다시 나열하지
-      # 않는다.
-      __verb_armed=0
-      for __arm_verb in "${ARM_DELETE_VERBS_UNCONDITIONAL[@]}"; do
-        if [[ "$NORM_TOK" == "$__arm_verb" || "$NORM_TOK" == */"$__arm_verb" ]]; then
-          __verb_armed=1; break
-        fi
-      done
-      if [[ "$__verb_armed" -eq 1 ]]; then armed=1; continue; fi
-      [[ "$armed" -eq 1 ]] || continue
-      [[ -z "$NORM_TOK" || "$NORM_TOK" == -* ]] && continue
-      # 후행 글로브 접기는 더 이상 여기서 하지 않는다(F65 6차 판정 반려) — 이 지점은 중괄호
-      # 확장보다 **먼저** 실행되므로, `{.claude/*,x}` 같은 토큰의 마지막 `/` 뒤 꼬리(`*,x}`)를
-      # 글로브로 오인해 앞을 잘라 `{.claude` 라는 깨진 토큰을 만들었다 — 그 반쪽짜리 중괄호는
-      # 짝을 잃어 리터럴로 떨어지고 결국 아무 것도 매치하지 못했다(실측: `.claude` 삭제 성공).
-      # 접기는 이제 `__control_plane_location_impl()` 안, 중괄호 확장이 끝난 뒤로 옮겼다 —
-      # 그래야 콤마/범위 확장으로 나온 각 후보(`.claude/*` 등) 위에서 접기가 실행된다.
-      if control_plane_location "$NORM_TOK"; then CP_DELETE_HIT="$tok"; return 0; fi
-    done
-    # 삭제 동사가 리터럴로 확정됐는데(armed) 세그먼트 어딘가에 명령 치환이 있었다
-    # (SEGMENT_HAS_OPAQUE) — 그 치환이 만들어내는 피연산자 값은 정적으로 알 수 없으므로
-    # (`rm -rf $(malicious)`), 리터럴 대조로는 못 잡았어도 안전한 쪽으로 ask 한다.
-    if [[ "$armed" -eq 1 && "$SEGMENT_HAS_OPAQUE" -eq 1 ]]; then
-      CP_DELETE_HIT="$seg (피연산자에 명령 치환이 있어 정적으로 확정할 수 없음)"
-      return 0
-    fi
+    if __scan_one_segment_for_cp_delete "$seg" 1; then return 0; fi
   done
   return 1
 }
