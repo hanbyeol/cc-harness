@@ -3098,6 +3098,23 @@ delete_decision() {
     || { echo "바이트 상한 판정 자체가 ${elapsed}ms 걸렸다 — 정밀 분석을 실제로 건너뛰지 않았다"; false; }
 }
 
+@test "F65 entry cap: a failing wc fails closed to ask, not silently open (19th verdict)" {
+  # 19차 독립 판정 지적: `wc` 가 없거나 실패하면 `set -e` 아래에서 파이프라인이 스크립트를
+  # 곧장 죽여 JSON을 한 글자도 못 내놓는다 — jq 부재 시엔 명시적으로 경고하고 exit 0(비활성)
+  # 하는데 여기만 조용히 죽으면 fail-open 처럼 보일 위험이 있었다. `wc` 를 실패하는 가짜
+  # 실행 파일로 가려 재현한다.
+  local fakebin
+  fakebin="$BATS_TEST_TMPDIR/fakebin"
+  mkdir -p "$fakebin"
+  printf '#!/bin/bash\nexit 127\n' > "$fakebin/wc"
+  chmod +x "$fakebin/wc"
+  run env PATH="$fakebin:$PATH" CLAUDE_PROJECT_DIR="$PWD" bash -c "printf '%s' 'git status' | jq -Rs '{tool_name:\"Bash\",tool_input:{command:.}}' | bash '$HOOK'"
+  [ "$status" -eq 0 ] \
+    || { echo "wc 실패 시 훅 자체가 0이 아닌 코드로 죽었다(JSON 미출력) — 여전히 fail-open 위험"; false; }
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "wc 실패 시 안전한 쪽(ask)으로 떨어지지 않았다: $output"; false; }
+}
+
 @test "F65 sibling: protected-integrity.sh does not crash when no protected file exists (9th verdict)" {
   # 9차 판정이 훑기 요청(요청 3번)에서 형제 훅의 같은 결함을 찾았다: PROTECTED_GLOBS 어느
   # 패턴도 매치하지 않는 저장소(플러그인이 설치된 사용자 저장소의 흔한 상태)에서 FILES 가

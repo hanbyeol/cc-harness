@@ -35,7 +35,18 @@ CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || echo "
 # 바이트를 센다(`wc -m` 과 달리) — 그래서 이걸로 바꾼다. 외부 프로세스 포크가 하나
 # 늘지만(측정: 정상 크기 입력에서 무시할 만한 수 ms), 이 파일 전체가 "모르면 ask" 원칙을
 # 지키려고 매번 치르는 비용과 같은 종류다.
-CMD_BYTES=$(printf '%s' "$CMD" | wc -c)
+# `wc` 가 없거나 실패하면(극히 드물지만 이 파일의 다른 필수 도구 jq 처럼 배포 환경에
+# 따라 없을 수 있다) `set -e` 아래에서 파이프라인 실패가 스크립트를 곧장 죽여 JSON을
+# 한 글자도 못 내놓는다 — jq 부재 시엔 경고 후 exit 0(방화벽 비활성)로 명시적으로
+# 처리하는데 여기만 조용히 죽어 fail-open 처럼 보일 위험이 있다(19차 독립 판정 지적).
+# `|| echo` 로 실패를 흡수하고, 빈 결과는 숫자가 아니어서 아래 `-gt` 비교 자체가 죽을
+# 수 있으므로 먼저 빈 값 자체를 안전한 쪽(ask)으로 떨어뜨린다.
+CMD_BYTES=$(printf '%s' "$CMD" | wc -c 2>/dev/null || echo "")
+if [[ -z "$CMD_BYTES" ]]; then
+  jq -n --arg reason "명령 길이를 측정하지 못해(wc 실행 실패) 정밀 분석 없이 확인을 요청합니다." \
+    '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "ask", permissionDecisionReason: $reason}}'
+  exit 0
+fi
 if [[ $CMD_BYTES -gt 32768 ]]; then
   jq -n --arg reason "명령이 비정상적으로 길어(${CMD_BYTES}바이트) 정밀 분석 없이 확인을 요청합니다 — 이 길이의 Bash 명령은 정상 사용에서 나타나지 않습니다." \
     '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "ask", permissionDecisionReason: $reason}}'

@@ -1,0 +1,137 @@
+{
+  "timestamp": "2026-09-05T16:04:07+0900",
+  "sprint": 51,
+  "iteration": 19,
+  "verdict_label": "F65 19th independent verdict",
+  "features_evaluated": [
+    "F65"
+  ],
+  "security_tier": "critical",
+  "commit_under_review": "aa7b1f3",
+  "parent_commit": "1487f29",
+  "pre_cycle_baseline": "11c8db7",
+  "scores": {
+    "functionality": 7,
+    "code_quality": 8,
+    "security": 6,
+    "error_handling": 7,
+    "test_coverage": 6
+  },
+  "score": 6,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 6 < 7 (critical tier) — 자동 fail",
+    "score 6 < pass_threshold 7",
+    "SC-9 둘째 절('닫히지 않는 축은 open_axes 에 명시하고 그 축에 대해서는 닫혔다고 주장하지 않는다') 위반 — `_residual_risk_AC11.open_axes_2026_08_04.unenumerated_verbs` 가 '인터프리터 계열은 별도 arm 이 컨트롤 플레인 경로에 대해 이미 ask 다' 라고 적었으나, 인용 래퍼 안에서는 AC-11 이 스스로 열거한 경로 표기(`//`·`/./`)에 대해 **ask 조차 아닌 allow** 이며 `.claude/settings*.json` 이 실제로 삭제된다(격리 랩 실증 18건)"
+  ],
+  "headline": "18차가 반려한 결함은 완전히 닫혔다 — 이번 커밋의 델타는 깨끗하고 회귀가 0건이며, 이 사이클(11~18차)이 만든 새 결함은 없다. 반려 사유는 이 커밋이 만든 것이 아닌 **사전 존재 구멍**이다: 인용 래퍼(`sh -c \"…\"`·인터프리터 -c/-e) 안에서는 경로 표기 정규화가 적용되지 않아 `sh -c \"rm -f .claude//settings.json\"` 이 무프롬프트 allow 로 실제 삭제된다. 컨트롤 플레인은 예측이 유일한 통제이므로 critical 티어 게이트를 통과시킬 수 없다.",
+  "verified_fix_of_18th_verdict": {
+    "conclusion": "완전 해결 — 실행으로 확인, 구현자 보고와 일치하며 그보다 넓게 재확인했다.",
+    "the_exact_bypass_payload": "`echo '<U+1F600 × 32,730>' ; rm -rf .claude/settings.json` = 32,768자 / 130,958바이트",
+    "before_after": "PARENT(1487f29, 문자 상한) LC_ALL=ko_KR.UTF-8 · load 27 → 57,422ms(5초 훅 타임아웃의 11배, 판정 미전달 = fail-open). HEAD(aa7b1f3, 바이트 상한) 같은 조건 → 752ms, ask.",
+    "locale_independence": "HEAD 는 6개 로케일에서 결정·시간 모두 불변: C 735ms · POSIX 715ms · en_US.UTF-8 768ms · ko_KR.UTF-8 752ms · ja_JP.UTF-8 766ms · zh_CN.UTF-8 837ms, 전부 ask. LC_ALL/LANG/LC_CTYPE 미설정도 ask. 18차가 지적한 '가드 강도가 로케일에 조용히 의존' 은 사라졌다.",
+    "wc_c_is_byte_exact": "`printf '%s' '가나다' | wc -c` = 9(=바이트) 를 C·POSIX·en_US.UTF-8·ko_KR.UTF-8·ja_JP.UTF-8·미설정 전부에서 확인. 같은 조건 `wc -m` 은 3/3/3/9/9 로 로케일 의존 — 커밋 메시지의 `wc -c` vs `wc -m` 구분이 정확하다.",
+    "boundary_is_exact_in_bytes": "1·2·3·4바이트 문자(x · é · 가 · 😀) 네 인코딩 모두에서 32,768바이트는 상한 미발동(정밀 분석 수행 후 ask, 394~980ms), 32,769바이트는 상한 발동(39~48ms). 문자 수는 각각 32768/16404/10949/8223 로 제각각인데 발동 경계는 바이트로 정확히 일치한다.",
+    "shell_and_bash_version": "`#!/usr/bin/env bash` 셰방이 지켜져 zsh·sh 에서 호출해도 ask. BSD `wc` 의 선행 공백(`[       6]`)을 `[[ $CMD_BYTES -gt 32768 ]]` 이 bash 3.2.57(macOS 기본)·5.3.15 양쪽에서 올바르게 산술 비교함을 확인 — 9차 판정의 셸 축 우려는 성립하지 않는다."
+  },
+  "issues": [
+    "[security][high][confidence:high] **인용 래퍼 안에서 경로 표기 정규화가 적용되지 않는다 — 무프롬프트 컨트롤 플레인 삭제(사전 존재, 이번 커밋 무관)**. 최소 재현: `env rm -f .claude//settings.json` → ask (열거된 접두 × 열거된 표기, 닫혀 있음) 인데 `sh -c \"rm -f .claude//settings.json\"` → **allow** 이고 격리 랩에서 `.claude/settings.json` 이 실제로 사라진다. 원인은 F67/F71 하드 제외가 **매칭된 ASK 패턴 텍스트의 컨트롤 플레인 리터럴**에만 발동하는 구조다(`tests/pre-bash-firewall.bats:1417` 테스트 주석이 스스로 그렇게 적고 있다) — bare 토큰에 적용되는 `normalize_path_token()`(7차 판정 Class C 수정)이 인용된 인자 안의 경로에는 닿지 않는다. 실증 18건: {python3 os.remove · python3 pathlib.unlink · perl unlink · node unlinkSync · ruby File.delete · sh -c rm} × {`.claude//settings.json`, `.claude/./settings.json`, `.claude//settings.local.json`} 전부 allow + 실삭제. HEAD·PARENT(1487f29)·BASE(11c8db7) 결정이 동일하므로 **이 사이클이 만든 회귀가 아니다**.",
+    "[criteria][high][confidence:high] **잔여위험 서술이 위 경우를 놓치고 있다**. `sprint-51.json._residual_risk_AC11.open_axes_2026_08_04.unenumerated_verbs.status` 는 \"부분 — 인터프리터 계열은 별도 arm 이 컨트롤 플레인 경로에 대해 **이미 ask 다**\" 라고 단언한다. 이 문장은 **리터럴 표기에 한해서만** 참이다. SC-9 는 닫히지 않은 축을 '닫혔다고 주장하지 않을 것'을 명시적으로 요구하므로, 이 부정확한 단언 자체가 SC-9 둘째 절 위반이다. 최소 수정은 이 status 를 '리터럴 표기에 한함 — 인용 래퍼 안의 `//`·`/./` 는 미해결' 로 정정하는 것이고, 근본 수정은 인터프리터/래퍼 arm 에도 표기 정규화를 태우는 것이다.",
+    "[test][medium][confidence:high] **신규 테스트의 타이밍 단언이 무력하다**. `[ \"$elapsed\" -lt 15000 ]` 은 훅 자신의 타임아웃(5초)의 3배다. 18차가 보고한 페이로드는 이 세션에서 57.4초를 기록했는데, 그조차 15초 단언에 걸리려면 여전히 3.8배 여유가 필요하다. 즉 이 단언은 타이밍 회귀를 원리적으로 잡지 못한다 — 실제로 회귀를 잡는 것은 `ask` 기능 단언뿐이다(문자 상한으로 되돌리면 이 페이로드가 정밀 분석을 거쳐 allow 가 되므로 그쪽은 유효하다). 임계값을 5000ms 미만으로 낮추기를 권고한다.",
+    "[test][medium][confidence:high] **인코딩 축 커버리지가 절반이다**. 신규 테스트는 3바이트 한글 하나뿐이고, 18차가 실제로 보고한 **4바이트 이모지 페이로드는 스위트에 고정되지 않았다**. 구현자 스스로 lessons.md 에 'ASCII 패딩만 쓰면 이 축이 구조적으로 안 잡힌다'고 적었는데, 같은 논리로 3바이트만 쓰면 4바이트 경계는 여전히 안 잡힌다.",
+    "[test][medium][confidence:high] **상한이 과도하게 엄격해지는 방향의 회귀를 잡는 테스트가 없다**. 정확히 32,768바이트가 상한에 걸리지 **않아야** 한다는 경계 테스트가 없어, 상한을 실수로 낮추거나 `-ge` 로 바꾸는 변경이 스위트를 통과한다. 이 축은 마찰(AC-2)에 직결된다.",
+    "[test][medium][confidence:high] **인터프리터 arm × 경로 표기 축을 고정하는 테스트가 없다**. `tests/pre-bash-firewall.bats:1417`(F67/F71 control plane stays predicted even for interpreters)은 리터럴 3종만 단언한다. 위 [security][high] 구멍이 스위트에 원리적으로 안 보이는 이유이며, 이는 lessons.md 가 기록한 '테스트 패딩을 한 축으로만 만들면 그 축 밖은 구조적으로 못 잡는다' 와 정확히 같은 결함 클래스의 재발이다.",
+    "[quality][low][confidence:high] **BSD `wc` 의 선행 공백이 사용자에게 보이는 문구로 샌다**. 실제 ask 사유: `명령이 비정상적으로 길어(   40036바이트) 정밀 분석 없이…`. 판정에는 영향이 없다(`[[ -gt ]]` 가 산술 평가로 흡수). `$((CMD_BYTES))` 로 감싸거나 `wc -c < <(…)` 대신 `tr -d ' '` 를 태우면 된다.",
+    "[quality][low][confidence:high] **`wc` 부재·실패 시 조용한 fail-open**. `set -euo pipefail` 아래 `CMD_BYTES=$(printf '%s' \"$CMD\" | wc -c)` 가 실패하면 훅이 rc=127 로 죽고 stdout 이 비어 판정이 전달되지 않는다(실측: PATH 에서 wc 를 뺀 상태에서 `rm -rf .claude/settings.json` 이 무판정 통과). 바로 위 `jq` 부재 분기는 경고를 stderr 로 남기는데 이 새 의존은 그렇지 않아 대칭이 깨졌다. `wc` 가 POSIX 기본 도구라 실현 가능성은 낮지만, 이 커밋이 **새로 도입한 외부 의존**이고 이 파일의 원칙은 '모르면 ask' 다.",
+    "[perf][low][confidence:medium] **상한 값(32768) 자체의 부하 여유는 여전히 얇다 — 18차 followup 이 그대로 유효**. 상한 바로 아래 최악 입력은 이 세션의 한산한 시점(load 1.5)에 3,031ms 였고, 이는 의도된 3,000ms 세그먼트 예산이 fail-closed(ask)로 트립되어 유계된 결과다(정상 동작). 다만 예산은 세그먼트 **사이**에서만 검사되므로 부하가 높으면 총 경과가 5초를 넘길 수 있다 — 18차가 load 24 에서 5.8초를 실측했다. 이번 커밋이 악화시킨 것은 없다(최악 바이트 수가 128KB→32KB 로 오히려 4배 줄었다).",
+    "[quality][positive][confidence:high] **상한의 단위가 이제 계층별로 일관된다** — 확인 결과 남은 세 상한(512·2048·8192)은 전부 **문자 인덱싱 bash 루프**(`${s:k:1}`)를 유계하므로 문자 수가 올바른 단위이고, 바이트 구동 경로(`printf | tr | awk` 정규화, Layer 3 정규식)만 바이트 상한이 필요했다. 18차 지적을 '전부 바이트로 바꾸기'가 아니라 '비용이 비례하는 단위로 각각' 고친 것이 맞다. 기록용."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-9 회귀 없음 — 자체 구성 차동 비교에서 **부모(1487f29) 대비 결정 불일치 0건**. 201개 퍼즈 페이로드(동사 15 × 대상 10 + 인코딩×크기 축 + 균형 인용 + 정상 대형 명령) + 상한 아래 최악 형태 22종 + SC-9 교차곱 450셀 + 인터프리터 49셀 = 700셀 이상에서 회귀 0건.",
+      "AC-11 열거 검증축(`verification_axes_2026_08_04`) 전수 — 대상 4종 × 표기 8종 × 삭제 동사 15종 = **450셀 전부 최소 ask**, allow 0건. `//`·`/./`·선행 `./`·인용·분할인용·백슬래시 표기와 `env`·`time`·`\\rm`·`&&`·후행 `;` 접두가 모두 bare 토큰 형태에서는 닫혀 있다.",
+      "AC-2 마찰 없음 — 정상 대형 명령 9종(30KB ASCII echo · 1만자 한글 커밋 메시지 · 다국어 혼합 커밋 메시지 · 8천자 이모지 커밋 메시지 · 20KB base64 · 한글 heredoc · 한글 grep 등)이 부모와 결정 동일. 바이트 상한이 정당한 멀티바이트 명령에 새 마찰을 만들지 않는다(사용자 질문 3번에 대한 답).",
+      "진입점 상한이 18차가 찾은 타임아웃 우회를 실제로 막는다 — 4개 인코딩 전 축에서 경계가 바이트 기준으로 정확."
+    ],
+    "security": [
+      "SC-1 게이트·임계값 불변 — `progress/harness-config.json` diff 없음(pass_threshold 7 · critical 7 유지), 커밋이 건드린 파일은 훅 1개·테스트 1개·문서 3개뿐.",
+      "SC-9 첫째 절(열거된 표기 축 전수 최소 ask) — 450/450 충족.",
+      "타임아웃 fail-open 차단이 로케일·셸·bash 버전과 무관하게 성립(위 verified_fix_of_18th_verdict)."
+    ],
+    "error_scenarios": [
+      "상한 초과 시 정규화·세그먼트 분석을 시작하지 않고 즉시 ask — '모르면 allow 가 아니라 ask' 준수, 4개 인코딩 전부에서 39~48ms(한산) / 752ms(load 27).",
+      "세그먼트 예산 초과 시 CP_DELETE_HIT 설정 후 ask(fail-closed) — 상한 아래 최악 입력 22종에서 3,026~3,031ms 에 트립하고 allow 로 새지 않음을 확인."
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-11 기준문('컨트롤 플레인 파일을 **지우는** 경로가 최소 ask') — 인용 래퍼 안의 `//`·`/./` 표기 18셀이 allow 이며 실제 삭제된다. 단, AC-11 이 스스로 열거한 `verification` 축은 전수 통과했으므로 기준문과 검증목록의 괴리다."
+    ],
+    "security": [
+      "SC-9 둘째 절 — 닫히지 않은 축(인용 래퍼 × 경로 표기)을 `open_axes` 가 '이미 ask' 로 **닫혔다고 주장**하고 있다. 대상은 gitignore 라 사후 복구가 없는 `.claude/settings.json`·`settings.local.json` 으로, 예측이 유일한 통제인 자리다."
+    ],
+    "error_scenarios": [
+      "'모르면 ask' 원칙 위반 2건 — (a) 인용 래퍼 안 표기 변형이 unknown 이 아니라 allow 로 해석된다, (b) `wc` 부재 시 판정 없이 훅이 죽는다(조용한 fail-open)."
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "**'인용 래퍼 안의 경로'라는 축이 어느 기준에도 없다** — AC-11 의 표기축은 명령행에 bare 로 놓인 토큰만 상정한다. `sh -c \"…\"`·`python3 -c \"…\"`·`node -e \"…\"` 처럼 **경로가 다른 명령의 인용된 인자 안에 들어가는** 형태는 표기축과 직교하는 별도 축인데 정의되어 있지 않다. 이번 결함이 정확히 그 빈 칸에서 나왔다.",
+      "**상한의 '너무 엄격해지는 방향' 기준이 없다** — AC-2(마찰 없음)는 상한 값 자체를 언급하지 않아, 상한을 낮추는 변경이 어떤 기준도 위반하지 않고 통과한다."
+    ],
+    "ambiguous_criteria": [
+      "AC-11 기준문과 그 `verification` 목록의 강도가 다르다(기준문은 전칭, 목록은 열거). 12차 판정이 SC-9 로 '열거된 축 + 명시된 잔여축' 형태로 정정했으나 AC-11 기준문은 전칭인 채로 남아 있어, 이번처럼 '목록은 전수 통과인데 기준문은 미충족' 상태가 다시 발생했다. AC-11 기준문에도 SC-9 와 같은 범위 한정을 명시할 것을 권고한다."
+    ],
+    "security_criteria_insufficient": [],
+    "action_required": "다음 iteration 에서 (1) `_residual_risk_AC11.open_axes_2026_08_04.unenumerated_verbs.status` 의 '이미 ask' 단언을 실측에 맞게 정정, (2) '인용 래퍼 × 경로 표기' 축을 AC-11 에 신설, (3) AC-11 기준문에 SC-9 와 동일한 범위 한정 추가."
+  },
+  "evidence": {
+    "bats": "`bats tests/pre-bash-firewall.bats` 단일 실행(백그라운드, 15:38 시작 → 16:17 완료, 38분 27초). **305/305 통과, 실패 0건, rc=0** — 완주 확인. 이번 커밋의 신규 테스트 #290(`F65 perf: a multibyte command under the character count but over the byte cap still asks fast (18th verdict)`)도 통과. 판정 본문은 207/305 시점에 작성했으나 완주 결과가 결론을 바꾸지 않는다(AC-9 회귀 없음 근거만 강화).",
+    "bats_load_context": "실행 내내 `uptime` load average 24~28(이 세션 무관 프로세스)이었고 종료 시점에 4.4 로 하강. 사용자가 사전 고지한 무관한 성능 테스트 2건(#241·#248)은 **이번 실행에서 통과했다** — 부하가 낮아진 구간에 도달한 덕이며, 로직은 정상임을 재확인한 결과다(개별 `--filter` 재실행 불필요).",
+    "byte_cap_correctness": "`printf '%s' <문자열> | wc -c` 를 C·POSIX·en_US.UTF-8·ko_KR.UTF-8·ja_JP.UTF-8·미설정에서 실행 → 전부 바이트(9). 같은 조건 `wc -m` → 9/9/3/3/3(로케일 의존). BSD wc 선행 공백 `[       6]` 을 `[[ -gt ]]` 가 bash 3.2.57·5.3.15 양쪽에서 정상 산술 비교.",
+    "boundary_probe": "인코딩 4종 × 목표 바이트 4종 = 16셀 + 18차 정확 페이로드. 32768B → 상한 미발동(394~980ms, ask), 32769B → 상한 발동(39~48ms, ask). 문자 수는 8222~32768 로 제각각.",
+    "the_18th_bypass_closed": "32,768자/130,958바이트 이모지 페이로드: HEAD 49ms(load 1.5) / 752ms(load 27) vs PARENT 3,863ms(load 1.5) / **57,422ms**(load 27, LC_ALL=ko_KR.UTF-8). PARENT LC_ALL=C 는 781ms — 18차가 지적한 로케일 의존을 그대로 재현했고 HEAD 에서 사라졌음을 확인.",
+    "worst_case_under_cap": "상한 아래(정확히 32,768바이트) 적대적 형태 22종(`${` 폭풍·중괄호 콤마 폭풍·세그먼트 폭풍·백틱·프로세스 치환·백슬래시개행·파라미터 확장 연산자·동사 폭풍·명령치환 내 동사 + 각각의 멀티바이트 변형) × 3회. 최댓값 3,031ms(load 1.5), 전부 5초 이내. **멀티바이트가 바이트당 더 비싸지 않음을 확인** — 같은 32,768바이트에서 ASCII 421ms vs 한글 409ms vs 이모지 389ms.",
+    "differential_fuzz": "201 페이로드 × {HEAD, PARENT} + 격리 랩 실행. 결정 불일치 0 · 회귀 0 · 정상 명령 마찰 변화 0.",
+    "sc9_cross_product": "대상 4 × 표기 8 × 동사 15 = 450셀, HEAD 에서 allow 0건(전부 최소 ask). 격리 랩 검증 포함.",
+    "interpreter_gap": "템플릿 7종 × 표기 7종 = 49셀. `sh -c`·python3(2형태)·perl·node·ruby 에서 `//`·`/./` 표기 18셀이 allow + 격리 랩에서 실제 파일 삭제 확인. 동일 셀이 PARENT·BASE(11c8db7)에서도 allow → 회귀 아님.",
+    "fail_open_probe": "PATH 에서 `wc` 를 제거한 상태로 훅 실행 → rc=127, stdout 비어 있음(판정 미전달). 대조군(정상 PATH) → ask.",
+    "shell_axis": "zsh·sh 에서 호출 및 `/bin/bash`(3.2.57) 강제 실행 전부 ask — 셰방이 지켜짐.",
+    "reproduction_scripts": [
+      "/private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/cdafbc69-27b3-469f-b03e-6b8fdb80c81b/scratchpad/probe.py",
+      "/private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/cdafbc69-27b3-469f-b03e-6b8fdb80c81b/scratchpad/boundary.py",
+      "/private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/cdafbc69-27b3-469f-b03e-6b8fdb80c81b/scratchpad/worstcase.py",
+      "/private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/cdafbc69-27b3-469f-b03e-6b8fdb80c81b/scratchpad/fuzz.py",
+      "/private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/cdafbc69-27b3-469f-b03e-6b8fdb80c81b/scratchpad/sc9.py",
+      "/private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/cdafbc69-27b3-469f-b03e-6b8fdb80c81b/scratchpad/interp.py"
+    ]
+  },
+  "recommended_fix": {
+    "do_not_relitigate": "**바이트 상한 작업 자체는 수용한다** — 18차 지적은 완전히 닫혔고 회귀가 없다. 다음 라운드가 `wc -c` 를 다시 손대지 않도록 명시한다. 남은 성능 축(상한 값 32768 의 부하 여유)도 이번 반려 사유가 아니다.",
+    "primary": "인용 래퍼 안의 컨트롤 플레인 경로에 표기 정규화를 적용한다. 최소 침습안: 하드 제외 판정이 리터럴 부분문자열 대신, 명령 문자열에서 `.claude/` 와 `settings*.json`·`hooks.json` 사이의 `/`·`./` 반복을 허용하는 형태로 대조하도록 넓힌다(예: `\\.claude(/\\.?)+settings(\\.local)?\\.json`). bare 토큰 경로는 이미 `normalize_path_token()` 이 처리하므로 **인터프리터/래퍼 arm 한 곳만** 바꾸면 되고, 이는 add-only 라 SC-1 과 충돌하지 않는다.",
+    "documentation_fix_if_deferred": "근본 수정을 미루려면 **최소한** `_residual_risk_AC11.open_axes_2026_08_04.unenumerated_verbs.status` 의 '인터프리터 계열은 이미 ask 다' 를 '리터럴 표기에 한해 ask — 인용 래퍼 안의 `//`·`/./` 는 미해결(19차 판정 실측)' 로 정정해야 한다. SC-9 둘째 절이 요구하는 것은 '닫혀 있음'이 아니라 '주장 범위의 정확성'이므로, 정정만으로도 이 축의 SC-9 위반은 해소된다 — 다만 그 경우 무프롬프트 실삭제 경로가 열린 채 남는다는 사실을 사용자가 알고 수용해야 한다(Plan 게이트 대상).",
+    "tests_to_add": [
+      "인터프리터/래퍼 arm × 경로 표기 축: `sh -c \"rm -f .claude//settings.json\"`·`python3 -c \"…'.claude/./settings.json'…\"` 이 최소 ask 인지(회귀 고정).",
+      "4바이트 이모지 상한 테스트 — 18차가 보고한 정확한 페이로드(32,768자/130,958바이트)를 스위트에 고정.",
+      "상한 경계 양방향: 정확히 32,768바이트는 상한에 걸리지 **않고**, 32,769바이트는 걸린다.",
+      "신규 한글 테스트의 타이밍 단언을 15000ms → 5000ms 미만으로 하향(훅 자신의 타임아웃보다 엄격해야 의미가 있다)."
+    ]
+  },
+  "note_for_main_loop": {
+    "verdict_is_fail_so_passes_stays_false": "`progress/feature_list.json` 의 F65.passes 는 false 를 유지한다 — 이 판정으로 인한 변경 없음.",
+    "this_commit_is_not_the_regression": "11~18차 사이클(치환 축 + 타이밍 축)이 만든 결함은 이번 라운드에서 **하나도 발견되지 않았다**. 700셀 이상의 차동 비교에서 부모 대비 결정 불일치가 0건이다. 이번 반려 사유는 11차 이전부터 있던 사전 존재 구멍이며, `11c8db7`(사이클 이전 기준선)에서도 동일하게 재현된다. 구현자에게 반려를 전달할 때 이 구분을 반드시 함께 전달할 것 — 그렇지 않으면 8라운드째 '또 새 결함' 으로 오독되어 바이트 상한을 다시 건드릴 위험이 있다.",
+    "still_required_for_critical_tier": [
+      "**F37 2차 독립 판정** — F65 는 critical tier 이므로 단일 judge 1회에 게이트를 걸지 않는다. 이 판정(19차)과 독립 컨텍스트의 2차 judge 를 디스패치해 교차검증하고, verdict 가 불일치하면 사람 에스컬레이션(자동 pass 금지). 두 판정 모두 fail 이면 그대로 반려 진행.",
+      "**security-auditor** — 아직 완료되지 않은 두 트랙: (a) AUDIT-2 수정 확인, (b) `srm`·`wipe` 등에 대한 **우연한 보호 소실** 여부 확인(18차가 'AUDIT-2 스플리터 수정으로 우발적 fail-closed 보호가 사라졌다'고 기록한 축). 이번 판정은 이 두 트랙을 대체하지 않는다."
+    ],
+    "new_change_request_candidate": {
+      "title": "인용 래퍼(`sh -c`·인터프리터 -c/-e) 안의 컨트롤 플레인 경로 표기 정규화",
+      "why_separate": "F65 의 이번 사이클 주제(치환 축·타이밍 축)와 독립이고, 수정 대상 arm 도 다르다. 같은 라운드에 섞으면 판정이 두 변경에 분리 귀속되지 않는다 — `_residual_risk_AC11.judgment` 가 같은 이유로 invariant-guard 수정을 분리했던 선례를 따른다.",
+      "scope": "훅의 하드 제외 대조를 표기 허용 형태로 확장 + AC-11 에 '인용 래퍼 × 경로 표기' 축 신설 + 회귀 테스트. security_tier critical(컨트롤 플레인, 사후 복구 없음).",
+      "evidence_to_carry": "이 판정의 `evidence.interpreter_gap` 과 재현 스크립트 `interp.py`(49셀, 18건 실증)."
+    },
+    "bats_completion": "**완주 확인 — 305/305 통과, 실패 0건, rc=0**(38분 27초, 16:17 종료). 사용자가 사전 고지한 성능 테스트 2건(#241·#248)도 이번 실행에서는 통과했다(종료 무렵 부하가 4.4 로 내려간 구간에 도달) — 개별 `--filter` 재실행이 필요 없었다. 로그: `/private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/cdafbc69-27b3-469f-b03e-6b8fdb80c81b/scratchpad/bats.log`."
+  }
+}

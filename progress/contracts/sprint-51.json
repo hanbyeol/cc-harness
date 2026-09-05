@@ -185,7 +185,12 @@
       },
       "unenumerated_verbs": {
         "example": "`rm`·`rmdir`·`unlink`·`shred`·`mv`·`find -delete` 밖의 삭제 수단(예: 인터프리터로 unlink 호출, `trash` 류 외부 도구)",
-        "status": "부분 — 인터프리터 계열은 별도 arm 이 컨트롤 플레인 경로에 대해 이미 ask 다. 그 밖의 이름은 열거되어 있지 않다. **'동사 열거가 수렴한다'고 주장하지 않는다** — 12차 판정이 그 주장을 반증했다."
+        "status": "부분 — 인터프리터 계열은 별도 arm 이 컨트롤 플레인 경로에 대해 이미 ask 다. 그 밖의 이름은 열거되어 있지 않다. **'동사 열거가 수렴한다'고 주장하지 않는다** — 12차 판정이 그 주장을 반증했다. **19차 독립 판정이 이 항목 자체를 정정했다(아래 `interpreter_wrapped_path_notation` 참조)**: '이미 ask' 는 대상 경로의 **리터럴 철자**에만 성립하고, `//`·`/./` 같은 정규화 표기가 인용된 인자 안에 있을 때는 성립하지 않는다 — SC-9 는 닫히지 않은 축을 닫혔다고 주장하지 말라고 요구하므로, 이 status 자체가 SC-9 위반이었다."
+      },
+      "interpreter_wrapped_path_notation": {
+        "example": "`env rm -f .claude//settings.json` 은 ask 인데 `sh -c \"rm -f .claude//settings.json\"` 은 **allow — 실제로 파일을 지운다**. python3·perl·node·ruby 로 감싼 동일 형태도 마찬가지다(19차 독립 판정 실측: 18개 셀).",
+        "status": "미해결 — **사용자 확인 필요, 이번 사이클(치환·타이밍 축) 범위 밖의 사전 존재 결함(19차 독립 판정, 2026-09-05). 회귀 아님 — 1487f29·11c8db7 에서 동일하게 재현됨.** `normalize_path_token()` 은 bare 토큰의 `//`·`/./` 를 접어 `.claude/settings.json` 과 정확히 매치시키는데, 인터프리터/중첩 셸(`sh -c \"...\"` 등)의 하드 제외 판정은 인용된 인자 **문자열 전체**를 그 정규화 없이 리터럴로만 비교한다(`tests/pre-bash-firewall.bats:1417` 주석이 이 제한을 이미 명시하고 있었다). 닫으려면 인터프리터/중첩 셸 인자 안의 경로 토큰도 같은 정규화를 거치게 해야 한다 — 이건 `operand_before_verb_ordering`·`shell_metacharacter_adjacent_tokenization` 과 같은 계열의, 이번 사이클보다 넓은 리팩터라 별도 `/change-request` 후보다.",
+        "_note": "F65 본체(치환 안 동사 검출)·F37/17·18차(타이밍) 어느 쪽도 이 axis 를 만들거나 넓히지 않았다 — 19차 판정이 이 사실을 note_for_main_loop 에 명시적으로 남겼다."
       },
       "verb_via_substitution": {
         "example": "``printf '\\x72\\x6d'` -rf .claude` · `$(base64 -d <<<cm0=) -rf .claude` — 삭제 동사 이름이 명령 치환 **안에서 계산**되고 치환 문자열 자체에는 동사 리터럴이 (공백으로 구분된 낱말로도) 나타나지 않는 경우",
