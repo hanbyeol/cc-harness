@@ -1975,19 +1975,33 @@ __scan_one_segment_for_cp_delete() {
     # 나란히 서면 된다. 그래서 여기서 직접, 같은 __dash_prefix_strip_candidates 를
     # 재사용해 절단 후보들을 같은 동사 목록에 댄다 — `env`·`-S` 라는 이름·플래그를
     # 열거하지 않는다(23차가 셸 이름 열거를, 26차가 옵션 글자 열거를 폐지한 것과 같은
-    # 논리). 512자 상한은 __control_plane_location_impl() 과 같은 이유(긴 문자열
-    # 슬라이싱 반복의 누적 비용 방어) — 이 상한을 넘는 대시-토큰은 이 지점에서는
-    # 못 잡아도 세그먼트 2048자·`__split_segments()` 8192자 상한이 이미 막는 규모의
-    # 입력에서만 나타나고, 그 경우도 다른 fail-closed 상한들이 안전한 쪽으로 떨어뜨린다.
-    if [[ "$__verb_armed" -eq 0 && "$NORM_TOK" == -* && ${#NORM_TOK} -le 512 ]]; then
-      __dash_prefix_strip_candidates "$NORM_TOK"
-      for __sc_tok in "${__PREFIX_STRIP_CANDIDATES[@]+"${__PREFIX_STRIP_CANDIDATES[@]}"}"; do
-        for __arm_verb in "${ARM_DELETE_VERBS_UNCONDITIONAL[@]}"; do
-          if [[ "$__sc_tok" == "$__arm_verb" || "$__sc_tok" == */"$__arm_verb" ]]; then
-            __verb_armed=1; break 2
-          fi
+    # 논리).
+    #
+    # **F65 28차 독립 판정 — 열 번째 재발, 이번엔 방금 위 블록 자신의 결함.** 512자
+    # 상한을 처음 넣었을 때 상한 초과 시 이 블록 전체를 건너뛰게 했다 — 그런데
+    # "건너뛴다"는 곧 `__verb_armed` 를 그대로 0에 둔다는 뜻이라 **fail-open**이었다
+    # (`env -{v×520}Srm -rf .claude` 처럼 대시-토큰을 512자 넘게 패딩하면 이 검사
+    # 자체가 꺼져 무프롬프트로 실제 삭제까지 실증됐다). 이 파일의 다른 모든 형제
+    # 상한은 반대 방향이다 — `__control_plane_location_impl()` 의 512자 상한(:1106)은
+    # 초과 시 "컨트롤 플레인 위치로 친다"(return 0, 안전한 쪽), `SEGMENT_UNSAFE` 의
+    # 2048자 상한은 초과 시 세그먼트 전체를 ask 로 확정한다 — 둘 다 "몰라서 위험하면
+    # 안전한 쪽"이다. 상한을 없애지는 않는다(문자열 슬라이싱 반복의 누적 비용 방어라는
+    # 원래 이유는 유효하다) — 대신 **초과 시 절단을 시도하는 대신 곧장 armed 로
+    # 확정한다.** 512자를 넘는 대시-시작 토큰이 정상 명령에 나타나는 일은 없으므로
+    # (SC-10 코퍼스 실측 0건) 이 방향 전환이 만드는 마찰은 무시할 수 있는 수준이다.
+    if [[ "$__verb_armed" -eq 0 && "$NORM_TOK" == -* ]]; then
+      if [[ ${#NORM_TOK} -gt 512 ]]; then
+        __verb_armed=1
+      else
+        __dash_prefix_strip_candidates "$NORM_TOK"
+        for __sc_tok in "${__PREFIX_STRIP_CANDIDATES[@]+"${__PREFIX_STRIP_CANDIDATES[@]}"}"; do
+          for __arm_verb in "${ARM_DELETE_VERBS_UNCONDITIONAL[@]}"; do
+            if [[ "$__sc_tok" == "$__arm_verb" || "$__sc_tok" == */"$__arm_verb" ]]; then
+              __verb_armed=1; break 2
+            fi
+          done
         done
-      done
+      fi
     fi
     if [[ "$__verb_armed" -eq 1 ]]; then armed=1; continue; fi
     [[ "$armed" -eq 1 ]] || continue
