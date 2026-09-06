@@ -3165,6 +3165,49 @@ delete_decision() {
     || { echo "순수 대시-토큰 10800개 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처"; false; }
 }
 
+@test "F65 perf: many interpreter-name tokens with no flag ask fast instead of exhausting the hook timeout via pass-2's O(n^2) scan (31st verdict)" {
+  # 31차 독립 판정 — 열세 번째 재발, 패스 1(30차)의 옆 패스에서 같은 결함.
+  # 인터프리터 이름 토큰을 만날 때마다 그 뒤에서 플래그를 찾는 내부 스캔이,
+  # 플래그가 하나도 없으면 이름 토큰마다 끝까지 헛스캔해 O(n²)이었다 —
+  # `lua` 500개(2016바이트, 진입 상한의 6%) + 진짜 삭제만으로 훅이 5초
+  # 타임아웃에 죽었다(격리 랩 실증). 1dacc31이 패스 1과 같은 상위집합 논증으로
+  # 첫 이름 매치에서 멈추도록 고쳤다.
+  local c t0 t1 elapsed i name
+  for name in lua perl node ruby php; do
+    c=""
+    for ((i=0; i<500; i++)); do c="${c} ${name}"; done
+    c="${c} ; rm -rf .claude"
+    t0=$(date +%s%N)
+    run delete_decision "$c"
+    t1=$(date +%s%N)
+    elapsed=$(( (t1 - t0) / 1000000 ))
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "$name x500 페이로드가 놓쳤다"; false; }
+    [ "$elapsed" -lt 3000 ] \
+      || { echo "$name x500 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처"; false; }
+  done
+}
+
+@test "F65 perf: a wide but ordinary command with many plain path tokens stays fast and allowed (31st verdict friction regression)" {
+  # 31차 독립 판정 — eea8f5a(세그먼트 자신의 동사 검사 루프에 매 토큰마다
+  # date 를 포크하는 예산 확인을 추가)가 만든 마찰 회귀. 경로 토큰 800개짜리
+  # (11.9KB) `git add` 가 484ms/allow 에서 3029ms/ask 로 샜다 — 포크 자체의
+  # 누적 비용이 새 병목이 됐다. 1dacc31이 `__FWA_CHECK_EVERY`(200)번마다
+  # 한 번만 시각을 읽도록 고쳤다.
+  local args c t0 t1 elapsed i
+  args=""
+  for ((i=0; i<800; i++)); do args="${args} path/to/file${i}.txt"; done
+  c="git add${args}"
+  t0=$(date +%s%N)
+  run delete_decision "$c"
+  t1=$(date +%s%N)
+  elapsed=$(( (t1 - t0) / 1000000 ))
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "경로 800개짜리 무관 명령에 새 마찰이 생겼다: $output"; false; }
+  [ "$elapsed" -lt 1500 ] \
+    || { echo "경로 800개짜리 무관 명령이 ${elapsed}ms 걸렸다 — date 포크 오버헤드 회귀 의심"; false; }
+}
+
 @test "F65 perf: a command past the entry-point length cap asks immediately, before any analysis" {
   # 32768자 상한을 넘는 명령은 정밀 분석(정규화·세그먼트 순회) 자체를 시작하지 않는다 —
   # 그 정밀 분석의 각 단계(awk 정규화·Layer 3 정규식)가 큰 입력에서 그 자체로 느려질 수
