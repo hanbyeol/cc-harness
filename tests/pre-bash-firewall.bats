@@ -3107,6 +3107,50 @@ delete_decision() {
     || { echo "512자 경계 근접 + 긴 꼬리 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처"; false; }
 }
 
+@test "F65 perf: many code-flag-shaped tokens ask fast instead of exhausting the hook timeout via O(k*n) collection (30th verdict)" {
+  # 30차 독립 판정 — 열두 번째 재발, 이번엔 __find_wrapped_arg() 패스 1 자신의
+  # 결함(23차 판정 때부터 있었고 이 사이클의 다른 수정들과 무관하게 존재했다).
+  # `-…c…` 모양 플래그가 매치될 때마다 그 뒤 남은 토큰 전부를 다시 추가해서
+  # 매치 k개면 O(k·n)이었다 — `sh` 뒤에 `-c` 900개(2569바이트, 진입 상한의
+  # 8%)만으로 이 함수 자체가 40초 넘게 걸려 훅의 5초 타임아웃에 죽었다(판정이
+  # 안 나가 격리 랩에서 실제 삭제까지 성공). 6d0e817이 첫 매치에서 멈추도록
+  # 고쳤다 — 더 이른 매치의 결과가 항상 더 늦은 매치 결과의 상위집합이므로
+  # 최종 후보 집합은 그대로다.
+  local c t0 t1 elapsed i
+  c="sh"
+  for ((i=0; i<900; i++)); do c="${c} -c"; done
+  c="${c} ; rm -rf .claude"
+  t0=$(date +%s%N)
+  run delete_decision "$c"
+  t1=$(date +%s%N)
+  elapsed=$(( (t1 - t0) / 1000000 ))
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "30차 정확 페이로드가 놓쳤다"; false; }
+  [ "$elapsed" -lt 4500 ] \
+    || { echo "900개 -c 토큰 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처"; false; }
+}
+
+@test "F65 perf: the segment's own per-token verb loop fails closed under a wall-clock budget, not just per-call boundedness (self-discovered, 30th verdict followup)" {
+  # 30차 판정 검증 도중 자체 발견(판정 대상 아님) — 27~29차가 대시-토큰마다
+  # __dash_prefix_strip_candidates() 를 태우도록 늘려 놓은 세그먼트 자신의
+  # 동사 검사 루프(:2021 부근)에는 예산 확인이 전혀 없었다. 개별 호출은 이제
+  # 전부 유계(29차 대응)지만, 이름·`-c` 어느 것도 없는 순수 대시-토큰
+  # 10800개(32408바이트, 진입 상한 바로 아래, 화이트리스트에 없는 임의 도구
+  # 이름 뒤)만으로 이 루프 하나가 4.76초 걸렸다 — 5초 타임아웃에 여유
+  # 0.24초. eea8f5a가 후보 순회가 이미 쓰는 것과 같은 3초 전역 예산을 이
+  # 루프에도 적용했다.
+  local args c t0 t1 elapsed i
+  args=""
+  for ((i=0; i<10800; i++)); do args="${args} -x"; done
+  c="sometool${args}"
+  t0=$(date +%s%N)
+  run delete_decision "$c"
+  t1=$(date +%s%N)
+  elapsed=$(( (t1 - t0) / 1000000 ))
+  [ "$elapsed" -lt 4500 ] \
+    || { echo "순수 대시-토큰 10800개 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처"; false; }
+}
+
 @test "F65 perf: a command past the entry-point length cap asks immediately, before any analysis" {
   # 32768자 상한을 넘는 명령은 정밀 분석(정규화·세그먼트 순회) 자체를 시작하지 않는다 —
   # 그 정밀 분석의 각 단계(awk 정규화·Layer 3 정규식)가 큰 입력에서 그 자체로 느려질 수
