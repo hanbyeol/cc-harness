@@ -3253,7 +3253,10 @@ delete_decision() {
 
   __probe() {
     run delete_decision "$1"
-    [[ "$output" == *'"permissionDecision": "allow"'* ]] && allow_cmds+=("$1")
+    if [[ "$output" == *'"permissionDecision": "allow"'* ]]; then
+      allow_cmds+=("$1")
+    fi
+    return 0
   }
 
   for w in "${wrappers[@]}"; do
