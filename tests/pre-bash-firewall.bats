@@ -3208,6 +3208,44 @@ delete_decision() {
     || { echo "경로 800개짜리 무관 명령이 ${elapsed}ms 걸렸다 — date 포크 오버헤드 회귀 의심"; false; }
 }
 
+@test "F65 fail-closed: __find_wrapped_arg()'s cross-pass budget overflow always resolves to ask, never allow (32nd verdict, SC-10(4))" {
+  # **F65 32차 독립 판정 — SC-10(4) 위반(재발이 아니라 절차 누락).** 1dacc31이
+  # 새 상한 두 개(관통 3초 예산·`__FWA_CHECK_EVERY`=200 확인 주기)를 신설했는데,
+  # 초과 시 방향이 안전한 쪽임을 확인하는 테스트를 같은 커밋에 넣지 않았다 —
+  # SC-10(4)는 "상한을 새로 넣는 커밋은 그 상한의 경계값에서 초과 시 결과가
+  # 안전한 쪽임을 확인하는 테스트를 반드시 같은 커밋에 포함한다"를 명시적으로
+  # 요구한다(28차 판정의 fail-open 발견을 계기로 신설, 직전 라운드(3dd2a1d)는
+  # 실제로 지켰었다). 32차 판정 자신은 코드 추적 + 실제 대형 입력으로 fail-open이
+  # 없음을 검증했지만, 그 검증이 스위트 안에 결정적으로 고정돼 있지 않으면
+  # 향후 리팩터가 이 분기(:2176-2182)를 뒤집어도 초록으로 남는다.
+  #
+  # 실제로 3초/200회를 채우는 크기의 입력은 느리고 CI 변동에 취약하므로(32차
+  # 판정이 자체 검증에도 같은 방법을 썼다), 원본 훅의 사본에서 두 상수를
+  # 극단으로 낮춰(`__FWA_CHECK_EVERY`→1, 모든 `-gt 3000`→`-gt -1`, 항상 참)
+  # 오버플로 경로를 결정적으로 강제한다. 대상 명령은 원본에서도 순식간에
+  # allow인, armed 도 아니고 인터프리터 이름·`-c` 모양 플래그도 없는 완전
+  # 무해한 명령이다 — 이 입력이 위험할 이유는 주입된 오버플로 말고는 없다.
+  # 오버플로가 fail-open이면 이 명령은 (원본과 마찬가지로) allow 로 남을
+  # 것이고, fail-closed면 오버플로 사유 문구와 함께 ask 로 뒤집힌다.
+  # `__fwa_ms -gt 3000` 셋(패스 1/2/3 각각)만 겨냥한다 — 다른 기존 예산 확인
+  # (`__token_budget_ms`·`__cand_budget_ms`·`__budget_ms`)은 건드리지 않아,
+  # 이 테스트가 정확히 이번 라운드가 신설한 두 상한(관통 예산·확인 주기)만
+  # 격리해서 검증하게 한다.
+  local patched="$BATS_TEST_TMPDIR/pre-bash-firewall-overflow-forced.sh"
+  sed -e 's/__FWA_CHECK_EVERY=200/__FWA_CHECK_EVERY=1/' \
+      -e 's/\$__fwa_ms -gt 3000/\$__fwa_ms -gt -1/g' \
+      "$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh" > "$patched"
+  chmod +x "$patched"
+
+  local json out
+  json=$(printf '%s' "sometool arg1 arg2" | jq -Rs '{tool_input:{command:.}}')
+  out=$(printf '%s' "$json" | bash "$patched")
+  [[ "$out" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "예산을 강제로 소진시켰는데도 allow가 나왔다 — 오버플로 경로가 fail-open일 수 있다: $out"; false; }
+  [[ "$out" == *"래퍼 탐지 자체가"* ]] \
+    || { echo "오버플로 사유 문구가 안 보인다 — 다른 경로로 우연히 ask 됐을 수 있다: $out"; false; }
+}
+
 @test "F65 perf: a command past the entry-point length cap asks immediately, before any analysis" {
   # 32768자 상한을 넘는 명령은 정밀 분석(정규화·세그먼트 순회) 자체를 시작하지 않는다 —
   # 그 정밀 분석의 각 단계(awk 정규화·Layer 3 정규식)가 큰 입력에서 그 자체로 느려질 수
