@@ -420,7 +420,8 @@
     }
   ],
   "_parallelizable": false,
-  "agreed": false,
+  "agreed": true,
+  "_agreed_note_2026_09_06_plan_gate": "**재승인 — 2026-09-06, Plan 게이트(ExitPlanMode) 승인.** implementation_steps 14(AC-12/SC-10, 코드 전달 경로 무관 재검사)의 구현 계획을 사용자에게 제시하고 승인받았다 — 핵심 설계: `__find_wrapped_arg()`에 패스 3(공백 포함 복합 토큰이면 이름·플래그 무관 후보)을 add-only로 추가, 기존 패스 1/2는 무변경. 승인 범위는 step 14 하나로 한정된다.",
   "_agreed_note_2026_09_06": "24차 독립 판정(fail, score 5, security 5)이 wrapper_code_delivery_mechanism 축(`env -S`·헤어스트링·파이프로 코드가 전달되는 형태)을 실증했고, 사용자 확인으로 이번 change-request가 그 축을 AC-12/SC-10으로 계약에 편입했다 — 범위가 바뀌었으므로 `agreed`를 false로 되돌린다(change-request Step 6, 2026-09-06). 재합의는 `/implement`의 Plan 게이트(ExitPlanMode)에서 받는다. 승인 범위는 AC-12/SC-10 및 그에 연결된 `_residual_risk_AC11.open_axes_2026_08_04.wrapper_code_delivery_mechanism`의 구현으로 한정된다 — 19~24차가 이미 닫은 다른 서브축(표기·명령 치환·타이밍·이름·플래그 표기·값-받는 옵션)은 재작업 대상이 아니며 회귀 없이 유지돼야 한다.",
   "_agreed_note_2026_08_30": "**재승인 — 2026-08-30, Plan 게이트(ExitPlanMode) 승인.** 4차 판정(fail, score 5)이 실측한 3개 우회(중괄호 확장·설치 훅 개별 파일 rm 삭제·evaluator-runs.jsonl 무방비)를 F73~F77 이후 코드베이스로 이 세션에서 독립 재현해 여전히 뚫려 있음을 확인했다. 승인 범위는 implementation_steps 10~13(이미 계약에 정의됨, done:false)의 구현으로 한정된다 — step 1~9(done:true)는 이미 릴리스된 원 구현이라 재작업 대상이 아니다.",
   "_agreed_note": "**재승인 — 2026-08-03, Plan 게이트(ExitPlanMode) 승인(AC-11/SC-9 추가 반영).** 최초 승인 — 2026-07-28 사용자 지시: '기존에 작성했던 무의미하고 정상적으로 작동하지 않는 코드와 테스트케이스를 제거하고 올바른 방향을 설계하고 진행해.' 근본원인 분석(예측 불가능성)과 해결 방향(탐지·복구 전환)을 제시한 뒤 받은 명시적 진행 지시를 Plan 게이트 승인으로 기록했었다. 아래 `_gap_2026_08_03`으로 acceptance_criteria/security_criteria가 바뀌었으므로 `agreed`를 false로 되돌리고 재합의를 다시 받는다(change-request Step 6).",
