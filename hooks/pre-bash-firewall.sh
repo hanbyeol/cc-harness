@@ -1654,10 +1654,13 @@ __split_segments() {
 # (`sh -c "python3 -c \"...\""`)는 별도 축으로 남긴다(진단만 무한정 늘리지 않기 위한
 # 의도적 경계, sprint-51.json 참조).
 #
-# 셸 이름 목록은 여기서 새로 정의한다(이 파일에 "셸 이름" 배열이 따로 없었다). 인터프리터
-# 이름은 `INTERPRETER_ARM` 을 다시 나열하지 않고 그 값을 파싱해서 얻는다(F67 SC-2 와
-# 같은 단일 출처 원칙 — 목록이 둘로 갈라지면 한쪽만 고쳤을 때 조용히 어긋난다).
-WRAP_SHELL_TOKENS=(sh bash zsh dash ksh)
+# 인터프리터 이름은 `INTERPRETER_ARM` 을 다시 나열하지 않고 그 값을 파싱해서 얻는다
+# (F67 SC-2 와 같은 단일 출처 원칙 — 목록이 둘로 갈라지면 한쪽만 고쳤을 때 조용히
+# 어긋난다). **23차 독립 판정 반려로 셸 이름 목록(`WRAP_SHELL_TOKENS`)은 폐지한다** —
+# 아래 `__has_shell_code_flag()` 설명 참조. 인터프리터 이름은 남긴다: `-e`/`-r` 은
+# grep 등 무관한 도구도 흔히 쓰는 글자라(`grep -e "패턴"`), 이름 확인 없이 일반화하면
+# 그런 무관 용례에 새 마찰이 생긴다 — 그래서 이 둘만은 도구 이름이 인터프리터로
+# 확인될 때만 인정한다.
 __wrap_interpreter_tokens_init() {
   local re="${INTERPRETER_ARM#\(}"
   re="${re%\)}"
@@ -1665,51 +1668,57 @@ __wrap_interpreter_tokens_init() {
 }
 __wrap_interpreter_tokens_init
 
-# 토큰이 셸/인터프리터 이름인가 — 인용부호만 벗겨서 비교하고(백슬래시는 이 이름들에
-# 실무상 나타나지 않으므로 다루지 않는다), 경로가 있으면 basename 접미사로도 매치한다
-# (`/bin/sh`·`/usr/bin/env` 뒤의 `python3` 등 — 위 무장 동사 검사와 같은 관용구).
-# 결과는 반환값이 아니라 `__WRAP_CLASS`("shell"|"interp")로 준다 — 호출자가 클래스별로
-# 다른 플래그 문법을 판정해야 하기 때문이다(아래 __is_wrap_flag 참조).
+# 토큰이 인터프리터 이름인가 — 인용부호·백슬래시를 벗겨서 비교하고(23차 독립 판정
+# 반려: 이전에는 따옴표만 벗겨 `\python3 -e '...'` 처럼 별칭 우회 관용구(`\cmd`)가
+# 셌다 — `alias`·`command` 없이도 셸이 그대로 실행하는 표준 표기다), 경로가 있으면
+# basename 접미사로도 매치한다(`/usr/bin/env` 뒤의 `python3` 등).
 __classify_wrap_verb() {
   local t="$1" stripped v
-  stripped="${t//\'/}"; stripped="${stripped//\"/}"
-  for v in "${WRAP_SHELL_TOKENS[@]}"; do
-    if [[ "$stripped" == "$v" || "$stripped" == */"$v" ]]; then __WRAP_CLASS="shell"; return 0; fi
-  done
+  stripped="${t//\'/}"; stripped="${stripped//\"/}"; stripped="${stripped//\\/}"
   for v in "${WRAP_INTERPRETER_TOKENS[@]}"; do
-    if [[ "$stripped" == "$v" || "$stripped" == */"$v" ]]; then __WRAP_CLASS="interp"; return 0; fi
+    if [[ "$stripped" == "$v" || "$stripped" == */"$v" ]]; then return 0; fi
   done
   return 1
 }
 
-# 이 토큰이 "다음 토큰을 코드/명령 문자열로 받는다" 는 플래그인가. 셸은 `-c` 를
-# 결합 단축옵션으로도 쓴다(`bash -lc "..."` 가 20차 판정 실증 목록에 있다).
-# **21차 독립 판정 반려**: 이전 버전은 `c` 를 클러스터 **마지막 글자로 앵커**했는데
-# (`^-[A-Za-z]*c$`), 실제 셸은 클러스터 안 `c` 의 위치와 무관하게 다음 인자를 코드
-# 문자열로 받는다 — `sh -cx '...'`·`sh -cv '...'`·`bash -cl '...'` 전부 실행되는데
-# `c` 뒤에 다른 글자(`x`·`v`)가 오면 옛 정규식이 놓쳤다(격리 랩 실증: 16종 무프롬프트
-# 삭제). `c` 가 클러스터 어디에 있어도 성립하도록 `^-[A-Za-z]*c[A-Za-z]*$` 로 고친다.
-# 같은 판정이 `ftok` 의 따옴표도 벗긴다 — 이전에는 이 함수만 벗기지 않아 `sh '-c' '...'`
-# 처럼 플래그 자체가 인용된 형태가 샜다(형제 함수 `__classify_wrap_verb()` 는 이미
-# 벗기고 있었다 — 같은 정규화를 두 곳에 따로 심으면 이렇게 어긋난다).
+# 이 토큰이 인터프리터의 "다음 토큰을 코드로 받는다" 플래그(`-e`/`-c`/`-r`)인가.
 # 인터프리터는 결합형을 **인식하지 않는다** — 결합형이 실제로 존재하지 않아서가
 # 아니다(**22차 독립 판정이 반증**: `python3 -Bc`·`ruby -we`·`perl -w -e` 전부 실제로
-# 실행된다 — 이 주석이 예전에 "인터프리터는 결합하지 않는다"고 사실과 다르게 적었다).
-# 진짜 이유는 마찰 회피다 — 결합까지 인식하면 `perl -pe '...'`·`perl -ne '...'` 같은
-# 매우 흔한 한 줄짜리 관용구(치환·필터 스크립트, 셸 코드가 아니다)가 전부 걸린다.
-# 그래서 인터프리터는 각 언어의 정확한 실행 플래그만 본다(`-c`: python·node 도
-# 받아 준다 · `-e`: perl·ruby·node·lua · `-r`: php) — `-Bc`·`-we`·`-w -e` 같은 결합·
-# 병기 형태는 이 판정을 통과하지 못해 인식되지 않는다. 이 잔여는 새 구멍이 아니다 —
-# 인터프리터 경로는 `interpreter_shell_reentry`·`unenumerated_verbs`(sprint-51.json)
-# 축으로 이미 열려 있고, 그 축을 닫는 리팩터가 나오면 이 전제도 함께 재검토해야 한다.
+# 실행된다). 진짜 이유는 마찰 회피다 — 결합까지 인식하면 `perl -pe '...'`·
+# `perl -ne '...'` 같은 매우 흔한 한 줄짜리 관용구(치환·필터 스크립트, 셸 코드가
+# 아니다)가 전부 걸린다. `-c` 는 아래 `__has_shell_code_flag()` 가 이름과 무관하게
+# 이미 구조적으로 잡으므로 여기서 다시 볼 필요가 없다 — `-e`/`-r` 만 남긴다.
 __is_wrap_flag() {
-  local class="$1" ftok="$2" stripped
-  stripped="${ftok//\'/}"; stripped="${stripped//\"/}"
-  if [[ "$class" == "shell" ]]; then
-    [[ "$stripped" =~ ^-[A-Za-z]*c[A-Za-z]*$ ]] && return 0
-  else
-    [[ "$stripped" == "-e" || "$stripped" == "-c" || "$stripped" == "-r" ]] && return 0
-  fi
+  local ftok="$1" stripped
+  stripped="${ftok//\'/}"; stripped="${stripped//\"/}"; stripped="${stripped//\\/}"
+  [[ "$stripped" == "-e" || "$stripped" == "-r" ]] && return 0
+  return 1
+}
+
+# **23차 독립 판정 반려 대응— 이름 열거를 버린다.** `WRAP_SHELL_TOKENS=(sh bash zsh
+# dash ksh)` 는 이 머신에 실재하는 `csh`·`tcsh` 를 빠뜨렸고(격리 랩 실증: 둘 다
+# `-c 'rm -rf .claude'` 로 실제 삭제), `ash`·`mksh`·`fish`·`busybox sh` 등 다른
+# 시스템에 있을 셸, 그리고 아직 존재하지 않는 미래의 셸도 원리적으로 못 채운다.
+# 22차 독립 판정이 "어떤 옵션이 값을 받는지 알 필요가 없게 만들라"고 했던 것과
+# 같은 논리를 한 층 위에 적용한다 — **어떤 이름이 셸인지 알 필요가 없게 만든다.**
+# `-…c…` 모양의 플래그(23차가 겪은 것과 같은, 클러스터 안 위치 무관 규칙)를 가진
+# 토큰이 세그먼트 **어디에** 있든, 그 뒤에 남은 토큰을 전부 후보로 삼는다 — 그
+# 앞이 `sh`든 `bash`든 `csh`든 `tcsh`든 처음 보는 셸 이름이든 상관하지 않는다.
+#
+# 무해한 도구가 우연히 이 모양의 플래그를 쓰면(`grep -c "패턴"`·`tar -czf out.tgz
+# "여러 단어 경로"`) 그 뒤 토큰도 후보가 되지만, 벗겨서 다시 스캔했을 때 그 안에
+# 진짜 삭제 동사(`rm`·`rmdir`·`unlink`·`shred`·`mv`)와 컨트롤 플레인 경로가
+# **함께** 없으면 아무 일도 안 난다 — 다른 인용 래퍼 검사와 정확히 같은
+# add-only 성질이다(23차 판정 자체 실측: 42개 일상 명령 코퍼스에서 신규 마찰
+# 0건, 위치 인자 텍스트가 문자 그대로 삭제 명령인 극단적 1건만 예외).
+#
+# 플래그 토큰 자체도 인용부호·백슬래시를 벗기고 판정한다 — 안 벗기면 `sh -\c
+# '...'`·`sh \-c '...'`·`sh '-c' '...'` 처럼 플래그 표기만 바뀌어도 이 구조적
+# 판정 자체가 실패한다(23차 판정이 실증한, 이름 축과는 또 다른 표기 축).
+__has_shell_code_flag() {
+  local ftok="$1" stripped
+  stripped="${ftok//\'/}"; stripped="${stripped//\"/}"; stripped="${stripped//\\/}"
+  [[ "$stripped" =~ ^-[A-Za-z]*c[A-Za-z]*$ ]] && return 0
   return 1
 }
 
@@ -1752,19 +1761,40 @@ __unquote_wrap_candidate() {
 # 안 잡히므로 안전 방향 손실은 없다 — add-only.
 __find_wrapped_arg() {
   local -a t=("${__SEG_TOKS[@]+"${__SEG_TOKS[@]}"}")
-  local n=${#t[@]} i=0 j k
+  local n=${#t[@]} i j k
   __UNWRAP_CANDIDATES=()
+
+  # 패스 1 — 구조적(이름 무관): `-…c…` 모양 플래그를 가진 토큰이 어디에 있든,
+  # 그 뒤에 남은 토큰을 전부 후보로 담는다(__has_shell_code_flag 주석 참조).
+  # 이 세그먼트에 그런 플래그가 **여러 개** 있으면(`sh -c -c '...'`·중첩 등)
+  # 전부에 대해 후보를 모은다 — 한 곳만 보고 멈추면 22차와 같은 종류의
+  # "첫 매치에서 그친다" 결함이 이 층에서도 재발한다.
+  j=0
+  while [[ $j -lt $n ]]; do
+    if __has_shell_code_flag "${t[$j]}"; then
+      k=$((j + 1))
+      while [[ $k -lt $n ]]; do
+        __UNWRAP_CANDIDATES+=("${t[$k]}")
+        k=$((k + 1))
+      done
+    fi
+    j=$((j + 1))
+  done
+
+  # 패스 2 — 인터프리터 이름 게이트(`-e`/`-r`): 이 두 플래그는 이름과 무관하게
+  # 일반화하면 `grep -e "패턴"` 같은 흔한 무관 용례에 새 마찰이 생기므로,
+  # 도구 이름이 인터프리터로 확인될 때만 인정한다(__is_wrap_flag 주석 참조).
+  i=0
   while [[ $i -lt $n ]]; do
     if __classify_wrap_verb "${t[$i]}"; then
       j=$((i + 1))
       while [[ $j -lt $n ]]; do
-        if __is_wrap_flag "$__WRAP_CLASS" "${t[$j]}"; then
+        if __is_wrap_flag "${t[$j]}"; then
           k=$((j + 1))
           while [[ $k -lt $n ]]; do
             __UNWRAP_CANDIDATES+=("${t[$k]}")
             k=$((k + 1))
           done
-          [[ ${#__UNWRAP_CANDIDATES[@]} -gt 0 ]] && return 0
           break
         fi
         j=$((j + 1))
@@ -1772,6 +1802,8 @@ __find_wrapped_arg() {
     fi
     i=$((i + 1))
   done
+
+  [[ ${#__UNWRAP_CANDIDATES[@]} -gt 0 ]] && return 0
   return 1
 }
 
