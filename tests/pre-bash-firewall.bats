@@ -2953,6 +2953,12 @@ delete_decision() {
   run delete_decision "$c"
   t1=$(date +%s%N)
   elapsed=$(( (t1 - t0) / 1000000 ))
+  # **F65 30차 독립 판정 지적** — 시간 임계값만으로는 "빠르게 끝났다"와 "훅이
+  # 타임아웃으로 죽어 아무 출력도 못 냈다"를 구분하지 못한다(죽으면 `run`이
+  # 재빨리 반환해 elapsed 도 작게 나올 수 있다) — 판정 문자열 자체가 있는지도
+  # 확인한다.
+  [[ "$output" == *'"permissionDecision":'* ]] \
+    || { echo "출력에 permissionDecision 자체가 없다 — 훅이 죽었을 가능성"; false; }
   [ "$elapsed" -lt 4500 ] \
     || { echo "1000개 연속 \${ 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처(F37 이 지적한 이차식 재발)"; false; }
 }
@@ -3103,6 +3109,10 @@ delete_decision() {
   run delete_decision "$c"
   t1=$(date +%s%N)
   elapsed=$(( (t1 - t0) / 1000000 ))
+  # 30차 판정 지적 — 시간 임계값만으로는 "빠르다"와 "훅이 죽어 출력이 없다"를
+  # 구분 못한다.
+  [[ "$output" == *'"permissionDecision":'* ]] \
+    || { echo "출력에 permissionDecision 자체가 없다 — 훅이 죽었을 가능성"; false; }
   [ "$elapsed" -lt 3000 ] \
     || { echo "512자 경계 근접 + 긴 꼬리 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처"; false; }
 }
@@ -3147,6 +3157,10 @@ delete_decision() {
   run delete_decision "$c"
   t1=$(date +%s%N)
   elapsed=$(( (t1 - t0) / 1000000 ))
+  # 30차 판정 지적 — 시간 임계값만으로는 "빠르다"와 "훅이 죽어 출력이 없다"를
+  # 구분 못한다.
+  [[ "$output" == *'"permissionDecision":'* ]] \
+    || { echo "출력에 permissionDecision 자체가 없다 — 훅이 죽었을 가능성"; false; }
   [ "$elapsed" -lt 4500 ] \
     || { echo "순수 대시-토큰 10800개 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처"; false; }
 }
