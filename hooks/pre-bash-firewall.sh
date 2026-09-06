@@ -1983,7 +1983,7 @@ CP_DELETE_HIT=""
 # 전부 닫힌다", 중첩 래퍼는 별도 축). 반환: 0=삭제 발견(CP_DELETE_HIT 설정), 1=없음.
 __scan_one_segment_for_cp_delete() {
   local seg="$1" try_unwrap="$2"
-  local tok armed __arm_verb __verb_armed inner_seg __sc_tok
+  local tok armed __arm_verb __verb_armed inner_seg __sc_tok __token_budget_ms
   local -a toks
   __tokenize_segment "$seg"
   # 빈 배열을 `"${arr[@]}"` 로 그대로 펼치면 bash 3.2(이 훅이 실제로 실행되는 macOS 기본
@@ -2018,7 +2018,25 @@ __scan_one_segment_for_cp_delete() {
       if [[ "$NORM_TOK" == "$ARM_DELETE_VERB_DELETE_GATED" || "$NORM_TOK" == */"$ARM_DELETE_VERB_DELETE_GATED" ]]; then armed=1; break; fi
     done
   fi
+  # **F65 30차 독립 판정 재작업 중 자체 발견(판정 대상 아님, 30차 수정과 같은 계열)**
+  # — 이 루프는 27~29차가 대시-토큰마다 `__dash_prefix_strip_candidates()`를 태우도록
+  # 늘려 놓았는데, 이 함수 안에는(다른 모든 예산 확인처럼) 예산 확인이 전혀 없다.
+  # 30차가 고친 `__find_wrapped_arg()` 패스 1의 O(k·n)을 O(n)으로 낮춘 뒤 직접
+  # 재측정: 이름·`-c` 어느 것도 없는 순수 대시-토큰 10800개(32408바이트, 진입
+  # 상한 바로 아래, 화이트리스트에 없는 임의 도구 이름 뒤)만으로 이 루프 하나가
+  # 4.76초 걸렸다 — 5초 하드 타임아웃에 여유 0.24초. 개별 반복은 이제 전부
+  # 유계(각 `__dash_prefix_strip_candidates` 호출 자체가 O(1)에 가깝다, 29차
+  # 대응)지만, 유계인 반복을 **아주 많이** 반복하는 총합은 별개의 위험이다 —
+  # 후보 순회(:2078 부근)가 이미 쓰는 것과 같은 전역 시간 예산(`__HOOK_START_NS`
+  # 기준 3초)을 이 루프에도 그대로 적용해, 유계 반복의 누적조차 안전한 쪽(ask)
+  # 으로 유계화한다.
+  __token_budget_ms=0
   for tok in "${toks[@]+"${toks[@]}"}"; do
+    __token_budget_ms=$(( ($(date +%s%N) - __HOOK_START_NS) / 1000000 ))
+    if [[ $__token_budget_ms -gt 3000 ]]; then
+      CP_DELETE_HIT="(세그먼트 토큰이 많아 시간 예산 안에 전부 확인하지 못함 — 남은 토큰에 삭제가 있는지 알 수 없어 안전한 쪽으로 확인 요청)"
+      return 0
+    fi
     normalize_path_token "$tok"
     # 위와 같은 이유로 `${NORM_TOK##*/}` 추출이 아니라 접미사 판정을 쓴다. 목록은
     # ARM_DELETE_VERBS_UNCONDITIONAL 하나뿐이다(위 선언 참조) — 여기서 다시 나열하지
