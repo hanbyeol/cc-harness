@@ -894,6 +894,19 @@ normalize_path_token() {
   # 펴 보지 않고 바로 ask). 이 함수는 일반 따옴표만 제거한다 — `$'...'` 를 거치지 않은
   # 나머지 정규화(`.//`·`../`·후행 `/`)는 그대로 유지된다.
   t=${t//\'/}; t=${t//\"/}; t=${t//\\/}          # 따옴표·백슬래시 제거 (`'.claude'`·`\rm`)
+  # **F65 security-auditor AUDIT-5(high)** — 아래 세 접기 루프(`//`·`/./`·`../`)는
+  # 전역 치환·정규식 반복이라 길이에 대해 이차식이고, 이 함수는 armed 여부와
+  # 무관하게 세그먼트의 **모든** 토큰에 대해 호출된다. 이 함수 자신에는 길이
+  # 상한이 없었고, `__control_plane_location_impl()`의 512자 상한은 이 함수가
+  # **끝난 뒤**에 걸리며, 상위 예산 확인도 200 토큰마다라(:2094) 토큰 **하나**의
+  # 비용은 한 번도 확인되지 않았다 — SC-10(5)("검사 단위가 비용 단위보다
+  # 성기면 상한은 있으나 마나") 직접 위반. 실측: `a/../`를 이어붙인 6KB 토큰
+  # 하나로 훅의 5초 하드 타임아웃을 넘겼다(bash 3.2). 상한을 넘는 토큰은
+  # 접기를 시도하지 않고 그대로(따옴표·백슬래시만 제거된 채) 반환한다 —
+  # 짧은 삭제 동사와 같아질 수 없으니 동사 판정 쪽은 안전하고, 피연산자
+  # 판정 쪽은 이미 있는 그 512자 상한이 접기 여부와 무관하게 여전히 상한
+  # 초과로 보고 안전한 쪽(ask)으로 떨어뜨린다.
+  if [[ ${#t} -gt 512 ]]; then NORM_TOK="$t"; return; fi
   while [[ "$t" == *"$dsl"* ]]; do t=${t//"$dsl"/"$sl"}; done
   while [[ "$t" == *"$dot"* ]]; do t=${t//"$dot"/"$sl"}; done
   # 내부 `..` 세그먼트를 접는다(F65 8차 판정 반려) — 2차 판정부터 열려 있던 축이다. `a/../`
@@ -2055,19 +2068,37 @@ __scan_one_segment_for_cp_delete() {
   if [[ "$SEGMENT_UNSAFE" -eq 1 ]]; then CP_DELETE_HIT="$seg"; return 0; fi
   armed=0
   # `find … -delete` 는 동사가 술어로 온다. `-exec … rm` 은 아래 동사 검사가 무장한다.
-  if [[ "$seg" == *"-delete"* ]]; then
-    for tok in "${toks[@]+"${toks[@]}"}"; do
-      normalize_path_token "$tok"
-      # `${NORM_TOK##*/}` (basename 추출) 대신 접미사 패턴 **판정**을 쓴다 — F65 7차 판정
-      # 재작업 도중 자체 발견(판정 대상 아님): `${var##pattern}` 처럼 와일드카드가 든 추출은
-      # 이 bash에서 문자열 길이에 대해 이차식이다(직접 실측: 29KB 토큰 하나에 1.17초,
-      # 5.8만자 토큰은 4.8초 — 매칭 성공/실패와 무관하게 똑같이 느리다). 반면 `[[ x == 패턴 ]]`
-      # **판정**은 같은 조건에서 0.01초대다. 중괄호 그룹 콤마 하나짜리 피연산자 토큰은 실제로
-      # 수만 자까지 커질 수 있고(F65 축), 이 자리는 그 토큰이 __control_plane_location_impl()
-      # 의 512자 상한을 거치기 **전**이라 무방비였다.
-      if [[ "$NORM_TOK" == "$ARM_DELETE_VERB_DELETE_GATED" || "$NORM_TOK" == */"$ARM_DELETE_VERB_DELETE_GATED" ]]; then armed=1; break; fi
-    done
-  fi
+  # **F65 security-auditor AUDIT-4(high)** — 이전 구현은 `-delete`가 있는지를 **정규화
+  # 이전 세그먼트 원문**에서 리터럴 부분문자열로 먼저 확인하고, 그 사전 필터를 통과해야만
+  # 아래 (안전한) 토큰별 "find" 검사를 실행했다. 술어를 인용·백슬래시로 쪼개면
+  # (`-de''lete`·`-de""lete`·`-dele\te`) 사전 필터 자체가 실패해 무장 검사에 아예
+  # 도달하지 못한다 — 10차 판정이 **동사 이름**에 대해 이미 반려한 바로 그 실수("동사
+  # 이름을 사전 필터로 쓰지 않는다")가 **술어** 자리에 그대로 남아 있었다(격리 랩 실증:
+  # `find .claude -de''lete` 가 allow + 실제 삭제). 사전 필터를 버리고, "find" 토큰
+  # 존재와 "-delete" 토큰 존재를 각각 **정규화된 형태**로 독립 확인한다 — `normalize_
+  # path_token()` 이 이미 인용·백슬래시를 제거하므로 위 세 변형 전부 `-delete` 로
+  # 정규화된다.
+  local __has_find_tok=0 __has_delete_pred=0
+  for tok in "${toks[@]+"${toks[@]}"}"; do
+    normalize_path_token "$tok"
+    # `${NORM_TOK##*/}` (basename 추출) 대신 접미사 패턴 **판정**을 쓴다 — F65 7차 판정
+    # 재작업 도중 자체 발견(판정 대상 아님): `${var##pattern}` 처럼 와일드카드가 든 추출은
+    # 이 bash에서 문자열 길이에 대해 이차식이다(직접 실측: 29KB 토큰 하나에 1.17초,
+    # 5.8만자 토큰은 4.8초 — 매칭 성공/실패와 무관하게 똑같이 느리다). 반면 `[[ x == 패턴 ]]`
+    # **판정**은 같은 조건에서 0.01초대다. 중괄호 그룹 콤마 하나짜리 피연산자 토큰은 실제로
+    # 수만 자까지 커질 수 있고(F65 축), 이 자리는 그 토큰이 __control_plane_location_impl()
+    # 의 512자 상한을 거치기 **전**이라 무방비였다.
+    if [[ "$NORM_TOK" == "$ARM_DELETE_VERB_DELETE_GATED" || "$NORM_TOK" == */"$ARM_DELETE_VERB_DELETE_GATED" ]]; then __has_find_tok=1; fi
+    [[ "$NORM_TOK" == "-delete" ]] && __has_delete_pred=1
+    # AUDIT-3 와 같은 이유(파라미터 확장) — `${Z}find` 도 "find" 토큰으로 잡는다.
+    if [[ "$__has_find_tok" -eq 0 && "$NORM_TOK" == *'$'* ]]; then
+      __strip_dollar_brace "$NORM_TOK"
+      if [[ "$__STRIPPED" != "$NORM_TOK" && ( "$__STRIPPED" == "$ARM_DELETE_VERB_DELETE_GATED" || "$__STRIPPED" == */"$ARM_DELETE_VERB_DELETE_GATED" ) ]]; then
+        __has_find_tok=1
+      fi
+    fi
+  done
+  if [[ "$__has_find_tok" -eq 1 && "$__has_delete_pred" -eq 1 ]]; then armed=1; fi
   # **F65 30차 독립 판정 재작업 중 자체 발견(판정 대상 아님, 30차 수정과 같은 계열)**
   # — 이 루프는 27~29차가 대시-토큰마다 `__dash_prefix_strip_candidates()`를 태우도록
   # 늘려 놓았는데, 이 함수 안에는(다른 모든 예산 확인처럼) 예산 확인이 전혀 없다.
@@ -2108,6 +2139,29 @@ __scan_one_segment_for_cp_delete() {
         __verb_armed=1; break
       fi
     done
+    # **F65 security-auditor AUDIT-3(critical)** — `normalize_path_token()`은 따옴표·
+    # 백슬래시만 지운다. 셸이 투명하게 펴는 순수 변수명 파라미터 확장(`${Z}`)은
+    # 남는다 — `r${Z}m`·`m${Z}v`·`rmdi${Z}r`처럼 동사 이름 한가운데 끼워 넣으면
+    # `Z`가 미정의·빈 값일 때(가장 흔한 경우) 셸에서는 그대로 `rm`·`mv`·`rmdir`이
+    # 실행되는데 위 정확/접미사 비교는 걸리지 않는다(격리 랩 실증: 방화벽 자기
+    # 설치본을 포함해 실제 삭제). 같은 파일이 이 정확한 표기를 `__strip_dollar_brace()`
+    # (:1407, 순수 변수명 블록만 지운다 — `${Z:-x}`처럼 연산자가 있어 실제로 텍스트를
+    # 남길 수 있는 형태는 건드리지 않는다, 15차 판정이 반려한 그 구분)로 이미 정확히
+    # 처리하지만, 그 함수는 명령 치환 스팬 안쪽(`__note_opaque_verb()`)에만 배선돼
+    # 있었다 — 세그먼트 자신의 토큰 경로에는 연결된 적이 없었다. 같은 함수를 여기서도
+    # 재사용한다: `$`가 있는 토큰만(불필요한 호출 회피) 벗겨서 다시 같은 동사 목록에
+    # 댄다 — 열거가 아니라 이미 검증된 확장-제거 함수의 재사용이라 새 표기가 나와도
+    # (`${Z:+x}` 등, 연산자 없는 순수 변수명이기만 하면) 그대로 잡힌다.
+    if [[ "$__verb_armed" -eq 0 && "$NORM_TOK" == *'$'* ]]; then
+      __strip_dollar_brace "$NORM_TOK"
+      if [[ "$__STRIPPED" != "$NORM_TOK" ]]; then
+        for __arm_verb in "${ARM_DELETE_VERBS_UNCONDITIONAL[@]}"; do
+          if [[ "$__STRIPPED" == "$__arm_verb" || "$__STRIPPED" == */"$__arm_verb" ]]; then
+            __verb_armed=1; break
+          fi
+        done
+      fi
+    fi
     # F65 27차 독립 판정 — 아홉 번째 재발. 26차 대응(__dash_prefix_strip_candidates)은
     # __find_wrapped_arg() 가 후보를 이미 찾은 뒤에만(패스 1/2/3 중 하나가 걸려야) 호출된다.
     # 그런데 `env -Srm -rf .claude` 처럼 값이 공백 없는 단일 낱말이면 어디에도 인용이나
