@@ -3188,54 +3188,131 @@ delete_decision() {
   done
 }
 
-@test "F65 decision<->execution equivalence: shell-wrapper flag/quote matrix never allows an actual control-plane delete (21st verdict)" {
-  # 11~21차의 실패 패턴에 대한 21차 독립 판정의 구조적 지적: 판정문이 보고한 인스턴스만
-  # 닫고 "축을 닫았다"고 선언하면, 다음 라운드가 한 층 아래(표기→도구→래퍼→플래그 표기)
-  # 에서 같은 defect class 를 또 찾는다. 인스턴스 열거 대신 **효과**를 기준으로 삼는다 —
-  # 격리 랩에서 실제로 삭제되는데 방화벽이 allow 면 그 자체가 이 테스트의 실패 조건이다.
-  # 표기·플래그 형태를 하나씩 추가하는 대신 축을 조합해 순회하므로, 이 테스트가 아직
-  # 모르는 형태라도 "허용되면서 실제로 지운다"는 성질만 있으면 잡는다.
+@test "F65 decision<->execution equivalence: generated shell-wrapper flag/insertion/quote axes never allow an actual control-plane delete (22nd verdict)" {
+  # 11~22차의 실패 패턴에 대한 구조적 지적(21·22차 독립 판정): 판정문이 보고한
+  # 인스턴스만 닫고 "축을 닫았다"고 선언하면, 다음 라운드가 한 층 아래에서 같은
+  # defect class 를 또 찾는다(표기→도구→래퍼→플래그 표기→**플래그 인자**). 21차
+  # 대응 때 이 테스트를 처음 만들었지만 `flag_forms` 가 21차 판정문의 인스턴스를
+  # 손으로 옮겨 적은 목록이라 22차가 찾은 값-받는 옵션 축(`-o posix` 등)을 전혀
+  # 보지 못했다 — 22차 독립 판정이 그 사실 자체를 반증(테스트는 통과하는데 실제
+  # 우회 30종이 존재)으로 지적했다. 이번에는 인스턴스를 옮겨 적지 않고 **생성
+  # 규칙**으로 축을 만든다 — 클러스터 안 `c` 의 위치, `-c`/`-e` 뒤에 끼는 값-받는
+  # 옵션의 개수·모양, 플래그 토큰 자체의 인용 여부, 이 세 축을 각각 작은 원소
+  # 풀에서 조합해 생성하므로 특정 옵션 이름(`-o`·`posix` 등)을 몰라도 "값-받는
+  # 옵션이 코드 인자 앞에 끼는 형태" 라는 **성질**을 순회한다. 이 파일이 알지
+  # 못하는 새 인스턴스라도 이 성질을 공유하면 잡힌다.
+  #
+  # 비용 억제(22차 판정 권고): 조합 전부에 대해 **판정만 먼저** 수행하고, allow 로
+  # 나온 조합에 한해서만 격리 실행을 돌린다 — 실행 비용이 allow 개수(정상 동작
+  # 시 0)에 비례하므로 축을 넓혀도 스위트 시간이 조합 수만큼 선형으로 폭증하지
+  # 않는다.
+  #
+  # 인터프리터 래퍼(`python3 -c`·`perl -e` 등)는 이 매트릭스에 **의도적으로**
+  # 넣지 않는다 — 위 바디들은 셸 문법이라 인터프리터에 먹이면 대부분 구문 오류로
+  # 끝나 "실행됐지만 안 지워짐" 만 확인하는 무의미한 반복이 된다(진짜 인터프리터
+  # 축은 언어 문법으로 셸을 재호출하는 형태, 즉 `interpreter_shell_reentry` 이고
+  # sprint-51.json 에 별도 열린 축으로 이미 명시돼 있다).
+  local -a wrappers=(sh bash zsh dash ksh)
+  local -a bodies=('rm -rf .claude' 'rm -f .claude/settings*.json')
+
+  # 축 1 — 클러스터 안 c 의 위치: 채움 글자 풀에서 접두/접미 조합을 생성한다
+  # (21차가 실증한 -cx/-cv 류를 열거하는 대신 "위치" 라는 성질 자체를 만든다).
+  local -a __filler_letters=(x v u)
+  local -a cluster_flags=("-c")
+  local __fl
+  for __fl in "${__filler_letters[@]}"; do
+    cluster_flags+=("-c${__fl}" "-${__fl}c")
+  done
+
+  # 축 2 — c/e 뒤에 끼는 값-받는 옵션(22차가 실증한 defect class): 옵션 글자 풀 ×
+  # 값 풀의 곱으로 생성한다. 특정 옵션 이름을 축의 정의로 삼지 않기 위해, 실제 셸
+  # 옵션(o/O)뿐 아니라 **가상의 임의 옵션 글자·값**도 하나 섞는다 — 코드가 실제로
+  # "값-받는 옵션을 아는가" 가 아니라 "모르는 옵션 값이 껴도 뒤를 계속 본다" 는
+  # 성질을 검증하기 위해서다.
+  local -a __opt_letters=(o Z)
+  local -a __opt_values=(posix randval42)
+  local -a insertions=("" "--" "-x")
+  local __ol __ov
+  for __ol in "${__opt_letters[@]}"; do
+    for __ov in "${__opt_values[@]}"; do
+      insertions+=("-${__ol} ${__ov}")
+    done
+  done
+
+  # 축 3 — 플래그 토큰 자체의 인용: 21차가 실증한 `sh '-c' '...'` 류를 "따옴표
+  # 유무" 라는 성질로 일반화한다.
+  local -a quote_styles=('%s' "'%s'" '"%s"')
+
+  # 세 축을 통째로 곱하면 조합이 5(래퍼)×7(클러스터)×3(인용)×7(삽입)×2(바디) =
+  # 1470으로 스위트를 지나치게 느리게 만든다. 축마다 **독립으로** 순회하고(다른
+  # 두 축은 기준값 `-c`/무인용/무삽입으로 고정) 마지막에 세 축을 함께 흔드는
+  # 작은 조합을 더한다 — 개별 축의 생성력은 잃지 않으면서 총량을 O(합)으로
+  # 유지한다(22차 판정의 "비용 억제" 권고에 맞춰 판정 단계 자체도 가볍게 유지).
+  local w cf ins qs flag cmd b
+  local -a allow_cmds=()
+
+  __probe() {
+    run delete_decision "$1"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] && allow_cmds+=("$1")
+  }
+
+  for w in "${wrappers[@]}"; do
+    command -v "$w" >/dev/null 2>&1 || continue
+    for b in "${bodies[@]}"; do
+      # 축 1 단독
+      for cf in "${cluster_flags[@]}"; do
+        __probe "$w $cf '$b'"
+      done
+      # 축 2 단독
+      for ins in "${insertions[@]}"; do
+        [[ -z "$ins" ]] && continue   # 빈 삽입은 축 1 의 "-c '$b'" 와 중복
+        __probe "$w -c $ins '$b'"
+      done
+      # 축 3 단독
+      for qs in "${quote_styles[@]}"; do
+        [[ "$qs" == '%s' ]] && continue   # 무인용은 축 1 의 "-c" 와 중복
+        # shellcheck disable=SC2059
+        flag=$(printf "$qs" "-c")
+        __probe "$w $flag '$b'"
+      done
+    done
+  done
+  # 세 축을 함께 흔드는 작은 결합 스트레스 — 상호작용 결함(축 하나만으로는 안
+  # 드러나는 결함)을 잡기 위한 대표 셀 몇 개다. 축을 새로 열거하지 않는다.
+  for cf in "-cx" "-c"; do
+    for ins in "-o posix" "--"; do
+      for qs in "'%s'" '%s'; do
+        # shellcheck disable=SC2059
+        flag=$(printf "$qs" "$cf")
+        __probe "bash $flag $ins 'rm -rf .claude'"
+      done
+    done
+  done
+
+  [[ ${#allow_cmds[@]} -eq 0 ]] && return 0
+
+  # phase 2: allow 로 나온 조합만 격리 실행해 실제로 지웠는지 대조한다.
   local lab
   lab="$(mktemp -d)"
   [[ -n "$lab" && -d "$lab" ]] || { echo "mktemp 실패"; false; }
 
-  local -a wrappers=(sh bash zsh dash ksh)
-  local -a flag_forms=('-c' '-cx' '-cv' '-lc' '-xc' '-c --' '-c -x' "'-c'" '"-c"')
-  local -a bodies=('rm -rf .claude' \
-                   'rm -f .claude/settings.json' \
-                   'rm -f .claude/settings*.json' \
-                   'rm -f .claude/agents/../settings.json')
+  local deleted
+  for cmd in "${allow_cmds[@]}"; do
+    rm -rf "$lab/victim"
+    mkdir -p "$lab/victim/.claude/agents" "$lab/victim/.claude/hooks"
+    echo '{}' > "$lab/victim/.claude/settings.json"
+    echo '{}' > "$lab/victim/.claude/settings.local.json"
 
-  local w f b cmd allow deleted
-  for w in "${wrappers[@]}"; do
-    command -v "$w" >/dev/null 2>&1 || continue
-    for f in "${flag_forms[@]}"; do
-      for b in "${bodies[@]}"; do
-        cmd="$w $f '$b'"
+    ( cd "$lab/victim" && eval "$cmd" ) >/dev/null 2>&1 || true
+    deleted="false"
+    { [[ -d "$lab/victim/.claude" ]] && [[ -f "$lab/victim/.claude/settings.json" ]]; } \
+      || deleted="true"
 
-        run delete_decision "$cmd"
-        allow="false"
-        [[ "$output" == *'"permissionDecision": "allow"'* ]] && allow="true"
-
-        # victim 트리를 매 반복 새로 만든다 — 이전 반복의 삭제가 다음 반복의
-        # "이미 없었다" 로 오인되지 않게 한다.
-        rm -rf "$lab/victim"
-        mkdir -p "$lab/victim/.claude/agents" "$lab/victim/.claude/hooks"
-        echo '{}' > "$lab/victim/.claude/settings.json"
-        echo '{}' > "$lab/victim/.claude/settings.local.json"
-
-        ( cd "$lab/victim" && eval "$cmd" ) >/dev/null 2>&1 || true
-        deleted="false"
-        { [[ -d "$lab/victim/.claude" ]] && [[ -f "$lab/victim/.claude/settings.json" ]]; } \
-          || deleted="true"
-
-        if [[ "$allow" == "true" && "$deleted" == "true" ]]; then
-          echo "판정↔실행 불일치 — allow 인데 실제로 컨트롤 플레인이 삭제됨: $cmd"
-          rm -rf "$lab"
-          false
-        fi
-      done
-    done
+    if [[ "$deleted" == "true" ]]; then
+      echo "판정↔실행 불일치 — allow 인데 실제로 컨트롤 플레인이 삭제됨: $cmd"
+      rm -rf "$lab"
+      false
+    fi
   done
   rm -rf "$lab"
 }
