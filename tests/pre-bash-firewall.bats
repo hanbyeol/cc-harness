@@ -3140,6 +3140,54 @@ delete_decision() {
   [[ "$output" == *'"permissionDecision": "ask"'* ]]
 }
 
+@test "F65 shell-wrapper arg unwrap: quote-split/backslash/glob/traversal/whole-dir forms are gated (20th verdict primary fix)" {
+  # 20차 독립 판정: 표기(`//`·`/./`) 하나를 넓히는 것만으로는 인용 래퍼 안의 같은 defect
+  # class 가 계속 새로 열린다 — 인용 분할·백슬래시 이스케이프·글로브·상위경로 traversal·
+  # 컨트롤 플레인 디렉터리 전체 삭제(`sh -c 'rm -rf .claude'`, 단일 파일보다 폭발 반경이
+  # 크다) 16종이 격리 랩에서 실제로 삭제됐다. 근본 수정(래퍼 인자 언랩+재스캔)이 셸
+  # 래퍼(sh/bash/zsh/dash/ksh -c) 클래스에서 이 16종을 대표하는 페이로드를 닫는지 고정한다.
+  local c
+  for c in "sh -c \"rm -f .claude/'settings.json'\"" \
+           "sh -c \"rm -f .claude/set'ting's.json\"" \
+           "sh -c \"rm -f '.claude'/settings.json\"" \
+           "sh -c \"rm -f .claude/settings\\\".json\\\"\"" \
+           'sh -c "rm -f .claude/settings\\.json"' \
+           'sh -c "rm -f .claude\\/settings.json"' \
+           'sh -c "rm -f .claude/settings*.json"' \
+           'sh -c "rm -f .claude/settings.jso?"' \
+           'sh -c "rm -f .claude/[s]ettings.json"' \
+           'sh -c "rm -f .clau*/settings.json"' \
+           'sh -c "rm -f .claude/agents/../settings.json"' \
+           'sh -c "rm -f hooks/lib/../hooks.json"' \
+           "sh -c 'rm -rf .claude'" \
+           'sh -c "rm -rf .claude//"' \
+           "bash -lc 'rm -rf .claude'" \
+           "zsh -c 'rm -rf .claude'" \
+           "env sh -c 'rm -rf .claude'"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "셸 래퍼 인자 언랩 뒤에도 잡히지 않은 삭제: $c"; false; }
+  done
+}
+
+@test "F65 shell-wrapper arg unwrap: no new friction on ordinary wrapped commands, including perl one-liners" {
+  # 인터프리터 플래그는 결합 단축옵션을 허용하지 않는다 — 허용하면 `perl -pe`·`perl -ne`
+  # 같은 아주 흔한 치환/필터 한 줄짜리(셸 코드가 아니라 펄 스크립트)가 전부 "언랩 대상"으로
+  # 오인돼 새 마찰이 생긴다. 이 테스트는 그 트레이드오프가 실제로 지켜지는지 고정한다.
+  local c
+  for c in 'sh -c "echo hello world"' \
+           'bash -c "npm install"' \
+           'zsh -c "ls -la"' \
+           'perl -pe "s/foo/bar/" file.txt' \
+           'perl -ne "print if /pattern/" file.txt' \
+           'python3 script.py' \
+           'node server.js'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "무해한 래핑 명령에 새 마찰이 생겼다: $c"; false; }
+  done
+}
+
 @test "F65 interpreter/wrapper arm: notation widening creates no new friction on unrelated hooks-named paths" {
   # 넓힌 정규식(`hooks(/\.?)+...`)이 "hooks" 뒤에 아무 슬래시나 오면 걸리는 과도한 형태가
   # 아닌지 확인 — 컨트롤 플레인과 무관한 평범한 명령은 여전히 allow 여야 한다.
