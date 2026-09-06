@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-09-06T23:23:53+09:00",
+  "type": "modify",
+  "description": "F65 wrapper_code_delivery_mechanism 축(env -S·헤어스트링 <<<·stdin 파이프로 컨트롤 플레인 삭제 코드가 전달되는 형태)을 닫기 위한 계약 편입 — AC-12/SC-10, implementation_steps 14 신설",
+  "trigger": "24차 독립 판정(fail, score 5, security 5, progress/agent-comms/evaluator-feedback-2026-09-06T16-09-44+0900.json)이 19~24차 여섯 차례 연속 재발한 '인용 래퍼 안 셸 명령 감지' 축의 마지막 형태를 실증했다 — `env -S \"rm -rf .claude\"`(플래그가 'c'가 아닌 'S')와 `bash <<< 'rm -rf .claude'`·`echo '...' | sh`(플래그 자체가 없는 stdin 전달) 13종이 전부 allow + 격리 랩 실제 삭제. 24차 판정 스스로 '이 정도 범위 변경은 /change-request + Plan 게이트로 가야 한다'고 명시했다. 메인 루프가 사용자에게 좁은 범위(env -S·헤어스트링/파이프 개별 대응)와 넓은 범위(공백 포함 복합 토큰 전면 재검사, 24차 recommended_fix.primary)를 제시했고, 사용자가 넓은 범위를 선택했다.",
+  "scope_decision": {
+    "chosen": "넓은 범위 — 세그먼트 안의 공백 포함 복합 토큰(원래 인용된 다중 단어 인자)을 앞에 무엇이 오든, 어떤 플래그가 있든 없든 벗겨 재귀 스캔하는 단일 규칙",
+    "rejected": "좁은 범위 — env -S와 here-string/파이프만 개별 대응하는 열거 확장(24차 판정이 '이번에 멈추려던 바로 그 움직임'이라고 명시적으로 경고)",
+    "tradeoff_accepted": "컨트롤 플레인과 무관한 명령의 인용 문자열(git commit -m \"...\"·echo \"...\" 등)도 재검사 대상이 되어, 그 문자열 안에 삭제 동사와 컨트롤 플레인 경로가 우연히 함께 나타나면 새 마찰이 생길 수 있다 — 24차 자체 검증(97개 일상 명령 코퍼스)으로는 유의미한 마찰이 측정되지 않았으나 표본 기반이라 완전한 보장은 아니다. SC-10에 이 트레이드오프를 명시적으로 적었다."
+  },
+  "affected_features": ["F65"],
+  "related_features": ["F67", "F71", "F73"],
+  "related_features_note": "F67·F71·F73은 F65에 의존하지만 sed/awk·인터프리터 읽기/쓰기 면제 로직(예측 계층의 다른 부분)에 관한 것이라 이번 변경(삭제 동사 감지 범위 확대)과 직교한다 — passes 리셋 대상에 포함하지 않았다. 구현 완료 후 전체 bats로 회귀 여부를 실측 확인할 것.",
+  "tier_classification": {
+    "hotfix_eligible": false,
+    "reason": "security_tier critical인 방화벽 핵심 탐지 로직의 아키텍처 변경이므로 hotfix 전환 불가(F48 규칙)."
+  },
+  "impact": {
+    "spec_updated": false,
+    "spec_note": "이 저장소에는 docs/SPEC.md가 없다 — F65의 규범은 progress/feature_list.json의 F65 항목과 progress/contracts/sprint-51.json이다. 둘 다 이번 변경으로 갱신했다.",
+    "architecture_updated": false,
+    "architecture_note": "새 컴포넌트 없음. 기존 hooks/pre-bash-firewall.sh의 scan_control_plane_delete()/__find_wrapped_arg() 계열 함수를 '플래그·이름 기반 판정'에서 '복합 토큰 존재 기반 판정'으로 확장하는 리팩터 — __has_shell_code_flag() 등 기존 메커니즘은 이 규칙의 특수 사례로 유지되거나 대체될 수 있다(구현 재량).",
+    "acceptance_criteria_updated": true,
+    "acceptance_criteria_detail": "progress/contracts/sprint-51.json에 AC-12(코드 전달 경로 무관 재검사)·SC-10(add-only 성질 + 마찰 수용 범위 명시) 신설. evals/acceptance-criteria.json의 F65 summary에 2026-09-06 사이클 종료 경위 추가.",
+    "security_checklist_updated": false,
+    "phase_rollback": false,
+    "feature_list_updated": true,
+    "feature_list_detail": "F65에 _gap_2026_09_06_cycle_11_24(11~24차 사이클 종료 경위)·release_note_addendum_2026_09_06(v1.38.0이 여전히 판정 미통과 상태로 운영 중임을 재확인) 추가. passes는 계속 false."
+  },
+  "new_sprint_contract": null,
+  "modified_sprint_contract": "progress/contracts/sprint-51.json",
+  "rollback_to_phase": null,
+  "open_axes_not_covered_by_this_request": [
+    "nested_wrapper_unwrap — 중첩 래퍼(`sh -c \"sh -c '...'\"` 등). 이번 규칙은 여전히 언랩을 한 겹으로 제한하므로 자동으로 닫히지 않는다.",
+    "interpreter_shell_reentry — 인터프리터 코드 문자열 **안**의 셸 재진입(`python3 -c 'os.system(\"rm -rf .claude\")'`). 복합 토큰 규칙이 최상위 인자는 벗기지만 그 안에 다시 중첩된 인용 문자열까지 파고들지는 않는다 — 다른 메커니즘이 필요하다.",
+    "operand_before_verb_ordering, shell_metacharacter_adjacent_tokenization — 이번 사이클 이전부터 별도 change-request 후보로 분리돼 있던 축, 변경 없음."
+  ],
+  "verification_tier": "critical",
+  "verification_note": "critical이므로 독립 evaluator + security-auditor + F37 2차 독립 판정이 필요하다. Plan 게이트(ExitPlanMode) 승인 후 /implement로 진행한다."
+}
