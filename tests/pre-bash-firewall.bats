@@ -3463,6 +3463,106 @@ delete_decision() {
   rm -rf "$lab"
 }
 
+@test "F65 AC-12: 27th verdict's bare-word (unquoted single-token) flag-value adjacency payloads are gated" {
+  # 27차 독립 판정이 실증한 정확한 페이로드를 고정한다 — 26차 대응(env -S'...')은
+  # 값이 인용된 다중 단어일 때만 닫혔고, 값이 공백 없는 단일 낱말이면(따옴표조차
+  # 없다) 재발했다. 이 페이로드들은 __find_wrapped_arg() 의 세 패스 중 아무것도
+  # 걸리지 않는다(공백도 없고 `-…c…` 모양도 아니고 인터프리터 이름도 아니다) —
+  # 그래서 언랩/재스캔이 아니라 세그먼트 자신의 동사 검사 자리에서 잡혀야 한다.
+  local c
+  for c in "env -Srm -rf .claude" \
+           "env -Srm -rf .claude/settings.json" \
+           "/usr/bin/env -Srm -rf .claude" \
+           "env -i -Srm -rf .claude" \
+           "env -u FOO -Srm -rf .claude" \
+           "env -vSrm -rf .claude" \
+           "env -Smv .claude /tmp/sink" \
+           "echo x | env -Srm -rf .claude" \
+           "env -Sunlink .claude/settings.json"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "27차 판정의 공백 없는 단일 낱말 값 페이로드가 놓쳤다: $c"; false; }
+  done
+}
+
+@test "F65 AC-12: generated bare-word flag-value adjacency axis never allows an actual control-plane delete (27th verdict)" {
+  # 26차 테스트(af37ff5/9251c5b)는 인접성을 축으로 올렸지만 두 값(인용 여부)만
+  # 순회했다 — "값이 아예 인용되지 않은 단일 낱말"이라는 세 번째 값은 여전히
+  # 상수로 비어 있었다(27차 판정이 지적한 바로 그 메타 결함). 여기서는 그 값을
+  # 채운다: 접두 풀(이름 있는 env 계열 + 이름을 전혀 모르는 가상 도구) × 동사
+  # 풀(ARM_DELETE_VERBS_UNCONDITIONAL 중 대표 3개) × 인자 유무. 이름·플래그
+  # 글자를 열거하지 않는다는 것을 보이기 위해 가상 도구 이름/가상 플래그도 반드시
+  # 섞는다.
+  local -a prefixes=("env" "env -i" "env -u FOO" "/usr/bin/env" "notarealtool987" "wrapz -QQQ")
+  local -a verb_bodies=("rm -rf .claude" "mv .claude /tmp/sink" "unlink .claude/settings.json")
+  local -a allow_cmds=()
+  local pfx vb verb rest cmd
+
+  __probe_ac12_bare() {
+    run delete_decision "$1"
+    if [[ "$output" == *'"permissionDecision": "allow"'* ]]; then
+      allow_cmds+=("$1")
+    fi
+    return 0
+  }
+
+  for pfx in "${prefixes[@]}"; do
+    for vb in "${verb_bodies[@]}"; do
+      verb="${vb%% *}"
+      rest="${vb#* }"
+      # env 계열은 실제 플래그 문자 -S 를 쓴다. 가상 도구는 임의의 대시-플래그
+      # 뒤에 동사가 공백 없이 바로 붙는, env 와 무관한 임의 모양을 쓴다 — 구조
+      # 규칙이 이름·이 특정 플래그 글자에 매여 있지 않음을 보인다.
+      case "$pfx" in
+        env*|/usr/bin/env) cmd="$pfx -S${verb} ${rest}" ;;
+        *) cmd="$pfx -X${verb} ${rest}" ;;
+      esac
+      __probe_ac12_bare "$cmd"
+    done
+  done
+
+  [[ ${#allow_cmds[@]} -eq 0 ]] && return 0
+
+  local lab deleted
+  lab="$(mktemp -d)"
+  [[ -n "$lab" && -d "$lab" ]] || { echo "mktemp 실패"; false; }
+  for cmd in "${allow_cmds[@]}"; do
+    rm -rf "$lab/victim"
+    mkdir -p "$lab/victim/.claude/hooks"
+    echo '{}' > "$lab/victim/.claude/settings.json"
+    ( cd "$lab/victim" && eval "$cmd" ) >/dev/null 2>&1 || true
+    deleted="false"
+    { [[ -d "$lab/victim/.claude" ]] && [[ -f "$lab/victim/.claude/settings.json" ]]; } \
+      || deleted="true"
+    if [[ "$deleted" == "true" ]]; then
+      echo "판정↔실행 불일치 — allow 인데 실제로 컨트롤 플레인이 삭제됨: $cmd"
+      rm -rf "$lab"
+      false
+    fi
+  done
+  rm -rf "$lab"
+}
+
+@test "F65 flag-value adjacency: flags that happen to prefix-strip to an armed verb create no new friction without a control-plane operand" {
+  # 27차 대응(대시-토큰 절단 재사용)은 세그먼트의 모든 대시-토큰에 적용된다 —
+  # `-perm`(strip 3 -> "rm")·`-normalize`(strip 8 -> "rm" 아님, 참고용)·
+  # `--term`(strip 4 -> "rm")·`--form`(strip 3 -> "rm") 처럼 절단하면 우연히
+  # 삭제 동사와 같아지는 흔한 플래그가 있다. armed 만으로는 아무 일도 나지
+  # 않는다 — 뒤에 실제 컨트롤 플레인 경로 피연산자가 있어야 ask 로 이어진다.
+  # 이 성질을 무관 명령 코퍼스로 고정한다.
+  local c
+  for c in "find . -perm 644 -name '*.txt'" \
+           "convert input.png -normalize output.png" \
+           "grep --term=foo file.txt" \
+           "docker run --form myimg" \
+           "sometool -Xrm somefile.txt" \
+           "sometool -Xperm 644"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "우연히 삭제 동사 모양으로 절단되는 무관 플래그가 새 마찰을 만들었다: $c"; false; }
+  done
+}
+
 @test "F65 AC-12: interleaved/partial quoting cannot hide a wrapped delete (25th verdict)" {
   # 25차 독립 판정: 이전 라운드의 "공백 포함이면 무조건 벗겨 재검사" 규칙은 후보
   # 식별(패스 3)에서는 이름·플래그·전달경로 무관했지만, 그 후보를 벗기는
