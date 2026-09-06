@@ -3457,6 +3457,83 @@ delete_decision() {
   rm -rf "$lab"
 }
 
+@test "F65 AC-12: interleaved/partial quoting cannot hide a wrapped delete (25th verdict)" {
+  # 25차 독립 판정: 이전 라운드의 "공백 포함이면 무조건 벗겨 재검사" 규칙은 후보
+  # 식별(패스 3)에서는 이름·플래그·전달경로 무관했지만, 그 후보를 벗기는
+  # __unquote_wrap_candidate() 가 "토큰 양끝이 같은 따옴표로 완전히 감싸여
+  # 있다"는 경우만 처리했다 — 인용된 조각과 인용 안 된 조각이 이어져 하나의
+  # 낱말을 이루는 형태(`'rm '-rf' '.claude` 는 `rm -rf .claude` 하나의 인자다)는
+  # 벗겨지지 않아 그 자리에서 다시 샜다(전달 경로가 이미 닫힌 env -S·헤어스트링·
+  # 파이프에서도 인용 배치만 바꾸면 재발). 24차의 실패(24차 대응이 21~23차의
+  # "인스턴스만 닫는다" 패턴을 반복한 것)와 같은 종류가 언랩 계층에서 재발한
+  # 것이므로, 이번에도 특정 인용 형태를 나열하지 않고 **완전-포위/인터리브라는
+  # 성질**을 생성 규칙으로 순회한다.
+  local -a wrappers=(sh bash zsh dash ksh csh tcsh)
+  local -a bodies=('rm -rf .claude' 'mv .claude /tmp/sink')
+  local -a allow_cmds=()
+  local w b w1 w2 w3 cmd
+
+  __probe_quoteshape() {
+    run delete_decision "$1"
+    if [[ "$output" == *'"permissionDecision": "allow"'* ]]; then
+      allow_cmds+=("$1")
+    fi
+    return 0
+  }
+
+  for b in "${bodies[@]}"; do
+    read -r w1 w2 w3 <<<"$b"
+    # 인용 형태 풀 — 완전-포위 2종(대조군, 이미 닫혀 있어야 함) + 인터리브 3종
+    # (25차가 실증한 성질: 인용 경계가 낱말 중간에 옴).
+    local -a quote_shapes=(
+      "'${b}'"
+      "\"${b}\""
+      "'${w1} '${w2}' '${w3}"
+      "${w1}' '${w2}' '${w3}"
+      "\"${w1} \"${w2}\" \"${w3}"
+    )
+    for qshape in "${quote_shapes[@]}"; do
+      # 축 1 — 기존 -c 계열 래퍼(이름 풀 재사용).
+      for w in "${wrappers[@]}"; do
+        command -v "$w" >/dev/null 2>&1 || continue
+        __probe_quoteshape "$w -c $qshape"
+      done
+      # 축 2 — env -S(전달 경로 축과 결합).
+      __probe_quoteshape "env -S $qshape"
+      # 축 3 — 헤어스트링·파이프(전달 경로 축과 결합, 25차가 재발을 실증한 바로
+      # 그 메커니즘).
+      __probe_quoteshape "bash <<< $qshape"
+      __probe_quoteshape "echo $qshape | sh"
+    done
+  done
+
+  [[ ${#allow_cmds[@]} -eq 0 ]] && return 0
+
+  local lab
+  lab="$(mktemp -d)"
+  [[ -n "$lab" && -d "$lab" ]] || { echo "mktemp 실패"; false; }
+
+  local deleted
+  for cmd in "${allow_cmds[@]}"; do
+    rm -rf "$lab/victim"
+    mkdir -p "$lab/victim/.claude/agents" "$lab/victim/.claude/hooks"
+    echo '{}' > "$lab/victim/.claude/settings.json"
+    echo '{}' > "$lab/victim/.claude/settings.local.json"
+
+    ( cd "$lab/victim" && eval "$cmd" ) >/dev/null 2>&1 || true
+    deleted="false"
+    { [[ -d "$lab/victim/.claude" ]] && [[ -f "$lab/victim/.claude/settings.json" ]]; } \
+      || deleted="true"
+
+    if [[ "$deleted" == "true" ]]; then
+      echo "판정↔실행 불일치 — allow 인데 실제로 컨트롤 플레인이 삭제됨: $cmd"
+      rm -rf "$lab"
+      false
+    fi
+  done
+  rm -rf "$lab"
+}
+
 @test "F65 SC-10: everyday commands with quoted multi-word arguments create no new friction" {
   # AC-12 의 규칙은 컨트롤 플레인과 무관한 명령의 인용 문자열도 재검사 대상으로
   # 삼는다 — SC-10 이 요구하는 마찰 코퍼스를 생성 규칙으로 만든다. PURE_READ
