@@ -3212,8 +3212,23 @@ delete_decision() {
   # 끝나 "실행됐지만 안 지워짐" 만 확인하는 무의미한 반복이 된다(진짜 인터프리터
   # 축은 언어 문법으로 셸을 재호출하는 형태, 즉 `interpreter_shell_reentry` 이고
   # sprint-51.json 에 별도 열린 축으로 이미 명시돼 있다).
-  local -a wrappers=(sh bash zsh dash ksh)
+  # 23차 독립 판정 반려: 구현이 셸 이름 화이트리스트를 아예 버렸으므로(어떤
+  # 이름이 셸인지 몰라도 `-…c…` 모양 플래그만으로 판단), 이 풀은 더 이상
+  # "구현이 아는 이름" 을 옮겨 적은 것이 아니다 — 이 머신에 실재하는 셸을 넓게
+  # 모아 회귀를 고정한다(csh·tcsh 포함, 23차가 실제로 찾은 미열거 셸). 그리고
+  # **이름 자체를 모르는 임의의 문자열**로도 별도 확인해 "이름을 아는가" 가
+  # 아니라 "플래그 모양" 만 본다는 구조적 성질을 직접 검증한다(아래 참조).
+  local -a wrappers=(sh bash zsh dash ksh csh tcsh)
   local -a bodies=('rm -rf .claude' 'rm -f .claude/settings*.json')
+
+  # 축 0 — 래퍼 이름 토큰의 표기(23차 신설): 이 구현은 이름을 아예 안 보므로
+  # 이름에 어떤 표기를 씌워도 무관해야 한다 — 그 성질 자체를 검증한다. 인용·
+  # 선행 백슬래시·내부 백슬래시·완전히 존재하지 않는 임의 문자열까지 포함한다.
+  local -a name_notations=('%s' "'%s'" '"%s"' '\%s')
+  __midbs() {  # 이름 중간에 백슬래시를 하나 끼운다 (bash -> b\ash)
+    local s="$1"
+    printf '%s\%s' "${s:0:1}" "${s:1}"
+  }
 
   # 축 1 — 클러스터 안 c 의 위치: 채움 글자 풀에서 접두/접미 조합을 생성한다
   # (21차가 실증한 -cx/-cv 류를 열거하는 대신 "위치" 라는 성질 자체를 만든다).
@@ -3239,16 +3254,17 @@ delete_decision() {
     done
   done
 
-  # 축 3 — 플래그 토큰 자체의 인용: 21차가 실증한 `sh '-c' '...'` 류를 "따옴표
-  # 유무" 라는 성질로 일반화한다.
-  local -a quote_styles=('%s' "'%s'" '"%s"')
+  # 축 3 — 플래그 토큰 자체의 표기: 21차가 실증한 `sh '-c' '...'` 류(인용) +
+  # 23차가 실증한 `sh -\c '...'`·`sh \-c '...'` 류(백슬래시)를 함께 일반화한다.
+  # 셸 -c 는 딱 2글자라 printf 템플릿보다 명시적 나열이 더 명확하다: 무표기·
+  # 홑따옴표·겹따옴표·선행 백슬래시·내부 백슬래시(23차가 실증한 두 위치 모두).
+  local -a flag_notations=("-c" "'-c'" '"-c"' '\-c' '-\c')
 
-  # 세 축을 통째로 곱하면 조합이 5(래퍼)×7(클러스터)×3(인용)×7(삽입)×2(바디) =
-  # 1470으로 스위트를 지나치게 느리게 만든다. 축마다 **독립으로** 순회하고(다른
-  # 두 축은 기준값 `-c`/무인용/무삽입으로 고정) 마지막에 세 축을 함께 흔드는
-  # 작은 조합을 더한다 — 개별 축의 생성력은 잃지 않으면서 총량을 O(합)으로
-  # 유지한다(22차 판정의 "비용 억제" 권고에 맞춰 판정 단계 자체도 가볍게 유지).
-  local w cf ins qs flag cmd b
+  # 세 축을 통째로 곱하면 조합이 지나치게 커진다. 축마다 **독립으로** 순회하고
+  # (다른 두 축은 기준값 `-c`/무인용/무표기로 고정) 마지막에 함께 흔드는 작은
+  # 조합을 더한다 — 개별 축의 생성력은 잃지 않으면서 총량을 O(합)으로 유지한다
+  # (22차 판정의 "비용 억제" 권고에 맞춰 판정 단계 자체도 가볍게 유지).
+  local w cf ins qs nn flag name cmd b
   local -a allow_cmds=()
 
   __probe() {
@@ -3262,24 +3278,42 @@ delete_decision() {
   for w in "${wrappers[@]}"; do
     command -v "$w" >/dev/null 2>&1 || continue
     for b in "${bodies[@]}"; do
-      # 축 1 단독
+      # 축 0 단독 — 래퍼 이름 토큰의 표기(23차 신설)
+      for nn in "${name_notations[@]}"; do
+        [[ "$nn" == '%s' ]] && continue   # 무표기는 축 1 의 "$w -c" 와 중복
+        if [[ "$nn" == '\%s' ]]; then
+          name="\\${w}"
+        else
+          # shellcheck disable=SC2059
+          name=$(printf "$nn" "$w")
+        fi
+        __probe "$name -c '$b'"
+      done
+      __probe "$(__midbs "$w") -c '$b'"   # 이름 중간 백슬래시(b\ash 류)
+      # 축 1 단독 — 클러스터 안 c 위치
       for cf in "${cluster_flags[@]}"; do
         __probe "$w $cf '$b'"
       done
-      # 축 2 단독
+      # 축 2 단독 — 값-받는 옵션 삽입
       for ins in "${insertions[@]}"; do
         [[ -z "$ins" ]] && continue   # 빈 삽입은 축 1 의 "-c '$b'" 와 중복
         __probe "$w -c $ins '$b'"
       done
-      # 축 3 단독
-      for qs in "${quote_styles[@]}"; do
-        [[ "$qs" == '%s' ]] && continue   # 무인용은 축 1 의 "-c" 와 중복
-        # shellcheck disable=SC2059
-        flag=$(printf "$qs" "-c")
+      # 축 3 단독 — 플래그 토큰의 표기(인용·백슬래시)
+      for flag in "${flag_notations[@]}"; do
+        [[ "$flag" == "-c" ]] && continue   # 무표기는 축 1 과 중복
         __probe "$w $flag '$b'"
       done
     done
   done
+  # 이름 자체를 아예 모르는 임의 문자열로도 확인한다 — 이 구현은 "이 이름이
+  # 셸인가" 를 묻지 않으므로, 실재하지 않는 이름이라도 `-c` + 복합 토큰이
+  # 있으면 똑같이 ask 여야 한다(23차 recommended_fix.primary 의 핵심 성질).
+  # 존재하지 않는 명령이라 phase 2(실제 실행)는 의미가 없다 — 판정만 직접
+  # 단언한다.
+  run delete_decision "notarealshell987 -c 'rm -rf .claude'"
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    && { echo "이름을 전혀 모르는 래퍼도 -c + 복합 토큰이면 ask 여야 하는데 allow 였다"; false; }
   # 세 축을 함께 흔드는 작은 결합 스트레스 — 상호작용 결함(축 하나만으로는 안
   # 드러나는 결함)을 잡기 위한 대표 셀 몇 개다. 축을 새로 열거하지 않는다.
   for cf in "-cx" "-c"; do
