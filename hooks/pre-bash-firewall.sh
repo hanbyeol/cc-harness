@@ -1784,9 +1784,24 @@ __unquote_wrap_candidate() {
 # 일치하고(`-S` + `rm ...` = 2글자 절단), 나머지는 벗겨 봤자 armed 판정에 걸리지
 # 않는 무해한 조각일 뿐이다(add-only, 안전 방향 손실 없음). 결과는 반환값이
 # 아니라 `__PREFIX_STRIP_CANDIDATES` 배열로 준다.
+# **F65 29차 독립 판정 — 열한 번째 재발, 이번엔 이 함수의 두 호출처 사이 비대칭.**
+# 28차 대응(3a7c573)이 이 함수의 **한** 호출처(세그먼트 자신의 동사 검사 루프)에만
+# 512자 상한을 걸었다 — 그 상한을 호출처가 이 함수를 부르기 **전에** 검사했기
+# 때문에, d21cac7 이 만든 **원래** 호출처(언랩 후보 재스캔 경로)는 상한이 전혀
+# 없는 채로 남았다. 이 함수 자체가 O(sp²)(첫 낱말 길이의 제곱, 매 절단마다
+# 문자열을 다시 슬라이스)이므로, 대시로 시작하는 12000자짜리 후보 하나
+# (`sh -c -{x×12000}`)가 40초 넘게 걸려 훅 자체의 5초 타임아웃을 넘겨 죽였다 —
+# 죽은 훅은 출력을 하나도 못 내므로 판정 자체가 없는 채로 넘어간다(진짜
+# 뒤에 있던 `; rm -rf .claude` 는 확인조차 못 됨). 상한을 호출처마다 따로
+# 두면 새 호출처가 생길 때마다 이 비대칭이 재발한다 — 그래서 상한을 이
+# 함수 **자신**에게 옮기고, 넘겼는지 여부를 `__PREFIX_STRIP_OVERFLOW` 로
+# 돌려준다. 호출처는 이 하나의 신호만 보고 각자의 방식으로 fail-closed
+# 하면 된다(세그먼트 동사 검사 루프는 armed 로, 언랩 재스캔 루프는 즉시 ask 로).
+__PREFIX_STRIP_OVERFLOW=0
 __dash_prefix_strip_candidates() {
   local s="$1"
   __PREFIX_STRIP_CANDIDATES=()
+  __PREFIX_STRIP_OVERFLOW=0
   [[ "${s:0:1}" == "-" ]] || return
   local n=${#s} sp=-1 i=0 ch
   while [[ $i -lt $n ]]; do
@@ -1795,6 +1810,10 @@ __dash_prefix_strip_candidates() {
     i=$((i + 1))
   done
   [[ $sp -lt 0 ]] && sp=$n
+  if [[ $sp -gt 512 ]]; then
+    __PREFIX_STRIP_OVERFLOW=1
+    return
+  fi
   local L=1
   while [[ $L -lt $sp ]]; do
     __PREFIX_STRIP_CANDIDATES+=("${s:L}")
@@ -1985,15 +2004,21 @@ __scan_one_segment_for_cp_delete() {
     # 상한은 반대 방향이다 — `__control_plane_location_impl()` 의 512자 상한(:1106)은
     # 초과 시 "컨트롤 플레인 위치로 친다"(return 0, 안전한 쪽), `SEGMENT_UNSAFE` 의
     # 2048자 상한은 초과 시 세그먼트 전체를 ask 로 확정한다 — 둘 다 "몰라서 위험하면
-    # 안전한 쪽"이다. 상한을 없애지는 않는다(문자열 슬라이싱 반복의 누적 비용 방어라는
-    # 원래 이유는 유효하다) — 대신 **초과 시 절단을 시도하는 대신 곧장 armed 로
-    # 확정한다.** 512자를 넘는 대시-시작 토큰이 정상 명령에 나타나는 일은 없으므로
+    # 안전한 쪽"이다. 512자를 넘는 대시-시작 토큰이 정상 명령에 나타나는 일은 없으므로
     # (SC-10 코퍼스 실측 0건) 이 방향 전환이 만드는 마찰은 무시할 수 있는 수준이다.
+    #
+    # **F65 29차 독립 판정 — 열한 번째 재발.** 상한을 여기(호출 *전*)에 두고 아래
+    # 언랩 재스캔 루프(:2058 부근)의 같은 함수 호출에는 두지 않아, 두 호출처 사이에
+    # 비대칭이 생겼다 — 그 호출처는 무상한이라 12000자 대시-토큰 하나로 40초 넘게
+    # 걸려 훅 자체가 5초 타임아웃에 죽었다(판정 자체가 안 나가 뒤에 있던 진짜
+    # `rm -rf .claude` 도 확인 못 됨). 상한을 호출처가 아니라 함수 자신에게
+    # 옮겼다(`__dash_prefix_strip_candidates()` 정의 참조, `__PREFIX_STRIP_OVERFLOW`)
+    # — 이 호출처는 이제 그 신호만 보고 armed 로 확정한다.
     if [[ "$__verb_armed" -eq 0 && "$NORM_TOK" == -* ]]; then
-      if [[ ${#NORM_TOK} -gt 512 ]]; then
+      __dash_prefix_strip_candidates "$NORM_TOK"
+      if [[ "$__PREFIX_STRIP_OVERFLOW" -eq 1 ]]; then
         __verb_armed=1
       else
-        __dash_prefix_strip_candidates "$NORM_TOK"
         for __sc_tok in "${__PREFIX_STRIP_CANDIDATES[@]+"${__PREFIX_STRIP_CANDIDATES[@]}"}"; do
           for __arm_verb in "${ARM_DELETE_VERBS_UNCONDITIONAL[@]}"; do
             if [[ "$__sc_tok" == "$__arm_verb" || "$__sc_tok" == */"$__arm_verb" ]]; then
@@ -2055,7 +2080,25 @@ __scan_one_segment_for_cp_delete() {
         # 않는다(23차가 셸 이름 열거를 폐지한 것과 같은 이유) — 대신 첫
         # 낱말 안의 모든 절단 위치를 추가 후보로 시도한다. 그중 하나는
         # 반드시 실제 옵션-값 경계와 일치한다.
+        #
+        # **F65 29차 독립 판정 — 열한 번째 재발.** 이 호출은(세그먼트 자신의 동사
+        # 검사 루프의 같은 함수 호출과 달리) 상한이 전혀 없었다 — `sh -c` 뒤에
+        # 12000자짜리 대시-시작 후보 하나만 둬도(그 안에 코드가 하나도 없어도)
+        # 이 함수의 O(n²) 절단 루프가 40초 넘게 걸려 훅의 5초 타임아웃을 넘겨
+        # 죽였다. 죽은 훅은 아무 판정도 내지 못하므로, 같은 명령 뒤에 진짜로
+        # 있는 `; rm -rf .claude` 조차 확인되지 못한 채 지나간다 — 이 파일이
+        # 12차·17차 판정에서 이미 닫았던 "부피로 타임아웃을 만들어 판정 자체를
+        # 못 내게 한다"는 결함과 같은 계열이 이 호출 지점에서 재발한 것이다.
+        # 상한을 호출처마다 따로 두면 새 호출처가 생길 때마다 이 비대칭이
+        # 반복되므로, 함수 자신에게 상한을 옮겼다 — 여기서는 그 신호
+        # (`__PREFIX_STRIP_OVERFLOW`)를 보고 이 후보 자체를 안전하게 다 확인하지
+        # 못했다는 뜻으로 곧장 ask 한다(아래 3초 예산 소진과 같은 fail-closed
+        # 관용구).
         __dash_prefix_strip_candidates "$__UNQUOTED"
+        if [[ "$__PREFIX_STRIP_OVERFLOW" -eq 1 ]]; then
+          CP_DELETE_HIT="(대시로 시작하는 절단 대상 낱말이 너무 길어 안전하게 다 확인할 수 없음 — 안전한 쪽으로 확인 요청)"
+          return 0
+        fi
         for __pcand in "${__PREFIX_STRIP_CANDIDATES[@]+"${__PREFIX_STRIP_CANDIDATES[@]}"}"; do
           __cand_budget_ms=$(( ($(date +%s%N) - __HOOK_START_NS) / 1000000 ))
           if [[ $__cand_budget_ms -gt 3000 ]]; then
