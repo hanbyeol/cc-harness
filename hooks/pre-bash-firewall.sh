@@ -703,6 +703,149 @@ DATA_PLANE_DETECTED=1
 integrity_wired && DATA_PLANE_DETECTED=0
 
 
+# 아래 네 함수(__skip_backtick·__skip_dollar_paren·__strip_dollar_brace·__mask_opaque_spans)는
+# 원래 토크나이저 근처(아래)에 있었다 — F65 security-auditor 34차 독립 판정이 지적한 실행
+# 순서 결함으로 여기로 옮겼다: 이 파일은 위에서 아래로 실행되는 하나의 스크립트라, 아래
+# pure_read_only()의 find 핸들링이 이 함수들을 호출하려면 그 호출 시점(파일 훨씬 아래,
+# `pure_read_only "$CMD"`)보다 먼저 정의돼 있어야 한다 — 원래 위치는 정의만 늦어
+# "명령을 찾을 수 없음"으로 죽었다(실측). 호출 지점을 옮기는 대신, 부작용 없는 순수
+# 문자열 유틸리티인 이 함수들의 정의를 첫 사용처보다 앞으로 옮긴다 — 함수 본문·주석은
+# 그대로, 위치만 이동(로직 변경 없음). 원래 자리의 주변 설명(토크나이저 관련)은 그대로 둔다.
+
+# 백틱 쌍의 짝을 찾는다 — $2 는 여는 백틱의 인덱스. 안쪽 내용은 해석하지 않고 경계만
+# 찾는다(중첩 백틱은 실제 셸에서도 백슬래시 이스케이프가 필요하므로 같은 규칙을 따른다).
+# 짝을 못 찾으면 __OPAQUE_END=-1 — 호출자가 이를 SEGMENT_UNSAFE 로 처리한다.
+__skip_backtick() {
+  # 주의: `n=${#s}` 를 `s="$1"` 과 같은 `local` 문에 두면 안 된다 — bash 는 그 우변을 s 가
+  # 아직 이 스코프에 대입되기 **전**에 평가한다(F65 7차 판정이 __brace_find_group() 에서
+  # 이미 겪은 함정 — 호출자 스코프에 우연히 같은 이름 s 가 남아 있으면 그 값으로 조용히
+  # 계산돼 겉보기엔 통과한다. 실측: __tokenize_segment() 의 지역변수도 이름이 s 라서 이
+  # 형태로 처음엔 우연히 통과했었다). 반드시 별도 문으로 나눈다.
+  local s="$1"
+  local j=$(($2 + 1)) n=${#s} cj
+  while [[ $j -lt $n ]]; do
+    cj="${s:j:1}"
+    if [[ "$cj" == '\' ]]; then
+      j=$((j + 2)); continue
+    elif [[ "$cj" == '`' ]]; then
+      __OPAQUE_END=$((j + 1)); return
+    fi
+    j=$((j + 1))
+  done
+  __OPAQUE_END=-1
+}
+
+# `$(...)` 의 짝 맞는 `)` 를 찾는다 — $2 는 `$` 의 인덱스(`${s:$2+1:1}` 이 `(` 임을 호출자가
+# 보장한다). 중첩 괄호는 깊이 카운트로 짝을 맞춘다 — **안쪽 따옴표는 보지 않는 근사치**다
+# (예: `$(echo "(")` 처럼 문자열 리터럴 안에 홀수 괄호가 있으면 경계를 놓칠 수 있다). 이
+# 함수는 피연산자 값 자체를 확정하려는 게 아니라 토큰 분리가 안 깨지게 구간만 건너뛰는
+# 것이므로, 경계를 놓쳐도 이후 안 닫힌 따옴표 검사나 SEGMENT_HAS_OPAQUE 처리가 안전한
+# 쪽(ask)으로 떨어뜨린다.
+__skip_dollar_paren() {
+  # 위 __skip_backtick() 과 같은 이유로 별도 local 문 — 자기참조 회피.
+  local s="$1"
+  local j=$(($2 + 2)) n=${#s} depth=1 cj
+  while [[ $j -lt $n && $depth -gt 0 ]]; do
+    cj="${s:j:1}"
+    if [[ "$cj" == '\' ]]; then
+      j=$((j + 2)); continue
+    elif [[ "$cj" == '(' ]]; then
+      depth=$((depth + 1))
+    elif [[ "$cj" == ')' ]]; then
+      depth=$((depth - 1))
+    fi
+    j=$((j + 1))
+  done
+  if [[ $depth -gt 0 ]]; then __OPAQUE_END=-1; else __OPAQUE_END=$j; fi
+}
+
+
+# **순수 변수명뿐인** `${VAR}` 블록만 통째로 지운다(비어 있는 것으로 취급) — $1 은 원문.
+# 안쪽에 `:`·`#`·`%`·`/` 등 연산자가 하나라도 있으면(`${VAR:-word}`·`${VAR#pattern}` 등)
+# **지우지 않는다** — F65 15차 독립 판정이 반려한 결함: 그런 형태는 미정의 상태에서도
+# 기본값·치환 문자열이 실제로 텍스트를 남길 수 있어(`${Z:-r}${Z:-m}` → `rm`), 통째로
+# 지우는 근사가 오히려 그 리터럴 텍스트를 놓친다("낱말을 못 찾게 만들지는 않는다"는
+# 불변식이 이 형태에서는 성립하지 않는다). 순수 변수명(`${Z}`)만 미정의/빈 값일 때
+# 실제 셸에서도 아무 것도 안 남으므로 "지운다"가 유일하게 안전한 근사다. 변수명 자체는
+# `{` 를 가질 수 없으므로 첫 `}` 까지만 보면 된다 — 중첩 깊이 계산이 필요 없고, 그래서
+# 15차 판정이 지적한 "`${A:-{}` 를 중첩으로 잘못 세어 스캔이 스팬 끝까지 밀리는" 종류의
+# 오버슈트 자체가 생기지 않는다.
+__strip_dollar_brace() {
+  # 주의: 아래 n=${#s} 를 s="$1" 과 같은 local 문에 두지 않는다(__skip_backtick() 참조 —
+  # 이 파일이 F65 7차 판정 이래 반복 겪은 자기참조 함정).
+  local s="$1"
+  local out="" n=${#s} k=0 c inner end idx
+  local -a close_pos=()
+  idx=0
+  while [[ $idx -lt $n ]]; do
+    case "${s:idx:1}" in
+      '}') close_pos+=("$idx") ;;
+    esac
+    idx=$((idx + 1))
+  done
+  local ci=0 nclose=${#close_pos[@]}
+  while [[ $k -lt $n ]]; do
+    c="${s:k:1}"
+    if [[ "$c" == '$' ]]; then
+      case "${s:k+1:1}" in
+        '{')
+          while [[ $ci -lt $nclose && ${close_pos[$ci]} -lt $((k + 2)) ]]; do
+            ci=$((ci + 1))
+          done
+          if [[ $ci -lt $nclose ]]; then
+            end=${close_pos[$ci]}
+            inner="${s:$((k + 2)):$((end - k - 2))}"
+            if [[ -z "$inner" || "$inner" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+              k=$((end + 1))
+              continue
+            fi
+          fi
+          ;;
+      esac
+    fi
+    out+="$c"
+    k=$((k + 1))
+  done
+  __STRIPPED="$out"
+}
+
+# 토큰 안의 `$(...)` 명령 치환·백틱 스팬을 통째로 지운다(빈 문자열로 치환) — `${...}`
+# 파라미터 확장은 건드리지 않는다(그건 `__strip_dollar_brace()`의 몫이고, 호출 순서상
+# 이 함수 다음에 적용된다). 셸이 이 치환을 실제로 어떤 값으로 펴든(가장 흔하고 위험한
+# 경우는 빈 문자열이다, `$(true)`처럼) 그 값은 문자열만으로 결정 불가능하므로, "치환이
+# 없었던 것처럼(빈 문자열)" 취급해 나머지 리터럴만으로 동사 여부를 판단하는 것이 유일하게
+# 안전한 근사다 — 실제 치환 결과가 다른 텍스트를 남기더라도 이 근사는 더 안전한 쪽으로만
+# 움직인다(리터럴이 우연히 진짜 동사와 같아지면 ask, 아니면 그대로 unarmed).
+#
+# **F65 security-auditor 34차 독립 판정(2026-09-07)이 133aa93의 결함을 지적**: 이전
+# 시도는 "토큰이 치환/백틱을 **포함하면** 통째로 배제한다"였는데, `r${Z}m$(true)`처럼
+# 무장 동사를 이루는 부분과 **무관하게 곁들여진** 치환이 같은 토큰에 하나라도 있으면
+# 그 토큰 전체의 무장 검사 자체를 건너뛰게 만들어 AUDIT-3(critical)를 다시 열었다(실측:
+# allow + 실제 삭제, 90/90 셀 스윕 전부 allow). 옳은 성질은 "토큰을 배제한다"가 아니라
+# "치환 부분만 지우고 남은 리터럴로 판단한다"다. 토큰 전체가 하나의 스팬이면(세그먼트
+# 전체가 `$(...)`/백틱으로 감싸인 경우처럼) 마스킹 결과가 빈 문자열이 되어 이 토큰은
+# 자연히 무장되지 않는다 — 그 스팬의 내용은 이미 `__note_opaque_verb()`가 별도로(15차
+# 판정이 확정한 declared residual 경계까지 포함해) 전용 스캔했으므로, 별도 제외 없이도
+# 그 경계가 저절로 보존된다.
+__MASKED=""
+__mask_opaque_spans() {
+  local s="$1"
+  local out="" n=${#s} k=0 c
+  while [[ $k -lt $n ]]; do
+    c="${s:k:1}"
+    if [[ "$c" == '`' ]]; then
+      __skip_backtick "$s" "$k"
+      if [[ $__OPAQUE_END -ge 0 ]]; then k=$__OPAQUE_END; continue; fi
+    elif [[ "$c" == '$' && "${s:k+1:1}" == '(' ]]; then
+      __skip_dollar_paren "$s" "$k"
+      if [[ $__OPAQUE_END -ge 0 ]]; then k=$__OPAQUE_END; continue; fi
+    fi
+    out+="$c"
+    k=$((k + 1))
+  done
+  __MASKED="$out"
+}
+
 # === Layer 3.4: 순수 읽기 면제 ===
 #
 # ## 무엇을 고치는가
@@ -805,6 +948,18 @@ pure_read_only() {
         local __seg_norm="${seg//\'/}"; __seg_norm="${__seg_norm//\"/}"; __seg_norm="${__seg_norm//\\/}"
         [[ "$seg" == *'>'* || "$seg" == *-exec* || "$seg" == *-delete* || "$seg" == *-ok* || "$seg" == *-fprint* || "$seg" == *-fls* ]] && return 1
         [[ "$__seg_norm" == *-exec* || "$__seg_norm" == *-delete* || "$__seg_norm" == *-ok* || "$__seg_norm" == *-fprint* || "$__seg_norm" == *-fls* ]] && return 1
+        # **F65 security-auditor 34차 독립 판정** — `find .claude -dele${Z}te`처럼 술어를
+        # 파라미터 확장으로 쪼개면(AUDIT-3와 같은 부류) 위 두 검사 모두 "-delete"를 리터럴
+        # 부분문자열로 못 찾아 여기서 읽기로 오분류됐다 — 이 함수가 그 자체로
+        # scan_control_plane_delete() 호출을 막는 더 넓은 게이트라, `__scan_one_segment_
+        # for_cp_delete()`쪽에 같은 종류의 수정을 넣어도 여기 도달하지 못하면 무의미하다
+        # (AUDIT-4 파생 발견과 같은 구조). `__mask_opaque_spans()`+`__strip_dollar_brace()`
+        # 로 치환·순수 변수명 확장을 편 세 번째 사본에도 같은 검사를 건다.
+        local __seg_stripped
+        __mask_opaque_spans "$__seg_norm"
+        __strip_dollar_brace "$__MASKED"
+        __seg_stripped="$__STRIPPED"
+        [[ "$__seg_stripped" == *-exec* || "$__seg_stripped" == *-delete* || "$__seg_stripped" == *-ok* || "$__seg_stripped" == *-fprint* || "$__seg_stripped" == *-fls* ]] && return 1
         ;;
       sed | gsed)
         [[ "$seg" == *'>'* ]] && return 1
@@ -1325,52 +1480,6 @@ control_plane_location() {
 # 이스케이프하고(예: `"a\$X"` → `a$X`, 변수 확장 안 됨) 그 외(`\z`)는 백슬래시까지 그대로
 # 남는다(`"a\zb"` → `a\zb`). 따옴표 밖에서는 백슬래시가 다음 글자 하나를 무조건 리터럴로
 # 만든다(`a\"b` → `a"b`, 새 인용을 열지 않는다 — 라운드 10 우회의 정확한 메커니즘).
-# 백틱 쌍의 짝을 찾는다 — $2 는 여는 백틱의 인덱스. 안쪽 내용은 해석하지 않고 경계만
-# 찾는다(중첩 백틱은 실제 셸에서도 백슬래시 이스케이프가 필요하므로 같은 규칙을 따른다).
-# 짝을 못 찾으면 __OPAQUE_END=-1 — 호출자가 이를 SEGMENT_UNSAFE 로 처리한다.
-__skip_backtick() {
-  # 주의: `n=${#s}` 를 `s="$1"` 과 같은 `local` 문에 두면 안 된다 — bash 는 그 우변을 s 가
-  # 아직 이 스코프에 대입되기 **전**에 평가한다(F65 7차 판정이 __brace_find_group() 에서
-  # 이미 겪은 함정 — 호출자 스코프에 우연히 같은 이름 s 가 남아 있으면 그 값으로 조용히
-  # 계산돼 겉보기엔 통과한다. 실측: __tokenize_segment() 의 지역변수도 이름이 s 라서 이
-  # 형태로 처음엔 우연히 통과했었다). 반드시 별도 문으로 나눈다.
-  local s="$1"
-  local j=$(($2 + 1)) n=${#s} cj
-  while [[ $j -lt $n ]]; do
-    cj="${s:j:1}"
-    if [[ "$cj" == '\' ]]; then
-      j=$((j + 2)); continue
-    elif [[ "$cj" == '`' ]]; then
-      __OPAQUE_END=$((j + 1)); return
-    fi
-    j=$((j + 1))
-  done
-  __OPAQUE_END=-1
-}
-
-# `$(...)` 의 짝 맞는 `)` 를 찾는다 — $2 는 `$` 의 인덱스(`${s:$2+1:1}` 이 `(` 임을 호출자가
-# 보장한다). 중첩 괄호는 깊이 카운트로 짝을 맞춘다 — **안쪽 따옴표는 보지 않는 근사치**다
-# (예: `$(echo "(")` 처럼 문자열 리터럴 안에 홀수 괄호가 있으면 경계를 놓칠 수 있다). 이
-# 함수는 피연산자 값 자체를 확정하려는 게 아니라 토큰 분리가 안 깨지게 구간만 건너뛰는
-# 것이므로, 경계를 놓쳐도 이후 안 닫힌 따옴표 검사나 SEGMENT_HAS_OPAQUE 처리가 안전한
-# 쪽(ask)으로 떨어뜨린다.
-__skip_dollar_paren() {
-  # 위 __skip_backtick() 과 같은 이유로 별도 local 문 — 자기참조 회피.
-  local s="$1"
-  local j=$(($2 + 2)) n=${#s} depth=1 cj
-  while [[ $j -lt $n && $depth -gt 0 ]]; do
-    cj="${s:j:1}"
-    if [[ "$cj" == '\' ]]; then
-      j=$((j + 2)); continue
-    elif [[ "$cj" == '(' ]]; then
-      depth=$((depth + 1))
-    elif [[ "$cj" == ')' ]]; then
-      depth=$((depth - 1))
-    fi
-    j=$((j + 1))
-  done
-  if [[ $depth -gt 0 ]]; then __OPAQUE_END=-1; else __OPAQUE_END=$j; fi
-}
 
 # 무장 동사의 유일한 출처(F65 13차 독립 판정 — 커밋 978d8f2 가 이 목록을 __note_opaque_verb()
 # 안에 리터럴로 중복시켰다가 반려됐다: "다른 곳도 같은 목록일 것"이라는 산문 주장은 검증된
@@ -1429,55 +1538,6 @@ __scan_opaque_verb_matches() {
   # 세 사본 모두에 이 함수가 이미 걸려 있으므로 별도 배선 없이 세 사본 전부에 적용된다)
   # 으로 -delete도 자기 토큰으로 흘려보낸다.
   [[ "$s" =~ (^|[^A-Za-z0-9_])-delete([^A-Za-z0-9_]|$) ]] && SPLIT_TOKS+=("-delete")
-}
-
-# **순수 변수명뿐인** `${VAR}` 블록만 통째로 지운다(비어 있는 것으로 취급) — $1 은 원문.
-# 안쪽에 `:`·`#`·`%`·`/` 등 연산자가 하나라도 있으면(`${VAR:-word}`·`${VAR#pattern}` 등)
-# **지우지 않는다** — F65 15차 독립 판정이 반려한 결함: 그런 형태는 미정의 상태에서도
-# 기본값·치환 문자열이 실제로 텍스트를 남길 수 있어(`${Z:-r}${Z:-m}` → `rm`), 통째로
-# 지우는 근사가 오히려 그 리터럴 텍스트를 놓친다("낱말을 못 찾게 만들지는 않는다"는
-# 불변식이 이 형태에서는 성립하지 않는다). 순수 변수명(`${Z}`)만 미정의/빈 값일 때
-# 실제 셸에서도 아무 것도 안 남으므로 "지운다"가 유일하게 안전한 근사다. 변수명 자체는
-# `{` 를 가질 수 없으므로 첫 `}` 까지만 보면 된다 — 중첩 깊이 계산이 필요 없고, 그래서
-# 15차 판정이 지적한 "`${A:-{}` 를 중첩으로 잘못 세어 스캔이 스팬 끝까지 밀리는" 종류의
-# 오버슈트 자체가 생기지 않는다.
-__strip_dollar_brace() {
-  # 주의: 아래 n=${#s} 를 s="$1" 과 같은 local 문에 두지 않는다(__skip_backtick() 참조 —
-  # 이 파일이 F65 7차 판정 이래 반복 겪은 자기참조 함정).
-  local s="$1"
-  local out="" n=${#s} k=0 c inner end idx
-  local -a close_pos=()
-  idx=0
-  while [[ $idx -lt $n ]]; do
-    case "${s:idx:1}" in
-      '}') close_pos+=("$idx") ;;
-    esac
-    idx=$((idx + 1))
-  done
-  local ci=0 nclose=${#close_pos[@]}
-  while [[ $k -lt $n ]]; do
-    c="${s:k:1}"
-    if [[ "$c" == '$' ]]; then
-      case "${s:k+1:1}" in
-        '{')
-          while [[ $ci -lt $nclose && ${close_pos[$ci]} -lt $((k + 2)) ]]; do
-            ci=$((ci + 1))
-          done
-          if [[ $ci -lt $nclose ]]; then
-            end=${close_pos[$ci]}
-            inner="${s:$((k + 2)):$((end - k - 2))}"
-            if [[ -z "$inner" || "$inner" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
-              k=$((end + 1))
-              continue
-            fi
-          fi
-          ;;
-      esac
-    fi
-    out+="$c"
-    k=$((k + 1))
-  done
-  __STRIPPED="$out"
 }
 
 __note_opaque_verb() {
@@ -2114,11 +2174,24 @@ __scan_one_segment_for_cp_delete() {
     # 의 512자 상한을 거치기 **전**이라 무방비였다.
     if [[ "$NORM_TOK" == "$ARM_DELETE_VERB_DELETE_GATED" || "$NORM_TOK" == */"$ARM_DELETE_VERB_DELETE_GATED" ]]; then __has_find_tok=1; fi
     [[ "$NORM_TOK" == "-delete" ]] && __has_delete_pred=1
-    # AUDIT-3 와 같은 이유(파라미터 확장) — `${Z}find` 도 "find" 토큰으로 잡는다.
-    if [[ "$__has_find_tok" -eq 0 && "$NORM_TOK" == *'$'* ]]; then
-      __strip_dollar_brace "$NORM_TOK"
-      if [[ "$__STRIPPED" != "$NORM_TOK" && ( "$__STRIPPED" == "$ARM_DELETE_VERB_DELETE_GATED" || "$__STRIPPED" == */"$ARM_DELETE_VERB_DELETE_GATED" ) ]]; then
+    # AUDIT-3 와 같은 이유(파라미터 확장) — `${Z}find`·`-dele${Z}te` 도 각각 find/-delete
+    # 토큰으로 잡는다. **F65 security-auditor 34차 독립 판정이 지적한 비대칭(AUDIT-3의
+    # 범위 안, 회귀는 아님)**: 이전 버전은 find 쪽에만 이 폴백을 뒀고 -delete 쪽엔 두지
+    # 않아 `find .claude -dele${Z}te`가 allow + 실제 삭제였다 — 두 술어 모두 같은
+    # `__mask_opaque_spans()`+`__strip_dollar_brace()` 처리를 받도록 대칭화한다(치환/
+    # 백틱 스팬은 지우고 순수 변수명 확장은 편 뒤 비교 — 133aa93의 결함이었던 "토큰
+    # 전체를 배제"가 아니라 "치환 부분만 지우고 남은 리터럴로 판단"하므로, 곁들여진
+    # 무관한 치환 하나 때문에 검사 자체를 건너뛰는 일이 없다).
+    if [[ ( "$__has_find_tok" -eq 0 || "$__has_delete_pred" -eq 0 ) \
+          && ( "$NORM_TOK" == *'$'* || "$NORM_TOK" == *'`'* ) ]]; then
+      __mask_opaque_spans "$NORM_TOK"
+      __strip_dollar_brace "$__MASKED"
+      if [[ "$__has_find_tok" -eq 0 \
+            && ( "$__STRIPPED" == "$ARM_DELETE_VERB_DELETE_GATED" || "$__STRIPPED" == */"$ARM_DELETE_VERB_DELETE_GATED" ) ]]; then
         __has_find_tok=1
+      fi
+      if [[ "$__has_delete_pred" -eq 0 && "$__STRIPPED" == "-delete" ]]; then
+        __has_delete_pred=1
       fi
     fi
   done
@@ -2169,15 +2242,25 @@ __scan_one_segment_for_cp_delete() {
     # `Z`가 미정의·빈 값일 때(가장 흔한 경우) 셸에서는 그대로 `rm`·`mv`·`rmdir`이
     # 실행되는데 위 정확/접미사 비교는 걸리지 않는다(격리 랩 실증: 방화벽 자기
     # 설치본을 포함해 실제 삭제). 같은 파일이 이 정확한 표기를 `__strip_dollar_brace()`
-    # (:1407, 순수 변수명 블록만 지운다 — `${Z:-x}`처럼 연산자가 있어 실제로 텍스트를
-    # 남길 수 있는 형태는 건드리지 않는다, 15차 판정이 반려한 그 구분)로 이미 정확히
-    # 처리하지만, 그 함수는 명령 치환 스팬 안쪽(`__note_opaque_verb()`)에만 배선돼
-    # 있었다 — 세그먼트 자신의 토큰 경로에는 연결된 적이 없었다. 같은 함수를 여기서도
-    # 재사용한다: `$`가 있는 토큰만(불필요한 호출 회피) 벗겨서 다시 같은 동사 목록에
-    # 댄다.
-    if [[ "$__verb_armed" -eq 0 && "$NORM_TOK" == *'$'* ]]; then
-      __strip_dollar_brace "$NORM_TOK"
-      if [[ "$__STRIPPED" != "$NORM_TOK" ]]; then
+    # (순수 변수명 블록만 지운다 — `${Z:-x}`처럼 연산자가 있어 실제로 텍스트를 남길 수
+    # 있는 형태는 건드리지 않는다, 15차 판정이 반려한 그 구분)로 이미 정확히 처리하지만,
+    # 그 함수는 명령 치환 스팬 안쪽(`__note_opaque_verb()`)에만 배선돼 있었다 — 세그먼트
+    # 자신의 토큰 경로에는 연결된 적이 없었다.
+    #
+    # **F65 security-auditor 34차 독립 판정(2026-09-07) — 133aa93의 결함.** 자체 발견
+    # 회귀(아래 두 문단)를 고치려던 최초 시도는 "토큰이 `$(`/백틱을 **포함하면** 이
+    # 폴백 전체를 건너뛴다"였는데, `r${Z}m$(true)`처럼 무장 동사를 이루는 부분과
+    # **무관하게 곁들여진** 치환이 같은 토큰에 하나라도 있으면 그 토큰 전체의 무장
+    # 검사 자체를 건너뛰어 AUDIT-3를 다시 열었다(34차 실측: allow + 실제 삭제, 동사×
+    # 확장형×잔여×대상 90/90 셀 스윕 전부 allow). "토큰을 배제한다"가 아니라 "치환
+    # 부분만 지우고 남은 리터럴로 판단한다"가 옳은 성질이다 — `__mask_opaque_spans()`
+    # (셸이 이 치환을 실제로 무엇으로 펴든 "없었던 것처럼" 취급하는, 위와 같은 이유의
+    # 안전한 근사)로 `$(...)`/백틱 스팬만 지우고, 남은 리터럴에 `__strip_dollar_brace()`
+    # 를 적용해 같은 동사 목록에 다시 댄다.
+    if [[ "$__verb_armed" -eq 0 && ( "$NORM_TOK" == *'$'* || "$NORM_TOK" == *'`'* ) ]]; then
+      __mask_opaque_spans "$NORM_TOK"
+      __strip_dollar_brace "$__MASKED"
+      if [[ "$__STRIPPED" != "$__MASKED" ]]; then
         for __arm_verb in "${ARM_DELETE_VERBS_UNCONDITIONAL[@]}"; do
           if [[ "$__STRIPPED" == "$__arm_verb" || "$__STRIPPED" == */"$__arm_verb" ]]; then
             __verb_armed=1; break
@@ -2191,41 +2274,22 @@ __scan_one_segment_for_cp_delete() {
       # 반복 확인한 "명령 문자열로 실제 값을 확정하는 것은 결정 불가능하다"). 그런데
       # 이 자리(세그먼트 자신의 동사 후보 토큰)에서는 그 결정 불가능성 자체가
       # 위험 신호다 — 위 두 검사(정확 비교·순수 변수명 벗기기) 모두 못 잡았는데
-      # 토큰에 여전히 **`${`로 시작하는 미해결 블록**이 남아 있다면(`r${Z:+x}m` 처럼),
-      # 그 확장이 무엇으로 펴질지 모른 채 allow 하는 것과 같다. `SEGMENT_UNSAFE`가
-      # ANSI-C 인용 앞에서 펴 보지 않고 곧장 안전한 쪽으로 트는 것과 같은 논리로,
+      # 마스킹 결과에 여전히 **`${`로 시작하는 미해결 블록**이 남아 있다면(`r${Z:+x}m`
+      # 처럼), 그 확장이 무엇으로 펴질지 모른 채 allow 하는 것과 같다. `SEGMENT_UNSAFE`
+      # 가 ANSI-C 인용 앞에서 펴 보지 않고 곧장 안전한 쪽으로 트는 것과 같은 논리로,
       # 여기서도 armed 로 확정한다 — 동사 자리에서 이 형태를 쓰는 정상 명령은 극히
       # 드물다(SC-10과 같은 성격의 트레이드오프, 아래 대조 테스트로 무관 명령 마찰이
       # 없는지 별도 확인).
       #
-      # **자체 발견(f36a921 직후, 커밋 전) — 최초 구현은 `*'$'*`(바레 `$` 존재)로
-      # 검사해 `ls $(pwd)`의 `$(pwd)` 토큰까지 무장시켜 실제 마찰 회귀를 냈다
-      # (`auto-allows benign command substitution` bats 회귀로 발견). 바레 `$VAR`
-      # (중괄호 없음)은 뒤따르는 식별자 문자를 전부 최대 매칭으로 삼켜 변수 이름의
-      # 일부로 만든다 — `r$Zm`은 변수 "Z"가 아니라 변수 "Zm"을 찾으므로 `${Z}`처럼
-      # "비어 있으면 동사 이름 한가운데가 이어붙는다"는 위험이 성립하지 않는다(변수
-      # "Zm"이 정확히 "m"으로 설정돼 있어야만 재현되는, `${PAGER}`가 우연히 "rm"인
-      # 것과 같은 급의 우연이다). `$(...)`(명령 치환)는 아예 다른 문법이라 더더욱
-      # 무관하다. 그래서 이 자리는 "미해결 `$`" 가 아니라 "미해결 `${`" 로 좁힌다 —
-      # `__strip_dollar_brace()`가 지우지 못한 순수 `${...}` 블록(연산자형)만 정확히
-      # 겨냥하고, 바레 확장·명령 치환은 건드리지 않는다.
-      #
-      # **자체 발견 2 (같은 회귀 조사 중) — 이 토큰 자체가 명령 치환/백틱 스팬(그
-      # 전체 또는 일부)이면 이 폴백을 적용하지 않는다.** `$(${Z:-r}${Z:-m} -rf
-      # .claude)`(15차 판정이 확정한 declared residual — defval 연산자형이라
-      # 일부러 안 잡는다) 전체가 세그먼트 자신의 토큰 하나로 들어오면, 그 안 어딘가에
-      # `${`가 있다는 사실만으로 이 폴백이 토큰 **전체**를 무장시켜 그 declared
-      # residual 경계를 조용히 좁혀 버렸다(bats 회귀로 발견: 282번 케이스가 allow→ask로
-      # 바뀜). 치환/백틱 스팬 내부는 이미 `__note_opaque_verb()`가 스팬 원문을 따로
-      # 받아 전용 스캔(문자 그대로의 동사 낱말 탐지 + 같은 `__strip_dollar_brace()`를
-      # 스팬 내용에 적용한 뒤 재탐지)을 하고, 그 경계(순수 변수명만 지운다, 연산자형은
-      # declared residual로 남긴다)가 15차 판정으로 이미 확정돼 있다 — 이 폴백이 그
-      # 경계를 우회해 더 넓게 잡을 이유가 없다. 그래서 토큰에 `$(` 또는 백틱이 있으면
-      # (그 토큰이 통째로 또는 일부가 치환/백틱 스팬이라는 뜻) 이 폴백을 건너뛴다 —
-      # AUDIT-3의 실제 표적(`r${Z:+x}m` 등)은 애초에 치환·백틱을 포함하지 않는 맨
-      # 낱말이라 이 배제로 좁아지지 않는다.
-      if [[ "$__verb_armed" -eq 0 && "$__STRIPPED" == *'${'* \
-            && "$NORM_TOK" != *'$('* && "$NORM_TOK" != *'`'* ]]; then
+      # `__mask_opaque_spans()`가 이미 `$(...)`/백틱 스팬을 지웠으므로, 토큰 전체가
+      # 하나의 스팬이었던 경우(예: `$(${Z:-r}${Z:-m} -rf .claude)`, 15차 판정이 확정한
+      # declared residual)는 `__MASKED`가 빈 문자열이 되어 이 잔여 검사 자체가 자연히
+      # 무장되지 않는다 — 별도 제외 없이도 declared residual 경계가 저절로 보존된다
+      # (그 스팬 내부는 이미 `__note_opaque_verb()`가 별도 전용 스캔으로 같은 경계를
+      # 지킨다). 바레 `$VAR`(중괄호 없음)는 뒤따르는 식별자 전체를 변수 이름으로 삼켜
+      # (`r$Zm`은 변수 "Z"가 아니라 "Zm"을 찾는다) `${Z}`류의 위험이 성립하지 않으므로
+      # 이 잔여 검사는 "미해결 `$`"가 아니라 "미해결 `${`"로 좁힌다.
+      if [[ "$__verb_armed" -eq 0 && "$__STRIPPED" == *'${'* ]]; then
         __verb_armed=1
       fi
     fi

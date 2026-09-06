@@ -4290,3 +4290,50 @@ $cmd"
       || { echo "무관 명령에 새 마찰: $c"; false; }
   done
 }
+
+@test "F65 security-auditor 34차 독립 판정: 무관한 곁다리 치환이 붙어도 AUDIT-3 무장 검사를 건너뛰지 않는다" {
+  # 133aa93의 첫 시도("토큰이 \$(/백틱을 포함하면 폴백 전체를 배제")는 `r\${Z}m\$(true)`
+  # 처럼 무장 동사를 이루는 부분과 **무관하게 곁들여진** 치환이 하나라도 있으면 토큰
+  # 전체의 무장 검사 자체를 건너뛰어 AUDIT-3를 다시 열었다(34차 독립 판정 실측: 동사×
+  # 확장형×잔여×대상 90/90 셀 스윕 전부 allow). __mask_opaque_spans()로 치환 부분만
+  # 지우고 남은 리터럴로 판단하도록 재작성했다 — "토큰을 배제"가 아니라 "치환만 지운다".
+  local c
+  for c in 'r${Z}m$(true) -rf .claude' '${Z}rm$(true) -rf .claude' \
+           'rmdi${Z}r$(true) .claude' 'r${Z}m`true` -rf .claude'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "곁다리 치환이 AUDIT-3 무장 검사를 다시 우회시켰다: $c"; false; }
+  done
+}
+
+@test "F65 security-auditor 34차 독립 판정: find/-delete 두 술어 모두 같은 파라미터 확장 폴백을 받는다(비대칭 해소)" {
+  # 34차 판정이 AUDIT-3의 범위 안으로 지목한 사전 존재 비대칭(회귀는 아님) — find 쪽에는
+  # __strip_dollar_brace() 폴백이 있었는데 -delete 쪽엔 없어 `find .claude -dele${Z}te`가
+  # allow + 실제 삭제였다. 두 술어를 대칭으로 만들었다(같은 __mask_opaque_spans()+
+  # __strip_dollar_brace() 처리). pure_read_only()가 scan_control_plane_delete() 호출
+  # 자체를 막는 더 넓은 게이트라는 점도 같이 확인한다(AUDIT-4 파생과 같은 구조 — 이
+  # 함수도 같은 마스킹+스트립 처리를 받도록 같이 고쳤다, 함수 정의 순서 문제로
+  # __skip_backtick/__skip_dollar_paren/__strip_dollar_brace/__mask_opaque_spans 네
+  # 함수를 pure_read_only() 보다 앞으로 옮겨야 했다).
+  run delete_decision 'find .claude -dele${Z}te'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "find/-delete 비대칭이 재발했다: find .claude -dele\${Z}te"; false; }
+  # find 쪽 폴백은 회귀가 아님을 대조로 재확인 — find\${X} 형태.
+  run delete_decision 'find${X} .claude -delete'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "find 쪽 파라미터 확장 폴백이 회귀했다: find\${X} .claude -delete"; false; }
+}
+
+@test "F65 security-auditor 34차 독립 판정: 함수 재배치 후에도 pure_read_only() 화이트리스트가 정상 동작한다" {
+  # __skip_backtick 등 네 함수를 pure_read_only() 보다 앞으로 옮긴 것이 로직을 바꾸지
+  # 않았음을 대조로 확인 — 순수 읽기는 여전히 allow, find의 실제 쓰기 술어는 여전히 ask.
+  run wired_firewall '{"tool_input":{"command":"cat progress/feature_list.json"}}'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "함수 재배치가 순수 읽기 화이트리스트를 깼다"; false; }
+  run delete_decision "find .claude -name '*.json'"
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "함수 재배치가 find의 순수 읽기 형태를 깼다"; false; }
+  run delete_decision 'find .claude -delete'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "함수 재배치가 find -delete의 실제 쓰기 형태를 깼다"; false; }
+}
