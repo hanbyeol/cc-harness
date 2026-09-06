@@ -4172,3 +4172,121 @@ $cmd"
       || { echo "F71 경계 안에서 이미 열려 있어야 할 형태가 막혔다(회귀): $c"; false; }
   done
 }
+
+@test "F65 AC-12: security-auditor AUDIT-3의 정확한 5개 파라미터 확장 동사 페이로드가 게이트된다" {
+  # 33차 독립 판정 통과 직후 병렬 실행된 security-auditor가 발견한 열네 번째 재발 —
+  # 이전 라운드들이 전부 "래퍼 안에 인용된 코드"였던 것과 달리, 이번엔 세그먼트 자신의
+  # **동사 토큰 표기**(파라미터 확장으로 동사 이름 한가운데를 가른 형태)였다. 정확/접미사
+  # 비교로는 `r${Z}m`이 `rm`과 전혀 다른 문자열이라 걸리지 않는다 — 격리 랩에서 방화벽
+  # 자기 설치본을 포함해 실제 삭제까지 실증됐다(auditor 원 보고).
+  local c
+  for c in 'r${Z}m -rf .claude' \
+           '${Z}rm -rf .claude' \
+           'rmdi${Z}r .claude' \
+           'm${Z}v .claude /tmp/sink' \
+           'r${Z:+x}m -rf .claude'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "AUDIT-3 페이로드가 여전히 allow: $c"; false; }
+  done
+}
+
+@test "F65 AC-12: 동사 자리 파라미터 확장 — 생성 규칙 스윕(동사 x 확장 형태 x 삽입 위치)" {
+  # AUDIT-3의 5개 인스턴스를 손으로 옮겨 적는 대신, 이 축을 만드는 세 성질을 각각
+  # 작은 원소 풀로 교차해 축 자체를 검증한다(SC-9 양성 기준) — 특정 동사·특정 위치를
+  # 몰라도 "동사 토큰 안에 순수 변수명 확장이 끼면 검사를 통과한다"는 성질 하나로
+  # 전부 잡혀야 한다.
+  local -a verbs=(rm rmdir mv unlink shred)
+  local -a expansions=('${Z}' '${Z:+x}' '${Z:-}')
+  local -a positions=(prefix middle suffix)
+  local v e p tok c
+  for v in "${verbs[@]}"; do
+    for e in "${expansions[@]}"; do
+      for p in "${positions[@]}"; do
+        case "$p" in
+          prefix) tok="${e}${v}" ;;
+          suffix) tok="${v}${e}" ;;
+          middle) tok="${v:0:1}${e}${v:1}" ;;
+        esac
+        c="$tok .claude/settings.json"
+        run delete_decision "$c"
+        [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+          || { echo "동사=$v 확장=$e 위치=$p 조합이 allow: $c"; false; }
+      done
+    done
+  done
+}
+
+@test "F65 AUDIT-4: find의 -delete 술어 사전 필터가 pure_read_only() 자체 게이트에서도 정규화된 형태로 걸린다" {
+  # AUDIT-4는 원래 scan_control_plane_delete() 안 find 핸들링(60580c0)만 겨냥했는데,
+  # 고친 뒤에도 `find .claude -dele\te`가 여전히 allow였다 — 디버그 추적으로 근본 원인이
+  # pure_read_only()가 scan_control_plane_delete() 호출 자체를 스킵시키는 자신만의(똑같이
+  # 결함 있는) find 핸들링을 따로 갖고 있었기 때문임을 확인했다(5cfb8cb). 두 게이트 모두
+  # 같은 인용/백슬래시 변형에 뚫리지 않아야 한다.
+  local c
+  for c in "find .claude -dele\\te" \
+           "find .claude -de'le'te" \
+           'find .claude -de""lete'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "AUDIT-4(pure_read_only 파생분 포함) 회귀: $c"; false; }
+  done
+  # find가 정말 읽기 전용(-delete/-exec 등 쓰기 술어 없음)이면 여전히 PURE_READ로
+  # 빠져야 한다 — 이 수정이 find 전체를 과잉 차단하지 않았는지 대조 확인.
+  run delete_decision "find .claude -name '*.json'"
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "find의 순수 읽기 형태까지 막혔다(과잉 차단): find .claude -name '*.json'"; false; }
+}
+
+@test "F65 AUDIT-5: 512자를 넘는 토큰에서 normalize_path_token()의 폴딩 루프가 이차식으로 느려지지 않는다" {
+  # bash 3.2(이 훅이 실제로 도는 macOS 기본 셸) 실측: 32,526바이트(진입 상한 바로 아래)
+  # 페이로드가 수정 전 611.55초 걸렸다(5초 타임아웃의 122배) — normalize_path_token()의
+  # `//`→`/`·`/./`→`/`·내부 `..` 접기 세 루프가 상한 없이 전체 토큰 길이에 대해 반복
+  # 치환을 돌았기 때문이다. 512자를 넘으면 폴딩 없이 원문 그대로 반환하도록 캡을 걸었다.
+  # `cat`처럼 pure_read_only() 화이트리스트에 있는 도구를 쓰면 scan_control_plane_delete()
+  # 자체가 스킵돼 이 경로를 전혀 통과하지 않는 공허한 통과가 되므로, 무장 동사(`mv`)로
+  # 반드시 operand 정규화 경로를 태운다.
+  local pad c t0 t1 ms
+  pad=$(printf 'a/./%.0s' $(seq 1 8000))   # 32,000바이트대 토큰 하나
+  c="mv ${pad}foo .claude/settings.json"
+  t0=$(date +%s%N)
+  run delete_decision "$c"
+  t1=$(date +%s%N)
+  ms=$(( (t1 - t0) / 1000000 ))
+  echo "elapsed=${ms}ms"
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "긴 오퍼랜드 토큰 옆 컨트롤 플레인 실제 대상이 있는데 allow: $c"; false; }
+  [[ $ms -lt 3000 ]] \
+    || { echo "512자 상한 미적용 시 재발하는 이차식 지연: ${ms}ms — 훅 타임아웃(5000ms) 근처"; false; }
+}
+
+@test "F65 AUDIT-3 잔여분: __strip_dollar_brace()가 건드리지 않는 연산자형 확장도 실제 컨트롤 플레인 피연산자와 결합하면 ask" {
+  # __strip_dollar_brace()는 순수 변수명 블록만 지운다(15차 판정이 확정) — `${Z:-x}`류
+  # 연산자형은 변수 설정 여부에 따라 실제 텍스트를 남길 수 있어 일부러 건드리지 않는다.
+  # 그런데 동사 후보 자리에서 정확 비교·순수 변수명 벗기기 둘 다 실패했는데도 토큰에
+  # `$`가 남아 있다면(f36a921), 그 확장이 무엇으로 펴질지 결정 불가능하므로 안전한 쪽으로
+  # armed 확정한다. 무장만으로는 부족하고, 뒤이어 실제 컨트롤 플레인 피연산자가 있어야
+  # 최종 ask로 이어진다는 전체 체인을 여기서 함께 고정한다.
+  run delete_decision '${PAGER:-less} .claude/settings.json'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "연산자형 확장 + 실제 컨트롤 플레인 피연산자인데 allow"; false; }
+  run delete_decision '${Z:+x}rm .claude'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "연산자형 확장 동사 + 실제 컨트롤 플레인 피연산자인데 allow"; false; }
+}
+
+@test "F65 AUDIT-3/AUDIT-3 잔여분: 파라미터 확장이 낀 무관 명령은 새 마찰 없이 allow" {
+  # armed는 실제 컨트롤 플레인 피연산자가 없으면 allow로 떨어져야 한다 — "동사 후보
+  # 토큰에 확장이 있으면 무조건 ask"가 아니라 "무장 + 실제 대상"의 결합이라는 것을
+  # 대조군으로 고정한다(SC-10 마찰 수용 범위). 컨트롤 플레인과 무관한 대상만 사용한다.
+  local c
+  for c in 'echo ${HOME}/file' \
+           'tar -czf out.tgz ${SRC_DIR:-src}/' \
+           '${PAGER:-less} file.txt' \
+           'cp ${A} ${B}' \
+           'git commit -m "fix ${ISSUE}"'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "무관 명령에 새 마찰: $c"; false; }
+  done
+}
