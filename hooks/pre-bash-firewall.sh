@@ -1919,7 +1919,7 @@ CP_DELETE_HIT=""
 # 전부 닫힌다", 중첩 래퍼는 별도 축). 반환: 0=삭제 발견(CP_DELETE_HIT 설정), 1=없음.
 __scan_one_segment_for_cp_delete() {
   local seg="$1" try_unwrap="$2"
-  local tok armed __arm_verb __verb_armed inner_seg
+  local tok armed __arm_verb __verb_armed inner_seg __sc_tok
   local -a toks
   __tokenize_segment "$seg"
   # 빈 배열을 `"${arr[@]}"` 로 그대로 펼치면 bash 3.2(이 훅이 실제로 실행되는 macOS 기본
@@ -1965,6 +1965,30 @@ __scan_one_segment_for_cp_delete() {
         __verb_armed=1; break
       fi
     done
+    # F65 27차 독립 판정 — 아홉 번째 재발. 26차 대응(__dash_prefix_strip_candidates)은
+    # __find_wrapped_arg() 가 후보를 이미 찾은 뒤에만(패스 1/2/3 중 하나가 걸려야) 호출된다.
+    # 그런데 `env -Srm -rf .claude` 처럼 값이 공백 없는 단일 낱말이면 어디에도 인용이나
+    # 공백이 없어 패스 1(`-…c…`, `S`엔 c가 없다)·패스 2(이름 게이트)·패스 3(공백 포함
+    # 토큰) 중 아무것도 걸리지 않는다 — 후보 자체가 안 만들어져 재스캔 메커니즘까지
+    # 가지도 못한다. 이 토큰(`-Srm`)은 애초에 세그먼트 자신의 토큰이라 재귀 재스캔이
+    # 필요 없다 — 대시 접두를 뗀 낱말이 바로 이 토큰의 동사 검사 자리에서 armed 판정과
+    # 나란히 서면 된다. 그래서 여기서 직접, 같은 __dash_prefix_strip_candidates 를
+    # 재사용해 절단 후보들을 같은 동사 목록에 댄다 — `env`·`-S` 라는 이름·플래그를
+    # 열거하지 않는다(23차가 셸 이름 열거를, 26차가 옵션 글자 열거를 폐지한 것과 같은
+    # 논리). 512자 상한은 __control_plane_location_impl() 과 같은 이유(긴 문자열
+    # 슬라이싱 반복의 누적 비용 방어) — 이 상한을 넘는 대시-토큰은 이 지점에서는
+    # 못 잡아도 세그먼트 2048자·`__split_segments()` 8192자 상한이 이미 막는 규모의
+    # 입력에서만 나타나고, 그 경우도 다른 fail-closed 상한들이 안전한 쪽으로 떨어뜨린다.
+    if [[ "$__verb_armed" -eq 0 && "$NORM_TOK" == -* && ${#NORM_TOK} -le 512 ]]; then
+      __dash_prefix_strip_candidates "$NORM_TOK"
+      for __sc_tok in "${__PREFIX_STRIP_CANDIDATES[@]+"${__PREFIX_STRIP_CANDIDATES[@]}"}"; do
+        for __arm_verb in "${ARM_DELETE_VERBS_UNCONDITIONAL[@]}"; do
+          if [[ "$__sc_tok" == "$__arm_verb" || "$__sc_tok" == */"$__arm_verb" ]]; then
+            __verb_armed=1; break 2
+          fi
+        done
+      done
+    fi
     if [[ "$__verb_armed" -eq 1 ]]; then armed=1; continue; fi
     [[ "$armed" -eq 1 ]] || continue
     [[ -z "$NORM_TOK" || "$NORM_TOK" == -* ]] && continue
