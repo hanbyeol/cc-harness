@@ -3398,10 +3398,16 @@ delete_decision() {
   }
 
   for b in "${bodies[@]}"; do
-    # 축 1 — env -S 계열: 접두 풀 × 인용 스타일 풀.
+    # 축 1 — env -S 계열: 접두 풀 × 인용 스타일 풀 × **인접성 풀**(26차 독립
+    # 판정 신설 — 플래그와 코드 사이 공백 유무를 상수로 고정하면 그 결과로
+    # 생기는 우회(`env -S'...'`, 공백 없음)를 이 테스트가 원리적으로 못 본다.
+    # 인접성을 축의 원소로 올려 앞 라운드의 메타 결함(풀에 상수로 박힌 차원)을
+    # 이 축에서는 반복하지 않는다.
     for pfx in "env" "env -i" "/usr/bin/env"; do
-      __probe_ac12 "$pfx -S '$b'"
-      __probe_ac12 "$pfx -S \"$b\""
+      for adj in " " ""; do
+        __probe_ac12 "$pfx -S${adj}'$b'"
+        __probe_ac12 "$pfx -S${adj}\"$b\""
+      done
     done
     # 축 2 — 헤어스트링/-s: 셸 이름 풀 × 전달 형태 풀.
     for w in "${wrappers[@]}"; do
@@ -3493,15 +3499,20 @@ delete_decision() {
       "\"${w1} \"${w2}\" \"${w3}"
     )
     for qshape in "${quote_shapes[@]}"; do
-      # 축 1 — 기존 -c 계열 래퍼(이름 풀 재사용).
-      for w in "${wrappers[@]}"; do
-        command -v "$w" >/dev/null 2>&1 || continue
-        __probe_quoteshape "$w -c $qshape"
+      # 인접성 풀(26차 독립 판정 신설) — 플래그와 코드 사이 공백 유무를 상수로
+      # 고정하지 않는다. 앞 라운드의 메타 결함(풀에 상수로 박힌 차원)이 정확히
+      # 이 자리(`"env -S $qshape"`처럼 공백을 상수로 둔 것)에서 재발했었다.
+      for adj in " " ""; do
+        # 축 1 — 기존 -c 계열 래퍼(이름 풀 재사용).
+        for w in "${wrappers[@]}"; do
+          command -v "$w" >/dev/null 2>&1 || continue
+          __probe_quoteshape "$w -c${adj}$qshape"
+        done
+        # 축 2 — env -S(전달 경로 축과 결합).
+        __probe_quoteshape "env -S${adj}$qshape"
       done
-      # 축 2 — env -S(전달 경로 축과 결합).
-      __probe_quoteshape "env -S $qshape"
       # 축 3 — 헤어스트링·파이프(전달 경로 축과 결합, 25차가 재발을 실증한 바로
-      # 그 메커니즘).
+      # 그 메커니즘). 이 둘은 플래그가 없어 인접성 축과 무관하다.
       __probe_quoteshape "bash <<< $qshape"
       __probe_quoteshape "echo $qshape | sh"
     done
