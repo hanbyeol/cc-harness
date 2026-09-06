@@ -219,7 +219,7 @@
       },
       "wrapper_code_delivery_mechanism": {
         "example": "24차 독립 판정 실증, 전부 allow + 격리 랩 실제 삭제: `env -S \"rm -rf .claude\"` · `env -S 'mv .claude /tmp/sink'` · `/usr/bin/env -S \"...\"` · `env -i -S \"...\"` (플래그가 'c'가 아닌 'S' — 코드 플래그 서브축의 '반드시 c를 포함' 가정과 무관) · `bash <<< 'rm -rf .claude'` · `sh <<< \"...\"` · `zsh <<< '...'` · `dash <<< '...'` · `ksh <<< '...'` · `bash -s <<< \"...\"` · `echo 'rm -rf .claude' | sh` · `printf '%s' '...' | bash` (플래그 자체가 없음 — 코드 전달이 argv 가 아니라 표준입력).",
-        "status": "**진행 중(2026-09-06 change-request 개시) — AC-12/SC-10으로 계약에 편입, agreed:false, Plan 게이트 승인 대기.** 24차 판정 직후 사용자 확인으로 이번 사이클(F65 11~24차, 명령 치환·타이밍·인용 래퍼 축)에서는 다루지 않기로 했으나, 그 직후 별도 `/change-request`로 범위를 정식 확정했다 — 24차 판정의 근본 수정 제안('앞에 무엇이 오든, 플래그가 있든 없든, 공백 포함 복합 토큰이면 무조건 벗겨 재검사한다', SC-10이 '넓은 범위'로 명명)을 사용자가 좁은 범위(env -S·헤어스트링 개별 대응) 대신 선택했다. 구현은 아직 시작하지 않았다 — `/implement`의 Plan 게이트(ExitPlanMode) 승인 후 진행한다."
+        "status": "**구현자 자체검증 완료, 독립검증 대기(2026-09-07, 커밋 e508b16/0e74a16, implementation_steps 14).** `/change-request` → Plan 게이트(ExitPlanMode) 승인을 거쳐 `__find_wrapped_arg()`에 이름·플래그 무관 패스 3(공백 포함 복합 토큰이면 무조건 후보)을 add-only로 추가했다. AC-12의 13종 페이로드 전수 ask + 이름 무관 음성 대조군 + 위치 축 실측 확인, SC-10 마찰 코퍼스 전수 allow 유지, 성능 재측정(5초 타임아웃 안에서 fail-closed) 전부 확인했다. **19~24차가 이 자리(및 형제 축)에서 여섯 번 '닫혔다'고 선언했다가 반증된 이력이 있으므로**, 이 status는 '해결'이 아니라 '자체검증 완료·독립검증 대기'로 의도적으로 보수적으로 적는다 — 다음 독립 evaluator 판정이 확인하면(critical tier이므로 F37 2차 판정·security-auditor까지 함께) 그때 상태를 올린다."
       },
       "nested_wrapper_unwrap": {
         "example": "`sh -c \"sh -c 'rm -rf .claude'\"` · `sh -c \"bash -c \\\"rm -rf .claude\\\"\"` · `bash -c \"env sh -c 'rm -rf .claude'\"` — 21차 독립 판정 실증, 전부 allow + 실삭제.",
@@ -411,7 +411,8 @@
     {
       "step": "14. 코드 전달 경로 무관 재검사(AC-12/SC-10) — `scan_control_plane_delete()`의 세그먼트 토큰 중 공백을 포함한 복합 토큰(원래 인용된 다중 단어 인자)을 앞뒤 맥락과 무관하게 언랩+재귀 스캔하는 단일 규칙으로 전환. 현재의 `__has_shell_code_flag()`(플래그 모양 기반)·`__classify_wrap_verb`/`__is_wrap_flag`(인터프리터 이름 게이트)는 이 단일 규칙의 특수 사례가 되므로 유지하거나 대체하는 것은 구현 재량이나, 19~24차가 이미 닫은 셀(표기·명령 치환·타이밍·이름·플래그 표기·값-받는 옵션)은 회귀 없이 유지해야 한다.",
       "verify": "AC-12.verification의 13종 페이로드 전수 ask + 격리 랩에서 실제 미삭제 확인 + SC-10이 요구하는 넓은 일상 명령 코퍼스(24차의 97개 코퍼스를 최소 기준으로) 신규 마찰 측정 + bats tests/pre-bash-firewall.bats 전체 1회 + 19~24차 회귀 테스트(판정↔실행 동치 테스트 포함) 전수 green.",
-      "done": false,
+      "done": true,
+      "_done_note_2026_09_07": "`__find_wrapped_arg()`에 패스 3(공백 포함 복합 토큰이면 이름·플래그 무관 후보)을 add-only로 추가(e508b16) — 기존 패스 1(`__has_shell_code_flag`)·패스 2(인터프리터 `-e`/`-r` 이름 게이트)는 대체하지 않고 그대로 유지했다(Plan 단계 판단: 패스 3이 패스 1/2의 상위집합이 아니라서 대체 시 회귀 위험). AC-12의 13종 페이로드 전수 ask + 이름 무관 음성 대조군(`notarealshell987`) + 위치 축(세그먼트 처음/중간/끝) 실측 확인(0e74a16). SC-10 마찰 코퍼스(git commit/tar/docker/kubectl/curl × 무관 인용 문자열) 전수 allow 유지 확인. 성능 재측정: 24차 판정과 동일한 적대적 shape(2040자 인용-과다 세그먼트 12개 + 680개 `-c` 토큰) 2.42초, 패스-3 전용 적대적 shape(코드 플래그 없이 공백 포함 인용 토큰 수백 개 + 실제 삭제 시도) 448ms — 둘 다 5초 타임아웃 안에서 fail-closed(ask), 후보 상한 추가는 불필요로 판단. bats 315/315(기존 311 + 신규 4) 통과. 구현자 자체 검증이며 독립 evaluator·F37 2차 판정·security-auditor는 아직 미실시 — critical tier이므로 이 셋 없이는 게이트를 통과할 수 없다.",
       "covers": [
         "AC-12",
         "SC-10"
