@@ -793,7 +793,18 @@ pure_read_only() {
         [[ "$seg" == *'>'* || "$seg" == *' -o'* || "$seg" == *'--output'* ]] && return 1
         ;;
       find)
+        # **F65 security-auditor AUDIT-4 파생 발견(자체 발견, 판정 대상 아님 — AUDIT-4가
+        # 고친 scan_control_plane_delete() 내부의 같은 리터럴 부분문자열 결함이 이
+        # 함수 자신에도 별도로 있었다)** — 아래 첫 줄은 원문(따옴표·백슬래시 그대로)
+        # 에서 `-delete` 등을 리터럴 부분문자열로 찾는다. `-de''lete`·`-dele\te` 처럼
+        # 인용·백슬래시로 쪼개면 이 검사가 실패해 여기서 `pure_read_only()`=true(읽기)로
+        # 오분류된다 — 그러면 :845 에서 `scan_control_plane_delete()` 자체가 호출되지
+        # 않아 위에서 고친 AUDIT-4 수정에 도달하지도 못한다(이 게이트가 더 넓다 — Layer 3
+        # ASK_PATTERNS 전체를 함께 끈다). 따옴표·백슬래시를 제거한 사본에도 같은 검사를
+        # 추가로 건다.
+        local __seg_norm="${seg//\'/}"; __seg_norm="${__seg_norm//\"/}"; __seg_norm="${__seg_norm//\\/}"
         [[ "$seg" == *'>'* || "$seg" == *-exec* || "$seg" == *-delete* || "$seg" == *-ok* || "$seg" == *-fprint* || "$seg" == *-fls* ]] && return 1
+        [[ "$__seg_norm" == *-exec* || "$__seg_norm" == *-delete* || "$__seg_norm" == *-ok* || "$__seg_norm" == *-fprint* || "$__seg_norm" == *-fls* ]] && return 1
         ;;
       sed | gsed)
         [[ "$seg" == *'>'* ]] && return 1
