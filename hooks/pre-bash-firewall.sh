@@ -1868,10 +1868,21 @@ __dash_prefix_strip_candidates() {
 # 있어도(`-o posix -o pipefail --`) 진짜 코드 인자는 그 배열 어딘가에 있고, 호출자가
 # 전부 시도하다 결국 만난다. 무해한 후보(`-o`·`posix` 등)를 시도해 봤자 아무것도
 # 안 잡히므로 안전 방향 손실은 없다 — add-only.
+# **F65 31차 독립 판정의 메타 권고**: 복잡도만 고치면 "고친 자리 바로 옆"이
+# 재발하는 패턴이 이미 여섯 라운드째다 — 인스턴스가 아니라 클래스를
+# fail-closed로 만들라는 요구에 따라, 이 함수 전체(세 패스 모두)를 관통하는
+# 예산 확인을 하나 둔다. 매 반복마다 `date`를 포크하면(eea8f5a가 세그먼트
+# 자신의 동사 검사 루프에서 그렇게 했다가 만든 마찰 회귀 — 경로 토큰 800개짜리
+# `git add`가 484ms/allow에서 3029ms/ask로 샜다) 검사 자체의 포크 비용이
+# 새 병목이 되므로, `K`(아래 `__FWA_CHECK_EVERY`)번마다 한 번만 읽는다 —
+# 이 사이 K회는 이미 O(1)로 유계인 개별 반복 비용만 쌓이므로 안전하다.
+__FIND_WRAPPED_ARG_OVERFLOW=0
+__FWA_CHECK_EVERY=200
 __find_wrapped_arg() {
   local -a t=("${__SEG_TOKS[@]+"${__SEG_TOKS[@]}"}")
-  local n=${#t[@]} i j k
+  local n=${#t[@]} i j k __fwa_iter=0 __fwa_ms
   __UNWRAP_CANDIDATES=()
+  __FIND_WRAPPED_ARG_OVERFLOW=0
 
   # 패스 1 — 구조적(이름 무관): `-…c…` 모양 플래그를 가진 토큰이 어디에 있든,
   # 그 뒤에 남은 토큰을 전부 후보로 담는다(__has_shell_code_flag 주석 참조).
@@ -1896,6 +1907,11 @@ __find_wrapped_arg() {
   # O(n)이 된다.
   j=0
   while [[ $j -lt $n ]]; do
+    __fwa_iter=$((__fwa_iter + 1))
+    if [[ $((__fwa_iter % __FWA_CHECK_EVERY)) -eq 0 ]]; then
+      __fwa_ms=$(( ($(date +%s%N) - __HOOK_START_NS) / 1000000 ))
+      if [[ $__fwa_ms -gt 3000 ]]; then __FIND_WRAPPED_ARG_OVERFLOW=1; return 0; fi
+    fi
     if __has_shell_code_flag "${t[$j]}"; then
       k=$((j + 1))
       while [[ $k -lt $n ]]; do
@@ -1910,8 +1926,28 @@ __find_wrapped_arg() {
   # 패스 2 — 인터프리터 이름 게이트(`-e`/`-r`): 이 두 플래그는 이름과 무관하게
   # 일반화하면 `grep -e "패턴"` 같은 흔한 무관 용례에 새 마찰이 생기므로,
   # 도구 이름이 인터프리터로 확인될 때만 인정한다(__is_wrap_flag 주석 참조).
+  #
+  # **F65 31차 독립 판정 — 열세 번째 재발, 패스 1의 옆 패스에서 같은 결함.**
+  # 인터프리터 이름 토큰을 만날 때마다 그 뒤에서 플래그를 찾는 내부 스캔이,
+  # 플래그가 하나도 없으면 이름 토큰마다 끝까지 헛스캔해 O(n²)이 된다 —
+  # `lua` 500개 + `; rm -rf .claude`(2016바이트, 진입 상한의 6%)만으로 훅이
+  # 5초 타임아웃에 죽었다(격리 랩 실증). 패스 1과 **정확히 같은 상위집합
+  # 논증**이 여기도 성립한다: 이름 매치 위치 i가 앞일수록 그 뒤에서 플래그를
+  # 찾는 범위 `[i+1, n)`가 더 넓다 — 그래서 더 이른 이름 매치가 찾는 플래그
+  # 위치 j는 항상 더 늦은 이름 매치가 찾는 플래그 위치 j'보다 앞서거나 같다
+  # (j ≤ j', 늦은 매치의 탐색 범위가 이른 매치의 부분집합이므로). 따라서
+  # 이른 매치의 후보 범위(j 뒤 전부)는 늦은 매치의 후보 범위(j' 뒤 전부)의
+  # 상위집합이고, **플래그를 못 찾아도** 마찬가지다 — 이른 매치의 탐색
+  # 범위(부분집합의 상위집합)에 플래그가 전혀 없다면 그 부분집합에도 없다.
+  # 그래서 **첫 이름 매치 하나만 처리하고(성공하든 실패하든) 멈춘다** — 그
+  # 뒤 범위 전체를 이미 한 번 다 훑었으므로 더 볼 필요가 없다.
   i=0
   while [[ $i -lt $n ]]; do
+    __fwa_iter=$((__fwa_iter + 1))
+    if [[ $((__fwa_iter % __FWA_CHECK_EVERY)) -eq 0 ]]; then
+      __fwa_ms=$(( ($(date +%s%N) - __HOOK_START_NS) / 1000000 ))
+      if [[ $__fwa_ms -gt 3000 ]]; then __FIND_WRAPPED_ARG_OVERFLOW=1; return 0; fi
+    fi
     if __classify_wrap_verb "${t[$i]}"; then
       j=$((i + 1))
       while [[ $j -lt $n ]]; do
@@ -1925,6 +1961,7 @@ __find_wrapped_arg() {
         fi
         j=$((j + 1))
       done
+      break
     fi
     i=$((i + 1))
   done
@@ -1946,6 +1983,11 @@ __find_wrapped_arg() {
   # 있다(SC-10이 명시적으로 요구하는 회귀 금지).
   i=0
   while [[ $i -lt $n ]]; do
+    __fwa_iter=$((__fwa_iter + 1))
+    if [[ $((__fwa_iter % __FWA_CHECK_EVERY)) -eq 0 ]]; then
+      __fwa_ms=$(( ($(date +%s%N) - __HOOK_START_NS) / 1000000 ))
+      if [[ $__fwa_ms -gt 3000 ]]; then __FIND_WRAPPED_ARG_OVERFLOW=1; return 0; fi
+    fi
     if [[ "${t[$i]}" == *' '* || "${t[$i]}" == *$'\t'* ]]; then
       __UNWRAP_CANDIDATES+=("${t[$i]}")
     fi
@@ -1983,7 +2025,7 @@ CP_DELETE_HIT=""
 # 전부 닫힌다", 중첩 래퍼는 별도 축). 반환: 0=삭제 발견(CP_DELETE_HIT 설정), 1=없음.
 __scan_one_segment_for_cp_delete() {
   local seg="$1" try_unwrap="$2"
-  local tok armed __arm_verb __verb_armed inner_seg __sc_tok __token_budget_ms
+  local tok armed __arm_verb __verb_armed inner_seg __sc_tok __token_budget_ms __token_iter
   local -a toks
   __tokenize_segment "$seg"
   # 빈 배열을 `"${arr[@]}"` 로 그대로 펼치면 bash 3.2(이 훅이 실제로 실행되는 macOS 기본
@@ -2030,12 +2072,23 @@ __scan_one_segment_for_cp_delete() {
   # 후보 순회(:2078 부근)가 이미 쓰는 것과 같은 전역 시간 예산(`__HOOK_START_NS`
   # 기준 3초)을 이 루프에도 그대로 적용해, 유계 반복의 누적조차 안전한 쪽(ask)
   # 으로 유계화한다.
+  #
+  # **F65 31차 독립 판정 — 이 최초 수정이 만든 마찰 회귀.** 매 토큰마다 `date`를
+  # 포크해 시각을 재면, 그 **포크 자체의 비용**이 새 병목이 된다 — 경로 토큰
+  # 800개짜리(11.9KB) `git add`가 484ms/allow 에서 3029ms/ask 로 샜다(무해한
+  # 명령에 새 마찰, 취약 창의 하한도 오히려 낮아짐). `__find_wrapped_arg()`용
+  # 관통 예산과 같은 이유로, `__FWA_CHECK_EVERY`번마다 한 번만 `date`를 읽는다 —
+  # 그 사이 반복은 이미 O(1)로 유계라 포크 없이도 안전하다.
   __token_budget_ms=0
+  __token_iter=0
   for tok in "${toks[@]+"${toks[@]}"}"; do
-    __token_budget_ms=$(( ($(date +%s%N) - __HOOK_START_NS) / 1000000 ))
-    if [[ $__token_budget_ms -gt 3000 ]]; then
-      CP_DELETE_HIT="(세그먼트 토큰이 많아 시간 예산 안에 전부 확인하지 못함 — 남은 토큰에 삭제가 있는지 알 수 없어 안전한 쪽으로 확인 요청)"
-      return 0
+    __token_iter=$((__token_iter + 1))
+    if [[ $((__token_iter % __FWA_CHECK_EVERY)) -eq 0 ]]; then
+      __token_budget_ms=$(( ($(date +%s%N) - __HOOK_START_NS) / 1000000 ))
+      if [[ $__token_budget_ms -gt 3000 ]]; then
+        CP_DELETE_HIT="(세그먼트 토큰이 많아 시간 예산 안에 전부 확인하지 못함 — 남은 토큰에 삭제가 있는지 알 수 없어 안전한 쪽으로 확인 요청)"
+        return 0
+      fi
     fi
     normalize_path_token "$tok"
     # 위와 같은 이유로 `${NORM_TOK##*/}` 추출이 아니라 접미사 판정을 쓴다. 목록은
@@ -2121,6 +2174,14 @@ __scan_one_segment_for_cp_delete() {
   if [[ "$try_unwrap" -eq 1 ]]; then
     __SEG_TOKS=("${toks[@]+"${toks[@]}"}")
     if __find_wrapped_arg; then
+      # F65 31차 독립 판정 — __find_wrapped_arg() 자신의 관통 예산(위 함수 정의
+      # 참조)이 소진됐다는 신호. 부분적으로 훑은 결과로 "래퍼 없음"이라 결론
+      # 내리면 fail-open이므로, 이 경우 __UNWRAP_CANDIDATES 내용과 무관하게
+      # 곧장 안전한 쪽으로 확인을 요청한다.
+      if [[ "$__FIND_WRAPPED_ARG_OVERFLOW" -eq 1 ]]; then
+        CP_DELETE_HIT="(래퍼 탐지 자체가 시간 예산 안에 끝나지 못함 — 안전한 쪽으로 확인 요청)"
+        return 0
+      fi
       local __cand __cand_budget_ms __pcand
       local -a __inner_segs __inner_segs2
       for __cand in "${__UNWRAP_CANDIDATES[@]+"${__UNWRAP_CANDIDATES[@]}"}"; do
