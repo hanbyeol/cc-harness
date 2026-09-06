@@ -3188,6 +3188,58 @@ delete_decision() {
   done
 }
 
+@test "F65 decision<->execution equivalence: shell-wrapper flag/quote matrix never allows an actual control-plane delete (21st verdict)" {
+  # 11~21차의 실패 패턴에 대한 21차 독립 판정의 구조적 지적: 판정문이 보고한 인스턴스만
+  # 닫고 "축을 닫았다"고 선언하면, 다음 라운드가 한 층 아래(표기→도구→래퍼→플래그 표기)
+  # 에서 같은 defect class 를 또 찾는다. 인스턴스 열거 대신 **효과**를 기준으로 삼는다 —
+  # 격리 랩에서 실제로 삭제되는데 방화벽이 allow 면 그 자체가 이 테스트의 실패 조건이다.
+  # 표기·플래그 형태를 하나씩 추가하는 대신 축을 조합해 순회하므로, 이 테스트가 아직
+  # 모르는 형태라도 "허용되면서 실제로 지운다"는 성질만 있으면 잡는다.
+  local lab
+  lab="$(mktemp -d)"
+  [[ -n "$lab" && -d "$lab" ]] || { echo "mktemp 실패"; false; }
+
+  local -a wrappers=(sh bash zsh dash ksh)
+  local -a flag_forms=('-c' '-cx' '-cv' '-lc' '-xc' '-c --' '-c -x' "'-c'" '"-c"')
+  local -a bodies=('rm -rf .claude' \
+                   'rm -f .claude/settings.json' \
+                   'rm -f .claude/settings*.json' \
+                   'rm -f .claude/agents/../settings.json')
+
+  local w f b cmd allow deleted
+  for w in "${wrappers[@]}"; do
+    command -v "$w" >/dev/null 2>&1 || continue
+    for f in "${flag_forms[@]}"; do
+      for b in "${bodies[@]}"; do
+        cmd="$w $f '$b'"
+
+        run delete_decision "$cmd"
+        allow="false"
+        [[ "$output" == *'"permissionDecision": "allow"'* ]] && allow="true"
+
+        # victim 트리를 매 반복 새로 만든다 — 이전 반복의 삭제가 다음 반복의
+        # "이미 없었다" 로 오인되지 않게 한다.
+        rm -rf "$lab/victim"
+        mkdir -p "$lab/victim/.claude/agents" "$lab/victim/.claude/hooks"
+        echo '{}' > "$lab/victim/.claude/settings.json"
+        echo '{}' > "$lab/victim/.claude/settings.local.json"
+
+        ( cd "$lab/victim" && eval "$cmd" ) >/dev/null 2>&1 || true
+        deleted="false"
+        { [[ -d "$lab/victim/.claude" ]] && [[ -f "$lab/victim/.claude/settings.json" ]]; } \
+          || deleted="true"
+
+        if [[ "$allow" == "true" && "$deleted" == "true" ]]; then
+          echo "판정↔실행 불일치 — allow 인데 실제로 컨트롤 플레인이 삭제됨: $cmd"
+          rm -rf "$lab"
+          false
+        fi
+      done
+    done
+  done
+  rm -rf "$lab"
+}
+
 @test "F65 interpreter/wrapper arm: notation widening creates no new friction on unrelated hooks-named paths" {
   # 넓힌 정규식(`hooks(/\.?)+...`)이 "hooks" 뒤에 아무 슬래시나 오면 걸리는 과도한 형태가
   # 아닌지 확인 — 컨트롤 플레인과 무관한 평범한 명령은 여전히 allow 여야 한다.

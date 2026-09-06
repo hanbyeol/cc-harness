@@ -1683,18 +1683,26 @@ __classify_wrap_verb() {
 }
 
 # 이 토큰이 "다음 토큰을 코드/명령 문자열로 받는다" 는 플래그인가. 셸은 `-c` 를
-# 결합 단축옵션으로도 쓴다(`bash -lc "..."` 가 20차 판정 실증 목록에 있다) — 결합
-# 형태에서도 마지막 글자가 값을 받는 셸 관행이라 `-[A-Za-z]*c` 로 넓힌다. 인터프리터는
-# **결합하지 않는다** — 여기서 결합까지 허용하면 `perl -pe '...'`·`perl -ne '...'`
-# 같은 매우 흔한 한 줄짜리 관용구(치환·필터 스크립트, 셸 코드가 아니다)가 전부 걸려
-# 새 마찰이 된다. 그래서 인터프리터는 각 언어의 정확한 실행 플래그만 본다(`-c`: python·
-# node 도 받아 준다 · `-e`: perl·ruby·node·lua · `-r`: php).
+# 결합 단축옵션으로도 쓴다(`bash -lc "..."` 가 20차 판정 실증 목록에 있다).
+# **21차 독립 판정 반려**: 이전 버전은 `c` 를 클러스터 **마지막 글자로 앵커**했는데
+# (`^-[A-Za-z]*c$`), 실제 셸은 클러스터 안 `c` 의 위치와 무관하게 다음 인자를 코드
+# 문자열로 받는다 — `sh -cx '...'`·`sh -cv '...'`·`bash -cl '...'` 전부 실행되는데
+# `c` 뒤에 다른 글자(`x`·`v`)가 오면 옛 정규식이 놓쳤다(격리 랩 실증: 16종 무프롬프트
+# 삭제). `c` 가 클러스터 어디에 있어도 성립하도록 `^-[A-Za-z]*c[A-Za-z]*$` 로 고친다.
+# 같은 판정이 `ftok` 의 따옴표도 벗긴다 — 이전에는 이 함수만 벗기지 않아 `sh '-c' '...'`
+# 처럼 플래그 자체가 인용된 형태가 샜다(형제 함수 `__classify_wrap_verb()` 는 이미
+# 벗기고 있었다 — 같은 정규화를 두 곳에 따로 심으면 이렇게 어긋난다).
+# 인터프리터는 **결합하지 않는다** — 여기서 결합까지 허용하면 `perl -pe '...'`·
+# `perl -ne '...'` 같은 매우 흔한 한 줄짜리 관용구(치환·필터 스크립트, 셸 코드가
+# 아니다)가 전부 걸려 새 마찰이 된다. 그래서 인터프리터는 각 언어의 정확한 실행
+# 플래그만 본다(`-c`: python·node 도 받아 준다 · `-e`: perl·ruby·node·lua · `-r`: php).
 __is_wrap_flag() {
-  local class="$1" ftok="$2"
+  local class="$1" ftok="$2" stripped
+  stripped="${ftok//\'/}"; stripped="${stripped//\"/}"
   if [[ "$class" == "shell" ]]; then
-    [[ "$ftok" =~ ^-[A-Za-z]*c$ ]] && return 0
+    [[ "$stripped" =~ ^-[A-Za-z]*c[A-Za-z]*$ ]] && return 0
   else
-    [[ "$ftok" == "-e" || "$ftok" == "-c" || "$ftok" == "-r" ]] && return 0
+    [[ "$stripped" == "-e" || "$stripped" == "-c" || "$stripped" == "-r" ]] && return 0
   fi
   return 1
 }
@@ -1724,14 +1732,25 @@ __unquote_wrap_candidate() {
 # 벗겨 `__UNWRAP_INNER` 에 채우고 0을 반환한다.
 __find_wrapped_arg() {
   local -a t=("${__SEG_TOKS[@]+"${__SEG_TOKS[@]}"}")
-  local n=${#t[@]} i=0 j
+  local n=${#t[@]} i=0 j k
   while [[ $i -lt $n ]]; do
     if __classify_wrap_verb "${t[$i]}"; then
       j=$((i + 1))
       while [[ $j -lt $n ]]; do
         if __is_wrap_flag "$__WRAP_CLASS" "${t[$j]}"; then
-          if [[ $((j + 1)) -lt $n ]]; then
-            __unquote_wrap_candidate "${t[$((j + 1))]}"
+          # **21차 독립 판정 반려**: 이전 버전은 플래그 바로 다음 토큰(`t[j+1]`)을
+          # 곧장 후보로 확정했는데, 실제 셸은 코드 플래그와 코드 인자 사이에 `--`나
+          # 다른 단독 플래그가 더 끼어도 개의치 않고 그 다음 비-플래그 토큰을 코드로
+          # 받는다(격리 랩 실증: `sh -c -- '...'`·`bash -c -x '...'` 둘 다 실행돼
+          # `.claude` 를 지운다). `-` 로 시작하는 토큰을 건너뛰고 첫 비-플래그 토큰을
+          # 후보로 삼는다 — 후보가 끝까지 없으면(플래그로만 끝나는 조각) 이 래퍼는
+          # 포기하고 바깥 루프가 다음 위치의 래퍼 이름을 계속 찾는다.
+          k=$((j + 1))
+          while [[ $k -lt $n && "${t[$k]}" == -* ]]; do
+            k=$((k + 1))
+          done
+          if [[ $k -lt $n ]]; then
+            __unquote_wrap_candidate "${t[$k]}"
             __UNWRAP_INNER="$__UNQUOTED"
             return 0
           fi
