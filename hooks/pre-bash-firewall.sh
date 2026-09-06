@@ -1775,6 +1775,33 @@ __unquote_wrap_candidate() {
   __UNQUOTED="$out"
 }
 
+# **26차 독립 판정 반려 대응**: 전달 플래그가 코드 값에 공백 없이 붙는 결합 단축옵션
+# 표기(`env -S'rm -rf .claude'`)에서는, 언랩된 낱말(`-Srm -rf .claude`)의 **첫
+# 토큰**이 `-Srm` 이 되어 그 안의 진짜 동사 `rm` 이 armed 판정(정확히 `rm` 이거나
+# `/rm` 로 끝남)에 걸리지 않는다. 어떤 옵션 글자가 몇 자인지는 도구마다 다르고
+# 열거할 수 없으므로(23차가 셸 이름 열거를 폐지한 것과 같은 이유), **첫 낱말 안의
+# 모든 절단 위치**를 후보로 만든다 — 그중 정확히 하나는 실제 옵션-값 경계와
+# 일치하고(`-S` + `rm ...` = 2글자 절단), 나머지는 벗겨 봤자 armed 판정에 걸리지
+# 않는 무해한 조각일 뿐이다(add-only, 안전 방향 손실 없음). 결과는 반환값이
+# 아니라 `__PREFIX_STRIP_CANDIDATES` 배열로 준다.
+__dash_prefix_strip_candidates() {
+  local s="$1"
+  __PREFIX_STRIP_CANDIDATES=()
+  [[ "${s:0:1}" == "-" ]] || return
+  local n=${#s} sp=-1 i=0 ch
+  while [[ $i -lt $n ]]; do
+    ch="${s:i:1}"
+    if [[ "$ch" == ' ' || "$ch" == $'\t' ]]; then sp=$i; break; fi
+    i=$((i + 1))
+  done
+  [[ $sp -lt 0 ]] && sp=$n
+  local L=1
+  while [[ $L -lt $sp ]]; do
+    __PREFIX_STRIP_CANDIDATES+=("${s:L}")
+    L=$((L + 1))
+  done
+}
+
 # 세그먼트의 토큰 배열(`__SEG_TOKS`, 호출자가 채운다 — bash 3.2 에는 nameref 가 없어
 # 전역으로 주고받는다) 중 "셸/인터프리터 이름 ... 코드 플래그 ... <인자>" 형태를
 # 찾는다. 찾으면 그 뒤에 남은 토큰 **전부**를 후보로 `__UNWRAP_CANDIDATES` 에 채우고
@@ -1968,7 +1995,8 @@ __scan_one_segment_for_cp_delete() {
   if [[ "$try_unwrap" -eq 1 ]]; then
     __SEG_TOKS=("${toks[@]+"${toks[@]}"}")
     if __find_wrapped_arg; then
-      local __cand __cand_budget_ms
+      local __cand __cand_budget_ms __pcand
+      local -a __inner_segs __inner_segs2
       for __cand in "${__UNWRAP_CANDIDATES[@]+"${__UNWRAP_CANDIDATES[@]}"}"; do
         __cand_budget_ms=$(( ($(date +%s%N) - __HOOK_START_NS) / 1000000 ))
         if [[ $__cand_budget_ms -gt 3000 ]]; then
@@ -1977,10 +2005,31 @@ __scan_one_segment_for_cp_delete() {
         fi
         __unquote_wrap_candidate "$__cand"
         __split_segments "$__UNQUOTED"
-        local -a __inner_segs=("${SEGMENTS[@]+"${SEGMENTS[@]}"}")
+        __inner_segs=("${SEGMENTS[@]+"${SEGMENTS[@]}"}")
         for inner_seg in "${__inner_segs[@]+"${__inner_segs[@]}"}"; do
           [[ -z "$inner_seg" ]] && continue
           if __scan_one_segment_for_cp_delete "$inner_seg" 0; then return 0; fi
+        done
+        # 26차 독립 판정 반려 대응 — 전달 플래그가 코드에 공백 없이 붙는 표기
+        # (`env -S'rm -rf .claude'`)는 언랩까지는 정확히 되지만(`-Srm -rf
+        # .claude`), 그 낱말의 **첫 토큰**이 `rm` 이 아니라 `-Srm` 이 되어
+        # armed 판정에 걸리지 않는다. 어떤 옵션 글자가 몇 자인지 열거하지
+        # 않는다(23차가 셸 이름 열거를 폐지한 것과 같은 이유) — 대신 첫
+        # 낱말 안의 모든 절단 위치를 추가 후보로 시도한다. 그중 하나는
+        # 반드시 실제 옵션-값 경계와 일치한다.
+        __dash_prefix_strip_candidates "$__UNQUOTED"
+        for __pcand in "${__PREFIX_STRIP_CANDIDATES[@]+"${__PREFIX_STRIP_CANDIDATES[@]}"}"; do
+          __cand_budget_ms=$(( ($(date +%s%N) - __HOOK_START_NS) / 1000000 ))
+          if [[ $__cand_budget_ms -gt 3000 ]]; then
+            CP_DELETE_HIT="(래퍼 후보가 많아 시간 예산 안에 전부 확인하지 못함 — 남은 후보에 삭제가 있는지 알 수 없어 안전한 쪽으로 확인 요청)"
+            return 0
+          fi
+          __split_segments "$__pcand"
+          __inner_segs2=("${SEGMENTS[@]+"${SEGMENTS[@]}"}")
+          for inner_seg in "${__inner_segs2[@]+"${__inner_segs2[@]}"}"; do
+            [[ -z "$inner_seg" ]] && continue
+            if __scan_one_segment_for_cp_delete "$inner_seg" 0; then return 0; fi
+          done
         done
       done
     fi
