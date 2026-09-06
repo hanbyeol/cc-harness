@@ -3354,6 +3354,147 @@ delete_decision() {
   rm -rf "$lab"
 }
 
+@test "F65 AC-12: 24th verdict's 13 code-delivery-mechanism payloads are gated (env -S, herestring, pipe)" {
+  # 24차 독립 판정이 sprint-51.json AC-12.verification 에 명시한 정확한 페이로드를
+  # 그대로 고정한다 — 생성 규칙 테스트가 있어도 평가 증거로 지목된 문자열은 별도로
+  # 핀 해 두는 것이 이 파일의 관례다(20차의 16종 핀과 같은 전례).
+  local c
+  for c in 'env -S "rm -rf .claude"' \
+           "env -S 'rm -rf .claude'" \
+           '/usr/bin/env -S "rm -rf .claude"' \
+           'env -i -S "rm -rf .claude"' \
+           'env -S "mv .claude /tmp/sink"' \
+           "bash <<< 'rm -rf .claude'" \
+           'sh <<< "rm -rf .claude"' \
+           "zsh <<< 'rm -rf .claude'" \
+           "dash <<< 'rm -rf .claude'" \
+           "ksh <<< 'rm -rf .claude'" \
+           'bash -s <<< "rm -rf .claude"' \
+           "echo 'rm -rf .claude' | sh" \
+           "printf '%s' 'rm -rf .claude' | bash"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "코드 전달 경로 무관 재검사가 놓친 24차 페이로드: $c"; false; }
+  done
+}
+
+@test "F65 AC-12: generated env -S / herestring / pipe axes never allow an actual control-plane delete" {
+  # 19~24차가 여섯 번 반복한 실패(직전 판정문의 인스턴스만 닫고 축을 닫았다고
+  # 선언)를 반복하지 않기 위해, 특정 옵션·셸 이름을 나열하는 대신 원소 풀의
+  # 조합으로 축을 생성한다. 이름 풀은 위 "decision<->execution equivalence"
+  # 테스트의 `wrappers`(sh bash zsh dash ksh csh tcsh)를 그대로 재사용한다 —
+  # 저장소 안에 서로 다른 셸 풀 두 벌을 두면 그 자체가 새로운 드리프트 위험이다.
+  local -a wrappers=(sh bash zsh dash ksh csh tcsh)
+  local -a bodies=('rm -rf .claude' 'mv .claude /tmp/sink')
+  local -a allow_cmds=()
+  local w b cmd
+
+  __probe_ac12() {
+    run delete_decision "$1"
+    if [[ "$output" == *'"permissionDecision": "allow"'* ]]; then
+      allow_cmds+=("$1")
+    fi
+    return 0
+  }
+
+  for b in "${bodies[@]}"; do
+    # 축 1 — env -S 계열: 접두 풀 × 인용 스타일 풀.
+    for pfx in "env" "env -i" "/usr/bin/env"; do
+      __probe_ac12 "$pfx -S '$b'"
+      __probe_ac12 "$pfx -S \"$b\""
+    done
+    # 축 2 — 헤어스트링/-s: 셸 이름 풀 × 전달 형태 풀.
+    for w in "${wrappers[@]}"; do
+      command -v "$w" >/dev/null 2>&1 || continue
+      __probe_ac12 "$w <<< '$b'"
+      __probe_ac12 "$w <<< \"$b\""
+      __probe_ac12 "$w -s <<< '$b'"
+    done
+    # 축 3 — 파이프: 방출 도구 풀 × 셸 이름 부분집합.
+    for w in sh bash zsh; do
+      command -v "$w" >/dev/null 2>&1 || continue
+      __probe_ac12 "echo '$b' | $w"
+      __probe_ac12 "printf '%s' '$b' | $w"
+    done
+  done
+
+  # 이름 무관성 음성 대조군 — 이름·플래그를 전혀 인식하지 못해도 공백 포함
+  # 복합 토큰이라는 사실 하나로 ask 여야 한다(23·24차가 반복 강조한 성질).
+  __probe_ac12 "notarealshell987 'rm -rf .claude'"
+  __probe_ac12 'gibberish123 "rm -rf .claude"'
+
+  # 위치 축(AC-12 "어디에 있든") — 압축 토큰이 세그먼트 처음/중간/끝 어디에
+  # 있어도 동일해야 한다.
+  __probe_ac12 "'rm -rf .claude'"
+  __probe_ac12 "prefix_word 'rm -rf .claude'"
+  __probe_ac12 "'rm -rf .claude' trailing_word"
+  __probe_ac12 "mid_word 'rm -rf .claude' mid_word2"
+
+  [[ ${#allow_cmds[@]} -eq 0 ]] && return 0
+
+  local lab
+  lab="$(mktemp -d)"
+  [[ -n "$lab" && -d "$lab" ]] || { echo "mktemp 실패"; false; }
+
+  local deleted
+  for cmd in "${allow_cmds[@]}"; do
+    rm -rf "$lab/victim"
+    mkdir -p "$lab/victim/.claude/agents" "$lab/victim/.claude/hooks"
+    echo '{}' > "$lab/victim/.claude/settings.json"
+    echo '{}' > "$lab/victim/.claude/settings.local.json"
+
+    ( cd "$lab/victim" && eval "$cmd" ) >/dev/null 2>&1 || true
+    deleted="false"
+    { [[ -d "$lab/victim/.claude" ]] && [[ -f "$lab/victim/.claude/settings.json" ]]; } \
+      || deleted="true"
+
+    if [[ "$deleted" == "true" ]]; then
+      echo "판정↔실행 불일치 — allow 인데 실제로 컨트롤 플레인이 삭제됨: $cmd"
+      rm -rf "$lab"
+      false
+    fi
+  done
+  rm -rf "$lab"
+}
+
+@test "F65 SC-10: everyday commands with quoted multi-word arguments create no new friction" {
+  # AC-12 의 규칙은 컨트롤 플레인과 무관한 명령의 인용 문자열도 재검사 대상으로
+  # 삼는다 — SC-10 이 요구하는 마찰 코퍼스를 생성 규칙으로 만든다. PURE_READ
+  # 도구(echo·grep·sed -n 등)는 scan_control_plane_delete() 자체가 스킵되어
+  # 이 축을 검증하지 못하는 공허한 통과가 되므로 제외한다 — find 도 -exec/-delete
+  # 가 없으면 읽기로 분류되므로 같은 이유로 제외한다(Plan 단계에서 발견).
+  local -a verbs=("git commit -m" "git commit --message" "tar -czf a.tgz" \
+                   "docker run --name" "kubectl label pod x" "curl -d")
+  local -a bodies=("fix the login bug" "hello world" "a simple test message" \
+                    "build artifacts and temp files" "user profile data")
+  local -a quote_styles=("'%s'" '"%s"')
+  local v b qs body cmd
+
+  for v in "${verbs[@]}"; do
+    for b in "${bodies[@]}"; do
+      for qs in "${quote_styles[@]}"; do
+        # shellcheck disable=SC2059
+        body=$(printf "$qs" "$b")
+        cmd="$v $body"
+        run delete_decision "$cmd"
+        [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+          || { echo "무관한 일상 명령에 새 마찰: $cmd"; false; }
+      done
+    done
+  done
+}
+
+@test "F65 SC-10: a delete-verb-plus-control-plane-path literally quoted in an unrelated command is a declared, accepted friction" {
+  # SC-10(2)이 인정하는 트레이드오프 — AC-12 의 규칙은 이름·플래그를 열거하지
+  # 않으므로, 인용 문자열 안에 삭제 동사와 컨트롤 플레인 경로가 우연히 함께
+  # 리터럴로 나타나면 ask 가 나온다. 이것은 버그가 아니라 의도된 동작이다 —
+  # 이 테스트가 green 인 채로 유지되는 한(즉 미래의 구현자가 이 케이스를
+  # "고치려고" 규칙에 예외를 깎아 넣지 않는 한) SC-10 의 add-only 성질이 지켜진다.
+  run delete_decision 'git commit -m "docs: explain why rm -rf .claude is dangerous"'
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "의도된 트레이드오프가 사라졌다 — 누군가 규칙에 예외를 넣었을 수 있다"; false; }
+}
+
 @test "F65 interpreter/wrapper arm: notation widening creates no new friction on unrelated hooks-named paths" {
   # 넓힌 정규식(`hooks(/\.?)+...`)이 "hooks" 뒤에 아무 슬래시나 오면 걸리는 과도한 형태가
   # 아닌지 확인 — 컨트롤 플레인과 무관한 평범한 명령은 여전히 allow 여야 한다.
