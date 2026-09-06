@@ -3042,11 +3042,69 @@ delete_decision() {
   elapsed=$(( (t1 - t0) / 1000000 ))
   [[ "$output" == *'"permissionDecision": "ask"'* ]] \
     || { echo "많은 세그먼트 뒤의 진짜 삭제 세그먼트가 검사되지 못했다"; false; }
-  # 임계값이 넉넉하다(수정 전 이 형태의 결함은 이 규모에서도 초 단위로 새는 게 아니라
-  # 수십 초~수 분으로 샜다 — 5·7·17차 판정 전부 그랬다) — CI/공유 장비의 부하로 인한
-  # 요행성 실패를 피하면서도, 수정이 되돌려지면 여전히 잡아낼 만큼 넉넉하게 잡는다.
-  [ "$elapsed" -lt 15000 ] \
-    || { echo "16개 세그먼트(~3.2만자) 처리가 ${elapsed}ms 걸렸다 — 이 정도 규모에서 15초를 넘기면 수정 자체가 되돌려진 것"; false; }
+  # **F65 29차 독립 판정 지적** — 이전 임계값(15000ms)은 훅의 실제 타임아웃(5000ms)
+  # 보다 3배 넉넉해서, 이미 실제로는 타임아웃을 넘겨 훅이 죽는(그래서 판정 자체가
+  # 안 나가는) 5~15초 구간의 새 결함을 이 테스트가 원리적으로 못 잡았다(29차가 그
+  # 구간의 실제 사례 하나를 실증 — 아래 별도 테스트로 고정). 실측(수정 후) 1.6초
+  # 안팎이므로 실제 타임아웃에 훨씬 가까운 값으로 좁힌다 — 여전히 CI 부하 변동은
+  # 흡수하되, "타임아웃을 실제로 넘기는" 구간은 걸러낸다.
+  [ "$elapsed" -lt 4500 ] \
+    || { echo "16개 세그먼트(~3.2만자) 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처"; false; }
+}
+
+@test "F65 perf: a single overlong dash-starting wrap candidate asks fast, not by exhausting the hook timeout (29th verdict)" {
+  # 29차 독립 판정 — 열한 번째 재발, 이번엔 26~28차 자신의 수정이 새로 연 경로.
+  # `sh -c` 뒤에 코드가 하나도 없는 순수 대시-시작 후보 하나만 둬도(공백도 없는
+  # 12000자 이상), __dash_prefix_strip_candidates()·__unquote_wrap_candidate() 가
+  # 문자 단위 인덱싱/누적이라 길이에 대해 이차식이어서 40초 넘게 걸려 훅 자체가
+  # 5초 타임아웃에 죽었다(판정 자체가 안 나가 뒤의 진짜 `rm -rf .claude`도 확인
+  # 못 됨 — 격리 랩에서 실제 삭제까지 확인됨). f43f223·5aea886·b211d69 세 커밋이
+  # (1) 상한을 호출처가 아니라 함수 자신으로 옮기고, (2) 언랩 전 후보 길이 자체를
+  # 캡핑하고, (3) 상한 판정에 쓰는 "첫 공백 찾기" 루프 자체의 인덱싱을 고정폭
+  # 앞부분(패턴 판정)으로 바꿔 상한 판정 자체가 비싸지 않게 했다. 정확한 재현
+  # 페이로드와 32768바이트 진입 상한 근처까지 크기를 늘려도 여전히 빠른지 고정한다.
+  local x12000 c t0 t1 elapsed n xN
+  x12000=$(head -c 12000 /dev/zero | tr '\0' 'x')
+  c="sh -c -${x12000} ; rm -rf .claude"
+  t0=$(date +%s%N)
+  run delete_decision "$c"
+  t1=$(date +%s%N)
+  elapsed=$(( (t1 - t0) / 1000000 ))
+  [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+    || { echo "29차 정확 페이로드가 놓쳤다"; false; }
+  [ "$elapsed" -lt 3000 ] \
+    || { echo "29차 정확 페이로드 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처"; false; }
+
+  for n in 20000 32700; do
+    xN=$(head -c "$n" /dev/zero | tr '\0' 'x')
+    c="sh -c -${xN} ; rm -rf .claude"
+    t0=$(date +%s%N)
+    run delete_decision "$c"
+    t1=$(date +%s%N)
+    elapsed=$(( (t1 - t0) / 1000000 ))
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "크기 확대(${n}자) 페이로드가 놓쳤다"; false; }
+    [ "$elapsed" -lt 3000 ] \
+      || { echo "크기 확대(${n}자) 페이로드 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처"; false; }
+  done
+}
+
+@test "F65 perf: an early flag boundary with a long tail stays fast even near the 512-char cap (29th verdict residual)" {
+  # 위 수정의 잔여 최악 사례 — 첫 낱말의 공백이 512자 경계에 아주 가깝고(그래서
+  # __dash_prefix_strip_candidates() 가 최대 개수에 가까운 후보를 생성해야 하고)
+  # 그 뒤에 매우 긴 꼬리가 있으면, 각 후보가 거의 전체 길이만큼의 슬라이스가 된다
+  # (최대 511개 × 약 3만자). 상한 판정 자체는 고정폭이라 빠르지만 후보 생성은
+  # 여전히 개수 × 슬라이스 길이에 비례하므로 별도로 고정한다.
+  local head511 tail c t0 t1 elapsed
+  head511="-$(head -c 510 /dev/zero | tr '\0' 'x')"
+  tail=$(head -c 30000 /dev/zero | tr '\0' 'y')
+  c="env ${head511} ${tail} ; rm -rf .claude"
+  t0=$(date +%s%N)
+  run delete_decision "$c"
+  t1=$(date +%s%N)
+  elapsed=$(( (t1 - t0) / 1000000 ))
+  [ "$elapsed" -lt 3000 ] \
+    || { echo "512자 경계 근접 + 긴 꼬리 처리가 ${elapsed}ms 걸렸다 — 훅 타임아웃(5000ms) 근처"; false; }
 }
 
 @test "F65 perf: a command past the entry-point length cap asks immediately, before any analysis" {
