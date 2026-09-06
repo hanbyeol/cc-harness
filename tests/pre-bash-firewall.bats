@@ -3563,6 +3563,56 @@ delete_decision() {
   done
 }
 
+@test "F65 flag-value adjacency: a dash-token past the 512-char cap fails closed, not open (28th verdict)" {
+  # 28차 독립 판정 — 열 번째 재발, 이번엔 27차 대응(768b3c5) 자신의 결함. 512자
+  # 상한 초과 시 절단 검사 전체를 건너뛰게 했는데, "건너뛴다"는 곧 armed 판정을
+  # 그대로 0에 둔다는 뜻이라 fail-open이었다 — 대시-토큰을 512자 넘게 패딩하면
+  # 게이트 자체가 꺼져 실제 삭제까지 실증됐다(env -{v*520}Srm -rf .claude, 524자
+  # 대시-토큰, 정확히 512/513 경계). 이 파일의 형제 상한(512자 컨트롤-플레인-위치
+  # 상한·2048자 세그먼트 상한)은 전부 반대 방향(초과 시 안전한 쪽인 ask/hit)이라
+  # 이 상한만 유일하게 fail-open이었다. 3a7c573 이 상한 초과 시 절단 대신 곧장
+  # armed 로 확정하도록 방향을 뒤집었다 — 경계값 511/512/513/514 전부와 28차의
+  # 정확한 페이로드, 그리고 이름을 전혀 모르는 가상 도구로도 확인한다.
+  local c
+  # 28차 판정의 정확한 페이로드.
+  local v520 q600
+  v520="$(printf 'v%.0s' $(seq 1 520))"
+  q600="$(printf 'q%.0s' $(seq 1 600))"
+  for c in "env -${v520}Srm -rf .claude" \
+           "notarealtool -${q600}Zmv .claude /tmp/sink"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "512자 상한 초과 대시-토큰이 fail-open으로 새서 무프롬프트로 통과했다"; false; }
+  done
+
+  # 경계값 — 진짜 동사를 전혀 담지 않은(문자 전부 'x', "r"·"m" 없음) 대시-토큰으로
+  # 길이 자체가 판정을 가르는지 순수하게 분리해 확인한다. 512자 이하면 절단 후보
+  # 중 어떤 것도 "rm" 등과 같아질 수 없으니(내용에 그 글자들이 아예 없다) armed 가
+  # 안 되고 뒤의 ".claude" 도 검사되지 않아 allow — 이건 "정상 동작 그대로"라는
+  # 대조군이다. 513자부터는 내용과 무관하게(28차 수정 방향) 곧장 armed 로 확정돼
+  # 뒤의 ".claude" 가 컨트롤 플레인으로 잡혀 ask 여야 한다 — 이게 이번 수정의
+  # 핵심 주장이다.
+  local n padlen body tok
+  for n in 511 512; do
+    padlen=$((n - 1))
+    body="$(printf 'x%.0s' $(seq 1 "$padlen"))"
+    tok="-${body}"
+    [[ ${#tok} -eq "$n" ]] || { echo "경계 토큰 길이 계산 오류: 기대 $n, 실제 ${#tok}"; false; }
+    run delete_decision "${tok} .claude"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "상한 이하(${n}자)인데, 동사를 전혀 담지 않은 대시-토큰이 armed 됐다 — 새 마찰"; false; }
+  done
+  for n in 513 514; do
+    padlen=$((n - 1))
+    body="$(printf 'x%.0s' $(seq 1 "$padlen"))"
+    tok="-${body}"
+    [[ ${#tok} -eq "$n" ]] || { echo "경계 토큰 길이 계산 오류: 기대 $n, 실제 ${#tok}"; false; }
+    run delete_decision "${tok} .claude"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "상한 초과(${n}자) 대시-토큰이 fail-open으로 새서 allow가 나왔다: ${tok:0:20}..."; false; }
+  done
+}
+
 @test "F65 AC-12: interleaved/partial quoting cannot hide a wrapped delete (25th verdict)" {
   # 25차 독립 판정: 이전 라운드의 "공백 포함이면 무조건 벗겨 재검사" 규칙은 후보
   # 식별(패스 3)에서는 이름·플래그·전달경로 무관했지만, 그 후보를 벗기는
