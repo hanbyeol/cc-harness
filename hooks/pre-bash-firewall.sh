@@ -1692,10 +1692,16 @@ __classify_wrap_verb() {
 # 같은 판정이 `ftok` 의 따옴표도 벗긴다 — 이전에는 이 함수만 벗기지 않아 `sh '-c' '...'`
 # 처럼 플래그 자체가 인용된 형태가 샜다(형제 함수 `__classify_wrap_verb()` 는 이미
 # 벗기고 있었다 — 같은 정규화를 두 곳에 따로 심으면 이렇게 어긋난다).
-# 인터프리터는 **결합하지 않는다** — 여기서 결합까지 허용하면 `perl -pe '...'`·
-# `perl -ne '...'` 같은 매우 흔한 한 줄짜리 관용구(치환·필터 스크립트, 셸 코드가
-# 아니다)가 전부 걸려 새 마찰이 된다. 그래서 인터프리터는 각 언어의 정확한 실행
-# 플래그만 본다(`-c`: python·node 도 받아 준다 · `-e`: perl·ruby·node·lua · `-r`: php).
+# 인터프리터는 결합형을 **인식하지 않는다** — 결합형이 실제로 존재하지 않아서가
+# 아니다(**22차 독립 판정이 반증**: `python3 -Bc`·`ruby -we`·`perl -w -e` 전부 실제로
+# 실행된다 — 이 주석이 예전에 "인터프리터는 결합하지 않는다"고 사실과 다르게 적었다).
+# 진짜 이유는 마찰 회피다 — 결합까지 인식하면 `perl -pe '...'`·`perl -ne '...'` 같은
+# 매우 흔한 한 줄짜리 관용구(치환·필터 스크립트, 셸 코드가 아니다)가 전부 걸린다.
+# 그래서 인터프리터는 각 언어의 정확한 실행 플래그만 본다(`-c`: python·node 도
+# 받아 준다 · `-e`: perl·ruby·node·lua · `-r`: php) — `-Bc`·`-we`·`-w -e` 같은 결합·
+# 병기 형태는 이 판정을 통과하지 못해 인식되지 않는다. 이 잔여는 새 구멍이 아니다 —
+# 인터프리터 경로는 `interpreter_shell_reentry`·`unenumerated_verbs`(sprint-51.json)
+# 축으로 이미 열려 있고, 그 축을 닫는 리팩터가 나오면 이 전제도 함께 재검토해야 한다.
 __is_wrap_flag() {
   local class="$1" ftok="$2" stripped
   stripped="${ftok//\'/}"; stripped="${stripped//\"/}"
@@ -1727,33 +1733,38 @@ __unquote_wrap_candidate() {
 
 # 세그먼트의 토큰 배열(`__SEG_TOKS`, 호출자가 채운다 — bash 3.2 에는 nameref 가 없어
 # 전역으로 주고받는다) 중 "셸/인터프리터 이름 ... 코드 플래그 ... <인자>" 형태를
-# 찾는다. 세그먼트당 **첫 매치만** 본다 — 래퍼가 여럿인 정상 명령은 극히 드물고, 못
-# 찾아도 이 축이 안 넓어질 뿐 다른 층의 fail-closed 는 그대로다. 찾으면 그 <인자>를
-# 벗겨 `__UNWRAP_INNER` 에 채우고 0을 반환한다.
+# 찾는다. 찾으면 그 뒤에 남은 토큰 **전부**를 후보로 `__UNWRAP_CANDIDATES` 에 채우고
+# 0을 반환한다 — 호출자가 하나씩 벗겨 재스캔하며 하나라도 히트하면 그 자리에서 ask로
+# 확정한다.
+#
+# **22차 독립 판정 반려**: 직전 버전(21차 대응)은 "`-`로 시작하는 토큰을 건너뛰고
+# 첫 비-플래그 토큰 하나를 코드 인자로 확정한다"였는데, 이 규칙은 **어떤 옵션이 값을
+# 받는지 모른다는 사실 자체를 무시한다** — `-o`/`-O`/`+o` 같은 값-받는 옵션의 값
+# (`posix`·`noglob`·`extglob` 등)은 대시로 시작하지 않으므로 "비-플래그 토큰"으로
+# 오인되어 그 자리에서 후보로 확정되고, 진짜 코드 인자(그 다음 토큰)는 다시 찾지
+# 않은 채 함수가 끝났다(격리 랩 실증: `bash -c -o posix 'rm -rf .claude'` 가 판정
+# 자체를 못 받고 allow로 샜다 — 이 파일의 "모르면 ask" 원칙에 대한 국소 역행이었다).
+# 셸마다 어떤 옵션 글자가 값을 받는지 열거하는 것은 이 파일이 반복 겪어 온 열거
+# 실패와 같은 계열이라 하지 않는다 — 대신 **후보를 하나로 확정하지 않는다.** 플래그
+# 뒤에 남은 토큰을 전부 후보 배열에 담아 두면, 값-받는 옵션의 값이 몇 개나 끼어
+# 있어도(`-o posix -o pipefail --`) 진짜 코드 인자는 그 배열 어딘가에 있고, 호출자가
+# 전부 시도하다 결국 만난다. 무해한 후보(`-o`·`posix` 등)를 시도해 봤자 아무것도
+# 안 잡히므로 안전 방향 손실은 없다 — add-only.
 __find_wrapped_arg() {
   local -a t=("${__SEG_TOKS[@]+"${__SEG_TOKS[@]}"}")
   local n=${#t[@]} i=0 j k
+  __UNWRAP_CANDIDATES=()
   while [[ $i -lt $n ]]; do
     if __classify_wrap_verb "${t[$i]}"; then
       j=$((i + 1))
       while [[ $j -lt $n ]]; do
         if __is_wrap_flag "$__WRAP_CLASS" "${t[$j]}"; then
-          # **21차 독립 판정 반려**: 이전 버전은 플래그 바로 다음 토큰(`t[j+1]`)을
-          # 곧장 후보로 확정했는데, 실제 셸은 코드 플래그와 코드 인자 사이에 `--`나
-          # 다른 단독 플래그가 더 끼어도 개의치 않고 그 다음 비-플래그 토큰을 코드로
-          # 받는다(격리 랩 실증: `sh -c -- '...'`·`bash -c -x '...'` 둘 다 실행돼
-          # `.claude` 를 지운다). `-` 로 시작하는 토큰을 건너뛰고 첫 비-플래그 토큰을
-          # 후보로 삼는다 — 후보가 끝까지 없으면(플래그로만 끝나는 조각) 이 래퍼는
-          # 포기하고 바깥 루프가 다음 위치의 래퍼 이름을 계속 찾는다.
           k=$((j + 1))
-          while [[ $k -lt $n && "${t[$k]}" == -* ]]; do
+          while [[ $k -lt $n ]]; do
+            __UNWRAP_CANDIDATES+=("${t[$k]}")
             k=$((k + 1))
           done
-          if [[ $k -lt $n ]]; then
-            __unquote_wrap_candidate "${t[$k]}"
-            __UNWRAP_INNER="$__UNQUOTED"
-            return 0
-          fi
+          [[ ${#__UNWRAP_CANDIDATES[@]} -gt 0 ]] && return 0
           break
         fi
         j=$((j + 1))
@@ -1858,14 +1869,29 @@ __scan_one_segment_for_cp_delete() {
   # F65 20차 독립 판정: 위 armed/operand 검사는 이 세그먼트의 **자기 자신** 토큰만
   # 봤다. 인용 래퍼(`sh -c "..."` 등)의 인자는 하나의 복합 토큰이라 위 검사에
   # 애초에 걸리지 않는다 — 한 겹 벗겨 같은 검사를 내부 문자열에 다시 태운다.
+  # 22차 독립 판정 반려 대응: 후보를 하나로 확정하지 않고(위 __find_wrapped_arg 주석
+  # 참조) `__UNWRAP_CANDIDATES` 에 담긴 후보를 **전부** 시도한다 — 값-받는 옵션의
+  # 값이 몇 개나 앞에 끼어 있어도 진짜 코드 인자를 만날 때까지 계속 본다. 후보 수가
+  # 세그먼트의 토큰 수에 비례해 늘 수 있으므로(예: `-c` 뒤에 정크 토큰을 잔뜩 붙이는
+  # 적대적 입력), 여기에도 전체 순회 시간 예산을 하나 더 둔다 — scan_control_plane_delete()
+  # 의 세그먼트 간 예산과 같은 3초 기준, 같은 fail-closed 관용구(모르면 ask).
   if [[ "$try_unwrap" -eq 1 ]]; then
     __SEG_TOKS=("${toks[@]+"${toks[@]}"}")
     if __find_wrapped_arg; then
-      __split_segments "$__UNWRAP_INNER"
-      local -a __inner_segs=("${SEGMENTS[@]+"${SEGMENTS[@]}"}")
-      for inner_seg in "${__inner_segs[@]+"${__inner_segs[@]}"}"; do
-        [[ -z "$inner_seg" ]] && continue
-        if __scan_one_segment_for_cp_delete "$inner_seg" 0; then return 0; fi
+      local __cand __cand_budget_ms
+      for __cand in "${__UNWRAP_CANDIDATES[@]+"${__UNWRAP_CANDIDATES[@]}"}"; do
+        __cand_budget_ms=$(( ($(date +%s%N) - __HOOK_START_NS) / 1000000 ))
+        if [[ $__cand_budget_ms -gt 3000 ]]; then
+          CP_DELETE_HIT="(래퍼 후보가 많아 시간 예산 안에 전부 확인하지 못함 — 남은 후보에 삭제가 있는지 알 수 없어 안전한 쪽으로 확인 요청)"
+          return 0
+        fi
+        __unquote_wrap_candidate "$__cand"
+        __split_segments "$__UNQUOTED"
+        local -a __inner_segs=("${SEGMENTS[@]+"${SEGMENTS[@]}"}")
+        for inner_seg in "${__inner_segs[@]+"${__inner_segs[@]}"}"; do
+          [[ -z "$inner_seg" ]] && continue
+          if __scan_one_segment_for_cp_delete "$inner_seg" 0; then return 0; fi
+        done
       done
     fi
   fi
