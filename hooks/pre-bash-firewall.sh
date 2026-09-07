@@ -1542,6 +1542,22 @@ __scan_opaque_verb_matches() {
 
 __note_opaque_verb() {
   local span="$1"
+  # **F65 security-auditor 35차 독립 판정 재작업 중 자체 발견(판정 대상 아님) — 이
+  # 파일이 반복 겪은 자기참조 함정의 새 사례.** `__OPAQUE_END`는 전역 변수로, 이 함수의
+  # 유일한 호출자인 `__tokenize_segment()`가 `__skip_backtick`/`__skip_dollar_paren`을
+  # 불러 이 함수에 넘길 스팬을 슬라이스한 **직후**, 이 함수가 반환되고 나서도 같은 값을
+  # 다시 읽어(`cur+=...`·`k=$__OPAQUE_END`) 자신의 커서를 전진시킨다 — 즉 `__OPAQUE_END`
+  # 는 이 함수의 반환 후에도 호출자가 계속 의존하는 살아있는 전역 상태다. 그런데 이 함수
+  # 아래쪽 새 코드가 `__mask_opaque_spans()`(내부에서 같은 두 함수를 **중첩된** 스팬에
+  # 다시 건다)를 호출하면서, 그 중첩 호출이 이 전역을 **바깥 스팬과 무관한 값**으로
+  # 덮어썼다 — 호출자가 반환 직후 그 오염된 값을 자기 것인 줄 알고 커서로 써서,
+  # 중첩 치환이 있는 스팬 뒤의 나머지 토큰화 전체가 엉뚱한 위치에서 재개됐다(35차가
+  # 실증한 `$(r$(echo m) -rf .claude)`의 declared residual 재현 시도 중 발견 — 결과가
+  # 이번엔 우연히 ask 방향이었지만, 어느 방향으로도 틀릴 수 있는 진짜 정확성 결함이다:
+  # 손상된 커서가 실제 삭제 동사를 건너뛰면 fail-open도 가능하다). 진입 시 값을 저장해
+  # 반환 직전 복원한다 — 이 함수의 유일한 공개 부작용은 SPLIT_TOKS 뿐이고, 호출자에게
+  # `__OPAQUE_END`를 대신 계산해 주는 것은 이 함수의 계약이 아니다.
+  local __saved_opaque_end="$__OPAQUE_END"
   local stripped
   __scan_opaque_verb_matches "$span"
   # 백슬래시-공백 쌍을 **가장 먼저** 통째로 지운다(줄 이음 폴딩 대응 — 순서가 중요하다,
@@ -1565,6 +1581,30 @@ __note_opaque_verb() {
   __strip_dollar_brace "$stripped"
   braced="$__STRIPPED"
   [[ "$braced" != "$stripped" ]] && __scan_opaque_verb_matches "$braced"
+  # **F65 security-auditor 35차 독립 판정** — 위 세 사본(원문·백슬래시 제거본·파라미터
+  # 확장 제거본) 중 어느 것도 스팬 **안에 중첩된** `$(...)`/백틱을 지우지 않는다.
+  # `` `f$(true)ind .claude -delete` `` 처럼 진짜 동사가 중첩 치환으로 쪼개지면 세
+  # 사본 전부에서 "find"가 연속 문자열로 나타나지 않아 못 잡는다(35차 실측: allow +
+  # 실제 삭제 — 벗기지 않은 형태는 이미 잡히는데 치환으로 감싸면 다시 새는 비대칭).
+  # `__mask_opaque_spans()`를 여기서도 재사용한다 — 단 이 함수로 들어오는 `span` 자신이
+  # 하나의 치환/백틱 스팬 전체(여는/닫는 델리미터 포함)이므로, 델리미터째로 넘기면
+  # 첫 글자를 새 스팬의 시작으로 오인해 전체를 지워 버린다(내용을 하나도 못 본다) —
+  # 바깥 델리미터만 벗기고 안쪽 내용에만 마스킹을 적용한다. 패턴이 안 맞으면(따옴표
+  # 제거가 델리미터 균형을 흔든 경우 등, 이 함수의 다른 사본들도 이미 받아들인
+  # "안쪽 따옴표는 안 본다"는 같은 근사치) `inner`를 원문 그대로 두어 이 보조 스캔만
+  # 조용히 건너뛴다 — 위 세 사본은 그대로 남으므로 회귀는 아니다.
+  local inner masked
+  case "$stripped" in
+    '`'*'`') inner="${stripped:1:${#stripped}-2}" ;;
+    '$('*')') inner="${stripped:2:${#stripped}-3}" ;;
+    *) inner="$stripped" ;;
+  esac
+  __mask_opaque_spans "$inner"
+  masked="$__MASKED"
+  [[ "$masked" != "$inner" ]] && __scan_opaque_verb_matches "$masked"
+  # 위 저장분을 복원한다 — 호출자(`__tokenize_segment()`)가 이 함수 반환 직후 자신의
+  # 커서 전진에 계속 쓴다.
+  __OPAQUE_END="$__saved_opaque_end"
 }
 
 __tokenize_segment() {
@@ -2260,7 +2300,17 @@ __scan_one_segment_for_cp_delete() {
     if [[ "$__verb_armed" -eq 0 && ( "$NORM_TOK" == *'$'* || "$NORM_TOK" == *'`'* ) ]]; then
       __mask_opaque_spans "$NORM_TOK"
       __strip_dollar_brace "$__MASKED"
-      if [[ "$__STRIPPED" != "$__MASKED" ]]; then
+      # **F65 security-auditor 35차 독립 판정** — 이전 버전은 여기서 `"$__STRIPPED" !=
+      # "$__MASKED"`(즉 "${...} 스트립이 뭔가 바꿨는가")로 게이트했다. 그런데 `$(...)`
+      # 만으로 동사가 쪼개진 경우(`r$(true)m` — `${...}`는 전혀 없다) `__mask_opaque_
+      # spans()`가 이미 리터럴 동사를 복원해 놓아도 `__strip_dollar_brace()`는 더 지울
+      # 게 없어 `__STRIPPED == __MASKED`가 되고, 이 게이트가 그 결과를 통째로 버렸다
+      # (35차 실측: 5동사×4치환형×모든 내부 분할 위치×3대상 스윕 164/180 allow, 실제
+      # 삭제 확인 — f36a921=ask였다가 133aa93/58d407a 둘 다에서 allow로 남아 있던
+      # 재발). find/-delete 술어 검사(위 블록)는 애초에 이런 게이트가 없어 옳았다 —
+      # 여기도 같은 무조건 신뢰로 맞춘다: 마스킹이든 스트립이든 **원본과 달라지기만
+      # 하면**(비교 대상을 `$__MASKED`가 아니라 `$NORM_TOK`으로) 그 결과를 신뢰한다.
+      if [[ "$__STRIPPED" != "$NORM_TOK" ]]; then
         for __arm_verb in "${ARM_DELETE_VERBS_UNCONDITIONAL[@]}"; do
           if [[ "$__STRIPPED" == "$__arm_verb" || "$__STRIPPED" == */"$__arm_verb" ]]; then
             __verb_armed=1; break

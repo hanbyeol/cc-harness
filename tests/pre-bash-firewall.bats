@@ -4337,3 +4337,63 @@ $cmd"
   [[ "$output" == *'"permissionDecision": "ask"'* ]] \
     || { echo "함수 재배치가 find -delete의 실제 쓰기 형태를 깼다"; false; }
 }
+
+@test "F65 security-auditor 35차 독립 판정: 명령 치환만으로 동사가 쪼개져도(파라미터 확장 없이) 잡힌다" {
+  # 34차 대응(58d407a)의 게이트 `"$__STRIPPED" != "$__MASKED"`는 __strip_dollar_brace()가
+  # 뭔가 바꿨을 때만 동사 목록을 확인했다 — \${...}가 전혀 없이 \$(...)만으로 동사가
+  # 쪼개지면(`r\$(true)m` 처럼) __mask_opaque_spans()가 이미 리터럴 "rm"을 복원해 놔도
+  # __strip_dollar_brace()는 더 지울 게 없어 STRIPPED==MASKED가 되고, 이 게이트가 그
+  # 결과를 통째로 버렸다(35차 실측: 5동사×4치환형×모든 분할 위치×3대상 164/180 allow,
+  # 실제 삭제 확인 — find/-delete 술어 검사는 애초에 이런 게이트가 없어 옳았다). 비교
+  # 대상을 \$__MASKED가 아니라 \$NORM_TOK(원본)으로 바꿔 마스킹이든 스트립이든 원본과
+  # 달라지기만 하면 그 결과를 신뢰하도록 맞췄다.
+  local c
+  for c in 'r$(true)m -rf .claude' '$(true)rm -rf .claude' 'rmdi$(true)r .claude' \
+           'm$(true)v .claude /tmp/sink' 'r`true`m -rf .claude'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "명령 치환만으로 쪼갠 동사가 allow로 샜다: $c"; false; }
+  done
+}
+
+@test "F65 security-auditor 35차 독립 판정: 치환/백틱 스팬 안에 중첩된 치환으로 쪼갠 동사도 잡힌다" {
+  # __note_opaque_verb()의 기존 세 사본(원문·백슬래시 제거본·파라미터 확장 제거본) 중
+  # 어느 것도 스팬 안에 중첩된 \$(...)/백틱을 지우지 않아, 진짜 동사가 중첩 치환으로
+  # 쪼개지면(`` `f\$(true)ind .claude -delete` ``) 세 사본 전부에서 "find"가 연속
+  # 문자열로 나타나지 않아 못 잡았다(35차 실측: allow + 실제 삭제 — 벗기지 않은 형태는
+  # 이미 잡히는데 치환으로 감싸면 다시 새는 비대칭). __mask_opaque_spans()로 바깥
+  # 델리미터만 벗기고 안쪽 내용에 중첩 마스킹을 적용하는 네 번째 사본을 추가했다.
+  local c
+  for c in '`f$(true)ind .claude -delete`' '`find .claude -dele$(true)te`' \
+           '`r$(true)m -rf .claude`' '`m$(true)v .claude /tmp/sink`'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "치환/백틱 스팬 안 중첩 치환으로 쪼갠 동사가 allow로 샜다: $c"; false; }
+  done
+}
+
+@test "F65 security-auditor 35차 독립 판정 재작업 중 자체 발견(판정 대상 아님): __note_opaque_verb()가 __OPAQUE_END 전역을 오염시키지 않는다" {
+  # __OPAQUE_END는 전역 변수이고, __tokenize_segment()가 __skip_backtick/
+  # __skip_dollar_paren을 불러 __note_opaque_verb()에 넘길 스팬을 슬라이스한 **직후**,
+  # 그 함수가 반환되고 나서도 같은 값을 다시 읽어(cur+=...·k=$__OPAQUE_END) 자신의
+  # 커서를 전진시킨다. __note_opaque_verb() 안에서 중첩 스팬을 마스킹하려고
+  # __mask_opaque_spans()(내부에서 같은 두 함수를 다시 호출)를 부르면 이 전역이
+  # 바깥 스팬과 무관한 값으로 덮어써져, 호출자가 반환 직후 오염된 값을 커서로 써서
+  # 중첩 치환이 있는 스팬 **뒤의 나머지 토큰화 전체**가 엉뚱한 위치에서 재개됐다
+  # (자체 발견: declared residual 재현 페이로드 `$(r$(echo m) -rf .claude)`에서
+  # 토큰이 3개('$(r$(echo m)'·'-rf'·'.claude)')로 쪼개져 이 세그먼트가
+  # SEGMENT_UNSAFE로 오분류됐다 — 우연히 ask 방향이었지만, 손상된 커서가 실제 삭제
+  # 동사를 건너뛰면 fail-open도 가능한 진짜 정확성 결함이었다). 진입 시 저장,
+  # 반환 직전 복원으로 고쳤다. 이 테스트는 중첩 치환이 있는 declared residual이
+  # 여전히(그리고 정확한 이유로) allow인지, 그리고 그 뒤에 실제 컨트롤 플레인
+  # 피연산자가 있으면 여전히 ask로 이어지는지 함께 고정한다.
+  run delete_decision '$(r$(echo m) -rf .claude)'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "declared residual이 __OPAQUE_END 오염으로 ask로 샜다"; false; }
+  # 대조: 중첩 치환 뒤에 실제 컨트롤 플레인 대상이 있는 케이스는 별도 메커니즘
+  # (SPLIT_TOKS의 find 매치 등)으로 이미 잡히는 것과 섞이지 않는지, 커서 오염이
+  # 없다면 나머지 토큰화가 정상이어야 한다는 것을 대조로 확인한다.
+  run delete_decision 'echo $(pwd) $(basename x)'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "무관한 다중 명령 치환 명령에 커서 오염발 새 마찰: echo \$(pwd) \$(basename x)"; false; }
+}
