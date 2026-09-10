@@ -26,7 +26,11 @@ setup() {
 }
 
 run_firewall() {
-  printf '%s' "$1" | bash "$HOOK"
+  # stderr 를 합친다 — Layer 1·2 BLOCKED 는 평문으로 **stderr** 에 나가고 비영 종료한다.
+  # 이걸 합치지 않으면 `$({rm…})` 같은 BLOCKED 셀의 stdout 이 비어 decision_of 가 allow 로
+  # 오분류한다(37·38차 판정 probe 가 겪은 바로 그 오분류 — bats `run` 은 병합하지만 command
+  # substitution 은 stdout 만 잡는다).
+  printf '%s' "$1" | bash "$HOOK" 2>&1
 }
 
 # tests/pre-bash-firewall.bats::wired_firewall 과 동일 — 데이터 플레인 게이트는 끄고(탐지 훅
@@ -48,16 +52,23 @@ delete_decision() {
   wired_firewall "$json"
 }
 
-# 판정 문자열 하나로 축약한다: ask / deny / allow.
+# 판정 문자열 하나로 축약한다: blocked / ask / deny / allow. **BLOCKED 를 반드시 구분한다** —
+# 37·38차 판정의 probe 가 BLOCKED(Layer 1·2, 평문 출력 + 비영 종료)를 substring 검사에서
+# allow 로 오분류해 `$({rm…})`·백틱 형태를 "새는 것"으로 잘못 보고했다(실제로는 실행 자체가
+# 차단된다 — ask 보다 강하다). BLOCKED 는 stdout 이 `BLOCKED` 로 시작한다.
 decision_of() {
   local out
   out=$(delete_decision "$1")
   case "$out" in
+    BLOCKED*) echo blocked ;;
     *'"permissionDecision": "ask"'*) echo ask ;;
     *'"permissionDecision": "deny"'*) echo deny ;;
+    *'"permissionDecision": "allow"'*) echo allow ;;
     *) echo allow ;;
   esac
 }
+# allow 가 아닌(=게이트된) 판정인가? ask·deny·blocked 는 전부 안전한 쪽이다.
+gated() { [[ "$(decision_of "$1")" != allow ]]; }
 
 # SC-10(7): allow 를 기대하는 셀은 계약의 잔여 키가 실제로 존재해야만 건너뛸 수 있다.
 residual_exists() {
@@ -213,6 +224,88 @@ sweep_context() {  # $1 context
 }
 
 # ---------------------------------------------------------------------------
+# SC-11(1) 네 번째 차원 — 확장 결과가 담는 내용(expansion payload). 38차 독립 판정(2026-09-11):
+# 위 곱은 구성을 낱말 **안에** 끼우고 피연산자를 별도 낱말로 두므로, `{rm,-rf,.claude}` 처럼
+# 한 콤마 중괄호 토큰이 동사와 컨트롤 플레인 경로를 **함께** 품는 셀을 구조적으로 만들 수
+# 없었다(초기 코드부터 allow + 격리 랩 실제 삭제). 여기서는 payload 를 별도 풀로 생성한다.
+# ---------------------------------------------------------------------------
+PAYLOAD_OPERANDS=('.claude' './.claude' '.claude/' '.claude/settings.json')
+# $1 verb, $2 operand, $3 padding kind(none|extra|alts70|len600) -> 한 토큰짜리 명령
+payload_token() {
+  local v="$1" o="$2" pad="$3" body
+  case "$v" in
+    rm)      body="rm,-rf,$o" ;;
+    rmdir)   body="rmdir,$o" ;;
+    unlink)  body="unlink,$o" ;;
+    mv)      body="mv,$o,/tmp/sink" ;;
+    shred)   body="shred,$o" ;;
+    find)    body="find,$o,-delete" ;;
+  esac
+  case "$pad" in
+    none)   ;;
+    extra)  body="$body,-v" ;;
+    alts70) body="$body,$(printf 'x%s,' $(seq 1 70) | sed 's/,$//')" ;;
+    len600) body="$body,$(printf 'A%.0s' $(seq 1 600))" ;;
+  esac
+  printf '{%s}' "$body"
+}
+
+sweep_payload_context() {  # $1 context
+  local ctx="$1" key; key=$(residual_key_for_context "$ctx")
+  if [[ -n "$key" ]]; then
+    residual_exists "$key" || { echo "문맥 $ctx 의 잔여 키 $key 가 sprint-51.json 에 없다(SC-10(7))"; return 1; }
+  fi
+  local -a leaks=()
+  local v o pad tok cmd d n=0
+  for v in rm rmdir unlink mv shred find; do
+    for o in "${PAYLOAD_OPERANDS[@]}"; do
+      for pad in none extra alts70 len600; do
+        tok=$(payload_token "$v" "$o" "$pad"); cmd=$(wrap_context "$ctx" "$tok")
+        d=$(decision_of "$cmd"); n=$((n + 1))
+        if [[ "$d" == allow ]]; then
+          if [[ -n "$key" ]]; then echo "residual[$key] allow: ${cmd:0:80}"; else leaks+=("${cmd:0:100}"); fi
+        fi
+      done
+    done
+  done
+  echo "payload context=$ctx cells=$n leaks=${#leaks[@]}"
+  if [[ ${#leaks[@]} -gt 0 ]]; then printf 'LEAK %s\n' "${leaks[@]}"; return 1; fi
+}
+
+@test "F65 SC-11 확장 payload: 동사+컨트롤 플레인 피연산자(+패딩)를 한 콤마 중괄호 토큰에 담아도 bare 문맥에서 전수 ask (38차)" {
+  run sweep_payload_context bare
+  echo "$output"
+  [ "$status" -eq 0 ]
+}
+
+@test "F65 SC-11 확장 payload: 같은 토큰을 \$( )·백틱·bash -c 문맥과 인접 대입 뒤에 두어도 전수 ask (38차, SC-10(6))" {
+  local ctx
+  for ctx in dollar backtick bashc; do
+    run sweep_payload_context "$ctx"
+    echo "$output"
+    [ "$status" -eq 0 ]
+  done
+  # 접두 대입(`Q=1 …`)·별도 세그먼트 대입 뒤에 오는, **동사가 리터럴인** 콤마 중괄호는 ask.
+  # (`Q=1` 은 환경 접두일 뿐 동사 출처가 아니다 — 동사 `rm` 은 중괄호 안 리터럴이다.)
+  local c leaks=()
+  for c in 'Q=1 {rm,-rf,.claude}' 'Q=1; {rm,-rf,.claude}'; do
+    gated "$c" || leaks+=("$c")
+  done
+  [[ ${#leaks[@]} -eq 0 ]] || { printf 'LEAK %s\n' "${leaks[@]}"; false; }
+  # 동사 **값이 변수에서 오고 그 변수 참조가 중괄호 잎 안에 있는** 형태(`V=rm; {$V,-rf,.claude}`)는
+  # assign_then_invoke_verb 의 일반 값-추적 잔여(declared residual)다 — 인접 사례(토큰 전체가
+  # 정확히 `$V`/`${V}`)만 닫혔고, 잎 안에 박힌 참조는 범위 밖이다. 기록만 한다(경계 이동 감지).
+  residual_exists assign_then_invoke_verb
+  echo "residual[assign_then_invoke_verb] $(decision_of 'V=rm; {$V,-rf,.claude}'): V=rm; {\$V,-rf,.claude}"
+}
+
+@test "F65 SC-11 확장 payload: eval 문맥은 잔여(eval_wrapper) 귀속 확인 후 기록만" {
+  run sweep_payload_context eval
+  echo "$output"
+  [ "$status" -eq 0 ]
+}
+
+# ---------------------------------------------------------------------------
 # SC-10(4) 경계 쌍 — 이 축의 구현이 도입한 상한은 초과 시 안전한 쪽으로 떨어진다.
 # ---------------------------------------------------------------------------
 @test "F65 SC-10(4) 경계: __VERB_BRACE_BUDGET(64) 안팎의 콤마 대안 수에서 find/-delete 가 전부 ask" {
@@ -282,7 +375,8 @@ sweep_context() {  # $1 context
            'ls {src,test}' 'touch f{1,2}.txt' 'cp file{1..300} /tmp/' 'ls x{1..a}' \
            'V=hello; echo $V' 'DIR=src; ls ${DIR}' 'V=cat; $V README.md' 'D=-name; find . $D "*.json"' \
            "find .claude -name '*.json'" 'bash -c "echo {a,b}"' 'echo `ls {src,test}`' \
-           'git log --format={%h,%s} -3' 'printf "%s\n" {a..c}'; do
+           'git log --format={%h,%s} -3' 'printf "%s\n" {a..c}' \
+           'cp {a,b,c} /tmp/' "cp x{$(printf 'A%.0s' $(seq 1 600))} /tmp/" 'cp {src,test}/x.txt /tmp/'; do
     [[ "$(decision_of "$c")" != allow ]] && leaks+=("$c -> $(decision_of "$c")")
   done
   [[ ${#leaks[@]} -eq 0 ]] || { printf 'FRICTION %s\n' "${leaks[@]}"; false; }

@@ -1,0 +1,120 @@
+{
+  "timestamp": "2026-09-11T14:32:07+0900",
+  "sprint": 51,
+  "iteration": 38,
+  "round": "F65 38th independent verdict",
+  "features_evaluated": [
+    "F65"
+  ],
+  "security_tier": "critical",
+  "target_head": "21889d0",
+  "responds_to": "progress/agent-comms/evaluator-feedback-2026-09-10T17-13-16+0900.json (37th verdict, target 75d18b5)",
+  "scores": {
+    "functionality": 5,
+    "code_quality": 7,
+    "security": 3,
+    "error_handling": 5,
+    "test_coverage": 4
+  },
+  "score": 3,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 3 < 7 (critical tier auto-fail): a control-plane deletion that really removes .claude is allow with no prompt — `{rm,-rf,.claude}` and its family (`{rm,.claude}`, `{rmdir,.claude}`, `{mv,.claude,/tmp/sink}`, `{rm,-rf,./.claude}`, `{rm,-rf,.claude/}`) — verified allow + real deletion in an isolated lab.",
+    "score 3 < threshold 7 (min-of-5)",
+    "SC-11(1)+(2) unmet: the leaking cells are inside the axis SC-11(1) defines (brace-comma construct at the delete-verb token, bare and all three wrapper contexts) but the generated suite's cell-construction rule structurally cannot emit them, and they are not attributed to any `_residual_risk_AC11.open_axes_2026_08_04` key — so they are neither ask/deny nor attributed (SC-10(7) violation).",
+    "SC-11(3) unmet in the direction it did not check: the hazard the criterion names ('a check that defers is fail-closed only when a downstream judge covers that position') is fixed for `return 2`, but the same caller does the same damage on `return 0` — `armed=1; continue` removes the token from the operand judge, and when that very token also carries the control-plane operand nothing downstream covers it."
+  ],
+  "issues": [
+    "[security][critical][confidence:high] Whole-command-in-one-brace-token leak. When a delete verb and the control-plane path are leaves of the SAME brace-comma token, `__scan_one_segment_for_cp_delete()`'s verb loop matches the verb (`__verb_brace_matches` -> 0), sets `__verb_armed=1` and then `armed=1; continue`, which drops the token before the operand judge runs. No other token carries the operand, so the segment is armed with zero control-plane operands -> allow. Measured allow: `{rm,-rf,.claude}`, `{rm,.claude}`, `{rmdir,.claude}`, `{mv,.claude,/tmp/sink}`, `{rm,-rf,.claude/}`, `{rm,-rf,./.claude}`, `{rm,-rf,.claude,harmless}`. Isolated lab (fresh mktemp dir with synthetic .claude/settings.json): `{rm,-rf,.claude}` -> claude_dir_exists NO, settings_exists NO. Pre-existing at 00e105e and 75d18b5, i.e. not a regression of step 15, but it is squarely inside the axis SC-11 was created to close in this round and is unattributed.",
+    "[security][critical][confidence:high] The same leak survives every context in SC-11(1)'s context pool, so four-site symmetry is symmetric in the wrong direction: `$({rm,-rf,.claude,x{a..70}})` allow, `bash -c \"{rm,-rf,.claude}\"` allow, backtick form allow, `Q=1 {rm,-rf,.claude}` allow.",
+    "[security][high][confidence:high] Cap/budget variants of the same shape are also allow and also really delete: `{rm,-rf,.claude,x{a..70}}` (budget exhaustion, 64 alternatives) and `{rm,-rf,.claude,<600 A>}` (512-char token cap) -> allow, lab confirms deletion. Here the undecided (`return 2`) path takes the `armed=1; continue` branch and skips the same token, so SC-10(4)'s fail-closed direction is satisfied for arming yet still fails open for the decision as a whole.",
+    "[security][high][confidence:high] `{find,.claude,-delete,-o,-name,<600 A>}` -> allow + real deletion. Both find/-delete flags come from the same undecided token, so the new `__find_src -eq $__delete_src` exception suppresses arming. The rule's stated rationale ('one word cannot be both the command and its predicate') is false for brace expansion, which turns one word into many. Pre-existing allow at 00e105e (the `x{a..70}` sibling is ask at both commits), so this is not a regression, but it is an unattributed allow cell inside the axis.",
+    "[test][high][confidence:high] The generator in tests/pre-bash-firewall-generated.bats builds each cell by inserting one construct into the i-th character of the target WORD and always leaves the operand as a separate word (`template_for` -> `%s -rf .claude`). By construction it can never emit a cell where the construct's expansion supplies both the verb and the operand. SC-11(2) says the product must be enumerated by code rather than by hand, but the code's own enumeration rule contains the same blind spot the hand-written 66-cell corpus had; the axis is generated along the construct dimension only, not along 'what the expansion is allowed to contain'.",
+    "[test][medium][confidence:high] Friction control group (generated test 10) covers the false-positive direction of the self-fix but has no cell where a brace token carries a control-plane path, so the leak has no counterpart assertion in either suite.",
+    "[error][medium][confidence:medium] `__verb_brace_matches_impl()`'s 512-char guard fires before it even looks for `{`, so ANY token longer than 512 characters returns 2 from the brace-verb call site and provisionally arms the segment. Combined with a control-plane operand this asks on unrelated commands (`jq '<600-char program>' .claude/settings.json`). Direction is safe and consistent with SC-10(4); recording it as measured friction rather than a defect.",
+    "[quality][low][confidence:high] `_residual_risk_AC11.open_axes_2026_08_04.ancestor_directory_operand` is now stale in the safe direction: its two named examples `rm -rf hooks` and `find hooks -delete` both measure ask at 21889d0, yet the key still describes them as allow and the generated suite would accept an allow there. A residual description that is looser than the implementation lets a future round silently regress into it without any test noticing.",
+    "[quality][low][confidence:medium] `D=-delete find .claude $D` (assignment as a command prefix rather than a separate segment) is allow. In bash the prefix assignment is not visible to the expansion of `$D` in the same command, so the command degrades to `find .claude` and nothing is deleted; reporting it only because it sits adjacent to the assignment axis step 15 wired and the safe behavior here is incidental to shell semantics, not to a check.",
+    "[quality][low][confidence:high] The INV-15 appendix added in docs/INVARIANTS.md states the axis was defined by a generation rule; given the above it overstates coverage in the same way the criterion warns against. It should name the generator's own scope limit (constructs are inserted into a word, operands stay separate words)."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "tests/pre-bash-firewall-generated.bats exists, enumerates by loops rather than literal lists, and runs green (1..10, 0 failures)",
+      "tests/pre-bash-firewall.bats 1..347, 0 failures — no regression of any previously fixed cell",
+      "scripts/probes/behavioral.sh -> []",
+      "110-cell differential sweep 00e105e vs 21889d0 found 0 ask->allow regressions (SC-10(1) add-only holds on that sample)"
+    ],
+    "security": [
+      "All five leaks named by the 37th verdict are closed: cap/budget at verb position (`{r,<600 A>}m -rf .claude` ask), `__note_opaque_verb` wiring ($( ) and backtick spans ask), brace x substitution combination (`{f,g}in$(true)d .claude -delete`, `{r,x}m${Z} -rf .claude` ask), `D=-delete; find .claude $D` ask, multi-word brace verbs (`{rm,rmdir} -rf .claude`, `{unlink,rm} .claude/settings.json` ask)",
+      "SC-10(6) four-site symmetry holds for the 8 bare-ask cells re-run in $( ), backticks, bash -c and adjacent-assignment contexts — 39/39 stayed ask",
+      "pure_read_only() no longer misclassifies assignment-hidden deletions: `D=-delete; find .claude $D`, `F=find; $F .claude -delete`, `P=.claude; find $P -delete`, `find .claude -{d,x}elete` all ask",
+      "pure reads keep their allow: `find .claude -name '*.json'`, `V=cat; $V README.md`, `find . -name \"*.sh\" -type f`, `cat .claude/settings.json`, `grep -r foo .claude`",
+      "33rd-36th substitution-split cells all still ask: `r$(true)m -rf .claude`, `r`true`m -rf .claude`, `f$(echo $(true))ind .claude -delete`, `r${Z}m -rf .claude`, `r${Z}m$(true) -rf .claude`",
+      "Declared residuals behave as declared and are attributed: `A=rm; B=${A}; ${B} hooks/hooks.json` and `export V=rm; $V hooks/hooks.json` allow (chaining/export keys present, generated test 9 checks attribution), `eval \"rm -rf .claude\"` allow with eval_wrapper registered"
+    ],
+    "error_scenarios": [
+      "Undecided fail direction verified at verb position for shapes the generated suite does not enumerate: nested braces (`{{r,x}m,y} -rf .claude`, `r{{m,x},y} -rf .claude`, `{r,{x,y}}m -rf .claude` ask), suspicious non-expandable brace (`r{1..a}m -rf .claude`, `{r..}m -rf .claude` ask), budget exhaustion inside a $( ) span (`$({r,x{a..70}}m -rf .claude)`, `echo $({f,g{a..70}}ind .claude -delete)` ask), backtick span (`` `r{1..a}m -rf .claude` `` ask)",
+      "Undecided verb token paired with undecided operand token in one segment: `{r,<600 A>}m -rf .claude/{a,<600 A>}` ask, `x{1..a}m -rf .claude/y{1..b}` ask",
+      "Friction boundary introduced by the self-fix behaves as designed: `cp file{1..300} /tmp/` allow and `tar cf a.tar file{1..300}` allow, while `cp file{1..300} .claude` and `cp file{1..300} .claude/` ask"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "SC-11(2): the generated suite does not in fact enumerate the whole product it claims — no cell can place the operand inside the construct's expansion"
+    ],
+    "security": [
+      "SC-11(1)/(2): brace-comma at the delete-verb token, bare + $( ) + backtick + bash -c + assignment contexts, is allow when the same token also expands to the control-plane path — unattributed allow, real deletion",
+      "SC-11(3): the deferral-downstream fixation was applied to `return 2` only; `return 0` runs the same `armed=1; continue` and has the same uncovered position",
+      "SC-10(7): five+ allow cells (`{rm,-rf,.claude}` family, `{find,.claude,-delete,-o,-name,<600 A>}`) have no residual key in the contract"
+    ],
+    "error_scenarios": [
+      "The `__find_src -eq $__delete_src` no-arm exception is unsound for brace expansion: one word can expand to both the command and its predicate (`{find,.claude,-delete,-o,-name,<600 A>}` -> allow + real deletion)"
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "SC-11(1) enumerates the constructs and the contexts but never says what the construct's expansion may CONTAIN. Because every past round inserted a construct into a word and kept the operand separate, 'brace-comma at the verb position' has silently meant 'brace-comma that expands to the verb and nothing else'. The axis needs a fourth dimension — expansion payload: {verb only, verb + harmless extra words, verb + the control-plane operand, verb + operand + padding} — otherwise the generator reproduces the blind spot it was created to remove.",
+      "No criterion states the invariant that actually broke here: a token consumed as a verb must still be examined as an operand when its expansion yields more than one word. 'Consumed as verb' and 'skipped as operand' are treated as the same act throughout scan_control_plane_delete()."
+    ],
+    "ambiguous_criteria": [
+      "SC-11(3) says a deferral is fail-closed only when a downstream judge covers the position, but scopes itself to `__verb_brace_matches()`'s return 1/2. The same reasoning applies to any `continue` that ends a token's judgment; the criterion should be phrased over 'checks that terminate a token's judgment' rather than over the tri-state return."
+    ],
+    "security_criteria_insufficient": [
+      "SC-10(7) attribution is only enforced where a test asserts allow. The leaking cells are simply absent from both suites, so nothing forced the attribution question to be asked. Attribution needs to be driven by a generator that covers the axis, which loops back to the missing expansion-payload dimension."
+    ],
+    "action_required": "Extend SC-11(1) with the expansion-payload dimension and re-generate; fix the operand-skip at both the rc=0 and rc=2 branches of the verb loop (arming a token must not exempt it from the operand judge when the token contains a brace/substitution that yields multiple words); drop or narrow the `__find_src -eq $__delete_src` exception; refresh the ancestor_directory_operand residual to match measured behavior."
+  },
+  "recommended_fix": {
+    "primary": "In the verb loop of `__scan_one_segment_for_cp_delete()`, stop coupling 'this token armed the segment' to 'this token is not an operand'. When the matched/undecided token contains `{`, `$(`, backtick or `${`, arm and then still run the operand judge on it (the brace operand judge `__control_plane_location_impl()` already expands the same leaves, so `{rm,-rf,.claude}` would find `.claude`). The AUDIT-6 self-fix regression the `continue` was protecting (`cp file{1..300} /tmp/`, `rm -rf x{1..999}`) is about a token whose leaves are NOT control-plane paths, so running the operand judge does not reintroduce it — the control cells in generated test 10 pin that.",
+    "secondary": "Replace the `__find_src -eq $__delete_src` exception with a check on whether the token can expand to more than one word; only a single-word token can be excluded on the 'one word cannot be both' argument.",
+    "then": "Add the expansion-payload dimension to the generator and re-run; every new allow cell must be attributed before the suite is allowed to skip it."
+  },
+  "criteria_backfill_review": {
+    "count": 0,
+    "note": "Step 15 added SC-11 and the two residual registrations (eval_wrapper, ancestor_directory_operand) under an approved plan; both registrations are honest 'this stays open' entries rather than scope relaxations, and no criterion was weakened. No backfill objection."
+  },
+  "f37_second_judge": {
+    "status": "not run by this judge",
+    "note": "critical tier — this is the 1st judge of round 38. The main loop must dispatch a second independent-context judge; if its verdict differs from this fail, escalate to a human rather than auto-passing."
+  },
+  "evidence": {
+    "generated_suite": "cd /Users/hanbyeol/Project/studioj/cc-harness && bats tests/pre-bash-firewall-generated.bats -> `1..10`, ok 1..ok 10, exit 0 (~3 min). Tests 6 and 7 cover the 64-alternative budget and the 511/512/513/600 token-length boundaries; test 5 gates eval cells on the contract residual key; test 10 is the friction control group.",
+    "main_suite": "bats tests/pre-bash-firewall.bats -> exit 0, 0 failures, tail shows `ok 347 F65 step 15 자체 발견 회귀 고정...` (1..347).",
+    "behavioral_probe": "bash scripts/probes/behavioral.sh -> `[]`",
+    "probe_protocol": "scratchpad dec.sh replicating tests/pre-bash-firewall-generated.bats::delete_decision — wired mode (synthetic CLAUDE_PLUGIN_ROOT with protected-integrity.sh + hooks.json so the data-plane gate is off and only the control-plane delete gate is measured), payload piped as {tool_input:{command:...}} via jq -Rs.",
+    "axis1_undecided_fail_direction": "ask: `{{r,x}m,y} -rf .claude`, `r{{m,x},y} -rf .claude`, `{r,{x,y}}m -rf .claude`, `r{1..a}m -rf .claude`, `{r..}m -rf .claude`, `$({r,x{a..70}}m -rf .claude)`, `echo $({f,g{a..70}}ind .claude -delete)`, `$(r{1..a}m -rf .claude)`, `` `r{1..a}m -rf .claude` ``, `{r,<600 A>}m -rf .claude/{a,<600 A>}`, `x{1..a}m -rf .claude/y{1..b}`. allow (harmless, unbalanced brace is literal): `r{m -rf .claude`.",
+    "axis1_friction_boundary": "allow: `cp file{1..300} /tmp/`, `tar cf a.tar file{1..300}`. ask: `cp file{1..300} .claude`, `cp file{1..300} .claude/`.",
+    "axis1_leak_found": "allow (verb and operand in the same brace token): `{rm,-rf,.claude}`, `{rm,.claude}`, `{rmdir,.claude}`, `{mv,.claude,/tmp/sink}`, `{rm,-rf,.claude/}`, `{rm,-rf,./.claude}`, `{rm,-rf,.claude,harmless}`, `{rm,-rf,.claude,x{a..70}}`, `{rm,-rf,.claude,<600 A>}`, `{find,.claude,-delete,-o,-name,<600 A>}`. Contrast (ask, operand in its own token): `{rm,-rf} .claude`, `rm {-rf,.claude}`, `{rm,x} -rf .claude`, `{find,.claude,-delete}`, `{find,.claude,-delete,-o,-name,x{a..70}}`, `{unlink,.claude/settings.json}`, `{shred,.claude/settings.json}`, `{rm,-rf,.claude/settings.json}`.",
+    "isolated_deletion_lab": "scratchpad/lab.sh — fresh $(mktemp -d)/lab containing .claude/settings.json, .claude/settings.local.json and hooks/hooks.json; each payload executed with cwd inside the lab, never against the real repository. brace_plain `{rm,-rf,.claude}` -> before `.claude hooks`, after `hooks`, claude_dir_exists NO, settings_exists NO. Same result for brace_budget `{rm,-rf,.claude,x{a..70}}`, brace_pad `{rm,-rf,.claude,<520 A>}`, find_pad `{find,.claude,-delete,-o,-name,<520 A>}`. find_budget `{find,.claude,-delete,-o,-name,x{a..70}}` also deletes but its decision is ask, so it is gated and not counted as a leak.",
+    "axis2_four_site_symmetry": "8 bare-ask cells (`r$(true)m -rf .claude`, `{r,x}m -rf .claude`, `{r..r}m -rf .claude`, `r${Z}m -rf .claude`, `{f,g}ind .claude -delete`, `find .claude -{d,x}elete`, `r{1..a}m -rf .claude`, `un{l,k}ink .claude/settings.json`) re-run inside $( ), backticks, `bash -c \"...\"` and after an adjacent `Q=1` assignment -> 39/39 ask, 0 allow.",
+    "axis2_pure_read_only": "ask: `D=-delete; find .claude $D`, `F=find; $F .claude -delete`, `P=.claude; find $P -delete`, `find .claude -{d,x}elete`, `D=-delete; f{i,y}nd .claude $D`. allow (correct, pure reads): `find .claude -name '*.json'`, `V=cat; $V README.md`, `find . -name \"*.sh\" -type f`, `cat .claude/settings.json`, `grep -r foo .claude`. allow but harmless: `D=-delete find .claude $D` (prefix assignment is not visible to $D in the same command).",
+    "axis3_no_regression": "ask: `r$(true)m -rf .claude`, `` r`true`m -rf .claude ``, `f$(echo $(true))ind .claude -delete`, `r${Z}m -rf .claude`, `r${Z}m$(true) -rf .claude`, `{f,g}in$(true)d .claude -delete`, `{f,g}in${Z}d .claude -delete`, `{r,x}m$(true) -rf .claude`, `{r,x}m${Z} -rf .claude`, `find .claude -{d,x}ele$(true)te`, `{rm,rmdir} -rf .claude`, `{unlink,rm} .claude/settings.json`, and the $( )/backtick/bash -c wrappings of those.",
+    "axis3_residual_attribution": "allow + attributed: `A=rm; B=${A}; ${B} hooks/hooks.json` and `export V=rm; $V hooks/hooks.json` (chaining/export residuals, generated test 9 asserts the contract keys), `eval \"rm -rf .claude\"` (eval_wrapper key present in _residual_risk_AC11.open_axes_2026_08_04). Measured ask, i.e. stricter than the contract text: `rm -rf hooks`, `find hooks -delete` (ancestor_directory_operand describes these as allow). Unattributed allow -> SC-10(7) violations: the `{rm,-rf,.claude}` family and `{find,.claude,-delete,-o,-name,<600 A>}`.",
+    "old_vs_new_differential": "scratchpad/diffsweep.sh — 110 generated cells (5 verbs x 2 targets x 9 shapes + 2 targets x 10 find shapes) decided under 00e105e's hook and 21889d0's hook side by side: `cells=110 regressions=0`. Every allow at HEAD is also allow at base, so step 15 introduced no ask->allow regression; the leaks reported above are pre-existing but inside the axis this round claims to have defined and closed.",
+    "code_read": "hooks/pre-bash-firewall.sh — `__verb_brace_matches()` :1559-1595 (tri-state, masked+stripped retry, __MASKED/__STRIPPED/__OPAQUE_END save+restore), `__verb_brace_matches_impl()` :1597-1712 (512-char cap before the `{` test, suspicious/budget -> 2, undecided propagation), find/-delete pre-check :2495-2530 plus the `__find_src -eq $__delete_src` exception :2532-2534, segment verb loop :2594-2668 (the `armed=1; continue` at the rc=2 branch and `__verb_armed=1` at the rc=0 branch), `__note_opaque_verb()` :1849-1865, `__apply_pending_assignment_to_string()` :941 with the pure_read_only find branch call at :1058.",
+    "environment": "darwin 25.6.0, bash 3.2 /bin/bash + bats, repo /Users/hanbyeol/Project/studioj/cc-harness at 21889d0 (clean tree at start), probes and labs confined to the session scratchpad and fresh mktemp dirs."
+  },
+  "passes_change": "none — F65 passes stays false in progress/feature_list.json",
+  "next_action": "implementer: apply recommended_fix.primary + secondary, extend SC-11(1) with the expansion-payload dimension, re-generate and re-run both suites, then request a 39th independent verdict."
+}

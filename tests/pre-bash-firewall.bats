@@ -4518,3 +4518,34 @@ $cmd"
       || { echo "잠정 무장/피연산자 판정 유지가 깨졌다: $c"; false; }
   done
 }
+
+@test "F65 38차 독립 판정 회귀 고정: 동사와 컨트롤 플레인 경로를 한 콤마 중괄호 토큰에 담은 명령이 ask (step 15 재작업)" {
+  # `{rm,-rf,.claude}` — 토큰이 동사로 소비된 뒤 피연산자 판정에서 빠져 '무장됐는데 피연산자
+  # 0개'로 allow 였다(초기 코드부터의 갭, 격리 랩 실제 삭제). 중괄호 토큰은 동사로 무장돼도
+  # 자기 자신을 피연산자로 다시 판정한다. 상한 초과(대안 70·600자)와 find 형태, 세 문맥 포함.
+  local c a600 alt70
+  a600=$(printf 'A%.0s' $(seq 1 600)); alt70=$(printf 'x%s,' $(seq 1 70)); alt70="${alt70%,}"
+  # 세그먼트 자신이 동사·경로를 한 콤마 중괄호에 담는 형태 — ask 로 무장돼야 한다.
+  for c in '{rm,-rf,.claude}' '{rm,.claude}' '{rmdir,.claude}' '{mv,.claude,/tmp/sink}' '{rm,-rf,./.claude}' '{rm,-rf,.claude/}' \
+           '{rm,-rf,.claude,x{a..70}}' "{rm,-rf,.claude,$a600}" "{rm,-rf,.claude,$alt70}" \
+           '{find,.claude,-delete}' "{find,.claude,-delete,-o,-name,$a600}" \
+           'bash -c "{rm,-rf,.claude}"' 'Q=1 {rm,-rf,.claude}'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "38차 판정 페이로드가 다시 allow 로 샜다: ${c:0:80}"; false; }
+  done
+  # 같은 페이로드를 $(...)·백틱 스팬에 넣으면 Layer 2 간접 실행 패턴이 **BLOCKED**(ask 보다
+  # 강함) — 37·38차 probe 가 BLOCKED 를 substring 검사에서 allow 로 오분류해 '샌다'고 보고했다.
+  # 여기서는 allow 만 아니면 통과로 본다(BLOCKED·ask·deny 전부 안전).
+  for c in '$({rm,-rf,.claude,x{a..70}})' '`{rm,-rf,.claude}`'; do
+    run delete_decision "$c"
+    [[ "$output" != *'"permissionDecision": "allow"'* ]] \
+      || { echo "38차 판정 스팬 페이로드가 allow 로 샜다: ${c:0:80}"; false; }
+  done
+  # 반대 방향 — 펴질 수 없는 중괄호(콤마·`..` 없음)는 길어도 무관 명령을 무장시키지 않는다(38차 medium).
+  for c in "cp x{$a600} /tmp/" 'cp {a,b,c} /tmp/'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "펴질 수 없는/작은 중괄호 피연산자에 새 마찰: ${c:0:60}"; false; }
+  done
+}

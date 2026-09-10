@@ -1625,7 +1625,18 @@ __verb_brace_matches_impl() {
   # 일치한 리터럴은 `__VERB_BRACE_HIT` 에 남겨 치환 스팬 스캐너(`__note_opaque_verb()`)가
   # SPLIT_TOKS 에 어떤 동사를 흘릴지 알 수 있게 한다.
   local __undecided=0 __rc
-  if [[ ${#t} -gt 512 ]]; then return 2; fi
+  # 38차 판정(medium): 512자 상한(판정 불가 → 2)은 **콤마/범위 중괄호가 실제로 있는 토큰**
+  # 에만 건다 — bash 는 `{` 뒤에 콤마나 `..` 이 없으면 중괄호를 리터럴로 둔다(`{a: .b}` 같은
+  # jq 프로그램은 아무것도 펴지 않는다). 그런 토큰이 512자를 넘는다고 2를 돌려주면 무관한 긴
+  # 인자가 세그먼트를 잠정 무장시켜 컨트롤 플레인 파일 읽기(`jq '<긴 프로그램>' .claude/…`)
+  # 까지 ask 로 만든다. 펴질 수 없는 긴 토큰은 1(불일치)로 확정한다. **상한 아래 토큰은 이
+  # 게이트를 통과해 아래 리터럴 비교까지 가야 한다** — 재귀가 콤마 잎(`rm`·`.claude`)을 이
+  # 함수에 다시 넣으므로, 여기서 "콤마 중괄호가 아니면 1"로 조기 반환하면 리터럴 동사 잎이
+  # 영영 매치되지 않는다(초판 버그, 자체 검증에서 `{rm,-rf,.claude}` allow로 실측).
+  if [[ ${#t} -gt 512 ]]; then
+    if [[ "$t" == *'{'*','* || "$t" == *'{'*'..'* ]]; then return 2; fi
+    return 1
+  fi
   case "$t" in
     *'{'*)
       if __brace_find_group "$t"; then
@@ -2470,7 +2481,7 @@ __scan_one_segment_for_cp_delete() {
   # 무너져 무관 명령이 ask 가 된다(step 15 자체 검증 실측). 한 낱말이 find 명령이면서 동시에
   # 그 술어일 수는 없으므로, 두 플래그가 같은 판정 불가 토큰에서 왔으면 이 게이트는 무장하지
   # 않는다(그 토큰이 진짜 동사면 아래 세그먼트 동사 루프가 따로 잡는다).
-  local __find_src=-1 __delete_src=-1 __fd_iter=0
+  local __find_src=-1 __delete_src=-1 __fd_iter=0 __fd_src_tok=""
   for tok in "${toks[@]+"${toks[@]}"}"; do
     __fd_iter=$((__fd_iter + 1))
     normalize_path_token "$tok"
@@ -2515,20 +2526,24 @@ __scan_one_segment_for_cp_delete() {
       __verb_brace_matches "$NORM_TOK" "$ARM_DELETE_VERB_DELETE_GATED"
       case $? in
         0) __has_find_tok=1 ;;
-        2) __has_find_tok=1; __find_src=$__fd_iter ;;
+        2) __has_find_tok=1; __find_src=$__fd_iter; __fd_src_tok="$NORM_TOK" ;;
       esac
     fi
     if [[ "$__has_delete_pred" -eq 0 && "$NORM_TOK" == *'{'* ]]; then
       __verb_brace_matches "$NORM_TOK" "-delete"
       case $? in
         0) __has_delete_pred=1 ;;
-        2) __has_delete_pred=1; __delete_src=$__fd_iter ;;
+        2) __has_delete_pred=1; __delete_src=$__fd_iter; __fd_src_tok="$NORM_TOK" ;;
       esac
     fi
   done
   if [[ "$__has_find_tok" -eq 1 && "$__has_delete_pred" -eq 1 ]]; then
-    # 두 플래그가 같은 판정 불가 토큰 하나에서 왔으면 무장하지 않는다(위 step 15 주석).
-    if [[ $__find_src -ge 0 && $__find_src -eq $__delete_src ]]; then :; else armed=1; fi
+    # 두 플래그가 같은 판정 불가 토큰 하나에서 왔으면 무장하지 않는다(위 step 15 주석) —
+    # **단 그 토큰이 콤마 중괄호가 아닐 때만**(38차 판정: `{find,.claude,-delete,-o,-name,
+    # <600자>}` 는 한 낱말이 명령·경로·술어를 전부 품는다 — "한 낱말이 명령이면서 술어일 수
+    # 없다"는 범위 확장에만 참이다). 콤마가 있으면 무장하고, 그 토큰은 위 동사 루프가
+    # 피연산자로도 판정해 상한 초과를 안전한 쪽으로 확정한다.
+    if [[ $__find_src -ge 0 && $__find_src -eq $__delete_src && "$__fd_src_tok" != *','* ]]; then :; else armed=1; fi
   fi
   # **F65 30차 독립 판정 재작업 중 자체 발견(판정 대상 아님, 30차 수정과 같은 계열)**
   # — 이 루프는 27~29차가 대시-토큰마다 `__dash_prefix_strip_candidates()`를 태우도록
@@ -2661,7 +2676,17 @@ __scan_one_segment_for_cp_delete() {
       __verb_brace_matches "$NORM_TOK" "${ARM_DELETE_VERBS_UNCONDITIONAL[@]}"
       case $? in
         0) __verb_armed=1 ;;
-        2) if [[ "$armed" -eq 0 ]]; then armed=1; continue; fi ;;
+        2)
+          # 38차 판정: (a)의 "자기 토큰 제외"는 **범위 중괄호(`{1..300}`)에만** 허용한다 —
+          # 범위 확장은 접두+값+접미의 한 낱말들이라 한 잎이 동사이면서 다른 잎이 경로일 수
+          # 없다. 콤마 중괄호(`{rm,-rf,.claude,<600자>}`)는 잎마다 다른 낱말을 담을 수 있어
+          # 판정 불가여도 피연산자 판정으로 흘려보낸다(상한 초과는 그쪽에서 안전한 쪽으로
+          # 확정된다). 콤마 판별은 토큰 전체 기준이라 보수적이다(잎 안의 콤마도 콤마로 본다).
+          if [[ "$armed" -eq 0 ]]; then
+            armed=1
+            [[ "$NORM_TOK" == *','* ]] || continue
+          fi
+          ;;
       esac
     fi
     # F65 27차 독립 판정 — 아홉 번째 재발. 26차 대응(__dash_prefix_strip_candidates)은
@@ -2708,7 +2733,17 @@ __scan_one_segment_for_cp_delete() {
         done
       fi
     fi
-    if [[ "$__verb_armed" -eq 1 ]]; then armed=1; continue; fi
+    # **F65 38차 독립 판정(2026-09-11) — "동사로 소비됨"과 "피연산자 판정에서 제외됨"은 같은
+    # 행위가 아니다.** `{rm,-rf,.claude}` 처럼 한 콤마 중괄호 토큰이 동사**와** 컨트롤 플레인
+    # 경로를 함께 품으면, 이 토큰이 동사로 무장된 뒤 `continue` 로 피연산자 판정에서 빠져
+    # 세그먼트는 무장됐는데 피연산자가 0개인 상태로 allow 됐다(격리 랩 실제 삭제, 초기 코드부터
+    # 있던 갭). 중괄호를 품은 토큰은 동사로 무장되더라도 **그 토큰 자신을 피연산자로도 판정**
+    # 한다 — `__control_plane_location_impl()` 이 같은 잎을 펴서 `.claude` 를 찾는다. 중괄호가
+    # 없는 리터럴 동사 토큰(`rm`)은 한 낱말이 두 역할을 할 수 없으므로 종전대로 건너뛴다.
+    if [[ "$__verb_armed" -eq 1 ]]; then
+      armed=1
+      [[ "$NORM_TOK" == *'{'* ]] || continue
+    fi
     [[ "$armed" -eq 1 ]] || continue
     [[ -z "$NORM_TOK" || "$NORM_TOK" == -* ]] && continue
     # 후행 글로브 접기는 더 이상 여기서 하지 않는다(F65 6차 판정 반려) — 이 지점은 중괄호
