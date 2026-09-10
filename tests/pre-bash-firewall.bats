@@ -4448,9 +4448,14 @@ $cmd"
   # 가장 좁은 인접 사례만 닫는다: 직전(정확히 하나 앞) 세그먼트가 정확히 `VAR=리터럴단어`
   # 형태이고, 뒤 세그먼트의 토큰이 정확히 `${VAR}`/`$VAR` 하나뿐인 경우만 인식한다.
   local c
+  # 37차 판정 준비 차분에서 자체 발견: 따옴표로 통째로 감싼 리터럴(`V="rm"`·`V='rm'`)은
+  # 셸이 벗겨 bareword와 같은 값이 되므로 같은 인접 사례다 — 초판이 캡처하지 않아 allow로
+  # 흘리던 것을 같은 범위 안에서 보강했다(부분 인용 `V="r"m`은 계속 캡처하지 않는다).
   for c in 'V=rm; ${V} hooks/hooks.json' 'V=rm; $V hooks/hooks.json' \
            'DELCMD=rm; $DELCMD hooks/hooks.json' 'P=.claude; rm -rf ${P}' \
-           'P=.claude/settings.json; rm ${P}' 'V=find; ${V} .claude -delete'; do
+           'P=.claude/settings.json; rm ${P}' 'V=find; ${V} .claude -delete' \
+           'V="rm"; $V hooks/hooks.json' "V='rm'; \$V hooks/hooks.json" \
+           'V="rm"; ${V} -rf .claude' "P='.claude'; rm -rf \$P"; do
     run delete_decision "$c"
     [[ "$output" == *'"permissionDecision": "ask"'* ]] \
       || { echo "대입 후 호출 관용구가 allow로 샜다: $c"; false; }
