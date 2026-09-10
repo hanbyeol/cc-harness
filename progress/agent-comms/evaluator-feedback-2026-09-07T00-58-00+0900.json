@@ -1,0 +1,128 @@
+{
+  "timestamp": "2026-09-07T00:58:00+0900",
+  "sprint": 51,
+  "iteration": 26,
+  "features_evaluated": ["F65"],
+  "security_tier": "critical",
+  "evaluated_commit": "585a49d",
+  "parent_commit": "65ab919",
+  "cycle_baseline_commit": "11c8db7",
+  "scores": {
+    "functionality": 6,
+    "code_quality": 7,
+    "security": 5,
+    "error_handling": 6,
+    "test_coverage": 5
+  },
+  "score": 5,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 5 < 7 (critical tier ⇒ 자동 fail, 다른 점수 무관)",
+    "score 5 < pass_threshold 7",
+    "AC-12 미충족 — 계약이 명시적으로 in-scope로 지목한 전달 경로(`env -S` 같은 argv 분할 옵션)가 **플래그-값 인접 표기**(`env -S'…'`, 공백 없음)에서 전수 allow + 격리 랩 실제 삭제. 이번 라운드가 닫은 인용 형태 14종 **전부**에서 재현되므로 인용 형태와 직교하는 새 서브축이다.",
+    "SC-9 미충족 — 위 표기에서 컨트롤 플레인 삭제 예측이 성립하지 않는다(선언된 open_axes 어디에도 없다)."
+  ],
+  "verdict_summary_ko": "이번 라운드가 목표로 한 **인용 형태 서브축은 진짜로 닫혔다**(154셀 생성 스윕에서 인용형태 14종 × 전달경로 10종 = 140셀 전수 ask/deny, 회귀 0, bats 316/316). 그러나 이 축의 **여덟 번째 재발**을 찾았다: 전달 플래그와 코드가 **붙어 있는 표기**(`env -S'rm -rf .claude'`)에서 인용 형태 14종이 **전부** 다시 샌다. 예측된 패턴 그대로 한 층 아래에서 재발했다 — 표기→도구→래퍼→플래그 표기→플래그 인자→래퍼 이름 풀→코드 전달 경로→인용 형태 다음이 **플래그-값 인접성**이다.",
+
+  "issues": [
+    "[security][critical][confidence:high] **AC-12 여덟 번째 재발 — 전달 플래그에 코드가 붙는 표기(`env -S<code>`)에서 축 전체가 다시 열린다.** 격리 랩 실측(HEAD 585a49d): `env -S'rm -rf .claude'` → allow + `.claude` 실제 삭제. 154셀 생성 스윕에서 이 전달 경로 열(column) 하나가 **인용 형태 14종 전부**에서 allow(14/154). 원인은 언랩이 아니라 **재스캔**이다 — 패스 3이 토큰 `-S'rm -rf .claude'`를 정확히 후보로 식별하고, 새 상태 기계가 셸과 동일한 낱말 `-Srm -rf .claude`를 **정확히** 복원하지만, 그 복원된 낱말을 셸 문법으로 재토큰화하면 첫 토큰이 `-Srm`이 되어 armed 판정(`== rm` / `== */rm`)에 걸리지 않는다. `env -S`가 그 낱말을 **한 번 더** 쪼갠다는 사실을 재스캔이 모른다. 최소쌍 3종으로 기전 확정: `env -S 'rm -rf .claude'`(공백) → ask · `env -S'/bin/rm -rf .claude'`(붙었지만 `/rm`로 끝나 접미사 매치) → ask · `env -S' rm -rf .claude'`(붙었지만 안쪽 선행 공백) → ask · `env -S'rm -rf .claude'` → **allow**. 변형 전수 allow: `env -S\"…\"` · `env -Srm\\ -rf\\ .claude` · `env -i -S'…'` · `env -u FOO -S'…'` · `env -vS'…'` · `env -C. -S'…'` · `/usr/bin/env -S'…'` · `echo x | env -S'…'` · `env -S'mv .claude /tmp/sink'`. 부모(65ab919)·기준선(11c8db7)에서도 allow이므로 **이번 커밋이 만든 회귀는 아니다** — 그러나 AC-12가 `env -S`를 명시적으로 in-scope로 적고 있고 open_axes 어디에도 이 표기가 없으므로 축은 열려 있다.",
+
+    "[security][critical][confidence:high] **역따옴표 아닌 백슬래시-이스케이프된 따옴표 한 글자가 ASK 티어 전체를 끈다(신규 발견, 이번 라운드 범위 밖·기존 결함이나 미보고).** 실측: `echo x ; rm -rf .claude` → ask 인데 `echo \\' ; rm -rf .claude` → **allow + 실제 삭제**. 홀·짝 패리티가 정확히 갈린다(`echo \\'\\' ; rm -rf .claude` → ask) — 따옴표 상태 디싱크의 서명이다. 기전(계측으로 확정: `scan_control_plane_delete()`가 **호출조차 되지 않음**): `pure_read_only()`의 awk 세그먼터(hooks/pre-bash-firewall.sh:752-759)와 최상단 `NORMALIZED_CMD` awk(:90-101)가 둘 다 **백슬래시 이스케이프를 인식하지 않고** 모든 `'`/`\"`에서 상태를 토글한다. 셸은 `\\'`를 리터럴로 보는데 awk는 인용 시작으로 보므로, 그 뒤의 `;`가 구분자로 인식되지 않아 명령 전체가 **한 세그먼트**가 되고 그 세그먼트의 첫 토큰(`echo`)이 읽기 화이트리스트에 있어 `PURE_READ=1`이 선다. `PURE_READ=1`은 :2027(컨트롤 플레인 삭제 스캔)과 :2034(Layer 3 ASK_PATTERNS)를 **둘 다** 건너뛴다. 그래서 F65의 arm뿐 아니라 ASK 티어 전체가 함께 꺼진다 — 실측 전수 allow: `echo \\' ; rm -rf .claude` · `… ; rm .claude/settings.json` · `… ; mv .claude /tmp/sink` · `… ; rm -rf ~/.claude/plugins/cc-harness` · `… ; sed -i '' hooks/hooks.json` · `… ; cp /tmp/x progress/feature_list.json`(**INV-11 Bash 우회 게이트**) · `… ; git reset --hard`. 첫 토큰은 화이트리스트의 어떤 것이어도 된다(`cat`·`grep`·`true` 확인). 홑·겹 따옴표 모두, 단어 중간(`it\\'s`·`foo\\'bar`)에서도 성립. 세 리비전(HEAD·부모·기준선) 전부 동일하므로 **이번 변경의 회귀가 아니다**. 선언된 open_axes(`shell_metacharacter_adjacent_tokenization` 포함) 어디에도 없다 — 그 축은 **낱말 경계**(`(rm`) 문제인 반면 이것은 **세그먼터의 인용 상태 모델**이 셸과 어긋나 명령 전체를 '순수 읽기'로 오분류하는 문제다. 이 파일 4차 판정이 이미 '면제가 ASK 배열 전체를 건너뛰면 손실 상한이 무너진다'고 진단한 자리와 같은 계열이며, 그때는 면제 **범위**를 좁혀 고쳤지만 여기서는 면제 **진입 판정** 자체가 틀린다.",
+
+    "[test][high][confidence:high] **신규 인용형태 테스트(af37ff5)는 진짜 생성 규칙이지만, 원소 풀이 이번에 발견된 우회를 원리적으로 관측할 수 없다 — 25차가 지적한 메타 결함이 한 차원 옆에서 그대로 재발했다.** tests/pre-bash-firewall.bats:3460~ 은 bodies(2) × quote_shapes(5: 완전포위 2 + 인터리브 3) × 전달(-c 래퍼 7 + env -S + 헤어스트링 + 파이프)로 100셀을 돌고 allow 셀을 실제 랩에서 검증한다(품질 좋음). 그러나 전달 템플릿이 `\"env -S $qshape\"`로 **플래그와 코드 사이 공백을 상수로 박아** 두었다(:3502). 같은 상수가 앞 라운드 테스트에도 있다(:3403-3404 `\"$pfx -S '$b'\"`). 즉 '플래그-값 인접성'이 풀의 차원이 아니라 고정값이라, 인용 형태를 아무리 늘려도 이번 우회를 볼 수 없다. **권고: 인접성(detached/fused)을 명시적 풀 차원으로 올릴 것** — `for adj in \" \" \"\"; do … \"env -S${adj}${qshape}\"`.",
+
+    "[test][medium][confidence:high] 위 escaped-quote 우회를 잡을 테스트가 없다. `pure_read_only()`의 인용 상태 판정에 대한 홀·짝 패리티 테스트(`echo \\' ; <delete>` vs `echo \\'\\' ; <delete>`)가 없다.",
+
+    "[test][low][confidence:high] **4바이트 문자 고정 테스트 부재(19~25차 이월, 여전히 열림).** 진입점 길이 상한은 `wc -c`(바이트)로 재는데(:44), 테스트는 ASCII `x`만 쓴다(:3053 40000자 / :3070 30000자) — 두 값 모두 `${#CMD}`(문자)로 되돌려도 통과한다. 실측 확인: 이모지 9000개 명령은 9005자/36005바이트로 HEAD에서 ask(정상)지만, `${#CMD}`로 회귀시키면 상한 아래로 떨어져 조용히 샌다. 즉 18차가 반려한 바로 그 결함의 재유입을 스위트가 못 잡는다.",
+
+    "[test][low][confidence:high] **32768바이트 정확 경계 테스트 부재(이월, 여전히 열림).** 실측으로 동작은 맞다(32768바이트 → allow, 32769바이트 → ask). 그러나 테스트는 40000·30000만 확인하므로 상한 값이 한 칸 밀려도(off-by-one) 잡히지 않는다.",
+
+    "[quality][low][confidence:high] **`wc -c` 선행 공백이 사용자 노출 메시지로 샌다(이월, 여전히 열림).** 실측: `\"명령이 비정상적으로 길어(   32805바이트) …\"` — macOS `wc -c`가 앞에 공백을 붙이고 `${CMD_BYTES}`가 그대로 보간된다. 판정 자체는 `[[ … -gt … ]]`가 산술 평가라 정확하다(기능 영향 없음). `CMD_BYTES=${CMD_BYTES// /}` 한 줄이면 닫힌다.",
+
+    "[doc][low][confidence:medium] hooks/pre-bash-firewall.sh:1847-1850 주석이 패스 3 단일 규칙이 `env -S`를 '포섭한다'고 적는다. 후보 **식별**은 실제로 포섭하지만 종단 탐지는 위 issue 1대로 포섭하지 못한다 — 독자가 end-to-end 주장으로 읽을 수 있다. sprint-51.json의 status 필드는 '자체검증 완료·독립검증 대기'로 정직하게 적혀 있어 SC-9 위반은 아니다(아래 doc_accuracy 참조).",
+
+    "[info][confidence:high] **선언된 open_axes 재확인(fail 사유 아님, 이번 변경의 부작용 없음 확인용)**: `(bash -c 'rm -rf .claude')` → allow + 실삭제, `bash < <(echo 'rm -rf .claude')` → allow + 실삭제 — 둘 다 `shell_metacharacter_adjacent_tokenization`(닫는 괄호가 코드 낱말에 붙어 `.claude)` 토큰이 됨). `bash -c \"rm -rf \\<LF>.claude\"` → allow + 실삭제 — `backslash_newline_fold`의 평문 형태(status가 '평문 형태는 열려 있다'로 명시). `python3 -c'…'` · `perl -e'…'` · `ruby -e'…'` → allow + 실삭제 — `interpreter_shell_reentry` / 언어-API 축. 네 축 모두 이번 change-request 범위 밖으로 선언돼 있고, 이번 변경이 이 축들을 악화시킨 흔적은 없다(부모 대비 약화 셀 0)."
+  ],
+
+  "passed_criteria": {
+    "acceptance": [
+      "AC-12(인용 형태 서브축) — 25차가 실증한 8종 대표가 전부 ask로 뒤집혔고 격리 랩에서 음성 대조까지 확인(부모 65ab919에서 8/8 allow + 실삭제 → HEAD에서 8/8 ask). 구현자 주장을 독립 재현했다.",
+      "AC-12(인용 형태 × 전달 경로 직교성) — 14종 인용 형태 × 10종 비-fused 전달 경로 = 140셀 전수 ask/deny(126 ask + 14 deny), 격리 랩에서 154셀 전부 실제 삭제됨을 사전 확인한 생성 규칙 스윕.",
+      "AC-9(회귀 없음) — bats tests/pre-bash-firewall.bats 316/316 통과, 실패 0."
+    ],
+    "security": [
+      "SC-10(1) add-only — 154셀 스윕에서 부모 대비 약화(ask/deny→allow) **0셀**, 기준선 대비 약화 **0셀**, 강화 81셀. 구조적으로 allow→ask 방향으로만 분기함을 실측으로 확인.",
+      "SC-10(2) 마찰 수용 범위 — 56개 일상 명령 코퍼스(git commit 인용 메시지·공백 포함 경로 mv/cp/rsync·sed/awk/perl 스크립트·printf 포맷·`-c` 모양 플래그를 무관하게 쓰는 grep/tar/wc/sort/diff·빌드/패키지 명령·정상 삭제 10종)에서 HEAD·부모·기준선 **세 리비전 전부 56/56 allow, 판정 차이 0건** — 신규 마찰도 보호 손실도 없다."
+    ],
+    "error_scenarios": [
+      "시간 예산 fail-closed — 적대적 입력(`-c` 플래그 500개, `-c`×토큰 200개)에서 3.0초에 예산을 소진하고 allow가 아니라 **ask**로 떨어진다(실측 3.04~3.05초, 훅 5초 타임아웃 이내).",
+      "ANSI-C/로케일 인용 fail-closed — `bash -c $'rm -rf .claude'` · `$'rm\\x20-rf\\x20.claude'` · `$\"…\"` 전부 ask(SEGMENT_UNSAFE 경로).",
+      "진입점 길이 상한 fail-closed — 6만자 명령 0.04초에 ask, 32769바이트 ask.",
+      "언랩 상태 기계의 셸 충실도 — 겹따옴표 안 비이스케이프 백슬래시(`\\e`·`\\m`·`\\u`·`\\r`), `\\\"`·`\\\\`, 홑따옴표 안 리터럴 백슬래시, 중첩 인용(`\"rm -rf '.claude'\"`·`'rm -rf \".claude\"'`·`\"rm -rf \\\".claude\\\"\"`), 빈 인용 패딩, 낱말 중간 인용 경계 등 25셀 중 실제 삭제하는 셀 전부 ask."
+    ]
+  },
+
+  "failed_criteria": {
+    "acceptance": [
+      "AC-12 — '어떤 전달 경로로 인터프리터에 도달하든(argv 플래그 뒤·`env -S` 같은 argv 분할 옵션·헤어스트링·stdin 파이프) 최소 ask'가 `env -S<code>`(플래그-값 인접) 표기에서 성립하지 않는다. 기준문이 요구하는 '앞에 어떤 플래그가 있든 없든' 성질이 플래그가 **붙어 있을 때** 깨진다."
+    ],
+    "security": [
+      "SC-9 — 컨트롤 플레인 삭제 예측이 (a) `env -S'…'` 표기, (b) 백슬래시-이스케이프된 따옴표 접두(`echo \\' ; rm -rf .claude`)에서 성립하지 않는다. 둘 다 `_residual_risk_AC11.open_axes_2026_08_04`에 없으므로 '닫히지 않는 축은 명시한다'는 SC-9 둘째 절도 함께 미충족이다."
+    ],
+    "error_scenarios": [
+      "인용 상태 디싱크가 fail-closed가 아니라 **fail-open**이다 — `pure_read_only()`/`NORMALIZED_CMD` awk가 백슬래시 이스케이프를 모른 채 상태를 토글하면 그 사실을 감지하지 못하고 조용히 '순수 읽기'로 통과시킨다. 이 파일 전체의 원칙('모르면 allow 가 아니라 ask')에 대한 국소 역행이다."
+    ]
+  },
+
+  "doc_accuracy_check_SC9": {
+    "verdict": "이번 라운드는 SC-9 문서 위반 없음 — 일곱 라운드 만에 처음이다.",
+    "detail": "sprint-51.json `_residual_risk_AC11.open_axes_2026_08_04.wrapper_code_delivery_mechanism.status`가 두 서브축(전달 경로 / 인용 형태)을 분리해 적고, 둘 다 '해결'이 아니라 **'구현자 자체검증 완료·독립검증 대기'**로 의도적으로 보수적으로 서술했다 — 축 닫힘을 선언하지 않았으므로 SC-9의 '인스턴스 집합을 축의 정의로 대체할 수 없다' 금지 규범을 위반하지 않는다. AC-12의 '벗겨서'의 의미 정정도 25차 recommended_fix와 정확히 일치한다. 다만 위 [doc][low] 대로 코드 주석 한 곳(:1847-1850)이 end-to-end로 읽힐 수 있는 '포섭한다'를 쓴다.",
+    "required_update_after_this_verdict": "`wrapper_code_delivery_mechanism`에 **세 번째 서브축(플래그-값 인접 표기)**을 신설해 미해결로 적고, `pure_read_only()` 인용 상태 디싱크는 **새 open axis**(예: `quote_state_desync_read_whitelist`)로 별도 등재할 것."
+  },
+
+  "criteria_gaps": {
+    "missing_criteria": [
+      "AC-12의 전달 경로 서브축에 **'플래그와 값의 인접성'** 차원이 없다 — 계약도 테스트도 전달 플래그와 코드 사이에 공백이 있다고 암묵 가정한다. 인접성을 명시적 축으로 승격해야 한다.",
+      "`pure_read_only()` 읽기 화이트리스트의 **진입 판정 건전성**에 대한 기준이 없다. SC-2는 면제 **범위**(어느 arm을 건너뛰는가)만 규정하고, '무엇이 순수 읽기인가'를 정하는 세그먼터가 셸과 합치하는지에 대한 기준이 없다 — 이번에 발견된 우회가 정확히 그 빈칸에서 나왔다."
+    ],
+    "ambiguous_criteria": [],
+    "security_criteria_insufficient": [
+      "SC-9가 '표기 축'을 삭제 명령 **자체**의 표기로만 정의한다 — 삭제 명령 앞에 붙는 **접두 문맥**(escaped quote 하나)이 게이트를 통째로 끄는 형태를 포섭하지 못한다."
+    ],
+    "action_required": "다음 iteration에서 sprint-51.json에 (1) 플래그-값 인접 서브축, (2) quote-state desync open axis, (3) SC-2에 '순수 읽기 진입 판정의 셸 합치성' 조항을 추가할 것."
+  },
+
+  "recommended_fix": {
+    "primary": "재스캔에서 **복원된 낱말의 첫 토큰이 옵션 접두를 가질 수 있다**는 것을 구조적으로(이름·플래그 열거 없이) 다룬다. `__scan_one_segment_for_cp_delete()`가 언랩 후보를 재스캔할 때, 복원된 문자열의 첫 낱말이 `-`로 시작하면 그 선행 대시-런(`-[A-Za-z0-9]*`)을 떼어낸 문자열도 **추가 후보**로 함께 재스캔한다. add-only(allow→ask 방향으로만 분기)이고, `env -S`·`--split-string=`뿐 아니라 아직 모르는 다른 'argv 분할 옵션'까지 이름을 몰라도 함께 닫힌다 — 23차가 셸 이름 열거를 폐지할 때 쓴 것과 같은 논리를 한 층 아래에 적용하는 것이다. 열거로 `-S`만 특수 처리하면 아홉 번째 재발이 예약된다.",
+    "secondary": "`pure_read_only()`의 awk 세그먼터(:752-759)와 최상단 `NORMALIZED_CMD` awk(:90-101) 양쪽에 **백슬래시 이스케이프 인식**을 추가한다 — 인용 밖에서 `\\` 다음 한 글자는 상태 토글 없이 그대로 통과. 두 곳이 같은 결함을 공유하므로 한쪽만 고치면 다른 쪽에서 재발한다. 더 안전한 보강: `pure_read_only()`가 인용 상태를 **닫지 못한 채 문자열이 끝나면**(불균형) 읽기로 확정하지 않고 1을 반환(= ask 티어 유지)하도록 fail-closed 시킨다.",
+    "tests": [
+      "인용형태 테스트(:3460~)와 전달경로 테스트(:3381~)의 전달 템플릿에 **인접성 차원**을 추가: `for adj in ' ' ''`, `\"env -S${adj}${qshape}\"`. 이번 우회 14셀이 즉시 관측된다.",
+      "escaped-quote 패리티 테스트: 읽기 화이트리스트 첫 토큰 풀 × 이스케이프 따옴표 개수(0·1·2) × 후속 위험 명령 풀(컨트롤 플레인 삭제·INV-11 게이트·`git reset --hard`)의 생성 규칙, allow 셀은 격리 랩에서 실제 효과 확인.",
+      "이월 3건: 4바이트 문자 페이로드로 진입점 상한 고정(`${#CMD}` 회귀 검출), 32768/32769 정확 경계 2셀, `CMD_BYTES` 공백 제거."
+    ]
+  },
+
+  "evidence": {
+    "test_suite": "bats tests/pre-bash-firewall.bats → 316 ok / 0 not ok (exit 0). 전수 완주 확인.",
+    "25th_verdict_8_counterexamples_reproduced": "격리 랩(임시 디렉터리에 .claude/{settings.json,settings.local.json,hooks/guard.sh} 생성 → cd 후 실행 → 잔존 확인). HEAD 585a49d: 8/8 ask(8/8 모두 실제로는 삭제되는 진짜 공격임을 실행으로 확인). 음성 대조 — 부모 65ab919: 8/8 allow + 8/8 실제 삭제. 기준선 11c8db7: 8/8 allow. 구현자 주장 독립 재현 성공.",
+    "generation_rule_sweep": "인용 형태 14종(완전포위 2 + 인터리브·부분인용·백슬래시·혼합·per-char 12) × 코드 전달 10종(bash/sh/zsh -c, bash -o posix -c, env -S, 헤어스트링, bash -s <<<, echo|sh, printf|bash, eval) + env -S fused 열 = **154셀**. 각 셀을 격리 랩에서 실행해 **154/154가 실제로 .claude를 삭제함**을 사전 확인. HEAD 결과: 126 ask + 14 deny + **14 allow**. allow 14셀은 전부 `env -S<fused>` 열이며 인용 형태 14종 전부에 걸친다.",
+    "regression_add_only": "같은 154셀을 세 리비전에 먹임 — 기준선 11c8db7: 131 allow / 9 ask / 14 deny · 부모 65ab919: 95 allow / 45 ask / 14 deny · HEAD 585a49d: 14 allow / 126 ask / 14 deny. 부모→HEAD 약화(ask|deny→allow) **0셀**, 기준선→HEAD 약화 **0셀**, 강화 81셀. SC-10(1) 충족.",
+    "friction_corpus": "일상 명령 56종(git commit 인용 메시지 7 · 공백 포함 경로 4 · sed/awk/perl 스크립트 7 · printf/echo 포맷 4 · `-c` 모양 플래그 무관 용례 6 · 빌드/패키지/컨테이너/k8s/jq/curl/find/ssh/xargs 16 · 정상 삭제 10 · env 2). HEAD·부모·기준선 **전부 56/56 allow, 판정 차이 0건**.",
+    "new_bypass_1_env_S_fused": "격리 랩 실측 @ HEAD — `env -S'rm -rf .claude'` allow+DELETED · `env -S\\\"rm -rf .claude\\\"` allow+DELETED · `env -Srm\\\\ -rf\\\\ .claude` allow+DELETED · `env -i -S'…'` · `env -u FOO -S'…'` · `env -vS'…'` · `env -C. -S'…'` · `/usr/bin/env -S'…'` · `echo x | env -S'…'` · `env -S'mv .claude /tmp/sink'` 전부 allow+DELETED. **기전 최소쌍**: `env -S 'rm…'`(공백) ask / `env -S'/bin/rm …'`(붙었으나 `/rm` 접미사) ask / `env -S' rm …'`(붙었으나 안쪽 선행 공백) ask / `env -S'rm …'` **allow** — 복원된 낱말의 첫 토큰이 `-Srm`이 되어 armed 판정에 못 들어오는 것이 유일한 차이임을 확정.",
+    "new_bypass_2_quote_state_desync": "훅 계측(scan_control_plane_delete 진입부에 디버그 출력 주입한 사본 실행) — `echo x ; rm -rf .claude`는 SEG 2개로 나뉘고 토큰 `rm`/`.claude`가 잡혀 ask. `echo \\\\' ; rm -rf .claude`는 **디버그 출력이 한 줄도 나오지 않는다** = scan_control_plane_delete()가 호출조차 되지 않음 ⇒ PURE_READ=1. 패리티 확인: 이스케이프 따옴표 0개 ask / 1개 **allow** / 2개 ask. 파급 실측(전부 allow @ 세 리비전): `echo \\\\' ; rm -rf .claude` · `; rm .claude/settings.json` · `; mv .claude /tmp/sink` · `; rm -rf ~/.claude/plugins/cc-harness` · `; sed -i '' hooks/hooks.json` · `; cp /tmp/x progress/feature_list.json`(INV-11 게이트) · `; git reset --hard`. 첫 토큰 `cat`/`grep`/`true`로도 성립, `\\\\\\\"`로도 성립, 단어 중간(`it\\\\'s`)에서도 성립.",
+    "unquote_state_machine_fidelity": "겹따옴표 안 비이스케이프 백슬래시(`\\\\e`·`\\\\m`·`\\\\u`·`\\\\r`) 5셀, 중첩 인용 3셀, `'\\\\''` 관용구 2셀, 빈 인용 패딩 3셀, 낱말 중간 인용 경계 3셀, 탭·다중 공백 3셀, 백슬래시-개행 5셀 = 25셀. 실제 삭제하는 셀 중 `backslash_newline_fold`(선언된 open axis) 2셀을 제외한 전부가 ask — 상태 기계는 `'`/`\\\"`/`\\\\`에 대해 bash의 인용 제거와 합치한다. `$'…'`/`$\\\"…\\\"`는 상태 기계에 도달하기 전 `__tokenize_segment()`가 SEGMENT_UNSAFE=1로 fail-closed 시키므로 상태 기계가 `$`를 특별 취급하지 않는 것이 문제가 되지 않음을 코드 경로로 확인(:1545, :1902-1914).",
+    "unbalanced_quote_reachability": "질문 (c)에 대한 논증: `__tokenize_segment()`가 인용을 닫지 못한 채 끝나면 :1561-1563에서 SEGMENT_UNSAFE=1로 즉시 반환하고, :1914가 그 시점에 ask로 확정하므로 `__find_wrapped_arg()`/`__unquote_wrap_candidate()`에 **균형 잡힌 토큰만 도달한다**. 상태 기계가 불균형 입력에서 어떻게 동작하든 판정에 영향이 없다 — 도달 불가.",
+    "performance": "적대적 입력 9종을 HEAD·부모 양쪽에서 계측(초/판정). 평범한 명령 0.12/0.11 · 2000자 단일 후보 0.65/0.55 · 인용 런 스톰(490쌍) 0.29/0.37 · 겹따옴표 백슬래시 스톰 0.47/0.48 · `-c` 500개 3.05/3.06(ask, 예산 fail-closed) · 공백 포함 토큰 300개 1.60/1.72 · 인용 과다 세그먼트 60개 1.62/1.83 · 6만자 명령 0.04/0.04(ask) · `-c`100×토큰100 3.04/3.04(ask). **문자 단위 상태 기계로 인한 신규 이차식 비용 없음** — HEAD가 모든 셀에서 부모와 같거나 빠르다. 후보 길이는 세그먼트 2048자 상한에, 후보 개수는 3초 예산에 각각 유계이고 예산 소진은 ask로 fail-closed.",
+    "carried_over_low_issues": "실측 — 진입점 상한: 32768바이트 allow / 32769바이트 ask(동작은 정확, 경계 테스트는 부재). 이모지 9000개(9005자/36005바이트) ask, 8000개(32005바이트) allow — 바이트 기준이 실제로 동작하나 스위트에 멀티바이트 페이로드가 0건이라 `${#CMD}` 회귀를 못 잡는다. `wc -c` 선행 공백: ask 사유 문자열이 `길어(   32805바이트)`로 노출됨.",
+    "out_of_scope_axes_unaffected": "선언된 4축(`nested_wrapper_unwrap`·`interpreter_shell_reentry`·`operand_before_verb_ordering`·`shell_metacharacter_adjacent_tokenization`)은 이번 변경으로 악화되지 않았다 — 154셀 스윕·30셀 delivery 스윕 어디에서도 부모 대비 약화 0셀. `(bash -c '…')`·`bash < <(echo '…')`·`bash -c \\\"rm -rf \\\\<LF>.claude\\\"`·`python3 -c'…'`/`perl -e'…'`/`ruby -e'…'`가 allow+실삭제이나 전부 해당 선언 축에 귀속되며 fail 사유로 쓰지 않았다."
+  },
+
+  "note_for_main_loop": {
+    "feature_list_action": "F65.passes는 **false 그대로 두었다**(변경하지 않음). verdict가 fail이므로 전환 대상이 아니다.",
+    "f37_second_judgment": "이번 판정이 fail이므로 F37 critical 2차 독립 판정·security-auditor 게이트는 아직 의미가 없다 — 수정 후 다음 라운드에서 pass가 나오면 그때 (a) 독립 컨텍스트 2차 evaluator, (b) security-auditor를 병렬 디스패치해야 한다. 이 판정 하나로는 critical 게이트를 통과시킬 수 없다.",
+    "priority": "issue 2(escaped-quote → PURE_READ)가 F65의 축보다 **넓다** — ASK 티어 전체(INV-11 Bash 우회 게이트 포함)를 한 글자로 끈다. F65 사이클과 별개의 /change-request로 즉시 분리해 다룰 것을 권고한다. issue 1(env -S fused)은 F65 사이클 안에서 다음 iteration으로 처리한다.",
+    "meta": "이 축의 여덟 번째 재발이다. 매 라운드 '한 층 아래'에서 재발하는 구조적 원인은 **테스트 생성 규칙의 원소 풀이 매번 직전 라운드가 발견한 차원만 담고, 그 아래 차원은 상수로 박혀 있는 것**이다. 이번에는 그 상수가 '플래그와 코드 사이의 공백'이었다. 다음 라운드는 우회를 하나 더 닫는 것보다 **풀에 상수로 박혀 있는 것이 무엇인지 목록화하는 것**이 재발을 끊는 데 더 효과적일 수 있다."
+  }
+}

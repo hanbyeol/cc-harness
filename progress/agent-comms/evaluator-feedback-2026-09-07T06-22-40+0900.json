@@ -1,0 +1,198 @@
+{
+  "timestamp": "2026-09-07T06:22:40+0900",
+  "sprint": 51,
+  "iteration": 34,
+  "round_label": "F65 F37 2차 독립 판정 (33차와의 교차검증)",
+  "features_evaluated": ["F65"],
+  "security_tier": "critical",
+  "evaluated_commit": "2a16ed3de6c095fcab31e20ece6e09588d4fd7e1",
+  "verdict_being_cross_checked": "progress/agent-comms/evaluator-feedback-2026-09-07T06-04-12+0900.json (33차, pass, min-of-5 = 7)",
+  "independence_note": "33차 판정문을 읽었으나, 모든 측정을 이 세션에서 직접 재실행했고 33차가 쓰지 않은 계측(사이트별 트립 추적)과 33차가 만들지 않은 뮤턴트(M7b/M7c/M8/M9/MP2/MP3)를 추가로 만들어 반증을 시도했다. 아래 evidence 는 전부 이 세션의 실행 산출이다.",
+  "worktree_state": "git status --porcelain(hooks/pre-bash-firewall.sh, tests/pre-bash-firewall.bats, progress/contracts/sprint-51.json) 비어 있음 — 측정 대상이 HEAD 내용과 동일",
+
+  "scores": {
+    "functionality": 8,
+    "code_quality": 8,
+    "security": 7,
+    "error_handling": 8,
+    "test_coverage": 7
+  },
+  "score": 7,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "security_threshold_for_tier": 7,
+  "verdict": "pass",
+  "agrees_with_33rd": true,
+  "fail_reasons": [],
+
+  "verdict_rationale": "33차와 같은 결론(pass)에 도달했으나, 근거의 일부는 33차보다 강하고 일부는 33차보다 **약하다**. 강한 쪽: 코드 자체는 세 확인 지점 **각각**이 fail-closed 임을 사이트 단위로 개별 강제해 직접 확인했다(사이트 1/2/3 을 하나씩만 트립시키는 결정적 사본 셋 → 전부 ask). 600셀 생성 규칙 스윕(도구 6 × 플래그 5 × 정크 4 × 페이로드 5) 누출 0, 25종 전달 경로 배터리 전부 ask/deny, 12종 마찰 코퍼스 전부 allow, 진입 상한 근접(32KB) 4종에서 판정 누락 0. bats 327/327 exit 0(2회), 신규 테스트 5회 반복 무플레이크, shellcheck 신규 지적 없음, 훅의 비주석 ± 라인 0(직접 확인). 약한 쪽: 33차의 I-1 을 재현했을 뿐 아니라 **33차보다 심각한 형태로 확장**했다 — 아래 I2-1 참조. 그럼에도 fail 로 뒤집지 않은 이유는 (a) HEAD 의 코드가 세 지점 모두에서 실제로 fail-closed 이고, (b) SC-10(4) 문언이 요구하는 것은 '그 상한의 초과 시 결과가 안전한 쪽임을 확인하는 테스트'이지 '상한이 배치된 강제 지점마다 각각 고정'이 아니며, 후자는 33차 자신이 criteria_gaps 로 다음 계약에 추가 권고한 **아직 계약에 없는 요건**이기 때문이다. 33라운드째인 축에서 계약에 없는 요건을 소급 적용해 반려하는 것은 골대 이동이다. min-of-5 = 7 = pass_threshold(정확히 바닥), security 7 = critical 임계값(정확히 바닥) → pass.",
+
+  "requested_check_results": {
+    "item_1_reproduce_I1_mutation_and_judge_it": {
+      "verdict": "재현 성공 + 33차 판단에 **부분적으로만 동의**. 결론(fail 사유 아님)에는 동의하나, 33차가 제시한 위험도 근거는 실측으로 **반증**됐다.",
+      "1a_mutants_reproduced": {
+        "method": "HEAD 훅에 뮤턴트를 심고, bats 테스트의 sed 두 줄과 두 단언을 문자 그대로 적용해 green/red 판정",
+        "M1_pass1_check_block_deleted(1919-1922)": "GREEN — 생존 (33차와 일치)",
+        "M2_pass1+pass2_check_blocks_deleted": "GREEN — 생존 (33차와 일치)",
+        "M3_all_three_deleted": "RED — kill (33차와 일치)",
+        "MP2_pass2_only_deleted": "GREEN — 생존 (33차가 시험하지 않은 뮤턴트)",
+        "MP3_pass3_only_deleted": "GREEN — 생존 (33차가 시험하지 않은 뮤턴트)",
+        "M7b_pass2_direction_flipped_return0_to_return1": "GREEN — **생존**. 33차가 시험하지 않은 뮤턴트이며, 체크 삭제가 아니라 **방향 뒤집기**다 — SC-10(4) 가 막으려고 신설된 바로 그 fail-open 형태.",
+        "M7c_pass3_direction_flipped": "GREEN — **생존** (동상)",
+        "M8_caller_overflow_compare_1_to_2": "RED — kill",
+        "M9_pass1_returns_0_without_setting_overflow_flag": "RED — kill (조용한 fail-open 형태, 테스트가 잡는다)"
+      },
+      "1b_are_pass2_pass3_checks_dead_code": {
+        "answer": "**아니다 — 도달 가능할 뿐 아니라, 큰 입력 클래스에서는 패스 2 가 실제로 상한을 강제하는 유일한 지점이다.** 33차의 '패스 2·3 은 도달조차 하지 않는다'는 서술은 3토큰짜리 테스트 입력에 한해서만 참이고, 일반 입력에는 거짓이다.",
+        "why_structurally": "`__fwa_iter` 는 세 패스가 **공유**하는 단일 카운터다(1891 선언, 1918/1954/1994 에서 증가). 확인은 누적 카운터가 200 의 배수일 때 발생하므로, 어느 패스에서 확인이 발생할지는 앞 패스들이 소비한 반복 수에 따라 결정된다.",
+        "empirical_counter_trace": "계측 사본으로 실측 — `git add` 경로 800개(n=802, 완전 무해한 allow 명령): 패스1 802회·패스2 802회·패스3 802회 → 200의 배수가 패스 2 안에 4회(1000·1200·1400·1600), 패스 3 안에 4회(1800·2000·2200·2400) 떨어진다. 즉 평범한 명령에서도 두 지점 모두 매번 실행된다.",
+        "empirical_live_trip_at_site_2": "**패스 2 의 확인이 실제로 트립하는 살아 있는 입력을 찾았다.** `sometool -c` + 1글자 정크 토큰 n개(진입 상한 32768자 이내) 형태는 패스 1 이 인덱스 1 에서 곧장 break 하므로(반복 2회) 패스 1 의 확인이 영원히 실행되지 않는다 — n=10000(20KB)·12000(24KB)·14000(28KB)·16000(32KB) 전부 `FWA_SITE=2` 에서 3005~3020ms 에 트립했다(계측 실측). 이 클래스에서 상한을 강제하는 것은 **오직 패스 2 의 확인**이다.",
+        "consequence_of_flipping_that_site": "M7b(패스 2 의 `return 0` 한 토큰을 `return 1` 로)를 HEAD 의 **실제 3000ms 임계값 그대로** 두고 위 32KB 입력에 걸면 판정이 **ask → allow 로 뒤집힌다**(실측: HEAD 3058ms/ask vs M7b 3313ms/allow). 33차가 위험도를 낮게 본 근거인 '앞 단계 루프(2094)와 후보 순회(2197)의 예산이 별도로 남아 있다'는 이 입력 클래스에서 **성립하지 않는다** — 다른 어떤 예산도 이 명령을 잡지 못한다. 33차의 위험 평가 근거는 실측으로 반증된다.",
+        "but_is_HEAD_itself_defective": "아니다. 세 지점을 하나씩만 강제로 트립시킨 사본 셋(사이트@1921 / @1957 / @1997 각각만 `-gt -1`, EVERY=1)에서 전부 ask 가 나왔다 — HEAD 의 코드는 세 지점 모두 fail-closed 다. 위 M7b/M7c 는 **가상 뮤턴트이지 현재 결함이 아니다**.",
+        "my_judgment": "33차의 결론(fail 사유 아님)에 동의한다. 다만 33차가 붙인 '오늘의 위험도는 낮다'는 근거는 틀렸고, 올바른 근거는 '현재 코드가 옳고, 계약이 사이트 단위 고정을 아직 요구하지 않는다'뿐이다. 따라서 I-1 은 33차의 medium 보다 무겁게 다뤄야 하며(아래 I2-1, severity high 로 재분류), 다음 라운드의 **선택적 개선 항목이 아니라 확정 항목**으로 취급할 것을 권고한다."
+      }
+    },
+
+    "item_2_injection_test_trustworthiness": {
+      "verdict": "pass — sed 는 정확히 대상만 겨냥하고, 되돌리기는 정확히 red 로 떨어진다",
+      "2a_sed_precision": "diff(원본, sed 사본) = 정확히 4줄: 1888(`__FWA_CHECK_EVERY=200→1`), 1921·1957·1997(`$__fwa_ms -gt 3000→-gt -1`). 다른 예산 확인 네 곳은 사본에서도 `-gt 3000` 그대로임을 실측 확인(2096 `__token_budget_ms`, 2197·2251 `__cand_budget_ms`, 2281 `__budget_ms`).",
+      "2b_revert_detection": "`git show 80fdff5:hooks/pre-bash-firewall.sh` 에 `__fwa_ms`·`__FWA_CHECK_EVERY` 0회 등장 → 같은 sed 가 **0줄** 변경(무변화 사본) → 그 사본에서 `sometool arg1 arg2` 가 **allow** 이고 사유 문구도 0회 → 테스트의 두 단언 모두 실패, 정확히 red. 엉뚱한 통과 경로 없음.",
+      "2c_reason_string_uniqueness": "`래퍼 탐지 자체가` 는 훅 전체에서 1회(2190행)만 등장 — 인접한 다른 예산 사유와 구분된다.",
+      "2d_flakiness": "`bats -f 'cross-pass budget overflow'` 5회 반복 → 5/5 ok, 무플레이크.",
+      "2e_shared_constant_caveat": "`__FWA_CHECK_EVERY` 는 `__find_wrapped_arg()` 전용이 아니라 세그먼트 자신의 동사 검사 루프(2094)와 공유하는 상수다 — 테스트 주석의 '이번 라운드가 신설한 두 상한만 격리해서 검증한다'는 표현은 엄밀히 느슨하다(33차 I-3 과 같은 지적, 결과에는 영향 없음: 그 루프의 임계값은 미패치라 3토큰 입력에서 트립 불가)."
+    },
+
+    "item_3_final_critical_tier_judgment": {
+      "verdict": "pass — 33차와 일치. 단 min-of-5 가 임계값과 **정확히 같은 7**이고 security 도 critical 임계값과 정확히 같은 7 이라, 통과 마진이 없다.",
+      "regression_and_liveness": {
+        "bats": "327 ok / 0 not ok, exit 0 (2회 독립 실행)",
+        "provided_repro": "4개 절 전부 기대대로, fail=0 (직접 재실행)",
+        "generation_sweep": "도구 6종 × 플래그 형태 5종 × 정크 0/300/900/3000 × 페이로드 5종 = 600셀 → 누출(ask/deny 아닌 판정) **0건**",
+        "delivery_path_battery": "24·25·27차가 등재한 형태 25종 전부 ask(또는 `sudo rm` 은 exit 2 hard deny — ask 보다 강함)",
+        "friction_corpus": "일상 명령 12종 전부 allow(git commit/grep/echo/tar/docker/kubectl/curl/npm/sed/find/rsync/`sometool -Xrm`)",
+        "cap_boundary_28th": "`env -{520v}Srm -rf .claude` → ask, 내용에 r/m 없는 505자 대조군 → allow (28차가 닫은 경계 유지)",
+        "no_decision_missing": "진입 상한 근접 최악 4종(32KB: `lua`+16000 정크 / 같은 것 + `; rm -rf .claude` / `sometool`+16000 정크 / 인용 토큰 700개+인용 삭제) 전부 3.1초 이내 판정 생성, 훅 사망 0건 — 5초 타임아웃에 1.9초 여유",
+        "structural": "`git diff eea059c..HEAD -- hooks/pre-bash-firewall.sh` 의 비주석 ± 라인 = **0** (직접 확인). 코드 회귀가 구조적으로 불가능.",
+        "lint": "shellcheck -S warning: SC1010 1건(766행, 기존) — 신규 없음",
+        "state": "feature_list F65: passes=false, status=pending, security_tier=critical — 이 판정은 바꾸지 않았다"
+      }
+    }
+  },
+
+  "passed_criteria": {
+    "acceptance": [
+      "AC-12: 전달 경로 무관 최소 ask — 25종 배터리 + 600셀 생성 규칙 스윕 누출 0",
+      "AC-12: 진입 상한 근접 대형 입력에서 판정이 반드시 생성됨 — 32KB 4종 전부 3.1초 이내 ask, 훅 사망 0",
+      "AC-12 friction_requirement: 일상 명령 12종 신규 마찰 0"
+    ],
+    "security": [
+      "SC-10(1) add-only: 훅 비주석 코드 0줄 변경(실측) — allow 로 되돌리는 경로가 구조적으로 없음",
+      "SC-10(3) 19~24차가 닫은 셀 무회귀: bats 327/327 + 독립 배터리 + 28차 512자 경계 유지",
+      "SC-10(4) fail-closed 방향: 세 확인 지점을 **하나씩 개별 강제**해 전부 ask 임을 실측 + 스위트에 방향 확인 테스트 존재(되돌리기에 red, 무플레이크)",
+      "SC-10(5) 검사 단위: 안쪽 루프 무예산 구간이 실측으로 유계임을 확인(최악 32KB 입력에서도 총 3.1초 이내, 판정 누락 0)"
+    ],
+    "error_scenarios": [
+      "오버플로 → allow 아닌 ask + 훅 내 유일한 전용 사유 문구 (세 지점 각각에서 결정적으로 확인)",
+      "패스 2 확인의 **살아 있는** 트립(20~32KB 입력, FWA_SITE=2 @3005~3020ms) → ask",
+      "언랩 후보 2048자 초과·prefix-strip 오버플로·세그먼트/토큰/후보 예산 초과 전부 ask 방향 유지"
+    ]
+  },
+  "failed_criteria": { "acceptance": [], "security": [], "error_scenarios": [] },
+
+  "issues": [
+    {
+      "id": "I2-1",
+      "tag": "[test][security]",
+      "severity": "high",
+      "confidence": "high",
+      "supersedes": "33차 I-1 (동일 현상, 위험도 평가를 실측으로 정정)",
+      "text": "**신규 fail-closed 테스트가 상한의 세 강제 지점 중 하나(패스 1)만 고정하며, 고정되지 않은 패스 2 는 20~32KB 입력 클래스에서 상한을 강제하는 **유일한** 지점이다.** 실측: `sometool -c` + 정크 토큰 n개(n=10000~16000, 진입 상한 이내)에서 패스 1 은 인덱스 1 에서 break 해 확인이 한 번도 실행되지 않고, 트립은 전부 `FWA_SITE=2` 에서 발생한다(3005~3020ms). 그 지점의 `return 0` 을 `return 1` 로 바꾸는 1토큰 뮤턴트(M7b)는 같은 32KB 입력을 **ask → allow 로 뒤집는데도** 스위트가 초록으로 남는다(패스 3 에 대한 M7c 도 동일). 33차가 위험도를 낮게 본 근거('앞 단계 루프와 후보 순회의 예산이 별도로 남아 있다')는 이 입력 클래스에서 성립하지 않는다 — 다른 어떤 예산도 M7b 를 잡지 못한다. **HEAD 의 코드는 세 지점 모두 fail-closed 이므로 현재 결함이 아니다**(사이트별 개별 강제로 확인). 그러나 SC-10(4) 가 존재하게 된 원인(28차: 상한의 초과 방향이 fail-open)과 정확히 같은 형태의 회귀가, 실제로 일하는 강제 지점에서, 스위트를 초록으로 둔 채 재도입될 수 있다. 권고(다음 라운드 확정 항목): (a) 패스 1 이 break 하도록 입력 앞머리에 `-c` 모양 토큰을 두고 토큰 수를 늘려 패스 2·3 각각이 트립하는 케이스를 분리해 고정, 또는 (b) 세 지점에 서로 구분되는 신호(사유 문구 접미사 등)를 두어 '어느 지점이 트립했는지'를 단언."
+    },
+    {
+      "id": "I2-2",
+      "tag": "[evaluator-calibration]",
+      "severity": "medium",
+      "confidence": "high",
+      "text": "33차 판정문의 I-1 해석 문장('오늘의 위험도는 낮다 — 세 패스 각각이 이미 O(n)이고, 앞 단계 루프(2094)와 후보 순회(2197)의 예산이 별도로 남아 있다')과 '대상 명령이 3토큰이라 실제로는 패스 1의 확인만 실행되고 패스 2·3은 도달조차 하지 않는다'는 서술 중 후자는 3토큰 테스트 입력에 한해서만 참인데 일반 입력에 대한 서술처럼 읽히고, 전자는 실측으로 반증된다(I2-1). **33차의 verdict 자체는 바뀌지 않지만**, 이 축의 판정문이 다음 라운드의 1차 근거로 쓰이므로 오독을 남기지 않도록 이 정정을 함께 등재할 것을 권고한다. false-positives.json 이 아니라 lessons.md 성격의 항목이다(통과시킨 결함이 아니라 근거 서술의 부정확이므로)."
+    },
+    {
+      "id": "I2-3",
+      "tag": "[test]",
+      "severity": "low",
+      "confidence": "high",
+      "text": "같은 테스트에 '주입 없으면 allow' 대조 단언이 없다(33차 I-2 와 동일). 시간 상한은 경계에 결정적으로 착지시킬 수 없어 주입이 유일한 현실적 방법이라는 점은 동의하나, 원본 훅으로 같은 명령이 allow 임을 같은 테스트에서 한 줄로 확인하면 SC-10(4) 의 '상한 이하 마지막 값' 쪽도 형식적으로 충족되고 '테스트가 무해 입력을 잘못 골랐다'는 회귀도 함께 막힌다. 이 세션에서 그 대조군을 직접 실행해 allow 임은 확인했다(테스트 밖 확인이라 스위트에는 고정돼 있지 않다)."
+    },
+    {
+      "id": "I2-4",
+      "tag": "[test]",
+      "severity": "low",
+      "confidence": "high",
+      "text": "테스트 주석의 '이번 라운드가 신설한 두 상한만 격리해서 검증한다'는 표현이 느슨하다 — `__FWA_CHECK_EVERY` 는 세그먼트 자신의 동사 검사 루프(2094)와 공유하는 상수다(33차 I-3 과 동일 지적). 결과에는 영향 없음을 실측 확인(그 루프의 임계값은 미패치라 3토큰 입력에서 트립 불가)."
+    },
+    {
+      "id": "I2-5",
+      "tag": "[process]",
+      "severity": "low",
+      "confidence": "high",
+      "text": "이 라운드에 대응하는 implementer-output.json 이 없다(슬롯에 F70/sprint-56 보고가 들어 있음) — 구현자 self-check 주장을 독립 재검증하는 통상 절차를 이번에도 수행할 수 없었다. 커밋 메시지·코드·문서·직접 실행을 1차 근거로 대체했다. 판정 결론에는 영향 없음(33차 I-6 과 동일)."
+    },
+    {
+      "id": "I2-6",
+      "tag": "[security/residual]",
+      "severity": "medium",
+      "confidence": "high",
+      "scope": "명시적 범위 밖 — fail 사유 아님",
+      "text": "인터프리터 언어 API 형태의 컨트롤 플레인 삭제는 여전히 allow 다 — `python3 -c 'import shutil; shutil.rmtree(\".claude\")'`, `node -e 'require(\"fs\").rmSync(\".claude\",{recursive:true})'` 실측 allow(이 세션 직접 확인). sprint-51.json 에 이미 '인터프리터 언어-API 형태는 여전히 allow' 로 등재된 알려진 잔여이며, 전달 경로 축(AC-12)이 아니라 내부 언어 삭제 어휘 축이다. `perl -e 'unlink …'` 가 ask 되는 것은 `unlink` 가 셸 동사 목록에 있어 생긴 어휘 겹침이지 커버리지가 아니다(33차 I-7 과 동일 결론)."
+    },
+    {
+      "id": "I2-7",
+      "tag": "[docs]",
+      "severity": "low",
+      "confidence": "high",
+      "text": "sprint-51.json status 의 31차 문단은 여전히 '함수 전체(세 패스 모두)를 관통하는 예산 확인'이라는 원래 표현을 담고 있으나, 같은 필드 뒤쪽에서 32차의 정정('안쪽 루프는 카운터를 공유하지 않는다')을 등재하고 있어 시계열 로그로는 자기일관적이다(33차 I-4 와 동일). 추가로, I2-1 을 반영하려면 이 문단에 '이 관통 예산은 세 지점에 배치되며, 어느 지점이 강제하는지는 입력 형태에 따라 달라진다'는 한 줄이 더 필요하다."
+    }
+  ],
+
+  "criteria_gaps": {
+    "missing_criteria": [
+      "**SC-10(4) 에 사이트 단위 조항이 없다** — 상한 하나가 N개 강제 지점에 배치될 때 각 지점의 초과 방향이 개별적으로 고정돼야 하는지가 문언에 없다. 33차도 같은 갭을 지목했고, 이 판정은 그 갭이 이론적이 아니라 실효적임을 실측으로 보강한다(고정되지 않은 지점이 큰 입력 클래스의 유일한 강제 지점, 1토큰 뒤집기로 ask→allow). 다음 계약에 '상한이 여러 강제 지점에 배치되면 각 지점이 트립하는 케이스를 구분 가능하게 고정한다(사유 문구/신호값으로 어느 지점인지 단언)'를 **확정 항목**으로 추가 권고."
+    ],
+    "ambiguous_criteria": [
+      "SC-10(4) '반드시 같은 커밋에 포함' — 상한 도입 커밋이 이미 푸시된 뒤 시정 라운드에서 테스트를 추가하는 경우가 충족인지 문언이 침묵한다. 선례(3dd2a1d 가 3a7c573 과 별개 커밋이면서 32차에 의해 준수 사례로 인용됨)가 '같은 시정 라운드' 독법을 지지한다 — 33차와 같은 결론. 문언을 '같은 커밋 또는 같은 시정 라운드의 후속 커밋'으로 명시하지 않으면 라운드마다 재쟁점화된다.",
+      "SC-10(4) '경계값(상한 이하 마지막 값·상한 초과 첫 값)' — 시간 상한에는 결정적으로 착지시킬 수 없다. '시간 상한은 상수 주입으로 초과를 강제하고 같은 테스트에 무주입 대조 단언을 둔다'를 허용 방법으로 명시 권고(I2-3)."
+    ],
+    "security_criteria_insufficient": [],
+    "action_required": "위 세 문언 보완은 다음 change-request 로 처리한다 — 이번 판정의 조건이 아니다(계약에 없는 요건을 소급 적용하지 않는다는 판단의 반대급부로, 다음 라운드에서는 반드시 처리할 것)."
+  },
+
+  "evidence": {
+    "bats": "bats tests/pre-bash-firewall.bats @ 2a16ed3 — 2회 실행. 2회차(set -o pipefail): EXIT=0, `grep -c '^ok '`=327, `grep -c '^not ok '`=0.",
+    "new_test_flakiness": "bats -f 'cross-pass budget overflow' 5회 → 5/5 ok",
+    "provided_repro": "bash scratchpad/f65-33rd-repro.sh → RESULT fail=0. 절1 ask+'래퍼 탐지 자체가', 절2 sh+900×-c=3064ms/ask · lua×500=366ms/ask · env -S 계열 3종 115/130/121ms ask, 절3 git add×800=792ms/allow, 절4 무관 3종 138/175/161ms allow.",
+    "mutation_testing_own": "테스트의 sed 2줄 + 단언 2개를 그대로 적용. BASELINE GREEN / M1(패스1 블록 삭제) GREEN 생존 / M2(패스1+2) GREEN 생존 / M3(3개 전부) RED kill / MP2(패스2만) GREEN 생존 / MP3(패스3만) GREEN 생존 / M7b(패스2 return0→return1) GREEN 생존 / M7c(패스3 동상) GREEN 생존 / M8(호출부 -eq 1→-eq 2) RED kill / M9(패스1 오버플로 플래그 미설정 후 return 0) RED kill.",
+    "per_site_fail_closed_proof": "사이트를 하나씩만 강제(해당 행만 `-gt -1`, EVERY=1)한 사본 3개 → 사이트@1921 ask / 사이트@1957 ask / 사이트@1997 ask. HEAD 는 세 지점 모두 fail-closed.",
+    "site_direction_flip_consequence": "M7b(사이트@1957 만 `return 1`)에 사이트@1957 강제 → allow(fail-open 실증). M7c(사이트@1997) 동일 → allow.",
+    "live_site2_trip": "계측 사본(각 사이트에 표식 + ENTER/EXIT 경과 출력)으로 `sometool -c` + 1글자 정크 n개 스윕: n=8000(16011자) 트립 없음(ENTER 1317ms/EXIT 2566ms) / n=10000(20011자) **FWA_SITE=2 iter=10000 ms=3019** / n=12000 FWA_SITE=2 ms=3013 / n=14000 FWA_SITE=2 ms=3005 / n=16000(32011자) FWA_SITE=2 ms=3020 — 전부 최종 ask.",
+    "live_flip_end_to_end": "n=16000 payload(32011자): HEAD 3058ms **ask** vs M7b 3313ms **allow** vs M7c 3052ms ask. 다른 예산이 M7b 를 잡지 못함을 실증.",
+    "shared_counter_trace": "계측: `git add`×800 → n=802, 패스1 종료 iter=802, 패스2 종료 iter=1604, 패스3 종료 iter=2406 → 200의 배수가 패스 2 에 4회·패스 3 에 4회 떨어진다(두 지점 모두 평범한 allow 명령에서 실행됨). `lua`×500 → n=500, 패스1 500 / 패스2 501 / 패스3 1001. `sometool arg1 arg2` → n=3, 총 9회(어느 지점도 실행 안 됨, EVERY=200 이므로).",
+    "sed_scope_diff": "diff(원본, sed 사본) = 4줄(1888, 1921, 1957, 1997). 다른 예산 4곳(2096 `__token_budget_ms`, 2197·2251 `__cand_budget_ms`, 2281 `__budget_ms`)은 사본에서도 `-gt 3000` 유지.",
+    "revert_detection": "git show 80fdff5:hooks/pre-bash-firewall.sh → `__fwa_ms|__FWA_CHECK_EVERY` 0회; 같은 sed 가 0줄 변경; 그 사본에서 `sometool arg1 arg2` → allow, 사유 문구 0회 → 테스트 두 단언 모두 실패(정확히 red).",
+    "reason_string_uniqueness": "grep -c '래퍼 탐지 자체가' hooks/pre-bash-firewall.sh = 1 (2190행)",
+    "generation_sweep": "도구{sh,bash,sometool,notarealtool987,lua,env} × 플래그{-c,-e,-S,-c -c,-c -o posix} × 정크{0,300,900,3000 토큰} × 페이로드{5종 삭제 표기} = 600셀 실행 → ask/deny 아닌 셀 **0건**.",
+    "delivery_battery": "25종(env -S 4형태·헤어스트링 5셸·-s <<<·파이프 2종·인터리브 인용 2종·env -Srm·env -S'…'·sh -c'…'·-c -o posix·-c -c·'r'm·sudo(deny, exit 2)·time·명령치환·perl -e unlink·notarealshell987 -c) 전부 ask 또는 deny.",
+    "friction_corpus": "12종(git commit -m/grep -c/echo/tar -czf/docker run … bash -c/kubectl/curl/npm run/sed -i ''/find -name/rsync/`sometool -Xrm`) 전부 allow.",
+    "cap_boundary_28th": "`env -{v×520}Srm -rf .claude` → ask; 내용에 r/m 없는 `env -{v×505}S` → allow.",
+    "worst_case_liveness": "32KB 근접 4종 — `lua`+16000 정크(32003자) 3054ms ask / 같은 것+`; rm -rf .claude`(32020자) 3057ms ask / `sometool`+16000 정크(32008자) 3050ms ask / 인용 토큰 700개+인용 삭제(4225자) 295ms ask. 판정 누락 0, 5초 타임아웃에 최소 1.9초 여유.",
+    "code_change_scope": "git diff eea059c..HEAD — hooks/pre-bash-firewall.sh +10/-2(전부 주석, 비주석 ± 라인 필터 결과 **공집합**), tests +38, 문서 2건.",
+    "lint": "shellcheck -S warning hooks/pre-bash-firewall.sh → SC1010 1건(766행, 기존)만.",
+    "state_untouched": "feature_list.json F65 = {passes:false, status:pending, security_tier:critical}; git status --porcelain(훅·테스트·계약) 비어 있음."
+  },
+
+  "escalation": {
+    "f37_role": "이 판정이 F37 2차 독립 판정이다",
+    "passes_updated": false,
+    "passes_update_reason": "이 판정은 F65.passes 를 바꾸지 않았다(요청대로). 메인 루프가 33차 판정과 대조해 처리한다."
+  },
+
+  "note_for_main_loop": "**33차와 일치한다 — verdict=pass, min-of-5=7, security=7. 불일치 없음이므로 F37 교차검증 기준으로는 사람 에스컬레이션 사유가 아니다.** 다만 세 가지를 함께 보고할 것. (1) **통과 마진이 0이다** — min-of-5 가 pass_threshold 와 정확히 같은 7 이고 security 도 critical 임계값과 정확히 같은 7 이다. 어느 차원이든 1점만 낮게 봤다면 fail 이었다. (2) **33차 I-1 의 위험도 평가는 실측으로 반증됐다**(이 판정 I2-1/I2-2). 현상 자체는 33차가 정확히 발견했으나, 33차가 붙인 근거('다른 예산이 남아 있어 위험도 낮음')는 틀렸다 — 고정되지 않은 패스 2 의 확인은 20~32KB 입력 클래스에서 상한을 강제하는 유일한 지점이고, 그 지점의 `return 0`→`return 1` 1토큰 뒤집기는 32KB 입력을 ask→allow 로 뒤집으면서도 스위트를 초록으로 남긴다(둘 다 이 세션 실측). 그럼에도 pass 인 이유는 **HEAD 의 코드가 세 지점 모두에서 실제로 fail-closed 이고**(사이트별 개별 강제로 확인), SC-10(4) 가 사이트 단위 고정을 아직 요구하지 않기 때문이다 — 계약에 없는 요건을 소급 적용하지 않는다는 판단이다. (3) 따라서 **다음 change-request 에 두 항목을 확정으로 넣을 것을 권고한다**: (a) SC-10(4) 에 '상한이 여러 강제 지점에 배치되면 각 지점의 초과 방향을 구분 가능하게 고정한다' 신설, (b) 패스 2·3 각각이 트립하는 케이스를 분리한 테스트 추가(`sometool -c` + 정크 토큰 n≥10000 형태가 결정적으로 사이트 2 를 트립시킨다는 사실을 이 판정이 실측으로 제공했다 — 주입 없이도 재현 가능한 케이스다). 범위 밖 유지: quote_state_desync_read_whitelist, 26차 이월 low 3건, nested_wrapper_unwrap·interpreter_shell_reentry·operand_before_verb_ordering·shell_metacharacter_adjacent_tokenization, 32차의 언랩 후보 순회 date-fork 비용, 인터프리터 언어-API 삭제(I2-6, 기존 등재 잔여·이번 라운드 회귀 아님). security-auditor 는 이 판정과 별개로 병행 디스패치할 것."
+}

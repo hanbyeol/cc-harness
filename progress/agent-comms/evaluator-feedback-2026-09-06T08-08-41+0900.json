@@ -1,0 +1,149 @@
+{
+  "timestamp": "2026-09-06T08:08:41+09:00",
+  "sprint": 51,
+  "iteration": 20,
+  "verdict_label": "F65 20th independent verdict",
+  "features_evaluated": [
+    "F65"
+  ],
+  "security_tier": "critical",
+  "commit_under_review": "4f813bb",
+  "parent_commit": "806e370",
+  "pre_cycle_baseline": "11c8db7",
+  "_delta_under_review": "aa7b1f3..4f813bb = {806e370, 4f813bb} — 19차 판정 대상(aa7b1f3) 이후의 두 커밋 모두 이번 라운드 범위",
+  "scores": {
+    "functionality": 7,
+    "code_quality": 7,
+    "security": 5,
+    "error_handling": 7,
+    "test_coverage": 5
+  },
+  "score": 5,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 5 < 7 (critical tier) — 자동 fail",
+    "score 5 < pass_threshold 7",
+    "AC-11 미충족(래퍼 차원) — 인용 래퍼 안의 컨트롤 플레인 삭제 16종이 여전히 무프롬프트 allow 이고 격리 랩에서 실제로 파일·디렉터리가 삭제된다. 그중 `sh -c 'rm -rf .claude'` 는 컨트롤 플레인 **디렉터리 전체**를 지우며 19차가 보고한 단일 파일보다 폭발 반경이 크다",
+    "SC-9 둘째 절 재위반 — `_residual_risk_AC11.open_axes_2026_08_04.interpreter_wrapped_path_notation.status` 를 '해결(2026-09-06)' 로 전환했으나 그 축은 닫히지 않았다. 19차가 정확히 이 항목의 부정확한 닫힘 주장을 반려했는데, 이번 라운드는 '미해결' 이라는 정직한 서술을 '해결' 이라는 거짓 서술로 바꿔 오히려 후퇴시켰다",
+    "SC-9 첫째 절 미충족 — `AC-11.verification_axes_2026_08_04.axes` 가 스스로 열거한 표기 축(글로브·이름글로브·장문옵션·인용·구분자접두·동사) 22개 페이로드 중 16개가 `sh -c \"…\"` 로 감싸면 ask 가 아니라 allow 다(bare 는 22/22 ask)"
+  ],
+  "headline": "19차가 열거한 표기(`//`·`/./`)는 실제로 닫혔다 — 64셀 검증에서 HEAD 는 전부 ask 이고, 회귀는 0건이며 bats 308/308 이 통과한다. 그러나 19차의 [security][high] 는 '두 개의 표기' 가 아니라 '인용 래퍼 안의 인자는 토큰 계층에 도달하지 못해 Layer 3 리터럴 정규식만이 유일한 통제' 라는 **메커니즘**이었고, 그 메커니즘은 그대로다: 같은 클래스에서 16종이 여전히 allow 이며 전부 격리 랩에서 실제로 삭제된다(인용 분할·백슬래시 이스케이프·글로브·상위경로 traversal, 그리고 `sh -c 'rm -rf .claude'` 로 컨트롤 플레인 디렉터리 전체). 게다가 계약서가 이 축을 '해결' 로 선언해 19차가 반려한 SC-9 위반이 더 나쁜 형태로 재발했다.",
+  "verified_fix_of_19th_verdict": {
+    "closed": [
+      "19차 실증 18셀 전부 ask 로 전환 확인 — 8개 표기 × 8개 도구 = 64셀 매트릭스에서 HEAD 는 64/64 ask, PARENT/BASE 는 49셀 allow. 커밋이 명시하지 않은 표기(`.claude///settings.json`·`.claude/.//`·`.claude/././`)까지 `(/\\.?)+` 가 함께 접는다 — 계약서의 '3중 이상 반복은 여전히 별도 축' 서술은 실제보다 보수적인 과소 주장(무해)",
+      "[quality][low] `wc` 부재·실패 시 조용한 fail-open 이 806e370 에서 fail-closed(ask)로 수정됨 — `wc` 를 exit 127 스텁으로 가린 상태에서 HEAD·PARENT 는 `ask` + '명령 길이를 측정하지 못해(wc 실행 실패)' 사유를 내고, BASE 는 해당 분기 자체가 없어 정상 판정을 낸다. 실측 확인",
+      "구현자의 근본 원인 분석이 정확함을 독립 확인 — ask 사유 문자열로 계층을 식별한 결과 bare 형태는 `control-plane-delete`(토큰 계층), 래퍼 형태는 ASK_PATTERNS 정규식(Layer 3)이 낸다. `arm_is_exemptable()` 무관이라는 서술도 맞다"
+    ],
+    "not_closed": [
+      "[security][high] 의 defect class — 아래 issues 참조",
+      "[criteria][high] SC-9 — 정정이 아니라 반대 방향(거짓 닫힘)으로 갔다",
+      "[test][medium] 타이밍 단언 하향 (여전히 15000ms, 2개소: tests/pre-bash-firewall.bats:3048·3097)",
+      "[test][medium] 4바이트 이모지 페이로드 고정 (스위트 내 0건)",
+      "[test][medium] 32768바이트 미만-경계 테스트 (없음)",
+      "[test][medium] 인터프리터 arm × 경로 표기 축 고정 — 부분만 닫힘(리터럴 표기 슬라이스만 고정, 인용·글로브·디렉터리 축은 여전히 스위트에 안 보임)",
+      "[quality][low] BSD `wc` 선행 공백 유출 (실측: `명령이 비정상적으로 길어(   40005바이트)`)"
+    ]
+  },
+  "issues": [
+    "[security][high][confidence:high] **인용 래퍼 안의 컨트롤 플레인 삭제가 16종 여전히 무프롬프트 allow — 전부 실제로 삭제됨(격리 랩 실행 검증)**. 19차의 반려 사유와 동일한 defect class 이며, 이번 수정은 그 클래스의 두 표기만 닫았다. HEAD 에서 allow + 실삭제 확인: (a) 인용 분할 4종 — `.claude/'settings.json'` · `.claude/set'ting's.json` · `'.claude'/settings.json` · `.claude/settings\".json\"`, (b) 백슬래시 이스케이프 2종 — `.claude/settings\\.json` · `.claude\\/settings.json`, (c) 글로브 4종 — `.claude/settings*.json` · `.claude/settings.jso?` · `.claude/[s]ettings.json` · `.clau*/settings.json`, (d) 상위경로 traversal 3종 — `.claude/agents/../settings.json`(sh -c·python3) · `hooks/lib/../hooks.json`, (e) **컨트롤 플레인 디렉터리 전체 3종 — `sh -c \"rm -rf .claude\"` · `sh -c \"rm -rf .claude//\"` · `python3 -c \"import shutil; shutil.rmtree('.claude')\"`**. (e)는 19차가 보고한 단일 파일 삭제보다 폭발 반경이 크고, 래퍼 종류와 무관하게 성립한다(`sh -c` · `bash -lc` · `zsh -c` · `env sh -c`, 작은따옴표·큰따옴표 모두 allow). HEAD·PARENT 결정이 동일하므로 **이 커밋이 만든 회귀는 아니다**(19차와 같은 사전 존재 결함) — 그러나 컨트롤 플레인은 예측이 유일한 통제이고(`.claude/settings*.json` 은 .gitignore:9 로 gitignored → 사후 복구 없음, `git check-ignore` 로 확인), critical 게이트는 이 상태로 통과시킬 수 없다.",
+    "[security][high][confidence:high] **수정이 메커니즘이 아니라 열거된 인스턴스를 닫았다 — 이 파일 자신이 경고한 안티패턴의 재발**. `hooks/pre-bash-firewall.sh` 의 진입점 상한 주석은 이 파일이 반복 겪어 온 '국소 상한을 계속 늘려가도 다음 층에서 또 새는' 패턴을 명시적으로 경계하고, 그래서 상한을 문턱 자체로 올렸다고 적는다. 이번 수정은 정확히 그 반대 방향이다 — 리터럴 정규식에 표기 두 개를 더 허용했을 뿐이라, 셸이 투명하게 처리하는 다음 표기(인용·백슬래시·글로브·traversal)에서 그대로 다시 샌다. 근본 처방은 인용 래퍼 인자를 **토큰 계층으로 들여보내는 것**이다(`sh -c` 류·인터프리터 `-c`/`-e` 의 인용 인자를 벗겨 재귀적으로 `scan_control_plane_delete()` 에 태우기) — 그러면 `normalize_path_token()` 과 `CONTROL_PLANE_NAMES` 가 이미 bare 에서 성립시키는 22/22 를 래퍼에서도 그대로 얻는다.",
+    "[criteria][high][confidence:high] **SC-9 둘째 절 재위반 — 19차가 반려한 항목이 정정이 아니라 거짓 닫힘으로 바뀌었다**. `progress/contracts/sprint-51.json` 의 `interpreter_wrapped_path_notation.status` 가 `미해결` → `해결(2026-09-06, 20차 판정 대응)` 으로 전환됐다. 축 이름은 '인터프리터로 감싼 **경로 표기**' 이고 인용·글로브·traversal 은 전부 경로 표기다 — 위 [security][high] 의 16종이 이 축 안에 있으므로 축은 닫히지 않았다. SC-9 는 '닫히지 않는 축은 open_axes 에 명시하고, 그 축에 대해서는 닫혔다고 주장하지 않는다' 를 명문화한다. 19차의 계약서 서술은 최소한 정직했다(`미해결`). 이번 라운드는 그것을 거짓으로 바꿨으므로 이 차원에서는 **후퇴**다. `unenumerated_verbs.status` 도 같은 근거로 다시 부정확해졌다('인터프리터 계열은 … ask 다' — 인용·글로브 표기에서는 아니다).",
+    "[criteria][medium][confidence:high] **AC-11 의 열거된 표기 축이 래퍼 차원에서 붕괴한다**. `verification_axes_2026_08_04.axes` 의 22개 페이로드를 bare 와 `sh -c \"…\"` 래핑으로 각각 판정한 결과 bare 22/22 ask, 래핑 6/22 ask(16개 allow). 축별로: 글로브 0/3, 이름글로브 0/2, 장문옵션 0/2, 인용 1/3, 경로표기 3/3(이번 수정으로 닫힘), 구분자접두 0/3, 동사 2/5. 즉 이번 수정이 닫은 것은 7개 축 중 **경로표기 축 하나뿐**이다.",
+    "[test][medium][confidence:high] **신규 non-regression 테스트가 관측할 수 없는 케이스만 고른다**. 4f813bb 가 추가한 '넓힌 정규식이 무관한 hooks 경로에 새 마찰을 만들지 않는다' 테스트는 `python3 -c \"print(1)\"` · `sh -c \"echo hooks are great\"` · `rm -rf node_modules/hooks` 세 가지를 쓰는데, 이 셋은 넓힌 조각(`hooks(/\\.?)+…\\.json`)이 요구하는 `.json` 베이스네임이 아예 없어 **넓히기 전에도 후에도 매치될 수 없다** — 원리적으로 실패할 수 없는 단언이다. 74개 명령 차동 스윕으로 실제로 발생한 새 마찰 3건은 이 테스트가 전혀 덮지 못한다: `node -e \"require(\\\"./vendor/hooks//pkg.json\\\")\"` · `sed -i \"\" \"s/a/b/\" build/hooks//x.json` · `python3 -c \"import json; json.load(open(\\\"vendor/hooks/./cfg.json\\\"))\"` (모두 PARENT allow → HEAD ask). 세 건 모두 fail-safe 방향이고 표기가 드물어 마찰 자체는 [low] 지만, **테스트가 자기 이름이 말하는 회귀를 볼 수 없다**는 것이 [medium] 이다.",
+    "[test][medium][confidence:high] **스위트가 308/308 green 인데 16종 실삭제 우회가 보이지 않는다 — 19차가 지목한 축 편향의 3회째 재발**. 신규 테스트는 리터럴 표기 슬라이스만 고정하고, 인용·글로브·디렉터리 축은 여전히 단언되지 않는다. 특히 통과 중인 `F65 AC-11: deleting a directory that holds the control plane is gated`(테스트 228)는 bare 형태만 보므로 `sh -c 'rm -rf .claude'` 가 allow 인 사실과 공존한다. 권고: 래퍼 축을 **표기 × 도구 교차곱**이 아니라 `AC-11.verification_axes_2026_08_04.axes` 전체를 `sh -c \"…\"` 로 감싸 재실행하는 파라메트릭 테스트로 고정할 것 — 그러면 축을 새로 열거하지 않아도 커버리지가 기준을 따라간다.",
+    "[test][medium][confidence:high] **19차의 타이밍 단언 하향 권고가 미반영**. `tests/pre-bash-firewall.bats:3048`·`3097` 이 여전히 `[ \"$elapsed\" -lt 15000 ]` 로, 훅 자신의 5초 타임아웃보다 3배 느슨하다. 19차가 '이 단언은 타이밍 회귀를 원리적으로 잡지 못한다' 고 적은 상태 그대로다.",
+    "[test][medium][confidence:high] **인코딩 축 커버리지 절반 유지**. 스위트에 4바이트 이모지 페이로드가 0건이다(18차가 실제로 보고한 페이로드). 3바이트 문자만으로는 4바이트 경계가 구조적으로 안 잡힌다는 19차 지적이 그대로다.",
+    "[test][medium][confidence:high] **32768바이트 상한의 미만-경계 테스트 없음**. 정확히 32768바이트가 상한에 걸리지 **않아야** 한다는 단언이 없어, 상한을 낮추거나 `-gt` 를 `-ge` 로 바꾸는 변경이 스위트를 통과한다. AC-2(마찰)에 직결되는 축이다.",
+    "[quality][medium][confidence:high] **래핑된 컨트롤 플레인 삭제의 ask 사유가 위험을 잘못 알린다**. `sh -c \"rm -f .claude//settings.json\"` 의 사유는 `uncommitted 변경을 잃을 수 있는 명령입니다` 인데, `.claude/settings.json` 은 gitignored 라 '잃을 uncommitted 변경' 자체가 없다 — 실제 위험은 '검증 장치의 배선을 지운다' 다. 같은 명령의 bare 형태는 `컨트롤 플레인(배선 파일·설치 디렉터리)을 지우는 명령입니다` 라는 올바른 사유를 낸다. ask 가 이 계층의 **유일한** 통제이므로 사유 문구는 곧 사용자 판단의 근거다 — 최고 심각도 케이스에서만 데이터 플레인 문구가 나오는 것은 동의 품질 결함이다.",
+    "[quality][low][confidence:high] **BSD `wc` 선행 공백이 사용자 문구로 계속 샌다**. 실측(40,005바이트 입력): `명령이 비정상적으로 길어(   40005바이트) 정밀 분석 없이 확인을 요청합니다`. 판정에는 영향 없음(`-gt` 산술 평가가 흡수). 19차 지적 이후 미수정.",
+    "[quality][positive][confidence:high] **회귀 위험이 구조적으로도 실측으로도 0이다 — 기록용**. `hooks/pre-bash-firewall.sh` 의 최상위 배열 7개 중 `BLOCKED`(13항)·`INDIRECT_PATTERNS`(15항)·`EXEMPTABLE_ARM_TOKENS`·`DETECTED_LOCATIONS`(6항)·`CONTROL_PLANE_NAMES`(6항)·`ARM_DELETE_VERBS_UNCONDITIONAL`(6항)이 parent↔head 바이트 동일이고, `ASK_PATTERNS` 만 다르되 **항목 수 72 → 72 로 불변**(제자리 넓히기, 추가·삭제 없음). `progress/harness-config.json` 무변경. 74개 명령 차동 스윕에서 ask→allow 전이 0건. SC-1(게이트·임계값 불변)은 충족.",
+    "[quality][positive][confidence:high] **커밋 메시지의 근본 원인 서술이 정확하다 — 기록용**. '인용된 인자는 하나의 불투명 토큰이라 armed 판정에 들어오지 않고, 실제로 ask 를 내는 것은 Layer 3 ASK_PATTERNS 의 평문 정규식' 이라는 주장을 ask 사유 문자열로 독립 확인했다. 진단은 옳았고 처방의 범위만 좁았다."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-2 (정상 워크플로우 오탐 없음) — 74개 명령 차동 스윕에서 일상 개발 명령 전부 allow 유지. 신규 마찰 3건은 `hooks` 이름 디렉터리 아래 `.json` 을 `//`·`/.` 표기로 접근하는 드문 형태에 한정",
+      "AC-9 (회귀 없음) — ask→allow 전이 0건, bats 308/308 통과",
+      "AC-11 (bare 차원) — `verification_axes_2026_08_04.axes` 22개 페이로드 bare 형태 22/22 ask"
+    ],
+    "security": [
+      "SC-1 (게이트·임계값·deny 목록 불변) — 배열 6개 바이트 동일, ASK_PATTERNS 항목 수 72→72, harness-config.json 무변경으로 확인"
+    ],
+    "error_scenarios": [
+      "`wc` 부재·실패 시 fail-closed — exit 127 스텁으로 `wc` 를 가린 상태에서 HEAD 가 `ask` + 명시적 사유를 낸다(806e370, 19차 [quality][low] 대응). BASE 에는 이 분기 자체가 없다"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-11 (래퍼 차원) — 인용 래퍼 안의 컨트롤 플레인 삭제 16종이 allow 이고 실제로 삭제된다(디렉터리 전체 삭제 3종 포함)"
+    ],
+    "security": [
+      "SC-9 첫째 절 — 열거된 표기 축 전수가 최소 ask 여야 하나, `sh -c \"…\"` 래핑 시 22개 중 16개가 allow (7개 축 중 6개 축이 래퍼 차원에서 미충족)",
+      "SC-9 둘째 절 — 닫히지 않은 축(`interpreter_wrapped_path_notation`)을 '해결' 로 선언. 19차가 이 항목의 부정확한 닫힘 주장을 반려했는데 정정이 아니라 더 강한 거짓 주장으로 전환됐다",
+      "SC-9 둘째 절 (부수) — `unenumerated_verbs.status` 가 '인터프리터 계열은 컨트롤 플레인 경로에 대해 ask 다' 를 재주장하나, 인용·글로브 표기에서는 성립하지 않는다"
+    ],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "`AC-11.verification_axes_2026_08_04` 에 **래퍼 축**이 없다. 축 목록은 표기(글로브·인용·경로표기·접두·동사)만 열거하고 '이 표기들이 `sh -c \"…\"`·인터프리터 `-c`/`-e` 안에 들어갔을 때' 를 차원으로 두지 않는다. 실제 통제 실패는 전부 이 차원에서 일어나는데 기준이 그것을 요구하지 않으므로, 구현자가 표기 하나씩 닫으면서 매 라운드 '축을 닫았다' 고 보고할 수 있다 — 11~20차가 반복해 온 실패 모드의 구조적 원인이다. 권고: `axes` 를 `표기 × {bare, wrapped}` 교차곱으로 재정의하고, SC-9 의 '전수' 를 그 교차곱으로 명시할 것",
+      "컨트롤 플레인 **디렉터리 전체 삭제**(`rm -rf .claude`)가 파일 단위 축과 별도로 명시되어 있지 않다. `verification_axes` 에 `rm -rf .claude` 예시는 있으나 래퍼 차원이 없어 `sh -c 'rm -rf .claude'` 가 어떤 기준에도 걸리지 않는다"
+    ],
+    "ambiguous_criteria": [
+      "SC-9 의 '표기 축 전수(대상 × 표기)' 가 래퍼를 표기의 일부로 보는지 별개 차원으로 보는지 문면상 불명확하다. 19차·20차 모두 래퍼를 SC-9 범위로 해석했으나, 구현자는 표기만으로 읽어 '축을 닫았다' 고 기록했다 — 같은 문장이 두 해석을 허용하는 한 이 분쟁은 21차에도 반복된다. 문면 정정이 필요하다"
+    ],
+    "security_criteria_insufficient": [
+      "SC-9 가 '닫혔다고 주장하지 않는다' 를 요구하지만, **주장의 근거를 무엇으로 삼아야 하는지**를 요구하지 않는다. 이번 라운드는 '19차가 실증한 18셀이 전부 ask' 를 근거로 축 전체를 닫힌 것으로 선언했다 — 판정자가 보고한 인스턴스 집합을 축의 정의로 오독한 것이다. 권고: 축을 닫으려면 (a) 그 축의 정의를 만족하는 페이로드를 **판정문이 보고한 것 밖에서** 최소 N개 새로 생성해 전부 ask 임을 보이거나, (b) 축이 구조적으로 닫혔음을(예: 래퍼 인자가 토큰 계층으로 들어간다) 코드 경로로 논증하도록 SC-9 에 명문화할 것"
+    ],
+    "action_required": "구현자는 다음 iteration 에서 (1) `sprint-51.json` 의 `interpreter_wrapped_path_notation.status` 를 '해결' 에서 되돌려 남은 16종을 명시하고, (2) `AC-11.verification_axes_2026_08_04` 에 래퍼 차원을 추가하며, (3) SC-9 에 축 닫힘의 입증 요건을 명문화할 것. 코드 수정보다 기준 정정이 선행되어야 21차에서 같은 분쟁이 반복되지 않는다."
+  },
+  "evidence": {
+    "lab_setup": "격리 랩 `/private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/cdafbc69-27b3-469f-b03e-6b8fdb80c81b/scratchpad/f65lab/` — `git show <rev>:hooks/pre-bash-firewall.sh` 로 HEAD(4f813bb, 133534B) · PARENT(806e370, 133426B) · BASE(11c8db7, 118328B) 3판 추출. 드라이버: `jq -n --arg c \"$cmd\" '{session_id,tool_name:\"Bash\",tool_input:{command:$c}}' | bash versions/<v>.sh` → `.hookSpecificOutput.permissionDecision`. 저장소 파일은 읽기만 했고 수정하지 않았다",
+    "bats": "`bats tests/pre-bash-firewall.bats` — 1..308, ok=308, not ok=0, skipped=0, EXIT=0 (백그라운드 완주, load average 3.2~3.3). 4f813bb 신규 2건 포함: `ok 292 F65 interpreter/wrapper arm: quoted control-plane path notation is normalized…` · `ok 293 …no new friction on unrelated hooks-named paths`. 출력 전문: scratchpad/f65lab/bats-out.txt",
+    "notation_matrix_64_cells": "8표기 × 8도구 = 64셀 (표기: `/` `//` `/./` `///` `/.//` `/././` × settings.json/settings.local.json; 도구: sh -c · bash -c · python3 os.remove · python3 pathlib.unlink · perl unlink · node unlinkSync · ruby File.delete · env rm). 결과: **HEAD 64/64 ask**, PARENT/BASE 49셀 allow. HEAD-not-ask=0, newly-fixed-by-HEAD=49. 19차 실증 18셀 전부 포함. 스크립트: scratchpad/f65lab/matrix.sh",
+    "execution_lab_actual_deletion": "샌드박스(`f65lab/victim/`)에 `.claude/settings.json`·`.claude/settings.local.json`·`.claude/agents/a.md`·`hooks/hooks.json` 을 매 케이스마다 새로 만든 뒤 페이로드를 실제 실행하고 파일 생존을 확인. 경로가 scratchpad 밖이면 거부하는 가드 포함. 결과: 19차 7셀 = ask(통제 성립), **allow 로 판정된 16종은 전부 `*** DELETED ***`** — 인용분할 4 · 백슬래시 2 · 글로브 4 · traversal 3 · 디렉터리전체 3. 스크립트: scratchpad/f65lab/exec_lab.sh",
+    "sc9_cross_product": "`AC-11.verification_axes_2026_08_04.axes` 의 22개 페이로드를 bare 와 `sh -c \"…\"` 래핑으로 각각 판정. **bare 22/22 ask, wrapped 6/22 ask**. 축별 wrapped 통과: 글로브 0/3 · 이름글로브 0/2 · 장문옵션 0/2 · 인용 1/3 · 경로표기 3/3 · 구분자접두 0/3 · 동사 2/5. 스크립트: scratchpad/f65lab/sc9.sh",
+    "wrapper_variants": "`sh -c 'rm -rf .claude'` · `bash -lc '…'` · `zsh -c '…'` · `env sh -c '…'` · `sh -c \"…\"` 전부 allow — 래퍼 종류·인용부호 종류와 무관. `python3 -c 'import shutil; shutil.rmtree(\".claude\")'` · `node -e 'require(\"fs\").rmSync(\".claude\",{recursive:true})'` 도 allow",
+    "differential_regression_sweep": "74개 명령 코퍼스(일상 개발 명령 66 + 컨트롤 플레인 페이로드 8)로 HEAD vs PARENT vs BASE 차동. **PROTECTION LOSS (ask→allow) = 0건**. NEW FRICTION (allow→ask) = 7건 중 4건은 의도한 수정, 3건은 신규 마찰(`node -e require(\"./vendor/hooks//pkg.json\")` · `sed -i \"\" build/hooks//x.json` · `python3 json.load(\"vendor/hooks/./cfg.json\")`). 스크립트: scratchpad/f65lab/regression.sh",
+    "add_only_structural_check": "훅 최상위 배열 7개의 parent↔head sha256: BLOCKED f330c3ca3fd7(13항) SAME · INDIRECT_PATTERNS 607f56ba0d0f(15항) SAME · EXEMPTABLE_ARM_TOKENS 7b368750e54a SAME · DETECTED_LOCATIONS 1d79485fd06f(6항) SAME · CONTROL_PLANE_NAMES ecfd22381604(6항) SAME · ARM_DELETE_VERBS_UNCONDITIONAL 6f87640387fa SAME · ASK_PATTERNS 11464e3589ba→6dc622d5cbc0 DIFFER (항목 수 72→72 불변). `git diff --name-only aa7b1f3 4f813bb` = 훅·계약·테스트·19차 판정문 4개 파일, harness-config.json 무변경",
+    "layer_attribution": "ask 사유 문자열로 판정 계층 식별 — bare `env rm -f .claude//settings.json` → `control-plane-delete → .claude//settings.json`(토큰 계층). wrapped `sh -c \"rm -f .claude//settings.json\"` → `pattern: \\b(rm|unlink|shred)\\b[^;|&]*(hooks(/\\.?)+hooks\\.json|\\.claude(/\\.?)+settings(\\.local)?\\.json)`(Layer 3). 구현자의 근본 원인 주장이 맞음을 확인하는 동시에, 래퍼에서는 Layer 3 리터럴이 유일한 통제임을 확인",
+    "wc_probes": "(a) fail-closed: `wc` 를 `exit 127` 스텁으로 가린 PATH 에서 HEAD·PARENT = `ask` + '명령 길이를 측정하지 못해(wc 실행 실패)…', BASE = 정상 판정(분기 부재). (b) 선행 공백 유출: 40,005바이트 입력의 실제 사유 = `명령이 비정상적으로 길어(   40005바이트) 정밀 분석 없이 확인을 요청합니다` — 공백 3칸 그대로 노출",
+    "open_test_items_probe": "`grep -n 'elapsed' tests/pre-bash-firewall.bats | grep -E '\\-lt'` → 15000ms 단언 2개소(3048·3097) 잔존. 4바이트 이모지/emoji/이모지 문자열 매치 0건. `32768|32767|32769` 는 주석 2줄뿐, 경계 단언 없음",
+    "gitignore_check": "`git check-ignore -v .claude/settings.json .claude/settings.local.json` → 둘 다 `.gitignore:9:.claude/` 로 무시됨. `git ls-files .claude/` 공백 — 컨트롤 플레인 파일은 git 에 없어 사후 복구 경로가 존재하지 않음을 재확인(SC-9 rationale 과 일치)",
+    "reproduction_scripts": [
+      "scratchpad/f65lab/setup.sh (3판 추출 + decide 드라이버)",
+      "scratchpad/f65lab/matrix.sh (64셀 표기×도구)",
+      "scratchpad/f65lab/adversarial.sh (미포착 표기 탐색 + 비회귀)",
+      "scratchpad/f65lab/exec_lab.sh (실삭제 검증, 샌드박스 가드 포함)",
+      "scratchpad/f65lab/sc9.sh (AC-11 열거 축 bare vs wrapped)",
+      "scratchpad/f65lab/regression.sh (74명령 차동 스윕)"
+    ]
+  },
+  "recommended_fix": {
+    "do_not_relitigate": [
+      "`//`·`/./`·`///` 등 반복 구분자/점 세그먼트 표기 — 64셀로 닫힘 확인. 다시 손대지 말 것",
+      "`wc` fail-closed — 실측으로 닫힘 확인",
+      "add-only 넓히기의 회귀 안전성 — 구조적·실측 모두 0건. 이 축을 다시 증명할 필요 없음",
+      "커밋의 근본 원인 진단(Layer 3 가 래퍼의 유일한 통제) — 정확함. 진단을 다시 하지 말고 처방만 넓힐 것"
+    ],
+    "primary": "**인용 래퍼 인자를 토큰 계층으로 들여보낸다**. 리터럴 정규식에 표기를 계속 추가하는 방향(이번 라운드)은 셸이 투명하게 처리하는 표기가 무한하므로 수렴하지 않는다 — 인용 분할·백슬래시·글로브·traversal 이 이미 그것을 보여 준다. 대신 `scan_control_plane_delete()` 진입 전에 `sh|bash|zsh|dash -c` 및 인터프리터 `-c`/`-e` 의 **인용 인자를 한 겹 벗겨** 그 내용을 하나의 세그먼트로 다시 토큰화해 같은 스캐너에 태운다. 그러면 `normalize_path_token()`·`CONTROL_PLANE_NAMES`·`ARM_DELETE_VERBS_UNCONDITIONAL` 이 bare 에서 이미 성립시키는 22/22 가 래퍼에서도 그대로 성립하고, `rm -rf .claude` 디렉터리 케이스도 함께 닫힌다. 한 겹만 벗겨도 이번에 실증된 16종 전부가 닫힌다(중첩 래퍼는 별도 축으로 남겨도 무방 — 단 그때는 SC-9 대로 open_axes 에 적을 것). 이 변경은 ASK 를 넓히는 방향이라 add-only 이고 SC-1 과 충돌하지 않는다.",
+    "documentation_fix_if_deferred": "코드 수정을 미룬다면 **최소한 계약서를 되돌려야 한다**. `interpreter_wrapped_path_notation.status` 를 '해결' 에서 '부분 — 경로 표기 축(`/`·`//`·`/./`·`///`)만 닫힘. 인용 분할·백슬래시 이스케이프·글로브·상위경로 traversal·디렉터리 전체 삭제는 래퍼 안에서 여전히 allow 이며 실삭제된다(20차 판정 실증 16종)' 로 정정하고, `unenumerated_verbs.status` 의 '인터프리터 계열은 ask 다' 도 같은 단서를 달 것. 이 정정 없이는 SC-9 둘째 절 위반이 계속되고, 21차 판정도 같은 사유로 반려된다.",
+    "tests_to_add": [
+      "**파라메트릭 래퍼 테스트** — `AC-11.verification_axes_2026_08_04.axes` 의 페이로드 전체를 bare 와 `sh -c \"…\"` 두 형태로 돌려 양쪽 모두 ask 임을 단언. 축을 새로 열거하지 않아도 기준이 늘면 커버리지가 따라오므로, 11~20차가 반복한 '열거한 것만 닫힘' 을 구조적으로 끊는다",
+      "**디렉터리 전체 삭제 × 래퍼** — `sh -c 'rm -rf .claude'` · `bash -lc` · `zsh -c` · `env sh -c` · `python3 shutil.rmtree` 를 ask 로 고정",
+      "**실효성 있는 non-regression** — 신규 마찰 3건(`node -e require(\"./vendor/hooks//pkg.json\")` 등)을 명시적으로 단언(현 상태를 ask 로 고정하든 allow 로 되돌리든, 관측 가능한 케이스로 교체). 매치될 수 없는 페이로드로 구성된 현 테스트는 회귀를 볼 수 없다",
+      "타이밍 단언 15000ms → 5000ms 미만 (3048·3097)",
+      "4바이트 이모지 페이로드 고정 (18차 보고 페이로드)",
+      "정확히 32768바이트가 상한에 걸리지 **않는다**는 미만-경계 단언"
+    ]
+  },
+  "note_for_main_loop": {
+    "passes_not_changed": "F65.passes 를 true 로 바꾸지 않았다 — verdict 가 fail 이므로 애초에 대상이 아니다. progress/feature_list.json 은 이 판정에서 수정하지 않았다.",
+    "f37_second_verdict_not_run": "security_tier 가 critical 이므로 **이 판정 하나로 게이트를 통과시킬 수 없다**(F37). 독립 컨텍스트의 2차 judge 재판정과 security-auditor 확인은 아직 실행되지 않았다. 다만 이번 판정이 fail 이므로 2차 판정은 통과 확정을 위한 절차가 아니라, 다음 라운드에서 pass 후보가 나왔을 때 반드시 배선해야 할 절차다.",
+    "regression_attribution": "이번 커밋(4f813bb)과 그 부모(806e370)는 회귀를 만들지 않았다 — ask→allow 전이 0건, 배열 6개 바이트 동일, bats 308/308. 반려 사유인 16종 우회는 HEAD·PARENT 결정이 동일한 **사전 존재 결함**이며, 19차가 보고한 것과 같은 defect class 다. 이 사이클(11~20차, 치환·타이밍·표기 축)이 만든 것이 아니다.",
+    "what_changed_since_19th": "19차 대비 실질 개선: 표기 축 49셀 닫힘 + `wc` fail-closed + 근본 원인 진단 확립. 실질 후퇴: 계약서가 열린 축을 '해결' 로 선언(SC-9 둘째 절). 새로 드러난 사실: 같은 클래스에 16종이 더 있고 그중 3종은 컨트롤 플레인 **디렉터리 전체**를 지운다 — 19차가 보고한 단일 파일보다 폭발 반경이 크다.",
+    "recommended_next_step": "구현자에게 반려하되, **코드보다 기준 정정을 먼저** 요구할 것(criteria_gaps.action_required). `AC-11.verification_axes` 에 래퍼 차원이 없는 한 구현자는 매 라운드 '열거된 축을 닫았다' 고 정직하게 보고하면서도 통제는 계속 열려 있는 상태가 반복된다 — 11~20차의 구조적 원인이 여기에 있다. 기준 정정은 `/change-request` 범위이며, primary fix(래퍼 인자 언랩)는 `operand_before_verb_ordering`·`shell_metacharacter_adjacent_tokenization` 과 같은 계열의 토크나이저 리팩터이므로 사용자 확인 후 별도 스프린트로 분리하는 선택지도 유효하다.",
+    "user_decision_needed": "primary fix(래퍼 인자 언랩)를 이번 사이클에서 진행할지, 계약서 정정만 하고 별도 change-request 로 분리할지는 사용자 결정 사항이다. 서브에이전트는 질문할 수 없으므로 메인 루프가 확인할 것."
+  }
+}

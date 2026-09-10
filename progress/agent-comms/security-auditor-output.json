@@ -1,173 +1,156 @@
 {
-  "timestamp": "2026-08-03T22:05:00+09:00",
-  "sprint": 54,
-  "feature": "F68",
-  "security_tier": "critical",
-  "commit_under_review": "ad654cc",
-  "scope": "Independent security audit of F68 after the 13th evaluator judgment (pass, min-of-5 7, security 8, F37 cross-check agreeing). Per the dispatch brief this audit did not re-litigate criteria the evaluator passed; it targeted the residual items the judgment recorded but did not treat as fail reasons, and the round's file scope for regressions. All verdicts below are grounded in commands executed this session, in an isolated clone and on a purpose-built case-sensitive volume; no test wrote to the live repository.",
+  "timestamp": "2026-09-07T00:00:00+0900",
+  "feature_id": "F65",
+  "contract": "progress/contracts/sprint-51.json",
+  "auditor_note": "이 감사는 F65.passes 를 바꾸지 않는다 — 33차 독립 evaluator 판정(min-of-5=7, pass)에 대한 critical tier 독립 확인이다. 결론: **passes:true 전환에 반대한다.**",
   "scan_tools": [
-    "differential hook harness (isolated git clone, synthetic PreToolUse payloads, OLD/NEW comparison)",
-    "live end-to-end probes through the real Claude Code Edit/Write tool chain",
-    "case-sensitive APFS volume (hdiutil) for the filesystem-dependent legs",
-    "bats 743 re-run independently in an isolated clone: 1..743, 743 ok, 0 failures, exit 0",
-    "jq structural diffing, git history secret scan",
-    "manual review of hooks/invariant-guard.sh, hooks/pre-bash-firewall.sh, hooks/protected-integrity.sh"
+    "manual code review (hooks/pre-bash-firewall.sh 전체 2374줄)",
+    "differential firewall oracle (직접 작성, 210+ 셀 생성 규칙 스윕)",
+    "isolated destruction lab (임시 디렉터리에서 실제 삭제 여부 확인)",
+    "wall-clock timing harness (bash 3.2 / bash 5.3 양쪽)"
   ],
   "supply_chain": {
     "vulnerable_deps": 0,
     "outdated_critical": 0,
     "details": [
-      "package.json declares no dependencies and no devDependencies; there is no package-lock.json and no node_modules. npm audit / govulncheck / dart pub outdated are not applicable — there is no dependency graph to audit.",
-      "Runtime dependencies are system binaries: bash, jq, awk, git, bats. The guard already fails closed when jq or awk is absent (hooks/invariant-guard.sh:151-163, :404-414).",
-      "engines.node >= 16 is declared but no JavaScript is executed by the harness; init.sh is a bash bootstrapper delivered through the npm bin entry."
+      "package.json 에 dependencies/devDependencies 가 모두 없음 — 런타임 의존성 표면 0 (bash + jq + git 만 사용).",
+      "go.mod / pubspec.yaml / requirements.txt / Cargo.toml 없음. npm audit·govulncheck 대상 아님.",
+      "최근 30 커밋 추가 라인의 시크릿 패턴(API key·토큰·PEM·AKIA·ghp_·sk-) 스캔 결과 0건."
     ]
   },
-  "secrets_scan": {
-    "commits_scanned": 20,
-    "findings": 0,
-    "note": "All matches for api_key/secret/token/private-key patterns in the last 20 commits are documentation prose about the firewall's own SECRET_PATHS arm, not credentials."
-  },
   "checklist_compliance": {
-    "source": "progress/contracts/sprint-54.json security_criteria (SC-1..SC-4) + docs/INVARIANTS.md (INV-1..INV-14). No docs/SECURITY-CHECKLIST.md exists in this repository; INVARIANTS.md is the operative checklist.",
-    "total_items": 18,
-    "passed": 16,
-    "failed": 2,
+    "note": "docs/SECURITY-CHECKLIST.md 와 progress/agent-comms/architect-output.json 은 이 저장소에 존재하지 않는다. 대조 기준으로 Sprint Contract(sprint-51.json)의 acceptance/security criteria 를 사용했다.",
+    "total_items": 5,
+    "passed": 2,
+    "failed": 3,
     "failed_items": [
-      "SC-4 (무인 루프의 승인 범위 조작이 단일 쓰기로는 불가능하다) — violated on two independent paths, both measured. Structurally identical to the 6th judgment's `rm <contract>` + one Write, which was ruled an SC-4 violation: one firewall-allowed preparatory action plus one Write.",
-      "INV-13 (설치 경로 간 훅 배선은 대칭이다) — wiring files with no HEAD blob (.claude/settings.json, and any hooks.json outside the project root) can be deleted and recreated unwired with the guard returning exit 0, and nothing restores them."
+      "AC-12 (코드 전달 경로 무관 최소 ask) — 동사 철자에 파라미터 확장을 넣으면 5개 전달 경로 전부 allow (35/35 셀).",
+      "SC-9 (컨트롤 플레인 삭제 예측이 명시된 표기 축 전수에서 성립) — 새 표기 축 2개(파라미터 확장·중괄호 퇴화 범위)가 open_axes 에 미등재된 채 열려 있음.",
+      "SC-10(5) (시간 예산의 검사 단위가 실제 비용 단위와 일치) — normalize_path_token() 한 번의 호출이 34초까지 걸리는데 예산 확인은 200 토큰마다."
+    ],
+    "passed_items": [
+      "SC-1 (게이트·임계값 불변) — BLOCKED=13·INDIRECT_PATTERNS=15 로 2026-07-28 이래 불변, ASK_PATTERNS 42→72 add-only. (단서: F74 tombstone 은 라인 수를 유지한 채 텍스트만 무력화한 것이며 INV-5 는 카운트만 검사한다 — 사용자 승인된 override 이나 구조적 약점으로 남는다.)",
+      "SC-10(4) (상한의 fail-closed 방향) — 코드에 존재하는 모든 명시적 상한(진입 32768바이트·SEGMENT_UNSAFE 2048·__control_plane_location_impl 512·__BRACE_BUDGET 64·__brace_range_info 15자리·__PREFIX_STRIP_OVERFLOW·__FIND_WRAPPED_ARG_OVERFLOW·후보 2048·3초 예산 4곳·__split_segments 8192 tr 폴백)이 전부 안전한 쪽(ask 또는 armed 확정, tr 폴백은 더 잘게 쪼개는 방향)으로 떨어진다. 방향 결함 0건."
     ]
   },
   "threat_model_coverage": {
-    "threats_identified": 11,
-    "mitigations_verified": 7,
-    "verified": [
-      "path spelling variants (//, ./, case-variant on a case-insensitive FS) — canon_file normalizes; verified live, a Write to tests/ZZ-PROBE.BATS was denied with the message naming the real spelling zz-probe.bats",
-      "directory symlink in the prefix — pwd -P resolves it",
-      "final-component symlink — verified live through the real tool: a Write to the symlink alias.bats was denied by the @test-count check on its target zz-probe.bats. Claude Code does NOT resolve symlinks before the hook, so this round's resolve_file_symlink is genuinely load-bearing",
-      "symlink cycle / depth cap exhausted — rc 1 then deny",
-      "mid-chain EACCES (immediate parent chmod 000) — rc 1 then deny, exit 2 measured; this is the leg the 13th round closed and it works",
-      "delete-then-recreate for HEAD-tracked in-repo files — HEAD materialization holds (hooks/hooks.json deleted then recreated unwired gives exit 2)",
-      "truncation by empty Write on an existing protected file — deny"
-    ],
+    "threats_identified": 3,
+    "mitigations_verified": 0,
     "gaps": [
-      "canon_file's case-insensitive filename rebind is not gated on the filesystem actually being case-insensitive — on a case-sensitive FS a decoy file redirects the guard's judgment to a different real file (F-2)",
-      "delete-then-recreate remains open for control-plane files with no HEAD blob: .claude/settings.json (gitignored) and any wiring file outside the project root (F-1)",
-      "canon_file returns the raw path when it cannot enter the parent directory instead of failing closed (F-3)",
-      "grandparent-and-above directory inaccessibility still conflates 'cannot judge' with 'not a link' (F-4, disclosed by the round itself)"
+      "컨트롤 플레인 삭제 예측(AC-11/SC-9): 동사 토큰의 셸 확장(${VAR}·{X..X})이 모델링되지 않아 무프롬프트 삭제 경로가 열려 있다.",
+      "AC-12 전달 경로 무관 재검사: 위 결함이 언랩 후 재스캔에도 그대로 상속되어 19~33차가 닫은 셀 전체가 동시에 재개방된다.",
+      "타임아웃 예산(SC-10(5)): 6KB 입력 하나로 훅의 5초 하드 타임아웃을 넘겨 판정 자체를 못 내게 만들 수 있다."
     ]
   },
   "findings": [
     {
-      "id": "F-1",
-      "severity": "high",
+      "id": "AUDIT-3",
+      "severity": "critical",
       "confidence": "high",
-      "file": "hooks/invariant-guard.sh",
-      "line": 303,
-      "title": "Delete-then-recreate is still open for wiring files that have no HEAD blob — two tool calls unwire every hook, with no recovery",
-      "issue": "The 10th round closed delete-then-recreate by materializing the HEAD copy of a missing protected file (:303-332). That block is gated on `[[ -n \"$__root\" && \"$FILE\" == \"$__root\"/* ]]` and on `git show HEAD:$__rel` succeeding. Both conditions fail for exactly the files the design calls unrecoverable control plane: .claude/settings.json sits inside the root but is gitignored (no HEAD blob), and a plugin- or init.sh-installed hooks/hooks.json is outside the root entirely. When materialization does not happen the path falls through to the new-file arm at :387-400, whose `*)` case exits 0.",
-      "reproduction": [
-        "control, file present: Write .claude/settings.json with the hooks key deleted -> exit 2 (배선 무력화 denied)",
-        "pre-bash-firewall verdict for `rm .claude/settings.json` -> allow (not even ask)",
-        "after deletion: the same Write recreating .claude/settings.json without hooks -> exit 0 (ALLOWED)",
-        "case-variant recreate on a case-insensitive FS: .claude/SETTINGS.json -> exit 0 (is_wiring_file at :97 is the case-sensitive literal `[[ \"$b\" == \"settings.json\" ]]`, unlike is_protected which honours FS_CI)",
-        "out-of-repo wiring file: a hooks.json under a simulated plugin dir — present -> exit 2; deleted then recreated unwired -> exit 0",
-        "in-repo control: hooks/hooks.json deleted then recreated unwired -> exit 2 (materialization works where a HEAD blob exists)",
-        "recovery: protected-integrity.sh run after the tamper leaves .claude/settings.json STILL UNWIRED — it is not in PROTECTED_GLOBS (hooks/protected-integrity.sh:48) and the file list is enumerated from the HEAD tree, which does not contain it"
-      ],
-      "impact": "For init.sh-installed projects .claude/settings.json is the live wiring. Two tool calls — one firewall-allowed rm and one Write — remove every PreToolUse/PostToolUse/Stop hook permanently. After that no gate runs at all, so every other invariant (INV-3/6/7/11/12) falls with it. Platform-independent; measured on case-insensitive APFS.",
-      "recommendation": "Do not key materialization on HEAD alone. For a missing protected or wiring file with no HEAD blob, fail closed rather than treating it as a legitimate new file, and drop the `$FILE == $__root/*` precondition for the wiring-file class. Also make is_wiring_file honour FS_CI the way is_protected does."
+      "status": "new",
+      "file": "hooks/pre-bash-firewall.sh",
+      "line": 2101,
+      "title": "삭제 동사 토큰의 파라미터 확장이 normalize_path_token() 에서 제거되지 않아 armed 판정 전체가 무력화된다",
+      "issue": "normalize_path_token() 은 따옴표(') (\") 와 백슬래시만 제거한다(:896). 동사 판정(:2101-2110)은 그 결과를 ARM_DELETE_VERBS_UNCONDITIONAL 과 정확 비교하므로, 셸이 투명하게 펴는 파라미터 확장을 동사 이름 안에 넣으면(`r${Z}m`·`${Z}rm`·`rmdi${Z}r`·`m${Z}v`·`r${Z:+x}m`) armed 가 서지 않는다. 같은 파일이 __strip_dollar_brace()(:1407)로 이 정확한 표기를 이미 처리하지만, 그 함수는 __note_opaque_verb() 를 통해 **명령 치환 스팬 안쪽에서만** 배선돼 있고(:1468) 세그먼트 자신의 토큰 경로에는 연결돼 있지 않다.",
+      "evidence": "생성 규칙 스윕(동사 철자 × 전달 경로 5종 × 대상 표기 7종): 리터럴 `rm`/`mv`/`rmdir` = 0/35 allow(닫힘), `r${Z}m` = 35/35 allow, `m${Z}v` = 35/35 allow, `rmdi${Z}r` = 35/35 allow, `r${Z:+x}m` = 35/35 allow. 격리 랩 실측으로 `r${Z}m -rf .claude`·`r${Z}m -f .claude/settings.json`·`${Z}mv .claude/hooks /tmp/sink`·`sh -c 'r${Z}m -rf .claude'` 가 실제로 삭제됨을 확인. 고가치 대상 전수 역전: plain rm 이 ask 인 6개 대상(`~/.claude/plugins/cc-harness`·`.claude/plugins`·`hooks/hooks.json`·`$HOME/.claude`·`.claude/hooks/invariant-guard.sh`·`<repo>/hooks`)이 `r${Z}m` 로는 전부 allow — 방화벽 자기 자신의 설치본 삭제 포함.",
+      "why_new": "open_axes_2026_08_04 의 verb_via_substitution 은 **명령 치환**($( )·백틱) 안에서 계산되는 동사이고, 이것은 치환이 아닌 파라미터 확장이라 코드 경로가 다르다(__note_opaque_verb 가 아예 호출되지 않는다). backslash_newline_fold·shell_metacharacter_adjacent_tokenization·operand_before_verb_ordering·nested_wrapper_unwrap·interpreter_shell_reentry·quote_state_desync 어디에도 해당하지 않는다. 19~33차 판정 이력에 없다.",
+      "root_cause_class": "AC-12 의 생성 규칙에서 **동사 철자 차원이 상수(`rm` 리터럴)로 고정**돼 있었다 — 27차 판정이 명시적으로 경고한 '아직 상수로 고정된 차원' 그 자체다."
     },
     {
-      "id": "F-2",
+      "id": "AUDIT-4",
       "severity": "high",
       "confidence": "high",
-      "file": "hooks/invariant-guard.sh",
-      "line": 191,
-      "title": "canon_file()'s case-insensitive filename lookup is not gated on the filesystem being case-insensitive — a decoy file makes the guard judge a different real file",
-      "issue": "`real=$(ls -1 \"$d\" | grep -ixF -- \"$b\" | head -1)` runs unconditionally, while is_protected()'s nocasematch is correctly gated on FS_CI (the 9th and 10th rounds' lesson). The two disagree exactly when the filesystem is case-sensitive: there, two distinct files can match case-insensitively, and `head -1` silently rebinds the guard's FILE to whichever spelling ls lists first. Every downstream predicate (is_protected, is_wiring_file, the per-file branches) then judges the decoy, while Claude Code writes the path it was actually given — it normalizes . / .. / ~ but never case-folds.",
-      "reproduction": [
-        "on a real case-sensitive APFS volume, control with no decoy: feature_list passes:true, harness-config .scoring.pass_threshold 7->1, sprint-54 _batch_approval replacement, tests/*.bats @test 133->0, hooks.json unwiring, settings.json unwiring, and removing `exit 2` from the guard's own deny() — all exit 2",
-        "planting each decoy is itself unguarded: Write progress/FEATURE_LIST.json, tests/INVARIANT-GUARD.BATS, hooks/HOOKS.json, SETTINGS.json, .claude/SETTINGS.json -> exit 0",
-        "identical weakening writes with the decoy present, LC_ALL=C -> exit 0 for all seven targets",
-        "locale dependence measured: LC_ALL=C picks FEATURE_LIST.json, LC_ALL=C.UTF-8 picks FEATURE_LIST.json, LC_ALL=en_US.UTF-8 picks feature_list.json (not exploitable under glibc en_US collation)",
-        "FS_CI computed as 0 on that volume, so is_protected's nocasematch is off and the decoy spelling matches no arm"
-      ],
-      "impact": "On case-sensitive filesystems under a C-family locale — Linux/ext4, Docker images with no LANG, GitHub Actions ubuntu-latest (LANG=C.UTF-8), which is this project's own CI — INV-3, INV-6, INV-7, INV-11 and INV-13 are all bypassable with one decoy plus one Write. For HEAD-tracked PROTECTED_GLOBS members the damage is transient: protected-integrity.sh (PostToolUse:Write|Edit|MultiEdit) restored hooks/hooks.json, tests/invariant-guard.bats and progress/harness-config.json in the same measurement. It is terminal for settings.json and .claude/settings.json, which the detection layer does not cover (see F-1). macOS APFS default installs are unaffected: two case variants cannot coexist and FS_CI=1 restores case-insensitive classification (verified live — a Write to tests/ZZ-PROBE.BATS was denied).",
-      "recommendation": "Prefer an exact-spelling hit: if `ls -1 \"$d\" | grep -qxF -- \"$b\"` succeeds, keep $b unchanged, and fall back to the case-insensitive lookup only when no exact entry exists (optionally also gating on fs_is_case_insensitive \"$d\"). That preserves the case-insensitive-FS behaviour the 6th to 8th rounds needed while making the rebind impossible on a case-sensitive FS."
+      "status": "new",
+      "file": "hooks/pre-bash-firewall.sh",
+      "line": 2058,
+      "title": "find 무장의 `-delete` 사전 필터가 정규화 이전 원문에 대한 리터럴 부분문자열 검사다 (10차 판정이 반려한 결함과 동일 계열)",
+      "issue": "`if [[ \"$seg\" == *\"-delete\"* ]]` 는 정규화되지 않은 세그먼트 원문에서 `-delete` 를 문자 그대로 찾는다. 술어를 인용으로 쪼개면(`-de''lete`·`-de\"\"lete`·`-dele\\te`) 검사가 실패해 find 가 무장하지 않는다. :2291-2303 주석이 '동사 이름을 사전 필터로 쓰지 않는다(10차 판정 반려)'고 적어 둔 바로 그 실수가 술어 자리에 남아 있다.",
+      "evidence": "`find .claude -de''lete` → allow, 격리 랩에서 `.claude`·`.claude/settings.json`·`.claude/hooks` 전부 삭제 확인. `find .claude '-delete'` 는 ask(따옴표가 부분문자열을 깨지 않으므로) — 판정이 인용 위치 한 글자로 뒤집힌다. 보조 arm(`\\bfind\\b…(-delete|-exec…)`)도 같은 리터럴을 요구해 백스톱이 되지 못한다. 파생: `${Z}find .claude -delete` 도 allow(동사 이름 쪽이 AUDIT-3).",
+      "why_new": "unenumerated_verbs 축은 '목록 밖 동사'에 대한 것이고 find 는 목록 안이다. 표기 축(인용 분할)은 AC-11 verification_axes 의 '인용' 풀에 이미 있으나 술어 토큰에는 적용된 적이 없다."
     },
     {
-      "id": "F-3",
+      "id": "AUDIT-5",
+      "severity": "high",
+      "confidence": "high",
+      "status": "new",
+      "file": "hooks/pre-bash-firewall.sh",
+      "line": 880,
+      "title": "normalize_path_token() 의 세 치환 루프가 길이에 대해 이차식이며 상한도 예산 확인도 없다 — 6KB 입력 하나로 훅 5초 타임아웃 초과",
+      "issue": "normalize_path_token() 은 `//`·`/./`·`X/../` 접기를 while 루프 + 전역 치환으로 수행한다(:897-916). 이 함수는 세그먼트의 **모든** 토큰에 대해 armed 여부와 무관하게 호출되는데(:2060, :2101), 자체 길이 상한이 없고 __control_plane_location_impl() 의 512자 상한(:1106)은 이 함수가 **끝난 뒤**에 걸린다. 상위 예산 확인은 200 토큰마다(:2094)라 **토큰 하나짜리 비용**은 한 번도 확인되지 않는다 — SC-10(5) 가 29차 판정 이후 명문화한 '검사 단위가 비용 단위보다 성기면 상한은 있으나 마나' 규칙의 직접 위반이다.",
+      "evidence": "bash 3.2.57(/bin/bash, 이 훅의 문서화된 실행 셸) 실측 — `git add <'a//'×2400>x` (7,209바이트, 진입 상한의 22%) = 13.83초; `<'a/./'×2400>` (9,609바이트) = 21.32초; `<'a/../'×1200>` (6,009바이트) = 6.14초로 이미 5초 초과; `<'a/../'×2400>` (12,009바이트) = 34.68초; `<'a/../'×3000>` (15,026바이트) = 61.79초; `<'a/../'×6500>` (32,526바이트, **진입 상한 32,768 바로 아래**) = **611.55초**. 동일 길이의 슬래시 없는 토큰은 0.34초 — 비용원이 이 세 루프임이 확정된다. 공격 형태 `git add <7KB 토큰> ; rm -rf .claude` 는 13.51초가 걸려, 5초에 훅이 죽으면 뒤의 삭제가 판정 없이 지나간다(29~31차 판정이 같은 상황을 우회로 분류한 전례).",
+      "entry_cap_calibration": "진입점 32768바이트 상한(:50)은 주석(:18-54)이 명시하듯 **총 처리 시간을 5초 타임아웃 아래로 묶으려고** 도입됐다('모든 단계를 각각 고치는 대신 진입점에서 원문 길이 자체를 본다'). 이 코드 경로에서는 그 목적이 상한의 4% 지점(약 6KB)에서 이미 깨지고, 상한 바로 아래 값에서 611초 — 목표의 122배다. 상한의 방향은 fail-closed(ask)로 옳지만 **값이 이 경로에 대해 오보정**돼 있다.",
+      "severity_note": "이 저장소의 settings.local.json 에 포괄적 `Bash(*)` allow 규칙은 없으므로 훅 사망이 곧 무프롬프트 실행은 아니다 — 세션 권한 모드에 의존한다. 그래도 방화벽이 내야 할 ask 가 사라지는 것은 확정이며, 프로젝트가 29~31차에서 동일 상황을 우회로 판정한 기준을 그대로 적용했다.",
+      "why_new": "29~32차가 고친 무예산 지점은 __dash_prefix_strip_candidates()·__unquote_wrap_candidate()·__find_wrapped_arg() 패스 1/2 였다. normalize_path_token() 은 그 목록에 없다."
+    },
+    {
+      "id": "AUDIT-6",
       "severity": "medium",
       "confidence": "high",
-      "file": "hooks/invariant-guard.sh",
-      "line": 190,
-      "title": "canon_file() treats 'cannot normalize' as 'nothing to normalize' and passes the raw path through — the same fail-open shape the round eliminated from resolve_file_symlink",
-      "issue": "`d=$(cd \"$d\" 2>/dev/null && pwd -P) || { printf '%s' \"$p\"; return 0; }` returns success with an unnormalized path whenever the parent cannot be entered (absent, permission-denied, ELOOP). This is the identical conflation the 12th judgment forced out of resolve_file_symlink, which now signals failure by return code; canon_file kept the old contract, and the caller cannot distinguish 'already canonical' from 'could not canonicalize'.",
-      "reproduction": [
-        "against the guard as a program: file_path `<repo>/tests/NOPE/../invariant-guard.bats` with NOPE absent -> cd fails -> raw path -> `-e` false -> `git show HEAD:tests/NOPE/../invariant-guard.bats` fails so no materialization -> new-file arm :397 -> exit 0, where the canonical path gives exit 2. Same result for hooks/hooks.json, settings.json and hooks/invariant-guard.sh",
-        "NOT reachable through Claude Code today: measured that the harness lexically normalizes tool_input.file_path before the hook. A live Write to `<dir>/NOPE/../zz-probe.bats` was denied and the guard's own message printed the collapsed path; `~/...` likewise arrived expanded to /Users/hanbyeol/...",
-        "bash cd refuses a nonexistent intermediate even with a following .., confirming canon_file cannot recover the path itself",
-        "the Write tool writes to the lexically-resolved target (probe: wt/NOPE/../probe.txt landed at wt/probe.txt and wt/NOPE was never created)"
-      ],
-      "impact": "Latent rather than live. The only known trigger is removed upstream by a Claude Code behaviour that is external, undocumented, unversioned and unpinned by any test in this repository — and only partial, since the same upstream does NOT resolve symlinks, which is precisely why this round's work was necessary. Any other invocation path (a different client, the Agent SDK, a future harness change) reopens it for four protected classes.",
-      "recommendation": "Give canon_file the contract resolve_file_symlink now has: return non-zero when the path could not be canonicalized, and have the caller deny. The round already established this pattern one function away; applying it here removes the dependence on an upstream guarantee the harness cannot see or test."
+      "status": "new",
+      "file": "hooks/pre-bash-firewall.sh",
+      "line": 1124,
+      "title": "중괄호 확장이 피연산자 토큰에만 적용되고 동사 토큰에는 적용되지 않는다 (6차 판정이 피연산자 쪽에서 닫은 퇴화 범위가 동사 쪽에 그대로 남음)",
+      "issue": "__control_plane_location_impl() 은 콤마 그룹·범위·퇴화 범위(`{d..d}`)까지 완전히 편다(:1124-1176). 6차 판정이 `.clau{d..d}e` 를 근거로 이 처리를 요구했다. 그런데 armed 판정 경로는 이 함수를 전혀 거치지 않으므로 동사 토큰의 같은 표기는 처리되지 않는다.",
+      "evidence": "`{r..r}m -rf .claude` → 방화벽 allow, /bin/bash 실측 실제 삭제 확인. (`{r,x}m`·`r{m,n}` 은 allow 이지만 BSD rm 의 옵션 배치 규칙 때문에 이 머신에서는 삭제되지 않았다 — GNU rm 환경에서는 삭제된다.)",
+      "why_new": "AUDIT-3 과 같은 근본 원인(동사 토큰에 셸 확장 모델이 없음)의 두 번째 표기 풀."
     },
     {
-      "id": "F-4",
-      "severity": "low",
+      "id": "AUDIT-7",
+      "severity": "medium",
       "confidence": "high",
-      "file": "hooks/invariant-guard.sh",
-      "line": 225,
-      "title": "Grandparent-and-above inaccessibility is genuinely open, and confirmed not exploitable for writes",
-      "issue": "`[[ ! -e \"$d\" && ! -L \"$d\" ]]` returns success (treated as new-path scaffolding) when the parent is merely unstattable because an ancestor denies traversal, reproducing one level up the conflation the round closed for the immediate parent. Disclosed in the function comment, in INVARIANTS.md and by the 13th judgment.",
-      "reproduction": [
-        "grandparent chmod 000 with a link to progress/harness-config.json -> guard exit 0 with the chain unresolved",
-        "a real write through the same path in the same window is refused by the kernel (EACCES) and the protected target was unchanged afterwards",
-        "grandparent chmod 111 (traversable, unreadable) -> resolves normally and the real checks fire",
-        "immediate parent chmod 000 -> exit 2 (the leg this round closed)"
-      ],
-      "impact": "No write bypass: the permission wall that blinds the guard blinds the writing tool identically, since both resolve the same path string as the same uid. This confirms the evaluator's assessment. One addition to their low-confidence TOCTOU note — the primitive is available, because plain chmod on a repository directory is firewall-allowed (only sudo chmod and chmod inside command substitution are denied), so a concurrent restore between the guard's allow and the tool's write is stageable; it still requires precise timing and a second running process.",
-      "recommendation": "Fold into the F69 follow-up together with F-3: one shared 'can I trust stat on this path' helper that walks to the nearest accessible ancestor and fails closed otherwise, used by both canon_file and resolve_file_symlink."
+      "status": "new",
+      "file": "hooks/pre-bash-firewall.sh",
+      "line": 789,
+      "title": "pure_read_only() 화이트리스트에 파일을 쓰는 도구(xxd)와 임의 셸 코드를 실행하는 도구(bats)가 들어 있다",
+      "issue": ":725 주석은 순수 리더에 대해 '파일을 쓰는 문법 자체가 없다'고 단언하지만 xxd 는 두 번째 피연산자를 출력 파일로 받는다(`xxd <in> <out>`). bats 는 .bats 파일의 셸 코드를 실행한다. PURE_READ=1 은 Layer 3.3(컨트롤 플레인 삭제)과 Layer 3(ASK_PATTERNS 전체, INV-11 게이트 포함)을 통째로 끄므로 화이트리스트 오분류의 손실 상한이 매우 크다.",
+      "evidence": "`xxd -r -p /tmp/p.hex .claude/settings.json` → allow. 별도 확인: `xxd src target.json` 이 target.json 을 실제로 덮어씀. `bats /tmp/evil.bats` → allow, 격리 랩에서 그 파일 안의 `rm -rf .claude` 가 실행되어 삭제됨. (xxd 는 어떤 ASK arm 에도 없어 PURE_READ 와 무관하게도 미커버 — cp/mv/tee/dd 계열 arm 의 도구 목록 누락이기도 하다.)",
+      "why_new": "quote_state_desync_read_whitelist 는 세그먼터의 인용 상태 오작동으로 화이트리스트가 **잘못 발동**하는 문제다. 이것은 화이트리스트가 **정상 발동**하는데 그 멤버 자체가 리더가 아닌 문제로 원인이 다르다."
     },
     {
-      "id": "F-5",
+      "id": "AUDIT-8",
       "severity": "low",
       "confidence": "medium",
-      "file": "hooks/invariant-guard.sh",
-      "line": 447,
-      "title": "Tools other than Write/Edit/MultiEdit reach the dispatch and exit 0 unconditionally",
-      "issue": "hooks.json wires invariant-guard for `mcp__.*` as well, but the TOOL dispatch ends with `*) exit 0`. An MCP tool that writes a file through a file_path input passes without any content check, so INV-3/6/7/11/13 are not enforced on that path.",
-      "impact": "Mitigated in practice by pre-tool-firewall's MCP read-verb allowlist — write-verb MCP tools are not auto-allowed and require user approval — so this is a defence-in-depth gap rather than an open bypass. Outside this round's scope but adjacent to its path-identity work.",
-      "recommendation": "Either narrow the guard's matcher to the tools it actually inspects, or fail closed for unknown tools whose tool_input names a protected path."
+      "status": "new",
+      "file": "hooks/pre-bash-firewall.sh",
+      "line": 784,
+      "title": "pure_read_only() 안에 설명도 테스트도 없는 매직 토큰 `rtk` 접두 벗기기가 있다",
+      "issue": "`[[ \"$tok\" == \"rtk\" ]] && IFS=' ' read -r tok rest <<<\"$rest\"` — 커밋 2d3a39e 가 도입했고 저장소 어디에도(테스트·문서·다른 훅) `rtk` 참조가 없다. 현재 동작상 악용 경로는 확인되지 않았지만(그 뒤 토큰이 화이트리스트에 없으면 그대로 return 1), 보안 판정 경로에 근거 없는 접두 명령 벗기기가 있는 것 자체가 :767-773 이 `env`/`command` 에 대해 명문화한 원칙('접두 한 단어로 ASK 계층 전체가 무력화된다')과 충돌한다.",
+      "evidence": "`grep -n rtk` 결과 이 한 줄이 전부. `rtk cat README.md` → allow(PURE_READ).",
+      "recommendation": "의도가 확인되지 않으면 제거하거나, 유지한다면 근거 주석 + 회귀 테스트를 붙일 것."
     },
     {
-      "id": "F-6",
+      "id": "AUDIT-9",
       "severity": "low",
       "confidence": "high",
-      "file": "hooks/pre-bash-firewall.sh",
-      "line": 0,
-      "title": "Layer 1 rm pattern matches inside quoted strings (availability-only over-detection)",
-      "issue": "An audit command that merely contained the literal `rm ~/.claude/...` inside a quoted jq argument was BLOCKED by the Layer 1 destructive-rm pattern. The quote-neutralization pass normalizes separators inside single quotes, but the BLOCKED tier still matches the quoted text.",
-      "impact": "False positive only; fails in the safe direction. Consistent with the documented known gap about newline and quote span handling.",
-      "recommendation": "No action required for security. Recorded so it is not mistaken for a real blocked attack when transcripts are reviewed."
+      "status": "known-restated",
+      "file": "hooks/invariant-guard.sh",
+      "line": 989,
+      "title": "INV-5 가 패턴 배열의 라인 수만 검사해 텍스트 무력화를 막지 못한다",
+      "issue": "count_array() 는 작은따옴표로 시작하는 줄 수만 센다. F74 tombstone 4개(`F74_TOMBSTONE_*_NEVER_MATCH`)가 이 성질을 이용해 BLOCKED/ASK 패턴을 라인 수 유지한 채 무력화했다 — 사용자가 3라운드 고지 후 명시 승인한 override 이므로 그 자체는 위반이 아니지만, 같은 기법을 승인 없이 쓰는 변경도 INV-5 를 통과한다.",
+      "evidence": "BLOCKED=13·INDIRECT=15 가 2026-07-28 이래 불변이지만 그중 push --force 라인은 실질 방어가 없다(INV-15/ADR-004 Amendment 7 에 기록됨).",
+      "recommendation": "별도 change-request 후보 — 패턴 배열의 내용 해시 또는 '실제로 매치하는 코퍼스가 있는가' 프로브를 add-only 검사에 더할 것."
     }
   ],
-  "regression_check": {
-    "question": "Were files outside the round's declared scope (hooks/invariant-guard.sh, docs/INVARIANTS.md, tests/invariant-guard.bats, progress/contracts/sprint-54.json) disturbed, and did the interaction with pre-bash-firewall.sh or protected-integrity.sh change?",
-    "result": "No unintended change found.",
-    "evidence": [
-      "The three symlink commits (adaa6e7, 2d0852a, ad654cc) touch only hooks/invariant-guard.sh, docs/INVARIANTS.md, tests/invariant-guard.bats, progress/contracts/sprint-54.json, progress/lessons.md and an evaluator-feedback file.",
-      "hooks/pre-bash-firewall.sh was last touched at 99a337e and hooks/protected-integrity.sh at c442305 — both earlier in the sprint (the nocasematch withdrawal and the firewall layer work), neither during the symlink rounds.",
-      "Cross-hook set consistency (is_protected <-> PROTECTED_GLOBS <-> firewall exempt paths <-> formatter skip list) is machine-checked by the suite; re-run independently in an isolated clone: 1..743, 743 ok, 0 failures, exit 0.",
-      "The round's scope widening — unresolvable chains are denied for non-protected targets too — is intentional, documented, and costs availability only.",
-      "deny() exits 2 before the EXIT trap's rc check, so the new fail-closed path issues no .guarded-edits ticket; no stale-ticket interaction with protected-integrity's exemption logic.",
-      "No over-blocking regression observed: ordinary new files, ordinary existing non-protected files, and a benign non-weakening edit to harness-config.json all pass (exit 0)."
-    ]
+  "known_axes_reconfirmed": [
+    "quote_state_desync_read_whitelist — 재현 확인, 이번 감사의 신규 발견 아님(등재됨).",
+    "interpreter_shell_reentry — `python3 -c \"open('.claude/settings.json','w')\"` 는 ask 지만 os.system 경유 삭제는 여전히 allow(등재됨).",
+    "nested_wrapper_unwrap — 한 겹 언랩 설계 확인(등재됨).",
+    "operand_before_verb_ordering / shell_metacharacter_adjacent_tokenization / cwd_shift / indirect_operand / verb_via_substitution / backslash_newline_fold(평문) — 모두 등재된 상태 그대로."
+  ],
+  "positive_observations": [
+    "AC-12 가 정의한 5개 전달 경로(bare·sh -c·herestring·pipe·env -S)는 동사 철자가 리터럴인 한 대상 표기 7종 전수(35/35)에서 ask 다 — 19~33차의 작업은 그 축에서 실제로 성립한다.",
+    "명시적 상한 12곳의 방향이 전부 fail-closed 다(SC-10(4) 충족). 29~32차가 지적한 방향 결함의 재발은 발견되지 않았다.",
+    "__find_wrapped_arg() 패스 1·2 의 '가장 이른 매치가 상위집합' 논증은 독립적으로 검토했고 성립한다 — O(k·n)→O(n) 최적화가 커버리지를 줄이지 않는다.",
+    "SC-1 의 게이트 불변(BLOCKED 13·INDIRECT 15·ASK add-only 42→72)은 충족.",
+    "AC-9(회귀 없음) 확인 — `bats tests/pre-bash-firewall.bats` 327 테스트 전수 통과(exit 0). 아래 findings 는 회귀가 아니라 기존 테스트가 검사하지 않는 신규 우회다.",
+    "의존성 표면 0, 최근 30 커밋에 시크릿 유출 0건."
+  ],
+  "recommendation": {
+    "verdict": "F65.passes 를 true 로 전환하지 말 것",
+    "primary_fix": "동사 토큰에 대해 **피연산자 토큰과 동일한 확장 모델**을 적용한다 — 표기를 하나씩 열거하지 말고, (a) normalize_path_token() 에 __strip_dollar_brace() 상당의 파라미터 확장 제거를 편입하거나(더 안전하게는 '순수 변수명이 아닌 확장이 동사 자리에 있으면 armed 확정'), (b) 동사 후보 토큰을 __control_plane_location_impl() 과 같은 중괄호 확장기에 태운다. 확장을 못 펴는 형태는 allow 가 아니라 armed(ask) 로 떨어뜨릴 것 — 이 파일의 SEGMENT_UNSAFE 관용구와 같은 방향.",
+    "secondary_fix": "`-delete` 사전 필터를 정규화된 토큰 판정으로 교체(:2058). 10차 판정이 동사에 대해 이미 내린 결론을 술어에 적용하는 것이다.",
+    "tertiary_fix": "normalize_path_token() 진입점에 512자(또는 SEGMENT_UNSAFE 와 같은 2048자) 상한을 걸고 초과 시 armed/ask 로 떨어뜨린다 — 상한을 함수 자신에게 두는 29차의 교훈을 이 함수에도 적용.",
+    "criteria_backpropagation": "AC-12 의 생성 규칙에 **동사 철자 차원**(리터럴 / 인용 분할 / 백슬래시 / 파라미터 확장 / 중괄호 확장 / 치환)을 원소 풀로 추가하고, SC-9 의 표기 축 정의에 '동사·술어 토큰의 셸 확장'을 명시할 것. 닫지 않을 부분은 open_axes 에 등재할 것 — 현재 어느 축에도 없다."
   },
-  "verification_gate": {
-    "passes": false,
-    "reason": "checklist_compliance.failed > 0 (SC-4, INV-13). F-1 is platform-independent and unrecovered; F-2 is live on the project's own CI platform. Both belong to the class this round has been working in — protection judged on something other than the file that will actually change — rather than to a new line of work.",
-    "note": "This does not contradict the 13th evaluator judgment. That judgment verified the designated fix (mid-chain EACCES) and confirmed it works; this audit re-ran that verification independently and agrees. F-1 and F-2 lie outside the three confirmation items the evaluator protocol allowed and were not visible from them."
-  },
-  "summary": "2 high, 1 medium, 3 low. The round's designated fix is correct and load-bearing, verified end to end through the real tool chain — including the finding that Claude Code does not resolve symlinks, so the guard's own resolution is what stops the alias attack. Two new bypasses were found in the same class the round was working in: (F-1) delete-then-recreate is still open for wiring files with no HEAD blob (.claude/settings.json and any out-of-repo hooks.json), so a firewall-allowed rm plus one Write removes every hook with no recovery, on any platform; (F-2) canon_file's case-insensitive filename rebind is not gated on filesystem case-sensitivity, so on Linux and CI under a C-family locale a decoy file makes the guard judge a different file than the one being written, defeating INV-3/6/7/11/13. Both residual items the 13th judgment disclosed but did not fail on were re-checked: the grandparent leg is genuinely open but not write-exploitable because the kernel refuses in the same window, and canon_file's cd fail-open is real but currently unreachable because Claude Code normalizes . / .. / ~ upstream — an external guarantee nothing in this repository tests."
+  "summary": "1 critical, 2 high, 2 medium, 2 low (신규 6건 + 기존 재서술 1건). 33차 evaluator 가 pass 를 낸 축(전달 경로 × 인용 형태 × 인접성)은 실제로 닫혀 있으나, 그 스윕이 상수로 고정한 '동사 철자' 차원에서 같은 메타 결함이 열네 번째로 재발한다 — `r${Z}m` 한 형태로 19~33차가 닫은 셀 전체(35/35)가 동시에 재개방되고 방화벽 자기 설치본까지 무프롬프트 삭제 가능하다(격리 랩 실증). critical tier 독립 확인 결과 F65 는 verification phase 를 통과하지 못한다."
 }

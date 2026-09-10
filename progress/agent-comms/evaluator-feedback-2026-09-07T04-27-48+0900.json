@@ -1,0 +1,141 @@
+{
+  "timestamp": "2026-09-07T04:27:48+0900",
+  "sprint": 51,
+  "iteration": 31,
+  "verdict_ordinal": "31차 독립 판정",
+  "features_evaluated": ["F65"],
+  "security_tier": "critical",
+  "evaluated_commit": "80fdff50d38f4bdde6ddb80db1d10c7ee3cbffc0",
+  "parent_commit": "e5d05eb",
+  "cycle_baseline_commit": "11c8db7",
+  "axis": "wrapper_code_delivery_mechanism",
+
+  "scores": {
+    "functionality": 4,
+    "code_quality": 5,
+    "security": 4,
+    "error_handling": 4,
+    "test_coverage": 5
+  },
+  "score": 4,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+
+  "fail_reasons": [
+    "security 4 < 7 (critical tier — 자동 fail)",
+    "score 4 < pass_threshold 7",
+    "AC-12 산출 기준 미충족 — **열세 번째 재발, 30차가 지목한 바로 그 함수의 바로 옆 패스**: `lua` 토큰 500개 + `; rm -rf .claude`(2016바이트, 32768바이트 진입 상한의 **6%**)에서 훅이 6.8초 걸려 5초 SIGKILL 에 죽는다 — 출력 0바이트·permissionDecision 없음. 격리 mktemp 샌드박스에서 이 명령이 실제로 `.claude/settings.json` 을 삭제함을 3/3 재현 확인. 원인은 `__find_wrapped_arg()` **패스 2**(인터프리터 이름 게이트)가 `-e`/`-r` 플래그를 하나도 못 찾으면 이름 토큰마다 끝까지 헛스캔해 O(n²)이 되는 것 — `perl`·`lua`·`node`·`ruby`·`php` 전부 동일하게 성립",
+    "SC-10(5) 미충족 — **30차 판정이 적은 fail 사유가 그대로 남아 있다**: 30차는 '`__find_wrapped_arg()` 안에 개수 상한도 시간 예산 확인도 전혀 없다(모든 예산 검사가 이 함수가 반환한 뒤에 있다)'를 fail 사유로 적었는데, 이번 사이클은 그 함수의 **패스 1 복잡도만** 낮췄을 뿐 예산 확인은 한 건도 넣지 않았다 — HEAD 에서 `__find_wrapped_arg()`(:1866-1952) 안의 `date +%s%N` 발생 횟수는 여전히 **0건**(기계 확인). '검사 지점이 비용 발생 단위보다 성기면 상한은 있으나 마나다'는 문언에 정확히 해당한다",
+    "sprint-51.json 의 패스 2 감사 결론이 실측으로 반증됨 — '현재 코드 경로에서는 실제로 안전함을 실측 확인했다', '이 우려는 fail 사유로 쓰지 않는다'는 서술이 틀렸다. 방패(세그먼트 자신의 동사 검사 루프 3초 예산)는 n이 클 때만(n≳800) 작동하고, n≈450~750 구간에서는 앞 루프가 예산 안에 끝나 버려 패스 2가 무방비로 노출된다. 8000개 표본 **하나**로 안전을 일반화한 것은 30차 판정이 지적한 '표본 하나(2500개)만 확인했다'와 **같은 종류의 오류**를 반대쪽 극단에서 반복한 것이다"
+  ],
+
+  "requested_check_results": {
+    "check_1_pass1_On_and_no_regression": {
+      "result": "PASS (실행 검증)",
+      "math": "성립한다. 패스 1 루프 본문의 유일한 부수효과는 `__UNWRAP_CANDIDATES += t[j+1..n-1]` 이고(`__has_shell_code_flag()` 는 지역변수만 설정 — 코드 직접 확인), j가 커질수록 그 집합은 단조 축소하므로 매치들의 합집합 = 가장 이른 매치 하나의 집합. `break` 는 후보 **집합**을 바꾸지 않고 중복만 제거한다. 순서도 옛 배열의 접두사와 동일",
+      "empirical": "다중 매치 셀 14종 전수 ask — `sh -c -c`·`sh -c -c -c`·`bash -c -o posix`·`sh -c -o posix -c`·`sh -cx -c`·`sh '-c'`·`sh -\\c`·`csh`/`tcsh -c`·`grep -c … ; sh -c …`·`tar -czf … && sh -c …`·`sh -c -- …`·`env -c sh -c …`. 마찰 대조군 4종(`grep -c`·`git commit -m`·`tar -czf`·`ls -la`) 전수 allow 유지",
+      "30th_payload": "`sh` + `-c`×900 + `; rm -rf .claude` = 3047ms ask (수정 전 40초+/사망)"
+    },
+    "check_2_self_discovered_and_pass2_audit_honesty": {
+      "eea8f5a_self_discovered_fix": "PASS — 순수 대시-토큰 10800개(32408바이트) 3054ms ask. 자체 발견 서술도 정확하다",
+      "ordering_claim": "PASS — 세그먼트 자신의 동사 검사 루프(:2033-2107)가 `__find_wrapped_arg()` 호출(:2122)보다 **먼저** 실행되는 것이 맞다(코드 직접 확인)",
+      "pass2_has_no_budget_claim": "PASS — 패스 2 코드 자체에 예산 확인이 없다는 서술은 사실이다(함수 전체에 0건)",
+      "pass2_currently_safe_claim": "**FAIL — 이것이 이번 판정의 핵심 발견.** '앞 단계 예산에 가려 현재는 안전하다'는 결론이 틀렸다. 요청하신 대로 재현 스크립트 **밖에서** 직접 우회 경로를 구성했다: 토큰을 전부 인터프리터 이름으로(=패스 2를 자극) 하고 **하나도 대시로 시작하지 않게**(=앞 루프의 비싼 대시-절단 경로를 회피) 하면, 앞 루프는 3초 예산 안에 끝나고 패스 2가 무방비로 노출된다. n≈450~750 구간이 취약 창이다"
+    },
+    "check_3_regression_friction_docs": {
+      "bats": "PASS — 324 ok / 0 not ok, exit=0 (직접 재실행)",
+      "recurrence_record_honesty": "PASS — `wrapper_code_delivery_mechanism.status` 는 '해결'이 아니라 '자체검증 완료·독립검증 대기'로 적혀 있고, 열두 번째 재발과 자체 발견분(열세 번째)까지 정직하게 기록돼 있다. SC-10(4)·SC-10(5) 둘 다 계약에 실제로 등재돼 있다",
+      "friction": "**부분 FAIL** — eea8f5a 가 토큰마다 `date +%s%N` 를 포크해 무해한 명령의 지연이 약 4.4배 늘었고, 800개 경로짜리 `git add`(11897바이트)가 직전 판정 대상에서는 484ms/allow 였는데 HEAD 에서는 3029ms/**ask** 가 된다 — 신규 오탐(안전한 방향이지만 마찰)"
+    }
+  },
+
+  "issues": [
+    "[security][critical][confidence:high] `__find_wrapped_arg()` 패스 2의 O(n²) + 예산 0건 — 인터프리터 이름 토큰 500개(2016바이트, 진입 상한의 6%)로 훅이 5초 SIGKILL 에 죽어 판정이 나가지 않고 실제 삭제 성공(격리 샌드박스 3/3). 열세 번째 재발",
+    "[security][high][confidence:high] sprint-51.json 의 '패스 2는 현재 코드 경로에서 안전함을 실측 확인했다 / fail 사유 아님' 서술이 반증됨 — 8000개라는 단일 고n 표본으로 전 구간 안전을 일반화했다(30차가 지적한 단일 표본 일반화 오류의 반복)",
+    "[security][high][confidence:high] 30차 판정의 SC-10(5) fail 사유('함수 안에 예산 확인이 하나도 없다')가 미해결 — 패스 1의 복잡도만 낮췄고 예산 확인은 여전히 0건. 복잡도를 한 루프씩 쫓는 대응은 다음 루프에서 또 재발한다",
+    "[regression][medium][confidence:high] eea8f5a 의 토큰당 `date` 포크로 무해한 명령 지연 4.4배 증가(`git add`×400: 586ms→2614ms) + 800개 경로 `git add` 가 allow→ask 로 신규 오탐",
+    "[security][medium][confidence:high] 같은 수정이 취약 창의 **하한을 낮췄다** — n=500 에서 직전 판정 대상은 4483ms(생존), HEAD 는 6224ms(사망). 고n 구간은 닫았지만(직전: n=800 12208ms·n=1200 26838ms → HEAD 3034ms/3028ms ask) 진입 문턱이 ~2.8KB 에서 ~2.0KB 로 내려갔다",
+    "[test][medium][confidence:high] 성능 테스트 10건 중 인터프리터 이름 토큰을 쓰는 것이 **0건**이고, 전부 예산이 확실히 발동하는 극단값만 표본으로 잡는다 — 중간 구간(취약 창)을 만드는 shape 자체가 테스트 코퍼스에 없다. 27·29·30차가 지적한 '상수로 고정된 차원'이 이번엔 '토큰의 **모양**' 차원에서 재발",
+    "[code][low][confidence:medium] `-delete` 사전 검사 루프(`if [[ \"$seg\" == *\"-delete\"* ]]`)도 같은 함수 안의 **세 번째** 무예산 토큰 루프이며 예산 확인 루프보다 앞에 있다 — 진입 상한 최대 토큰 수(단일 문자 토큰 16300개, 32625바이트)에서 3032ms ask 로 실측 안전하므로 fail 사유는 아니지만, 방금 재발한 것과 구조가 동일하다",
+    "[code][low][confidence:medium] `WRAP_INTERPRETER_TOKENS` 는 정규식 `(python3?|node|nodejs|ruby|perl|php|lua)` 를 `|` 로 쪼개 만드는데, 그 원소 `python3?` 가 `[[ \"$stripped\" == \"$v\" ]]` 에서 **글로브**로 쓰인다 — `?` 가 '임의의 한 글자'라 `python3`·`python` 어느 쪽도 매치하지 않는다(패스 2 의 이름 게이트가 python 에는 영원히 발동하지 않음). 실증 피해는 없다(python 의 코드 플래그는 `-c` 라 패스 1 이 구조적으로 잡고, `python3 -e '...'` 는 패스 3 이 잡는다 — 실측 ask 확인). 정규식→글로브 변환이 조용히 손실적이라는 점만 기록",
+    "[style][low][confidence:medium] 자체 발견분 테스트(994becb)가 처음엔 시간만 단언했고 판정 존재 확인은 뒤 커밋(f09cdc0)에서 붙었다 — 30차의 메타 권고를 같은 커밋에서 적용했다면 한 번에 끝났을 항목"
+  ],
+
+  "passed_criteria": {
+    "acceptance": [
+      "AC-12: 30차 판정의 정확한 페이로드(`sh` + `-c`×900 + 실제 삭제)가 3047ms ask — 회귀 없음",
+      "AC-12: 19~29차가 닫은 셀 전수 유지 — `env -Srm -rf .claude`·`env -S'rm -rf .claude'`·`sh -c'rm -rf .claude'`·`rm -rf .claude`·`csh`/`tcsh -c`·인용/백슬래시 플래그 표기 변형",
+      "AC-12: 패스 1 `break` 최적화가 다중 매치 셀 14종에 회귀를 만들지 않음(전수 ask)",
+      "AC-12 friction_requirement: 짧은 일상 명령 대조군 전수 allow 유지(`grep -c`·`git commit -m`·`tar -czf`·`ls -la`·`sometool -Xrm somefile.txt`)"
+    ],
+    "security": [
+      "SC-10(1) add-only: 이 사이클의 두 수정 모두 allow→ask 방향으로만 분기한다(코드 확인 + 대조군 실측)",
+      "SC-10(4) fail-closed 방향: eea8f5a 가 넣은 예산 확인은 초과 시 `CP_DELETE_HIT` 설정 후 return 0(ask) — 방향이 올바르다",
+      "세그먼트 자신의 동사 검사 루프(자체 발견분): 순수 대시-토큰 10800개(32408바이트)에서 3054ms ask 로 fail-closed"
+    ],
+    "error_scenarios": [
+      "성능 테스트 3건 + 신규 2건에 `permissionDecision` 존재 확인이 실제로 들어가 있음(f09cdc0, HEAD 파일에서 직접 확인) — '빠르다'와 '훅이 죽어 출력이 없다'를 구분하게 됨",
+      "bats 전체 324/324 green, exit 0(직접 재실행)"
+    ]
+  },
+
+  "failed_criteria": {
+    "acceptance": [
+      "AC-12(코드 전달 경로 무관 최소 ask): 인터프리터 이름 토큰 450~750개 + 실제 삭제 → 판정 없음 + 실제 삭제 성공"
+    ],
+    "security": [
+      "SC-10(5)(상한의 검사 단위가 실제 비용 단위와 일치): `__find_wrapped_arg()` 안 예산 확인 0건 — 30차가 적은 그대로 미해결",
+      "SC-10(2)(마찰 수용 범위): 800개 경로 `git add` 가 신규 ask — 계약이 수용한 마찰('인용 문자열 안에 삭제 동사+컨트롤 플레인 경로가 우연히 함께 나타나는 경우')과 무관한 새 종류의 오탐"
+    ],
+    "error_scenarios": [
+      "훅 사망 → 출력 0바이트 → 판정 없음 → 명령 그대로 실행. 이 경로가 2016바이트 입력으로 여전히 도달 가능"
+    ]
+  },
+
+  "recommended_fix": {
+    "primary": "패스 2를 패스 1과 **같은 논증으로** O(n)으로 낮춘다. 인터프리터 위치 i 가 만드는 후보는 `t[j(i)+1..]`(j(i) = i 뒤 첫 `-e`/`-r`)이고 j(i) 는 i 에 대해 단조 증가하므로, 모든 i 의 합집합 = **가장 이른** 인터프리터 i0 의 j(i0) 하나가 만드는 집합이다 — i0 를 한 번 찾고(O(n)) 그 뒤 첫 플래그를 한 번 찾으면(O(n)) 끝난다. 지금의 O(n²)은 플래그가 **하나도 없을 때** 이름 토큰마다 끝까지 헛스캔하는 데서 나오는데, 이 재작성은 그 경우를 스캔 한 번으로 끝낸다. 30차 대응이 패스 1 에서 이미 증명한 논증을 한 층 아래에 그대로 적용하는 것이다",
+    "secondary": "복잡도 수정과 **별개로** `__find_wrapped_arg()` 자신에게 예산 확인을 넣는다(SC-10(5)의 문언이 요구하는 것). 세 패스 각각의 바깥 루프 상단에서 `__HOOK_START_NS` 기준 경과를 보고 초과 시 `__UNWRAP_CANDIDATES` 를 비운 채 특수 반환 → 호출처가 ask 로 확정. 복잡도를 한 루프씩 쫓는 방식은 26→27→28→29→30→31차에서 여섯 번 연속 '고친 자리 바로 옆'에서 재발했다 — 예산 확인은 **클래스 전체**를 fail-closed 로 만드는 유일한 수단이다",
+    "tertiary": "eea8f5a 의 토큰당 `date` 포크를 없앤다 — K개 토큰마다(예: 64) 한 번만 시각을 읽거나, `EPOCHREALTIME`(bash 4.2+)을 우선 쓰고 bash 3.2 에서만 `date` 로 폴백한다. 지금은 예산 확인 자체가 앞 루프의 비용을 4배로 만들어, (a) 무해한 명령에 오탐을 만들고 (b) 취약 창의 하한을 오히려 낮췄다",
+    "test": "성능 테스트의 '토큰 모양' 차원을 상수에서 풀어, `{대시 토큰, 코드 플래그 토큰, 인터프리터 이름 토큰, 평범한 토큰}` × `{100, 300, 500, 700, 1000, 2000, 진입 상한 근처}` 를 생성 규칙으로 훑는다. 이 축의 재발 6회 중 4회가 '기존 테스트가 만들지 않는 shape' 였다 — 극단값 두 점만 찍는 표본은 중간 창을 원리적으로 못 본다"
+  },
+
+  "criteria_gaps": {
+    "missing_criteria": [
+      "SC-10(5)가 '검사 지점이 비용 단위보다 성기면 안 된다'를 서술로만 요구하고, **어떤 함수가 예산 확인 없이 통째로 실행되어도 되는가**에 대한 기계 확인 가능한 형태를 주지 않는다 — 예: '토큰 배열 전체를 순회하는 모든 루프는 자신의 예산 확인을 가진다'는 불변식으로 적으면 이번 재발이 코드 리뷰만으로 잡혔다",
+      "AC-12.verification 이 타임아웃 계열 페이로드를 '특정 크기 1점'으로만 요구한다 — '토큰 개수를 범위로 훑어 최악 지점을 찾는다'가 기준에 없다. 이 축 재발의 절반이 '표본을 극단에만 찍어서' 발생했다",
+      "훅 자신이 추가하는 지연(예산 확인의 포크 비용 등)에 대한 상한 조항이 없다 — 이번 `git add` 오탐은 현재 어떤 기준에도 걸리지 않는다"
+    ],
+    "ambiguous_criteria": [
+      "SC-10(2)의 '코퍼스 기반으로 측정 가능한 수준으로 낮음'에 수치 기준이 없어, 800개 경로 `git add` 의 신규 ask 가 수용 범위인지 판정할 근거가 계약에 없다"
+    ],
+    "security_criteria_insufficient": [
+      "SC-10 이 '상한의 방향'(4)과 '검사 단위'(5)는 규정하지만 '검사의 **커버리지**'(모든 O(n) 이상 루프가 확인 지점을 갖는가)는 규정하지 않는다 — 31차 재발이 정확히 그 틈이다"
+    ],
+    "action_required": "다음 iteration에서 SC-10 에 (6) '토큰/후보 배열을 순회하는 모든 루프는 자신의 시간 예산 확인을 가진다'를 신설하고, AC-12.verification 에 '토큰 개수 범위 스윕' 요구를 추가할 것"
+  },
+
+  "criteria_issues": [],
+  "criteria_backfill_review": "이번 사이클의 계약 갱신(80fdff5)은 범위를 넓히거나 요건을 완화하지 않았다 — 재발 이력을 정직하게 추가했을 뿐이다. 다만 패스 2 감사 결론을 '안전함을 실측 확인'으로 적은 것은 **요건 완화는 아니지만 사실 오류**이므로 다음 커밋에서 정정이 필요하다",
+
+  "evidence": {
+    "bats": "bats tests/pre-bash-firewall.bats (HEAD 80fdff5) — 1..324, ok 324 / not ok 0, exit=0. 로그: /private/tmp/claude-501/-Users-hanbyeol-Project-studioj-cc-harness/cdafbc69-27b3-469f-b03e-6b8fdb80c81b/scratchpad/bats-head.log",
+    "provided_repro": "f65-31st-repro.sh 직접 재실행 — 6개 절 전부 기대대로(fail=0). 30차 페이로드 3047ms ask / 1000·2000개 확대 3046·3044ms ask / 자체 발견분 10800 대시-토큰 3054ms ask / 27~29차 셀 4종 ask / 마찰 대조군 3종 allow / 격리 샌드박스에서 30차 페이로드가 실제 삭제 공격임 확인",
+    "pass1_regression_battery": "probe-regress.sh — 다중 매치·표기 변형 18셀 전수 ask, 마찰 대조군 4셀 전수 allow (0 FAIL)",
+    "pass2_quadratic_sweep": "probe-pass2.sh / probe-compare.sh — `perl`×N + `; rm -rf .claude` (HEAD): n=200 1567ms · n=300 2854ms · n=400 4754ms · n=500 6224ms · n=600 8594ms · n=700 11271ms · n=800 3041ms(앞 루프 예산 발동) · n=1200 3043ms · n=2000 3050ms · n=3000 3042ms",
+    "pass2_exploit_e2e": "probe-e2e.sh — 실제 hooks.json 설정과 동일한 5.0초 벽시계 SIGKILL 하에서 3회 반복: n=500(2516B)·n=600(3016B) 모두 hook=KILLED, decision 없음, 격리 mktemp 샌드박스에서 `.claude` 실제 삭제 3/3. n=700 은 부하에 따라 앞 루프 예산이 먼저 발동하기도 함(창의 경계가 부하 의존적)",
+    "pass2_minimal_payload": "probe-min.sh — `lua`×500 = 2016바이트(진입 상한의 6%) 6819ms · `php`×500 2016B 7558ms · `node`×500 2516B 7144ms · `ruby`×500 2516B 7463ms — 목록의 모든 인터프리터 이름에서 성립",
+    "regression_vs_parent": "probe-compare.sh / probe-parent-high.sh — e5d05eb(직전 판정 대상) vs 80fdff5(HEAD), `perl`×N: n=300 1723→2854ms · n=400 2830→4754ms · n=500 4483(생존)→6224ms(사망) · n=600 6303→8594ms · n=700 8472→11271ms · n=800 12208→3034ms(ask) · n=1200 26838→3028ms(ask). 즉 고n 구간은 닫혔고 취약 창의 하한은 ~n550 에서 ~n450 으로 내려갔다",
+    "friction_regression": "probe-friction.sh — `git add` 경로 N개, e5d05eb vs HEAD: 10개 115→159ms · 50개 143→339ms · 100개 177→603ms · 200개 287→1115ms · 400개 586→2614ms · 500개 793→2882ms · 600개 396→2892ms · **800개(11897B) 484ms/allow → 3029ms/ask** · 1000개 580ms/allow → 3032ms/ask",
+    "delete_preloop_probe": "probe-deleteloop.sh — `x-delete` + 토큰 N개(조기 break 회피): 단일 문자 토큰 16300개(32625바이트, 진입 상한 근접)에서도 3032ms ask — 이 무예산 루프는 실측 안전(fail 사유 아님)",
+    "code_facts": "hooks/pre-bash-firewall.sh:1866-1952 구간의 `date +%s%N` 발생 횟수 = 0 (awk 기계 확인). 세그먼트 동사 검사 루프 :2033-2107 → `__find_wrapped_arg()` 호출 :2122 순서 확인. 패스 2 구조 :1925-1943(플래그 미발견 시 이름 토큰마다 끝까지 스캔)",
+    "_note": "모든 5차원 점수가 이 세션의 직접 실행 결과에 근거한다 — unverified 표기 항목 없음"
+  },
+
+  "note_for_main_loop": {
+    "verdict_is_fail": "이번 판정은 fail 이므로 F37 2차 판정(독립 컨텍스트 교차검증)과 security-auditor 병행은 이번 라운드에서 게이트 통과 목적으로는 불필요하다 — 다만 이 축이 31차 연속 반려이므로, 2차 judge 를 붙여 '패스 2 O(n²)' 진단 자체를 교차확인하는 것은 유용하다",
+    "if_a_future_round_passes": "critical tier 이므로 **evaluator 단독 pass 로는 게이트 통과가 아니다** — F37 2차 판정(독립 컨텍스트) + security-auditor 병행이 반드시 필요하다",
+    "passes_not_changed": "progress/feature_list.json 의 F65.passes 는 변경하지 않았다(fail)",
+    "recurrence_count": "19~31차로 **열세 번째 재발**(자체 발견분 포함 열네 번째). 여섯 라운드 연속 '고친 자리 바로 옆'에서 재발했다 — 26→27(호출처 하나 누락), 28→29(호출처 둘 사이 비대칭), 29→30(형제 함수 누락), 30→31(같은 함수의 옆 패스). 다음 라운드는 개별 결함이 아니라 **클래스 전체를 fail-closed 로 만드는 예산 커버리지**를 요구할 것을 권고한다"
+  }
+}

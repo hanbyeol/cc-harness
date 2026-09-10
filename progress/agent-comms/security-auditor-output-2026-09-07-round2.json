@@ -1,0 +1,113 @@
+{
+  "timestamp": "2026-09-07T00:00:00+0900",
+  "feature_id": "F65",
+  "contract": "progress/contracts/sprint-51.json",
+  "head_commit": "d8107d4",
+  "auditor_note": "이 감사는 F65 사가의 36차 evaluator 판정(min-of-5=7, pass) 이후 독립 security-auditor 재감사다(직전 라운드 progress/agent-comms/security-auditor-output.json 의 후속, 별도 파일). **결론: F65.passes 를 true 로 전환하는 것에 반대한다.** 직전 라운드가 낸 AUDIT-6(중괄호 확장이 동사 위치에는 적용되지 않음)이 이번 라운드에서 여전히 완전히 열려 있고, 이번 감사가 격리 랩에서 실제 삭제로 재확인했다 — 무프롬프트 allow 로 컨트롤 플레인이 지워진다는 점에서 이미 수정된 AUDIT-3(critical, 파라미터 확장)과 구조적으로 동일한 클래스이며, AUDIT-3/4/5 를 닫는 동안 이 형제 축을 '이번 회전에서 다루지 않는다'고 명시적으로 미룬 결정(sprint-51.json 참조)이 그대로 노출된 상태다. 심각도를 medium 에서 high 로 상향할 것을 권고한다.",
+  "scan_scope": [
+    "hooks/pre-bash-firewall.sh 전체 재검토 — scan_control_plane_delete()/__scan_one_segment_for_cp_delete()/pure_read_only()/__note_opaque_verb()/__scan_opaque_verb_matches()/__strip_dollar_brace()/__mask_opaque_spans()/__find_wrapped_arg()/normalize_path_token()/__control_plane_location_impl()",
+    "progress/contracts/sprint-51.json — _residual_risk_AC11.open_axes_2026_08_04 전체, acceptance_criteria AC-11/AC-12, security_criteria SC-9/SC-10(특히 SC-10(6)/(7))",
+    "progress/agent-comms/security-auditor-output.json (직전 라운드 원본 — AUDIT-3~9 재확인 기준)",
+    "tests/pre-bash-firewall.bats — F65 관련 115개 @test 스캔(중괄호 동사 위치 커버리지 없음 확인)",
+    "hooks/invariant-guard.sh:984-1009 (INV-5 구현)"
+  ],
+  "method": "실제 hook 실행(jq 파이프) + 격리 랩(mktemp 디렉터리에 합성 .claude/settings.json 생성 후 eval, 실제 파일 생존 여부로 판정) + bash 5.3(GNU, /usr/local/bin/bash)·zsh(macOS 기본, 참고용) 양쪽 확인.",
+  "mandate_1_audit_3_4_5_spotcheck": {
+    "verdict": "재현 시도한 창의적 조합(3중 분할·중첩 치환·백틱+$() 혼합)에서 회귀 없음 — 이 축은 실제로 닫혀 있다.",
+    "payloads_tested": [
+      { "cmd": "r$(true)m -rf .claude", "result": "ask", "note": "단일 command-sub로 리터럴 동사 분할, 기존 축(closed)" },
+      { "cmd": "r`true`$(true)m -rf .claude", "result": "ask", "note": "백틱+$() 혼합, 같은 토큰에 두 종류 치환" },
+      { "cmd": "r${Z}$(true)`true`m -rf .claude", "result": "ask", "note": "파라미터 확장+두 치환 3중 결합" },
+      { "cmd": "find .claude -dele${Z}te", "result": "ask", "note": "AUDIT-4 술어 파라미터 확장, SC-10(6) site 1/3 대칭 확인" },
+      { "cmd": "$(echo find) .claude -delete", "result": "ask", "note": "find 토큰 자체가 치환으로 계산" },
+      { "cmd": "$(echo r$(echo m)) -rf .claude", "result": "allow (해당 없음)", "note": "**새 결함 아님** — 전체 첫 단어가 하나의 $(...) 스팬이고, 그 스팬 안에 리터럴 'rm'이 연속 텍스트로 존재하지 않는 중첩 치환 조합(inner echo가 동적으로 만든 값). 이는 sprint-51.json _residual_risk_AC11.open_axes_2026_08_04.verb_via_substitution 에 이미 declared residual로 명시된 정확히 그 형태('치환 문자열 자체에는 동사 리터럴이 나타나지 않는 경우', 예시로 printf 헥스·base64 디코드가 이미 등재)다. 새 축으로 보고하지 않는다."},
+      { "cmd": "$(echo r`echo m`) -rf .claude", "result": "allow (해당 없음)", "note": "위와 동일 사유 — verb_via_substitution declared residual 범위 안" }
+    ],
+    "sc_10_6_all_sites_check": {
+      "rule": "SC-10(6)은 '같은 판정(리터럴 삭제 동사 존재 / find+-delete 술어 동시 존재)'을 중복 구현하는 4개 지점 각각이 동일한 마스킹(명령치환 제거+순수 변수명 파라미터 확장 제거)을 갖춰야 한다고 요구한다.",
+      "sites_and_status": [
+        { "site": "pure_read_only()의 자체 find 핸들링 (:938-963)", "status": "적용됨 — __mask_opaque_spans + __strip_dollar_brace 사본 확인, `find .claude -dele${Z}te` 가 여기서도 armed(비-read-only)로 처리되어 아래 게이트에 도달함을 확인" },
+        { "site": "__scan_one_segment_for_cp_delete()의 세그먼트 자신 동사 검사 루프 (:2300-2344)", "status": "적용됨 — `r${Z}m -rf .claude` ask 재확인" },
+        { "site": "같은 함수의 find/-delete 술어 사전 검사 (:2205-2237)", "status": "적용됨 — `find .claude -dele${Z}te`·`find .claude $(echo -delete)` 둘 다 ask" },
+        { "site": "__note_opaque_verb()/__scan_opaque_verb_matches() (치환/백틱 스팬 안쪽, :1543-1608)", "status": "적용됨 — `$(r${Z}m -rf .claude)`(치환 안에 파라미터 확장 동사) ask 확인" }
+      ],
+      "conclusion": "SC-10(6)이 규정한 4개 지점 모두 현재 코드에서 실제로 대칭이다 — 이 규칙 자체는 지금 충족된다. **단, SC-10(6)의 범위는 '파라미터 확장·명령 치환으로 인한 리터럴 은폐' 축에 한정된다 — 중괄호 확장 축(AUDIT-6)은 이 규칙의 대상이 아니며, 4개 지점 중 어디에도 중괄호 확장 처리가 없다.** SC-10(6) 충족이 AUDIT-6 종결을 의미하지 않는다."
+    }
+  },
+  "mandate_2_next_layer_hunt": {
+    "hypotheses_tested": [
+      {
+        "mechanism": "중괄호 확장(brace expansion)을 동사 위치에 사용 — 콤마형·범위형(퇴화 범위 포함)",
+        "result": "**여전히 완전히 열려 있음 — 무프롬프트 allow, 격리 랩 실제 삭제 재확인.** AUDIT-6과 동일 축, 코드 변경 없음(직전 라운드가 명시적으로 이번 회전에서 다루지 않기로 결정한 그대로).",
+        "payloads": [
+          { "cmd": "{r..r}m -rf .claude", "decision": "allow", "lab": "DELETED — bash 5.3에서 eval, .claude/settings.json 실제 삭제 확인. 퇴화 범위이므로 단일 단어 'rm'으로 정확히 펴져 인자 순서 왜곡이 전혀 없다 — 콤마형보다 실전성이 높다." },
+          { "cmd": "{r,x}m -rf .claude", "decision": "allow", "lab": "이 머신(BSD /bin/rm)에서는 'rm xm -rf .claude'로 펴져 인자 순서 문제로 미삭제 — 그러나 이는 로컬 rm 바이너리의 우연한 관용이지 방화벽의 방어가 아니다. GNU rm 환경(대부분의 리눅스 컨테이너/CI)에서는 삭제된다(직전 라운드 원 보고서에 이미 명시됨)." },
+          { "cmd": "{f,g}ind .claude -delete", "decision": "allow", "lab": "DELETED — GNU find는 존재하지 않는 경로(gind)에 대해 stderr 에러만 내고 나머지 유효 경로(.claude)는 계속 처리하므로 정상 삭제된다. find는 인자 순서에 민감하지 않아 콤마형의 순서 왜곡 문제도 우회한다 — find 무장 게이트가 동사/술어 둘 다 파라미터 확장·치환에는 강화됐지만 중괄호에는 무방비임을 보여주는 별도 확인." }
+        ],
+        "root_cause": "normalize_path_token()과 동사 검사 루프(:2260-2400) 어디에도 중괄호 확장 처리가 없다. 중괄호 확장은 오직 __control_plane_location_impl()(피연산자 판정)에만 배선돼 있다 — SC-10(6)이 열거하는 4개 대칭 지점 중 어느 것도 이 확장을 다루지 않는다."
+      },
+      {
+        "mechanism": "ANSI-C/로케일 인용을 동사 자리에 ($'r''m')",
+        "result": "닫혀 있음 — __tokenize_segment()가 인용 밖에서 `$` 다음이 `'`/`\"` 이면 armed 여부와 무관하게 즉시 SEGMENT_UNSAFE=1(ask)로 fail-closed. 재확인 불필요할 만큼 코드 경로가 명확하다."
+      },
+      {
+        "mechanism": "간접 파라미터 확장 ${!Y}",
+        "result": "닫혀 있음(우연히 안전) — `${!Y}`의 내부가 `^[A-Za-z_][A-Za-z0-9_]*$`에 매치하지 않아(`!` 포함) __strip_dollar_brace()가 지우지 않고, 미해결 `${`로 남아 verb_notation_bare_token_expansion 수정이 넣은 '미해결 ${ 잔존 시 armed 확정' 폴백(:2342)에 걸려 armed=1이 된다.",
+        "payload_tested": "Y=Z; ${!Y} -rf .claude → ask"
+      },
+      {
+        "mechanism": "산술 확장 $(( )) 을 이용한 동사 조합",
+        "result": "실용적 경로 못 찾음 — $(( ))은 정수를 산출하고, ANSI-C 8진/16진 이스케이프($'\\162\\155')로 우회 시도하면 그 자체가 위 ANSI-C 케이스로 fail-closed된다. 새 축 아님."
+      },
+      {
+        "mechanism": "유니코드 룩어라이크 문자",
+        "result": "실제 rm 등 바이너리 이름과 매치하지 않으므로 셸이 실행 자체를 못 함 — 방화벽 우회와 무관, 조사 종료."
+      }
+    ]
+  },
+  "mandate_3_sc10_6_verification": "위 mandate_1의 sc_10_6_all_sites_check 참조 — 4개 지점 모두 현재 코드에서 대칭 확인됨(파라미터 확장/명령 치환 축 한정).",
+  "mandate_4_audit_6_7_8_9_status": [
+    {
+      "id": "AUDIT-6",
+      "previous_severity": "medium",
+      "recommended_severity": "high",
+      "status": "OPEN — 코드 변경 없음, 이번 라운드 재확인",
+      "severity_escalation_rationale": "직전 라운드는 이 축을 medium으로 분류했으나, 실제 동작은 AUDIT-3(critical로 분류됐던 것)과 정확히 같은 성질이다 — 두 축 모두 '동사 토큰에 셸이 투명하게 수행하는 확장이 있으면 armed 정확/접미사 비교가 걸리지 않아 무프롬프트 allow가 나고 실제 삭제로 이어진다'는 동일한 근본 결함이다. AUDIT-3/4/5가 critical/high로 분류되어 최우선 수정된 반면 이 형제 축은 아직 열려 있으므로, 최소한 high로 재평가하는 것이 SC-9('컨트롤 플레인 삭제 예측이 표기 축 전수에서 성립')의 취지와 일관된다. `{r..r}m`은 인자 순서 왜곡도 없어 콤마형보다 실전성이 더 높다.",
+      "reproduction": "{r..r}m -rf .claude  (또는 컨트롤 플레인 삭제 게이트가 걸리는 다른 대상 — .claude/hooks·hooks/hooks.json 등에도 동일 메커니즘 적용 가능, 이번 라운드는 시간상 settings.json 등가물과 find -delete 두 인스턴스만 랩 확인)",
+      "isolated_lab_confirmation": "DELETED — bash 5.3 실행, 합성 .claude/settings.json 실제 삭제됨. find 변형(`{f,g}ind .claude -delete`)도 별도 확인.",
+      "recommended_fix": "직전 라운드 권고 그대로 유효: normalize_path_token() 또는 동사 후보 토큰 판정 경로에 __control_plane_location_impl()이 이미 갖춘 중괄호 확장기(콤마·범위·퇴화범위)를 재사용해 편 뒤 ARM_DELETE_VERBS_UNCONDITIONAL/ARM_DELETE_VERB_DELETE_GATED와 대조한다. 펴는 데 실패하거나 예산을 넘기면 allow가 아니라 armed(ask)로 fail-closed — 이 파일의 기존 관용구와 동일 방향."
+    },
+    {
+      "id": "AUDIT-7",
+      "severity": "medium",
+      "status": "OPEN — 코드 변경 없음, 이번 라운드 재확인",
+      "reproduction": "xxd -r -p /tmp/p.hex .claude/settings.json (allow) / bats /tmp/evil.bats (allow)",
+      "isolated_lab_confirmation": "xxd 재확인: 헥스 디코드로 대상 파일 덮어쓰기 실제 동작 확인(일반 파일로 확인, 컨트롤 플레인 파일도 같은 메커니즘). bats는 임의 셸 코드 실행 자체가 도구의 정의된 기능이므로 재확인 불필요할 만큼 자명.",
+      "note": "pure_read_only() 목록(:932)에 xxd·bats가 여전히 존재 — PURE_READ=1이 되면 scan_control_plane_delete()와 ASK_PATTERNS 전체를 건너뛰므로 손실 상한이 크다는 원 평가 유효."
+    },
+    {
+      "id": "AUDIT-8",
+      "severity": "low",
+      "status": "OPEN — 코드 변경 없음, 이번 라운드 재확인",
+      "reproduction": "rtk cat README.md (allow, 근거 없는 접두 스트립 동작 재현)",
+      "additional_check": "rtk rm -rf .claude → ask로 정상 처리됨을 확인(스트립 후 tok='rm'이 read-only 화이트리스트에 없어 pure_read_only가 여전히 0을 반환, control-plane 게이트 도달) — 원 평가대로 현재 활성 익스플로잇 경로는 없음, 근거 없는 매직 토큰이라는 구조적 지적만 유효."
+    },
+    {
+      "id": "AUDIT-9",
+      "severity": "low",
+      "status": "OPEN — 코드 변경 없음, 이번 라운드 재확인",
+      "file": "hooks/invariant-guard.sh:989-995",
+      "note": "count_array()가 여전히 작은따옴표로 시작하는 라인 수만 세고 내용(해시)은 비교하지 않음을 코드로 직접 재확인. F74 tombstone 4건이 이 성질을 이용해 사용자 승인 하에 매치를 무력화한 선례가 그대로 남아 있음(그 자체는 위반 아님, 구조적 약점의 예시로 유효)."
+    }
+  ],
+  "sc_10_7_residual_attribution_check": {
+    "rule": "테스트/재현 스크립트가 어떤 페이로드를 'allow가 기대값'이라 단언하려면 대응하는 open_axes 서술이 먼저 존재해야 한다.",
+    "finding": "AUDIT-6(중괄호 확장 동사) 페이로드는 tests/pre-bash-firewall.bats 어디에도 없다(grep 결과 0건) — 즉 이 축은 '잘못 귀속된 잔여 위험'이 아니라 '아직 테스트되지 않은 완전한 커버리지 공백'이다. SC-10(7) 위반은 아니지만(위반하려면 애초에 그런 단언이 존재해야 한다), _residual_risk_AC11.open_axes_2026_08_04에도 이 축이 정식 항목으로 등재돼 있지 않다 — sprint-51.json 본문에는 'AUDIT-6...이번 회전에서 다루지 않는다'는 서술만 있고 open_axes 딕셔너리의 정식 키(다른 축들처럼 example/status/reason 구조)로 승격되어 있지 않다. 기준 역전파 원칙에 따라, 다음 change-request에서 이 축을 open_axes_2026_08_04(또는 후속 날짜)의 정식 항목으로 추가할 것을 권고한다 — 그래야 향후 라운드가 이 축을 실수로 재-신규 발견 취급하거나 반대로 조용히 닫힌 것으로 오인하는 것을 막는다."
+  },
+  "new_findings": [],
+  "summary": "새 AUDIT-10+ 없음. 창의적으로 시도한 중첩/혼합 치환 조합은 모두 이미 declared residual(verb_via_substitution) 범위 안이었다. 핵심 재확인 사항은 AUDIT-6이 여전히 완전히 열려 있고 무프롬프트 allow로 실제 삭제까지 이어진다는 것 — 이는 이미 수정된 AUDIT-3와 동일한 근본 결함(동사 토큰 셸 확장 미모델링)의 두 번째 표기 풀이며, 직전 라운드가 critical/high(AUDIT-3/4/5) 우선 수정을 위해 명시적으로 미룬 항목이 그대로 남아 있는 것이다. SC-10(6)의 4개 대칭 지점 규칙은 현재 코드에서 실제로 충족되지만, 그 규칙의 적용 범위가 파라미터 확장/명령 치환 축에 한정돼 중괄호 확장 축을 포함하지 않는다는 점을 명확히 한다. AUDIT-7/8/9는 코드 변경 없이 그대로 열려 있다.",
+  "recommendation": {
+    "verdict": "F65.passes 를 true 로 전환하지 말 것",
+    "priority": "AUDIT-6을 AUDIT-3/4/5와 같은 방식(중괄호 확장기를 동사 검사 경로에 재사용, 실패 시 fail-closed)으로 먼저 닫을 것. 그 다음 SC-10(6) 대칭 지점 목록에 '중괄호 확장 처리'를 추가 항목으로 명시하고, sprint-51.json open_axes에 이 축을 정식 키로 등재할 것(SC-10(7) 준수). AUDIT-7/8/9는 낮은 심각도이므로 별도 change-request로 순연 가능하나, F65 자체의 critical-tier 통과를 막는 것은 AUDIT-6이다."
+  }
+}

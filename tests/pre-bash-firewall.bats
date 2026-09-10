@@ -4397,3 +4397,82 @@ $cmd"
   [[ "$output" == *'"permissionDecision": "allow"'* ]] \
     || { echo "무관한 다중 명령 치환 명령에 커서 오염발 새 마찰: echo \$(pwd) \$(basename x)"; false; }
 }
+
+@test "F65 security-auditor AUDIT-6(high): 중괄호 확장으로 쪼갠 동사·find/-delete 술어가 잡힌다" {
+  # `{r..r}m -rf .claude`(퇴화 범위, 정확히 "rm"으로 펴진다) · `{f,g}ind .claude -delete`
+  # (콤마, GNU find가 존재하지 않는 첫 경로를 무시하고 계속 진행)가 전부 allow + 격리 랩
+  # 실제 삭제였다 — 파라미터 확장·명령 치환과 같은 부류(셸이 투명하게 펴는 표기가 정확/
+  # 접미사 비교를 우회)의 네 번째 사례. __control_plane_location_impl()이 이미 쓰는 것과
+  # 같은 안전한 중괄호 파서 원시함수를 재사용하는 __verb_brace_matches()로 닫는다.
+  local c
+  for c in '{r..r}m -rf .claude' '{r,x}m -rf .claude' 'r{m,x} -rf .claude' \
+           '{rmdir,xx} .claude' '{f,g}ind .claude -delete' 'find .claude -{d,x}elete' \
+           'find{,x} .claude -delete'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "AUDIT-6 페이로드가 allow로 샜다: $c"; false; }
+  done
+}
+
+@test "F65 security-auditor AUDIT-6 자체 발견 회귀: 중괄호가 있는 피연산자 토큰이 동사 자리로 잘못 가로채지지 않는다" {
+  # 최초 구현은 __verb_brace_matches()가 못 펴는 형태(suspicious)·예산 소진 시 "무장
+  # 확정"(return 0)으로 답했다 — __control_plane_location_impl()(피연산자 판정)과 같은
+  # 방향이었지만, 이 함수는 세그먼트의 모든 토큰에 대해(어느 자리인지 모른 채) 불려서
+  # 피연산자 토큰(`rm -rf x{1..a}`의 `x{1..a}`)까지 "무장된 동사"로 착각해 armed=1;
+  # continue로 가로채, 원래 그 토큰을 잡았어야 할 __control_plane_location_impl() 의
+  # "suspicious → ask" 처리 자체가 실행되지 않게 만들었다(실측 회귀: allow로 샘). 못
+  # 펴면 "이 검사로는 결정하지 않는다"(return 1)로 고쳐 피연산자 판정에 자리를
+  # 양보하도록 방향을 뒤집었다.
+  local c
+  for c in "rm -rf x{1..a}" "rm -rf x{a..1}" "rm -rf x{1..999999999999999999999}"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "중괄호 피연산자 가로채기 회귀가 재발했다: $c"; false; }
+  done
+}
+
+@test "F65 security-auditor AUDIT-6: 무관 명령의 평범한 중괄호 확장에 새 마찰이 없다" {
+  local c
+  for c in 'echo {1,2,3}' 'cp file.txt{,.bak}' 'mkdir -p {src,test}/dir' \
+           'echo file{1..5}.txt' "find .claude -name '*.json'"; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "무관 명령의 중괄호 확장에 새 마찰: $c"; false; }
+  done
+}
+
+@test "F65 security-auditor·qa-reviewer 병렬 발견: 대입 후 그 변수를 동사로 호출하는 관용구가 잡힌다(좁은 범위, 사용자 확인)" {
+  # `V=rm; \${V} hooks/hooks.json`·`V=rm; \$V hooks/hooks.json`가 전부 allow + 격리 랩
+  # 실제 삭제였다 — 지금까지 고친 것(한 토큰/세그먼트 안에서 문자를 조작해 동사를 가리는
+  # 표기)과 달리, 동사 값이 **다른(앞선) 세그먼트의 대입**에서 온다. 사용자 확인을 거쳐
+  # 가장 좁은 인접 사례만 닫는다: 직전(정확히 하나 앞) 세그먼트가 정확히 `VAR=리터럴단어`
+  # 형태이고, 뒤 세그먼트의 토큰이 정확히 `${VAR}`/`$VAR` 하나뿐인 경우만 인식한다.
+  local c
+  for c in 'V=rm; ${V} hooks/hooks.json' 'V=rm; $V hooks/hooks.json' \
+           'DELCMD=rm; $DELCMD hooks/hooks.json' 'P=.claude; rm -rf ${P}' \
+           'P=.claude/settings.json; rm ${P}' 'V=find; ${V} .claude -delete'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "대입 후 호출 관용구가 allow로 샜다: $c"; false; }
+  done
+}
+
+@test "F65 대입 후 호출: 인접성 범위(정확히 하나 앞)를 넘는 체이닝은 의도적으로 범위 밖(declared residual)" {
+  # 체이닝된 대입(A=x; B=\${A}; \${B})·export·배열·read로 채운 변수는 값 추적 범위가
+  # 임의로 커지는 별개의(더 넓은) 작업이라 이번 라운드에서 일부러 다루지 않는다 —
+  # sprint-51.json에 명시적으로 등록된 잔여 축이다. allow가 계속 나오는 것이 이번
+  # 좁은 대응의 의도된 경계다(회귀가 아니라 declared residual).
+  run delete_decision 'A=rm; B=${A}; ${B} hooks/hooks.json'
+  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+    || { echo "체이닝 대입 declared residual 경계가 바뀌었다 — sprint-51.json 서술을 갱신할 것"; false; }
+}
+
+@test "F65 대입 후 호출: 무관한 대입·참조에 새 마찰이 없다" {
+  local c
+  for c in 'V=hello; echo $V' 'PATH=/usr/bin; echo $PATH' 'NAME=world; echo "hi ${NAME}"' \
+           'DIR=src; ls ${DIR}'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "무관한 대입·참조에 새 마찰: $c"; false; }
+  done
+}

@@ -1,0 +1,101 @@
+{
+  "timestamp": "2026-09-07T00:18:09+0900",
+  "sprint": 51,
+  "iteration": 25,
+  "feature_id": "F65",
+  "features_evaluated": ["F65"],
+  "security_tier": "critical",
+  "target_commit": "65ab919 (code e508b16, tests 0e74a16)",
+  "parent_verdict_commit": "49b30c2 (24th, fail)",
+  "baseline_commit": "11c8db7",
+  "scope": "AC-12/SC-10 (wrapper_code_delivery_mechanism 축) 판정. implementation_steps 14. 명시적 out-of-scope: nested_wrapper_unwrap, interpreter_shell_reentry, operand_before_verb_ordering, shell_metacharacter_adjacent_tokenization.",
+  "scores": {
+    "functionality": 5,
+    "code_quality": 6,
+    "security": 5,
+    "error_handling": 5,
+    "test_coverage": 5
+  },
+  "score": 5,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 5 < 7 (critical tier 자동 fail)",
+    "score 5 < threshold 7",
+    "AC-12 미충족 — '공백 포함 복합 토큰이면 전달 경로·플래그·앞맥락 무관하게 벗겨서 재검사한다'는 단일 규칙이 인용 경계가 토큰 양끝에 오지 않는(interleaved/부분) 인용에서 성립하지 않는다. 후보 식별(패스 3)은 정상이나 언랩(__unquote_wrap_candidate)이 '양끝이 같은 따옴표로 완전히 감싼' 토큰만 벗겨, 그 외 복합 토큰은 벗겨지지 않은 채 내부 재토큰화에서 rm/-rf/.claude 가 한 덩어리로 붙어 armed 판정에 들어오지 못한다."
+  ],
+  "headline": "SEVENTH recurrence of the same meta-defect, now one layer BELOW the one this round fixed. 24차가 실증한 정확한 13종은 HEAD에서 전부 ask로 닫혔음을 독립 재현했다(진짜 진전). 그러나 AC-12가 요구하는 '단일 규칙'이 완전-포위 인용에서만 성립한다 — 인용 경계를 토큰 내부로 흩뜨리면(interleaved quoting) 같은 래퍼 축이, 그리고 이 라운드가 닫았다고 주장하는 바로 그 herestring/pipe 전달 메커니즘까지 다시 열린다. 격리 랩에서 allow + 실제 삭제 20건 이상 확인(생성 규칙 4 wrapper × 4 취약 인용 형태 = 16/28, + herestring/pipe 결합 4/4).",
+  "issues": [
+    "[security][critical][confidence:high] 인용-형태(interleaved quoting) 우회 — AC-12의 단일 규칙이 완전-포위 인용에서만 성립한다. `bash -c 'rm '-rf' '.claude`(그리고 `sh -c`·`zsh -c`·`env -S` 동형) 는 HEAD에서 allow + 격리 랩 실제 삭제. 패스 3이 이 토큰(`'rm '-rf' '.claude`, 따옴표 안 공백 포함)을 후보로 정확히 식별하지만, __unquote_wrap_candidate()가 '토큰 양끝이 같은 따옴표'일 때만 벗기므로 벗겨지지 않고 그대로 내부 __scan에 들어가, 내부 __tokenize_segment가 따옴표 안 공백을 분리자로 보지 않아 rm/-rf/.claude 가 한 덩어리(`rm -rf .claude` 단일 NORM_TOK)로 남는다 — 동사 토큰과 정확히 같지 않아 armed=0. 생성 규칙 스윕: 4 wrapper(bash -c/sh -c/zsh -c/env -S) × 취약 인용 형태 4종 = 16/28 이 allow+DELETED.",
+    "[security][critical][confidence:high] 위 우회가 '다른 축'이 아니라 이 라운드가 닫았다고 주장하는 바로 그 AC-12 전달 메커니즘(herestring `<<<`·pipe `| sh`)에서도 재현된다: `bash <<< 'rm '-rf' '.claude` · `sh <<< r'm -rf .claude'` · `echo 'rm '-rf' '.claude | sh` · `printf '%s' 'rm -rf .clau'de | bash` 전부 allow + 실제 삭제. 즉 이 라운드는 herestring/pipe 를 '완전-포위 인용 페이로드에 한해서만' 닫았다 — AC-12.verification 이 나열한 `bash <<< 'rm -rf .claude'` 와 의미상 동일한 페이로드가 인용 재배치만으로 다시 샌다.",
+    "[security][high][confidence:high] 근본 원인은 24차 판정 recommended_fix.primary('unwrap it and re-scan it')의 unwrap 절반이 여전히 표기-구속적이라는 것. 패스 3(식별)은 진짜로 이름·플래그·전달경로 무관해졌지만, 그 후보를 소비하는 __unquote_wrap_candidate()는 단일 완전-포위 따옴표 쌍만 처리한다. 커밋 메시지·패스 3 주석의 'does this token contain whitespace is an EXACT test ... covers whatever this shell ecosystem invents next' 주장은 식별에는 참이나 재검사(언랩)에는 거짓 — 다중-런 인용 토큰은 식별되어도 올바로 언랩되지 않는다. 이는 SC-9/SC-10 이 막으려던 정확한 과대 주장 유형이다.",
+    "[security][medium][confidence:high] 언랩 실패가 fail-open 방향이다. __unquote_wrap_candidate()가 완전-포위가 아닌 복합 토큰을 만나면 부분적으로만(또는 전혀) 벗기지 못한 채 내부 스캔으로 넘기고, 내부 스캔이 armed 를 못 얻으면 조용히 allow 로 떨어진다 — 이 파일 전반의 '모르면 allow 가 아니라 ask' 원칙(SEGMENT_UNSAFE fail-closed 관용구)이 이 지점에서 지켜지지 않는다. 확실히 언랩할 수 없는 복합 토큰은 ask 로 fail-closed 하는 편이 원칙에 맞다.",
+    "[test][high][confidence:high] 신규 AC-12 생성 테스트(tests/pre-bash-firewall.bats:3381)는 진짜 생성 규칙(접두 풀 × 인용 스타일 × 셸 풀 × 전달 형태)이라 24차가 지적한 인스턴스-목록 문제를 이 축에서는 개선했다. 그러나 인용 스타일 풀이 `'%s'`·`\"%s\"` 두 개(둘 다 완전-포위)뿐이라, 이 테스트는 원리적으로 interleaved 인용 우회를 관측할 수 없다 — 24차가 한 층 위(플래그 풀이 구현 정규식을 미러)에서 지적한 '테스트 풀이 구현이 이미 다루는 부분공간을 미러한다'는 약점이 언랩 계층에서 그대로 재현된다. 이 테스트의 green 은 interleaved 축에 대한 근거가 아니다.",
+    "[test][low][confidence:medium] 이름 무관성 음성 대조군이 하드코딩 인스턴스 2개(`notarealshell987`·`gibberish123`)뿐 — 생성 풀이 아니다. 이름 무관성 자체는 패스 3이 구조적으로 보장하므로(이름을 전혀 안 봄) 이 대조군의 얇음이 단독 fail 사유는 아니나, SC-9 양성 기준의 '생성 규칙' 정신에는 못 미친다.",
+    "[test][low][confidence:high] 19~24차가 열어둔 저심각 테스트 갭이 여전히 열려 있음: (a) 4바이트 이모지 바이트-카운트 고정 테스트, (b) 32768바이트 정확 경계(32768 allow / 32769 ask) 고정 테스트 — 둘 다 부재. 코드 동작 자체는 독립 실측으로 정확함을 확인했다(이모지 8205자/32805바이트 → ask, 32768 → allow, 32769 → ask). 따라서 순수 test_coverage 갭(보안 무영향, low).",
+    "[quality][low][confidence:high] wc 선행 공백 유출은 무해 — `wc -c` 가 '       5' 처럼 선행 공백을 내지만 `[[ $CMD_BYTES -gt 32768 ]]` 는 산술 문맥에서 공백을 벗기고, `[[ -z ]]` 도 wc 성공 시 항상 숫자라 빈 값이 아니다. 실측 확인. 저심각 표기 이슈."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-12(부분) — 24차 실증 정확한 13종(env -S 4형태·herestring 5형태·pipe 2형태·mv 변형·rmdir hooks) 전부 HEAD에서 ask, 부모(49b30c2)·기준선(11c8db7)에서 allow였음을 독립 재현. 격리 랩에서 이 13종은 HEAD 하에서 실제 삭제되지 않음(전부 ask).",
+      "AC-9(회귀 없음) — 19~24차가 닫은 셀(sh -c/bash -lc/csh -c/\\bash -c/sh -\\c/-c -o posix/인터프리터 -e 게이트) 전부 HEAD에서 ask 유지. 명시적 out-of-scope 4축(nested_wrapper·interpreter_shell_reentry·operand_before_verb·metachar_adjacent)은 HEAD==parent 로 의도치 않은 영향 없음."
+    ],
+    "security": [
+      "SC-10(1) add-only 마찰 — 광범위 일상 코퍼스 28종(git commit -m·docker run --name·kubectl label·curl -d/-H·ssh·rsync·tar·gcc·perl -pe·sed -i·python3 -c·node -e·aws s3 cp·mysql -e 등 인용 다중 단어 인자 포함) 전부 HEAD=allow, 부모 대비 신규 마찰 0건.",
+      "SC-10(2) 수용된 트레이드오프 — `git commit -m \"...rm -rf .claude...\"` ask 유지(의도된 동작).",
+      "성능 — 패스 3 적대적 shape(24KB, 25세그먼트에 공백 토큰 다수) 3.05초에 전역 3000ms 예산 트립 → fail-closed ask; 다른 적대적 shape 189ms·1174ms. 5초 타임아웃 안에서 안전, 새 이차식 경로 없음."
+    ],
+    "error_scenarios": [
+      "fail-closed 경로 정상 — SEGMENT_UNSAFE(ANSI-C `$'...'`)·전역 시간 예산 초과·wc 실패·32768바이트 초과 전부 ask 로 fail-closed 확인."
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-12 — 단일 규칙이 interleaved/부분 인용에서 성립하지 않음(16/28 생성 규칙 우회 + herestring/pipe 결합 4/4). 'bash -c 'rm '-rf' '.claude' 등 allow + 실제 삭제."
+    ],
+    "security": [
+      "SC-9(둘째 절) — 래퍼 축이 여전히 미해결인데 status 서술이 '자체검증 완료·독립검증 대기'로 축의 한 서브공간(완전-포위 인용) 폐쇄를 실질적으로 시사한다. 실제로는 축 전체(임의 인용 형태의 래퍼 페이로드)가 열려 있다.",
+      "SC-10(add-only는 지켜지나 규칙 자체의 커버리지가 AC-12 정의를 충족하지 못함 — '단일 규칙으로 성립'이 반증됨)."
+    ],
+    "error_scenarios": [
+      "언랩 실패 시 fail-open — 확실히 벗길 수 없는 복합 토큰이 ask 가 아니라 allow 로 떨어진다."
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "AC-11.verification_axes / open_axes 어디에도 '인용 형태(따옴표 경계가 토큰 내부에 흩어진 복합 토큰 = interleaved/partial quoting)' 축이 선언돼 있지 않다. 기존 '인용' 표기 축(verification_axes_2026_08_04)은 bare 형태의 `rm -rf '.claude'`·`.cl'aude'`(정상 정규화되어 잡힘)만 다뤘고, 래퍼 페이로드가 다중-런 인용으로 언랩을 회피하는 형태는 미선언이다. shell_metacharacter_adjacent_tokenization(괄호·리다이렉트 인접, out-of-scope)과는 별개 메커니즘이다(메타문자 없음, 언랩 계층의 결함)."
+    ],
+    "ambiguous_criteria": [
+      "AC-12 문면의 '벗겨서 재검사한다'가 '완전-포위 따옴표 한 쌍을 벗긴다'인지 '토큰이 원래 셸에서 가졌던 모든 인용을 제거해 셸과 동일한 낱말 경계를 복원한다'인지 불명확하다. 후자로 읽어야 AC-12의 위협 정의('원래 인용된 다중 단어 인자였음을 뜻한다')와 정합하며, 현재 구현은 전자만 한다."
+    ],
+    "security_criteria_insufficient": [],
+    "action_required": "sprint-51.json open_axes 에 신규 축 `wrapper_payload_quote_shape`(또는 유사)를 명시하고, AC-12 '벗겨서 재검사'의 의미를 '완전-포위 한 쌍 제거'가 아니라 '토큰의 모든 인용 런 제거 후 셸 낱말 경계 복원'으로 정정. wrapper_code_delivery_mechanism.status 의 '자체검증 완료·독립검증 대기' 서술은 정확하지만(과대 범위어 없음), 이 독립검증 결과로 '전달 경로 서브축은 완전-포위 인용에 한해 닫힘, 인용 형태 서브축은 열림'으로 세분해 기록해야 한다."
+  },
+  "criteria_backfill_review": {
+    "count": 0,
+    "note": "이번 라운드 구현자의 criteria_backfill 없음(계약은 change-request로 사전 갱신). sprint-51 문서 정확성 별도 확인: wrapper_code_delivery_mechanism.status='자체검증 완료, 독립검증 대기'는 과장 범위어 없이 정확하게 보수적으로 작성됐다. implementation_steps 14 _done_note 도 '구현자 자체 검증이며 독립 evaluator·F37 2차 판정·security-auditor는 아직 미실시'라고 정직하게 명시. _note 의 out-of-scope 선언(nested_wrapper·interpreter_shell_reentry)도 정확. 다만 이번 발견(인용 형태 축)이 문서 어디에도 없다는 누락이 SC-9 정신상 보완 필요(criteria_gaps 참조)."
+  },
+  "out_of_scope_unintended_impact": {
+    "checked": ["nested_wrapper_unwrap", "interpreter_shell_reentry", "operand_before_verb_ordering", "shell_metacharacter_adjacent_tokenization"],
+    "result": "HEAD==parent(49b30c2) 로 전부 동일 — 이번 변경이 out-of-scope 축에 악화도 우연한 개선도 주지 않음. (`sh -c \"sh -c '...'\"`·`python3 -c 'os.system(\"...\")'`·`find .claude -exec rm {} \\;`·`(rm -rf .claude)` 모두 HEAD=allow=parent.)"
+  },
+  "evidence": {
+    "probe_harness": "scratchpad/probe.sh — jq -n '{tool_name,tool_input:{command}}' | bash hooks/pre-bash-firewall.sh | jq -r .hookSpecificOutput.permissionDecision. Claude Code 의 tool_input.command 전달과 동형.",
+    "13_payloads_HEAD": "24차 실증 13종 + rmdir hooks = 14/14 전부 HEAD=ask (독립 재현).",
+    "13_payloads_negative_control": "부모 49b30c2·기준선 11c8db7 에서 env -S/herestring/pipe 대표 5종 전부 allow, HEAD 에서 전부 ask — git show 로 부모/기준선 훅 추출해 동일 probe 로 대조.",
+    "13_payloads_execution": "격리 랩(cd victim; eval; check .claude 생존) — env -S \"rm -rf .claude\"·bash <<< '...'·echo '...' | sh·bash -s <<< '...'·printf '%s' '...' | bash·env -S 'rmdir .claude/hooks' 전부 DELETED(페이로드가 진짜 위협임을 확인).",
+    "interleaved_bypass_generated": "생성 규칙 4 wrapper(bash -c/sh -c/zsh -c/env -S) × 4 취약 인용 형태 = 16/28 이 HEAD=allow + 격리 랩 DELETED. 대표: `bash -c 'rm '-rf' '.claude`·`sh -c r'm -rf .claude'`·`env -S 'rm -rf .clau'de`·`zsh -c rm' '-rf' '.claude`.",
+    "interleaved_bypass_declared_mechanisms": "동일 우회가 AC-12 선언 메커니즘에서도: `bash <<< 'rm '-rf' '.claude`·`sh <<< r'm -rf .claude'`·`echo 'rm '-rf' '.claude | sh`·`printf '%s' 'rm -rf .clau'de | bash` 4/4 allow + DELETED.",
+    "root_cause_isolation": "완전-포위 vs interleaved 대조(래퍼·삭제 동일, 인용 위치만 상이): `bash -c 'rm -rf .claude'` → ask(정상), `bash -c 'rm '-rf' '.claude` → allow. 유일 차이가 __unquote_wrap_candidate() '양끝 동일 따옴표' 분기 발동 여부. tab(완전-포위) → ask, newline-in-quotes → 무해(SURVIVE). 코드 트레이스로 __unquote 미스트립 → 내부 __tokenize_segment 가 rm -rf .claude 를 단일 토큰으로 유지 → normalize 후에도 단일 NORM_TOK → armed 미발동 확인.",
+    "friction_corpus": "일상 명령 28종(인용 다중 단어 인자 포함) HEAD vs parent vs baseline — 신규 마찰 0건.",
+    "performance": "패스3 적대적 shape adv_a(24197B,25세그) 3049ms→ask(3000ms 예산 트립 fail-closed), adv_b 1174ms→ask, adv_c(env -S+300 ws토큰) 189ms→ask. 5초 타임아웃 안, 새 이차식 없음.",
+    "boundary_and_emoji": "32768B→allow, 32769B→ask, 4바이트 이모지 8205자/32805B→ask (코드 동작 정확, 테스트만 부재).",
+    "bats_full": "bats tests/pre-bash-firewall.bats — 1..315, ok 315, not ok 0, EXIT=0 (백그라운드 완주, scratchpad/bats_full.log).",
+    "out_of_scope": "nested_wrapper·interpreter_shell_reentry·operand_before_verb·metachar_adjacent 4종 HEAD==parent=allow.",
+    "regression_cells": "sh -c/bash -lc/csh -c/\\bash -c/sh -\\c/bash -c -o posix/인터프리터 -e 게이트 전부 HEAD=ask 유지."
+  },
+  "grounded_verdict_note": "모든 pass/fail 판정은 이 세션에서 직접 실행한 probe·격리 랩 eval·bats·성능 실측에 근거한다(코드 리딩 단독 차원 없음). 구현자 self-check(315/315·13종 ask·마찰 0)는 전부 독립 재확인했고 참이었다 — 그러나 self-check가 커버하지 못한 축(인용 형태)에서 반증을 찾았다.",
+  "note_for_main_loop": "verdict=fail 이므로 F65.passes 는 false 그대로 둔다(변경하지 않았음 — evaluator 만 passes 변경 가능, 이번엔 미변경). critical tier 이므로 설령 pass 였어도 이 단일 판정으로 게이트를 통과시킬 수 없다(F37 2차 독립 판정 + security-auditor 필요) — 그러나 이번은 fail 이라 해당 없음. 다음 사이클 권고: (1) 이 발견을 /change-request 로 계약에 편입(AC-12 '벗겨서'의 의미를 '모든 인용 런 제거 후 셸 낱말 경계 복원'으로 정정 + open_axes 에 wrapper_payload_quote_shape 신설), (2) __unquote_wrap_candidate() 를 normalize_path_token() 처럼 '모든 따옴표 런 제거 후 재-낱말분리'로 바꾸되 add-only(allow→ask 방향)로, (3) 신규 테스트의 인용 스타일 풀에 interleaved 형태를 원소로 추가해 생성 규칙이 이 서브공간을 실제로 관측하게 한다. progress/lessons.md 환류 권장: '축이 식별(패스 3)에서는 무관해졌으나 소비(언랩)에서 다시 표기-구속됨 — 식별과 재검사 양쪽을 같은 무관성 기준으로 검증하라'.",
+  "escaped_defect_followup": "이번은 통과-후-발견이 아니라 판정 단계 발견이므로 false-positives.json append 대상은 아니다. 다만 progress/lessons.md 에 '7번째 재발: 래퍼 축이 후보 식별 계층에서 닫혀도 언랩 계층에서 다시 열림 — interleaved quoting' 한 줄 환류를 권고(파일 미수정, 메인 루프가 반영)."
+}

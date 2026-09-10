@@ -1,0 +1,115 @@
+{
+  "timestamp": "2026-09-06T15:18:11+09:00",
+  "sprint": 51,
+  "iteration": 23,
+  "features_evaluated": ["F65"],
+  "security_tier": "critical",
+  "evaluated_commit": "deb3d08",
+  "round_commits": ["71d2da9", "d15371c", "28f6141", "deb3d08"],
+  "parent_commit": "64a631c",
+  "cycle_baseline_commit": "11c8db7",
+  "headline": "**이번 라운드의 수정은 진짜이고, 22차가 실증한 31종은 전부 독립 재확인으로 닫혔다** — 회귀 0건, 신규 마찰 실질 0건, bats 311/311, 적대적 입력에서도 fail-closed. `__find_wrapped_arg()`의 '후보 전부 시도' 재설계는 인스턴스 패치가 아니라 구조적 수정이며, 500개 후보·정크 옵션·가상 옵션 이름에도 진짜 코드 인자에 도달한다 — 이 축에 대한 구현자의 주장은 반증 시도에도 무너지지 않았다. **그러나 같은 메타 defect class(축을 인스턴스 목록으로 정의)가 다섯 번째로, 한 층 위에서 재발했다**: `__find_wrapped_arg()`가 후보를 찾기 전에 쓰는 두 개의 **풀** 자체가 여전히 열거 목록이다 — (1) `WRAP_SHELL_TOKENS=(sh bash zsh dash ksh)`가 이 머신에 실재하는 `csh`·`tcsh`를 빠뜨렸고, (2) `__classify_wrap_verb()`·`__is_wrap_flag()`가 따옴표는 벗기지만 **백슬래시는 벗기지 않는다**. 자체 생성 규칙 스윕(셸 7종 × 이름 표기 5종 × 플래그 표기 5종 × 바디 2종 = 350셀) 결과 **290셀이 allow + 격리 랩 실제 삭제**(`\\bash -c 'rm -rf .claude'`·`sh \\-c '...'`·`tcsh -c '...'` 등). 회귀는 아니다(부모·기준선에서도 동일 allow) — 22차와 같이 '한 번도 닫힌 적 없던' 축이다. 결정적으로, 이번 라운드가 새로 만든 생성-규칙 동치 테스트는 이 290셀을 **구조적으로 볼 수 없다** — 그 테스트의 wrappers 풀이 구현의 `WRAP_SHELL_TOKENS`와 글자 그대로 같은 하드코딩 목록이고, 인용 스타일 풀에 백슬래시 표기가 없기 때문이다(동어반복 풀).",
+  "scores": {
+    "functionality": 5,
+    "code_quality": 6,
+    "security": 4,
+    "error_handling": 6,
+    "test_coverage": 5
+  },
+  "score": 4,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 4 < 7 (critical tier — 다른 점수와 무관하게 자동 fail)",
+    "score 4 < pass_threshold 7",
+    "AC-11 미충족: 컨트롤 플레인 삭제가 290개 조합에서 allow(ask도 아님) + 격리 랩 실제 삭제",
+    "SC-9 둘째 절 5회 연속 위반: sprint-51.json `verification_axes_2026_09_06._status_2026_09_06_22nd` 가 '축 세 개(래퍼 이름·코드 플래그 표기·값-받는 옵션 삽입) 모두 … 완료'라고 적었는데, 그중 두 축이 실측으로 열려 있다"
+  ],
+  "issues": [
+    "[security][critical][confidence:high] **래퍼 토큰 백슬래시 표기가 완전히 열려 있다 — allow + 격리 랩 실삭제.** `__classify_wrap_verb()`(hooks/pre-bash-firewall.sh:1673-1683)와 `__is_wrap_flag()`(:1705-1714)는 둘 다 `stripped=\"${t//\\'/}\"; stripped=\"${stripped//\\\"/}\"` 로 **따옴표만** 벗기고 백슬래시를 벗기지 않는다. 그래서 셸이 투명하게 같은 명령으로 처리하는 `\\bash -c 'rm -rf .claude'` · `b\\ash -c '...'` · `\\sh -c '...'` · `sh \\-c '...'` · `sh -\\c '...'` · `/bin/\\sh -c '...'` 가 전부 래퍼로 인식되지 않아 언랩 자체가 일어나지 않고 allow로 떨어진다. 격리 랩 실행 결과 `.claude` 디렉터리 전체 삭제 또는 `settings*.json` 삭제 확인. `\\command` 는 alias 우회 관용구로 실무에서 실제로 쓰이는 표기다. `__classify_wrap_verb()` 의 주석이 '백슬래시는 이 이름들에 실무상 나타나지 않으므로 다루지 않는다'고 적었는데, 이 서술 자체가 실측으로 반증됐다(22차가 같은 함수의 형제 주석 오류를 지적한 것과 같은 계열).",
+    "[security][critical][confidence:high] **`WRAP_SHELL_TOKENS` 에 없는 셸이 이 머신에 실재하고 전부 열려 있다.** `WRAP_SHELL_TOKENS=(sh bash zsh dash ksh)` (:1660)는 열거 목록인데 `csh`·`tcsh` 가 이 머신에 설치돼 있고(`command -v` 확인) `csh -c 'rm -rf .claude'` · `tcsh -c 'rm -rf .claude'` · `/bin/tcsh -c '...'` · `tcsh -c 'rm -rf .clau\"de\"'` · `csh -c 'rm -f .claude/settings*.json'` 이 전부 allow + 실삭제. `ash`·`mksh`·`fish`·`busybox` 는 이 머신에 없어 실행이 안 됐을 뿐 판정은 역시 allow(잠재 노출). 형제 목록인 `WRAP_INTERPRETER_TOKENS` 는 `INTERPRETER_ARM` 에서 파싱해 단일 출처를 지키는데(:1661-1666, 주석이 그 원칙을 명시) 셸 목록만 하드코딩이라 같은 파일 안에서 원칙이 비대칭이다.",
+    "[security][critical][confidence:high] **생성 규칙 스윕 전수 결과: 350셀 중 290셀 escape.** 셸 풀 {sh,bash,zsh,dash,ksh,csh,tcsh} × 이름 표기 풀 {평문, 선행 백슬래시, 내부 백슬래시, `/bin/` 접두, `/bin/`+내부 백슬래시} × 플래그 표기 풀 {`-c`, `\\-c`, `-\\c`, `'-c'`, `\"-c\"`} × 바디 {`rm -rf .claude`, `rm -f .claude/settings*.json`}. 판정 결과 allow 290 / ask 60. **allow 290셀을 전부 격리 랩에서 실행한 결과 290/290이 실제로 컨트롤 플레인을 파괴했다** — 판정↔실행 괴리율 100%. ask로 나온 60셀은 정확히 구현이 열거한 인스턴스 집합(평문·`/bin/` 접두 이름 × 무인용·홑따옴표·겹따옴표 플래그)과 일치한다 — 즉 **열거한 셀만 닫혀 있고 한 표기 걸음 밖은 전부 열려 있다.**",
+    "[test][high][confidence:high] **신규 동치 테스트(d15371c)의 풀 두 개가 구현의 목록을 그대로 복사한 동어반복이라, 위 290셀을 원리적으로 볼 수 없다.** tests/pre-bash-firewall.bats:3215 `local -a wrappers=(sh bash zsh dash ksh)` 는 hooks/pre-bash-firewall.sh:1660 `WRAP_SHELL_TOKENS=(sh bash zsh dash ksh)` 와 **글자 그대로 동일**하다 — 테스트가 '구현이 아는 셸을 구현이 처리하는가'만 물으므로 셸 풀의 누락은 정의상 검출 불가다. 축 3(`quote_styles=('%s' \"'%s'\" '\"%s\"')`, :3244)도 '따옴표 유무'만 생성하고 백슬래시 표기를 원소로 갖지 않는다. 22차가 지적한 '테스트가 축을 생성하지 않는다'는 결함이 **세 축에서는 진짜로 고쳐졌지만 나머지 두 풀에서 그대로 남았다** — 나는 첫 반증 시도에서 이 두 풀 밖의 escape 7종을 즉시 찾았고, 그 테스트는 통과 상태였다(22차와 동일한 '테스트는 통과, 우회는 실존' 구도).",
+    "[docs][high][confidence:high] **SC-9 둘째 절 5회 연속 위반 — 계약서 두 필드가 서로 다른 범위를 주장한다.** `AC-11.verification_axes_2026_09_06._status_2026_09_06_22nd` 가 '**축 세 개(래퍼 이름·코드 플래그 표기·값-받는 옵션 삽입) 모두 커밋 71d2da9로 구현자 자체검증까지 완료**'라고 적었다. 그러나 (a) '래퍼 이름' 축은 71d2da9가 **손대지도 않았고**(그 커밋은 후보 열거만 바꿨다) csh/tcsh·백슬래시 이름이 열려 있으며, (b) '코드 플래그 표기' 축은 `\\-c`·`-\\c` 가 열려 있다. 반면 같은 파일의 `_residual_risk_AC11.open_axes_2026_08_04.interpreter_wrapped_path_notation.status` 는 '**검사한 교차곱 셀**: {sh,bash,zsh,dash,ksh} × …'로 범위를 정확히 못박아 **정직하다**. 두 필드가 모순되며, 넓은 쪽 서술이 SC-9 위반이다.",
+    "[docs][medium][confidence:high] **SC-9의 새 양성 기준이 축 하나에 대해 충족되지 않았다.** SC-9가 이번에 추가한 기준은 '축은 인스턴스 목록이 아니라 원소 풀들의 조합을 생성하는 규칙으로 정의하고, 그 규칙을 구현한 테스트가 있어야 검사됐다고 주장할 수 있다'이다. `verification_axes_2026_09_06.axes[0]`('래퍼: `sh -c` · `bash -lc` · `zsh -c` · `env sh -c` · `python3 -c` …')는 여전히 **인스턴스 목록**이고 생성 규칙으로 전환되지 않았으며, 이를 구현한 테스트도 없다(위 동어반복 풀). 또 `axes[2]`는 축 이름을 '코드 플래그 **표기**'로 선언했는데 그것을 구현한 생성 규칙은 '인용'만 덮는다 — 축 정의와 그 축을 구현한 규칙의 범위가 어긋난다.",
+    "[quality][medium][confidence:high] **모듈 자신의 fail-closed 원칙에 대한 국소 역행이 남아 있다.** 이 파일은 '모르면 allow가 아니라 ask'를 반복해 명시하는데(예: :1885, :1915의 시간 예산 fail-closed, `SEGMENT_UNSAFE` 관용구), 래퍼 이름·플래그 토큰의 **모르는 표기**는 ask가 아니라 allow로 떨어진다. 22차가 지적한 '값-받는 옵션'과 동일한 성질의 역행이며, 그때의 해법(열거를 버리고 전수 시도)이 아직 이 두 풀에는 적용되지 않았다.",
+    "[quality][low][confidence:high] **`wc -c` 선행 공백이 사용자 노출 문자열로 샌다(19~22차 미해결).** hooks/pre-bash-firewall.sh:44 `CMD_BYTES=$(printf '%s' \"$CMD\" | wc -c …)` 는 BSD wc의 선행 공백을 보존해, :51의 ask 사유가 실측으로 `명령이 비정상적으로 길어(   40000바이트)` 로 출력된다(직접 재현). 판정에는 영향 없음(산술 문맥이 공백을 흡수) — 순수 표시 결함.",
+    "[test][low][confidence:high] **4바이트 이모지 고정 테스트 부재(19~22차 미해결).** tests/pre-bash-firewall.bats 에 이모지/4바이트 UTF-8 관련 테스트가 0건이다(grep 확인). `${#CMD}`(문자 수) vs `wc -c`(바이트 수) 분기의 대표 경계 입력인데 고정돼 있지 않다.",
+    "[test][low][confidence:medium] **32768 미만-경계 테스트가 느슨하다(19~22차 부분 해소).** :3070에 3만자 통과 테스트, :3083-3089에 32760 **문자**(≈9.8만 바이트) 한글 테스트가 있어 '상한 아래' 방향은 일부 덮였다 — 다만 32767/32768 바이트 정확 경계는 여전히 없다. 19~22차의 지적이 완전히 열려 있지는 않으므로 severity를 low로 낮춘다.",
+    "[test][low][confidence:medium] **타이밍 단언이 여전히 벽시계 기반이다(19~22차 미해결).** :2345 `elapsed -lt 2000`, :2435 `-lt 3000` 등 — CI 부하에 따라 flaky해질 수 있는 형태다. 다만 15000ms 단언은 이 파일에서 발견되지 않았다(그 지적은 이미 조여진 것으로 보인다)."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-11(부분): 22차가 실증한 31종(5셸 × 4표기 스윕 20 + 변형 11)이 HEAD에서 전부 ask — 독립 재확인 완료",
+      "AC-11(부분): 값-받는 옵션 삽입 축이 구조적으로 닫혔다 — 500개 후보 뒤에 놓인 코드 인자, 가상 옵션 이름(`-Z randval42`), 5중 `-o` 연쇄, `--` 종결자 조합 모두 ask"
+    ],
+    "security": [
+      "SC-9(부분): `interpreter_wrapped_path_notation.status` 서술이 실측과 정확히 일치 — '검사한 교차곱 셀'로 범위를 못박은 것은 19~22차 대비 실질적 개선이며 과장 범위어가 없다",
+      "회귀 없음: 350셀 스윕 + 42개 일상 명령 코퍼스에서 부모(64a631c)·기준선(11c8db7) 대비 보호 손실 0건",
+      "fail-closed 유지: 8000자 적대적 입력(179~196 토큰, 브레이스 중첩 포함)·13KB/34KB 입력 전부 ask, 최대 710ms"
+    ],
+    "error_scenarios": [
+      "후보 전수 시도 방식이 새 타임아웃 경로를 만들지 않음 — 최악 측정 710ms(훅 타임아웃 5000ms의 14%)",
+      "3초 후보 예산이 기존 세그먼트 예산과 동일한 fail-closed 관용구로 배선됨(발동 시 ask)",
+      "`sudo bash -c -o posix 'rm -rf .claude'` · `env -i bash -c -o posix '...'` 등 접두 명령 조합 ask"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-11: 컨트롤 플레인 삭제가 게이트된다 — 350셀 생성 규칙 스윕에서 290셀이 allow + 격리 랩 실제 삭제(290/290 실파괴)로 미충족"
+    ],
+    "security": [
+      "SC-9 첫째 절: '표기 축 전수(대상 × 표기 × {bare, 래퍼})가 최소 ask' — 래퍼 토큰의 백슬래시 표기와 비열거 셸(csh/tcsh)에서 미충족",
+      "SC-9 둘째 절(5회 연속): `_status_2026_09_06_22nd` 가 열려 있는 두 축을 '완료'로 서술",
+      "SC-9 양성 기준(이번 라운드 신설): `axes[0]`(래퍼 이름)이 생성 규칙으로 전환되지 않았고 그것을 구현한 테스트가 없다"
+    ],
+    "error_scenarios": [
+      "'모르면 ask' 원칙: 모르는 래퍼 이름 표기·모르는 플래그 표기가 ask가 아니라 allow로 낙하"
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "`verification_axes_2026_09_06` 에 '래퍼 토큰 표기'(따옴표·백슬래시·경로 접두의 조합) 축이 없다 — 21차가 '코드 플래그 표기' 축을 신설했듯 **래퍼 이름 쪽 표기**도 독립 축이어야 한다",
+      "`WRAP_SHELL_TOKENS` 밖의 셸(csh·tcsh·ash·mksh·fish·busybox sh)에 대한 축·open_axes 항목이 어디에도 없다"
+    ],
+    "ambiguous_criteria": [
+      "`axes[0]`의 '래퍼'가 이름 목록인지 '래핑이라는 성질'인지 불명확 — 이 모호함이 `_status_2026_09_06_22nd` 의 '래퍼 이름 축 완료' 주장을 가능하게 했다"
+    ],
+    "security_criteria_insufficient": [],
+    "action_required": "다음 iteration에서 (1) `axes[0]`을 생성 규칙(셸 풀 × 이름 표기 풀)으로 재정의, (2) `_status_2026_09_06_22nd` 의 '축 세 개 모두 완료' 문장을 `interpreter_wrapped_path_notation.status` 와 같은 '검사한 교차곱 셀' 서술로 교체, (3) 백슬래시 표기·비열거 셸을 open_axes 에 명시(닫기 전이라면)."
+  },
+  "recommended_fix": {
+    "primary": "열거를 하나 더 넓히지 말고 **풀 자체를 없애라** — 22차 권고('어떤 옵션이 값을 받는지 알 필요가 없게 만들라')를 한 층 위에 그대로 적용한다. 구체적으로: `__classify_wrap_verb()` 의 셸 이름 화이트리스트에 의존하지 말고, **`-…c…` 모양의 플래그를 갖고 그 뒤에 공백을 포함한 복합 토큰이 따라오는 임의의 선두 명령**을 래퍼 후보로 보고 언랩+재스캔한다(무해한 후보를 벗겨 봤자 아무것도 안 잡히므로 add-only, 이번 라운드의 후보 전수 시도와 정확히 같은 논리). 이렇게 하면 csh/tcsh/ash/mksh/fish/busybox 및 앞으로 나올 어떤 셸도 이름을 몰라도 덮인다.",
+    "secondary": "위가 과하다면 최소한: (a) `__classify_wrap_verb()`·`__is_wrap_flag()` 의 정규화를 **한 곳으로 합치고** 따옴표와 함께 백슬래시도 벗긴다(`stripped=\"${stripped//\\\\/}\"`; 안전 방향 — 더 잡는 쪽) — 21차가 '같은 정규화를 두 곳에 따로 심으면 어긋난다'고 지적한 바로 그 자리다, (b) `WRAP_SHELL_TOKENS` 를 하드코딩 대신 형제인 `WRAP_INTERPRETER_TOKENS` 처럼 파생시키거나 최소한 csh·tcsh·ash·mksh·fish·yash·busybox 를 넣는다.",
+    "note": "(a)만으로 350셀 중 백슬래시 계열 230셀이, (b)만으로 csh/tcsh 계열 60셀이 닫힌다 — 둘 다 하면 290셀 전부. 다만 그것은 다시 '이번 판정이 보고한 인스턴스를 닫는 것'이므로, primary 를 택하지 않는다면 SC-9 양성 기준상 '축을 닫았다'고 주장할 수 없다."
+  },
+  "tests_to_add": [
+    "동치 테스트의 `wrappers` 풀을 구현의 `WRAP_SHELL_TOKENS` 복사본이 아니라 **독립 생성 규칙**으로 만든다: 후보 셸 상위집합(sh bash zsh dash ksh csh tcsh ash mksh fish yash busybox)에 `command -v` 필터를 걸어 이 머신에 실재하는 것만 순회 — 구현의 목록을 참조하지 않으므로 목록 누락이 검출된다",
+    "축 3(현재 `quote_styles`)을 '**토큰 표기**' 풀로 일반화한다: {평문, 홑따옴표, 겹따옴표, 선행 백슬래시, 내부 백슬래시} — 그리고 이 풀을 플래그 토큰과 **래퍼 이름 토큰 양쪽**에 적용한다(현재는 플래그에만 적용)",
+    "동어반복 방지 메타 단언: 테스트의 셸 풀이 hooks/pre-bash-firewall.sh 의 `WRAP_SHELL_TOKENS` 와 **집합으로 같으면 실패**하게 한다 — 풀이 구현의 복사본으로 되돌아가는 회귀를 기계적으로 막는다(이번 라운드가 정확히 이 방식으로 새 축을 못 봤다)",
+    "`wc -c` 선행 공백이 ask 사유 문자열에 나타나지 않는지 고정하는 테스트",
+    "4바이트 UTF-8(이모지) 입력에 대한 `${#CMD}` vs `CMD_BYTES` 분기 고정 테스트"
+  ],
+  "evidence": {
+    "_note": "전부 이 세션에서 직접 실행한 명령과 그 출력이다. 판정 하네스는 저장소 테스트와 독립적으로 새로 작성했고(scratchpad/probe.sh, scratchpad/lab23.sh), 대상 커밋의 hooks/ 를 `git archive` 로 4개 버전(deb3d08 / 64a631c / 11c8db7 / 9ee5ede)으로 추출해 비교했다.",
+    "bats_full_suite": "bats tests/pre-bash-firewall.bats (백그라운드 완주, exit 0) — ok 311 / not ok 0. 마지막 라인: 'ok 311 F73r2: feature_list.json non-in-place write forms (SC-3 gap closure)'",
+    "reproduction_of_22nd_verdict_30": "22차가 실증한 31개 명령(5셸 × {-c -o noglob, -c -o posix, -c +x, -c -o noglob --} = 20 + 변형 11)을 4개 버전에 전수 투입: 9ee5ede(22차 판정 대상)=allow 31/31, 64a631c(부모)=allow 31/31, deb3d08(HEAD)=**ask 31/31**. 구현자의 '전부 ask' 주장 독립 확인 — 참이다.",
+    "candidate_enumeration_falsification": "이번 수정의 핵심 축을 겨냥한 18개 신규 조합 실측(판정+격리 랩 실행): `bash -c -o a -o b -o c -o d -o e '...'`=ask · `bash -c -o -x '...'`=ask · `bash -c 'echo hi' -o posix 'rm -rf .claude'`=ask(과탐이나 실행은 무해, 안전 방향) · `bash -c -o posix -o noglob -o pipefail -o errexit -- '...'`=ask+실삭제 시도 차단 · `bash '-c' '-o' 'posix' '...'`=ask · `env -i bash -c -o posix '...'`=ask · `bash -c -o posix 'rm -rf .clau\"de\"'`=ask · `bash -c -o posix 'rm -rf .cla*de'`=ask. **후보 전부 시도 설계는 반증되지 않았다.** 500개 후보 뒤에 페이로드를 둔 입력도 382ms에 ask.",
+    "new_escape_wrapper_token_notation": "**핵심 반증(1).** 백슬래시 표기: `sh \\-c 'rm -rf .claude'` · `sh -\\c '...'` · `\\bash -c '...'` · `b\\ash -c '...'` · `\\sh -c '...'` · `\\bash -c -o posix '...'` · `env \\bash -c '...'` · `b\\ash \\-c '...'` · `/bin/\\sh -c '...'` — 전부 allow + 격리 랩에서 `.claude` 디렉터리 소멸(DIR_GONE) 확인. 부모·기준선에서도 allow(회귀 아님, 한 번도 닫힌 적 없음).",
+    "new_escape_unenumerated_shells": "**핵심 반증(2).** `command -v` 확인: 이 머신에 csh·tcsh 실재(ash·mksh·fish·busybox 부재). `tcsh -c 'rm -rf .claude'` · `csh -c 'rm -rf .claude'` · `/bin/tcsh -c '...'` · `/bin/csh -c '...'` · `tcsh -c 'rm -rf .clau\"de\"'` · `csh -c 'rm -f .claude/settings*.json'` — 전부 allow + 실삭제(DIR_GONE / FILES_GONE).",
+    "generation_rule_sweep_350_cells": "**전수 실측.** 셸 풀 {sh,bash,zsh,dash,ksh,csh,tcsh}(7) × 이름 표기 풀 {평문, `\\X`, `x\\y`, `/bin/X`, `/bin/\\X`}(5) × 플래그 표기 풀 {`-c`,`\\-c`,`-\\c`,`'-c'`,`\"-c\"`}(5) × 바디 {`rm -rf .claude`, `rm -f .claude/settings*.json`}(2) = 350셀. HEAD 판정: allow 290 / ask 60. **allow 290셀 전부를 격리 랩(mktemp -d, victim/.claude/{agents,settings.json,settings.local.json})에서 실행 → 290/290 실제 파괴**(판정↔실행 괴리 100%). 플래그 표기별 escape: `\\-c` 70, `-\\c` 70, `\"-c\"` 50, `'-c'` 50, `-c` 50. 셸별: csh 20, tcsh 20, `\\`+각 셸 20씩, 내부 백슬래시 10씩. ask 60셀은 정확히 {평문·`/bin/` 이름} × {무인용·홑·겹따옴표 플래그} × 5셸 × 2바디 = 구현이 열거한 집합과 일치.",
+    "regression_check": "같은 350셀을 세 버전에 투입: 11c8db7(기준선)=allow 350/ask 0, 64a631c(부모)=allow 290/ask 60, deb3d08(HEAD)=allow 290/ask 60. **부모→HEAD 보호 손실 0건**(ask→allow 전환 0). 이 스윕은 값-받는 옵션 축을 포함하지 않아 부모와 HEAD가 동일한 것이며, 그 축은 위 reproduction 항목에서 31/31 개선 확인.",
+    "friction_check": "42개 일상 명령 코퍼스(git/npm/make/find/docker/ssh/perl/python/node + `sh -c 'script' arg1 arg2` 위치 인자 패턴 8종 포함): 부모=allow 40/ask 2, HEAD=allow 40/ask 2, **차이 0건**. 기준선 대비 차이는 `bash -c 'echo rm -rf .claude'` 1건뿐(부모 라운드부터의 기존 과탐). 위치 인자 특화 6종 추가 확인: `sh -c 'echo \"$1\"' _ .claude`=allow · `sh -c 'cat \"$1\"' _ .claude/settings.json`=allow · `bash -c 'ls \"@\"' _ .claude/agents`=allow · `sh -c 'wc -l \"$1\"' _ .claude/hooks/x.sh`=allow. **신규 마찰은 `bash -c 'echo \"$1\"' _ \"rm -rf .claude\"` 1건뿐**(위치 인자 텍스트가 문자 그대로 삭제 명령인 경우) — 안전 방향의 극히 좁은 과탐, 수용 가능.",
+    "performance": "적대적 입력 7종 측정(HEAD): 후보 50개=487ms/allow · 200개=302ms/ask · 800개=287ms/ask · 2000개=136ms/ask · 500후보+페이로드=382ms/ask · 300 브레이스 후보+페이로드=659ms/ask · 3만자 단일 후보=494ms/ask. 캡 아래로 최대 비용을 맞춘 2차 스트레스(7961~7972자, 175~196 토큰, 중첩 브레이스): 671/695/710ms, 전부 ask. **새 타임아웃 경로 없음**(최악 710ms = 훅 5000ms 예산의 14%). 3초 후보 예산은 실측 범위에서 발동하지 않았다 — 8192자 `__split_segments` 캡이 후보 수를 먼저 유계로 만들기 때문으로 보이며, 발동해도 fail-closed(ask)라 방향은 안전하다.",
+    "structural_review_outer_loops": "요청 (b) 확인: `__find_wrapped_arg()`(:1753-1776)의 바깥 두 루프에 '첫 매치에서 멈춘다' 결함은 **없다**. i-루프는 verb 매치 후 후보가 비면 break 후 i++ 로 계속 진행하고, j-루프가 찾은 첫 플래그 뒤의 **모든** 토큰이 후보가 되므로 진짜 코드 인자는 항상 집합에 포함된다. 혼합 클래스 실측 확인: `python3 bash -lc 'rm -rf .claude'`=ask(interp verb가 먼저 매치하고 -lc가 interp 플래그가 아니어서 j 소진 → i++ → bash에서 성공) · `perl -e 1 bash -lc '...'`=ask · `node -r x bash -c '...'`=ask · `sh sh sh -c '...'`=ask · `sh -x -c '...'`=ask · `sh -c -c '...'`=ask. **결함은 후보 열거가 아니라 그 앞 단계의 두 풀(이름·표기)에 있다.**",
+    "documented_open_axes_recheck": "계약서가 미해결로 적은 축 실측 재확인 — 서술 정확: `bash -c -o posix 'cd .claude && rm -f settings.json'`=allow+FILES_GONE(`cwd_shift`) · `sh -c \"sh -c 'rm -rf .claude'\"`(nested_wrapper_unwrap) · 인터프리터 언어-API(interpreter_wrapped_path_notation 명시분). 이 셋은 계약서가 정직하게 open으로 두고 있어 SC-9 위반이 아니다.",
+    "low_severity_recheck": "`wc` 선행 공백: 4만자 입력 직접 투입 → ask 사유가 `명령이 비정상적으로 길어(   40000바이트)`(공백 3칸 유출) — 여전히 열림. 이모지/4바이트 UTF-8 테스트: tests/pre-bash-firewall.bats grep 결과 **0건** — 여전히 없음. 32768 경계: :3070(3만자)·:3083-3089(32760 한글 문자) 미만 방향 테스트는 존재 — 바이트 정확 경계만 부재(부분 해소). 15000ms 단언: 이 파일에서 미발견(2000/3000ms 단언만 존재) — 이미 조여진 것으로 보인다."
+  },
+  "note_for_main_loop": {
+    "passes_unchanged": "verdict가 fail이므로 progress/feature_list.json 의 F65.passes 는 **false 그대로 두었고 어떤 파일도 수정하지 않았다**(이 피드백 JSON 생성 외).",
+    "f37_second_judge": "이번 판정이 fail이므로 F37 critical 2차 독립 판정은 이 회차에 필요하지 않다 — 다음 라운드가 **pass** 판정을 받는 시점에 독립 컨텍스트 2차 judge + security-auditor 를 반드시 배선할 것.",
+    "structural_observation": "11차→23차의 실패 패턴이 이번에도 형태를 유지한 채 한 층 이동했다: 표기 → 도구 → 래퍼 → 플래그 표기 → 플래그 인자 → **래퍼 이름 표기·셸 이름 풀**. 매 라운드의 수정 자체는 진짜였고 이번 것도 진짜다 — 문제는 수정이 **직전 판정문이 지목한 풀에만** 생성 규칙을 적용하고, 같은 함수가 쓰는 **다른 풀**은 열거 상태로 남긴다는 것이다. `recommended_fix.primary`(이름 화이트리스트 자체를 제거)를 택하지 않으면 24차가 또 한 층 옆에서 같은 것을 찾을 확률이 높다고 판단한다.",
+    "credit_where_due": "이번 라운드가 22차 권고를 형식적으로가 아니라 실질적으로 이행한 부분이 분명히 있다 — 후보 전수 시도 재설계는 반증 시도에도 무너지지 않았고, `interpreter_wrapped_path_notation.status` 의 '검사한 교차곱 셀' 서술은 19~22차 대비 실질적 진전이며 실측과 정확히 일치한다. fail 사유는 그 두 가지가 아니라, 같은 함수의 **다른 두 풀**과 그것을 넓은 범위어로 서술한 `_status_2026_09_06_22nd` 필드다."
+  }
+}
