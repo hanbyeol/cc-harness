@@ -4481,3 +4481,40 @@ $cmd"
       || { echo "무관한 대입·참조에 새 마찰: $c"; false; }
   done
 }
+
+@test "F65 37차 독립 판정 회귀 고정: 상한 초과·4번째 지점·조합·pure_read_only 대입 치환 5건 (step 15)" {
+  # 37차(2026-09-10)가 격리 랩 실제 삭제로 실증한 다섯 결함의 대표 셀. 축 전체는
+  # tests/pre-bash-firewall-generated.bats 의 생성 규칙이 덮고, 여기서는 판정 파일이 지목한
+  # 정확한 페이로드만 add-only 로 고정한다(SC-10(4)·SC-10(6)·조합·SC-11(3)).
+  local alts c
+  alts=$(printf 'g,%.0s' $(seq 1 70))
+  for c in "{f,${alts%,}}ind .claude -delete" \
+           "{f,$(printf 'g%.0s' $(seq 1 600))}ind .claude -delete" \
+           '`{f,g}ind .claude -delete`' '$({f,g}ind .claude -delete)' \
+           '{f,g}in$(true)d .claude -delete' '{f,g}in${Z}d .claude -delete' \
+           'D=-delete; find .claude $D' 'D=-delete; find .claude/settings.json $D' \
+           '{r,x}$(true)m -rf .claude' 'r$(true){m,x} -rf .claude' '{r,x}${Z}m -rf .claude'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "37차 판정 페이로드가 다시 allow 로 샜다: ${c:0:80}"; false; }
+  done
+}
+
+@test "F65 step 15 자체 발견 회귀 고정: 판정 불가 중괄호 토큰이 무관 명령을 무장시키지 않고, 무장된 세그먼트의 피연산자 판정은 유지된다" {
+  # 3상태 전환 초판 두 결함(step 15 자체 검증 실측): (1) 판정 불가 토큰이 세그먼트를 무장한 뒤
+  # 자기 자신을 suspicious 피연산자로 재판정해 `cp file{1..300} /tmp/` 가 ask, (2) find/-delete
+  # AND 게이트의 두 플래그를 같은 판정 불가 토큰 하나가 채워 `mkdir -p dir{1..100}` 이 ask.
+  local c
+  for c in 'cp file{1..300} /tmp/' 'mkdir -p dir{1..100}' 'touch f{1..100}.txt'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "큰 중괄호 피연산자를 가진 무관 명령에 새 마찰: $c"; false; }
+  done
+  # 반대 방향 — 이미 무장된 세그먼트(rm)의 판정 불가 피연산자는 계속 suspicious → ask,
+  # 무장되지 않은 세그먼트라도 뒤에 진짜 컨트롤 플레인 피연산자가 오면 잠정 무장이 잡는다.
+  for c in 'rm -rf x{1..999999999999999999999}' 'rm -rf x{1..a}' 'cp x{1..999} .claude' 'find x{1..999} .claude -delete'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "ask"'* ]] \
+      || { echo "잠정 무장/피연산자 판정 유지가 깨졌다: $c"; false; }
+  done
+}

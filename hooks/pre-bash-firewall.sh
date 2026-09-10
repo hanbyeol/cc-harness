@@ -879,8 +879,83 @@ __mask_opaque_spans() {
 #    구문으로 가를 수 없거나(전자) 이름 자체가 쓰기다(후자).
 #
 # 시크릿 경로·명령 치환·프로세스 치환이 보이면 형태와 무관하게 면제하지 않는다.
+# **F65 security-auditor·qa-reviewer 병렬 라운드 신규 발견(2026-09-07, 사용자 확인 후
+# 좁은 범위로 착수) — "대입 후 그 변수를 동사로 호출" 관용구.** `V=rm; ${V} hooks/hooks.json`
+# ·`V=rm; $V hooks/hooks.json`가 전부 allow + 격리 랩 실제 삭제였다. 지금까지 고친 것
+# (파라미터 확장·명령 치환·중괄호 확장)은 전부 **한 토큰/세그먼트 안에서** 문자를
+# 조작해 동사를 가리는 표기였다 — 이건 성격이 다르다: 동사 값이 **다른(앞선) 세그먼트의
+# 대입**에서 온다. 체이닝된 대입(`A=x; B=${A}; ${B}`)·`export`·배열·`read`로 채운
+# 변수까지 일반화하면 값 추적 범위가 임의로 커지는, 이 세션의 다른 축(코드 전달 경로가
+# 24회전 끝에 별도 change-request로 분리된 전례)과 같은 성격의 훨씬 큰 작업이라, 사용자
+# 확인을 거쳐 **가장 좁은 인접 사례만** 이번 세션에서 닫는다: **직전(정확히 하나 앞)
+# 세그먼트가 정확히 `VAR=리터럴단어` 형태이고, 뒤 세그먼트의 토큰이 정확히 `${VAR}` 또는
+# `$VAR` 하나뿐인 경우에만** 그 리터럴 값을 그 토큰인 것처럼 취급한다. 체이닝된 대입·
+# `export`·배열·비-리터럴 값(따옴표·공백·다른 변수 참조가 섞인 값)·`;`/`|`/`&` 세그먼트
+# 경계를 넘어 여러 칸 떨어진 대입은 **의도적으로 범위 밖**이며 `_residual_risk_AC11`에
+# 별도 축으로 등록한다(sprint-51.json 참조) — 이 좁은 대응이 "닫혔다"고 선언하는 것은
+# 그 등록된 잔여 축 하나뿐, 변수 값 추적 일반을 닫았다는 뜻이 아니다.
+# (step 15 에서 `scan_control_plane_delete()` 앞에서 이 위치로 이동 — `pure_read_only()` 도
+# 이 헬퍼를 쓰기 때문이다. 아래 주석 참조.)
+__PENDING_ASSIGN_VAR=""
+__PENDING_ASSIGN_VAL=""
+# $1 = 세그먼트 원문. 정확히 `VAR=리터럴단어` 형태(값에 공백·`$`·`` ` ``·글롭 등 셸
+# 특수문자가 전혀 없는 bareword — 또는 그 bareword 하나를 **같은 종류의 따옴표로 통째로
+# 감싼** `VAR="rm"`·`VAR='rm'`: 셸이 따옴표를 벗겨 정확히 같은 값을 넣으므로 bareword와
+# 구분할 이유가 없고, 37차 판정 준비 차분에서 bareword만 캡처하던 초판이 `V="rm"; $V
+# hooks/hooks.json`을 allow로 흘리는 것을 실측해 같은 인접 사례 범위 안에서 보강했다)일
+# 때만 캡처한다 — 값 자체가 이미 애매하면(예: `V="rm -rf"`처럼 여러 낱말이거나
+# `V=$(...)`처럼 가리키는 값이 또 불명확하거나 `V="r"m`처럼 따옴표가 부분만 감싸면)
+# 캡처하지 않고 그냥 리셋한다. 다음 세그먼트가 이 조건에 맞지 않으면(대입이 아니거나
+# 형태가 애매하면) 즉시 리셋해 "정확히 하나 앞"이라는 인접성만 인정한다.
+__capture_pending_assignment() {
+  local s="$1"
+  local __re_bare='^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=([A-Za-z0-9_./:-]+)[[:space:]]*$'
+  local __re_dq='^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)="([A-Za-z0-9_./:-]+)"[[:space:]]*$'
+  local __re_sq="^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)='([A-Za-z0-9_./:-]+)'[[:space:]]*$"
+  if [[ "$s" =~ $__re_bare || "$s" =~ $__re_dq || "$s" =~ $__re_sq ]]; then
+    __PENDING_ASSIGN_VAR="${BASH_REMATCH[1]}"
+    __PENDING_ASSIGN_VAL="${BASH_REMATCH[2]}"
+  else
+    __PENDING_ASSIGN_VAR=""
+    __PENDING_ASSIGN_VAL=""
+  fi
+}
+# 현재 세그먼트를 스캔하는 도중 NORM_TOK 이 정확히 직전 세그먼트가 대입한 변수의 참조
+# (`${VAR}`·`$VAR`)이면, NORM_TOK 을 그 대입값으로 바꿔치기한다 — 이후 동사·피연산자
+# 비교가 모두 이 값을 그대로 쓰므로 동사 자리·피연산자 자리 양쪽에서 대칭으로 잡힌다
+# (find/-delete 술어 사전 검사 루프·세그먼트 동사 루프 양쪽에 배선한다, SC-10(6)).
+__apply_pending_assignment() {
+  if [[ -n "$__PENDING_ASSIGN_VAR" ]]; then
+    if [[ "$NORM_TOK" == "\$${__PENDING_ASSIGN_VAR}" || "$NORM_TOK" == "\${${__PENDING_ASSIGN_VAR}}" ]]; then
+      NORM_TOK="$__PENDING_ASSIGN_VAL"
+    fi
+  fi
+}
+# **step 15(F65 37차 독립 판정, 2026-09-10) — SC-10(6) 네 번째 지점 보조 헬퍼.** `pure_read_only()`
+# 는 세그먼트를 토큰화하지 않고 원문 부분문자열만 보므로 `__apply_pending_assignment()`
+# (NORM_TOK 단위)를 그대로 쓸 수 없다. 대신 세그먼트 사본에서 `${VAR}`·`$VAR` 를 캡처값으로
+# 문자열 치환한 **네 번째 사본**을 돌려준다(`__ASSIGNED`). 바레 `$VAR` 치환은 `$VARX` 같은
+# 더 긴 이름의 접두도 함께 바꾸지만, 그 방향은 "읽기 아님"으로만 기울므로(판정이 좁아질 뿐
+# 열리지 않는다) 안전하다. 캡처가 없으면 원문을 그대로 돌려준다.
+__ASSIGNED=""
+__apply_pending_assignment_to_string() {
+  local s="$1" __p1 __p2
+  __ASSIGNED="$s"
+  if [[ -n "$__PENDING_ASSIGN_VAR" ]]; then
+    __p1="\${${__PENDING_ASSIGN_VAR}}"
+    __p2="\$${__PENDING_ASSIGN_VAR}"
+    __ASSIGNED="${__ASSIGNED//"$__p1"/$__PENDING_ASSIGN_VAL}"
+    __ASSIGNED="${__ASSIGNED//"$__p2"/$__PENDING_ASSIGN_VAL}"
+  fi
+}
+
 pure_read_only() {
   local cmd="$1" seg tok rest script after
+  # step 15: 직전 세그먼트가 `VAR=리터럴` 이면 아래 find 분기가 그 값을 대입해 본다(SC-10(6)).
+  # 세그먼트마다 "직전 것"만 캡처하고 다음 세그먼트로 넘어가면 자연히 리셋된다(인접성만 인정).
+  local __prev_seg=""
+  __PENDING_ASSIGN_VAR=""
+  __PENDING_ASSIGN_VAL=""
   [[ "$cmd" == *'`'* || "$cmd" == *'$('* || "$cmd" == *'<('* ]] && return 1
   case "$cmd" in
     *.ssh/* | *.aws/* | *.gnupg/* | *.netrc* | *id_rsa* | *id_ed25519* | *id_dsa* | *id_ecdsa* | *credentials*) return 1 ;;
@@ -901,6 +976,9 @@ pure_read_only() {
       }
       print out }'; printf '\0')
   for seg in "${seg_list[@]}"; do
+    # step 15: 직전 원문 세그먼트에서 `VAR=리터럴` 을 캡처(없으면 리셋) — 아래 find 분기가 쓴다.
+    __capture_pending_assignment "$__prev_seg"
+    __prev_seg="$seg"
     # 변수 대입·셸 키워드는 명령이 아니다 — 벗겨 내고 그 뒤를 본다(본체는 다음 세그먼트로 온다).
     while :; do
       IFS=' ' read -r tok rest <<<"$seg"
@@ -969,6 +1047,17 @@ pure_read_only() {
         # 보수적으로 "순수 읽기 아님"으로 확정한다(find 명령에 중괄호를 쓰는 정상 사용은
         # 극히 드물다는 것과 맞바꾼 트레이드오프, 512자 상한·다른 형제 상한들과 같은 성격).
         [[ "$__seg_norm" == *'{'* ]] && return 1
+        # **step 15(F65 37차 독립 판정, 2026-09-10) — SC-10(6) 네 번째 지점.** `D=-delete; find
+        # .claude $D` 가 allow + 격리 랩 실제 삭제였다: 대입 치환(`__apply_pending_assignment()`)
+        # 이 `__scan_one_segment_for_cp_delete()` 의 두 루프에만 배선되고, 그보다 넓은 이
+        # 게이트(여기서 읽기로 확정되면 scan 자체가 호출되지 않는다)에는 배선되지 않았다 — 바로
+        # 위 중괄호 주석이 경고한 그 구조적 함정을 대입 관용구에는 적용하지 않은 것. 직전
+        # 세그먼트의 `VAR=리터럴` 을 `${VAR}`/`$VAR` 자리에 넣은 네 번째 사본에 같은 술어
+        # 검사를 건다. 캡처가 없으면 사본은 원문과 같아 아무 효과가 없다(무관 명령 마찰 없음).
+        if [[ -n "$__PENDING_ASSIGN_VAR" ]]; then
+          __apply_pending_assignment_to_string "$__seg_norm"
+          [[ "$__ASSIGNED" == *-exec* || "$__ASSIGNED" == *-delete* || "$__ASSIGNED" == *-ok* || "$__ASSIGNED" == *-fprint* || "$__ASSIGNED" == *-fls* ]] && return 1
+        fi
         ;;
       sed | gsed)
         [[ "$seg" == *'>'* ]] && return 1
@@ -1466,10 +1555,39 @@ __control_plane_location_impl() {
 # 처음부터 로컬로 방어한다 — 원본 함수 자체는 이번 회전의 범위 밖이라 손대지 않고 별도
 # 잔여 위험으로 등록한다).
 __VERB_BRACE_BUDGET=0
+__VERB_BRACE_HIT=""
 __verb_brace_matches() {
   # 공개 진입점 — 토큰 하나를 판정할 때마다 예산을 새로 채운다(피연산자 쪽 관례와 동일).
+  # 반환은 impl 과 같은 3상태(0 일치 / 1 불일치 / 2 판정 불가, 위 impl 주석 참조).
+  #
+  # **조합 축(F65 37차 독립 판정, 2026-09-10)** — `{f,g}in$(true)d`·`{f,g}in${Z}d` 처럼
+  # 중괄호 확장과 치환/파라미터 확장이 **한 토큰에 공존**하면, 중괄호 잎을 원문 그대로
+  # 비교하는 위 impl 은 `fin$(true)d` 를 find 로 보지 못하고, 치환을 지우는 호출자 쪽
+  # 마스킹 경로는 중괄호를 펴지 않아 둘 다 뚫렸다(격리 랩 실제 삭제). 각각 닫혔다고 선언된
+  # 두 구성이 합쳐지면 어느 쪽도 잡지 못하는 셀이 생기는 것이 조합 축의 정의다 — 여기서
+  # 원문으로 한 번, `__mask_opaque_spans()`+`__strip_dollar_brace()` 를 거친 사본으로 한 번
+  # 더 펴서 비교한다(사본에 중괄호가 남아 있을 때만). 두 사본의 결과는 0 > 2 > 1 순으로
+  # 합친다. 두 헬퍼가 쓰는 전역(`__MASKED`·`__STRIPPED`·`__OPAQUE_END`)은 호출자가 같은
+  # 루프 안에서 계속 읽으므로 진입 시 저장해 반환 전 복원한다(35차 자체 발견과 같은 함정).
+  local __t="$1"; shift
+  local __rc __rc2
+  local __saved_masked="${__MASKED-}" __saved_stripped="${__STRIPPED-}" __saved_opaque_end="${__OPAQUE_END-}"
+  __VERB_BRACE_HIT=""
   __VERB_BRACE_BUDGET=64
-  __verb_brace_matches_impl "$@"
+  __verb_brace_matches_impl "$__t" "$@"; __rc=$?
+  if [[ $__rc -ne 0 && ( "$__t" == *'$'* || "$__t" == *'`'* ) ]]; then
+    __mask_opaque_spans "$__t"
+    __strip_dollar_brace "$__MASKED"
+    if [[ "$__STRIPPED" != "$__t" && "$__STRIPPED" == *'{'* ]]; then
+      __VERB_BRACE_BUDGET=64
+      __verb_brace_matches_impl "$__STRIPPED" "$@"; __rc2=$?
+      if [[ $__rc2 -eq 0 ]]; then __rc=0
+      elif [[ $__rc2 -eq 2 ]]; then __rc=2
+      fi
+    fi
+    __MASKED="$__saved_masked"; __STRIPPED="$__saved_stripped"; __OPAQUE_END="$__saved_opaque_end"
+  fi
+  return $__rc
 }
 # $1 = 판정할 토큰, $2... = 비교할 리터럴(들) — 하나라도 정확히 일치하거나 그 접미사면
 # 성공(0 반환). 호출자가 "무조건 무장 동사 목록" 또는 "find 하나"처럼 다른 리터럴 집합을
@@ -1489,38 +1607,56 @@ __verb_brace_matches_impl() {
   # continue`로 그 토큰을 "이미 처리된 동사"로 착각해 건너뛰어, 원래 그 토큰을 검사했어야
   # 할 **피연산자 판정 자체를 못 하게 만든다**(실측 회귀: `rm -rf x{1..a}`가 `x{1..a}`를
   # 건너뛰어 allow로 샘 — `control_plane_location()`이 이미 올바르게 "suspicious → ask"로
-  # 처리하는 형태인데 이 함수가 가로채 무력화했다). 그래서 여기서는 "펴지지 않으면(512자
-  # 상한·suspicious·예산 소진) 무장 확정"이 아니라 "이 검사로는 무장 여부를 결정하지
-  # 않는다"(return 1, not-matched-via-this-check)로 뒤집는다 — 이 토큰이 실제로 위험한
-  # 피연산자라면 뒤이은 `control_plane_location()`이 잡고, 실제로 (아직 발견되지 않은
-  # 형태의) 위험한 동사라면 그 특정 서브케이스는 declared residual로 남는다(정리해
-  # sprint-51.json 에 등록).
-  if [[ ${#t} -gt 512 ]]; then return 1; fi
+  # 처리하는 형태인데 이 함수가 가로채 무력화했다). 그래서 초판은 "펴지지 않으면(512자
+  # 상한·suspicious·예산 소진) 무장 확정"이 아니라 "이 검사로는 결정하지 않는다"(return 1)
+  # 로 뒤집었다 — 그런데 **F65 37차 독립 판정(2026-09-10)이 그 유보가 fail-open임을
+  # 실측했다**: 유보는 "하류 판정자가 그 자리를 실제로 덮을 때만" 안전한데, 동사 자리의
+  # 토큰(`{f,g×70}ind`·`{f,<600자>}ind`)은 컨트롤 플레인 경로 모양이 아니라 하류의
+  # 피연산자 판정이 결코 잡지 않는다 — 결과: allow + 격리 랩 실제 삭제(SC-10(4) 위반,
+  # 28차와 같은 결함 부류). 두 요구(피연산자 토큰을 가로채지 않는다 / 상한 초과를 열어
+  # 두지 않는다)를 **3상태 반환**으로 동시에 만족시킨다(step 15, SC-11(3)):
+  #   0 = 무장 리터럴로 펴진다(일치)   1 = 펴 봤지만 일치하지 않는다
+  #   2 = 판정 불가(512자 초과·suspicious·예산 소진 — 어느 쪽인지 모른다)
+  # 호출자는 2를 "보수적으로 무장"으로 처리하되(`armed=1`·`__has_find_tok=1` 등) 그 토큰을
+  # "처리된 동사"로 건너뛰지(`continue`) 않는다 — 그러면 `rm -rf x{1..999…}` 는 rm 이 이미
+  # 무장된 상태에서 피연산자 판정(suspicious → ask)이 그대로 실행되고, `cp file{1..1000} /tmp/`
+  # 는 무장돼도 컨트롤 플레인 피연산자가 없어 allow 로 남는다(마찰 없음). 재귀 호출에서
+  # 2가 나오면 다른 잎이 0을 내지 않는 한 2를 그대로 올린다(잎 하나라도 모르면 모른다).
+  # 일치한 리터럴은 `__VERB_BRACE_HIT` 에 남겨 치환 스팬 스캐너(`__note_opaque_verb()`)가
+  # SPLIT_TOKS 에 어떤 동사를 흘릴지 알 수 있게 한다.
+  local __undecided=0 __rc
+  if [[ ${#t} -gt 512 ]]; then return 2; fi
   case "$t" in
     *'{'*)
       if __brace_find_group "$t"; then
         pre="$BRACE_PRE"; post="$BRACE_POST"
         case "$BRACE_KIND" in
-          suspicious) return 1 ;;
+          suspicious) return 2 ;;
           range)
             __r_count=$BRACE_R_COUNT
             __VERB_BRACE_BUDGET=$((__VERB_BRACE_BUDGET - __r_count))
-            if [[ $__VERB_BRACE_BUDGET -lt 0 ]]; then return 1; fi
+            if [[ $__VERB_BRACE_BUDGET -lt 0 ]]; then return 2; fi
             ridx=0
             while [[ $ridx -lt $__r_count ]]; do
               rval=$(__brace_range_value "$ridx")
-              if __verb_brace_matches_impl "${pre}${rval}${post}" "$@"; then return 0; fi
+              __verb_brace_matches_impl "${pre}${rval}${post}" "$@"; __rc=$?
+              if [[ $__rc -eq 0 ]]; then return 0; fi
+              if [[ $__rc -eq 2 ]]; then __undecided=1; fi
               ridx=$((ridx + 1))
             done
+            if [[ $__undecided -eq 1 ]]; then return 2; fi
             return 1
             ;;
           comma)
             __VERB_BRACE_BUDGET=$((__VERB_BRACE_BUDGET - BRACE_COMMA_COUNT))
-            if [[ $__VERB_BRACE_BUDGET -lt 0 ]]; then return 1; fi
+            if [[ $__VERB_BRACE_BUDGET -lt 0 ]]; then return 2; fi
             __brace_split_top_level "$BRACE_BODY"
             for item in "${BRACE_ITEMS[@]+"${BRACE_ITEMS[@]}"}"; do
-              if __verb_brace_matches_impl "${pre}${item}${post}" "$@"; then return 0; fi
+              __verb_brace_matches_impl "${pre}${item}${post}" "$@"; __rc=$?
+              if [[ $__rc -eq 0 ]]; then return 0; fi
+              if [[ $__rc -eq 2 ]]; then __undecided=1; fi
             done
+            if [[ $__undecided -eq 1 ]]; then return 2; fi
             return 1
             ;;
         esac
@@ -1528,7 +1664,7 @@ __verb_brace_matches_impl() {
       ;;
   esac
   for __lit in "$@"; do
-    if [[ "$t" == "$__lit" || "$t" == */"$__lit" ]]; then return 0; fi
+    if [[ "$t" == "$__lit" || "$t" == */"$__lit" ]]; then __VERB_BRACE_HIT="$__lit"; return 0; fi
   done
   return 1
 }
@@ -1700,6 +1836,34 @@ __note_opaque_verb() {
   __mask_opaque_spans "$inner"
   masked="$__MASKED"
   [[ "$masked" != "$inner" ]] && __scan_opaque_verb_matches "$masked"
+  # **F65 37차 독립 판정(2026-09-10) — SC-10(6) 네 번째 무장 지점.** 중괄호 확장 검사
+  # (`__verb_brace_matches()`)가 세그먼트 자신의 세 지점에만 배선되고 이 스팬 안쪽 스캐너에는
+  # 배선되지 않아 `` `{f,g}ind .claude -delete` ``·`$({f,g}ind .claude -delete)` 가 allow +
+  # 격리 랩 실제 삭제였다(치환으로 쪼갠 형제 `` `f$(true)ind …` `` 는 ask — 35차가 반려한
+  # 것과 정확히 같은 비대칭). 위 사본들은 낱말 경계 정규식으로 리터럴 동사만 찾으므로 중괄호
+  # 낱말은 여기서 따로 편다: 따옴표·백슬래시를 뗀 `inner` 와 치환을 지운 `masked` 를 공백으로
+  # 나눈 낱말(`read -a` — 글로브 확장 없음) 중 `{` 가 든 것마다 무조건 무장 동사 5개+find 로
+  # 한 번, `-delete` 로 한 번 판정한다. 일치(0)면 그 리터럴을 SPLIT_TOKS 에 흘려 호출자의
+  # 기존 AND 로직(find + -delete / 무조건 동사)이 그대로 판단하게 하고, 판정 불가(2)면
+  # `SEGMENT_UNSAFE=1`(이 파일의 기존 fail-safe 경로 — 호출자가 세그먼트 전체를 ask 로 확정)
+  # 로 떨어뜨린다. `__verb_brace_matches()` 는 자기 전역을 스스로 저장·복원하고, 이 블록
+  # 전체가 위 `__saved_opaque_end` 저장 안에 있으므로 커서 오염(35차 자체 발견)은 없다.
+  local __bw __brc
+  local -a __brace_words=()
+  if [[ "$inner" == *'{'* ]]; then
+    IFS=' ' read -r -a __brace_words <<<"$inner $masked"
+    for __bw in "${__brace_words[@]+"${__brace_words[@]}"}"; do
+      [[ "$__bw" == *'{'* ]] || continue
+      __verb_brace_matches "$__bw" "${ARM_DELETE_VERBS_UNCONDITIONAL[@]}" "$ARM_DELETE_VERB_DELETE_GATED"; __brc=$?
+      if [[ $__brc -eq 0 ]]; then SPLIT_TOKS+=("$__VERB_BRACE_HIT")
+      elif [[ $__brc -eq 2 ]]; then SEGMENT_UNSAFE=1
+      fi
+      __verb_brace_matches "$__bw" "-delete"; __brc=$?
+      if [[ $__brc -eq 0 ]]; then SPLIT_TOKS+=("-delete")
+      elif [[ $__brc -eq 2 ]]; then SEGMENT_UNSAFE=1
+      fi
+    done
+  fi
   # 위 저장분을 복원한다 — 호출자(`__tokenize_segment()`)가 이 함수 반환 직후 자신의
   # 커서 전진에 계속 쓴다.
   __OPAQUE_END="$__saved_opaque_end"
@@ -2301,7 +2465,14 @@ __scan_one_segment_for_cp_delete() {
   # path_token()` 이 이미 인용·백슬래시를 제거하므로 위 세 변형 전부 `-delete` 로
   # 정규화된다.
   local __has_find_tok=0 __has_delete_pred=0
+  # step 15: 판정 불가(2)로 채운 플래그는 **출처 토큰 번호**를 기억한다 — 큰 중괄호 피연산자
+  # 하나(`mkdir -p dir{1..100}` 의 `dir{1..100}`)가 find 와 -delete 를 동시에 채우면 AND 가
+  # 무너져 무관 명령이 ask 가 된다(step 15 자체 검증 실측). 한 낱말이 find 명령이면서 동시에
+  # 그 술어일 수는 없으므로, 두 플래그가 같은 판정 불가 토큰에서 왔으면 이 게이트는 무장하지
+  # 않는다(그 토큰이 진짜 동사면 아래 세그먼트 동사 루프가 따로 잡는다).
+  local __find_src=-1 __delete_src=-1 __fd_iter=0
   for tok in "${toks[@]+"${toks[@]}"}"; do
+    __fd_iter=$((__fd_iter + 1))
     normalize_path_token "$tok"
     __apply_pending_assignment
     # `${NORM_TOK##*/}` (basename 추출) 대신 접미사 패턴 **판정**을 쓴다 — F65 7차 판정
@@ -2337,16 +2508,28 @@ __scan_one_segment_for_cp_delete() {
     # 중괄호 확장으로 쪼갠 find/-delete도 같은 이유(셸이 투명하게 여러 단어로 편다)로
     # 잡는다. 두 술어 모두 `__mask_opaque_spans`/`__strip_dollar_brace`와 같은 자리에서
     # 대칭으로 확인한다.
-    if [[ "$__has_find_tok" -eq 0 && "$NORM_TOK" == *'{'* ]] \
-      && __verb_brace_matches "$NORM_TOK" "$ARM_DELETE_VERB_DELETE_GATED"; then
-      __has_find_tok=1
+    # step 15(37차 판정): 3상태 — 판정 불가(2)도 보수적으로 "있다"로 센다. 이 두 플래그는
+    # AND 로 묶여 무장을 결정하므로, 모르는 쪽을 1로 두는 것이 안전한 방향이다(상한·예산
+    # 초과가 열려 있던 SC-10(4) 위반의 수정). `continue` 는 없으므로 피연산자 판정은 그대로.
+    if [[ "$__has_find_tok" -eq 0 && "$NORM_TOK" == *'{'* ]]; then
+      __verb_brace_matches "$NORM_TOK" "$ARM_DELETE_VERB_DELETE_GATED"
+      case $? in
+        0) __has_find_tok=1 ;;
+        2) __has_find_tok=1; __find_src=$__fd_iter ;;
+      esac
     fi
-    if [[ "$__has_delete_pred" -eq 0 && "$NORM_TOK" == *'{'* ]] \
-      && __verb_brace_matches "$NORM_TOK" "-delete"; then
-      __has_delete_pred=1
+    if [[ "$__has_delete_pred" -eq 0 && "$NORM_TOK" == *'{'* ]]; then
+      __verb_brace_matches "$NORM_TOK" "-delete"
+      case $? in
+        0) __has_delete_pred=1 ;;
+        2) __has_delete_pred=1; __delete_src=$__fd_iter ;;
+      esac
     fi
   done
-  if [[ "$__has_find_tok" -eq 1 && "$__has_delete_pred" -eq 1 ]]; then armed=1; fi
+  if [[ "$__has_find_tok" -eq 1 && "$__has_delete_pred" -eq 1 ]]; then
+    # 두 플래그가 같은 판정 불가 토큰 하나에서 왔으면 무장하지 않는다(위 step 15 주석).
+    if [[ $__find_src -ge 0 && $__find_src -eq $__delete_src ]]; then :; else armed=1; fi
+  fi
   # **F65 30차 독립 판정 재작업 중 자체 발견(판정 대상 아님, 30차 수정과 같은 계열)**
   # — 이 루프는 27~29차가 대시-토큰마다 `__dash_prefix_strip_candidates()`를 태우도록
   # 늘려 놓았는데, 이 함수 안에는(다른 모든 예산 확인처럼) 예산 확인이 전혀 없다.
@@ -2462,9 +2645,24 @@ __scan_one_segment_for_cp_delete() {
     # `__control_plane_location_impl()`이 이미 쓰는 것과 같은 안전한 중괄호 파서
     # 원시함수를 재사용하는 `__verb_brace_matches()`(공유 예산·suspicious/예산소진 시
     # 안전한 쪽 확정, 위에 정의)로 확인한다 — 중괄호가 있는 토큰만(불필요한 호출 회피).
-    if [[ "$__verb_armed" -eq 0 && "$NORM_TOK" == *'{'* ]] \
-      && __verb_brace_matches "$NORM_TOK" "${ARM_DELETE_VERBS_UNCONDITIONAL[@]}"; then
-      __verb_armed=1
+    # step 15(37차 판정): 3상태 — 0 이면 이 토큰이 동사(아래 `armed=1; continue`). 2 면 판정
+    # 불가인데, 이 토큰이 **동사인지 피연산자인지 모른다**는 뜻이므로 두 가능성을 모두 안전한
+    # 쪽으로 닫는다: (a) 세그먼트가 아직 무장되지 않았으면 이 토큰을 **잠정 동사**로 보아
+    # 무장하고(`armed=1`) 이 토큰 자신은 피연산자 판정에서 뺀다(`continue`) — 뒤따르는 진짜
+    # 컨트롤 플레인 피연산자(`{f,<600자>}ind .claude -delete` 의 `.claude`)는 무장 상태에서
+    # 판정되어 ask 가 되고, 무관한 명령(`cp file{1..300} /tmp/`)은 이 토큰 자신을 suspicious
+    # 피연산자로 오인하지 않아 allow 로 남는다(잠정 무장만으로는 아무 일도 없다). (b) 이미
+    # 무장돼 있으면(`rm -rf x{1..999…}` 의 `x{…}`) 이 토큰은 피연산자일 가능성이 지배적이므로
+    # `continue` 하지 않고 아래 피연산자 판정(`__control_plane_location_impl()` 의 suspicious →
+    # ask)으로 흘려보낸다 — AUDIT-6 자체 발견 회귀의 근본 수정. 초판(2 → `armed=1` 만)은
+    # (a)에서 이 토큰 자신을 잠정 무장 아래 피연산자로 다시 판정해 큰 중괄호 피연산자를 가진
+    # 모든 무관 명령을 ask 로 만들었다(step 15 자체 검증에서 실측, 판정 대상 아님).
+    if [[ "$__verb_armed" -eq 0 && "$NORM_TOK" == *'{'* ]]; then
+      __verb_brace_matches "$NORM_TOK" "${ARM_DELETE_VERBS_UNCONDITIONAL[@]}"
+      case $? in
+        0) __verb_armed=1 ;;
+        2) if [[ "$armed" -eq 0 ]]; then armed=1; continue; fi ;;
+      esac
     fi
     # F65 27차 독립 판정 — 아홉 번째 재발. 26차 대응(__dash_prefix_strip_candidates)은
     # __find_wrapped_arg() 가 후보를 이미 찾은 뒤에만(패스 1/2/3 중 하나가 걸려야) 호출된다.
@@ -2623,56 +2821,13 @@ __scan_one_segment_for_cp_delete() {
   return 1
 }
 
-# **F65 security-auditor·qa-reviewer 병렬 라운드 신규 발견(2026-09-07, 사용자 확인 후
-# 좁은 범위로 착수) — "대입 후 그 변수를 동사로 호출" 관용구.** `V=rm; ${V} hooks/hooks.json`
-# ·`V=rm; $V hooks/hooks.json`가 전부 allow + 격리 랩 실제 삭제였다. 지금까지 고친 것
-# (파라미터 확장·명령 치환·중괄호 확장)은 전부 **한 토큰/세그먼트 안에서** 문자를
-# 조작해 동사를 가리는 표기였다 — 이건 성격이 다르다: 동사 값이 **다른(앞선) 세그먼트의
-# 대입**에서 온다. 체이닝된 대입(`A=x; B=${A}; ${B}`)·`export`·배열·`read`로 채운
-# 변수까지 일반화하면 값 추적 범위가 임의로 커지는, 이 세션의 다른 축(코드 전달 경로가
-# 24회전 끝에 별도 change-request로 분리된 전례)과 같은 성격의 훨씬 큰 작업이라, 사용자
-# 확인을 거쳐 **가장 좁은 인접 사례만** 이번 세션에서 닫는다: **직전(정확히 하나 앞)
-# 세그먼트가 정확히 `VAR=리터럴단어` 형태이고, 뒤 세그먼트의 토큰이 정확히 `${VAR}` 또는
-# `$VAR` 하나뿐인 경우에만** 그 리터럴 값을 그 토큰인 것처럼 취급한다. 체이닝된 대입·
-# `export`·배열·비-리터럴 값(따옴표·공백·다른 변수 참조가 섞인 값)·`;`/`|`/`&` 세그먼트
-# 경계를 넘어 여러 칸 떨어진 대입은 **의도적으로 범위 밖**이며 `_residual_risk_AC11`에
-# 별도 축으로 등록한다(sprint-51.json 참조) — 이 좁은 대응이 "닫혔다"고 선언하는 것은
-# 그 등록된 잔여 축 하나뿐, 변수 값 추적 일반을 닫았다는 뜻이 아니다.
-__PENDING_ASSIGN_VAR=""
-__PENDING_ASSIGN_VAL=""
-# $1 = 세그먼트 원문. 정확히 `VAR=리터럴단어` 형태(값에 공백·`$`·`` ` ``·글롭 등 셸
-# 특수문자가 전혀 없는 bareword — 또는 그 bareword 하나를 **같은 종류의 따옴표로 통째로
-# 감싼** `VAR="rm"`·`VAR='rm'`: 셸이 따옴표를 벗겨 정확히 같은 값을 넣으므로 bareword와
-# 구분할 이유가 없고, 37차 판정 준비 차분에서 bareword만 캡처하던 초판이 `V="rm"; $V
-# hooks/hooks.json`을 allow로 흘리는 것을 실측해 같은 인접 사례 범위 안에서 보강했다)일
-# 때만 캡처한다 — 값 자체가 이미 애매하면(예: `V="rm -rf"`처럼 여러 낱말이거나
-# `V=$(...)`처럼 가리키는 값이 또 불명확하거나 `V="r"m`처럼 따옴표가 부분만 감싸면)
-# 캡처하지 않고 그냥 리셋한다. 다음 세그먼트가 이 조건에 맞지 않으면(대입이 아니거나
-# 형태가 애매하면) 즉시 리셋해 "정확히 하나 앞"이라는 인접성만 인정한다.
-__capture_pending_assignment() {
-  local s="$1"
-  local __re_bare='^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)=([A-Za-z0-9_./:-]+)[[:space:]]*$'
-  local __re_dq='^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)="([A-Za-z0-9_./:-]+)"[[:space:]]*$'
-  local __re_sq="^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)='([A-Za-z0-9_./:-]+)'[[:space:]]*$"
-  if [[ "$s" =~ $__re_bare || "$s" =~ $__re_dq || "$s" =~ $__re_sq ]]; then
-    __PENDING_ASSIGN_VAR="${BASH_REMATCH[1]}"
-    __PENDING_ASSIGN_VAL="${BASH_REMATCH[2]}"
-  else
-    __PENDING_ASSIGN_VAR=""
-    __PENDING_ASSIGN_VAL=""
-  fi
-}
-# 현재 세그먼트를 스캔하는 도중 NORM_TOK 이 정확히 직전 세그먼트가 대입한 변수의 참조
-# (`${VAR}`·`$VAR`)이면, NORM_TOK 을 그 대입값으로 바꿔치기한다 — 이후 동사·피연산자
-# 비교가 모두 이 값을 그대로 쓰므로 동사 자리·피연산자 자리 양쪽에서 대칭으로 잡힌다
-# (find/-delete 술어 사전 검사 루프·세그먼트 동사 루프 양쪽에 배선한다, SC-10(6)).
-__apply_pending_assignment() {
-  if [[ -n "$__PENDING_ASSIGN_VAR" ]]; then
-    if [[ "$NORM_TOK" == "\$${__PENDING_ASSIGN_VAR}" || "$NORM_TOK" == "\${${__PENDING_ASSIGN_VAR}}" ]]; then
-      NORM_TOK="$__PENDING_ASSIGN_VAL"
-    fi
-  fi
-}
+# "대입 후 그 변수를 동사로 호출" 관용구(assign_then_invoke_verb)의 캡처·치환 헬퍼
+# (`__capture_pending_assignment()`·`__apply_pending_assignment()`)는 원래 여기 있었으나,
+# **step 15(F65 37차 판정, SC-10(6))** 에서 `pure_read_only()` 의 find 사전 필터에도 배선해야
+# 해서 그 함수보다 **앞**(파일 위쪽, `pure_read_only()` 정의 직전)으로 옮겼다 — bash 는 정의를
+# 호출 시점에 해석하므로 `pure_read_only "$CMD"`(파일 중간에서 실행)보다 뒤에 정의된 함수는
+# 그 시점에 존재하지 않는다(709행 근처의 중괄호 원시함수 이동과 같은 이유). 설명 주석도 함께
+# 이동했다.
 
 scan_control_plane_delete() {
   local seg
