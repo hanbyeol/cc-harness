@@ -4549,3 +4549,24 @@ $cmd"
       || { echo "펴질 수 없는/작은 중괄호 피연산자에 새 마찰: ${c:0:60}"; false; }
   done
 }
+
+@test "F65 39차 독립 판정 회귀 고정: 중괄호 잎의 경로 표기(../ 접기)가 리터럴과 같은 판정을 받는다" {
+  # `{rm,-rf,x/../.claude}` 가 allow + 격리 랩 실제 삭제였다(리터럴 `rm -rf x/../.claude` 는
+  # ask). 원인은 normalize_path_token() 의 `..` 접기가 **중괄호 확장보다 먼저** 토큰 전체에
+  # 걸려 `([^/]+)/\.\./` 가 `{rm,-rf,x` 를 경로 세그먼트로 잡아 토큰을 `.claude}` 로 망가뜨린
+  # 것 — 동사도 경로도 사라졌다. 중괄호가 있으면 접기를 건너뛰고, 확장된 잎에서 접는다.
+  local c
+  for c in '{rm,-rf,x/../.claude}' '{rm,-rf,hooks/../.claude}' '{rm,-rf,a/b/../../.claude}' \
+           '{rm,-rf,.claude/../.claude}' '{find,x/../.claude,-delete}' '{mv,x/../.claude,/tmp/s}' \
+           '{rmdir,x/../.claude}' '{rm,-rf,x/../hooks/hooks.json}' 'bash -c "{rm,-rf,x/../.claude}"'; do
+    run delete_decision "$c"
+    [[ "$output" != *'"permissionDecision": "allow"'* ]] \
+      || { echo "39차 판정 표기 페이로드가 allow 로 샜다: ${c:0:70}"; false; }
+  done
+  # 무관한 `..` 경로는 그대로 allow — 접기 건너뛰기가 과잉 차단으로 번지지 않았는지 대조.
+  for c in 'cp x/../y/file.txt /tmp/' 'ls a/b/../c' 'cat x/../README.md'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "무관한 ../ 경로에 새 마찰: $c"; false; }
+  done
+}

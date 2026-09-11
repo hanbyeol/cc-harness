@@ -229,7 +229,20 @@ sweep_context() {  # $1 context
 # 한 콤마 중괄호 토큰이 동사와 컨트롤 플레인 경로를 **함께** 품는 셀을 구조적으로 만들 수
 # 없었다(초기 코드부터 allow + 격리 랩 실제 삭제). 여기서는 payload 를 별도 풀로 생성한다.
 # ---------------------------------------------------------------------------
-PAYLOAD_OPERANDS=('.claude' './.claude' '.claude/' '.claude/settings.json')
+# **대상 표기도 생성 인자다(39차 독립 판정 criteria_gaps, 2026-09-11).** 초판은 여기에
+# 컨트롤 플레인 대상을 두 리터럴로 하드코딩했다 — 축이 38차가 지적한 지점보다 한 단계 더
+# 아래에서 다시 좁혀진 것이라, `{rm,-rf,x/../.claude}`(`..` 를 거쳐 같은 대상에 도달하는 표기)
+# 를 스위트가 구조적으로 만들 수 없었다(그 셀은 allow + 격리 랩 실제 삭제였다). 대상과 표기를
+# 분리해 곱으로 만든다.
+CP_BASE_TARGETS=('.claude' '.claude/settings.json' 'hooks/hooks.json')
+# 같은 대상에 도달하는 표기 변환들 — 셸/파일시스템이 같은 경로로 해석하는 것만 넣는다.
+cp_notations() {  # $1 target -> 표준출력에 한 줄에 하나씩
+  local x="$1"
+  printf '%s\n' "$x" "./$x" "$x/" "x/../$x" "a/b/../../$x" "$x/../$x" "./x/.././$x"
+}
+# payload 스윕은 문맥마다 도는 비용이 크므로 대표 표기 4개만 쓴다(전체 표기 곱은 아래
+# 표기·리터럴 대조 테스트가 bare 문맥에서 전수로 덮는다).
+PAYLOAD_OPERANDS=('.claude' './.claude' 'x/../.claude' '.claude/settings.json')
 # $1 verb, $2 operand, $3 padding kind(none|extra|alts70|len600) -> 한 토큰짜리 명령
 payload_token() {
   local v="$1" o="$2" pad="$3" body
@@ -305,9 +318,46 @@ sweep_payload_context() {  # $1 context
   [ "$status" -eq 0 ]
 }
 
+@test "F65 SC-11 대상 표기 × 리터럴/확장 판정 동치 — 같은 대상의 어떤 표기도 중괄호 안에서 약해지지 않는다 (39차)" {
+  # 39차 판정이 찾은 결함의 일반 불변식: **리터럴로 쓴 명령과 그것을 중괄호 잎에 넣은 명령의
+  # 판정은 같아야 한다.** 이 한 줄이 38차(동사+경로 한 토큰)와 39차(`..` 표기) 두 누수를 모두
+  # 잡았을 것이다. 대상 3종 × 표기 7종을 생성해 (a) 판정 동치 (b) 둘 다 게이트됨을 확인한다.
+  local tgt op lit exp fails=()
+  for tgt in "${CP_BASE_TARGETS[@]}"; do
+    while IFS= read -r op; do
+      lit=$(decision_of "rm -rf $op")
+      exp=$(decision_of "{rm,-rf,$op}")
+      [[ "$lit" != "$exp" ]] && fails+=("판정 불일치 lit=$lit brace=$exp : $op")
+      [[ "$exp" == allow ]] && fails+=("중괄호 안에서 allow: {rm,-rf,$op}")
+      [[ "$lit" == allow ]] && fails+=("리터럴에서 allow: rm -rf $op")
+    done < <(cp_notations "$tgt")
+  done
+  [[ ${#fails[@]} -eq 0 ]] || { printf 'MISMATCH %s\n' "${fails[@]}"; false; }
+}
+
+@test "F65 SC-11 대상 표기: find/-delete·mv·rmdir 도 같은 표기 곱에서 게이트된다 (39차)" {
+  local op fails=()
+  while IFS= read -r op; do
+    for c in "{find,$op,-delete}" "{mv,$op,/tmp/sink}" "{rmdir,$op}" "find $op -delete" "mv $op /tmp/sink"; do
+      [[ "$(decision_of "$c")" == allow ]] && fails+=("$c")
+    done
+  done < <(cp_notations '.claude')
+  [[ ${#fails[@]} -eq 0 ]] || { printf 'LEAK %s\n' "${fails[@]}"; false; }
+}
+
 # ---------------------------------------------------------------------------
 # SC-10(4) 경계 쌍 — 이 축의 구현이 도입한 상한은 초과 시 안전한 쪽으로 떨어진다.
 # ---------------------------------------------------------------------------
+@test "F65 SC-10(4) 마찰 경계: 컨트롤 플레인 잎이 없는 큰 콤마 중괄호는 예산 초과 시 ask 로 떨어진다(의도된 fail-safe, 39차 기록)" {
+  # 39차 판정 error/medium: 예산(64)을 넘는 콤마 중괄호는 컨트롤 플레인 잎이 없어도 ask 다 —
+  # 판정 불가(2)를 보수적 무장으로 처리하고 그 토큰을 피연산자 판정에 흘리기 때문이다(SC-11(5)).
+  # 안전한 방향이지만 **의도된 마찰**이므로 경계를 고정해 둔다: 64 이하는 allow, 초과는 ask.
+  local n64 n65 alts
+  alts=$(printf 'f%s,' $(seq 1 64)); n64="cp x{${alts%,}} /tmp/"
+  alts=$(printf 'f%s,' $(seq 1 65)); n65="cp x{${alts%,}} /tmp/"
+  [[ "$(decision_of "$n64")" == allow ]] || { echo "64 대안은 allow 여야 한다(경계 이동)"; false; }
+  [[ "$(decision_of "$n65")" != allow ]] || { echo "65 대안이 allow — 예산 초과 fail-safe 가 사라졌다"; false; }
+}
 @test "F65 SC-10(4) 경계: __VERB_BRACE_BUDGET(64) 안팎의 콤마 대안 수에서 find/-delete 가 전부 ask" {
   local n alts cmd d leaks=()
   for n in 8 63 64 65 66 80 200; do

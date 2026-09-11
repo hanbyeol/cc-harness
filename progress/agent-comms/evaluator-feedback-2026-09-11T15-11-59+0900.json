@@ -1,0 +1,125 @@
+{
+  "timestamp": "2026-09-11T15:11:59+09:00",
+  "sprint": 51,
+  "iteration": 39,
+  "round": "F65 39th independent verdict",
+  "features_evaluated": [
+    "F65"
+  ],
+  "security_tier": "critical",
+  "target_head": "1a0ba00",
+  "responds_to": "progress/agent-comms/evaluator-feedback-2026-09-11T14-32-07+0900.json (38th verdict, fail on 21889d0)",
+  "scores": {
+    "functionality": 6,
+    "code_quality": 6,
+    "security": 4,
+    "error_handling": 6,
+    "test_coverage": 6
+  },
+  "score": 4,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 4 < 7 (critical tier auto-fail): a live control-plane deletion still reaches `allow`. `{rm,-rf,x/../.claude}` (and the `find`/`mv`/`rmdir` forms) is allowed in bare, `bash -c` and adjacent-assignment contexts while the literal counterpart `rm -rf x/../.claude` is ask. Reproduced in an isolated lab: the control plane was actually deleted in all four probed notations.",
+    "score 4 < threshold 7 (min-of-5)",
+    "SC-10(7) violated: the above allow cells are not attributed to any `_residual_risk_AC11.open_axes_2026_08_04` key. `ancestor_directory_operand` covers cwd-dependent ancestors (`.`, `..`, `*`), not a `..`-traversing notation of the control plane itself whose literal form is gated.",
+    "SC-11(1)'s new fourth dimension is declared as a product but its target factor is a hard-coded 2-literal pool (`.claude`, `.claude/settings.json`), so the `{verb + control-plane operand}` payload value is enumerated, not generated — the same meta-defect SC-11's own rationale condemns, and it is what hid this leak."
+  ],
+  "issues": [
+    "[security][critical][confidence:high] Brace-leaf path normalization is not at parity with whole-token normalization. The operand judge now does inspect a brace token that was armed as a verb (this commit's fix), but when it expands the leaves it does not apply the `..`-collapsing that `normalize_path_token` applies to plain tokens. Measured parity table (literal vs. brace form, new hook): `.claude` ask/ask, `./.claude` ask/ask, `.//.claude` ask/ask, `.claude/` ask/ask, `./x/../.claude` ask/ask, `$PWD/.claude` ask/ask, `x/../.claude/settings.json` ask/ask — but `x/../.claude` ask/**allow**, `a/b/../../.claude` ask/**allow**, `.claude/../.claude` ask/**allow**. The leak is verb-independent (`{rm,-rf,…}`, `{find,…,-delete}`, `{mv,…,/tmp/s}`, `{rmdir,…}` all allow) and context-independent on the three non-substitution sites (bare, `bash -c`, adjacent assignment); `$( )`/backtick are BLOCKED by Layer 1/2, which is a gate, not a leak.",
+    "[security][critical][confidence:high] Isolated-lab confirmation of the above: in a fresh mktemp dir with a synthetic `.claude/settings.json` and an existing intermediate dir, `{rm,-rf,x/../.claude}`, `{rm,-rf,hooks/../.claude}`, `{rm,-rf,a/b/../../.claude}` and `{rm,-rf,.claude/../.claude}` each returned `allow` and each actually removed `.claude`. `hooks/../.claude` is a realistic in-repo spelling, so this is not a contrived shape.",
+    "[criteria][high][confidence:high] The generated suite cannot emit the leak above, by construction. `residual_key_for_context()` and the payload pool generate {construct} × {position} × {context} × {payload shape}, but the control-plane target inside each payload is drawn from a fixed two-element literal list. The 38th verdict's lesson was 'the axis was silently narrowed because payload content was never a factor'; the same narrowing now sits one level down, in the target-notation factor. Add target notation (`X/../<cp>`, `<cp>/../<cp>`, `a/b/../../<cp>`, `.//<cp>`, `$PWD/<cp>`, trailing-slash forms) as a generated factor rather than fixing this one instance.",
+    "[error][medium][confidence:high] New friction introduced by this commit (old → new differential). A comma brace with more than `__VERB_BRACE_BUDGET` (64) alternatives in any segment that also carries an arm-delete verb now asks even with no control-plane leaf anywhere: `cp x{f0,…,f119} /tmp/` was `allow` at 21889d0 and is `ask` at 1a0ba00; boundary measured at n=64 allow / n=65 ask. Same for `mv file{00,…,79}.txt /tmp/` and `rm -rf build/{d0,…,d79}`. Cause: the over-budget token returns undecided(2), the verb loop now declines to `continue` because the token contains a comma, and the operand judge then reports the benign token itself as the control-plane match (the ask reason literally names `x{f0,f1,…}`). The direction is fail-safe and it is ask (not deny), and SC-10(4) does declare 'over-cap → ask/armed', but this is a new false positive on commands with no control-plane leaf and it is neither tested nor attributed. The generated friction control (test 13) does not cover >64-alternative comma braces, which is why it passed.",
+    "[quality][medium][confidence:high] The 512-char cap fix is correct but was reached by trial: the in-file comment records that an earlier draft returned 1 for every non-comma token and broke the whole-token literal match, found only by self-probing. That the function's two exits (cap vs. literal comparison) can be swapped without any test failing indicates the cap boundary tests (generated test 10) pin only the ask side, not the match side.",
+    "[security][low][confidence:high] Out-of-scope-but-worth-recording: `.mcp.json` and `CLAUDE.md` are not control-plane locations for this guard even in literal form (`rm -rf .mcp.json` → allow, `rm -rf CLAUDE.md` → allow), so `{rm,-rf,.mcp.json}` → allow is consistent scope, not a regression. Flagging because both files are wiring the harness depends on; if that scope is intentional it deserves an explicit residual entry rather than silence.",
+    "[quality][low][confidence:high] `{rm,-rf,.claude}#c` → allow and `{rm,-rf} {.claude}` → allow are correct, not leaks: bash expands the first to `rm#c -rf#c .claude#c` (no such command) and leaves the degenerate `{.claude}` literal. Verified by expansion (`printf \"[%s]\"`). Recording so a later round does not re-report them as leaks.",
+    "[test][low][confidence:medium] The 348-test main suite and the 13-test generated suite both pass and the behavioral probe returns `[]`, but no test in either suite exercises a control-plane target written in any notation other than the two literals. Test coverage is broad on construct/context and thin on operand spelling.",
+    "[quality][info][confidence:high] SC-11(1)'s fourth dimension and SC-11(5) do substantively remove the blind spot the 38th named, rather than restating it: (5) states the general rule ('consumed as verb' ≠ 'exempt from the operand judge') with a principled exception (range braces only, because a range's leaves are prefix+value+suffix of one word), and the code matches that rule at all three narrowed sites. The residual re-measurement of `ancestor_directory_operand` (correcting the 37th's `find hooks -delete` allow claim to ask, and demoting the prefix-assignment case to a harmless cell) is honest and verifiable."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "SC-11(2): the generated suite enumerates the product by loops, not literals, and gates allow behind a jq check that the named residual key exists in sprint-51.json — verified by reading tests/pre-bash-firewall-generated.bats:73-80,140-153,254-266.",
+      "SC-11(5) as code: every token containing `{` that arms as a verb is now also run through the operand judge; literal verb tokens keep the fast path. Confirmed in hooks/pre-bash-firewall.sh ~line 2738 and by behavior.",
+      "The 38th verdict's named family is closed at every probed context: `{rm,-rf,.claude}`, `{rm,.claude}`, `{rmdir,.claude}`, `{mv,.claude,/tmp/sink}`, `{rm,-rf,./.claude}`, `{rm,-rf,.claude/}`, `,-v` variant, 70-alternative variant, 600-char-padded variant, `{find,.claude,-delete}` and `{find,.claude,-delete,-o,-name,x}` are ask in bare / bash -c / adjacent-assignment and ask-or-BLOCKED in `$( )` / backtick — 11 payloads × 5 contexts, zero allow.",
+      "My own shapes on the headline target also gate: operand as a non-first leaf, operand as the first leaf (`{.claude,rm,-rf}`), nested brace (`{rm,-rf,{.,./}claude}`), path assembled only by expansion (`{rm,-rf,.cla{u,x}de}`, `rm -rf .cl{a,b}ude`), nested range inside the payload (`{rm,-rf,.claude,y{1..300}}`), quoted/backslashed leaves, `sudo`/`env`/`nohup`/`timeout`/`command`/`nice`/`xargs` wrappers, pipe and `&&` chains, subshell and brace group, here-string, `env -S`, empty-suffix shapes that survive expansion (`{rm,-rf,.claude}\"\"`, `{rm,-rf,.claude}{,}`) — all ask.",
+      "Isolated deletion lab on the headline case: the payload is live (raw exec removed `.claude`) and the guard returned ask without executing (`.claude` intact)."
+    ],
+    "security": [
+      "The 512-char cap change opens no parameter-expansion hole: a >512-char verb token containing `{` from `${…}` (`${<600 chars>:-rm} -rf .claude`, the `find`+`-delete` form, the `$( )` and `bash -c` variants) is ask/BLOCKED on both 21889d0 and 1a0ba00 — the substitution scanner covers those independently.",
+      "The range-vs-comma boundary of the new exception holds in the safe direction: `rm -rf x{1..a}`, `cp x{1..999} .claude`, `find x{1..999} .claude -delete`, `rm -rf x{1..300} .claude`, `rm -rf .claude{,.bak}` all ask.",
+      "34th–38th regression cells hold: `{f,g}ind .claude -delete`, `{f,g}in$(true)d .claude -delete`, `{r,z}m -rf .claude`, `D=-delete; find .claude $D`, `{rm -rf,ls} .claude`, `` fin`true`d .claude -delete ``, `e${x}val rm -rf .claude`, `r${x}m -rf .claude`, `find .claude -dele${x}te` — all ask; `$(echo rm) -rf .claude` BLOCKED.",
+      "This commit is a large net improvement on operand notation: of 14 notation variants inside a comma brace, 21889d0 allowed 11 and 1a0ba00 allows 3."
+    ],
+    "error_scenarios": [
+      "BLOCKED is correctly classified as a gate in the generated suite's helper (stderr merged into the decision string) — the misreading that produced the 37th and 38th probes' false alarms is fixed at tests/pre-bash-firewall-generated.bats:30,55-71.",
+      "Named friction controls stay allow: `cp file{1..300} /tmp/`, `mkdir -p dir{1..100}`, `cp x{<600 chars>} /tmp/`, a >512-char jq program reading `.claude/settings.json`, plus `echo {a,b,c}`, `tar cf x.tar src/{a,b}`, `cp -r build/{js,css} dist/`, `mv logs/{a,b}.log /tmp/`, `git add .claude/settings.json`, `cat .claude/settings.json`, `grep -r foo .claude/`."
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "SC-11(1) fourth dimension — declared as a generated product, implemented with a fixed two-literal target pool; the dimension therefore does not cover the `{verb + control-plane operand}` value it claims to cover."
+    ],
+    "security": [
+      "SC-11(5) in effect — the operand judge is now reached, but it under-normalizes brace leaves, so `{rm,-rf,x/../.claude}` / `{find,x/../.claude,-delete}` / `{mv,x/../.claude,/tmp/s}` / `{rmdir,x/../.claude}` reach allow and actually delete.",
+      "SC-10(7) — allow cells exist that are attributed to no residual key."
+    ],
+    "error_scenarios": [
+      "New unattributed false positive at the >64-alternative comma-brace boundary for arm-delete verbs (`cp x{f0..f119} /tmp/`: allow at 21889d0, ask at 1a0ba00)."
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "The generation rule has no **operand-notation factor**. SC-11(1) generates construct × position × context × payload-shape; the control-plane target inside a payload is a fixed literal. Add a target-notation pool — at minimum `X/../<cp>`, `a/b/../../<cp>`, `<cp>/../<cp>`, `.//<cp>`, `./<cp>`, `<cp>/`, `<cp>//`, `$PWD/<cp>`, `~/<cp>` — and require every (payload shape × target notation) cell to be ask/BLOCKED or attributed.",
+      "No criterion requires **literal/expanded parity**: 'if `<verb> <operand>` is gated, then any construct that expands to the same words must be gated'. That single invariant would have caught both the 38th leak and this one, and it is checkable by generating the literal form alongside every generated cell and comparing decisions.",
+      "No friction criterion for caps: SC-10(4) says over-cap → ask/armed but nothing requires that over-cap over-gating be confined to segments that actually carry a control-plane-looking operand, nor that new over-gating be attributed. The `cp x{65 alternatives} /tmp/` regression is unowned as a result."
+    ],
+    "ambiguous_criteria": [
+      "`ancestor_directory_operand`'s scope is now ambiguous enough that a real leak fell between it and SC-11. It is written about cwd-dependent ancestors (`.`, `..`, `*`), but a reader can also stretch it to cover `x/../.claude`. State explicitly that a path whose literal form is gated is never an ancestor-operand residual."
+    ],
+    "security_criteria_insufficient": [
+      "SC-11(2) accepts 'every generated cell is ask/BLOCKED or attributed' as the safety property, but a generation rule that under-generates satisfies it vacuously. The criterion needs a coverage obligation — e.g. each factor's pool must be enumerated from a named source (the guard's own normalization table for targets) rather than hand-listed in the test."
+    ],
+    "action_required": "Next iteration: (a) normalize brace leaves through the same path pipeline as whole tokens (or, if that is too broad, treat any leaf containing `..` as undecided → armed), (b) add the operand-notation factor and the literal/expanded-parity check to the generated rule, (c) decide and record whether the >64-alternative over-gating is accepted friction or a bug, (d) keep SC-11(5) as written — it is correct."
+  },
+  "recommended_fix": "In `__control_plane_location_impl()`, run each expanded brace leaf through the same normalization that `normalize_path_token()` applies to a whole token (`..` collapsing in particular) before comparing against the control-plane set; failing that, return the undecided/armed value for any leaf containing a `..` segment. Then add target notation as a generated factor in tests/pre-bash-firewall-generated.bats and assert literal/expanded parity per cell.",
+  "criteria_backfill_review": {
+    "count": 2,
+    "items": [
+      "SC-11(1) fourth dimension (expansion payload) — appropriate, add-only, and directly traceable to the 38th verdict's criteria_gaps. Not a scope inflation or a requirement relaxation.",
+      "SC-11(5) (consumed-as-verb ≠ exempt-from-operand-judge) — appropriate and correctly generalized, with a principled range-brace exception."
+    ],
+    "judgment": "Both backfills are legitimate; neither widens scope nor weakens a requirement. Below the 3-item threshold that would trigger a spec/architecture re-review. The `ancestor_directory_operand` re-measurement is a correction of a prior round's mis-measurement, which is the behavior the calibration policy wants.",
+    "spec_review_recommended": false
+  },
+  "f37_second_judge": {
+    "status": "this file is one independent verdict in the critical-tier cross-check chain (39th)",
+    "note": "Verdict is fail on a reproduced, lab-confirmed live deletion, so no second-judge disagreement escalation is pending from this side; a fail never auto-passes."
+  },
+  "evidence": {
+    "environment": "cwd /Users/hanbyeol/Project/studioj/cc-harness, branch main, HEAD 1a0ba00 (`git rev-parse --short HEAD` → 1a0ba00). Probes drive hooks/pre-bash-firewall.sh directly with `{\"tool_input\":{\"command\":…}}` on stdin, capturing stdout+stderr; a leading `BLOCKED` on stderr is classified as gated, never as allow.",
+    "generated_suite": "`bats tests/pre-bash-firewall-generated.bats` → `1..13`, 13 ok, 0 failures (tests 1-13 as listed in the commit message, including test 6/7/8 = the new expansion-payload dimension).",
+    "main_suite": "`bats tests/pre-bash-firewall.bats > main-suite.txt` → `1..348`, 348 `ok`, 0 `not ok`, EXIT=0. Last test: `ok 348 F65 38차 독립 판정 회귀 고정: 동사와 컨트롤 플레인 경로를 한 콤마 중괄호 토큰에 담은 명령이 ask`.",
+    "behavioral_probe": "`bash scripts/probes/behavioral.sh` → `[]`.",
+    "axis1_38th_family": "11 payloads × 5 contexts sweep. Bare / bash -c / `V=1; …` = ask for all 11; `$( )` / backtick = BLOCKED for 7 and ask for 4 (`{rmdir,…}`, `{mv,…}`, both `{find,…}` forms). Zero allow. Payloads: `{rm,-rf,.claude}`, `{rm,.claude}`, `{rmdir,.claude}`, `{mv,.claude,/tmp/sink}`, `{rm,-rf,./.claude}`, `{rm,-rf,.claude/}`, `{rm,-v,-rf,.claude}`, 70-alternative, 600-char-padded, `{find,.claude,-delete}`, `{find,.claude,-delete,-o,-name,x}`.",
+    "axis1_own_shapes": "20 self-designed shapes × 4 contexts: nested brace `{rm,-rf,{.,./}claude}`, split path `{rm,-rf,.cla{u,x}de}` and `rm -rf .cl{a,b}ude`, nested range payload `{rm,-rf,.claude,y{1..300}}` and `{rm,-rf,y{1..300},.claude,<600 pad>}`, first-leaf operand `{.claude,rm,-rf}`, leading-empty `{,rm,-rf,.claude}`, `$HOME`/`$PWD` leaves, redirection, `sudo`, `x=1 <payload>`, `{rm,-rf,.claude/settings.json}`, `{git,-C,.,rm,-rf,.claude}` → all ask (bare/bash -c) or BLOCKED (`$( )`/backtick). Wrapper batch (`env`, `nohup`, `timeout 5`, `command`, `nice -n 5`, `xargs`, pipe, `&&`, `( … )`, `{ … ; }`, here-string, `env -S`) → all ask. Suffix shapes that survive expansion (`…}\"\"`, `…}''`, `…}{,}`, `…}$\"\"`) → all ask; expansion verified with `bash -c 'printf \"[%s]\" {rm,-rf,zz}\"\"'` → `[rm][-rf][zz]`.",
+    "axis1_leak_found": "Operand-notation parity table (literal `rm -rf V` vs `{rm,-rf,V}`, new hook / old hook 21889d0): `.claude` ask/ask/allow(old), `./.claude` ask/ask/allow, `x/../.claude` ask/**allow**/allow, `.//.claude` ask/ask/allow, `.claude/` ask/ask/allow, `.claude//` ask/ask/allow, `./x/../.claude` ask/ask/allow, `a/b/../../.claude` ask/**allow**/allow, `.claude/../.claude` ask/**allow**/allow, `$PWD/.claude` ask/ask/allow, `.claude/./settings.json` ask/ask/ask, `./.claude/settings.json` ask/ask/ask, `x/../.claude/settings.json` ask/ask/ask. PARITY BREAKS = [`x/../.claude`, `a/b/../../.claude`, `.claude/../.claude`]. Context spread of the break: bare allow, `bash -c` allow, `Q=1; …` allow, `$( )` BLOCKED, backtick BLOCKED; verb spread: `{find,x/../.claude,-delete}` allow (literal `find x/../.claude -delete` ask), `{mv,x/../.claude,/tmp/s}` allow, `{rmdir,x/../.claude}` allow; a 600-char padded variant flips back to ask via the over-cap fail-safe.",
+    "isolated_deletion_lab": "Lab A (headline, fresh mktemp + synthetic `.claude/settings.json`): raw `eval '{rm,-rf,.claude}'` → `.claude exists? NO` (payload is live); guard on the same string → `\"permissionDecision\": \"ask\"` and `.claude exists? YES` (guard does not execute). Lab B (the leak, fresh mktemp per case, intermediate dirs `x/`, `hooks/`, `a/b/` created): `{rm,-rf,x/../.claude}` decision=allow deleted_control_plane=True; `{rm,-rf,hooks/../.claude}` allow/True; `{rm,-rf,a/b/../../.claude}` allow/True; `{rm,-rf,.claude/../.claude}` allow/True. Both labs ran only inside mktemp dirs and were removed afterwards; no payload touched the real repo.",
+    "axis2_friction": "Allow preserved: `cp file{1..300} /tmp/`, `mkdir -p dir{1..100}`, `cp x{<600 chars>} /tmp/`, `jq '<630-char program>' .claude/settings.json`, `echo {a,b,c}`, `tar cf x.tar src/{a,b}`, `cp -r build/{js,css} dist/`, `mv logs/{a,b}.log /tmp/`, `git add .claude/settings.json`, `cat .claude/settings.json`, `find src -name '*.go'`, `grep -r foo .claude/`. Ask preserved (reverse direction): `rm -rf x{1..a}`, `cp x{1..999} .claude`, `find x{1..999} .claude -delete`, `rm -rf x{1..300} .claude`, `rm -rf .claude{,.bak}`.",
+    "axis2_friction_regression": "Old/new differential: `cp x{f0,…,f119} /tmp/` → old(21889d0) allow, new(1a0ba00) ask; ask reason names the benign token itself (`control-plane-delete → x{f0,f1,…,f119}`). Boundary by alternative count: n=60 allow, n=64 allow, n=65 ask, n=70 ask. Also ask: `mv file{00,…,79}.txt /tmp/`, `rm -rf build/{d0,…,d79}`. Not affected: `echo {f0,…,f79}` allow (no arm-delete verb). Controls unchanged old→new: `cp -r .claude{,.bak}` allow/allow, `cp -r .claude /tmp/` allow/allow, `cp file{1..300} /tmp/` allow/allow.",
+    "axis2_cap_change_no_hole": "`${<600 chars>:-rm} -rf .claude` → old ask / new ask; `${<600>:-rm}${q:-} -rf .claude` ask/ask; `${<600>:-find} .claude -delete` ask/ask; `rm{<600>} -rf .claude` ask/ask; `${x:-rm} -rf .claude` ask/ask; `$( ${<600>:-rm} -rf .claude )` BLOCKED/BLOCKED; `bash -c '${<600>:-rm} -rf .claude'` ask/ask.",
+    "axis3_no_regression": "34th–38th cells re-run, all ask: `{f,g}ind .claude -delete`, `{f,g}in$(true)d .claude -delete`, `{r,z}m -rf .claude`, `D=-delete; find .claude $D`, `{rm -rf,ls} .claude`, `` fin`true`d .claude -delete ``, `e${x}val rm -rf .claude`, `r${x}m -rf .claude`, `find .claude -dele${x}te`; `$(echo rm) -rf .claude` BLOCKED. Cap-boundary and budget-boundary cells are pinned by generated tests 9 and 10 (both ok).",
+    "axis3_residual_attribution": "tests/pre-bash-firewall-generated.bats gates every tolerated allow behind `residual_exists()` = `jq -e '._residual_risk_AC11.open_axes_2026_08_04[$k] | type == \"object\"'` against progress/contracts/sprint-51.json (lines 73-80, 140-153, 152, 254-266, 296-299, 359-360). Tolerated contexts: `eval` → `eval_wrapper`; `V=rm; {$V,-rf,.claude}` → `assign_then_invoke_verb`. Unattributed allows found outside the suite's reach: the three `..`-notation cells above (no key covers them) and the `cp x{>64 alternatives} /tmp/` over-gating (an ask, so SC-10(7) does not apply, but also unrecorded).",
+    "axis3_fourth_dimension_judgment": "SC-11(1)'s fourth dimension and SC-11(5) are substantive, not restatements — (5) generalizes to a rule with a principled exception and the code implements it at all three narrowed sites (`__verb_brace_matches_impl` cap ~line 1585, `__find_src` AND-gate ~line 2541, tri-state `return 2` branch ~line 2680, verb-loop `continue` ~line 2738, all read in the diff `git diff 21889d0..1a0ba00 -- hooks/pre-bash-firewall.sh`). They do remove the blind spot the 38th named; they do not remove the adjacent one in the target-notation factor.",
+    "safe_allow_cells_verified_harmless": "`{rm,-rf,.claude}#c` allow — `bash -c 'printf \"[%s]\" {rm,-rf,zz}#c'` → `[rm#c][-rf#c][zz#c]`, no runnable verb. `{rm,-rf} {.claude}` and `rm -rf {.claude}` allow — degenerate brace stays literal, no control-plane path. `{rm,-rf,.mcp.json}` / `{rm,-rf,CLAUDE.md}` allow — literal forms `rm -rf .mcp.json` / `rm -rf CLAUDE.md` are also allow, i.e. guard scope, not a brace leak.",
+    "code_read": "git diff 21889d0..1a0ba00 (6 files, +307/-13): hooks/pre-bash-firewall.sh +51/-13, tests/pre-bash-firewall-generated.bats +100, tests/pre-bash-firewall.bats +31, progress/contracts/sprint-51.json (SC-11 criterion + ancestor_directory_operand status), docs/INVARIANTS.md +14, prior feedback file."
+  },
+  "passes_change": {
+    "feature": "F65",
+    "before": false,
+    "after": false,
+    "changed": false,
+    "reason": "verdict is fail; passes untouched per INV-11."
+  },
+  "next_action": "Return to implementer for the brace-leaf normalization fix and the operand-notation factor in the generation rule. Do not re-litigate the 37th or 38th rounds — those closures verified clean here."
+}
