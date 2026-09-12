@@ -235,10 +235,52 @@ sweep_context() {  # $1 context
 # 를 스위트가 구조적으로 만들 수 없었다(그 셀은 allow + 격리 랩 실제 삭제였다). 대상과 표기를
 # 분리해 곱으로 만든다.
 CP_BASE_TARGETS=('.claude' '.claude/settings.json' 'hooks/hooks.json')
-# 같은 대상에 도달하는 표기 변환들 — 셸/파일시스템이 같은 경로로 해석하는 것만 넣는다.
-cp_notations() {  # $1 target -> 표준출력에 한 줄에 하나씩
+# ---------------------------------------------------------------------------
+# **표기 풀은 가드 자신의 접기 규칙에서 도출된다(SC-12(1)·(3), 40차 독립 판정 criteria_gaps,
+# 2026-09-12).** 39차 대응까지 이 자리는 손으로 쓴 리터럴 7개였다 — 38차(페이로드 내용) →
+# 39차(대상 표기) → 40차(접기 규칙의 **위치형**·비교 의미)가 같은 메타 결함을 한 층씩 아래에서
+# 반복한 이유가 그것이다. 매 라운드가 직전 판정이 실측한 인스턴스만 목록에 더했고, 풀이 가드의
+# 규칙에서 나오지 않는 한 '가드가 아는 규칙'과 '테스트가 아는 규칙'의 차이가 곧 다음 누수가
+# 됐다. 아래 표는 `normalize_path_token()` 이 접는 규칙을 그대로 옮긴 것이며, 각 규칙을
+# **접두형·중간형·말단형** 세 위치로 기계 전개한다. 40차가 격리 랩에서 실제 삭제를 실증한 누수
+# (`find .claude/. -delete`·`find .claude/hooks/.. -delete`)가 정확히 '중간형만 구현된 규칙의
+# 말단형'이었다 — 규칙을 코드에 더하면 이 생성기가 그 규칙의 세 위치형을 자동으로 낸다.
+CP_FOLD_RULES=(dsl dot dotdot combo)
+CP_FOLD_CHILD='sub'   # 말단 `seg/..` 형이 경유하는 자식 세그먼트 이름
+cp_fold_spellings() {  # $1 target, $2 rule -> 같은 대상을 가리키는 표기들
+  local x="$1" r="$2"
+  case "$r" in
+    dsl)      # `//` → `/`
+      printf '%s\n' ".//$x" "$x//"
+      if [[ "$x" == */* ]]; then printf '%s\n' "${x%%/*}//${x#*/}"; fi
+      ;;
+    dot)      # `/./` → `/` (말단형이 40차 누수 계열)
+      printf '%s\n' "./$x" "$x/" "$x/."
+      if [[ "$x" == */* ]]; then printf '%s\n' "${x%%/*}/./${x#*/}"; fi
+      ;;
+    dotdot)   # `seg/../` 제거 (말단형이 40차 누수 계열)
+      printf '%s\n' "x/../$x" "a/b/../../$x" "$x/../$x" "$x/$CP_FOLD_CHILD/.."
+      if [[ "$x" == */* ]]; then printf '%s\n' "${x%%/*}/$CP_FOLD_CHILD/../${x#*/}"; fi
+      ;;
+    combo)    # 두 규칙이 한 경로에 겹친 형태 — 접기의 반복·순서 의존을 드러낸다
+      printf '%s\n' "./x/.././$x" "$x/./$CP_FOLD_CHILD/.." "$x/.//."
+      ;;
+  esac
+}
+cp_notations() {  # $1 target -> 정경 표기 + 규칙 표에서 도출된 모든 표기
+  local x="$1" r
+  printf '%s\n' "$x"
+  for r in "${CP_FOLD_RULES[@]}"; do cp_fold_spellings "$x" "$r"; done
+}
+# **비교 의미도 생성 인자다(SC-12(2)).** 옛 문자열 레이어는 `grep -qiE`(대소문자 무시)인데
+# F65 가 그것을 대체한 토큰 축은 대소문자를 구분해서, `rm -rf .CLAUDE` 는 옛 정규식이 잡아
+# ask 인데 **새 축에만 존재하는 동사**(`find … -delete`·`mv`·`rmdir`)는 전부 allow 였다 —
+# macOS 기본 APFS 가 대소문자를 무시하므로 40차 격리 랩에서 `.claude` 가 통째로 지워졌다.
+cp_case_variants() {  # $1 spelling -> 원형 · 전체 대문자 · 첫 알파벳만 대문자
   local x="$1"
-  printf '%s\n' "$x" "./$x" "$x/" "x/../$x" "a/b/../../$x" "$x/../$x" "./x/.././$x"
+  printf '%s\n' "$x"
+  printf '%s' "$x" | tr '[:lower:]' '[:upper:]'; printf '\n'
+  printf '%s' "$x" | awk '{ i=match($0,/[a-z]/); if (i>0) $0=substr($0,1,i-1) toupper(substr($0,i,1)) substr($0,i+1); print }'
 }
 # payload 스윕은 문맥마다 도는 비용이 크므로 대표 표기 4개만 쓴다(전체 표기 곱은 아래
 # 표기·리터럴 대조 테스트가 bare 문맥에서 전수로 덮는다).
@@ -318,31 +360,120 @@ sweep_payload_context() {  # $1 context
   [ "$status" -eq 0 ]
 }
 
-@test "F65 SC-11 대상 표기 × 리터럴/확장 판정 동치 — 같은 대상의 어떤 표기도 중괄호 안에서 약해지지 않는다 (39차)" {
-  # 39차 판정이 찾은 결함의 일반 불변식: **리터럴로 쓴 명령과 그것을 중괄호 잎에 넣은 명령의
-  # 판정은 같아야 한다.** 이 한 줄이 38차(동사+경로 한 토큰)와 39차(`..` 표기) 두 누수를 모두
-  # 잡았을 것이다. 대상 3종 × 표기 7종을 생성해 (a) 판정 동치 (b) 둘 다 게이트됨을 확인한다.
-  local tgt op lit exp fails=()
+@test "F65 SC-12 생성기 자기검사: 표기 풀이 조용히 잘리지 않는다 (이 라운드 자체 발견)" {
+  # **이 테스트가 있는 이유**: 초판 생성기는 `[[ "$x" == */* ]] && printf …` 로 중간형을 냈는데,
+  # 슬래시가 없는 대상(`.claude`)에서 그 조건이 거짓이면 함수의 **마지막 명령이 비영 종료**가
+  # 되고 bats 의 `set -e` 가 프로세스 치환 서브셸을 그 자리에서 죽여 풀이 13개에서 3개로 잘렸다.
+  # 그런데도 판정 테스트는 전부 초록이었다 — **남은 3개가 전부 통과했기 때문**이다. 축이 조용히
+  # 좁아지는 바로 그 실패 양식(38·39·40차가 반복 지적한 것)을 셸 수준에서 다시 재현한 것이므로,
+  # 생성기 자신의 산출 수와 핵심 위치형의 존재를 고정한다. 규칙을 add-only 로 더하면 이 수도
+  # 함께 올린다 — 수가 맞지 않으면 그 자리에서 실패한다.
+  local n
+  n=$(cp_notations '.claude' | wc -l | tr -d ' ')
+  [[ "$n" -eq 13 ]] || { echo "슬래시 없는 대상의 표기 수가 13이 아니다: $n (규칙을 더했으면 이 수를 올린다)"; false; }
+  n=$(cp_notations '.claude/settings.json' | wc -l | tr -d ' ')
+  [[ "$n" -eq 16 ]] || { echo "슬래시 있는 대상의 표기 수가 16이 아니다: $n"; false; }
+  # 40차가 격리 랩에서 실제 삭제를 실증한 두 말단형이 풀에 반드시 있다.
+  cp_notations '.claude' | grep -qx '\.claude/\.' || { echo "말단형(슬래시-점)이 풀에 없다"; false; }
+  cp_notations '.claude' | grep -qx '\.claude/sub/\.\.' || { echo "말단형(세그먼트-점점)이 풀에 없다"; false; }
+  n=$(cp_case_variants '.claude' | sort -u | wc -l | tr -d ' ')
+  [[ "$n" -eq 3 ]] || { echo "대소문자 변형이 3종이 아니다: $n"; false; }
+}
+
+@test "F65 SC-12 대상 표기 × 정경 판정 동치 — 규칙 표에서 도출된 어떤 표기도 정경 표기보다 약해지지 않는다 (40차)" {
+  # **단정 형태가 parity 가 아니라 정경 동치인 이유(SC-12(4))**: 39차 대응은 '리터럴 철자와
+  # 중괄호 철자의 판정이 같은가'를 단정했는데, 40차가 실증한 누수는 두 철자가 **양쪽 모두
+  # allow** 였다 — parity 는 성립하므로 구조적으로 잡을 수 없었다. 기준점은 같은 대상의
+  # **정경 표기**(`.claude`·`.claude/settings.json`·`hooks/hooks.json`)가 받는 판정이다.
+  local tgt op can lit exp fails=()
   for tgt in "${CP_BASE_TARGETS[@]}"; do
+    can=$(decision_of "rm -rf $tgt")
+    [[ "$can" == allow ]] && fails+=("정경 표기가 allow — 기준점이 무너졌다: rm -rf $tgt")
     while IFS= read -r op; do
       lit=$(decision_of "rm -rf $op")
       exp=$(decision_of "{rm,-rf,$op}")
-      [[ "$lit" != "$exp" ]] && fails+=("판정 불일치 lit=$lit brace=$exp : $op")
-      [[ "$exp" == allow ]] && fails+=("중괄호 안에서 allow: {rm,-rf,$op}")
-      [[ "$lit" == allow ]] && fails+=("리터럴에서 allow: rm -rf $op")
+      [[ "$lit" != "$can" ]] && fails+=("리터럴이 정경과 다름($lit != $can): rm -rf $op")
+      [[ "$exp" != "$can" ]] && fails+=("중괄호가 정경과 다름($exp != $can): {rm,-rf,$op}")
     done < <(cp_notations "$tgt")
   done
   [[ ${#fails[@]} -eq 0 ]] || { printf 'MISMATCH %s\n' "${fails[@]}"; false; }
 }
 
-@test "F65 SC-11 대상 표기: find/-delete·mv·rmdir 도 같은 표기 곱에서 게이트된다 (39차)" {
-  local op fails=()
-  while IFS= read -r op; do
-    for c in "{find,$op,-delete}" "{mv,$op,/tmp/sink}" "{rmdir,$op}" "find $op -delete" "mv $op /tmp/sink"; do
-      [[ "$(decision_of "$c")" == allow ]] && fails+=("$c")
+@test "F65 SC-12 대상 표기: find/-delete·mv·rmdir 도 같은 표기 곱에서 정경 판정과 같다 (40차)" {
+  # 40차가 실증한 말단형 누수는 `rm` 철자에서는 무해했다(BSD rm 이 `.`/`..` 말단을 거부한다) —
+  # 피해는 전부 `find`·`mv`·`rmdir` 로 들어왔다. 동사별로 정경 기준점을 따로 잡는다.
+  local op v can d fails=()
+  for v in 'find %s -delete' 'mv %s /tmp/sink' 'rmdir %s' '{find,%s,-delete}' '{mv,%s,/tmp/sink}' '{rmdir,%s}'; do
+    # shellcheck disable=SC2059
+    can=$(decision_of "$(printf "$v" '.claude')")
+    [[ "$can" == allow ]] && fails+=("정경 표기가 allow — 기준점이 무너졌다: $(printf "$v" '.claude')")
+    while IFS= read -r op; do
+      # shellcheck disable=SC2059
+      d=$(decision_of "$(printf "$v" "$op")")
+      [[ "$d" != "$can" ]] && fails+=("정경과 다름($d != $can): $(printf "$v" "$op")")
+    done < <(cp_notations '.claude')
+  done
+  [[ ${#fails[@]} -eq 0 ]] || { printf 'MISMATCH %s\n' "${fails[@]}"; false; }
+}
+
+@test "F65 SC-12 비교 의미: 대소문자 변형이 정경 판정과 같다 — 옛 레이어(grep -qiE)와의 대칭 (40차)" {
+  # 40차 격리 랩: `find .CLAUDE -delete`·`mv .CLAUDE /tmp/sink`·`rmdir .CLAUDE`·
+  # `{find,.CLAUDE,-delete}`·`bash -c "find .CLAUDE -delete"` 가 전부 allow 였고 `.claude` 가
+  # 실제로 지워졌다. `rm -rf .CLAUDE` 만 ask 였던 것은 옛 문자열 레이어의 `grep -qiE` 덕이다 —
+  # 새 토큰 축이 그보다 약한 비교 의미를 쓰면 대체가 곧 약화가 된다(SC-12(2)).
+  local op cv v can d fails=()
+  for v in 'rm -rf %s' 'find %s -delete' 'mv %s /tmp/sink' 'rmdir %s' '{rm,-rf,%s}' '{find,%s,-delete}' \
+           'bash -c "find %s -delete"'; do
+    # shellcheck disable=SC2059
+    can=$(decision_of "$(printf "$v" '.claude')")
+    [[ "$can" == allow ]] && fails+=("정경 표기가 allow — 기준점이 무너졌다: $(printf "$v" '.claude')")
+    # 표기 축 × 비교 의미 축의 곱 — 대소문자 변형이 표기 변형과 겹칠 때도 약해지지 않는지 본다.
+    for op in '.claude' '.claude/.' '.claude/sub/..' 'x/../.claude' '.claude/settings.json'; do
+      while IFS= read -r cv; do
+        # shellcheck disable=SC2059
+        d=$(decision_of "$(printf "$v" "$cv")")
+        [[ "$d" != "$can" ]] && fails+=("정경과 다름($d != $can): $(printf "$v" "$cv")")
+      done < <(cp_case_variants "$op")
     done
-  done < <(cp_notations '.claude')
-  [[ ${#fails[@]} -eq 0 ]] || { printf 'LEAK %s\n' "${fails[@]}"; false; }
+  done
+  [[ ${#fails[@]} -eq 0 ]] || { printf 'MISMATCH %s\n' "${fails[@]}"; false; }
+}
+
+@test "F65 SC-12 변이 테스트: 말단형 센티넬과 대소문자 플래그를 각각 지우면 위 두 테스트가 red 가 된다 (40차)" {
+  # 39차 판정이 쓴 방법 — "테스트가 실제로 고정하는가"는 수정을 되돌려 봐야 안다. 40차는
+  # 512자 캡의 두 exit 을 뒤바꿔도 아무 테스트도 실패하지 않는다는 것을 이 방법으로 찾아냈다.
+  # 훅 사본을 변이시켜(원본은 건드리지 않는다) 판정이 실제로 뒤집히는지 본다.
+  local mut="$BATS_TEST_TMPDIR/mutant.sh" saved="$HOOK"
+  # (1) 말단형 센티넬 제거 → `find .claude/. -delete` 가 다시 allow 로 떨어져야 한다.
+  sed 's|^  if \[\[ "\$t" == \*/\* && "\$t" != \*/ \]\]; then t="\$t\$sl"; fi$|  :|' "$saved" > "$mut"
+  ! cmp -s "$saved" "$mut" || { echo "센티넬 줄을 찾지 못했다 — 변이가 적용되지 않았다"; false; }
+  HOOK="$mut"
+  [[ "$(decision_of 'find .claude/. -delete')" == allow ]] \
+    || { HOOK="$saved"; echo "센티넬을 지워도 말단형이 ask — 이 테스트가 고정하는 대상이 바뀌었다"; false; }
+  HOOK="$saved"
+  # (2) nocasematch 제거 → `find .CLAUDE -delete` 가 다시 allow 로 떨어져야 한다.
+  sed 's|^  shopt -s nocasematch$|  :|' "$saved" > "$mut"
+  ! cmp -s "$saved" "$mut" || { echo "nocasematch 줄을 찾지 못했다 — 변이가 적용되지 않았다"; false; }
+  HOOK="$mut"
+  [[ "$(decision_of 'find .CLAUDE -delete')" == allow ]] \
+    || { HOOK="$saved"; echo "nocasematch 를 지워도 대소문자 변형이 ask — 이 테스트가 고정하는 대상이 바뀌었다"; false; }
+  HOOK="$saved"
+}
+
+@test "F65 SC-12 ask 사유의 정직성: 컨트롤 플레인 잎이 없는 보수적 ask 는 일치라고 말하지 않는다 (40차)" {
+  # 40차 부수 지적: 예산 초과 콤마 중괄호의 ask 사유가 `control-plane-delete → x{f1,…}` 라고
+  # 보고했다 — 그 토큰에는 컨트롤 플레인 잎이 하나도 없다. 보안 프롬프트가 거짓을 말하면
+  # 사용자가 진짜 경고를 무시한다.
+  local alts big out
+  alts=$(printf 'f%s,' $(seq 1 65)); big="cp x{${alts%,}} /tmp/"
+  [[ "$(decision_of "$big")" == ask ]] || { echo "예산 초과 fail-safe 가 사라졌다(경계 이동)"; false; }
+  out=$(delete_decision "$big")
+  grep -q 'control-plane-delete-undecided' <<<"$out" \
+    || { echo "보수적 ask 가 여전히 일치라고 보고한다: $out"; false; }
+  # 실제로 일치한 경우는 그대로 일치라고 말한다(두 문장이 뒤바뀌지 않았는지).
+  out=$(delete_decision 'rm -rf .claude')
+  grep -q 'pattern: control-plane-delete →' <<<"$out" \
+    || { echo "실제 일치가 undecided 로 보고된다: $out"; false; }
 }
 
 # ---------------------------------------------------------------------------

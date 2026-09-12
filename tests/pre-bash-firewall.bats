@@ -4570,3 +4570,46 @@ $cmd"
       || { echo "무관한 ../ 경로에 새 마찰: $c"; false; }
   done
 }
+
+@test "F65 40차 독립 판정 회귀 고정: 접기 규칙의 말단형(슬래시-점·세그먼트-점점)이 중간형과 같게 접힌다" {
+  # `find .claude/. -delete` 와 `find .claude/hooks/.. -delete` 가 allow 였고 격리 랩에서
+  # settings.json·hooks/hooks.json·설치된 훅 사본이 실제로 삭제됐다. 세 접기 규칙이 모두
+  # 후행 슬래시가 붙는 중간형으로만 적혀 있어서 같은 규칙의 말단형을 접지 못한 것 —
+  # 센티넬 `/` 로 말단형을 중간형으로 만들어 규칙 하나가 두 위치를 덮게 했다(SC-12(1)).
+  # `rm` 철자가 무해해서(BSD rm 이 `.`/`..` 말단을 거부) 기존 테스트가 전부 놓쳤다.
+  local c
+  for c in 'find .claude/. -delete' 'find .claude/hooks/.. -delete' 'find hooks/. -delete' \
+           'find .claude/sub/.. -delete' 'mv .claude/. /tmp/sink' 'rmdir .claude/.' \
+           '{find,.claude/.,-delete}' '{mv,.claude/sub/..,/tmp/s}' 'find .claude/.//. -delete' \
+           'bash -c "find .claude/. -delete"' 'find .claude/settings.json/. -delete'; do
+    run delete_decision "$c"
+    [[ "$output" != *'"permissionDecision": "allow"'* ]] \
+      || { echo "40차 판정 말단형 페이로드가 allow 로 샜다: ${c:0:70}"; false; }
+  done
+  # 무관한 말단형은 그대로 allow — 센티넬이 과잉 차단으로 번지지 않았는지 대조.
+  for c in 'ls src/.' 'cat docs/../README.md' 'find build/. -name "*.o"' 'cp dist/. /tmp/x'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "무관한 말단형 경로에 새 마찰: $c"; false; }
+  done
+}
+
+@test "F65 40차 독립 판정 회귀 고정: 컨트롤 플레인 이름 비교가 대소문자를 무시한다(옛 레이어와 대칭)" {
+  # 옛 문자열 레이어는 `grep -qiE` 인데 이 판정이 대체한 토큰 축은 대소문자를 구분해서,
+  # `rm -rf .CLAUDE` 만 옛 정규식에 걸려 ask 였고 **새 축에만 있는 동사**는 전부 allow 였다
+  # (macOS 기본 APFS 는 대소문자 무시 — 격리 랩에서 `.claude` 가 통째로 삭제됐다).
+  local c
+  for c in 'find .CLAUDE -delete' 'mv .CLAUDE /tmp/sink' 'rmdir .CLAUDE' 'find .Claude -delete' \
+           '{find,.CLAUDE,-delete}' 'bash -c "find .CLAUDE -delete"' 'rmdir .CLAUDE/SETTINGS.JSON' \
+           'find X/../.CLAUDE -delete' 'find .CLAUDE/SUB/.. -delete' 'rm -rf HOOKS/HOOKS.JSON'; do
+    run delete_decision "$c"
+    [[ "$output" != *'"permissionDecision": "allow"'* ]] \
+      || { echo "40차 판정 대소문자 페이로드가 allow 로 샜다: ${c:0:70}"; false; }
+  done
+  # 이름이 비슷하지만 컨트롤 플레인이 아닌 경로는 대소문자와 무관하게 allow 를 유지한다.
+  for c in 'rm -rf CLAUDE.md' 'rm -rf .claudeignore' 'rm -rf src/HOOKS' 'cat README.MD'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "대소문자 무시 전환이 무관한 이름까지 잡는다: $c"; false; }
+  done
+}

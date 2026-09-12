@@ -1182,6 +1182,23 @@ normalize_path_token() {
   # 재귀 진입마다 이 함수를 다시 부르므로, 확장된 잎(중괄호 없음)에서 같은 접기가 정확히 한
   # 번 적용된다(6차 판정이 글로브 접기를 중괄호 확장 뒤로 옮긴 것과 같은 이유·같은 순서).
   if [[ "$t" == *'{'* ]]; then NORM_TOK="$t"; return; fi
+  # **F65 40차 독립 판정(2026-09-12) — 접기 규칙은 중간형과 말단형에서 같게 접힌다(SC-12(1)).**
+  # 아래 세 규칙(`//`·`/./`·`seg/../`)은 전부 **후행 슬래시가 붙는 중간형**으로만 적혀 있어서
+  # 경로 끝에 온 같은 규칙을 접지 못했다: `.claude/.` 와 `.claude/hooks/..` 는 셸·파일시스템이
+  # `.claude` 로 해석하는데 정규화가 그대로 두어, `find .claude/. -delete`·
+  # `find .claude/hooks/.. -delete`·`{find,.claude/.,-delete}` 가 allow 였고 40차 격리 랩에서
+  # `settings.json`·`hooks/hooks.json`·설치된 훅 사본이 **실제로 삭제**됐다(정경 표기
+  # `find .claude -delete` 는 ask 이므로 선언된 범위가 아니라 표기 누수였다). `rm` 철자는
+  # 무해했다 — BSD rm 이 `.`/`..` 말단을 거부한다 — 그래서 피해가 `find`·`mv`·`rmdir` 로만
+  # 들어왔고 기존 테스트(전부 rm 철자)가 하나도 잡지 못했다.
+  # 해결은 **규칙을 두 벌로 적지 않는 것**이다. 센티넬 `/` 를 하나 덧붙여 말단형을 중간형으로
+  # 만들면 같은 규칙 하나가 두 위치를 덮는다 — 규칙 문자열을 6개로 늘리면 다음에 규칙을 더하는
+  # 사람이 또 한쪽만 닫는다(38→39→40차가 한 층씩 아래에서 반복한 바로 그 실패 양식). 센티넬은
+  # 아래 마지막 후행 슬래시 제거 루프가 그대로 걷어낸다.
+  # 슬래시가 있는 토큰에만 붙인다: 말단형(`X/.`·`X/..`·`X//`)은 정의상 슬래시를 품으므로
+  # 충분하고, 슬래시 없는 `.`·`..` 는 건드리지 않아 기존 판정(cwd 의존 조상 — 선언된 잔여
+  # `ancestor_directory_operand`)이 그대로 유지된다.
+  if [[ "$t" == */* && "$t" != */ ]]; then t="$t$sl"; fi
   while [[ "$t" == *"$dsl"* ]]; do t=${t//"$dsl"/"$sl"}; done
   while [[ "$t" == *"$dot"* ]]; do t=${t//"$dot"/"$sl"}; done
   # 내부 `..` 세그먼트를 접는다(F65 8차 판정 반려) — 2차 판정부터 열려 있던 축이다. `a/../`
@@ -1204,6 +1221,10 @@ normalize_path_token() {
   done
   while [[ "$t" == ./* ]]; do t=${t#./}; done
   while [[ "$t" == */ && ${#t} -gt 1 ]]; do t=${t%/}; done
+  # 접기가 토큰을 완전히 소진하면(`x/..`·`.claude/..`·`.//.` 는 모두 cwd 를 가리킨다) 빈 문자열
+  # 대신 `.` 를 낸다 — 빈 패턴이 아래 글로브 커버 검사(`[[ "$cand" == $t ]]`)의 오른쪽에 들어가는
+  # 것을 막고, 의미도 정확하다(`x/..` 는 x 로 들어갔다 나온 cwd 다).
+  [[ -z "$t" ]] && t="."
   NORM_TOK="$t"
 }
 
@@ -1391,7 +1412,7 @@ __control_plane_location_impl() {
   # 확장(추출)이 **이 bash에서 매칭 성공 여부와 무관하게 문자열 길이에 대해 이차식**이었다 —
   # 중괄호가 있든 없든 똑같이 느리다(실측: 6만자 문자열 1회 추출에 4.3~5.0초, 훅 타임아웃
   # 5초 근처/초과). 그래서 상한을 브레이스 분기 안이 아니라 여기, 진입점 전체에 건다.
-  if [[ ${#t} -gt 512 ]]; then return 0; fi
+  if [[ ${#t} -gt 512 ]]; then CP_LOC_UNDECIDED=1; return 0; fi
   # **중괄호 확장을 먼저 편다 (F65 4차 판정 step 10, 5차 판정이 중첩·폭발 결함을 반려해 재작업).**
   # 셸은 명령을 실제로 실행할 때만 `{a,b}` 를 펼친다 — 우리는 문자열만 파싱하므로 `.claude/
   # {settings.json,hooks}` 가 아래 어떤 case 문에도 매치하지 않는 통짜 토큰으로 들어온다.
@@ -1428,13 +1449,14 @@ __control_plane_location_impl() {
             # `..` 는 있는데 이 코드가 인식하는 깔끔한 범위 형태(정수-정수·단일문자-단일문자,
             # 선택적 정수 step)가 아니다 — 무엇으로 펴지는지 모른다. F65 6차 판정의 교훈대로
             # "못 펴면 안전"이라고 단정하지 않는다 — 모르면 안전한 쪽(ask).
+            CP_LOC_UNDECIDED=1
             return 0
             ;;
           range)
             # 카운트는 산술로 먼저 구했다(__brace_range_info, O(1)) — 실제 값을 만들기 전에
             # 예산부터 확인해야 `{1..999999999}` 류가 배열을 만들다 멈추지 않는다.
             __BRACE_BUDGET=$((__BRACE_BUDGET - BRACE_R_COUNT))
-            if [[ $__BRACE_BUDGET -lt 0 ]]; then return 0; fi
+            if [[ $__BRACE_BUDGET -lt 0 ]]; then CP_LOC_UNDECIDED=1; return 0; fi
             local ridx=0 rval
             while [[ $ridx -lt $BRACE_R_COUNT ]]; do
               rval=$(__brace_range_value "$ridx")
@@ -1448,7 +1470,7 @@ __control_plane_location_impl() {
             # __brace_find_group() 이 이미 세어 뒀으므로(BRACE_COMMA_COUNT) 여기서 다시 셀
             # 필요가 없고, `__brace_split_top_level()`(배열 생성)은 예산 통과 후에만 부른다.
             __BRACE_BUDGET=$((__BRACE_BUDGET - BRACE_COMMA_COUNT))
-            if [[ $__BRACE_BUDGET -lt 0 ]]; then return 0; fi
+            if [[ $__BRACE_BUDGET -lt 0 ]]; then CP_LOC_UNDECIDED=1; return 0; fi
             __brace_split_top_level "$BRACE_BODY"
             local item
             for item in "${BRACE_ITEMS[@]+"${BRACE_ITEMS[@]}"}"; do
@@ -1696,7 +1718,26 @@ __verb_brace_matches_impl() {
 # 다시 부르지 않는다 — 재귀마다 다시 채우면 상한이 매 분기에서 리셋돼 무력해진다.
 control_plane_location() {
   __BRACE_BUDGET=64
-  __control_plane_location_impl "$1"
+  CP_LOC_UNDECIDED=0
+  # **F65 40차 독립 판정(2026-09-12) — 비교 의미를 옛 레이어와 대칭으로 맞춘다(SC-12(2)).**
+  # 이 판정이 **대체한** 옛 문자열 레이어는 `grep -qiE`(대소문자 무시, ASK_PATTERNS 적용
+  # 지점)인데 아래 이름 비교(`CONTROL_PLANE_NAMES`·(a)/(b)/(c) 분기의 case 문)는 대소문자를
+  # 구분했다. 그래서 `rm -rf .CLAUDE` 는 옛 정규식이 잡아 ask 인데 **새 축에만 존재하는 동사**는
+  # 전부 allow 였다 — `find .CLAUDE -delete`·`mv .CLAUDE /tmp/sink`·`rmdir .CLAUDE`·
+  # `{find,.CLAUDE,-delete}`·`bash -c "find .CLAUDE -delete"` 가 40차 격리 랩에서 `.claude`
+  # 디렉터리를 통째로 지웠다(macOS 기본 APFS 는 대소문자 무시). 대체가 곧 약화였던 것이다.
+  # `FS_CI`(invariant-guard 가 쓰는 파일시스템 판정)로 게이팅하지 않는다: 이 훅이 보는 것은
+  # 명령 문자열뿐이라 대상 경로가 어느 파일시스템에 있는지 알 수 없고, 대소문자 무시 비교는
+  # **과잉 차단 방향으로만** 틀릴 수 있으며(ask 가 한 번 더 뜰 뿐), 옛 레이어가 이미 무시
+  # 비교를 하고 있어 비대칭을 유지할 이득이 없다. 재귀(`__control_plane_location_impl`)가
+  # 전부 이 진입점 아래에 있으므로 여기 한 곳에서 켜고 끄면 모든 비교 지점이 함께 덮인다 —
+  # 비교 지점마다 플래그를 적으면 다음에 지점을 더하는 사람이 또 하나를 빠뜨린다.
+  local __ci_saved rc
+  __ci_saved=$(shopt -p nocasematch || true)
+  shopt -s nocasematch
+  __control_plane_location_impl "$1" && rc=0 || rc=$?
+  eval "$__ci_saved" 2>/dev/null || true
+  return "$rc"
 }
 
 # $1 을 토큰으로 나눈다(SPLIT_TOKS) — 따옴표·백슬래시를 **하나의 상태 기계**로 함께
@@ -2447,6 +2488,10 @@ __find_wrapped_arg() {
 # 절반은 이 시점까지 이미 실행된 나머지 계층(Layer 1·2·3)과 지금 처리 중인 세그먼트
 # 자신의 처리 시간(이미 각자의 상한으로 유계)에 여유를 준다.
 CP_DELETE_HIT=""
+# `control_plane_location()` 이 **이름 일치가 아니라 상한·예산 초과로** 0(컨트롤 플레인으로
+# 친다)을 냈는지 표시한다 — ask 사유 문자열이 실제로 일치한 것을 가리키게 하려는 것이다
+# (SC-12(5), 40차 독립 판정). `set -u` 라 진입 전에 선언해 둔다.
+CP_LOC_UNDECIDED=0
 
 # 세그먼트 하나를 검사한다. $1=세그먼트 문자열, $2=1이면 인용 래퍼 언랩을 한 겹
 # 시도한다(0이면 안 한다). 언랩된 내부를 재귀 스캔할 때는 항상 0을 넘겨 딱 한 겹으로
@@ -2475,7 +2520,13 @@ __scan_one_segment_for_cp_delete() {
   # 그래서 여기서는 **무장이 확정된 뒤에만** 그 플래그를 본다 — 아래 armed 계산 이후.
   if [[ "$SEGMENT_UNSAFE" -eq 1 ]]; then CP_DELETE_HIT="$seg"; return 0; fi
   armed=0
-  # `find … -delete` 는 동사가 술어로 온다. `-exec … rm` 은 아래 동사 검사가 무장한다.
+  # `find … -delete` 는 동사가 술어로 온다.
+  # **정정(41차 회전 실측, 2026-09-12)**: 이 자리에 "`-exec … rm` 은 아래 동사 검사가
+  # 무장한다"고 적혀 있었으나 **틀린 주장이다** — `find .claude -exec rm -rf {} +` 는 정경
+  # 표기에서도 allow 이고(HEAD 8e411f9 에서도 동일), `-execdir`·`-ok` 도 같다. 삭제 판정이
+  # `-delete` 술어를 전제로 하고 `-exec` 뒤 동사는 `pure_read_only()` 의 find 사전 필터를
+  # 그대로 통과해 무장이 일어나지 않는다. 계약의 `_residual_risk_AC11.open_axes_2026_08_04.
+  # find_exec_delete_verb` 에 critical 잔여로 등록했다(별도 change-request 대상).
   # **F65 security-auditor AUDIT-4(high)** — 이전 구현은 `-delete`가 있는지를 **정규화
   # 이전 세그먼트 원문**에서 리터럴 부분문자열로 먼저 확인하고, 그 사전 필터를 통과해야만
   # 아래 (안전한) 토큰별 "find" 검사를 실행했다. 술어를 인용·백슬래시로 쪼개면
@@ -2763,7 +2814,21 @@ __scan_one_segment_for_cp_delete() {
     # 짝을 잃어 리터럴로 떨어지고 결국 아무 것도 매치하지 못했다(실측: `.claude` 삭제 성공).
     # 접기는 이제 `__control_plane_location_impl()` 안, 중괄호 확장이 끝난 뒤로 옮겼다 —
     # 그래야 콤마/범위 확장으로 나온 각 후보(`.claude/*` 등) 위에서 접기가 실행된다.
-    if control_plane_location "$NORM_TOK"; then CP_DELETE_HIT="$tok"; return 0; fi
+    if control_plane_location "$NORM_TOK"; then
+      # **사유는 실제로 일치한 것을 가리킨다(SC-12(5), 40차 독립 판정).** 이 판정이 0 을 내는
+      # 경로는 둘이다 — 컨트롤 플레인 이름과 실제로 일치한 경우와, 토큰이 512자 상한이나 중괄호
+      # 예산을 넘어 **무엇으로 펴지는지 확정하지 못해** 안전한 쪽으로 떨어진 경우. 후자를
+      # `control-plane-delete → <토큰>` 으로 보고하면 거짓이다: 40차가 실측한 대로
+      # `cp x{f0,…,f64} /tmp/` 는 컨트롤 플레인 잎이 하나도 없는데 사유가 그 무해한 토큰을
+      # 컨트롤 플레인 일치로 지목했다. 보안 프롬프트가 거짓을 말하면 사용자가 진짜 경고를
+      # 무시하게 된다 — 이 파일의 다른 보수적 ask 들이 이미 쓰는 괄호 설명 형식을 따른다.
+      if [[ "$CP_LOC_UNDECIDED" -eq 1 ]]; then
+        CP_DELETE_HIT="(피연산자 토큰이 상한·예산을 넘어 무엇으로 펴지는지 확정하지 못함 — 안전한 쪽으로 확인 요청: $tok)"
+      else
+        CP_DELETE_HIT="$tok"
+      fi
+      return 0
+    fi
   done
   # 삭제 동사가 리터럴로 확정됐는데(armed) 세그먼트 어딘가에 명령 치환이 있었다
   # (SEGMENT_HAS_OPAQUE) — 그 치환이 만들어내는 피연산자 값은 정적으로 알 수 없으므로
@@ -2916,7 +2981,18 @@ scan_control_plane_delete() {
 # 방법으로 내리지 않는다.
 if [ "$PURE_READ" -eq 0 ] && scan_control_plane_delete; then
   log_decision ask
-  jq -n --arg reason "컨트롤 플레인(배선 파일·설치 디렉터리)을 지우는 명령입니다 (pattern: control-plane-delete → $CP_DELETE_HIT). 실행 전 확인이 필요합니다." \
+  # **사유 문장이 단정하는 것과 실제로 확인된 것을 맞춘다(SC-12(5), 40차 독립 판정).** 이
+  # 게이트가 ask 를 내는 이유는 둘이다 — 컨트롤 플레인 삭제를 실제로 찾은 경우와, 상한·예산·
+  # 불투명 표기 때문에 **확정하지 못해** 안전한 쪽으로 떨어진 경우. 후자까지 "지우는
+  # 명령입니다" 로 단정하면 거짓이고, 보안 프롬프트가 거짓을 말하면 사용자가 진짜 경고를
+  # 무시하게 된다. 확정 불가 경로들은 모두 `CP_DELETE_HIT` 를 괄호 설명으로 채우므로 그
+  # 형식 하나로 분기한다 — 경로마다 문장을 따로 쓰면 다음에 경로를 더하는 사람이 빠뜨린다.
+  if [[ "$CP_DELETE_HIT" == "("* ]]; then
+    __cp_reason="컨트롤 플레인(배선 파일·설치 디렉터리) 삭제 여부를 실행 전에 확정할 수 없습니다 (pattern: control-plane-delete-undecided → $CP_DELETE_HIT). 확인이 필요합니다."
+  else
+    __cp_reason="컨트롤 플레인(배선 파일·설치 디렉터리)을 지우는 명령입니다 (pattern: control-plane-delete → $CP_DELETE_HIT). 실행 전 확인이 필요합니다."
+  fi
+  jq -n --arg reason "$__cp_reason" \
     '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "ask", permissionDecisionReason: $reason}}'
   exit 0
 fi
