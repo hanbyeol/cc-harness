@@ -234,7 +234,28 @@ sweep_context() {  # $1 context
 # 아래에서 다시 좁혀진 것이라, `{rm,-rf,x/../.claude}`(`..` 를 거쳐 같은 대상에 도달하는 표기)
 # 를 스위트가 구조적으로 만들 수 없었다(그 셀은 allow + 격리 랩 실제 삭제였다). 대상과 표기를
 # 분리해 곱으로 만든다.
-CP_BASE_TARGETS=('.claude' '.claude/settings.json' 'hooks/hooks.json')
+# **대상 풀은 판정 함수의 모든 팔에 닿아야 한다(SC-12(8), 41차 독립 판정 criteria_gaps,
+# 2026-09-13).** 40차 대응의 풀은 세 개였고 그 중 어느 것도 `__control_plane_location_impl()` 의
+# **꼬리 추출 팔**(`rest=${t##*.claude/}` → `plugins`·`plugins/<이름>`·`hooks`·`hooks/*.sh`)에
+# 닿지 않았다. 그래서 대소문자 인자를 추가했는데도 그 팔의 비대칭(파라미터 확장은 `nocasematch`
+# 의 지배를 받지 않는다)을 구조적으로 볼 수 없었고, 41차가 `find .CLAUDE/plugins -delete` 로
+# `.claude/plugins/**` 실제 삭제를 실증했다. 아래 풀은 판정 함수의 팔 목록에서 역으로 도출한
+# 것이다 — 팔을 추가하면 이 풀에도 대표 대상을 추가한다.
+CP_BASE_TARGETS=(
+  '.claude'                         # (b) 꼬리 없음
+  '.claude/settings.json'           # (a) 배선 파일
+  '.claude/settings.local.json'     # (a) 배선 파일
+  'hooks/hooks.json'                # (a) 배선 파일
+  '.claude/plugins'                 # (b) 플러그인 설치 루트
+  '.claude/plugins/myplug'          # (b) 이름 붙은 플러그인
+  '.claude/hooks'                   # (b) 꼬리가 hooks
+  '.claude/worktrees/wt1/hooks'     # (b) 중첩된 hooks 꼬리
+  '.claude/hooks/invariant-guard.sh' # (b) hooks 안의 개별 훅 파일
+  'hooks'                           # (c) 실체 앵커(프로젝트 루트의 hooks/hooks.json)
+)
+# 환경 접두도 표기 인자다 — 미전개 `$PWD` 는 셸이 cwd 로 펴지만 (c) 팔의 실체 앵커를
+# 무력화해 `find $PWD/hooks -delete` 가 allow 였다(41차, 랩에서 hooks/hooks.json 실제 삭제).
+CP_ENV_PREFIXES=('$PWD/' '${PWD}/')
 # ---------------------------------------------------------------------------
 # **표기 풀은 가드 자신의 접기 규칙에서 도출된다(SC-12(1)·(3), 40차 독립 판정 criteria_gaps,
 # 2026-09-12).** 39차 대응까지 이 자리는 손으로 쓴 리터럴 7개였다 — 38차(페이로드 내용) →
@@ -245,7 +266,7 @@ CP_BASE_TARGETS=('.claude' '.claude/settings.json' 'hooks/hooks.json')
 # **접두형·중간형·말단형** 세 위치로 기계 전개한다. 40차가 격리 랩에서 실제 삭제를 실증한 누수
 # (`find .claude/. -delete`·`find .claude/hooks/.. -delete`)가 정확히 '중간형만 구현된 규칙의
 # 말단형'이었다 — 규칙을 코드에 더하면 이 생성기가 그 규칙의 세 위치형을 자동으로 낸다.
-CP_FOLD_RULES=(dsl dot dotdot combo)
+CP_FOLD_RULES=(dsl dot dotdot combo envpfx)
 CP_FOLD_CHILD='sub'   # 말단 `seg/..` 형이 경유하는 자식 세그먼트 이름
 cp_fold_spellings() {  # $1 target, $2 rule -> 같은 대상을 가리키는 표기들
   local x="$1" r="$2"
@@ -264,6 +285,10 @@ cp_fold_spellings() {  # $1 target, $2 rule -> 같은 대상을 가리키는 표
       ;;
     combo)    # 두 규칙이 한 경로에 겹친 형태 — 접기의 반복·순서 의존을 드러낸다
       printf '%s\n' "./x/.././$x" "$x/./$CP_FOLD_CHILD/.." "$x/.//."
+      ;;
+    envpfx)   # 미전개 환경 접두 — 셸은 cwd 로 펴는데 실체 앵커 팔이 무력화됐다(41차)
+      local p
+      for p in "${CP_ENV_PREFIXES[@]}"; do printf '%s\n' "$p$x"; done
       ;;
   esac
 }
@@ -370,14 +395,22 @@ sweep_payload_context() {  # $1 context
   # 함께 올린다 — 수가 맞지 않으면 그 자리에서 실패한다.
   local n
   n=$(cp_notations '.claude' | wc -l | tr -d ' ')
-  [[ "$n" -eq 13 ]] || { echo "슬래시 없는 대상의 표기 수가 13이 아니다: $n (규칙을 더했으면 이 수를 올린다)"; false; }
+  [[ "$n" -eq 15 ]] || { echo "슬래시 없는 대상의 표기 수가 15가 아니다: $n (규칙을 더했으면 이 수를 올린다)"; false; }
   n=$(cp_notations '.claude/settings.json' | wc -l | tr -d ' ')
-  [[ "$n" -eq 16 ]] || { echo "슬래시 있는 대상의 표기 수가 16이 아니다: $n"; false; }
+  [[ "$n" -eq 18 ]] || { echo "슬래시 있는 대상의 표기 수가 18이 아니다: $n"; false; }
   # 40차가 격리 랩에서 실제 삭제를 실증한 두 말단형이 풀에 반드시 있다.
   cp_notations '.claude' | grep -qx '\.claude/\.' || { echo "말단형(슬래시-점)이 풀에 없다"; false; }
   cp_notations '.claude' | grep -qx '\.claude/sub/\.\.' || { echo "말단형(세그먼트-점점)이 풀에 없다"; false; }
+  # 41차가 실증한 환경 접두도 풀에 있어야 한다.
+  cp_notations 'hooks' | grep -qx '\$PWD/hooks' || { echo "환경 접두 형태가 풀에 없다"; false; }
   n=$(cp_case_variants '.claude' | sort -u | wc -l | tr -d ' ')
   [[ "$n" -eq 3 ]] || { echo "대소문자 변형이 3종이 아니다: $n"; false; }
+  # **대상 풀이 판정 함수의 팔 전체를 덮는지(SC-12(8))** — 팔을 더하면 이 수도 올린다.
+  [[ "${#CP_BASE_TARGETS[@]}" -eq 10 ]] \
+    || { echo "대상 풀이 10종이 아니다: ${#CP_BASE_TARGETS[@]} (판정 팔을 더했으면 대표 대상도 더한다)"; false; }
+  # 꼬리 추출 팔에 닿는 대상이 실제로 들어 있는지 — 41차 누수가 정확히 이 팔에 있었다.
+  printf '%s\n' "${CP_BASE_TARGETS[@]}" | grep -qx '\.claude/plugins' || { echo "plugins 팔 대상이 없다"; false; }
+  printf '%s\n' "${CP_BASE_TARGETS[@]}" | grep -qx '\.claude/hooks' || { echo "hooks 꼬리 팔 대상이 없다"; false; }
 }
 
 @test "F65 SC-12 대상 표기 × 정경 판정 동치 — 규칙 표에서 도출된 어떤 표기도 정경 표기보다 약해지지 않는다 (40차)" {
@@ -421,43 +454,107 @@ sweep_payload_context() {  # $1 context
   # `{find,.CLAUDE,-delete}`·`bash -c "find .CLAUDE -delete"` 가 전부 allow 였고 `.claude` 가
   # 실제로 지워졌다. `rm -rf .CLAUDE` 만 ask 였던 것은 옛 문자열 레이어의 `grep -qiE` 덕이다 —
   # 새 토큰 축이 그보다 약한 비교 의미를 쓰면 대체가 곧 약화가 된다(SC-12(2)).
-  local op cv v can d fails=()
-  for v in 'rm -rf %s' 'find %s -delete' 'mv %s /tmp/sink' 'rmdir %s' '{rm,-rf,%s}' '{find,%s,-delete}' \
-           'bash -c "find %s -delete"'; do
-    # shellcheck disable=SC2059
-    can=$(decision_of "$(printf "$v" '.claude')")
-    [[ "$can" == allow ]] && fails+=("정경 표기가 allow — 기준점이 무너졌다: $(printf "$v" '.claude')")
-    # 표기 축 × 비교 의미 축의 곱 — 대소문자 변형이 표기 변형과 겹칠 때도 약해지지 않는지 본다.
-    for op in '.claude' '.claude/.' '.claude/sub/..' 'x/../.claude' '.claude/settings.json'; do
+  # **41차 독립 판정 criteria_gaps(2026-09-13)**: 40차 대응은 이 자리에 피연산자 5개를 손으로
+  # 적어 대소문자 인자를 **대상 곱에 교차하지 않았다** — 그 5개 중 어느 것도 판정 함수의 꼬리
+  # 추출 팔(`rest=${t##*.claude/}`)에 닿지 않아, `shopt` 이 파라미터 확장을 지배하지 못하는
+  # 결함(`find .CLAUDE/plugins -delete` + 실제 삭제)을 스위트가 구조적으로 볼 수 없었다.
+  # 이제 **대상 풀 전체 × 대소문자 3종**을 돈다(SC-12(8)).
+  local tgt cv v can d fails=()
+  for v in 'rm -rf %s' 'find %s -delete' 'rmdir %s' '{find,%s,-delete}'; do
+    for tgt in "${CP_BASE_TARGETS[@]}"; do
+      # shellcheck disable=SC2059
+      can=$(decision_of "$(printf "$v" "$tgt")")
+      [[ "$can" == allow ]] && fails+=("정경 표기가 allow — 기준점이 무너졌다: $(printf "$v" "$tgt")")
       while IFS= read -r cv; do
         # shellcheck disable=SC2059
         d=$(decision_of "$(printf "$v" "$cv")")
         [[ "$d" != "$can" ]] && fails+=("정경과 다름($d != $can): $(printf "$v" "$cv")")
-      done < <(cp_case_variants "$op")
+      done < <(cp_case_variants "$tgt")
+    done
+  done
+  # 표기 변형과 대소문자 변형이 **겹칠 때**도 약해지지 않는지 — 대표 말단형·경유형에 교차.
+  for tgt in '.claude/plugins' '.claude/hooks' 'hooks'; do
+    for v in 'find %s -delete' 'mv %s /tmp/sink'; do
+      # shellcheck disable=SC2059
+      can=$(decision_of "$(printf "$v" "$tgt")")
+      for n in "$tgt/." "$tgt/$CP_FOLD_CHILD/.." "x/../$tgt"; do
+        while IFS= read -r cv; do
+          # shellcheck disable=SC2059
+          d=$(decision_of "$(printf "$v" "$cv")")
+          [[ "$d" != "$can" ]] && fails+=("표기×대소문자 교차가 정경과 다름($d != $can): $(printf "$v" "$cv")")
+        done < <(cp_case_variants "$n")
+      done
     done
   done
   [[ ${#fails[@]} -eq 0 ]] || { printf 'MISMATCH %s\n' "${fails[@]}"; false; }
 }
 
-@test "F65 SC-12 변이 테스트: 말단형 센티넬과 대소문자 플래그를 각각 지우면 위 두 테스트가 red 가 된다 (40차)" {
+@test "F65 SC-13 동사 위치: 동사가 피연산자보다 뒤에 와도 판정된다 — find -exec 계열 (41차, 사용자 범위 결정)" {
+  # **단일 패스의 구조적 결함**: `scan_control_plane_delete()` 가 세그먼트를 좌→우로 한 번
+  # 훑으며 동사를 만나면 armed 를 켜고 **그 뒤** 토큰만 피연산자로 보기 때문에,
+  # `find PATH -exec VERB {} +`(그 삭제의 표준 관용구)에서 PATH 는 armed 이전에 지나쳐
+  # 판정되지 않았다. 같은 원인이 `operand_before_verb_ordering`(2026-09-02 등록)과
+  # `find_exec_delete_verb`(41차 회전 등록) 두 이름으로 따로 기록돼 있었다.
+  # 기준점은 같은 대상을 `-delete` 로 지우는 형태다 — 그것이 ask 이면 `-exec` 도 ask 여야 한다.
+  local tgt can d fails=() v
+  for tgt in '.claude' '.claude/settings.json' 'hooks/hooks.json' '.claude/plugins' '.claude/hooks'; do
+    can=$(decision_of "find $tgt -delete")
+    [[ "$can" == allow ]] && fails+=("기준점이 무너졌다: find $tgt -delete")
+    for v in "find $tgt -exec rm -rf {} +" "find $tgt -exec rm -rf {} \\;" \
+             "find $tgt -execdir rm -rf {} +" "find $tgt -exec unlink {} \\;" \
+             "find $tgt -ok rm {} \\;" "find . -name $tgt -exec rm -rf {} +" \
+             "find $tgt -exec shred {} \\;" "find $tgt -exec mv {} /tmp/sink \\;"; do
+      d=$(decision_of "$v")
+      [[ "$d" != "$can" ]] && fails+=("동사가 뒤에 와서 정경과 다름($d != $can): $v")
+    done
+  done
+  # 동사가 앞인 형태와 뒤인 형태의 판정이 같아야 한다(위치 무관) — 문맥 축에도 교차한다.
+  for v in 'bash -c "find .claude -exec rm -rf {} +"' '$(find .claude -exec rm -rf {} +)' \
+           'Q=1 find .claude -exec rm -rf {} +' 'find .CLAUDE -exec rm -rf {} +' \
+           'find .claude/. -exec rm -rf {} +' 'find $PWD/.claude -exec rm -rf {} +'; do
+    [[ "$(decision_of "$v")" == allow ]] && fails+=("문맥·표기 교차에서 allow: $v")
+  done
+  [[ ${#fails[@]} -eq 0 ]] || { printf 'MISMATCH %s\n' "${fails[@]}"; false; }
+}
+
+@test "F65 SC-13 마찰 대조군: 컨트롤 플레인이 아닌 경로의 find -exec 는 allow 를 유지한다" {
+  # 두 패스 분리는 **동사 앞 토큰을 새로 판정 대상으로 만든다** — 이 변경의 주된 위험은
+  # 누수가 아니라 과잉 차단이다(SC-13(4)). 정상 워크플로우가 그대로 allow 인지 고정한다.
+  local c leaks=()
+  for c in 'find src -exec rm {} +' 'find build -exec chmod 644 {} +' 'find . -name "*.tmp" -delete' \
+           'find node_modules -exec rm -rf {} +' 'find dist -type f -exec shred {} \;' \
+           'find . -name "*.log" -exec mv {} /tmp/logs \;' 'find docs -exec grep -l TODO {} +'; do
+    [[ "$(decision_of "$c")" != allow ]] && leaks+=("$c")
+  done
+  [[ ${#leaks[@]} -eq 0 ]] || { printf 'NEW FRICTION %s\n' "${leaks[@]}"; false; }
+}
+
+@test "F65 SC-12·SC-13 변이 테스트: 이 라운드의 수정 지점을 하나씩 지우면 해당 셀이 red 가 된다" {
   # 39차 판정이 쓴 방법 — "테스트가 실제로 고정하는가"는 수정을 되돌려 봐야 안다. 40차는
-  # 512자 캡의 두 exit 을 뒤바꿔도 아무 테스트도 실패하지 않는다는 것을 이 방법으로 찾아냈다.
-  # 훅 사본을 변이시켜(원본은 건드리지 않는다) 판정이 실제로 뒤집히는지 본다.
+  # 512자 캡의 두 exit 을 뒤바꿔도 아무 테스트도 실패하지 않는다는 것을, 41차는 빈 문자열
+  # 보정 줄이 관측 가능한 효과가 0이라는 것을 이 방법으로 찾아냈다. 훅 사본을 변이시켜
+  # (원본은 건드리지 않는다) 판정이 실제로 뒤집히는지 확인한다 — 네 지점 전부.
   local mut="$BATS_TEST_TMPDIR/mutant.sh" saved="$HOOK"
-  # (1) 말단형 센티넬 제거 → `find .claude/. -delete` 가 다시 allow 로 떨어져야 한다.
-  sed 's|^  if \[\[ "\$t" == \*/\* && "\$t" != \*/ \]\]; then t="\$t\$sl"; fi$|  :|' "$saved" > "$mut"
-  ! cmp -s "$saved" "$mut" || { echo "센티넬 줄을 찾지 못했다 — 변이가 적용되지 않았다"; false; }
-  HOOK="$mut"
-  [[ "$(decision_of 'find .claude/. -delete')" == allow ]] \
-    || { HOOK="$saved"; echo "센티넬을 지워도 말단형이 ask — 이 테스트가 고정하는 대상이 바뀌었다"; false; }
-  HOOK="$saved"
-  # (2) nocasematch 제거 → `find .CLAUDE -delete` 가 다시 allow 로 떨어져야 한다.
-  sed 's|^  shopt -s nocasematch$|  :|' "$saved" > "$mut"
-  ! cmp -s "$saved" "$mut" || { echo "nocasematch 줄을 찾지 못했다 — 변이가 적용되지 않았다"; false; }
-  HOOK="$mut"
-  [[ "$(decision_of 'find .CLAUDE -delete')" == allow ]] \
-    || { HOOK="$saved"; echo "nocasematch 를 지워도 대소문자 변형이 ask — 이 테스트가 고정하는 대상이 바뀌었다"; false; }
-  HOOK="$saved"
+  mutate() {  # $1 sed 식, $2 설명, $3 이 변이로 allow 가 되어야 하는 명령
+    sed "$1" "$saved" > "$mut"
+    ! cmp -s "$saved" "$mut" || { echo "$2: 대상 줄을 찾지 못했다 — 변이가 적용되지 않았다"; return 1; }
+    HOOK="$mut"
+    local d; d=$(decision_of "$3")
+    HOOK="$saved"
+    [[ "$d" == allow ]] || { echo "$2: 지워도 판정이 $d — 이 테스트가 고정하는 대상이 바뀌었다 ($3)"; return 1; }
+  }
+  # (1) 말단형 센티넬(SC-12(1), 40차)
+  mutate 's|^  if \[\[ "\$t" == \*/\* && "\$t" != \*/ \]\]; then t="\$t\$sl"; fi$|  :|' \
+    '말단형 센티넬' 'find .claude/. -delete'
+  # (2) 비교용 소문자 사본(SC-12(7), 41차) — 이 한 줄이 `.claude/plugins` 꼬리 추출까지 덮는다.
+  mutate 's|^  if \[\[ "\$t" == \*\[\[:upper:\]\]\* \]\]; then tl=\$(printf .*$|  :|' \
+    '소문자 비교 사본' 'find .CLAUDE/plugins -delete'
+  # (3) `$PWD` 접두 제거(41차) — 미전개 접두가 실체 앵커를 무력화한다.
+  mutate 's|^  if \[\[ "\$t" == .\$PWD/.\* \]\]; then t=\${t#.\$PWD/.}$|  if false; then :|' \
+    '$PWD 접두 제거' 'find $PWD/hooks -delete'
+  # (4) 2패스 피연산자 재검사(SC-13(1), 41차) — 동사보다 앞선 피연산자를 보는 유일한 경로.
+  mutate 's|^      __cp_judge_operand "\$tok" && return 0$|      :|' \
+    '2패스 피연산자 판정' 'find .claude -exec rm -rf {} +'
 }
 
 @test "F65 SC-12 ask 사유의 정직성: 컨트롤 플레인 잎이 없는 보수적 ask 는 일치라고 말하지 않는다 (40차)" {
