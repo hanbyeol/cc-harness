@@ -4613,3 +4613,45 @@ $cmd"
       || { echo "대소문자 무시 전환이 무관한 이름까지 잡는다: $c"; false; }
   done
 }
+
+@test "F65 42차 독립 판정 회귀 고정: 환경 접두와 이중 슬래시가 겹친 표기(\$PWD//hooks)" {
+  # `$PWD//hooks` 가 allow 였고 랩에서 hooks/hooks.json 이 실제로 삭제됐다. 접두를 **삭제**해서
+  # 절대 경로 `/hooks` 가 남았고, 그 문자열은 이름 패턴에는 맞지만 (c) 팔의 실체 앵커 둘을
+  # 모두 비켜갔다. 접두를 `.` 로 **치환**하면 기존 `//`→`/`·`./` 접기가 그대로 받는다.
+  local c
+  for c in 'rm -rf $PWD//hooks' 'find $PWD//hooks -delete' 'rm -rf ${PWD}//hooks' \
+           'mv $PWD//hooks /tmp/sink' 'rm -rf $PWD//.claude' 'find $PWD/.//hooks -delete' \
+           'rmdir $PWD//hooks' '{rm,-rf,$PWD//hooks}'; do
+    run delete_decision "$c"
+    [[ "$output" != *'"permissionDecision": "allow"'* ]] \
+      || { echo "42차 판정 조합 표기가 allow 로 샜다: $c"; false; }
+  done
+  # 접두 치환이 무관한 경로까지 잡지 않는지 대조.
+  for c in 'rm -rf $PWD/build' 'ls $PWD/src' 'rm -rf $PWD//build' 'find $PWD/dist -name "*.js" -delete'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "접두 치환이 무관한 경로에 마찰을 만든다: $c"; false; }
+  done
+}
+
+@test "F65 42차 독립 판정 회귀 고정: find 술어가 무장 신호다 — 목록 밖 수단도 평범한 철자보다 약하지 않다" {
+  # `find .claude -exec truncate -s 0 {} +` 가 allow 였고 랩에서 settings.json 이 13→0바이트가
+  # 됐다. 무장이 동사 5개 목록에 의존했기 때문이다 — 같은 효과의 평범한 철자는 ask 였으므로
+  # 감싼 형태가 더 약했다(SC-14(1) 위반). 술어 자체를 무장 신호로 등록해 닫았다.
+  local c
+  for c in 'find .claude -exec truncate -s 0 {} +' 'find .claude -exec truncate -s 0 {} \;' \
+           'find .claude -execdir truncate -s 0 {} +' 'find .claude -exec cp /dev/null {} \;' \
+           'find .claude -exec dd if=/dev/null of={} \;' 'find .claude -ok rm {} \;' \
+           'find hooks -exec truncate -s 0 {} +' 'find .claude/settings.json -exec truncate -s 0 {} +'; do
+    run delete_decision "$c"
+    [[ "$output" != *'"permissionDecision": "allow"'* ]] \
+      || { echo "42차 판정 효과 등급 페이로드가 allow 로 샜다: $c"; false; }
+  done
+  # 무장 신호가 되어도 피연산자가 컨트롤 플레인이 아니면 allow — 받아들인 마찰의 경계.
+  for c in 'find src -exec rm {} +' 'find build -exec chmod 644 {} +' 'find src -exec truncate -s 0 {} +' \
+           'find . -name "*.ts" -exec wc -l {} +' 'find docs -exec grep -l TODO {} +'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "새 무장 신호가 일상 명령에 마찰을 만든다: $c"; false; }
+  done
+}

@@ -266,7 +266,20 @@ CP_ENV_PREFIXES=('$PWD/' '${PWD}/')
 # **접두형·중간형·말단형** 세 위치로 기계 전개한다. 40차가 격리 랩에서 실제 삭제를 실증한 누수
 # (`find .claude/. -delete`·`find .claude/hooks/.. -delete`)가 정확히 '중간형만 구현된 규칙의
 # 말단형'이었다 — 규칙을 코드에 더하면 이 생성기가 그 규칙의 세 위치형을 자동으로 낸다.
-CP_FOLD_RULES=(dsl dot dotdot combo envpfx)
+# **규칙은 조합되고, 조합도 생성된다(SC-14(4), 42차 독립 판정 criteria_gaps, 2026-09-13).**
+# 40~41차 대응은 규칙을 **하나씩만** 돌았고 규칙끼리 겹친 형태는 `combo` 팔에 손으로 쓴 리터럴
+# 3개였다. 그래서 42차가 실측한 `$PWD//hooks`(접두 규칙 + `//` 규칙의 겹침 — 접두 제거가 `//`
+# 접기보다 먼저 돌아 절대 경로 `/hooks` 가 남고, 그것이 이름 패턴에는 맞지만 실체 앵커 둘을
+# 모두 비켜갔다 + 랩에서 `hooks/hooks.json` 실제 삭제)를 생성기가 만들 수 없었다. 39차가
+# '리터럴 7개'로 지적한 결함이 한 층 아래(규칙 조합)에서 반복된 것이다 — 이제 조합을 **생성**한다.
+#
+# 규칙을 두 갈래로 나눈다. **내부 규칙**은 경로 안에서 접히는 것(`//`·`/./`·`seg/../`)이라
+# 서로 자유롭게 합성해도 같은 파일을 가리킨다. **경계 규칙**(미전개 환경 접두)은 경로 앞에
+# 절대 경로를 붙이는 것이라 합성 순서가 의미를 바꾼다 — `x/../$PWD/hooks` 는 `$PWD` 가 절대
+# 경로여서 `hooks` 와 **다른 파일**이고, `$PWD/$PWD/hooks` 도 그렇다. 그래서 경계 규칙은 항상
+# **가장 바깥에 한 번만** 적용한다(그 제약이 곧 '합성은 동일 파일을 보존해야 한다'는 규칙이다).
+CP_FOLD_RULES=(dsl dot dotdot)          # 내부 규칙 — 서로 합성 가능
+CP_FOLD_OUTER_RULES=(envpfx)            # 경계 규칙 — 가장 바깥, 한 번만
 CP_FOLD_CHILD='sub'   # 말단 `seg/..` 형이 경유하는 자식 세그먼트 이름
 cp_fold_spellings() {  # $1 target, $2 rule -> 같은 대상을 가리키는 표기들
   local x="$1" r="$2"
@@ -283,19 +296,38 @@ cp_fold_spellings() {  # $1 target, $2 rule -> 같은 대상을 가리키는 표
       printf '%s\n' "x/../$x" "a/b/../../$x" "$x/../$x" "$x/$CP_FOLD_CHILD/.."
       if [[ "$x" == */* ]]; then printf '%s\n' "${x%%/*}/$CP_FOLD_CHILD/../${x#*/}"; fi
       ;;
-    combo)    # 두 규칙이 한 경로에 겹친 형태 — 접기의 반복·순서 의존을 드러낸다
-      printf '%s\n' "./x/.././$x" "$x/./$CP_FOLD_CHILD/.." "$x/.//."
-      ;;
     envpfx)   # 미전개 환경 접두 — 셸은 cwd 로 펴는데 실체 앵커 팔이 무력화됐다(41차)
+      # **경계 자체가 `//` 자리다(42차)**: 접두와 경로 사이에 슬래시를 하나 더 넣은 형태
+      # (`$PWD//hooks`)가 42차가 실측한 누수다. 접두는 슬래시로 끝나므로 `$p/$x` 가 그 형태다.
       local p
-      for p in "${CP_ENV_PREFIXES[@]}"; do printf '%s\n' "$p$x"; done
+      for p in "${CP_ENV_PREFIXES[@]}"; do printf '%s\n' "$p$x" "$p/$x"; done
       ;;
   esac
 }
-cp_notations() {  # $1 target -> 정경 표기 + 규칙 표에서 도출된 모든 표기
+cp_notations() {  # $1 target -> 정경 표기 + 내부 규칙 단일 적용(기존 테스트들이 쓰는 풀)
   local x="$1" r
   printf '%s\n' "$x"
   for r in "${CP_FOLD_RULES[@]}"; do cp_fold_spellings "$x" "$r"; done
+  for r in "${CP_FOLD_OUTER_RULES[@]}"; do cp_fold_spellings "$x" "$r"; done
+}
+# 내부 규칙 쌍의 합성(규칙 r1 산출물에 r2 를 다시 적용) — 조합 폐쇄의 안쪽 절반.
+cp_inner_closure() {  # $1 target
+  local x="$1" r1 r2 s
+  printf '%s\n' "$x"
+  for r1 in "${CP_FOLD_RULES[@]}"; do
+    cp_fold_spellings "$x" "$r1"
+    while IFS= read -r s; do
+      for r2 in "${CP_FOLD_RULES[@]}"; do cp_fold_spellings "$s" "$r2"; done
+    done < <(cp_fold_spellings "$x" "$r1")
+  done
+}
+# 조합 폐쇄 전체 — 내부 폐쇄 ∪ 경계 규칙(내부 폐쇄의 각 산출물에 한 번). 중복은 호출자가 거른다.
+cp_notations_closure() {  # $1 target
+  local x="$1" s r
+  cp_inner_closure "$x" | while IFS= read -r s; do
+    printf '%s\n' "$s"
+    for r in "${CP_FOLD_OUTER_RULES[@]}"; do cp_fold_spellings "$s" "$r"; done
+  done
 }
 # **비교 의미도 생성 인자다(SC-12(2)).** 옛 문자열 레이어는 `grep -qiE`(대소문자 무시)인데
 # F65 가 그것을 대체한 토큰 축은 대소문자를 구분해서, `rm -rf .CLAUDE` 는 옛 정규식이 잡아
@@ -395,9 +427,15 @@ sweep_payload_context() {  # $1 context
   # 함께 올린다 — 수가 맞지 않으면 그 자리에서 실패한다.
   local n
   n=$(cp_notations '.claude' | wc -l | tr -d ' ')
-  [[ "$n" -eq 15 ]] || { echo "슬래시 없는 대상의 표기 수가 15가 아니다: $n (규칙을 더했으면 이 수를 올린다)"; false; }
+  [[ "$n" -eq 14 ]] || { echo "슬래시 없는 대상의 단일 규칙 표기 수가 14가 아니다: $n (규칙을 더했으면 이 수를 올린다)"; false; }
   n=$(cp_notations '.claude/settings.json' | wc -l | tr -d ' ')
-  [[ "$n" -eq 18 ]] || { echo "슬래시 있는 대상의 표기 수가 18이 아니다: $n"; false; }
+  [[ "$n" -eq 17 ]] || { echo "슬래시 있는 대상의 단일 규칙 표기 수가 17이 아니다: $n"; false; }
+  # **조합 폐쇄도 수로 고정한다(SC-14(4), 42차)** — 규칙을 하나씩만 돌던 시절로 조용히 돌아가는
+  # 것을 막는다. 42차의 `$PWD//hooks` 는 쌍 합성에서만 나오는 셀이었다.
+  n=$(cp_notations_closure 'hooks' | sort -u | wc -l | tr -d ' ')
+  [[ "$n" -ge 400 ]] || { echo "조합 폐쇄 셀이 $n 개 — 400 미만이면 쌍 합성이 생성되지 않는다"; false; }
+  cp_notations_closure 'hooks' | grep -qFx '$PWD//hooks' \
+    || { echo "42차가 실측한 조합 셀(환경 접두 + 이중 슬래시)이 폐쇄에 없다"; false; }
   # 40차가 격리 랩에서 실제 삭제를 실증한 두 말단형이 풀에 반드시 있다.
   cp_notations '.claude' | grep -qx '\.claude/\.' || { echo "말단형(슬래시-점)이 풀에 없다"; false; }
   cp_notations '.claude' | grep -qx '\.claude/sub/\.\.' || { echo "말단형(세그먼트-점점)이 풀에 없다"; false; }
@@ -489,6 +527,66 @@ sweep_payload_context() {  # $1 context
   [[ ${#fails[@]} -eq 0 ]] || { printf 'MISMATCH %s\n' "${fails[@]}"; false; }
 }
 
+@test "F65 SC-14 표기 규칙 조합 폐쇄: 규칙 두 개가 겹친 표기도 정경보다 약하지 않다 (42차)" {
+  # 42차가 실측한 `$PWD//hooks`(+ 랩에서 hooks/hooks.json 실제 삭제)는 **규칙 두 개의 겹침**
+  # 이었고, 생성기가 규칙을 하나씩만 돌아 그 셀을 만들 수 없었다. 이제 내부 규칙 쌍의 합성에
+  # 경계 규칙을 한 번 씌운 폐쇄 전체를 돈다. 비용이 크므로 동사는 `rm -rf` 하나로 고정한다 —
+  # 동사 축은 위의 단일 규칙 테스트들이 이미 교차한다(조합은 표기의 성질이고 동사와 직교한다).
+  # 대상은 두 앵커 방식의 대표 하나씩: `.claude`(이름 앵커)와 `hooks`(실체 앵커 — 42차 누수가
+  # 난 쪽은 이 팔뿐이었다).
+  local tgt can op d n fails=()
+  for tgt in '.claude' 'hooks'; do
+    can=$(decision_of "rm -rf $tgt")
+    [[ "$can" == allow ]] && fails+=("정경 표기가 allow — 기준점이 무너졌다: rm -rf $tgt")
+    n=0
+    while IFS= read -r op; do
+      n=$((n + 1))
+      d=$(decision_of "rm -rf $op")
+      [[ "$d" != "$can" ]] && fails+=("조합 표기가 정경과 다름($d != $can): rm -rf $op")
+    done < <(cp_notations_closure "$tgt" | sort -u)
+    [[ "$n" -ge 400 ]] || fails+=("$tgt 의 폐쇄 셀이 $n 개 — 400 미만이면 조합이 생성되지 않는다")
+  done
+  [[ ${#fails[@]} -eq 0 ]] || { printf 'MISMATCH %s\n' "${fails[@]}"; false; }
+}
+
+@test "F65 SC-14 효과 등급 하한: 어떤 철자도 같은 효과의 평범한 철자보다 약하지 않다 (42차 제안)" {
+  # **이 테스트가 조건 자체다(SC-14(1)~(3)).** 38~42차의 모든 누수가 같은 형태였다 — 어떤
+  # 표기가 평범한 철자보다 약했다. 42차의 `find .claude -exec truncate -s 0 {} +`(랩에서
+  # settings.json 13→0바이트)는 평범한 철자 `truncate -s 0 .claude/settings.json` 이 ask 인데도
+  # allow 였다. 그래서 효과 등급마다 **정경 철자의 판정을 기준점으로 먼저 재고**, 그 철자를
+  # 감싼 형태가 그보다 약하지 않은지 본다. 평범한 철자가 allow 인 효과는 하한이 없으므로
+  # 비교 대상이 아니다(그 경우는 잔여로 귀속하고 여기서는 기록만 한다).
+  local tgt='.claude/settings.json' plain wrapped can d fails=() notes=()
+  # {효과 등급 대표 철자} — 배선을 무력화하는 수단은 삭제만이 아니다(SC-14(2)).
+  local -a PLAIN=(
+    "rm -f %s"                 "unlink %s"              "shred %s"
+    "mv %s /tmp/sink43"        "truncate -s 0 %s"       ": > %s"
+    "cp /dev/null %s"          "chmod 000 %s"           "dd if=/dev/null of=%s"
+  )
+  # {그 철자를 감싸는 형태} — find 술어·래퍼·치환·중괄호.
+  for plain in "${PLAIN[@]}"; do
+    # shellcheck disable=SC2059
+    can=$(decision_of "$(printf "$plain" "$tgt")")
+    if [[ "$can" == allow ]]; then
+      notes+=("하한 없음(평범한 철자가 allow): $(printf "$plain" "$tgt")")
+      continue
+    fi
+    local verb="${plain%% *}"
+    local rest="${plain#* }"
+    for wrapped in \
+      "find ${tgt%/*} -exec ${plain//\%s/{\}} +" \
+      "find ${tgt%/*} -exec ${plain//\%s/{\}} \\;" \
+      "find ${tgt%/*} -execdir ${plain//\%s/{\}} +" \
+      "bash -c \"$(printf "$plain" "$tgt")\"" \
+      "{${verb},${rest//\%s/$tgt}}" ; do
+      d=$(decision_of "$wrapped")
+      [[ "$d" == allow ]] && fails+=("평범한 철자는 $can 인데 감싼 형태가 allow: $wrapped")
+    done
+  done
+  printf '%s\n' "${notes[@]+${notes[@]}}"
+  [[ ${#fails[@]} -eq 0 ]] || { printf 'WEAKER %s\n' "${fails[@]}"; false; }
+}
+
 @test "F65 SC-13 동사 위치: 동사가 피연산자보다 뒤에 와도 판정된다 — find -exec 계열 (41차, 사용자 범위 결정)" {
   # **단일 패스의 구조적 결함**: `scan_control_plane_delete()` 가 세그먼트를 좌→우로 한 번
   # 훑으며 동사를 만나면 armed 를 켜고 **그 뒤** 토큰만 피연산자로 보기 때문에,
@@ -550,11 +648,25 @@ sweep_payload_context() {  # $1 context
   mutate 's|^  if \[\[ "\$t" == \*\[\[:upper:\]\]\* \]\]; then tl=\$(printf .*$|  :|' \
     '소문자 비교 사본' 'find .CLAUDE/plugins -delete'
   # (3) `$PWD` 접두 제거(41차) — 미전개 접두가 실체 앵커를 무력화한다.
-  mutate 's|^  if \[\[ "\$t" == .\$PWD/.\* \]\]; then t=\${t#.\$PWD/.}$|  if false; then :|' \
-    '$PWD 접두 제거' 'find $PWD/hooks -delete'
+  # (3) `$PWD` 접두 처리는 아래 (6)에서 **치환** 형태로 고정한다(42차가 삭제 방식을 반려했다).
   # (4) 2패스 피연산자 재검사(SC-13(1), 41차) — 동사보다 앞선 피연산자를 보는 유일한 경로.
   mutate 's|^      __cp_judge_operand "\$tok" && return 0$|      :|' \
     '2패스 피연산자 판정' 'find .claude -exec rm -rf {} +'
+  # (5) find 무장 술어 배열(SC-13(1)·SC-14, 42차) — `-exec` 를 빼면 평범한 철자보다 약해진다.
+  mutate 's|^ARM_FIND_DELETE_PREDICATES=(-delete -exec -execdir -ok)$|ARM_FIND_DELETE_PREDICATES=(-delete)|' \
+    'find 무장 술어' 'find .claude -exec truncate -s 0 {} +'
+  # (6) `$PWD` 접두의 `.` 치환(42차) — 삭제로 되돌리면 `$PWD//hooks` 가 다시 샌다.
+  mutate 's|^  if \[\[ "\$t" == .\$PWD/.\* \]\]; then t="./\${t#.\$PWD/.}"$|  if false; then :|' \
+    '$PWD 접두 치환' 'rm -rf $PWD//hooks'
+  # (7) 512자 캡의 미확정 플래그(41·42차) — 판정은 둘 다 ask 이므로 **사유**로 고정한다.
+  local mut2="$BATS_TEST_TMPDIR/mutant2.sh" long big out
+  sed 's|^  if \[\[ ${#t} -gt 512 \]\]; then CP_LOC_UNDECIDED=1; return 0; fi$|  if [[ ${#t} -gt 512 ]]; then return 0; fi|' \
+    "$saved" > "$mut2"
+  ! cmp -s "$saved" "$mut2" || { echo "512자 캡 줄을 찾지 못했다 — 변이가 적용되지 않았다"; false; }
+  long=$(printf 'a%.0s' $(seq 1 600)); big="rm -rf /tmp/$long"
+  HOOK="$mut2"; out=$(delete_decision "$big"); HOOK="$saved"
+  grep -q 'control-plane-delete →' <<<"$out" \
+    || { echo "512자 캡 플래그를 지워도 사유가 바뀌지 않는다 — 이 테스트가 고정하는 대상이 없다"; false; }
 }
 
 @test "F65 SC-12 ask 사유의 정직성: 컨트롤 플레인 잎이 없는 보수적 ask 는 일치라고 말하지 않는다 (40차)" {
@@ -571,6 +683,17 @@ sweep_payload_context() {  # $1 context
   out=$(delete_decision 'rm -rf .claude')
   grep -q 'pattern: control-plane-delete →' <<<"$out" \
     || { echo "실제 일치가 undecided 로 보고된다: $out"; false; }
+  # **512자 상한 경로의 사유도 고정한다(41·42차 연속 지적).** 두 라운드 모두 "이 경로의
+  # `CP_LOC_UNDECIDED=1` 을 지워도 어떤 테스트도 실패하지 않는다"고 적었다 — 상한을 넘는
+  # 피연산자 토큰은 컨트롤 플레인 잎이 없어도 보수적으로 ask 가 되므로, 그 ask 는 일치가
+  # 아니라 확정 불가로 보고돼야 한다.
+  local long big2
+  long=$(printf 'a%.0s' $(seq 1 600))
+  big2="rm -rf /tmp/$long"
+  [[ "$(decision_of "$big2")" == ask ]] || { echo "512자 초과 토큰의 보수적 ask 가 사라졌다"; false; }
+  out=$(delete_decision "$big2")
+  grep -q 'control-plane-delete-undecided' <<<"$out" \
+    || { echo "512자 초과 경로가 일치라고 보고한다: ${out:0:200}"; false; }
 }
 
 # ---------------------------------------------------------------------------

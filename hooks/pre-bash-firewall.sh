@@ -1193,11 +1193,17 @@ normalize_path_token() {
   # **순서가 중요하다**: 바로 아래 중괄호 조기 반환보다 **먼저** 와야 한다 — `${PWD}` 는 중괄호를
   # 품으므로 그 가드에 걸려 통째로 반환됐고, `$PWD/hooks` 는 ask 인데 `${PWD}/hooks` 만 allow 인
   # 비대칭이 생겼다(이 라운드 자체 발견, 생성 스위트의 표기 동치 테스트가 잡았다).
-  # 루프가 아니라 한 번만 벗긴다 — `$PWD/$PWD/x` 같은 중복 접두는 셸에서도 말이 되지 않는
-  # 경로(`/cwd//cwd/x`)이고, 루프로 쓰면 **본체를 지우는 변이가 무한 루프**가 되어 변이 테스트
-  # 자체가 멈춘다(이 라운드 자체 발견 — 변이 가능성도 구현 제약이다).
-  if [[ "$t" == '$PWD/'* ]]; then t=${t#'$PWD/'}
-  elif [[ "$t" == '${PWD}/'* ]]; then t=${t#'${PWD}/'}; fi
+  # **42차 독립 판정(2026-09-13) 정정 — 접두를 지우지 말고 `.` 로 치환한다.** 앞선 라운드는
+  # 접두를 **삭제**했는데, 그러면 `$PWD//hooks` 에서 절대 경로 `/hooks` 가 남았다. 그 문자열은
+  # 이름 패턴 `*/hooks` 에는 맞지만 (c) 팔의 실체 앵커 둘(`$pd/hooks` 동일성·그 자리의
+  # `hooks.json` 존재)을 모두 비켜가 allow 였고, 랩에서 `hooks/hooks.json` 이 실제로 삭제됐다
+  # (42차 252셀 스윕 중 6셀). `.` 로 치환하면 `.//hooks` 가 되어 **이미 있는** `//`→`/` 접기와
+  # `./` 제거가 그대로 받아 `hooks` 로 접힌다 — 규칙을 더하지 않고 그 부류 전체가 닫힌다.
+  # 반복 접두(`$PWD/$PWD/hooks`)는 셸에서도 같은 파일이 아니므로(절대 경로가 중간에 끼면 경로가
+  # 달라진다) 한 번만 치환한다. 루프 대신 `if/elif` 인 이유는 그대로다 — 루프 본체를 지우는
+  # 변이가 무한 루프가 되어 변이 테스트 자체가 멈춘다(변이 가능성도 구현 제약이다).
+  if [[ "$t" == '$PWD/'* ]]; then t="./${t#'$PWD/'}"
+  elif [[ "$t" == '${PWD}/'* ]]; then t="./${t#'${PWD}/'}"; fi
   if [[ "$t" == *'{'* ]]; then NORM_TOK="$t"; return; fi
   # **F65 40차 독립 판정(2026-09-12) — 접기 규칙은 중간형과 말단형에서 같게 접힌다(SC-12(1)).**
   # 아래 세 규칙(`//`·`/./`·`seg/../`)은 전부 **후행 슬래시가 붙는 중간형**으로만 적혀 있어서
@@ -1836,6 +1842,20 @@ ARM_DELETE_VERBS_UNCONDITIONAL=(rm rmdir unlink shred mv)
 # 무조건 무장 배열과 분리한다. `scan_control_plane_delete()` 의 `-delete` 사전 검사와
 # `__scan_opaque_verb_matches()` 양쪽이 이 변수를 직접 쓴다.
 ARM_DELETE_VERB_DELETE_GATED="find"
+# **`find` 를 무장시키는 술어들(SC-13(1)·SC-14, 42차 독립 판정, 2026-09-13).** 전에는 `-delete`
+# 하나였다. 42차가 `find .claude -exec truncate -s 0 {} +` 로 `settings.json` 을 13→0바이트로
+# 만들면서 실증한 것: 무장이 `ARM_DELETE_VERBS_UNCONDITIONAL`(rm·rmdir·unlink·shred·mv)에
+# 의존하는 한, 그 목록 밖의 수단이 `-exec` 로 들어오면 그대로 통과한다. 같은 효과의 평범한
+# 철자(`truncate -s 0 .claude/settings.json`)는 ask 였으므로 **감싼 형태가 평범한 철자보다
+# 약했다**(SC-14(1) 위반). 41차 대응의 두 패스 분리는 이 등록을 *싸게* 만든 것이지 불필요하게
+# 만든 것이 아니었는데, 42차 회전이 '불필요한 것으로 확인'이라고 잘못 적었다 — 그 정정이다.
+# **술어 뒤의 동사 이름은 열거하지 않는다**: 열거가 곧 커버리지 상한이라는 것이 12차 판정
+# 이후 이 파일이 반복 확인한 사실이고, 42차의 `truncate` 가 바로 그 증거다. `find` 가 이
+# 술어로 임의 명령을 돌린다는 것은 문자열만으로 판정할 수 없으므로 안전한 쪽으로 무장한다.
+# **받아들이는 마찰**: 컨트롤 플레인 경로를 `find … -exec <읽기도구>` 로 읽는 명령도 ask 가
+# 된다(`find .claude -exec grep TODO {} +`). 피연산자가 컨트롤 플레인이 아니면 무장만 되고
+# allow 로 남으므로(`find src -exec rm {} +`) 일상 명령에는 마찰이 없다 — 친화성 코퍼스로 실측.
+ARM_FIND_DELETE_PREDICATES=(-delete -exec -execdir -ok)
 
 # 명령 치환 구간의 **원문**에 삭제 동사가 리터럴 단어로 있으면 그 동사를 별도 토큰으로
 # SPLIT_TOKS 에 흘려보낸다(F65 12차 판정 — 커밋 1096d5e 반려, 13차 판정 — 커밋 978d8f2
@@ -2580,7 +2600,7 @@ __cp_judge_operand() {
 
 __scan_one_segment_for_cp_delete() {
   local seg="$1" try_unwrap="$2"
-  local tok armed __arm_verb __verb_armed inner_seg __sc_tok __token_budget_ms __token_iter
+  local tok armed __arm_verb __arm_pred __verb_armed inner_seg __sc_tok __token_budget_ms __token_iter
   local -a toks
   __tokenize_segment "$seg"
   # 빈 배열을 `"${arr[@]}"` 로 그대로 펼치면 bash 3.2(이 훅이 실제로 실행되는 macOS 기본
@@ -2641,7 +2661,9 @@ __scan_one_segment_for_cp_delete() {
     # 수만 자까지 커질 수 있고(F65 축), 이 자리는 그 토큰이 __control_plane_location_impl()
     # 의 512자 상한을 거치기 **전**이라 무방비였다.
     if [[ "$NORM_TOK" == "$ARM_DELETE_VERB_DELETE_GATED" || "$NORM_TOK" == */"$ARM_DELETE_VERB_DELETE_GATED" ]]; then __has_find_tok=1; fi
-    [[ "$NORM_TOK" == "-delete" ]] && __has_delete_pred=1
+    for __arm_pred in "${ARM_FIND_DELETE_PREDICATES[@]}"; do
+      [[ "$NORM_TOK" == "$__arm_pred" ]] && { __has_delete_pred=1; break; }
+    done
     # AUDIT-3 와 같은 이유(파라미터 확장) — `${Z}find`·`-dele${Z}te` 도 각각 find/-delete
     # 토큰으로 잡는다. **F65 security-auditor 34차 독립 판정이 지적한 비대칭(AUDIT-3의
     # 범위 안, 회귀는 아님)**: 이전 버전은 find 쪽에만 이 폴백을 뒀고 -delete 쪽엔 두지
@@ -2658,8 +2680,10 @@ __scan_one_segment_for_cp_delete() {
             && ( "$__STRIPPED" == "$ARM_DELETE_VERB_DELETE_GATED" || "$__STRIPPED" == */"$ARM_DELETE_VERB_DELETE_GATED" ) ]]; then
         __has_find_tok=1
       fi
-      if [[ "$__has_delete_pred" -eq 0 && "$__STRIPPED" == "-delete" ]]; then
-        __has_delete_pred=1
+      if [[ "$__has_delete_pred" -eq 0 ]]; then
+        for __arm_pred in "${ARM_FIND_DELETE_PREDICATES[@]}"; do
+          [[ "$__STRIPPED" == "$__arm_pred" ]] && { __has_delete_pred=1; break; }
+        done
       fi
     fi
     # **F65 security-auditor AUDIT-6(high, 2026-09-07)** — `{f,g}ind .claude -delete`처럼
@@ -2677,7 +2701,7 @@ __scan_one_segment_for_cp_delete() {
       esac
     fi
     if [[ "$__has_delete_pred" -eq 0 && "$NORM_TOK" == *'{'* ]]; then
-      __verb_brace_matches "$NORM_TOK" "-delete"
+      __verb_brace_matches "$NORM_TOK" "${ARM_FIND_DELETE_PREDICATES[@]}"
       case $? in
         0) __has_delete_pred=1 ;;
         2) __has_delete_pred=1; __delete_src=$__fd_iter; __fd_src_tok="$NORM_TOK" ;;

@@ -1,0 +1,136 @@
+{
+  "timestamp": "2026-09-13T10:30:00+09:00",
+  "sprint": 51,
+  "iteration": 42,
+  "round": "F65 42nd independent verdict",
+  "features_evaluated": [
+    "F65"
+  ],
+  "security_tier": "critical",
+  "target_head": "52f6b8f",
+  "judged_diff": "git diff c6f4e01..HEAD (820e6da = quarantine-recovery commit, 52f6b8f = this round's work)",
+  "responds_to": "progress/agent-comms/evaluator-feedback-2026-09-13T00-50-00+0900.json (41st verdict, fail 4/10 on c6f4e01)",
+  "scores": {
+    "functionality": 6,
+    "code_quality": 6,
+    "security": 5,
+    "error_handling": 8,
+    "test_coverage": 5
+  },
+  "score": 5,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 5 < 7 (critical tier auto-fail). Both families the 41st verdict measured ARE closed (all 29 of its cells now ask; `find .CLAUDE/plugins -delete` allow->ask, `rm -rf $PWD/hooks` allow->ask, differential measured against c6f4e01). But lab-confirmed live control-plane destruction still reaches `allow` through TWO undeclared notations, both on axes this round was chartered to close. (A) `$PWD//hooks`: the new `$PWD/` strip is placed BEFORE the `//`->`/` fold, so stripping `$PWD/` out of `$PWD//hooks` leaves the absolute `/hooks`, which matches `*/hooks` by pattern but satisfies neither reality anchor ($pd/hooks, or hooks.json present). Reproduce: `bash -c 'cd LAB && rm -rf $PWD//hooks'` -> allow, and in a fresh mktemp lab `hooks/hooks.json` was actually deleted. 4 spellings leak (`$PWD//hooks`, `${PWD}//hooks`, with rm / find -delete / find -exec). `$PWD/hooks`, `$PWD/./hooks`, `$PWD/x/../hooks`, `$PWD//hooks/hooks.json`, `$PWD//.claude` are all ask -- so this is a notation/composition leak, not declared scope. (B) `find .claude -exec truncate -s 0 {} +` -> allow, and in the lab `.claude/settings.json` AND the installed hook copy went to 0 bytes; `find hooks -exec truncate -s 0 {} +` -> allow, `hooks/hooks.json` to 0 bytes. The bare spelling `truncate -s 0 .claude/settings.json` is ask, so `-exec` wrapping is STRICTLY WEAKER than the bare spelling. Contract step 18(c) told the implementer to register `-exec`/`-execdir`/`-ok` as arming signals; the `_done_note` recorded that as '불필요한 것으로 확인' (confirmed unnecessary). That judgment is wrong and one probe disproves it: arming still requires a token from ARM_DELETE_VERBS_UNCONDITIONAL (rm rmdir unlink shred mv), so any destructive verb outside that list is unarmed behind `-exec` while being gated in bare form. SC-13(2) states the three predicates are arming signals 'equivalent to -delete' -- that criterion is not implemented.",
+    "test_coverage 5 < 7. The generated suite cannot see either leak by construction. `cp_notations()` emits each fold rule INDEPENDENTLY (`for r in \"${CP_FOLD_RULES[@]}\"; do cp_fold_spellings \"$x\" \"$r\"; done`) plus one hand-written `combo` arm holding exactly three literal composites, none of which compose `envpfx`. Rule x rule composition -- the class that leaks -- is not generated. This is the 39th verdict's finding ('cp_notations() is a literal list of 7') recurring one layer down: the rules are now derived, their COMPOSITION is still enumerated by hand, and SC-12(3) requires mechanical derivation. Separately, the 41st verdict's item 4 is NOT closed: deleting `CP_LOC_UNDECIDED=1` from the 512-char cap (`if [[ ${#t} -gt 512 ]]; then CP_LOC_UNDECIDED=1; return 0; fi`) still silently restores the false reason (`control-plane-delete -> <600-char harmless token>` instead of `control-plane-delete-undecided`) with NO test failing -- only one test asserts the undecided reason (generated suite line 568) and its fixture goes through the brace-comma budget path, not the 512-char cap."
+  ],
+  "issues": [
+    "[security][critical][confidence:high] `$PWD//hooks` reaches allow and deletes. The new env-prefix strip (`if [[ \"$t\" == '$PWD/'* ]]; then t=${t#'$PWD/'}`) runs BEFORE the `//`->`/` fold, so it leaves `/hooks` rather than `hooks`. The `hooks` arm is the only control-plane arm anchored on REALITY rather than on a name, so it is the only arm that the residual leading slash defeats (`$PWD//.claude` -> `/.claude` still matches `*/.claude`; `$PWD//hooks/hooks.json` -> `/hooks/hooks.json` still matches `*/hooks/hooks.json`). 6 of 252 cells in an envpfx x fold-rule x target x verb sweep are allow, all of them this one target. Lab-confirmed: hooks/hooks.json actually deleted by all four spellings. NOT a regression (allow at c6f4e01 too, because `$PWD/hooks` was also allow there) but an axis this round declared closed -- the contract's `env_prefix_operand` residual now asserts '`$PWD`/`${PWD}` 는 ... 벗기도록 닫았다', which overclaims.",
+    "[security][critical][confidence:high] `find .claude -exec truncate -s 0 {} +` / `-exec dd` / `-exec tee` reach allow and destroy control-plane CONTENT (settings.json, the installed hook copy, hooks/hooks.json all measured at 0 bytes in the lab) while their bare spellings are ask. `-exec`/`-execdir`/`-ok` are not arming signals in the implementation; arming comes only from a token in ARM_DELETE_VERBS_UNCONDITIONAL. Registering the three predicates -- contract step 18(c), skipped as unnecessary -- is exactly what would close this, because the two-phase split already judges the pre-verb operand once the segment is armed. The two-pass change made the predicate registration CHEAP, not unnecessary.",
+    "[criteria][high][confidence:high] SC-12(3) (mechanical derivation of the notation pool) is not met for rule composition, and the implementer's `_done_note` does not mention the gap. `CP_FOLD_RULES` is a genuine improvement and the self-check test that pins emitted counts is good design, but rules are emitted one at a time and the only composite cells are three hand-written literals in the `combo` arm. Every round from the 38th on has leaked through whatever the generator enumerates by hand; this round the hand-enumerated thing is composition.",
+    "[criteria][high][confidence:high] SC-13(2)'s literal requirement ('`-exec`·`-execdir`·`-ok` 는 `-delete` 와 동등한 arming 신호다') is contradicted by the implementation, and the contract step 18 `_done_note` records the omission as a criteria-backpropagation decision ('열거하지 않는 쪽이 SC-11 의 생성 규칙 원칙과도 맞는다') without re-measuring whether the predicates still carry weight for NON-enumerated verbs. They do. Either implement the registration or amend SC-13(2) -- but the measurement above shows implementing it is the correct resolution, because the `-exec` spelling is currently weaker than the bare spelling for the same effect.",
+    "[test][low][confidence:high] 41st verdict item 4 not closed: the 512-char cap's `CP_LOC_UNDECIDED=1` is still unpinned. Mutation (drop the assignment, keep `return 0`) -> reason for a 600-char operand reverts to the false `control-plane-delete` assertion, decision stays ask, no test fails. The sibling half of the same item (the `[[ -z \"$t\" ]] && t=\".\"` dead line) WAS closed correctly by removal with an accurate comment explaining the wrong original rationale.",
+    "[quality][low][confidence:high] The `_done_note` claims 'shellcheck 2건(둘 다 HEAD 선행, 추가 0)'. Measured delta c6f4e01 -> HEAD: SC2016 3 -> 7 (+4, the intentional single-quoted `$PWD` patterns) and SC2004 1 -> 3 (+2, `$` unnecessary on arithmetic in `__verb_exempt[$__token_iter]`). All info/style, no functional issue, but 'additions 0' is not what the tool reports.",
+    "[quality][info][confidence:high] The `$PWD`-strip placement is the THIRD time ordering within `normalize_path_token()` has produced a leak (6th verdict: glob folding before brace expansion; 40th: fold rules only in infix position; now: env-prefix strip before the `//` fold). The comments capture the lesson as 'order is decided by when the unit a transform assumes becomes final', which is right, but there is no structural guard -- nothing makes a newly added transform get re-folded. Re-running the fold rules after any prefix strip (or substituting `.` for `$PWD` instead of deleting the prefix, so `$PWD//hooks` becomes `.//hooks`, which already folds correctly to `hooks` and is already ask) would close the class rather than the instance.",
+    "[positive] The value-based comparison (`tl`, lowercased once at entry, used by the glob cover check, all three case arms, the `rest=${tl##*.claude/}` tail extraction and both real-path comparisons, with filesystem access alone using the original) is the correct structural fix and is verified: all 10 case-varied `.claude/plugins` / `.claude/hooks` cells the 41st measured are now ask. Skipping the subshell when the token has no uppercase is a sound cost choice.",
+    "[positive] The two-phase split closes `find -exec rm` / `-execdir` / `-ok` / `-exec unlink` / `-exec shred` / `-exec mv` / `find . -name .claude -exec rm` / `bash -c` wrapped -- 12 forms measured ask -- WITHOUT enumerating the predicates, for verbs that are in the arming list. Recognising that `operand_before_verb_ordering` and `find_exec_delete_verb` were one hole under two names is a real diagnostic result and is correctly written up in INVARIANTS.md and lessons.md.",
+    "[positive] Reason honesty (SC-12(9)) is genuinely closed. The `CP_DELETE_UNDECIDED` flag plus `__cp_mark_undecided()` covers every conservative path, the branch at the reason site reads only the flag, the flag is reset per `scan_control_plane_delete()` call, and I verified 6 paths report an accurate cause while genuine hits still assert a match: `rm -rf $'\\x2ebuildjunk'` and `rm -rf $'\\x2ebuild\\x6aunk'` -> ANSI-C cause; `rm -rf $(cat list.txt)` and `mv $(echo x) /tmp/sink` -> command-substitution cause; 600-char operand and 70-alternative brace -> cap/budget cause; `rm -rf .claude` and `find .claude -exec rm -rf {} +` -> `control-plane-delete -> .claude`.",
+    "[positive] The mutation test is well built -- 4 points, and each `mutate` call first asserts the sed actually changed the file, so a stale pattern fails loudly instead of passing vacuously. The `if/elif` (rather than a loop) for the prefix strip so that deleting the body does not produce an infinite loop is a genuinely good observation: mutability is an implementation constraint.",
+    "[positive] Friction control is real. My own independent 51-cell corpus (verb-after-operand `find -exec` forms, xargs, brace expansions, control-plane reads, env-prefix reads, uppercase non-control-plane targets, many-token segments, wrappers) shows c6f4e01 -> HEAD delta 0. The self-found `cp file{1..300} /tmp/` regression was correctly diagnosed (self-exemption depended on `continue`, which stops meaning exemption once the loop is split) and correctly fixed by recording the exemption index."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "Generated suite 22/22 (exit 0), verified by re-running `bats tests/pre-bash-firewall-generated.bats`",
+      "behavioral probe returns `[]` (re-run independently)",
+      "41st verdict family 1 closed: 10 case-varied `.claude/plugins` / `.claude/hooks` cells all ask",
+      "41st verdict family 2 closed: `$PWD/hooks` and `${PWD}/hooks` spellings all ask (5 cells)",
+      "SC-13 `-exec` family closed for enumerated verbs: 12 forms all ask"
+    ],
+    "security": [
+      "SC-12(7) comparison semantics moved from `shopt` to a value: `nocasematch` removed from `control_plane_location()`, `tl` used at every name-comparison site including the parameter-expansion tail extraction",
+      "SC-12(8) case argument crossed over the whole target pool (verified by reading the generator and by the 10 passing case cells)",
+      "SC-12(9) conservative-ask cause is decided by a flag, not by string shape -- verified on 6 distinct paths",
+      "SC-13(1) two passes: arming pass records verb-exempt indices, operand pass judges all tokens including pre-verb ones",
+      "SC-13(3) budgets shared: `__VERB_BRACE_BUDGET` consumed in pass 1 only, 64- and 512-boundary tests pass"
+    ],
+    "error_scenarios": [
+      "SEGMENT_UNSAFE -> ask with an accurate ANSI-C/unclosed-quote cause (41st item 3 closed)",
+      "command-substitution operand -> ask with an accurate cause",
+      "512-char cap and brace-budget overflow -> ask with an accurate cap/budget cause",
+      "genuine control-plane hit -> ask asserting the matched token"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [],
+    "security": [
+      "SC-12(1) positional closure violated for the fold rule this round ADDED: `$PWD//hooks` (envpfx composed with the `//` rule) is allow and deletes hooks/hooks.json, while `$PWD/hooks` is ask",
+      "SC-13(2) `-exec`/`-execdir`/`-ok` are not arming signals: `find .claude -exec truncate -s 0 {} +` allow, control-plane content zeroed in the lab, bare spelling ask"
+    ],
+    "error_scenarios": [],
+    "test": [
+      "SC-12(3) mechanical derivation: the notation pool does not cross fold rules with each other; composition is three hand-written literals in the `combo` arm",
+      "41st item 4: the 512-char cap's undecided flag is still unpinned by any test"
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "No criterion requires the notation pool to cross fold rules WITH EACH OTHER. SC-12(1) says each rule must fold the same in infix and terminal position and SC-12(3) says the pool is derived from the rule table, but neither says the pool must contain rule x rule composites -- and the `combo` arm shows the implementer understood composition matters yet enumerated it by hand. Add: the pool is the closure of the rule table under composition to depth 2 (pairwise), generated, not listed.",
+      "No criterion requires that a spelling never be WEAKER than its bare equivalent. Both of this round's leaks are instances: `$PWD//hooks` vs `$PWD/hooks`, and `-exec truncate` vs bare `truncate`. SC-12(4) asserts decision equivalence with the CANONICAL spelling of the same target, which covers the first but not the second (the `-exec` case varies the verb delivery, not the target notation). A 'no spelling is weaker than the plainest spelling of the same effect' criterion would have caught both, and it generalises the property the last five rounds have each rediscovered."
+    ],
+    "ambiguous_criteria": [
+      "SC-13(2) mixes a claim of fact ('`-exec`·`-execdir`·`-ok` 는 `-delete` 와 동등한 arming 신호다') with a requirement, which let the implementer read it as satisfied-by-consequence once the two-pass split closed the enumerated verbs. State the requirement as a measurement: 'for every destructive verb V that is gated in bare form against a control-plane path, `find <path> -exec V ...` is gated too.'"
+    ],
+    "security_criteria_insufficient": [],
+    "action_required": "The next round must (1) close the two measured leaks, (2) make the generated pool cover rule composition so the `$PWD//` class cannot recur, and (3) amend SC-13(2) per the above. criteria_backfill count this round: 1 (step 18(c) dropped as 'unnecessary') -- below the 3-item re-review threshold, but it is the item that left a critical leak open, so the lesson is that a backfill which REMOVES work needs a measurement attached, not a rationale."
+  },
+  "residual_judgment": {
+    "env_prefix_operand": "The residual's new status overclaims. `$HOME`/`$OLDPWD`/`~`/arbitrary vars remaining open is correct and well argued. But '`$PWD`/`${PWD}` ... 벗기도록 닫았다' is false as written: only the `$PWD/` and `${PWD}/` prefixes in canonical position are handled, and composing the prefix with the `//` rule defeats it. Rewrite to the measured scope.",
+    "ancestor_directory_operand": "`rm -rf $PWD` and `rm -rf ${PWD}` are allow and destroyed the entire lab directory including the whole control plane. I attribute this to the DECLARED residual (it is `rm -rf .` spelled with a variable, and `.`/`..`/`*` are registered open). Worth noting as asymmetry rather than as a new leak: `rm -rf $HOME` is BLOCKED by Layer 1 while `rm -rf $PWD` -- the project root, which CONTAINS the control plane -- is allow. If the next round touches this axis, adding `$PWD`/`${PWD}` to the same Layer 1 family is a one-line change with no friction cost.",
+    "find_exec_delete_verb": "Marked closed in the contract. Closed for verbs inside ARM_DELETE_VERBS_UNCONDITIONAL (measured, 12 forms). NOT closed for verbs outside it, where the `-exec` spelling is weaker than the bare spelling. The status should be narrowed to what was measured.",
+    "operand_before_verb_ordering": "Closed. The two-pass structure genuinely implements the design this key predicted on 2026-09-02, and the identification of it as the same hole as find_exec_delete_verb is correct.",
+    "unenumerated_verbs": "Does NOT absorb finding (B). The residual is about verbs with no gate at all; `truncate`/`dd`/`tee` ARE gated in bare form against control-plane paths, so the `-exec` allow is a notation weakness, not a missing verb.",
+    "eval_wrapper_indirect_operand_cwd_shift": "Unchanged, declared, and not pass-blocking on their own."
+  },
+  "blocking_judgment": "Either leak alone blocks pass. (A) is a notation variant of a rule this round added and declared closed, with lab-confirmed deletion of the harness's own wiring file -- the same meta-defect the 38th through 41st verdicts each found one layer down, so passing it would ratify the pattern. (B) is a contract step the implementer chose to skip on a reasoning error that one probe disproves, with lab-confirmed zeroing of settings.json, hooks/hooks.json and the installed hook copy. Neither is attributable to a declared residual (SC-10(7)).",
+  "evidence": {
+    "tooling_verification": "Confirmed FIRST that `timeout` and `gtimeout` are absent on this machine (the 42nd round's own probe mis-read 19 cells as allow for exactly this reason). My probe wraps nothing, classifies `BLOCKED*` stdout and non-zero exit as blocked, and emits `ERROR(rc=...)` rather than falling back to allow when a decision cannot be parsed. No ERROR was emitted in any run reported here.",
+    "generated_suite": "bats tests/pre-bash-firewall-generated.bats -> 22/22 ok, exit 0 (took >10 min; run alone)",
+    "behavioral": "bash scripts/probes/behavioral.sh -> []",
+    "shellcheck": "shellcheck -f gcc, findings grouped and diffed c6f4e01 -> HEAD: SC2016 3->7, SC2004 1->3; no warnings above info/style; no errors",
+    "isolation_lab_41st_cells": "29 cells (10 case-varied .claude/plugins+hooks, 5 $PWD, 12 -exec family, 2 canonical controls) in a fresh mktemp lab with synthetic .claude/settings.json, .claude/settings.local.json, hooks/hooks.json, .claude/hooks/protected-integrity.sh, .claude/plugins/myplug/** and a wired CLAUDE_PLUGIN_ROOT -> ALL ask, 0 deletions",
+    "new_leak_A": "envpfx x fold-rule x 6 targets x 3 verbs sweep = 252 cells -> 6 allow, all `$PWD//hooks` / `${PWD}//hooks`. Executed in fresh labs: hooks/hooks.json DELETED by `rm -rf $PWD//hooks`, `find $PWD//hooks -delete`, `rm -rf ${PWD}//hooks`, `find $PWD//hooks -exec rm -rf {} +`. `rm -rf $PWD` deleted the entire lab directory.",
+    "new_leak_B": "`find .claude -type f -exec truncate -s 0 {} +` -> allow; lab baseline settings.json 13 bytes / installed-hook 15 bytes -> both 0 bytes after execution. `find hooks -type f -exec truncate -s 0 {} +` -> allow; hooks/hooks.json 29 -> 0 bytes. Bare `truncate -s 0 .claude/settings.json` -> ask, `dd if=/dev/null of=.claude/settings.json` -> ask, `tee .claude/settings.json` -> ask.",
+    "old_new_differential": "7 key cells measured on both c6f4e01 and HEAD with CLAUDE_PROJECT_DIR pointed at the lab: `-exec rm` allow->ask, `$PWD/hooks` allow->ask, `.CLAUDE/plugins` allow->ask (all three closed); `-exec truncate` allow->allow, `$PWD//hooks` allow->allow (both pre-existing and still open); bare `truncate` ask->ask",
+    "friction": "Independent 51-cell normal-workflow corpus (not the implementer's), c6f4e01 -> HEAD delta 0. Covers verb-after-operand find forms, xargs, brace expansion, control-plane reads, env-prefix reads, uppercase non-control-plane targets, 20-token segments, and wrappers.",
+    "reason_honesty": "8 commands probed for their permissionDecisionReason; all conservative paths report `control-plane-delete-undecided` with an accurate cause, all genuine hits report `control-plane-delete -> <token>`",
+    "mutation_512_cap": "sed-mutated the cap two ways against an out-of-tree copy: `return 0`->`return 1` flips `rm -rf <600 f>` ask->allow (pinned by main-suite test 'the 512-char guard applies to brace-free tokens too'); dropping `CP_LOC_UNDECIDED=1` keeps ask but reverts the reason to the false assertion with no test covering it",
+    "generator_structure_review": "tests/pre-bash-firewall-generated.bats:269-299 -- `CP_FOLD_RULES=(dsl dot dotdot combo envpfx)`, `cp_notations()` loops the rules independently; the `combo` arm is three literal strings and none composes `envpfx`",
+    "full_suite": "bats tests/ run ALONE (no concurrent probes) -> 938 tests, exit 0, zero failures, 1 skip. See full_suite_result."
+  },
+  "full_suite_result": "bats tests/ run ALONE -> 938 tests, exit code 0, zero failures (1 skip: 'migration: pristine v1.4.0 copies removed via legacy hash', v1.4.0 plugin cache not available). The 41st verdict's load-sensitive perf flake (test 640 at 1548ms vs a 1500ms threshold) did NOT recur when the suite was run with no concurrent probes, which confirms the 41st verdict's diagnosis that it was load, not a regression. Includes tests/pre-bash-firewall.bats and tests/pre-bash-firewall-generated.bats, so the implementer's 351/351 and 22/22 claims are both subsumed and confirmed; the generated suite was also re-run on its own (22/22, exit 0).",
+  "protected_integrity_finding": {
+    "_note": "Reported separately from the F65 score, per the dispatch instruction.",
+    "verdict": "A defect in the ticket's lifetime and recovery-target rules, NOT INV-14 working as designed.",
+    "reasoning": [
+      "The design intent is stated in protected-integrity.sh itself and treats this outcome as the bug it was fixing: '심사를 통과한 편집이 매번 복구됐다' and '편집 → 검증 → 커밋이라는 하네스 자신의 워크플로우가 성립하지 않는 상태였다'. A reviewed edit being reverted is the declared failure mode, not the intent.",
+      "The recovery TARGET is HEAD, not the most recently ticketed content. So a single unticketed edit discards an unbounded amount of previously reviewed, uncommitted work on that file -- which is what happened (step 17 and 18 edits lost together, quarantined at 2026-09-12T23:27:51Z = 9/13 08:27 KST, recovered by hand in 820e6da at 08:46 KST). The blast radius is the file, and it is maximal by construction.",
+      "The ticket is minted from NEW_CONTENT (the PreToolUse PREDICTION of post-edit content) hashed with `printf '%s'`, while verification hashes the on-disk file via `printf '%s' \"$(cat …)\"`, which strips ALL trailing newlines rather than one. Any edit shape where the prediction and the write differ -- or where invariant-guard exits before NEW_CONTENT is set, which its own comment documents as a real branch -- silently yields no ticket, and the next Bash call reverts.",
+      "The ledger is not garbage-collected for paths outside PROTECTED_GLOBS. `consume_ticket` is only reached from the loop over `git ls-tree` paths filtered by PROTECTED_GLOBS, so tickets for any other path accumulate forever. Measured: progress/.guarded-edits is 2058 lines, of which 1783 are for bare `settings.json` (not in PROTECTED_GLOBS) plus ~70 for `.tmp/**` and `.claude/worktrees/**` test/worktree paths. The code comment claims this pollution class was closed after it reached 209 lines; it is now 10x that."
+    ],
+    "minimal_fix_direction": [
+      "Restore to the most recent ticketed content for that path when one exists, falling back to HEAD only when none does. This keeps detection identical while cutting the blast radius from 'all uncommitted work on the file' to 'the one unreviewed edit'. Requires storing the ticketed blob (git hash-object -w) alongside the sha, which the ticket already is.",
+      "Garbage-collect the ledger: consume or expire ticket lines whose path is not in PROTECTED_GLOBS, and refuse to mint a ticket when the derived root is not the real repository root (the existing `$file_phys == $root/*` check passes when root itself is a temp lab).",
+      "Treat a mint failure as loud, not silent: if a protected file is edited and no ticket results, say so at edit time rather than reverting at the next Bash call."
+    ],
+    "severity": "high for harness usability and for trust in the control (an operator who loses work twice starts editing protected files through channels the detector does not watch); low for the security property itself, since quarantine preserves content and detection is unaffected."
+  },
+  "next_round_minimum_scope": [
+    "1. Close `$PWD//hooks`: either substitute `.` for the `$PWD`/`${PWD}` prefix instead of deleting it (so `$PWD//hooks` becomes `.//hooks`, which the existing `//` rule already folds to `hooks` and which is already ask), or re-run the fold rules after any prefix strip. Prefer the substitution -- it closes the composition class rather than this instance, and needs no new rule.",
+    "2. Register `-exec`/`-execdir`/`-ok` as arming signals (contract step 18(c), as originally written). The two-pass split already judges pre-verb operands, so this is the cheap half, and it closes `-exec truncate`/`dd`/`tee` and the interpreter forms in one move.",
+    "3. Make the generated notation pool the pairwise composition closure of CP_FOLD_RULES instead of a per-rule loop plus three hand-written composites, and delete the `combo` literals once composition is generated.",
+    "4. Pin the 512-char cap's undecided flag with a test on a >512 brace-free operand (41st item 4).",
+    "5. Amend SC-13(2) to the measurable form, and narrow the `env_prefix_operand` and `find_exec_delete_verb` residual statuses to what was actually measured.",
+    "6. Do NOT re-touch: the `tl` value-based comparison, the two-pass structure, the undecided flag/reason mechanism, the terminal-fold sentinel, the mutation harness, or the friction corpus -- all verified good this round."
+  ]
+}
