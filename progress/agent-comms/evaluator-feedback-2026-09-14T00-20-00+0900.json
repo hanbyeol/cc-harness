@@ -1,0 +1,134 @@
+{
+  "timestamp": "2026-09-14T00:20:00+0900",
+  "sprint": 64,
+  "iteration": 1,
+  "features_evaluated": [
+    "F78"
+  ],
+  "security_tier": "critical",
+  "judged_diff": "git diff 29373d6..9d61b9f",
+  "scores": {
+    "functionality": 5,
+    "code_quality": 6,
+    "security": 4,
+    "error_handling": 4,
+    "test_coverage": 5
+  },
+  "score": 4,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 4 < 7 (critical tier 자동 fail) — SC-1 의 두 방어가 모두 실효 없음: invariant-guard 의 `.guarded-blobs` 도구 쓰기 차단은 **존재하는 blob 에만** 발화하고 실제 공격 형태(내용 주소라 항상 신규 파일)는 exit 0 으로 통과한다. 재현: LAB 에서 `{tool_name:Write,file_path:<LAB>/progress/.guarded-blobs/brandnew}` → rc=0, 같은 요청을 이미 존재하는 blob 에 보내면 rc=2. 원인은 hooks/invariant-guard.sh:741 `if [[ ! -e \"$FILE\" ]]` 블록의 `*) ci_off; exit 0 ;;` 가 :870 의 deny 보다 앞에 있는 것.",
+    "security 4 — 방화벽 등록도 문자열 철자 하나만 덮는다: `printf evil > progress/.guarded-blobs/x` = ask 이지만 `ln -s .guarded-blobs progress/blobs` 후 `printf evil > progress/blobs/x` = **allow**(게이트 없음). 이 저장소 자신의 F63·F65 교훈('표기 열거로는 클래스가 닫히지 않는다')이 새 컨트롤 플레인에 적용되지 않았다.",
+    "score 4 < threshold 7 (min-of-5)",
+    "SC-4 미충족 — 3회 재발 중 `git stash pop` 이 **지금도 그대로 재현된다**(아래 residual_repro 참조). 대표 형태 추상화가 이 축을 덮지 못한다.",
+    "AC-3 미충족 — 계약이 열거한 조용한 통과 4경로 중 1개만 실제로 차단된다.",
+    "AC-4 미충족 — GC 가 '자르고 나서 거른다' 순서라 잡음 줄이 유효 티켓을 밀어낸다. AC-4 의 자체 검증 조건('정리 전후로 유효 티켓의 판정이 바뀌지 않는지')을 위반한다."
+  ],
+  "issues": [
+    "[functionality][critical][high-confidence] **`git stash pop` 재발 사례가 닫히지 않았다.** 실제 배선에서는 모든 Bash 호출이 PostToolUse:protected-integrity 를 발화시키므로 `git stash`(파일이 HEAD 와 같아짐) → 훅 1회 → `git stash pop` 순서가 **유일하게 가능한 인터리빙**이다. 중간의 훅 1회에서 `consume_ticket()` 이 그 경로의 티켓을 전부 지우고(원장 lines: 3 → 0), 다음 실행에서 blob GC 가 미참조 blob 을 지운다(blobs: 3 → 0). pop 으로 작업이 돌아온 뒤 훅이 돌면 티켓 이력이 없으므로 HEAD 로 폴백 — 심사 통과분 3건이 전부 소실된다. 재현: scratchpad/lab2.sh, 출력 `RESULT: **작업 소실 — HEAD 로 되돌아갔다**`. 이것이 F78 이 닫으려던 재발 #2(2026-09-13, 복구 커밋 c3fe37f) 그 자체다.",
+    "[error][high][high-confidence] **티켓이 없는 폴백이 '심사 통과 내용으로 복구했다'고 거짓 보고된다.** hooks/protected-integrity.sh:302 에서 `tsha` 가 비면 FALLBACK 배열에 아무것도 넣지 않고 바로 `git checkout HEAD` 로 내려가는데, :322 헤더는 무조건 '**마지막으로 심사를 통과한 내용**으로 복구했습니다' 라고 찍는다. 계약 error_scenarios 1번('조용한 실패 금지')과 AC-1 의 폴백 보고 요건을 정면으로 어긴다. lab2 의 출력이 실측이다 — 작업을 전부 잃은 그 실행이 '심사 통과 내용으로 복구' 를 보고했다.",
+    "[security][critical][high-confidence] **SC-1 (a): invariant-guard 의 blob 저장소 도구 쓰기 차단이 실제 공격 형태에서 죽어 있다.** blob 파일명은 내용 해시이므로 심는 쪽은 항상 신규 파일인데, :741 `if [[ ! -e \"$FILE\" ]]` 의 `*)` arm 이 :870 의 deny 보다 먼저 exit 0 한다. 실측: 신규 blob rc=0 / 존재하는 blob rc=2. (같은 결함이 `.guarded-edits` 에도 선재한다 — 없는 상태에서 생성하면 rc=0.)",
+    "[security][critical][high-confidence] **SC-1 (b): 방화벽 등록이 철자 하나만 덮는다.** `progress/.guarded-blobs/x` 로 쓰면 ask, 심볼릭 링크 디렉터리 표기(`progress/blobs/x`)로 쓰면 **allow**. `ln -s` 자체도 게이트되지 않으므로 두 번의 allow 명령으로 컨트롤 플레인 전체가 열린다. 재현: scratchpad/lab3.sh 의 B 절.",
+    "[security][high][high-confidence] **복구 평면이 설치 평면이 됐다.** 원장 한 줄 + blob 하나를 심으면(위 두 항목으로 둘 다 도달 가능), 다음 훼손에서 훅이 **공격자 내용을 보호 파일에 직접 쓰고** '심사를 통과한 내용으로 복구했습니다' 라고 보고한다. 재현: lab3.sh 의 C 절 — `# BACKDOOR` 가 hooks/lib.sh 에 설치됐다. 능력 자체는 선재 티켓 위조와 등가라고 볼 여지가 있으나, **성격이 다르다**: 이전에는 공격자가 이미 디스크에 쓴 내용을 면제받는 것이었고, 이제는 훅이 공격자 내용의 **운반자**가 되며 그 사실이 성공 메시지로 포장된다.",
+    "[functionality][high][high-confidence] **AC-4: GC 가 유효 티켓을 지운다(자르기 순서 오류).** hooks/protected-integrity.sh:171 은 필터링 **전에** `tail -n 2000` 으로 자른다. 잡음 줄이 상한을 채우면 그보다 오래된 유효 보호 티켓이 먼저 증발한다. 실측(lab3.sh D 절): 유효 티켓 1건 뒤에 보호 대상 밖 2500줄을 append → 훼손 → 심사 통과분이 아니라 HEAD 로 복구됐다. **가설이 아니다**: 지금 운영 원장은 2119줄이고 그 중 보호 대상 경로 줄은 0건(1837줄이 `settings.json`)이라, 실제 GC 가 처음 도는 순간 이 경계에 정확히 들어간다. 고칠 곳은 순서다 — 거르고 나서 자른다.",
+    "[error][high][high-confidence] **계약이 명시한 error_scenario 2개가 구현되지 않았다.** (1) 'blob 저장소에 쓸 수 없다 → 편집 차단': 실측 rc=0 — 원장에는 티켓이 남고 blob 만 없는 상태로 통과한다(`chmod 500 progress/.guarded-blobs` 후 보호 파일 Write → rc=0, ledger 1줄, blobs 0개). 이 상태는 다음 훼손에서 HEAD 폴백, 즉 F78 손실이 그대로 돌아온다. (2) AC-3 의 '원장 append 실패 → 차단': invariant-guard.sh:710 이 `>> ... || true` 라 실패를 삼킨다. 실측 `chmod 400 progress/.guarded-edits` 후 보호 파일 Write → rc=0, 원장 0줄.",
+    "[functionality][medium][high-confidence] **AC-3 의 'root 밖' 조건이 실제로는 차단하지 않는다.** `__ticket_required_or_die` 는 `rel` 이 아직 대입되지 않은 시점에 호출돼 절대경로로 `git cat-file -e HEAD:<abs>` 를 물으므로 항상 실패 → return 0. 실측: `hooks/` 를 저장소 밖으로 옮기고 심볼릭 링크로 대체(HEAD 는 여전히 hooks/lib.sh 추적) → 경고만 찍고 rc=0. invariant-guard.sh:691-692 의 주석 '보호 대상인데 root 밖으로 해석된 경우만 차단된다' 는 도달할 수 없는 경우를 서술한 **틀린 주석**이다.",
+    "[security][medium][high-confidence] **새 실패 모드: 낡은 티켓 blob 이 현재 커밋된 내용을 덮는다.** 티켓이 정착하지 않은 채 HEAD 가 움직이면(브랜치 전환·다른 커밋), 이후의 훼손 복구가 **커밋된 내용을 버리고** 낡은 심사 통과분을 되살린다. 실측: feat 브랜치의 `# FEATURE-A` 티켓을 남긴 채 other 브랜치에서 `# COMMITTED-B` 를 커밋 → 훼손 → 복구 후 FEATURE-A=1, COMMITTED-B=0. 구 동작(`git checkout HEAD`)은 원리상 이럴 수 없었다. 티켓 줄에 발행 시점 HEAD sha 를 함께 적고 HEAD 가 바뀌면 무효화하는 방향이 정석이다.",
+    "[functionality][medium][high-confidence] **복구가 내용을 바꾼다(후행 개행).** blob 은 `printf '%s\\n' \"$NEW_CONTENT\"` 로 쓰이고 `NEW_CONTENT` 는 `$( )` 로 읽혀 후행 개행이 이미 제거돼 있다. 따라서 개행 없이 끝나는 파일은 복구되면서 개행이 **붙고**, 개행이 여럿인 파일은 하나로 줄어든다. 실측(lab.sh): 심사 통과 내용은 `…proved-3` 로 끝나는데 복구된 파일은 `…proved-3\\n` — `cmp` 가 EOF 차이를 보고한다. `file_sha` 가 후행 개행을 무시하므로 검증은 통과하고 **아무도 이 변형을 관측하지 못한다**. 이 저장소의 `progress/feature_list.json` 이 실제로 개행 없이 끝나는 파일이다. 계약 `_done_note` 는 이것을 '정상' 으로 적었지만, 복구 목표가 '마지막으로 심사를 통과한 **내용**' 이라는 AC-1 문구와는 어긋난다 — 최소한 관측 가능하게 남겨야 한다.",
+    "[test][high][high-confidence] **대표 형태 추상화가 커버리지 상한이 됐다 — 이 저장소가 네 번째로 반복하는 패턴.** `untracked_write()` 는 '티켓 없이 파일 내용이 바뀐 상태' 만 만든다. `git stash pop` 은 그 사실에 더해 **티켓을 소비시키는 중간 상태**(파일 == HEAD)를 거치는데, 그 축이 테스트에 없다. evals/calibration/false-positives.json 의 F76 항목('회귀 테스트가 방금 닫은 축만 고정해 같은 결함이 옆 축으로 이동')과 같은 형태다. 세 방아쇠를 '인스턴스로 적는다' 는 계약 문구를 지키려면, 열거가 아니라 **각 방아쇠의 부수 효과**(stash 는 HEAD 일치를 경유한다)를 축으로 삼아야 한다.",
+    "[test][medium][high-confidence] AC-3 의 4개 실패 조건 중 테스트는 1개(`progress/` 부재로 root 해석 실패)만 덮는다. 원장 append 실패·blob 쓰기 실패·root 밖 해석은 테스트가 없고, 위에서 보듯 셋 다 실제로 차단하지 않는다.",
+    "[test][medium][high-confidence] `approved_edit()` 헬퍼가 blob 을 `cp \"$LAB/$f\" \"…/$sha\"`(파일 그대로)로 만든다 — 실제 훅의 규약(`printf '%s\\n' \"$NEW_CONTENT\"`)과 다르다. 그래서 위의 후행 개행 변형이 테스트에서 원리적으로 보이지 않는다. 픽스처가 구현보다 관대한 전형적 형태다.",
+    "[test][medium][medium-confidence] GC 상한(2000) 경계에 테스트가 없다. 원장 GC 테스트는 51줄짜리 잡음만 쓰므로 자르기 경로를 아예 타지 않는다.",
+    "[operations][critical][high-confidence] **F78 은 구현됐지만 이 세션에 배선돼 있지 않다 — 결함이 여전히 살아 있다.** 훅 배선은 `hooks/hooks.json` 의 `${CLAUDE_PLUGIN_ROOT}` 경로뿐이고(저장소에 `.claude/settings.json` 자체가 없다), 실제 배선된 두 사본 `~/.claude/plugins/marketplaces/cc-harness-marketplace/hooks/protected-integrity.sh` 와 `~/.claude/plugins/cache/cc-harness-marketplace/cc-harness/1.39.12/hooks/protected-integrity.sh` 는 둘 다 9월 11일자이며 `grep -c F78` = 0 이다(저장소 사본은 4). 이는 false-positives.json 의 F72 항목이 기록한 바로 그 재발이다. 다음 F65 회전에서 또 훼손이 나면 여전히 HEAD 로 되돌아간다.",
+    "[evidence][high][high-confidence] **구현자의 운영 실측 두 건이 재현되지 않는다.** `_done_note_2026_09_13` 는 '운영 원장 2125줄 → 8줄', '훅 1회 11600ms → 9127ms' 를 적었으나, 지금 `wc -l progress/.guarded-edits` = **2119**, 보호 대상 경로 줄 0건이다. 위 배선 항목을 감안하면 그 수치는 운영 평면에서 나올 수 없다. 'evidence over claims' 하네스에서 재현되지 않는 실측 보고는 그 자체로 반려 사유에 준한다.",
+    "[evidence][low][high-confidence] 'shellcheck 증가 0' 은 warning/error 심각도에서만 참이다. `-S style` 로 재보면 hooks/invariant-guard.sh 가 3 → 5 (+2): SC2329(함수 미호출 — trap 경유라 오탐) 1건, SC2015(`A && B || C`, :729 의 blob 원자적 쓰기) 1건. protected-integrity.sh·pre-bash-firewall.sh 는 증가 0.",
+    "[quality][low][medium-confidence] GC 가 원장의 read-modify-write 를 훅 실행 경로에 놓았다. append 는 invariant-guard(PreToolUse), 교체는 protected-integrity(PostToolUse:Bash) 이므로, 하네스 자신이 권장하는 **병렬 도구 호출**에서 Bash 와 Edit 이 겹치면 방금 승인된 티켓이 `mv -f` 에 덮여 사라질 수 있다. 확률은 낮지만 결과는 정확히 F78 손실이다.",
+    "[quality][low][high-confidence] `last_ticket_sha()` 의 경로 이스케이프(`sed 's/[].[^$\\\\*\\/]/\\\\&/g'`)가 BRE 문자만 덮는데 `grep -E` 에 쓰인다 — `+ ? ( ) { } |` 가 남는다. 현재 보호 경로에는 그런 문자가 없어 실해는 없다."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-1(핵심) 심사 통과 편집 3회 후 티켓 없는 Bash 쓰기 → 3회분이 모두 보존됨(lab.sh: python3·sed -i 두 방아쇠에서 approved-1/2/3 전부 잔존)",
+      "AC-1(폴백) 티켓 이력이 없는 파일은 HEAD 로 복구됨",
+      "AC-1(격리) 되돌리기 전 격리본이 남음 — 모든 재현에서 quarantine 디렉터리 생성 확인",
+      "AC-2 티켓 발행 시 blob 이 함께 생기고 해시가 티켓 sha 와 일치. blob 부재 시 HEAD 폴백",
+      "AC-5(기존 보장) `bats tests/` 956/956 green, 작업 트리 무변화. git 작업 중 보고만·세션 기준선 커밋 보고·INV-6/11/12 범위 모두 회귀 없음",
+      "AC-5(기존 테스트 2건 갱신의 정당성) 갱신은 복구 목표 변경을 반영한 것이고 보장을 약화시키지 않는다 — '티켓 없는 내용(9)이 남지 않는다' 는 단정이 유지되고, 소비 규칙 테스트는 정착을 명시적으로 만들도록 바뀌었을 뿐이다"
+    ],
+    "security": [
+      "SC-2 blob 은 내용 주소로만 신뢰된다 — 한 바이트 조작 시 그 티켓을 쓰지 않고 HEAD 폴백 + 사유 보고. 복원 후 재해시 검사도 존재(:306)",
+      "SC-3(형식) 차단은 기존 deny 와 같은 exit 2 이고 무력화하는 환경 변수·설정이 없다. has_jq/has_awk fail-closed 게이트와 대칭 유지, invariant-guard 기존 테스트 전수 통과"
+    ],
+    "error_scenarios": [
+      "티켓 blob 이 조작됨 → HEAD 폴백 + 사유 보고",
+      "원장 줄 형식 불일치 → 그 줄만 무시, 유효 줄 유지",
+      "git 작업 진행 중 → 복구하지 않고 보고만(기존 동작 유지)"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-1(부분) 복구 내용이 심사 통과분과 **바이트 동일하지 않다** — 후행 개행이 부가·정규화된다",
+      "AC-3 열거된 조용한 통과 4경로 중 1개만 차단된다(root 밖·원장 append 실패·blob 쓰기 실패 모두 rc=0)",
+      "AC-4 GC 가 잡음으로 유효 티켓을 밀어낸다 — '정리 전후로 유효 티켓의 판정이 바뀌지 않는지' 위반. 운영 원장 수치(2125→8)도 재현 불가",
+      "AC-5(신규 약화) 낡은 티켓 blob 이 커밋된 HEAD 내용을 덮는 새 손실 경로가 생겼다"
+    ],
+    "security": [
+      "SC-1(a) invariant-guard 의 `.guarded-blobs` 도구 쓰기 차단이 신규 파일에서 발화하지 않는다(실제 공격 형태가 전부 신규 파일)",
+      "SC-1(b) 방화벽 등록이 문자열 철자 하나만 덮는다 — 심볼릭 링크 디렉터리 표기는 allow",
+      "SC-4 `git stash pop` 재발 사례가 회귀 테스트로도 구현으로도 고정되지 않았다(현재 코드에서 그대로 재현)"
+    ],
+    "error_scenarios": [
+      "blob 저장소에 쓸 수 없다 → 계약은 '편집 차단' 을 요구하나 통과한다(티켓만 남고 blob 없음)",
+      "원장 append 실패 → 계약(AC-3)은 '차단' 을 요구하나 `|| true` 로 삼킨다",
+      "티켓이 아예 없는 HEAD 폴백이 '심사 통과 내용으로 복구' 로 **거짓 보고**된다(조용한 실패 금지 위반)"
+    ]
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "**티켓 수명과 복구 목표의 상호작용**에 대한 기준이 없다. `consume_ticket()`(파일이 HEAD 와 같아지면 티켓 소비)은 F65 시절 '면제' 의미에서는 옳았지만, 티켓이 이제 **복구 목표의 저장소**이기도 하므로 소비가 곧 복구 능력의 파기가 됐다. AC-1 은 '가장 최근 티켓' 만 말하고 '티켓이 언제 사라져도 되는가' 를 말하지 않아, `git stash` 처럼 HEAD 를 잠깐 경유하는 정상 워크플로우가 기준 밖에 남았다.",
+      "**HEAD 가 움직였을 때 티켓의 유효성**에 대한 기준이 없다 — 그래서 낡은 blob 이 커밋된 내용을 덮는 경로가 어느 criterion 에도 걸리지 않는다.",
+      "**복구가 바이트 동일해야 하는가**가 명시되지 않았다(후행 개행 규약). AC-1 의 '내용' 이 바이트인지 정규화 후인지 정해야 한다.",
+      "GC 상한 초과 시 **무엇을 먼저 버리는가**의 우선순위 규정이 없다(현재: 오래된 줄 먼저, 보호 여부 무관)."
+    ],
+    "ambiguous_criteria": [
+      "SC-1 의 검증 문구가 `printf evil > progress/.guarded-blobs/<sha>` 라는 **단일 철자**로 적혀 있다. 이 저장소가 F63·F65 에서 40여 회전에 걸쳐 배운 '표기 열거는 클래스를 닫지 못한다' 를 그대로 어긴 검증 조건이고, 실제로 구현이 그 한 철자만 덮는 결과를 낳았다. 검증 조건을 '표기와 무관하게 blob 저장소에 내용을 심을 수 있는가' 로 다시 써야 한다.",
+      "SC-4 의 '대표 형태 하나로 쓰고 세 사례는 인스턴스로 적는다' 가 '세 사례를 각각 실행해 볼 필요는 없다' 로 읽혔다. 대표 형태가 세 사례의 **부수 효과 차이**(stash 는 HEAD 일치를 경유한다)를 지워 버린다는 점을 기준이 막지 못했다."
+    ],
+    "security_criteria_insufficient": [
+      "SC-1 이 blob 저장소를 '원장과 같은 등급' 으로 규정했는데, 원장 보호 자체가 예측(방화벽) 한 층뿐이고 INV-14 가 그 한계를 이미 인정하고 있다. 복구 목표가 그 평면에서 나오게 된 이상 '같은 등급' 은 더 이상 충분 조건이 아니다 — blob 은 탐지·복구가 없는 평면에 놓인 채로 **보호 파일의 내용을 결정**한다."
+    ],
+    "action_required": "다음 iteration 에서 위 missing_criteria 4건을 progress/contracts/sprint-64.json 과 evals/acceptance-criteria.json 에 역전파하고, SC-1·SC-4 의 검증 문구를 철자 열거가 아닌 클래스 서술로 다시 쓸 것."
+  },
+  "residual_judgment": {
+    "residual": "_residual_note — 티켓이 PreToolUse 의 예측(NEW_CONTENT)에서 나온다는 성질",
+    "blocks_pass": false,
+    "reason": "이 잔여는 pass 를 막지 않는다. 예측이 실제 쓰인 내용과 다르면 티켓 sha 가 디스크와 어긋나 `ticket_valid` 가 실패하고, 복구는 예측 내용으로 간다 — 구 동작(HEAD 로 전량 폐기)보다 손실이 **작아지는** 방향이다. 다만 계약이 이 잔여를 '틀리는 방향이 안전' 으로 적은 근거는 티켓의 **면제** 의미에 대한 것이었고, 이제 티켓이 **설치할 내용**이 된 이상 같은 문장을 그대로 재사용할 수 없다 — 근거를 다시 쓰되 결론(pass 를 막지 않음)은 유지한다.",
+    "actual_blockers": "pass 를 막는 것은 잔여가 아니라 위 fail_reasons 6건이다."
+  },
+  "next_round_minimum_scope": [
+    "1. `git stash pop` 축을 먼저 닫는다 — 티켓 소비 규칙과 복구 목표를 분리한다. 예: 소비 시 원장에서 지우지 말고 '소비됨' 표시만 남겨 복구 목표로는 계속 쓰거나, 파일별 마지막 심사 통과 blob 을 원장과 별개의 index 로 유지한다. 회귀 테스트는 '훅이 중간에 한 번 돈다' 를 축으로 넣는다.",
+    "2. 보고 정합성 — 티켓이 없어 HEAD 로 간 경우도 FALLBACK 에 넣어 헤더가 거짓말하지 않게 한다(한 줄 수정, 즉시 가능).",
+    "3. GC 순서를 '거르고 나서 자른다' 로 뒤집는다. 상한은 필터링된 보호 티켓 수에만 적용한다.",
+    "4. SC-1 을 다시 설계한다. 도구 경로: `.guarded-blobs` 판정을 `[[ ! -e \"$FILE\" ]]` 조기 종료 **앞으로** 옮긴다(`.guarded-edits`·`.integrity-baseline` 도 같은 이동이 필요하다). 방화벽 경로: 철자 대신 정규화된 경로로 판정하거나, 애초에 blob 이름에 내용 해시 외의 것이 올 수 없다는 성질을 훅 쪽에서 강제한다(예: 원장 줄에 HEAD sha 를 함께 적고 blob 을 원장과 교차 검증).",
+    "5. AC-3 을 실제 동작에 맞춘다 — 원장 append 실패와 blob 쓰기 실패를 `__ticket_required_or_die` 로 보내고, 'root 밖' 분기의 도달 불가 주석을 정정한다.",
+    "6. 배선 갱신 — 플러그인 캐시 두 사본이 9월 11일자다. F78 이 운영에 적용되지 않는 한 이 스프린트의 효과는 0 이다. 이것을 /finish-branch 나 배포 절차의 명시적 단계로 만들 것(F72 때와 같은 재발).",
+    "7. 후행 개행 규약을 명시적으로 정하고(바이트 보존 또는 정규화 선언) 테스트 픽스처를 훅과 같은 규약으로 맞춘다."
+  ],
+  "evidence": {
+    "full_suite": "bats tests/ (단독 실행, 깨끗한 트리) — 956/956 ok, not ok 0. 실행 전후 `git status --porcelain` 차분 없음.",
+    "targeted_suites": "bats 개별 실행 — tests/guarded-blob-restore.bats 10/10, tests/protected-integrity.bats 18/18, tests/invariant-guard.bats 148/148. 세 수치 모두 구현자 보고와 일치한다(테스트 통과 자체는 쟁점이 아니다 — 쟁점은 이 테스트들이 덮지 않는 축이다).",
+    "behavioral_probe": "bash scripts/probes/behavioral.sh → []",
+    "shellcheck": "shellcheck -S style -f gcc, 29373d6 대비: protected-integrity.sh 0→0, pre-bash-firewall.sh 24→24, invariant-guard.sh 3→5 (+2: SC2329 :632, SC2015 :729). warning/error 심각도는 증가 0.",
+    "repro_lab_three_triggers": "scratchpad/lab.sh — 실제 invariant-guard 로 심사 통과 편집 3회(티켓 3·blob 3) 후 (i) python3 쓰기 → approved-1/2/3 전부 보존, quarantine 1, (ii) git stash→pop(훅 미개입) → 무변화(티켓 유효), (iii) sed -i → 전부 보존, quarantine 2. 세 경우 모두 복구 결과가 심사 통과분과 **바이트 동일하지 않다**: cmp 가 후행 `\\n` 1바이트 차이를 보고.",
+    "repro_lab_stash_consume": "scratchpad/lab2.sh — git stash → 훅 1회(티켓 3→0) → 훅 1회(blob 3→0) → git stash pop → 훅 1회 → approved 마커 3→0. 출력: `RESULT: **작업 소실 — HEAD 로 되돌아갔다**`, 그 실행의 보고는 '마지막으로 심사를 통과한 내용으로 복구했습니다'.",
+    "attack_probes": "scratchpad/lab3.sh — A: 도구 Write rc, 신규 blob 0 / 존재 blob 2 / 심볼릭 링크 디렉터리 0 / 상대 경로 0. B: 방화벽, `.guarded-blobs` 직접 = ask, `progress/blobs`(심볼릭 링크) = **allow**, `.guarded-edits` append = ask. C: 원장+blob 위조로 `# BACKDOOR` 가 hooks/lib.sh 에 설치됨. D: 유효 티켓 뒤에 잡음 2500줄 → 복구가 HEAD 로 떨어짐(GC 상한 결함).",
+    "error_scenario_probes": "E1 `chmod 500 progress/.guarded-blobs` 후 보호 파일 Write → rc=0, ledger 1줄 / blobs 0. E2 `chmod 400 progress/.guarded-edits` → rc=0, ledger 0줄. E3 git 을 실패하게 가린 상태 → rc=0(설계 의도로 수용).",
+    "out_of_root_probe": "hooks/ 를 저장소 밖으로 옮기고 심볼릭 링크로 대체(HEAD 는 hooks/lib.sh 추적 유지) → 보호 파일 Write 가 'root 해석 실패' 경고만 남기고 rc=0.",
+    "stale_ticket_probe": "feat 브랜치 티켓(FEATURE-A) 미정착 상태에서 other 브랜치에 COMMITTED-B 커밋 → 훼손 → 복구 후 FEATURE-A=1 / COMMITTED-B=0.",
+    "wiring_check": "저장소에 `.claude/settings.json` 없음. `hooks/hooks.json` 의 `${CLAUDE_PLUGIN_ROOT}` 만 배선. 실제 사본 2개(`~/.claude/plugins/marketplaces/…`, `~/.claude/plugins/cache/cc-harness-marketplace/cc-harness/1.39.12/…`) 모두 mtime 2026-09-11, `grep -c F78` = 0. 저장소 사본은 4.",
+    "live_ledger": "wc -l progress/.guarded-edits = 2119 (구현자 보고 '8줄' 과 불일치). 경로 분포: settings.json 1837, progress/lessons.md 69, 나머지는 .tmp/·.claude/worktrees/ 하위. PROTECTED_GLOBS 에 맞는 줄 0건. blobs 10개."
+  },
+  "_calibration_note": "이 판정은 코드 리딩이 아니라 격리 랩 실행으로 근거를 만들었다 — 모든 fail 사유에 재현 스크립트와 실측 출력이 붙어 있다. false-positives.json 의 F76 항목(회귀 테스트가 방금 닫은 축만 고정해 같은 결함이 옆 축으로 이동)이 이번에도 반복됐고(SC-4 의 stash 축), F72 항목(배선된 사본이 구버전)도 그대로 재발했다. 두 항목 모두 이 판정이 독립적으로 재확인했다.",
+  "_f37_note": "security_tier=critical 이므로 F37 2차 독립 판정이 필요하다. 다만 이 1차 판정의 fail 은 실행 근거가 붙은 반증(재현 스크립트 5종)이라 2차와 불일치할 여지가 낮다 — 2차는 '이 판정이 놓친 축' 을 찾는 데 쓰는 것이 값어치가 크다."
+}
