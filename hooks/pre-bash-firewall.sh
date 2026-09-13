@@ -1837,7 +1837,30 @@ control_plane_location() {
 # — 그래서 동사를 하나 더하거나 빼려면 이 자리 하나만 고치면 되고, __note_opaque_verb() 의
 # 치환-원문 스캔과 실제 armed 판정이 조용히 어긋날 길이 없다(텍스트 중복도, 그걸 대조하는
 # 별도 패리티 테스트도 필요 없다 — 애초에 하나이므로).
-ARM_DELETE_VERBS_UNCONDITIONAL=(rm rmdir unlink shred mv)
+# **비우기·대체 등급 동사(F65 43차 독립 판정 + SC-14(2), 2026-09-13 추가).** 이 목록은 '지운다'가
+# 아니라 **'배선을 무력화한다'** 를 덮어야 한다 — 43차가 `echo hooks/hooks.json | xargs truncate -s 0`
+# 로 배선 파일을 29→0바이트로 만들었고, 평범한 철자(`truncate -s 0 hooks/hooks.json`)는 ask 이므로
+# 감싼 형태가 더 약했다(SC-14(1) 위반). `gzip -f`·`bzip2 -f`·`xz -f` 는 성공 시 **원본을 삭제**하므로
+# 같은 등급이다(43차 랩 확인). 평범한 철자에서 이들을 잡던 것은 ASK_PATTERNS 의 인접 정규식
+# (`\b(cp|mv|…|truncate)\b[^;|&]*<경로>`)인데, 그 정규식은 경로가 **동사 뒤에 인접**해야 하고
+# 스팬에서 `|` 를 제외하므로 파이프라인 형태를 구조적으로 볼 수 없다.
+# **열거의 한계를 명시한다(SC-14(2))**: 이 목록은 완전할 수 없다 — 12차 판정 이후 반복 확인된
+# 사실이고, 목록 밖 수단(`cp /dev/null`·`tee`·`sponge`·`install`·`dd`)이 파이프라인 위치에 오는
+# 형태는 잔여 `unenumerated_verbs` 에 귀속한다. 여기 더하는 것은 43차가 **실측으로 파괴를 보인**
+# 등급에 한정한다.
+# **레이어 대칭(SC-12(2)의 일반화, 43차 회전에서 적용).** 아래 `cp`·`install`·`rsync`·`ln`·`tee`·
+# `sponge`·`dd` 는 **이 파일의 ASK_PATTERNS 가 이미 파괴적 쓰기로 열거하고 있는** 동사다
+# (`\b(cp|mv|install|rsync|ln|tee|sponge|truncate)\b[^;|&]*<컨트롤 플레인 경로>`). 그 정규식은
+# 경로가 동사 **뒤에 인접**해야 하고 스팬에서 `|` 를 제외하므로, 같은 동사가 파이프라인 뒷단에
+# 오면(`echo .claude/settings.json | xargs cp /dev/null`) 구조적으로 볼 수 없다 — 평범한 철자는
+# ask 인데 감싼 형태가 allow 인 SC-14(1) 위반이다. 새 열거를 만드는 것이 아니라 **이미 있는
+# 열거를 두 레이어에 같게 적용**하는 것이다(40차의 `grep -qiE` 대소문자 교훈과 같은 구조:
+# 정밀한 층이 거친 층보다 약하면 대체 자체가 약화다).
+ARM_DELETE_VERBS_UNCONDITIONAL=(rm rmdir unlink shred mv truncate gzip bzip2 xz cp install rsync ln tee sponge dd)
+# 위 배열의 상수 시간 조회용 사본 — 토큰마다 배열을 도는 루프가 목록 길이에 비례해 느려지는 것을
+# 막는다(44차 회전 실측: 원소가 16개로 늘자 `git add <경로 800개>` 가 1.5초 상한을 넘었다).
+# 배열이 **단일 출처**이고 이 문자열은 그것에서 파생된다 — 목록을 고칠 때 둘을 따로 적지 않는다.
+ARM_DELETE_VERBS_LOOKUP=" ${ARM_DELETE_VERBS_UNCONDITIONAL[*]} "
 # `find` 는 술어(`-delete`)를 동반할 때만 무장한다(평범한 `find .claude` 는 읽기다) — 그래서
 # 무조건 무장 배열과 분리한다. `scan_control_plane_delete()` 의 `-delete` 사전 검사와
 # `__scan_opaque_verb_matches()` 양쪽이 이 변수를 직접 쓴다.
@@ -2126,7 +2149,10 @@ __split_segments() {
     local seg
     while IFS= read -r seg || [[ -n "$seg" ]]; do
       SEGMENTS+=("$seg")
-    done < <(printf '%s' "$s" | tr ';|&' '\n\n\n')
+    # 8192자 초과 축약 경로도 **파이프는 남긴다**(SC-15(3)) — 여기서 파이프로 나누면 긴 명령에
+    # 대해서만 43차가 실측한 누수가 그대로 열린다. 합쳐진 세그먼트가 길어지면 기존 2048자
+    # 세그먼트 상한이 받아 안전한 쪽(ask)으로 떨어지므로 방향은 유지된다.
+    done < <(printf '%s' "$s" | tr ';&' '\n\n')
     return
   fi
   local out="" k=0 c
@@ -2147,6 +2173,25 @@ __split_segments() {
       fi
       out+="${s:k:$((__OPAQUE_END-k))}"
       k=$__OPAQUE_END
+      continue
+    elif [[ "$c" == '|' && "${s:k+1:1}" != '|' ]]; then
+      # **F65 43차 독립 판정(2026-09-13) — 판정 단위는 명령 하나가 아니라 파이프라인 하나다
+      # (SC-15).** 41·42차가 닫은 것은 *한 세그먼트 안*의 동사-앞 피연산자였는데, 이 분할기가
+      # `;`·`|`·`&` 를 똑같이 나눠 **피연산자와 동사가 서로 다른 파이프 단계**에 있으면 피연산자가
+      # 아예 판정되지 않았다: `echo .claude | xargs rm -rf` 가 allow 였고(평범한 철자
+      # `rm -rf .claude` 는 ask) 격리 랩에서 `settings.json`·설치된 훅·플러그인 트리가 실제로
+      # 삭제됐다. 생산자 6 × 소비자 6 × 대상 4 = 144/144 allow 였다. 같은 피연산자를
+      # 헤어스트링으로 준 형제(`xargs rm -rf <<< .claude`)는 ask 였으므로, 판정 기계는 그
+      # 피연산자를 볼 수 있고 **파이프만이** 그것을 무력화한 것이다.
+      # 셸에서 파이프라인은 한 줄의 명령이고 데이터가 앞단에서 뒷단으로 흐르므로 한 단위로 본다.
+      # 낱말 경계를 지키려고 공백으로 이어 붙인다(`echo x|xargs rm` → `echo x xargs rm`).
+      # **`||` 는 파이프가 아니라 목록 연산자**라 다음 글자를 함께 본다 — 첫 글자만 보고 합치면
+      # `ls .claude || rm -rf /tmp/x` 같은 무관한 명령이 합쳐져 과잉 차단이 된다(SC-15(2)).
+      # `|&`(stderr 까지 보내는 파이프)는 `|` 다음이 `&` 이므로 이 분기가 받고, 뒤따르는 `&` 는
+      # 아래 분기에서 분할되지만 그 시점의 `out` 에 앞단이 이미 이어져 있어 판정은 한 단위로 남는다.
+      # 합침이 세그먼트 길이 상한(2048자)을 바꾸지는 않는다 — 넘으면 종전대로 ask 다(SC-15(3)).
+      out+=" "
+      k=$((k + 1))
       continue
     elif [[ "$c" == ';' || "$c" == '|' || "$c" == '&' ]]; then
       SEGMENTS+=("$out")
@@ -2600,7 +2645,7 @@ __cp_judge_operand() {
 
 __scan_one_segment_for_cp_delete() {
   local seg="$1" try_unwrap="$2"
-  local tok armed __arm_verb __arm_pred __verb_armed inner_seg __sc_tok __token_budget_ms __token_iter
+  local tok armed __arm_verb __arm_pred __arm_base __verb_armed inner_seg __sc_tok __token_budget_ms __token_iter
   local -a toks
   __tokenize_segment "$seg"
   # 빈 배열을 `"${arr[@]}"` 로 그대로 펼치면 bash 3.2(이 훅이 실제로 실행되는 macOS 기본
@@ -2779,12 +2824,19 @@ __scan_one_segment_for_cp_delete() {
     # 위와 같은 이유로 `${NORM_TOK##*/}` 추출이 아니라 접미사 판정을 쓴다. 목록은
     # ARM_DELETE_VERBS_UNCONDITIONAL 하나뿐이다(위 선언 참조) — 여기서 다시 나열하지
     # 않는다.
+    # **이 지점은 세그먼트의 모든 토큰을 도는 가장 뜨거운 루프다(44차 회전 실측).** 동사 목록을
+    # ASK_PATTERNS 의 파괴적 쓰기 열거와 대칭으로 맞추면서 원소가 5개→16개가 됐고, 토큰마다 목록을
+    # 도는 루프(토큰당 비교 2×N)가 그대로 비용이 됐다 — `git add <경로 800개>` 가 1.5초 상한을
+    # 넘겨 2278ms 가 됐다(31차 판정이 고정한 마찰 회귀 테스트가 잡았다). 목록 길이에 비례하지
+    # 않는 **상수 시간 조회**로 바꾼다: 한 번 만들어 둔 `" rm rmdir … "` 문자열에 토큰의
+    # basename 을 부분문자열로 찾는다. basename 추출이 `*/verb` 형태까지 함께 덮으므로 원래의
+    # 두 비교(정확 일치·경로 접미사)와 **같은 집합**을 판정한다(`rm/` 는 basename 이 빈 문자열이라
+    # 종전처럼 무장되지 않는다). 목록에 원소를 더해도 이 루프의 비용은 변하지 않는다.
     __verb_armed=0
-    for __arm_verb in "${ARM_DELETE_VERBS_UNCONDITIONAL[@]}"; do
-      if [[ "$NORM_TOK" == "$__arm_verb" || "$NORM_TOK" == */"$__arm_verb" ]]; then
-        __verb_armed=1; break
-      fi
-    done
+    __arm_base="${NORM_TOK##*/}"
+    if [[ -n "$__arm_base" && "$ARM_DELETE_VERBS_LOOKUP" == *" $__arm_base "* ]]; then
+      __verb_armed=1
+    fi
     # **F65 security-auditor AUDIT-3(critical)** — `normalize_path_token()`은 따옴표·
     # 백슬래시만 지운다. 셸이 투명하게 펴는 순수 변수명 파라미터 확장(`${Z}`)은
     # 남는다 — `r${Z}m`·`m${Z}v`·`rmdi${Z}r`처럼 동사 이름 한가운데 끼워 넣으면

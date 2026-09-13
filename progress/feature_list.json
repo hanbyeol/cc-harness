@@ -1069,6 +1069,18 @@
       "dependencies": ["F68", "F72", "F76"],
       "assigned_sprint": 63,
       "_evaluator_note": "[2026-08-29] 독립 evaluator 2차 iteration 판정: pass (min-of-5 = 7, security 8, pass_threshold 7). 근거: progress/agent-comms/evaluator-feedback-2026-08-29T23-47-04+0900.json. security_tier=critical이므로 F37 2차 독립 판정이 뒤따라야 확정된다. [2026-08-30] F37 2차 독립 판정 완료: pass (min-of-5 = 7, security 8) — 1차와 verdict·종합점수·보안점수 일치, 에스컬레이션 없음. 근거: progress/agent-comms/evaluator-feedback-2026-08-30T01-08-42+0900.json. 1차는 9c7e222를, 2차는 그 뒤 무판정으로 올라온 d48f6f1을 대상으로 했고, 두 리비전이 CPD 13형태 × 3축 = 39셀 전부에서 행동 동일함을 실측해 1차 verdict의 적용 가능성을 확인했다. 판정에 영향 없는 후속 항목 6건은 피드백의 issues·criteria_gaps 참조."
+    },
+    {
+      "id": "F78",
+      "name": "protected-integrity 티켓 수명 결함 — 심사 통과한 편집이 HEAD로 조용히 되돌려진다",
+      "description": "[2026-09-13, F65 42·43차 독립 판정이 별도 finding으로 판정 + 2회 연속 재발 실측] `hooks/protected-integrity.sh`가 보호 파일을 복구할 때 **복구 목표가 마지막 티켓 내용이 아니라 HEAD**다. 그래서 티켓 없는 편집(Bash 경로 쓰기, `git stash pop` 같은 복원 포함)이 한 번 일어나면 그 파일에 쌓여 있던 **심사 통과분 전체**가 함께 버려진다 — 스크립트 자신의 주석이 '심사를 통과한 편집이 매번 복구됐다'를 고치려던 버그로 적고 있는데, 같은 부류가 남아 있다. 둘째, 티켓은 PreToolUse의 **예측**(`NEW_CONTENT`)으로 발행되는데 검증은 디스크 파일을 해시하며, `hooks/invariant-guard.sh`에는 티켓을 아예 발행하지 않는 분기가 문서화돼 있다. 셋째, 원장(`progress/.guarded-edits`)이 `PROTECTED_GLOBS` 밖 경로까지 모으고 정리되지 않아 **2070줄**(1859줄이 보호 대상이 아닌 한 경로)까지 불었다 — 주석이 닫았다고 적은 209줄 오염의 10배다. 실측 재발 2건: 2026-09-12 방화벽 수정 3건 + 생성 스위트 전체 소실(격리본에서 복구, 커밋 820e6da), 2026-09-13 네 파일 소실(복구 커밋 c3fe37f). 두 번 모두 `progress/.integrity-quarantine/<ts>/`에 직전 내용이 남아 있어 복구 가능했다 — 격리 장치가 이 결함의 유일한 안전망이다. **수정 방향(42·43차 권고)**: (1) 최신 티켓 blob으로 복구하고 HEAD는 폴백으로, (2) 보호 대상·저장소 루트 밖 티켓 줄은 GC, (3) 티켓이 발행되지 않는 편집은 편집 시점에 **크게 실패**(조용한 사후 복구 금지). 아울러 운영 규칙 하나: 측정 명령에 작업 트리를 바꾸는 git 하위명령(`stash`·`checkout`·`reset`)을 섞지 않는다(이번 재발의 방아쇠였다).",
+      "security_tier": "critical",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": ["F35", "F52", "F65"],
+      "assigned_sprint": 64,
+      "_registration_note": "[2026-09-13] F65 43차 판정이 '별도 기능으로 등록하라'고 권고했고(42차가 먼저 결함으로 판정), sprint-51 step 19의 `_note`가 등록을 약속했으나 실제로 이뤄지지 않은 것을 43차가 지적해 여기서 등록한다. 구현은 F65 종료 후 별도 Sprint Contract(sprint-64)로 진행한다 — 이 결함이 F65 작업 자체를 두 번 파괴했으므로 우선순위가 높다."
     }
   ]
 }

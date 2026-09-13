@@ -80,7 +80,12 @@ residual_exists() {
 # ---------------------------------------------------------------------------
 CONSTRUCTS=(param cmdsub backtick brace_comma brace_range quote backslash)
 # 위치 풀: 대상 낱말과, 그 낱말을 실제 명령 안에 넣는 템플릿(%s 자리).
-TARGETS=(rm rmdir unlink mv shred find -delete)
+# **43차 독립 판정(2026-09-13) — 술어를 이 풀에 넣는다.** 3라운드 연속 지적: 이 목록이 `-delete`
+# 에서 끝나 술어 비교 3지점(리터럴·스트립·중괄호)을 `"-delete"` 로 되돌려도 **실패하는 테스트가
+# 없었다**(`find .claude -exe${Z}c truncate…`·`-exe{c,x}` 가 allow 로 돌아간다). 술어가 무장
+# 신호가 된 이상(SC-13(1)) 이 풀의 원소여야 한다 — 그래야 구성 축(파라미터 확장·중괄호·치환)이
+# 술어에도 자동으로 교차된다.
+TARGETS=(rm rmdir unlink mv shred find -delete -exec -execdir -ok)
 template_for() {
   case "$1" in
     rm)      echo '%s -rf .claude' ;;
@@ -90,6 +95,14 @@ template_for() {
     shred)   echo '%s .claude/settings.json' ;;
     find)    echo '%s .claude -delete' ;;
     -delete) echo 'find .claude %s' ;;
+    # 술어 자리 — 술어 **뒤의 동사는 무장 목록 밖의 것**이어야 한다. 목록 안의 동사(`rm`·이제는
+    # `truncate` 도)를 쓰면 **그 동사가 무장시켜** 술어 판정이 맞는지 알 수 없다 — 43차 지적의
+    # 핵심이 그것이었다(술어 비교 지점을 되돌려도 실패하는 테스트가 없었다). `cp /dev/null` 은
+    # 평범한 철자가 ask 인데(인접 정규식) 무장 목록에는 없으므로 술어 축을 정확히 격리한다:
+    # 술어 배열을 `(-delete)` 로 되돌리면 이 셀들이 allow 로 떨어지는 것을 확인했다.
+    -exec)    echo 'find .claude %s cp /dev/null {} +' ;;
+    -execdir) echo 'find .claude %s cp /dev/null {} +' ;;
+    -ok)      echo 'find .claude %s cp /dev/null {} \;' ;;
   esac
 }
 CONTEXTS=(bare dollar backtick bashc eval)
@@ -558,10 +571,15 @@ sweep_payload_context() {  # $1 context
   # 비교 대상이 아니다(그 경우는 잔여로 귀속하고 여기서는 기록만 한다).
   local tgt='.claude/settings.json' plain wrapped can d fails=() notes=()
   # {효과 등급 대표 철자} — 배선을 무력화하는 수단은 삭제만이 아니다(SC-14(2)).
+  # **43차 독립 판정 지적: 이 목록에 '열거되지 않은 동사'가 하나도 없으면 하한 규칙이 공회전한다.**
+  # 전부 이미 무장 목록이나 인접 정규식에 있는 동사였다. 압축 도구는 성공 시 **원본을 삭제**하므로
+  # 하한이 있는 효과인데 어느 열거에도 없었다 — 가장 샐 만한 축이 바로 그런 동사다(43차 랩 확인).
   local -a PLAIN=(
     "rm -f %s"                 "unlink %s"              "shred %s"
     "mv %s /tmp/sink43"        "truncate -s 0 %s"       ": > %s"
     "cp /dev/null %s"          "chmod 000 %s"           "dd if=/dev/null of=%s"
+    "gzip -f %s"               "bzip2 -f %s"            "xz -f %s"
+    "touch %s"                 "chflags uchg %s"
   )
   # {그 철자를 감싸는 형태} — find 술어·래퍼·치환·중괄호.
   for plain in "${PLAIN[@]}"; do
@@ -573,18 +591,103 @@ sweep_payload_context() {  # $1 context
     fi
     local verb="${plain%% *}"
     local rest="${plain#* }"
-    for wrapped in \
-      "find ${tgt%/*} -exec ${plain//\%s/{\}} +" \
-      "find ${tgt%/*} -exec ${plain//\%s/{\}} \\;" \
-      "find ${tgt%/*} -execdir ${plain//\%s/{\}} +" \
-      "bash -c \"$(printf "$plain" "$tgt")\"" \
-      "{${verb},${rest//\%s/$tgt}}" ; do
+    # **감싸는 형태도 손 목록이 아니라 도출이다(SC-14 verification (6), 43차 지적).** 표기 풀에
+    # 적용한 규칙(SC-12(3))을 효과 축에도 같게 적용한다 — 감싸기 수단은 (i) find 술어 배열
+    # (`ARM_FIND_DELETE_PREDICATES` 와 같은 목록을 테스트가 다시 적지 않도록 여기서 생성),
+    # (ii) 셸 래퍼, (iii) 중괄호 확장, (iv) 파이프라인(SC-15)이다. 술어가 늘면 셀도 함께 는다.
+    local -a WRAPPED=()
+    local pred
+    for pred in -exec -execdir -ok; do
+      WRAPPED+=("find ${tgt%/*} $pred ${plain//\%s/{\}} +")
+      WRAPPED+=("find ${tgt%/*} $pred ${plain//\%s/{\}} \\;")
+    done
+    WRAPPED+=("bash -c \"$(printf "$plain" "$tgt")\"")
+    # 중괄호 셀은 낱말 전체를 콤마로 이어야 한다 — 안에 공백이 있으면 bash 가 중괄호로 펴지
+    # 않아 셀이 명령으로 성립하지 않는다(이 라운드 자체 발견: `{gzip,-f X}` 는 두 낱말이라
+    # 피연산자가 `X}` 가 되어 어떤 대상과도 일치하지 않는 허수 셀이었다).
+    WRAPPED+=("{${verb},$(printf '%s' "${rest//\%s/$tgt}" | tr ' ' ',')}")
+    # 파이프라인 셀은 **뒤에 인자가 붙는 형태의 철자만** 만든다 — `: > %s`·`dd of=%s` 처럼
+    # 자리표시자가 낱말 끝에 있는 철자는 `xargs` 뒤에 붙이면 매달린 리다이렉션이 되어 명령이
+    # 성립하지 않는다(자체 발견). 자리표시자가 **마지막 낱말 전체**인 철자만 대상으로 한다.
+    # 리다이렉션으로 효과를 내는 철자(`: > %s`)도 제외한다 — 자리표시자가 **인자가 아니라
+    # 리다이렉트 대상**이라 xargs 가 채워 줄 수 없다(셸이 그 자리를 파일명으로 읽지 않는다).
+    if [[ "$plain" == *' %s' && "$plain" != *'>'* ]]; then
+      WRAPPED+=("echo $tgt | xargs ${plain% %s}")
+      WRAPPED+=("printf '%s ' $tgt | xargs -n1 ${plain% %s}")
+    fi
+    for wrapped in "${WRAPPED[@]}"; do
       d=$(decision_of "$wrapped")
       [[ "$d" == allow ]] && fails+=("평범한 철자는 $can 인데 감싼 형태가 allow: $wrapped")
     done
   done
   printf '%s\n' "${notes[@]+${notes[@]}}"
   [[ ${#fails[@]} -eq 0 ]] || { printf 'WEAKER %s\n' "${fails[@]}"; false; }
+}
+
+@test "F65 SC-15 판정 단위: 파이프라인 앞단의 피연산자도 뒷단의 동사와 같은 판정을 받는다 (43차)" {
+  # **한 층 위의 같은 결함(43차 독립 판정).** 41·42차가 닫은 것은 *한 세그먼트 안에서* 동사보다
+  # 앞선 피연산자였다. 그런데 `__split_segments()` 가 `;`·`|`·`&` 를 똑같이 나누므로, 피연산자와
+  # 동사가 **서로 다른 파이프라인 단계**에 있으면 피연산자가 아예 판정되지 않았다 —
+  # `echo .claude | xargs rm -rf` 가 allow 였고(평범한 철자 `rm -rf .claude` 는 ask) 격리 랩에서
+  # `settings.json`·설치된 훅·플러그인 트리가 실제로 삭제됐다. 같은 피연산자를 헤어스트링으로
+  # 준 형제(`xargs rm -rf <<< .claude`)는 ask 였다 — 판정 기계는 그 피연산자를 볼 수 있고
+  # **파이프만이** 그것을 무력화한다. 기준점은 SC-14 그대로 '같은 효과의 평범한 철자'다.
+  # 생산자는 **대상 경로가 명령 문자열에 실제로 있는** 형태만 쓴다 — `cat filelist | xargs rm -rf`
+  # 처럼 경로가 파일 안에 있는 형태는 문자열만으로 알 수 없고, 선언된 잔여 `indirect_operand`
+  # ("`xargs rm < list.txt`·`rm $(cat list)`")가 이미 그 경계를 맡는다. 소비자 쪽의 셸 래퍼
+  # (`sh -c "xargs rm -rf"`)도 이 축이 아니라 `nested_wrapper_unwrap` 잔여의 범위다 — 아래에서
+  # 귀속만 확인하고 판정은 기록만 한다(SC-10(7)).
+  local prod cons tgt can d fails=() notes=()
+  local -a PRODUCERS=('echo %s' 'printf "%%s " %s' 'ls %s' 'find %s -print0' 'git ls-files %s')
+  local -a CONSUMERS=('xargs rm -rf' 'xargs -0 rm -rf' 'xargs -I{} rm -rf {}' 'xargs -n1 rm -rf' \
+                      'xargs truncate -s 0' 'xargs -0 unlink')
+  residual_exists indirect_operand || { echo "잔여 키 indirect_operand 가 계약에 없다(SC-10(7))"; false; }
+  residual_exists nested_wrapper_unwrap || { echo "잔여 키 nested_wrapper_unwrap 이 계약에 없다"; false; }
+  for tgt in '.claude' '.claude/settings.json' 'hooks/hooks.json' '.claude/plugins'; do
+    # 효과의 하한: 같은 대상을 평범한 철자로 지우는 판정.
+    can=$(decision_of "rm -rf $tgt")
+    [[ "$can" == allow ]] && fails+=("기준점이 무너졌다: rm -rf $tgt")
+    for prod in "${PRODUCERS[@]}"; do
+      for cons in "${CONSUMERS[@]}"; do
+        # shellcheck disable=SC2059
+        d=$(decision_of "$(printf "$prod" "$tgt") | $cons")
+        [[ "$d" == allow ]] && fails+=("파이프라인이 평범한 철자($can)보다 약하다: $(printf "$prod" "$tgt") | $cons")
+      done
+      # 셸 래퍼 소비자는 선언된 잔여(`nested_wrapper_unwrap`)라 기록만 한다 — 경계 이동 감지용.
+      notes+=("residual[nested_wrapper_unwrap] $(decision_of "$(printf "$prod" "$tgt") | sh -c \"xargs rm -rf\""): $(printf "$prod" "$tgt") | sh -c \"xargs rm -rf\"")
+    done
+  done
+  # 경로가 명령 문자열에 없는 형태는 `indirect_operand` 잔여다 — 같은 이유로 기록만 한다.
+  notes+=("residual[indirect_operand] $(decision_of 'cat filelist | xargs rm -rf'): cat filelist | xargs rm -rf")
+  printf '%s\n' "${notes[@]}"
+  [[ ${#fails[@]} -eq 0 ]] || { printf 'WEAKER %s\n' "${fails[@]}"; false; }
+}
+
+@test "F65 SC-15 경계: 파이프만 합친다 — 세미콜론·목록 연산자는 여전히 나뉜다" {
+  # 합치는 것은 파이프뿐이다(SC-15(2)). `;`·`&&`·`||`·`&` 는 서로 독립적인 명령이라 한쪽의
+  # 피연산자가 다른 쪽 동사에 흘러들지 않는다 — 합치면 불필요한 과잉 차단이 된다.
+  # `||` 는 첫 글자만 보면 파이프로 오인되므로 특히 확인한다.
+  local c leaks=()
+  for c in 'ls .claude ; rm -rf /tmp/x' 'ls .claude && rm -rf /tmp/x' 'ls .claude || rm -rf /tmp/x' \
+           'echo .claude & rm -rf /tmp/x' 'cat .claude/settings.json; rm -rf build'; do
+    [[ "$(decision_of "$c")" != allow ]] && leaks+=("$c")
+  done
+  [[ ${#leaks[@]} -eq 0 ]] || { printf 'OVER-MERGE %s\n' "${leaks[@]}"; false; }
+  # 반대로 파이프는 합쳐져야 한다 — 위 대조군과 같은 낱말인데 구분자만 다르다.
+  [[ "$(decision_of 'echo .claude | xargs rm -rf')" != allow ]] \
+    || { echo "파이프가 합쳐지지 않았다"; false; }
+}
+
+@test "F65 SC-15 마찰 대조군: 컨트롤 플레인이 없는 파이프라인은 allow 를 유지한다" {
+  # 합침은 파이프라인 앞단 토큰을 새로 피연산자 판정 대상으로 만든다 — 이 변경의 주된 위험은
+  # 누수가 아니라 과잉 차단이다(SC-15(4)).
+  local c leaks=()
+  for c in 'git ls-files | xargs rm -f' 'cat package.json | jq .' 'find . -name "*.o" | xargs rm' \
+           'ps aux | grep node' 'ls .claude | grep hooks' 'cat .claude/settings.json | jq .hooks' \
+           'echo build | xargs rm -rf' 'find src -type f | xargs wc -l'; do
+    [[ "$(decision_of "$c")" != allow ]] && leaks+=("$c")
+  done
+  [[ ${#leaks[@]} -eq 0 ]] || { printf 'NEW FRICTION %s\n' "${leaks[@]}"; false; }
 }
 
 @test "F65 SC-13 동사 위치: 동사가 피연산자보다 뒤에 와도 판정된다 — find -exec 계열 (41차, 사용자 범위 결정)" {
@@ -634,7 +737,13 @@ sweep_payload_context() {  # $1 context
   # (원본은 건드리지 않는다) 판정이 실제로 뒤집히는지 확인한다 — 네 지점 전부.
   local mut="$BATS_TEST_TMPDIR/mutant.sh" saved="$HOOK"
   mutate() {  # $1 sed 식, $2 설명, $3 이 변이로 allow 가 되어야 하는 명령
-    sed "$1" "$saved" > "$mut"
+    sed "$1" "$saved" > "$mut" || { echo "$2: sed 가 실패했다"; return 1; }
+    # **변이본이 비거나 줄 수가 달라지면 그 자체로 실패다(44차 회전 자체 발견).** 깨진 sed 식은
+    # 빈 파일을 남기고, 빈 훅은 출력 없이 0 으로 끝나 판정 헬퍼가 그것을 allow 로 읽는다 —
+    # 그러면 '변이가 판정을 뒤집었다'는 거짓 성공이 된다. 측정 도구의 조용한 폴백은 이 세션에서
+    # 이미 두 번 라운드를 오독하게 만들었다(lessons.md 의 42·44차 항목).
+    local ns nm; ns=$(wc -l < "$saved" | tr -d ' '); nm=$(wc -l < "$mut" | tr -d ' ')
+    [[ "$ns" == "$nm" ]] || { echo "$2: 변이본 줄 수가 다르다($ns -> $nm) — sed 식이 파일을 망쳤다"; return 1; }
     ! cmp -s "$saved" "$mut" || { echo "$2: 대상 줄을 찾지 못했다 — 변이가 적용되지 않았다"; return 1; }
     HOOK="$mut"
     local d; d=$(decision_of "$3")
@@ -653,11 +762,21 @@ sweep_payload_context() {  # $1 context
   mutate 's|^      __cp_judge_operand "\$tok" && return 0$|      :|' \
     '2패스 피연산자 판정' 'find .claude -exec rm -rf {} +'
   # (5) find 무장 술어 배열(SC-13(1)·SC-14, 42차) — `-exec` 를 빼면 평범한 철자보다 약해진다.
+  # 술어 축을 **격리**하려면 술어 뒤 동사가 무장 목록 밖이어야 한다 — 44차에 무장 목록이
+  # ASK_PATTERNS 의 파괴적 쓰기 열거와 대칭으로 넓어져 `truncate`·`cp` 가 들어갔으므로, 그 동사로
+  # 프로브하면 **동사가 무장시켜** 술어를 지워도 ask 가 유지된다(이 라운드 자체 발견).
+  # `chmod 000` 은 무장 목록에 없고 평범한 철자도 allow 라(하한 없음 — `no_floor_effects`)
+  # `find` 형태가 ask 인 이유가 **술어뿐**이다: 술어 배열을 줄이면 그 셀만 allow 로 떨어진다.
   mutate 's|^ARM_FIND_DELETE_PREDICATES=(-delete -exec -execdir -ok)$|ARM_FIND_DELETE_PREDICATES=(-delete)|' \
-    'find 무장 술어' 'find .claude -exec truncate -s 0 {} +'
+    'find 무장 술어' 'find .claude -exec chmod 000 {} +'
   # (6) `$PWD` 접두의 `.` 치환(42차) — 삭제로 되돌리면 `$PWD//hooks` 가 다시 샌다.
   mutate 's|^  if \[\[ "\$t" == .\$PWD/.\* \]\]; then t="./\${t#.\$PWD/.}"$|  if false; then :|' \
     '$PWD 접두 치환' 'rm -rf $PWD//hooks'
+  # (8) 파이프 합침(SC-15, 43차) — 되돌리면 파이프라인 앞단 피연산자가 다시 판정되지 않는다.
+  # sed 구분자는 `#` 다 — 패턴 안에 `|` 가 있어 기본 구분자를 쓰면 식 자체가 깨진다(자체 발견:
+  # 깨진 sed 가 빈 파일을 남기고, 빈 훅은 출력 없이 0 으로 끝나 판정이 allow 로 읽혔다).
+  mutate 's#^    elif \[\[ "\$c" == .|. && "\${s:k+1:1}" != .|. \]\]; then$#    elif false; then#' \
+    '파이프 합침' 'echo .claude | xargs rm -rf'
   # (7) 512자 캡의 미확정 플래그(41·42차) — 판정은 둘 다 ask 이므로 **사유**로 고정한다.
   local mut2="$BATS_TEST_TMPDIR/mutant2.sh" long big out
   sed 's|^  if \[\[ ${#t} -gt 512 \]\]; then CP_LOC_UNDECIDED=1; return 0; fi$|  if [[ ${#t} -gt 512 ]]; then return 0; fi|' \
@@ -773,12 +892,24 @@ sweep_payload_context() {  # $1 context
 @test "F65 SC-11 마찰 대조군: 평범한 중괄호·치환·대입·큰 중괄호 피연산자는 allow 유지" {
   local c leaks=()
   for c in 'echo {1,2,3}' 'cp file.txt{,.bak}' 'mkdir -p {src,test}/dir' 'echo file{1..5}.txt' \
-           'ls {src,test}' 'touch f{1,2}.txt' 'cp file{1..300} /tmp/' 'ls x{1..a}' \
+           'ls {src,test}' 'touch f{1,2}.txt' 'cp file{1..64} /tmp/' 'ls x{1..a}' \
            'V=hello; echo $V' 'DIR=src; ls ${DIR}' 'V=cat; $V README.md' 'D=-name; find . $D "*.json"' \
            "find .claude -name '*.json'" 'bash -c "echo {a,b}"' 'echo `ls {src,test}`' \
            'git log --format={%h,%s} -3' 'printf "%s\n" {a..c}' \
-           'cp {a,b,c} /tmp/' "cp x{$(printf 'A%.0s' $(seq 1 600))} /tmp/" 'cp {src,test}/x.txt /tmp/'; do
+           'cp {a,b,c} /tmp/' "ls x{$(printf 'A%.0s' $(seq 1 600))}" 'cp {src,test}/x.txt /tmp/'; do
     [[ "$(decision_of "$c")" != allow ]] && leaks+=("$c -> $(decision_of "$c")")
   done
   [[ ${#leaks[@]} -eq 0 ]] || { printf 'FRICTION %s\n' "${leaks[@]}"; false; }
+  # **의도된 마찰의 경계(44차 회전, SC-10(4)·SC-15(4)).** 무장 동사 목록을 ASK_PATTERNS 의 파괴적
+  # 쓰기 열거와 대칭으로 맞추면서 `cp` 가 무장 동사가 됐다 — 그래서 예산(64)을 넘는 범위 중괄호를
+  # 피연산자로 가진 `cp` 가 보수적으로 ask 가 된다(`mv file{00..79}.txt` 가 이미 그랬던 것과 같은
+  # 기제·같은 경계). 방향은 fail-safe 이고 경계는 움직이지 않았음을 여기서 고정한다 — 숨기지 않고
+  # 기록하는 것이 SC-13(4)의 요구다.
+  [[ "$(decision_of 'cp file{1..64} /tmp/')" == allow ]] || { echo "64 대안 cp 가 allow 가 아니다(경계 이동)"; false; }
+  [[ "$(decision_of 'cp file{1..65} /tmp/')" == ask ]] || { echo "65 대안 cp 가 ask 가 아니다(경계 이동)"; false; }
+  # 512자 토큰 상한도 같은 성격이다 — 무장 동사(`cp`)를 가진 세그먼트의 상한 초과 중괄호 토큰은
+  # 보수적 ask 이고, 무장 동사가 없으면(`ls`) 그대로 allow 다. 둘을 나란히 고정한다.
+  local big512; big512=$(printf 'A%.0s' $(seq 1 600))
+  [[ "$(decision_of "ls x{$big512}")" == allow ]] || { echo "무장 동사 없는 512자 초과 토큰이 ask(경계 이동)"; false; }
+  [[ "$(decision_of "cp x{$big512} /tmp/")" == ask ]] || { echo "무장 동사 있는 512자 초과 토큰이 ask 가 아니다(경계 이동)"; false; }
 }

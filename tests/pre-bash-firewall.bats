@@ -4504,8 +4504,13 @@ $cmd"
   # 3상태 전환 초판 두 결함(step 15 자체 검증 실측): (1) 판정 불가 토큰이 세그먼트를 무장한 뒤
   # 자기 자신을 suspicious 피연산자로 재판정해 `cp file{1..300} /tmp/` 가 ask, (2) find/-delete
   # AND 게이트의 두 플래그를 같은 판정 불가 토큰 하나가 채워 `mkdir -p dir{1..100}` 이 ask.
+  # **44차 회전 정정**: `cp file{1..300} /tmp/` 는 이제 ask 다 — 무장 동사 목록을 ASK_PATTERNS 의
+  # 파괴적 쓰기 열거와 대칭으로 맞추면서(`cp`·`tee`·`dd` 등) `cp` 가 무장 동사가 됐고, 예산(64)을
+  # 넘는 범위 중괄호 피연산자는 종전대로 보수적 ask 로 떨어진다(`mv file{00..79}.txt` 와 같은
+  # 기제). 의도된 마찰이므로 경계(64 allow / 65 ask)를 생성 스위트에서 고정했다. 여기서는 **무장
+  # 동사가 아닌** 명령이 큰 중괄호 때문에 마찰을 받지 않는지만 본다 — step 15 자체 발견의 요지다.
   local c
-  for c in 'cp file{1..300} /tmp/' 'mkdir -p dir{1..100}' 'touch f{1..100}.txt'; do
+  for c in 'mkdir -p dir{1..100}' 'touch f{1..100}.txt' 'ls file{1..300}' 'echo file{1..300}'; do
     run delete_decision "$c"
     [[ "$output" == *'"permissionDecision": "allow"'* ]] \
       || { echo "큰 중괄호 피연산자를 가진 무관 명령에 새 마찰: $c"; false; }
@@ -4611,6 +4616,30 @@ $cmd"
     run delete_decision "$c"
     [[ "$output" == *'"permissionDecision": "allow"'* ]] \
       || { echo "대소문자 무시 전환이 무관한 이름까지 잡는다: $c"; false; }
+  done
+}
+
+@test "F65 43차 독립 판정 회귀 고정: 파이프라인은 한 판정 단위다" {
+  # `echo .claude | xargs rm -rf` 가 allow 였고 랩에서 `settings.json`·설치된 훅·플러그인 트리가
+  # 실제로 삭제됐다(생산자 6 × 소비자 6 × 대상 4 = 144/144 allow). 세그먼트 분할이 `;`·`|`·`&` 를
+  # 똑같이 나눠 피연산자와 동사가 다른 파이프 단계에 있으면 피연산자가 판정되지 않았다.
+  # 헤어스트링 형제는 ask 였다 — 기계는 그 피연산자를 볼 수 있고 파이프만이 무력화했다.
+  local c
+  for c in 'echo .claude | xargs rm -rf' 'find .claude -print0 | xargs -0 rm -rf' \
+           'ls .claude | xargs rm -rf' 'printf "%s " .claude | xargs -n1 rm -rf' \
+           'echo hooks/hooks.json | xargs truncate -s 0' 'echo .claude | xargs gzip -f' \
+           'git ls-files .claude | xargs rm -f' 'echo .claude/settings.json | xargs cp /dev/null' \
+           'echo .claude | xargs -I{} rm -rf {}'; do
+    run delete_decision "$c"
+    [[ "$output" != *'"permissionDecision": "allow"'* ]] \
+      || { echo "43차 판정 파이프라인 페이로드가 allow 로 샜다: $c"; false; }
+  done
+  # 합치는 것은 파이프뿐이다 — 목록 연산자는 여전히 나뉜다(과잉 합침 대조군).
+  for c in 'ls .claude || rm -rf /tmp/x' 'ls .claude && rm -rf /tmp/x' 'ls .claude ; rm -rf /tmp/x' \
+           'git ls-files | xargs rm -f' 'cat package.json | jq .' 'ls .claude | grep hooks'; do
+    run delete_decision "$c"
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "파이프 합침이 과잉 차단으로 번졌다: $c"; false; }
   done
 }
 
