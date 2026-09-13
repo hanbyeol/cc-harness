@@ -624,6 +624,38 @@ fi
 # protected-integrity.sh(PostToolUse:Bash)는 "보호 파일이 HEAD와 다른데 가드를 거치지 않았으면
 # 복구"한다. 그 판단에는 '어떤 변경이 심사를 통과했는가'가 필요하므로 여기서 기록한다.
 # deny()는 exit 2로 끝나므로 기록되지 않는다 — 통과한 편집만 원장에 오른다.
+# **F78(sprint-64) — 티켓을 발행하지 못하면 편집 시점에 크게 실패한다.**
+# 이 함수의 조용한 `return 0` 들은 "티켓 없이 통과"를 뜻했고, 그 편집은 다음 Bash 호출에서
+# `protected-integrity.sh` 가 **변조로 보고 되돌렸다** — 사용자에게는 편집이 성공한 것처럼
+# 보였다가 조용히 사라지는 형태가 된다. 보호 파일이면 그 상태로 통과시키지 않고 지금 막는다.
+# 비보호 파일은 종전대로 통과한다(티켓을 만들면 원장이 무의미한 줄로 다시 오염된다).
+__ticket_required_or_die() {  # $1 사유
+  is_protected "$FILE" || return 0
+  # **탐지·복구 평면이 실제로 도는 곳에서만 막는다.** 티켓이 필요한 이유는 `protected-integrity`
+  # 가 티켓 없는 변경을 되돌리기 때문이다 — 그 훅은 git 저장소(HEAD 비교)가 있어야 동작하므로,
+  # 저장소가 아니면 되돌릴 주체가 없고 티켓도 의미가 없다. 이 조건이 없으면 비-git 프로젝트에
+  # 설치된 하네스에서 보호 파일 편집이 전부 막힌다(그 환경에선 아무도 되돌리지 않는데도).
+  local __root_for_git="${root:-}"
+  [[ -z "$__root_for_git" ]] && __root_for_git="$(__nearest_existing_dir "$FILE")"
+  git -C "$__root_for_git" rev-parse --verify -q HEAD >/dev/null 2>&1 || return 0
+  # **HEAD 가 추적하는 파일에만 티켓이 필요하다.** `protected-integrity` 의 감시 목록은
+  # `git ls-tree -r HEAD` 에서 나오므로, HEAD 에 없는 경로(진짜 신규 생성)는 되돌려지지 않는다 —
+  # 그런 편집까지 막으면 새 훅·새 테스트 파일을 만들 수 없다(과잉 차단).
+  local __rel_for_git="${rel:-}"
+  if [[ -z "$__rel_for_git" ]]; then
+    local __fp; __fp="$(__physicalize_under "$FILE" "$(__nearest_existing_dir "$FILE")" 2>/dev/null || printf '%s' "$FILE")"
+    __rel_for_git="${__fp#"$__root_for_git"/}"
+  fi
+  git -C "$__root_for_git" cat-file -e "HEAD:$__rel_for_git" 2>/dev/null || return 0
+  {
+    echo "invariant-guard: 이 편집에 무결성 티켓을 발급할 수 없어 **차단**합니다."
+    echo "  파일: $FILE"
+    echo "  사유: $1"
+    echo "  티켓 없이 보호 파일을 고치면 다음 Bash 호출에서 변조로 판정돼 조용히 되돌아갑니다(F78)."
+  } >&2
+  exit 2
+}
+
 record_guarded_edit() {
   local rc=$? root rel sha anc file_phys
   [[ $rc -ne 0 ]] && return 0
@@ -645,6 +677,7 @@ record_guarded_edit() {
   root="$(__derive_root "$anc")"
   if [[ -z "$root" || ! -d "$root/progress" ]]; then
     echo "invariant-guard: root 해석 실패 — 이 편집에 무결성 티켓이 발급되지 않습니다 (file: $FILE)" >&2
+    __ticket_required_or_die "저장소 root 를 해석하지 못했습니다(progress/ 를 찾을 수 없음)"
     return 0
   fi
   # $FILE을 root와 같은 기준(물리 경로)으로 맞춘다 — $FILE의 바로 위 디렉터리가 없으면
@@ -654,7 +687,12 @@ record_guarded_edit() {
   # 티켓을 오염시키던 원인이다(실제로 209줄까지 쌓였고 그중 160줄이 보호 파일 경로였다).
   # __derive_root가 CLAUDE_PROJECT_DIR을 채택하지 않은 경우에도 이 검사는 그대로 유효하다 —
   # $file_phys가 git으로 유도한 root 밖이면(진짜 비git 환경) 마찬가지로 스킵한다(SC-3).
-  [[ "$file_phys" == "$root"/* ]] || return 0
+  if [[ "$file_phys" != "$root"/* ]]; then
+    # 저장소 밖 파일은 애초에 보호 대상이 아니므로 `__ticket_required_or_die` 가 통과시킨다 —
+    # 보호 대상인데 root 밖으로 해석된 경우(심볼릭 링크·마운트 등)만 차단된다.
+    __ticket_required_or_die "파일이 저장소 root($root) 밖으로 해석됐습니다"
+    return 0
+  fi
   rel="${file_phys#"$root"/}"
   # **내용 해시를 함께 적는다.** 경로만 적으면 정당한 편집 한 번이 그 경로를 영구 면제로
   # 만든다. 해시를 붙이면 티켓은 '이 내용의 이 편집' 하나에만 유효하고, 소비되면 사라진다.
@@ -663,10 +701,33 @@ record_guarded_edit() {
   # 티켓이 맞지 않아 복구되므로, 틀리는 방향이 안전하다.
   # NEW_CONTENT가 없으면 심사 분기까지 가지 않은 것이다(비보호 파일·신규 생성). 티켓을
   # 만들지 않는다 — 만들면 비보호 편집마다 무의미한 줄이 쌓여 티켓 파일이 다시 오염된다.
-  [[ -z "${NEW_CONTENT:-}" ]] && return 0
+  if [[ -z "${NEW_CONTENT:-}" ]]; then
+    __ticket_required_or_die "편집 후 내용(NEW_CONTENT)을 확정하지 못했습니다"
+    return 0
+  fi
   sha=$(printf '%s' "$NEW_CONTENT" | git hash-object --stdin 2>/dev/null || echo "")
-  [[ -z "$sha" ]] && return 0
+  if [[ -z "$sha" ]]; then
+    __ticket_required_or_die "git hash-object 로 내용 해시를 만들지 못했습니다"
+    return 0
+  fi
   printf '%s %s\n' "$sha" "$rel" >> "$root/progress/.guarded-edits" 2>/dev/null || true
+  # **F78(sprint-64): 티켓이 내용을 복구할 수 있어야 한다.** 티켓이 `sha rel` 뿐이면
+  # `protected-integrity.sh` 는 "이 내용이 심사를 통과했다"만 알 뿐 그 내용을 되살릴 수 없어
+  # HEAD 로 되돌릴 수밖에 없었다 — 그래서 티켓 없는 쓰기 한 번이 **그 파일에 쌓인 심사 통과분
+  # 전체**를 버렸다(F65 작업 중 3회 재발, 방아쇠는 매번 달랐다: python3 편집·`git stash pop`·
+  # `sed -i`). 심사를 통과한 내용을 내용 주소 저장소에 함께 남긴다.
+  # 후행 개행을 하나 붙이는 이유: `NEW_CONTENT` 는 `$( )` 로 읽혀 후행 개행이 이미 제거된
+  # 상태이고, 이 저장소의 내용은 **파일로 복원**된다. 텍스트 파일은 개행으로 끝나는 것이 정상이며,
+  # 티켓 해시 규약(`printf '%s' "$(cat f)"`)이 후행 개행을 무시하므로 붙여도 티켓 검증은 그대로
+  # 성립한다(복원 후 재해시로 확인한다 — protected-integrity 의 SC-2 검사).
+  # 원자적으로 쓴다: 임시 파일에 쓴 뒤 mv — 훅이 중간에 죽어도 반쪽 blob 이 남지 않는다.
+  local blobdir="$root/progress/.guarded-blobs" tmpblob
+  mkdir -p "$blobdir" 2>/dev/null || return 0
+  [[ -f "$blobdir/$sha" ]] && return 0   # 내용 주소라 이미 있으면 같은 내용이다
+  tmpblob=$(mktemp "$blobdir/.tmp.XXXXXX" 2>/dev/null) || return 0
+  printf '%s\n' "$NEW_CONTENT" > "$tmpblob" 2>/dev/null \
+    && mv -f "$tmpblob" "$blobdir/$sha" 2>/dev/null \
+    || rm -f "$tmpblob" 2>/dev/null
 }
 trap record_guarded_edit EXIT
 # 신규 생성은 대개 약화가 아니므로 통과 — 단, 아래 둘은 예외.
@@ -805,6 +866,13 @@ matcher_covers() {
 case "$BASENAME" in
   .guarded-edits | .integrity-baseline)
     deny "$BASENAME 는 탐지기가 관리하는 상태 파일 — 도구로 쓸 수 없다 (INV-14)" ;;
+esac
+# F78: blob 저장소도 같은 등급이다 — **복구 목표가 그 내용에서 나오므로** 도구로 쓸 수 있으면
+# '심사 통과'를 위조하는 것과 같다. 파일명이 내용 해시라 basename 열거로는 잡히지 않고,
+# 경로 성분으로 본다(`progress/.guarded-blobs/<sha>`).
+case "$FILE" in
+  */.guarded-blobs | */.guarded-blobs/*)
+    deny ".guarded-blobs 는 탐지기가 관리하는 내용 저장소 — 도구로 쓸 수 없다 (INV-14, F78)" ;;
 esac
 
 # === protected-integrity.sh: 탐지 기능 제거 차단 ===

@@ -256,7 +256,9 @@ arm_is_exemptable() {
   # (perl·`hooks/*.json` 대상 sed/awk in-place 계속 ask, 실측 확인됨). `protected-integrity`
   # 등 `-i`를 우연히 포함하는 다른 패턴은 아래 별도 하드 제외가 이미 막는다.
   [[ "$p" == *'hooks\.json'* || "$p" == *'settings'* ]] && return 1
-  [[ "$p" == *'protected-integrity'* || "$p" == *'guarded-edits'* || "$p" == *'integrity-baseline'* ]] && return 1
+  # F78: `.guarded-blobs` 는 **심사를 통과한 내용 자체**를 담는다 — 복구 목표가 여기서 나오므로
+  # 이 저장소에 내용을 심는 것은 '심사 통과'를 위조하는 것과 같다. 원장과 같은 등급으로 다룬다.
+  [[ "$p" == *'protected-integrity'* || "$p" == *'guarded-edits'* || "$p" == *'guarded-blobs'* || "$p" == *'integrity-baseline'* ]] && return 1
   # F68: 무인 중단 기록도 탐지기의 판단 근거와 같은 성격이다 — 지워지면 "멈췄다"는 사실이
   # 사라진다. 인터프리터로 읽는 마찰보다 기록이 남는 쪽이 값어치가 크므로 면제하지 않는다.
   [[ "$p" == *'approval-queue'* ]] && return 1
@@ -580,7 +582,7 @@ ASK_PATTERNS=(
   # 예측이 유일한 통제"인 정확히 그 클래스다. INV-11이 이 파일을 근거로 "evaluator가 실제로
   # 실행됐는가"를 판정하므로, Bash로 자유롭게 조작 가능하면 evaluator 실행 없이 로그를
   # 위조해 passes:true를 정당화할 수 있다(실측: Bash 직접 덮어쓰기·삭제가 allow였다).
-  '[^;|&]*(protected-integrity\.sh|\.guarded-edits|\.integrity-baseline|evaluator-runs\.jsonl)'
+  '[^;|&]*(protected-integrity\.sh|\.guarded-edits|\.guarded-blobs|\.integrity-baseline|evaluator-runs\.jsonl)'
   # git 메타 조작 — 파일을 바꾸지 않고 **탐지를 실명시킨다**. 도구 이름이 확정적이고
   # 정상 개발에서 거의 쓰지 않으므로 게이트해도 마찰이 없다.
   'git\b[^;|&]*update-index[^;|&]*(--assume-unchanged|--skip-worktree|--no-assume-unchanged)'

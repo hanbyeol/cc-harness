@@ -163,10 +163,21 @@ dirty()     { ( cd "$LAB" && git diff --name-only | wc -l | tr -d ' ' ) }
   ( cd "$LAB" && jq '.scoring.pass_threshold = 9' progress/harness-config.json > /tmp/hc-9.json \
       && cp /tmp/hc-9.json progress/harness-config.json && rm -f /tmp/hc-9.json )
   integrity
-  [ "$( cd "$LAB" && jq -r .scoring.pass_threshold progress/harness-config.json )" = "7" ]
-  # 정착(HEAD 일치)하면 그 경로의 티켓은 소비된다
+  # **F78(sprint-64) 로 복구 목표가 바뀌었다**: 되돌아가는 곳이 HEAD(7)가 아니라 **마지막으로
+  # 심사를 통과한 내용**(8)이다. 티켓 없는 쓰기 한 번이 그 파일에 쌓인 심사 통과분 전체를
+  # 버리던 것이 F78 의 결함이었다 — 여기서 확인할 것은 '티켓 없는 내용(9)이 남지 않는다'이고,
+  # 그 성질은 그대로다. 티켓 이력이 없는 파일은 종전대로 HEAD 로 폴백한다
+  # (tests/guarded-blob-restore.bats 가 두 경우를 나눠 고정한다).
+  [ "$( cd "$LAB" && jq -r .scoring.pass_threshold progress/harness-config.json )" = "8" ]
+  # 정착(HEAD 일치)하면 그 경로의 티켓은 소비된다.
+  # **F78 이후에는 정착을 명시적으로 만들어야 한다**: 복구가 파일을 HEAD 가 아니라 심사 통과
+  # 내용으로 되돌리므로, 복구만으로는 HEAD 와 같아지지 않는다(그것이 F78 의 요지다).
+  # 여기서 확인하려는 것은 '정착하면 소비된다'는 티켓 수명 규칙이므로 정착 자체를 만든다.
+  ( cd "$LAB" && git checkout -q -- progress/harness-config.json )
   integrity
-  ( cd "$LAB" && ! grep -q ' progress/harness-config.json$' progress/.guarded-edits )
+  if ( cd "$LAB" && grep -q ' progress/harness-config.json$' progress/.guarded-edits ); then
+    echo "정착(HEAD 일치) 후에도 티켓이 소비되지 않았다"; return 1
+  fi
 }
 
 @test "F65: 저장소 밖 편집은 티켓을 오염시키지 않는다" {

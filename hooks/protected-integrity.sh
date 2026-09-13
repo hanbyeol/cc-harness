@@ -89,6 +89,8 @@ PROTECTED_GLOBS=(
 )
 
 TICKETS="$REPO/progress/.guarded-edits"
+# 심사를 통과한 내용의 내용 주소 저장소(F78) — 복구 목표가 여기서 나온다.
+BLOBS="$REPO/progress/.guarded-blobs"
 QUARANTINE="$REPO/progress/.integrity-quarantine"
 
 # git 작업 진행 중이면 워킹트리가 HEAD와 달라야 정상이다 — 복구하지 않는다.
@@ -147,6 +149,57 @@ consume_ticket() {
   return 0
 }
 
+# **F78(sprint-64) — 원장과 blob 저장소를 유계로 유지한다.**
+# 원장은 append-only 인데 정리 규칙이 없어 보호 대상 밖 경로까지 쌓였다(실측: 2099줄, 그 중
+# 1859줄이 보호 대상이 아닌 한 경로). 길어진 원장은 비용이자 잡음이고, 유효 티켓을 찾기
+# 어렵게 만들어 이 훅의 판단 근거를 흐린다.
+# 남기는 줄의 조건은 셋이다: (1) `sha rel` 형식일 것, (2) rel 이 보호 대상 glob 에 맞을 것,
+# (3) rel 이 저장소 root 안의 상대 경로일 것(`../` 금지). blob 저장소는 정리된 원장이
+# 참조하지 않는 파일을 지운다 — blob 은 내용 주소라 지워도 같은 내용이 다시 나타나면 같은
+# 이름으로 되살아난다.
+# 비용을 유계로 둔다: 원장이 상한(2000줄)을 넘으면 **오래된 쪽부터 잘라** 상한 안으로 들인 뒤
+# 정리한다. 자르는 것이 안전한 이유는 티켓이 오래될수록 그 내용이 이미 커밋돼(=HEAD 와 같아져)
+# 소비됐을 가능성이 크고, 남지 않은 티켓은 HEAD 폴백으로 내려갈 뿐 보호가 약해지지 않기 때문이다.
+GC_MAX_LINES=2000
+gc_ledger_and_blobs() {
+  [[ -f "$TICKETS" ]] || return 0
+  local tmp n
+  n=$(wc -l < "$TICKETS" 2>/dev/null | tr -d ' ')
+  [[ -z "$n" ]] && return 0
+  tmp=$(mktemp) || return 0
+  # 상한 초과분은 오래된 쪽(앞)부터 버린다.
+  if [[ "$n" -gt "$GC_MAX_LINES" ]]; then
+    tail -n "$GC_MAX_LINES" "$TICKETS" > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 0; }
+  else
+    cat "$TICKETS" > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 0; }
+  fi
+  local keep; keep=$(mktemp) || { rm -f "$tmp"; return 0; }
+  local line sha rel g ok
+  while IFS= read -r line; do
+    sha="${line%% *}"; rel="${line#* }"
+    [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || continue          # (1) 형식
+    [[ -n "$rel" && "$rel" != "$line" ]] || continue
+    case "$rel" in /*|*..*) continue ;; esac             # (3) root 안의 상대 경로
+    ok=1
+    for g in "${PROTECTED_GLOBS[@]}"; do                 # (2) 보호 대상
+      # shellcheck disable=SC2053
+      [[ "$rel" == $g ]] && { ok=0; break; }
+    done
+    [[ "$ok" -eq 0 ]] && printf '%s\n' "$line"
+  done < "$tmp" > "$keep"
+  rm -f "$tmp"
+  mv -f "$keep" "$TICKETS" 2>/dev/null || rm -f "$keep"
+  # 참조되지 않는 blob 정리.
+  [[ -d "$BLOBS" ]] || return 0
+  local b base
+  for b in "$BLOBS"/*; do
+    [[ -f "$b" ]] || continue
+    base="${b##*/}"
+    case "$base" in .tmp.*) rm -f "$b" 2>/dev/null; continue ;; esac
+    grep -q "^$base " "$TICKETS" 2>/dev/null || rm -f "$b" 2>/dev/null
+  done
+}
+
 # 세션 기준선 — HEAD 비교만으로는 **훼손 후 커밋**을 볼 수 없다(1차 판정 지적).
 # `printf evil > <파일>; git add -A; git commit` 을 한 명령으로 하면 HEAD가 훼손을 포함하므로
 # 워킹트리와 HEAD가 같아진다. 세션 첫 실행 때의 내용을 따로 적어 두면 그 변화가 드러난다.
@@ -176,6 +229,11 @@ if [[ ! -f "$BASELINE" ]]; then
   # 무력화된다. `"${arr[@]+"${arr[@]}"}"` 관용구가 두 버전 모두에서 안전하다.
   for f in "${FILES[@]+"${FILES[@]}"}"; do printf '%s %s\n' "$(file_sha "$f")" "$f"; done > "$BASELINE" 2>/dev/null || true
 fi
+
+# 원장·blob 정리(F78 AC-4) — 판정 **전에** 돌려도 안전하다: 지우는 것은 형식이 깨졌거나 보호
+# 대상이 아니거나 저장소 밖을 가리키는 줄, 그리고 상한을 넘은 오래된 줄뿐이다. 유효 티켓은 남고,
+# 남지 않은 티켓은 HEAD 폴백으로 내려갈 뿐이라 보호가 약해지는 방향이 아니다.
+gc_ledger_and_blobs
 
 CHANGED=(); COMMITTED=()
 for f in "${FILES[@]+"${FILES[@]}"}"; do
@@ -211,20 +269,62 @@ if git_operation_in_progress; then
   exit 0
 fi
 
+# **F78(sprint-64) — 복구 목표는 HEAD 가 아니라 '마지막으로 심사를 통과한 내용'이다.**
+# 이 훅은 티켓 없는 변경을 되돌릴 때 `git checkout HEAD --` 를 썼다. 그러면 티켓 없는 쓰기 한
+# 번이 그 파일에 쌓여 있던 **심사 통과분 전체**를 함께 버린다 — F65 작업 중 3회 재발했고
+# 방아쇠는 매번 달랐다(python3 편집·`git stash pop`·`sed -i`). 방아쇠가 매번 다르다는 것이
+# '방아쇠를 막는 것으로는 닫히지 않는다'는 증거이므로, 고칠 곳은 **복구 목표**다.
+# 원장의 그 파일 마지막 티켓이 가리키는 blob 으로 되돌리고, 없거나 믿을 수 없으면 HEAD 로
+# 폴백한다. 폴백은 **조용히 하지 않는다** — 사유를 사용자 보고에 넣는다.
+# 그 파일의 마지막 티켓 sha(원장은 append-only 라 마지막 줄이 가장 최근이다).
+last_ticket_sha() {
+  local path="$1"
+  [[ -f "$TICKETS" ]] || return 1
+  local line; line=$(grep -F " $path" "$TICKETS" 2>/dev/null | grep -E "^[0-9a-f]{40} $(printf '%s' "$path" | sed 's/[].[^$\\*\/]/\\&/g')\$" | tail -1)
+  [[ -n "$line" ]] || return 1
+  printf '%s' "${line%% *}"
+}
+# blob 은 **내용 주소로만** 신뢰한다(SC-2): 파일명(sha)과 내용의 해시가 같을 때만 쓴다.
+# 이 검사가 없으면 blob 저장소에 내용을 심는 것이 '심사 통과'를 위조하는 것과 같아진다.
+blob_trustworthy() {
+  local sha="$1" got
+  [[ -f "$BLOBS/$sha" ]] || return 1
+  got=$(printf '%s' "$(cat "$BLOBS/$sha" 2>/dev/null)" | git hash-object --stdin 2>/dev/null) || return 1
+  [[ "$got" == "$sha" ]]
+}
+
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 DEST="$QUARANTINE/$STAMP"
-RESTORED=()
+RESTORED=(); FALLBACK=()
 for f in "${CHANGED[@]}"; do
   mkdir -p "$DEST/$(dirname "$f")" 2>/dev/null
   cp "$f" "$DEST/$f" 2>/dev/null || true      # 되돌리기 전에 반드시 보관 — 손실 0
+  tsha=$(last_ticket_sha "$f" 2>/dev/null || true)
+  if [[ -n "$tsha" ]] && blob_trustworthy "$tsha"; then
+    if cp "$BLOBS/$tsha" "$f" 2>/dev/null; then
+      # 복원 결과가 그 티켓과 실제로 일치하는지 다시 확인한다 — 일치하지 않으면 HEAD 로 간다.
+      if [[ "$(file_sha "$f")" == "$tsha" ]]; then
+        RESTORED+=("$f"); continue
+      fi
+      FALLBACK+=("$f: 복원 내용이 티켓 해시와 달라 HEAD 로 되돌림")
+    else
+      FALLBACK+=("$f: blob 을 쓸 수 없어 HEAD 로 되돌림")
+    fi
+  elif [[ -n "$tsha" ]]; then
+    FALLBACK+=("$f: blob 이 없거나 내용 주소가 어긋나(위조 가능성) HEAD 로 되돌림")
+  fi
   git checkout HEAD -- "$f" 2>/dev/null && RESTORED+=("$f")
 done
 
 [[ ${#RESTORED[@]} -eq 0 ]] && exit 0
 
 {
-  echo "cc-harness: 보호 파일이 Bash 경로로 변경되어 HEAD 내용으로 복구했습니다."
+  echo "cc-harness: 보호 파일이 티켓 없이 변경되어 **마지막으로 심사를 통과한 내용**으로 복구했습니다."
   for f in "${RESTORED[@]}"; do echo "  - $f"; done
+  if [[ ${#FALLBACK[@]} -gt 0 ]]; then
+    echo "  아래는 심사 통과 내용을 쓸 수 없어 HEAD 로 되돌렸습니다(폴백):"
+    for r in "${FALLBACK[@]}"; do echo "    - $r"; done
+  fi
   echo "  되돌린 내용은 버리지 않고 보관했습니다: ${DEST#"$REPO"/}"
   echo "  하네스 검증 장치는 Edit/Write(invariant-guard 심사)로만 변경할 수 있습니다."
 } >&2

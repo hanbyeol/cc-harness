@@ -1081,7 +1081,8 @@
       "iteration": 0,
       "dependencies": ["F35", "F52", "F65"],
       "assigned_sprint": 64,
-      "_registration_note": "[2026-09-13] F65 43차 판정이 '별도 기능으로 등록하라'고 권고했고(42차가 먼저 결함으로 판정), sprint-51 step 19의 `_note`가 등록을 약속했으나 실제로 이뤄지지 않은 것을 43차가 지적해 여기서 등록한다. 구현은 F65 종료 후 별도 Sprint Contract(sprint-64)로 진행한다 — 이 결함이 F65 작업 자체를 두 번 파괴했으므로 우선순위가 높다."
+      "_registration_note": "[2026-09-13] F65 43차 판정이 '별도 기능으로 등록하라'고 권고했고(42차가 먼저 결함으로 판정), sprint-51 step 19의 `_note`가 등록을 약속했으나 실제로 이뤄지지 않은 것을 43차가 지적해 여기서 등록한다. 구현은 F65 종료 후 별도 Sprint Contract(sprint-64)로 진행한다 — 이 결함이 F65 작업 자체를 두 번 파괴했으므로 우선순위가 높다.",
+      "_impl_note_2026_09_13": "[2026-09-13] F65 44차 판정이 '45차 회전보다 **먼저**' 처리하라고 권고했고 사용자가 승인해 sprint-64로 구현했다(Plan 게이트 승인, `agreed:true`). 세 번째 재발(`sed -i` 한 줄이 훅 전체를 HEAD로 되돌림, 복구 커밋 9ce0f3b)이 방아쇠였다. 구현 요지: (1) 복구 목표를 HEAD → **마지막으로 심사를 통과한 내용**(내용 주소 blob), (2) blob은 내용 주소로만 신뢰(복원 후 재해시 대조, 어긋나면 HEAD 폴백 + 사유 보고), (3) 티켓 미발행 시 편집 시점 차단 — 단 **복구 평면이 살아 있을 때**로 좁힘(비-git 저장소·HEAD에 없는 신규 경로는 되돌릴 주체가 없으므로 통과), (4) 원장·blob GC, (5) blob 저장소를 방화벽·invariant-guard 보호 분류에 등록. 검증: 신규 10/10, protected-integrity 18/18, invariant-guard 148/148, `bats tests/` 956/956(단독), behavioral `[]`, shellcheck 증가 0, 운영 원장 2125줄 → 8줄, 훅 실행 11600ms → 9127ms. passes는 독립 evaluator 판정까지 false."
     }
   ]
 }
