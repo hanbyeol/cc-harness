@@ -91,6 +91,9 @@ PROTECTED_GLOBS=(
 TICKETS="$REPO/progress/.guarded-edits"
 # 심사를 통과한 내용의 내용 주소 저장소(F78) — 복구 목표가 여기서 나온다.
 BLOBS="$REPO/progress/.guarded-blobs"
+# 복구 대장(F78 SC-6) — 소비된 티켓이 승격되는 곳. 원장(`.guarded-edits`)은 '면제'를, 이 대장은
+# '복구 목표'를 뜻한다. 두 의미를 한 파일에 담았던 것이 `git stash pop` 손실의 원인이었다.
+RESTORE_LEDGER="$REPO/progress/.guarded-restore"
 QUARANTINE="$REPO/progress/.integrity-quarantine"
 
 # git 작업 진행 중이면 워킹트리가 HEAD와 달라야 정상이다 — 복구하지 않는다.
@@ -137,6 +140,23 @@ consume_ticket() {
   local path="$1" tmp
   [[ -f "$TICKETS" ]] || return 1
   grep -q " $path\$" "$TICKETS" 2>/dev/null || return 1
+  # **F78 1차 독립 판정(2026-09-14) — 소비는 '면제 무효화'이지 '복구 목표 폐기'가 아니다(SC-6).**
+  # 소비 시점에 그 경로의 마지막 티켓을 복구 대장(`.guarded-restore`)으로 **승격**한다.
+  # 승격이 없으면 HEAD 일치를 경유하는 워크플로우에서 복구 목표가 사라진다: 실제 배선에서는
+  # 모든 Bash 호출이 훅을 발화시키므로 `git stash`(파일 == HEAD → 여기서 소비) → `git stash pop`
+  # 순서가 유일하게 가능한 인터리빙이고, pop 이 되살린 내용은 티켓이 없어 HEAD 로 되돌아가
+  # 심사 통과분이 전부 사라졌다(1차 판정 재현). 대장은 경로당 한 줄만 유지한다(마지막 것).
+  local __last
+  __last=$(grep -E "^[0-9a-f]{40} $(printf '%s' "$path" | sed 's/[].[^$\\*\/]/\\&/g')\$" "$TICKETS" 2>/dev/null | tail -1)
+  if [[ -n "$__last" ]]; then
+    local __rtmp
+    __rtmp=$(mktemp) || __rtmp=""
+    if [[ -n "$__rtmp" ]]; then
+      grep -v " $path\$" "$RESTORE_LEDGER" 2>/dev/null > "$__rtmp" || true
+      printf '%s\n' "$__last" >> "$__rtmp"
+      mv -f "$__rtmp" "$RESTORE_LEDGER" 2>/dev/null || rm -f "$__rtmp"
+    fi
+  fi
   tmp=$(mktemp) || return 1
   grep -v " $path\$" "$TICKETS" > "$tmp" 2>/dev/null || true
   mv "$tmp" "$TICKETS" 2>/dev/null || rm -f "$tmp"
@@ -167,12 +187,10 @@ gc_ledger_and_blobs() {
   n=$(wc -l < "$TICKETS" 2>/dev/null | tr -d ' ')
   [[ -z "$n" ]] && return 0
   tmp=$(mktemp) || return 0
-  # 상한 초과분은 오래된 쪽(앞)부터 버린다.
-  if [[ "$n" -gt "$GC_MAX_LINES" ]]; then
-    tail -n "$GC_MAX_LINES" "$TICKETS" > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 0; }
-  else
-    cat "$TICKETS" > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 0; }
-  fi
+  # **거른 뒤 자른다(F78 1차 판정).** 반대 순서였을 때는 잡음 2500줄이 상한을 채워 **유효 티켓을
+  # 상한 밖으로 밀어냈다** — 운영 원장이 2119줄 중 보호 대상 0건이라 실제 경계에 있었다.
+  # 여기서는 전량을 거르고, 거른 결과가 상한을 넘을 때만 오래된 쪽을 버린다.
+  cat "$TICKETS" > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 0; }
   local keep; keep=$(mktemp) || { rm -f "$tmp"; return 0; }
   local line sha rel g ok
   while IFS= read -r line; do
@@ -188,6 +206,13 @@ gc_ledger_and_blobs() {
     [[ "$ok" -eq 0 ]] && printf '%s\n' "$line"
   done < "$tmp" > "$keep"
   rm -f "$tmp"
+  # 거른 결과가 그래도 상한을 넘으면 그때 오래된 쪽부터 버린다.
+  if [[ "$(wc -l < "$keep" | tr -d ' ')" -gt "$GC_MAX_LINES" ]]; then
+    local trimmed; trimmed=$(mktemp) || trimmed=""
+    if [[ -n "$trimmed" ]]; then
+      tail -n "$GC_MAX_LINES" "$keep" > "$trimmed" 2>/dev/null && mv -f "$trimmed" "$keep" || rm -f "$trimmed"
+    fi
+  fi
   mv -f "$keep" "$TICKETS" 2>/dev/null || rm -f "$keep"
   # 참조되지 않는 blob 정리.
   [[ -d "$BLOBS" ]] || return 0
@@ -196,7 +221,12 @@ gc_ledger_and_blobs() {
     [[ -f "$b" ]] || continue
     base="${b##*/}"
     case "$base" in .tmp.*) rm -f "$b" 2>/dev/null; continue ;; esac
-    grep -q "^$base " "$TICKETS" 2>/dev/null || rm -f "$b" 2>/dev/null
+    # **두 대장을 모두 본다(F78 SC-6).** 소비된 티켓은 원장에서 사라지고 복구 대장으로 승격되므로,
+    # 원장만 보면 **방금 승격된 복구 목표의 blob 을 지운다** — 그러면 `git stash pop` 축이 다시
+    # 열린다(이 라운드 자체 발견: 승격만 넣고 여기를 고치지 않았더니 테스트가 계속 red 였다).
+    grep -q "^$base " "$TICKETS" 2>/dev/null && continue
+    grep -q "^$base " "$RESTORE_LEDGER" 2>/dev/null && continue
+    rm -f "$b" 2>/dev/null
   done
 }
 
@@ -278,11 +308,19 @@ fi
 # 폴백한다. 폴백은 **조용히 하지 않는다** — 사유를 사용자 보고에 넣는다.
 # 그 파일의 마지막 티켓 sha(원장은 append-only 라 마지막 줄이 가장 최근이다).
 last_ticket_sha() {
-  local path="$1"
-  [[ -f "$TICKETS" ]] || return 1
-  local line; line=$(grep -F " $path" "$TICKETS" 2>/dev/null | grep -E "^[0-9a-f]{40} $(printf '%s' "$path" | sed 's/[].[^$\\*\/]/\\&/g')\$" | tail -1)
-  [[ -n "$line" ]] || return 1
-  printf '%s' "${line%% *}"
+  local path="$1" esc line
+  esc=$(printf '%s' "$path" | sed 's/[].[^$\\*\/]/\\&/g')
+  # 원장(아직 소비되지 않은 티켓)을 먼저 보고, 없으면 **복구 대장**(소비되며 승격된 것)을 본다.
+  # 소비가 복구 목표를 지우지 않는다는 것이 SC-6 이다.
+  if [[ -f "$TICKETS" ]]; then
+    line=$(grep -E "^[0-9a-f]{40} $esc\$" "$TICKETS" 2>/dev/null | tail -1)
+    [[ -n "$line" ]] && { printf '%s' "${line%% *}"; return 0; }
+  fi
+  if [[ -f "$RESTORE_LEDGER" ]]; then
+    line=$(grep -E "^[0-9a-f]{40} $esc\$" "$RESTORE_LEDGER" 2>/dev/null | tail -1)
+    [[ -n "$line" ]] && { printf '%s' "${line%% *}"; return 0; }
+  fi
+  return 1
 }
 # blob 은 **내용 주소로만** 신뢰한다(SC-2): 파일명(sha)과 내용의 해시가 같을 때만 쓴다.
 # 이 검사가 없으면 blob 저장소에 내용을 심는 것이 '심사 통과'를 위조하는 것과 같아진다.
@@ -312,6 +350,11 @@ for f in "${CHANGED[@]}"; do
     fi
   elif [[ -n "$tsha" ]]; then
     FALLBACK+=("$f: blob 이 없거나 내용 주소가 어긋나(위조 가능성) HEAD 로 되돌림")
+  else
+    # **티켓 부재도 폴백 사유다(F78 1차 판정).** 이 줄이 없으면 `FALLBACK` 이 빈 채로 남아
+    # 헤더가 '마지막으로 심사를 통과한 내용으로 복구했습니다' 를 찍는다 — 심사 통과분이
+    # 사라진 실행조차 그 문구를 출력했다(판정자가 '보고가 거짓' 이라고 적은 근거).
+    FALLBACK+=("$f: 이 경로의 티켓 이력이 없어 HEAD 로 되돌림")
   fi
   git checkout HEAD -- "$f" 2>/dev/null && RESTORED+=("$f")
 done
@@ -319,10 +362,18 @@ done
 [[ ${#RESTORED[@]} -eq 0 ]] && exit 0
 
 {
-  echo "cc-harness: 보호 파일이 티켓 없이 변경되어 **마지막으로 심사를 통과한 내용**으로 복구했습니다."
+  # **헤더는 실제로 일어난 일을 말한다(F78 1차 판정).** 티켓 기반 복구가 하나도 없었는데
+  # '심사를 통과한 내용으로 복구했습니다' 를 찍으면, 심사 통과분이 사라진 실행이 성공처럼 읽힌다.
+  if [[ ${#FALLBACK[@]} -eq 0 ]]; then
+    echo "cc-harness: 보호 파일이 티켓 없이 변경되어 **마지막으로 심사를 통과한 내용**으로 복구했습니다."
+  elif [[ ${#FALLBACK[@]} -ge ${#RESTORED[@]} ]]; then
+    echo "cc-harness: 보호 파일이 티켓 없이 변경되어 **HEAD 내용**으로 되돌렸습니다(심사 통과 내용을 쓸 수 없었습니다)."
+  else
+    echo "cc-harness: 보호 파일이 티켓 없이 변경되어 복구했습니다 — 일부는 심사 통과 내용, 일부는 HEAD 입니다."
+  fi
   for f in "${RESTORED[@]}"; do echo "  - $f"; done
   if [[ ${#FALLBACK[@]} -gt 0 ]]; then
-    echo "  아래는 심사 통과 내용을 쓸 수 없어 HEAD 로 되돌렸습니다(폴백):"
+    echo "  아래는 HEAD 로 되돌렸습니다(폴백 사유):"
     for r in "${FALLBACK[@]}"; do echo "    - $r"; done
   fi
   echo "  되돌린 내용은 버리지 않고 보관했습니다: ${DEST#"$REPO"/}"

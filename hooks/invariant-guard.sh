@@ -577,6 +577,17 @@ __head_content_for() {
   return 0
 }
 
+# **F78 1차 독립 판정(2026-09-14) — blob 저장소 판정은 신규 파일 분기보다 앞에 있어야 한다.**
+# blob 파일명은 **내용 해시**이므로 심는 행위는 **언제나 신규 파일 생성**이다. 아래쪽(:874 부근)
+# 에도 같은 판정이 있지만 그 자리는 `[[ ! -e "$FILE" ]]` → `*) exit 0` 다음이라 신규 파일에는
+# 도달하지 못했다 — 판정자가 그 틈으로 blob 을 심고 원장 한 줄을 더해 `hooks/lib.sh` 에
+# `# BACKDOOR` 를 설치했고, 훅이 그것을 '복구했습니다' 로 보고했다(실측 rc: 신규 0 / 기존 2).
+# 아래 판정은 **파일이 이미 있는 경우**를 계속 맡는다(두 상태를 각각 덮는다 — 죽은 코드가 아니다).
+case "$FILE" in
+  */.guarded-blobs | */.guarded-blobs/*)
+    deny ".guarded-blobs 는 탐지기가 관리하는 내용 저장소 — 신규 생성도 포함해 도구로 쓸 수 없다 (INV-14, F78 SC-5)" ;;
+esac
+
 if [[ ! -e "$FILE" ]]; then
   if is_protected "$FILE" || is_wiring_file "$FILE"; then
     __head_content_for "$FILE"
@@ -864,7 +875,9 @@ matcher_covers() {
 # 도구로 쓸 정당한 이유가 없고, 쓸 수 있으면 복구를 임의로 면제할 수 있다.
 # 2차 판정이 Write 경로로 임의 티켓을 넣는 것을 실증했다 — 그때는 이 브랜치가 없었다.
 case "$BASENAME" in
-  .guarded-edits | .integrity-baseline)
+  # F78: `.guarded-restore`(복구 대장)는 **복구 목표 그 자체**라 원장보다 더 직접적이다 —
+  # 도구로 쓸 수 있으면 '무엇으로 복구할지'를 임의로 정할 수 있다.
+  .guarded-edits | .guarded-restore | .integrity-baseline)
     deny "$BASENAME 는 탐지기가 관리하는 상태 파일 — 도구로 쓸 수 없다 (INV-14)" ;;
 esac
 # F78: blob 저장소도 같은 등급이다 — **복구 목표가 그 내용에서 나오므로** 도구로 쓸 수 있으면

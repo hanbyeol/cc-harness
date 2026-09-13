@@ -178,6 +178,113 @@ untracked_write() {  # $1 파일, $2 내용
   [ "$rc" -eq 0 ] || { echo "비-git 저장소의 보호 파일 편집이 막혔다(rc=$rc)"; return 1; }
 }
 
+# ---------------------------------------------------------------------------
+# 1차 독립 판정(2026-09-14)이 실측한 다섯 축 — 대표 형태 추상화가 지운 것들.
+# 교훈: "티켓 없는 임의의 쓰기" 하나로 묶으면서 **`git stash` 가 HEAD 일치를 경유한다**는
+# 성질이 사라졌고, blob 이 **언제나 신규 파일**이라는 성질도 검사되지 않았다.
+# ---------------------------------------------------------------------------
+
+@test "F78 1차 판정: git stash → 훅 → git stash pop → 훅 인터리빙에서도 심사 통과분이 보존된다" {
+  # 실제 배선에서는 **모든 Bash 호출이 훅을 발화**시키므로 이 인터리빙이 유일하게 가능한
+  # 순서다: stash 로 파일이 HEAD 와 같아지면 그 시점의 훅이 티켓을 **소비**하고, pop 이
+  # 되살린 내용은 티켓이 없어 HEAD 로 되돌아간다 — 심사 통과분 3건이 전부 사라진다.
+  approved_edit "$TARGET" $'\n# approved-1\n' > /dev/null
+  approved_edit "$TARGET" $'\n# approved-2\n' > /dev/null
+  approved_edit "$TARGET" $'\n# approved-3\n' > /dev/null
+  local want; want=$(cat "$LAB/$TARGET")
+
+  ( cd "$LAB" && git -c user.email=t@t -c user.name=t stash -q )
+  integrity > /dev/null          # stash 직후의 훅 발화(파일 == HEAD)
+  ( cd "$LAB" && git stash pop -q )
+  integrity > /dev/null          # pop 직후의 훅 발화
+
+  [ "$(cat "$LAB/$TARGET")" = "$want" ] || {
+    echo "stash/pop 인터리빙에서 심사 통과분이 사라졌다"
+    grep -c 'approved-' "$LAB/$TARGET" || true
+    return 1
+  }
+}
+
+@test "F78 1차 판정: 훅이 몇 번 발화하든 복구 목표는 같다(소비 ≠ 복구 목표 폐기)" {
+  approved_edit "$TARGET" $'\n# approved-1\n' > /dev/null
+  local want; want=$(cat "$LAB/$TARGET")
+  local i
+  for i in 1 2 3 4 5; do
+    ( cd "$LAB" && git checkout -q -- "$TARGET" )   # HEAD 일치 상태를 만든다(소비 유발)
+    integrity > /dev/null
+  done
+  untracked_write "$TARGET" 'PWNED'
+  integrity > /dev/null
+  [ "$(cat "$LAB/$TARGET")" = "$want" ] || {
+    echo "훅이 반복 발화한 뒤 복구 목표가 사라졌다"; return 1; }
+}
+
+@test "F78 1차 판정: blob 은 **신규 파일**로도 심을 수 없다(도구 경로)" {
+  # blob 이름이 내용 해시라 심는 행위는 언제나 신규 파일 생성이다 — 신규 파일을 통과시키는
+  # 조기 종료가 차단보다 앞서면 그 차단은 죽은 코드다(1차 판정 실측 rc: 신규 0 / 기존 2).
+  local content='# BACKDOOR' sha rc
+  sha=$( cd "$LAB" && printf '%s' "$content" | git hash-object --stdin )
+  mkdir -p "$LAB/progress/.guarded-blobs"
+  rc=$(guard_rc "$LAB/progress/.guarded-blobs/$sha" "$content")
+  [ "$rc" -eq 2 ] || { echo "신규 blob 심기가 도구 경로로 통과했다(rc=$rc)"; return 1; }
+}
+
+@test "F78 1차 판정: 원장·blob 에 쓰는 **입구**가 막힌다 — 철자가 아니라 실체 경로로 (종단)" {
+  # 1차 판정이 성공시킨 시나리오는 'blob 을 심고 원장에 sha 를 적으면 다음 복구가 그 내용을
+  # **설치**한다' 였다. 두 기록이 곧 '심사를 통과했다'는 근거이므로, 그 기록을 쓸 수 있는 상대는
+  # 정의상 심사를 위조할 수 있다 — 이 파일의 오래된 주석이 적어 둔 대로 티켓은 셸을 쥔 상대에게
+  # 위조 불가능하지 않다. 따라서 **막아야 하는 것은 복구가 아니라 입구**다: 도구 경로는
+  # invariant-guard 가(위 테스트), Bash 경로는 방화벽이 막는다. 방화벽 판정은 **철자가 아니라
+  # 실체 경로**여야 한다 — 판정자가 `ln -s .guarded-blobs progress/blobs` 한 줄로 철자를 피했다.
+  local d fw="$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh" c
+  mkdir -p "$LAB/progress/.guarded-blobs"
+  ( cd "$LAB/progress" && ln -sf .guarded-blobs blobs )
+  for c in "printf x > progress/.guarded-blobs/abc" \
+           "printf x > progress/blobs/abc" \
+           "cp /tmp/evil progress/blobs/abc" \
+           "printf x >> progress/.guarded-edits"; do
+    d=$( cd "$LAB" && printf '%s' "$(jq -n --arg c "$c" '{tool_input:{command:$c}}')" | bash "$fw" 2>&1 \
+           | jq -r '.hookSpecificOutput.permissionDecision // "allow"' 2>/dev/null || printf 'allow' )
+    [ "$d" != "allow" ] || { echo "탐지기 상태 저장소 쓰기가 allow 다: $c"; return 1; }
+  done
+  # 일상 리다이렉트에는 마찰이 없어야 한다(실체 판정이 과잉 차단으로 번지지 않는지).
+  for c in "echo hi > progress/notes.txt" "git diff > /tmp/d.patch"; do
+    d=$( cd "$LAB" && printf '%s' "$(jq -n --arg c "$c" '{tool_input:{command:$c}}')" | bash "$fw" 2>&1 \
+           | jq -r '.hookSpecificOutput.permissionDecision // "allow"' 2>/dev/null || printf 'allow' )
+    [ "$d" = "allow" ] || { echo "무관한 리다이렉트에 새 마찰: $c -> $d"; return 1; }
+  done
+}
+
+@test "F78 1차 판정: 티켓 없이 HEAD 로 되돌린 경우 보고가 그 사실을 말한다" {
+  # 헤더가 무조건 '마지막으로 심사를 통과한 내용으로 복구했습니다' 를 찍으면, 심사 통과분이
+  # 사라진 실행조차 그 문구를 출력한다(1차 판정이 그 출력을 근거로 '보고가 거짓' 이라고 적었다).
+  local out
+  untracked_write "$TARGET" 'PWNED'        # 티켓 이력 없음 → HEAD 폴백
+  out=$(integrity)
+  grep -qE 'HEAD' <<<"$out" || { echo "HEAD 폴백인데 보고가 그 사실을 말하지 않는다: $out"; return 1; }
+}
+
+@test "F78 1차 판정: 복구는 바이트 동일하다(후행 개행을 임의로 붙이지 않는다)" {
+  approved_edit "$TARGET" $'\n# approved-1\n' > /dev/null
+  local want_sum; want_sum=$(cksum < "$LAB/$TARGET")
+  untracked_write "$TARGET" 'PWNED'
+  integrity > /dev/null
+  [ "$(cksum < "$LAB/$TARGET")" = "$want_sum" ] || {
+    echo "복구 결과가 바이트 동일하지 않다(후행 개행 등)"; return 1; }
+}
+
+@test "F78 1차 판정: GC 상한 경계에서 잡음이 유효 티켓을 밀어내지 않는다" {
+  # 자르고 나서 거르면 잡음 2500줄이 유효 티켓을 상한 밖으로 밀어낸다 — 걸러낸 뒤 잘라야 한다.
+  local sha i
+  sha=$(approved_edit "$TARGET" $'\n# approved-1\n')
+  mkdir -p "$LAB/progress"
+  for i in $(seq 1 2500); do printf 'deadbeef settings.json\n' >> "$LAB/progress/.guarded-edits"; done
+  untracked_write "$TARGET" 'PWNED'
+  integrity > /dev/null
+  grep -q 'approved-1' "$LAB/$TARGET" || {
+    echo "잡음이 상한을 채워 유효 티켓이 밀려났다"; return 1; }
+}
+
 @test "F78: 참조되지 않는 blob 은 정리된다" {
   mkdir -p "$LAB/progress/.guarded-blobs"
   printf 'orphan' > "$LAB/progress/.guarded-blobs/0000000000000000000000000000000000000000"

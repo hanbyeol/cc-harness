@@ -258,7 +258,7 @@ arm_is_exemptable() {
   [[ "$p" == *'hooks\.json'* || "$p" == *'settings'* ]] && return 1
   # F78: `.guarded-blobs` 는 **심사를 통과한 내용 자체**를 담는다 — 복구 목표가 여기서 나오므로
   # 이 저장소에 내용을 심는 것은 '심사 통과'를 위조하는 것과 같다. 원장과 같은 등급으로 다룬다.
-  [[ "$p" == *'protected-integrity'* || "$p" == *'guarded-edits'* || "$p" == *'guarded-blobs'* || "$p" == *'integrity-baseline'* ]] && return 1
+  [[ "$p" == *'protected-integrity'* || "$p" == *'guarded-edits'* || "$p" == *'guarded-blobs'* || "$p" == *'guarded-restore'* || "$p" == *'integrity-baseline'* ]] && return 1
   # F68: 무인 중단 기록도 탐지기의 판단 근거와 같은 성격이다 — 지워지면 "멈췄다"는 사실이
   # 사라진다. 인터프리터로 읽는 마찰보다 기록이 남는 쪽이 값어치가 크므로 면제하지 않는다.
   [[ "$p" == *'approval-queue'* ]] && return 1
@@ -582,7 +582,7 @@ ASK_PATTERNS=(
   # 예측이 유일한 통제"인 정확히 그 클래스다. INV-11이 이 파일을 근거로 "evaluator가 실제로
   # 실행됐는가"를 판정하므로, Bash로 자유롭게 조작 가능하면 evaluator 실행 없이 로그를
   # 위조해 passes:true를 정당화할 수 있다(실측: Bash 직접 덮어쓰기·삭제가 allow였다).
-  '[^;|&]*(protected-integrity\.sh|\.guarded-edits|\.guarded-blobs|\.integrity-baseline|evaluator-runs\.jsonl)'
+  '[^;|&]*(protected-integrity\.sh|\.guarded-edits|\.guarded-blobs|\.guarded-restore|\.integrity-baseline|evaluator-runs\.jsonl)'
   # git 메타 조작 — 파일을 바꾸지 않고 **탐지를 실명시킨다**. 도구 이름이 확정적이고
   # 정상 개발에서 거의 쓰지 않으므로 게이트해도 마찰이 없다.
   'git\b[^;|&]*update-index[^;|&]*(--assume-unchanged|--skip-worktree|--no-assume-unchanged)'
@@ -3177,6 +3177,55 @@ if [ "$PURE_READ" -eq 0 ] && scan_control_plane_delete; then
   jq -n --arg reason "$__cp_reason" \
     '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "ask", permissionDecisionReason: $reason}}'
   exit 0
+fi
+
+# **F78 1차 독립 판정(2026-09-14) — 탐지기 상태 파일은 철자가 아니라 실체로 판정한다(SC-5).**
+# 위 ASK_PATTERNS 는 `\.guarded-blobs` 같은 **철자**를 찾는다. 판정자는 `ln -s .guarded-blobs
+# progress/blobs` 한 줄로 그 철자를 피해 blob 을 심었고, 원장 한 줄을 더해 `hooks/lib.sh` 에
+# 내용을 설치했다 — 복구 목표를 외부 저장소로 옮긴 변경이 만든 새 공격면이다.
+# 그래서 쓰기 대상의 **부모 디렉터리를 물리 경로로 풀어**(심볼릭 링크 해소) 그 안에 탐지기
+# 상태 디렉터리가 있는지 본다. 비용을 유계로 둔다: 리다이렉트(`>`·`>>`)가 있는 명령에서만,
+# 대상 토큰 최대 8개까지, 부모가 실제로 존재할 때만 서브셸을 쓴다.
+__guarded_state_write_target() {
+  local cmd="$1" tok parent phys n=0 __cands="" __w
+  # 후보 (1) 리다이렉트 대상. `>`·`>>` 뒤의 낱말(공백 유무 모두).
+  if [[ "$cmd" == *'>'* ]]; then
+    __cands=$(printf '%s' "$cmd" | tr ';|&' '   ' | sed -E 's/>>?/ > /g' \
+      | awk '{for(i=1;i<=NF;i++) if($i==">") print $(i+1)}')
+  fi
+  # 후보 (2) **쓰기 동사가 있으면 경로처럼 보이는 인자도 대상이다** — `cp /tmp/evil
+  # progress/blobs/abc` 처럼 리다이렉트 없이 심는 형태가 남아 있었다(이 라운드 자체 발견).
+  # 동사 목록은 이 파일이 이미 '파괴적 쓰기'로 쓰는 것 하나뿐이다(새 열거를 만들지 않는다).
+  for __w in "${ARM_DELETE_VERBS_UNCONDITIONAL[@]}"; do
+    if [[ " $cmd " == *" $__w "* ]]; then
+      __cands="$__cands
+$(printf '%s' "$cmd" | tr ';|&' '   ' | tr ' ' '\n' | grep '/' || true)"
+      break
+    fi
+  done
+  [[ -n "${__cands//[$'\n' ]/}" ]] || return 1
+  for tok in $__cands; do
+    n=$((n + 1)); [[ $n -gt 8 ]] && return 1
+    [[ -z "$tok" ]] && continue
+    tok=${tok//\'/}; tok=${tok//\"/}
+    case "$tok" in */*) parent="${tok%/*}" ;; *) parent="." ;; esac
+    [[ -d "$parent" ]] || continue
+    phys=$( cd "$parent" 2>/dev/null && pwd -P 2>/dev/null ) || continue
+    case "$phys" in
+      */.guarded-blobs|*/.guarded-blobs/*|*/.guarded-edits|*/.guarded-restore)
+        printf '%s' "$tok"; return 0 ;;
+    esac
+  done
+  return 1
+}
+if [ "$PURE_READ" -eq 0 ]; then
+  __gs_hit=$(__guarded_state_write_target "$NORMALIZED_CMD" || true)
+  if [[ -n "${__gs_hit:-}" ]]; then
+    log_decision ask
+    jq -n --arg reason "탐지기가 관리하는 상태 저장소에 쓰는 명령입니다 (pattern: guarded-state-write → $__gs_hit). 경로 표기가 아니라 실체 경로로 판정했습니다 — 심사 통과 기록을 위조하면 보호 파일에 임의 내용을 설치할 수 있습니다. 실행 전 확인이 필요합니다." \
+      '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "ask", permissionDecisionReason: $reason}}'
+    exit 0
+  fi
 fi
 
 if [ "$PURE_READ" -eq 0 ] && echo "$NORMALIZED_CMD" | grep -qiE "$(join_patterns "${ASK_PATTERNS[@]}")"; then
