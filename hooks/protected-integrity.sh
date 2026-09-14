@@ -367,7 +367,7 @@ done
   if [[ ${#FALLBACK[@]} -eq 0 ]]; then
     echo "cc-harness: 보호 파일이 티켓 없이 변경되어 **마지막으로 심사를 통과한 내용**으로 복구했습니다."
   elif [[ ${#FALLBACK[@]} -ge ${#RESTORED[@]} ]]; then
-    echo "cc-harness: 보호 파일이 티켓 없이 변경되어 **HEAD 내용**으로 되돌렸습니다(심사 통과 내용을 쓸 수 없었습니다)."
+    echo "cc-harness: 보호 파일이 티켓 없이 변경되어 **HEAD 내용**으로 복구했습니다(심사 통과 내용을 쓸 수 없었습니다)."
   else
     echo "cc-harness: 보호 파일이 티켓 없이 변경되어 복구했습니다 — 일부는 심사 통과 내용, 일부는 HEAD 입니다."
   fi
