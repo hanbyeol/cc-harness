@@ -224,6 +224,12 @@
       "contract": "progress/contracts/sprint-63.json",
       "security_tier": "critical",
       "summary": "[2026-08-28, F76 F37 2차 판정 발견 + 독립 재현] hooks/invariant-guard.sh의 root 유도 두 지점(`__head_content_for`·`record_guarded_edit`)이 `CLAUDE_PROJECT_DIR`를 무조건 신뢰해 `$FILE`이 실제로 그 안에 있는지 확인하지 않는다. 격리 랩 실측: `CLAUDE_PROJECT_DIR`를 `$FILE`이 속하지 않은 다른 저장소로 export하면 (1) `__head_content_for` 축은 HEAD 기준선을 잃고 F76의 무기준선 갈래로 조용히 떨어져 배선 제거가 exit 2 → exit 0, (2) `record_guarded_edit` 축은 root 해석 자체는 '성공'하지만 `$FILE`이 그 root 밖이라 경고 없이 티켓 발급이 스킵된다 — 정당한 편집이 다음 Bash 호출에서 protected-integrity에 의해 '미승인'으로 되돌려진다(F72가 막으려던 것과 같은 결과, 다른 경로). 실사용 경로: 이 하네스가 권장하는 `isolation:\"worktree\"` 서브에이전트가 원 저장소의 `CLAUDE_PROJECT_DIR`를 물려받은 채 워크트리 파일을 편집하는 경우. 권고 수정: F72의 원칙('root는 $FILE 위치에서 유도한다')을 CLAUDE_PROJECT_DIR에도 대칭 적용 — $FILE의 물리 경로를 먼저 구하고, CLAUDE_PROJECT_DIR가 그것을 포함할 때만 root로 채택, 아니면 $FILE 위치에서 git으로 직접 유도. 두 지점이 공유 헬퍼를 쓰게 해 강도 비대칭을 만들지 않는다."
+    },
+    {
+      "feature_id": "F78",
+      "contract": "progress/contracts/sprint-64.json",
+      "security_tier": "critical",
+      "summary": "[2026-09-13 등록, F65 42·43·44차 판정이 별도 finding 으로 지목] `hooks/protected-integrity.sh` 의 복구 목표가 **마지막으로 심사를 통과한 내용이 아니라 HEAD** 라서, 티켓 없는 쓰기 한 번이 그 파일에 쌓인 심사 통과분 **전체**를 버린다. F65 작업 중 3회 재발했고 방아쇠는 매번 달랐다(python3 편집·`git stash pop`·`sed -i`) — 방아쇠가 매번 다르다는 것이 '방아쇠를 막는 것으로는 닫히지 않는다'는 증거다. 인수 조건의 핵심 넷: (1) 복구 목표는 그 파일의 **마지막 티켓 내용**이고 HEAD 는 폴백이며 폴백 사유를 반드시 보고한다, (2) 티켓 **소비**(면제 무효화)와 **복구 목표**는 분리된다 — `git stash` 처럼 HEAD 일치를 경유하는 워크플로우에서 목표가 사라지면 안 된다, (3) 복구 목표를 정하는 상태 파일 넷(`.guarded-edits`·`.guarded-restore`·`.guarded-blobs`·`.integrity-baseline`)은 **단일 출처 목록**으로 정의되고 세 층(도구 차단·방화벽·GC)이 그것을 읽으며, 판정은 철자가 아니라 **실체 경로**이고 **파일 존재 여부와 무관**하다(1·2차 판정이 각각 blob 신규 생성과 복구 대장 부재 상태로 백도어를 실증했다), (4) 티켓은 **발행 시점 HEAD 에 묶이고** HEAD 가 움직이면 무효다 — 그러지 않으면 버려진 편집이 나중에 커밋된 내용을 덮는다(2차 판정 실증). 검증 방식: 곱을 **생성 규칙**으로 만들고(손 열거 금지), 목록 자체를 테스트로 고정하며(생성기가 축소를 따라가지 않도록), 각 보호 지점을 변이로 kill 확인한다. 배포까지가 인수 범위다 — 설치본에 적용되지 않으면 이 기능은 동작하지 않는다(1·2차 판정이 모두 지적)."
     }
   ]
 }

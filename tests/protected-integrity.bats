@@ -152,8 +152,11 @@ dirty()     { ( cd "$LAB" && git diff --name-only | wc -l | tr -d ' ' ) }
   # 개행을 잃은 채 계산되던 결함과 우연히 형태가 같았다 — 그래서 실사용에서는 모든 편집이
   # 복구되는데 테스트는 통과했다. 실제 파일과 같은 형태로 써야 그 결함이 드러난다.
   printf '%s\n' "$new" > "$f"
-  # 티켓 형식이 <해시> <경로> 인지
-  ( cd "$LAB" && head -1 progress/.guarded-edits | grep -qE '^[0-9a-f]{40} progress/harness-config\.json$' )
+  # 티켓 형식 — **F78 SC-8 로 발행 시점 HEAD 가 한 칸 더 들어간다**: `<내용sha> <HEAD|-> <경로>`.
+  # HEAD 를 묶는 이유는 승격된 복구 목표가 낡은 채 남아 커밋된 내용을 덮는 것을 막기 위해서다
+  # (2차 독립 판정 실증). 읽는 쪽은 구 형식(`<sha> <경로>`)도 계속 받는다.
+  ( cd "$LAB" && head -1 progress/.guarded-edits \
+      | grep -qE '^[0-9a-f]{40} ([0-9a-f]{40}|-) progress/harness-config\.json$' )
   # 내용이 그대로인 동안은 몇 번을 검사해도 살아남는다
   integrity
   [ "$( cd "$LAB" && jq -r .scoring.pass_threshold progress/harness-config.json )" = "8" ]

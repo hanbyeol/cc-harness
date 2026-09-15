@@ -20,6 +20,23 @@ INPUT=$(cat 2>/dev/null || echo "")
 has_jq() { command -v jq &>/dev/null; }
 has_awk() { command -v awk &>/dev/null; }
 
+# **탐지기 상태 파일의 단일 출처(F78 SC-7)** — `lib.sh` 가 `GUARDED_STATE_NAMES` 와 두 판정
+# 함수를 정의한다. 이 훅은 lib.sh 를 쓰지 않던 파일이라 여기서 명시적으로 들여온다.
+# lib.sh 가 없거나 읽히지 않으면 **최소 판정을 인라인으로 세운다** — 목록이 사라졌다고 해서
+# 상태 파일 쓰기가 통과하면 그것이 곧 2차 판정이 뚫은 구멍이다(fail-closed).
+# shellcheck source=/dev/null  # 따라가지 않는다 — 다중 파일 분석에서 교차 경고가 생긴다
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh" 2>/dev/null || true
+if ! declare -f is_guarded_state_physical >/dev/null 2>&1; then
+  GUARDED_STATE_NAMES=(.guarded-edits .guarded-restore .guarded-blobs .integrity-baseline)
+  is_guarded_state_physical() {
+    local p="$1" n
+    for n in "${GUARDED_STATE_NAMES[@]}"; do
+      case "$p" in "$n"|*/"$n"|"$n"/*|*/"$n"/*) return 0 ;; esac
+    done
+    return 1
+  }
+fi
+
 # is_protected: 편집 대상이 하네스 보호 파일인가? (단일 출처)
 # 아래 jq-존재 디스패치 브랜치들이 개별 검사하는 파일 집합과 동일하게 유지한다 —
 # 하드코딩 중복 drift를 막기 위해 보호 대상 목록을 이 함수 하나로 정의한다.
@@ -577,16 +594,14 @@ __head_content_for() {
   return 0
 }
 
-# **F78 1차 독립 판정(2026-09-14) — blob 저장소 판정은 신규 파일 분기보다 앞에 있어야 한다.**
-# blob 파일명은 **내용 해시**이므로 심는 행위는 **언제나 신규 파일 생성**이다. 아래쪽(:874 부근)
-# 에도 같은 판정이 있지만 그 자리는 `[[ ! -e "$FILE" ]]` → `*) exit 0` 다음이라 신규 파일에는
-# 도달하지 못했다 — 판정자가 그 틈으로 blob 을 심고 원장 한 줄을 더해 `hooks/lib.sh` 에
-# `# BACKDOOR` 를 설치했고, 훅이 그것을 '복구했습니다' 로 보고했다(실측 rc: 신규 0 / 기존 2).
-# 아래 판정은 **파일이 이미 있는 경우**를 계속 맡는다(두 상태를 각각 덮는다 — 죽은 코드가 아니다).
-case "$FILE" in
-  */.guarded-blobs | */.guarded-blobs/*)
-    deny ".guarded-blobs 는 탐지기가 관리하는 내용 저장소 — 신규 생성도 포함해 도구로 쓸 수 없다 (INV-14, F78 SC-5)" ;;
-esac
+# **F78 SC-7(2차 독립 판정, 2026-09-14) — 탐지기 상태 파일 **넷 모두**를 신규 파일 분기보다
+# 앞에서 판정한다.** 1차 대응은 `.guarded-blobs` **하나만** 이 자리로 옮겼고, 나머지 셋은
+# `[[ ! -e "$FILE" ]]` → `*) exit 0` 뒤에 남아 있었다 — 그래서 2차 판정이 **파일이 아직 없는
+# `.guarded-restore`** 에 도구 Write 를 성공시켜 같은 백도어를 재현했다(`pass_threshold` 를 1 로
+# 설치). 목록은 `lib.sh` 의 `GUARDED_STATE_NAMES` 하나이고 판정은 철자가 아니라 **성분·실체**다.
+if is_guarded_state_physical "$FILE"; then
+  deny "탐지기가 관리하는 상태 파일(무엇이 심사를 통과했고 무엇으로 복구할지를 정한다) — 신규 생성·별칭 포함해 도구로 쓸 수 없다 (INV-14, F78 SC-7)"
+fi
 
 if [[ ! -e "$FILE" ]]; then
   if is_protected "$FILE" || is_wiring_file "$FILE"; then
@@ -721,7 +736,15 @@ record_guarded_edit() {
     __ticket_required_or_die "git hash-object 로 내용 해시를 만들지 못했습니다"
     return 0
   fi
-  printf '%s %s\n' "$sha" "$rel" >> "$root/progress/.guarded-edits" 2>/dev/null || true
+  # **F78 SC-8(2차 독립 판정) — 티켓은 발행 시점의 HEAD 에 묶인다.** 2차 회전이 소비된 티켓을
+  # 복구 대장으로 승격하면서 **낡은 목표의 수명이 무한**이 됐다: 버려진 편집의 티켓이 남은 채
+  # 다른 내용이 커밋되면 이후 복구가 그 낡은 내용을 되살린다(판정자 실증 — `FEATURE-A` 가
+  # `COMMITTED-B` 를 덮었다). 줄에 그때의 HEAD sha 를 함께 적어 두면, 복구 시점에 HEAD 가
+  # 움직였는지 **기계적으로** 알 수 있다. 형식은 `<내용sha> <HEAD sha> <경로>` 이고, HEAD 가
+  # 없을 때(빈 저장소)는 `-` 를 쓴다 — 읽는 쪽이 두 형식을 모두 받아들인다(구 형식은 staleness
+  # 판정 대상이 아니라 종전대로 취급된다).
+  local __head_at; __head_at=$(git -C "$root" rev-parse --verify -q HEAD 2>/dev/null || printf '-')
+  printf '%s %s %s\n' "$sha" "$__head_at" "$rel" >> "$root/progress/.guarded-edits" 2>/dev/null || true
   # **F78(sprint-64): 티켓이 내용을 복구할 수 있어야 한다.** 티켓이 `sha rel` 뿐이면
   # `protected-integrity.sh` 는 "이 내용이 심사를 통과했다"만 알 뿐 그 내용을 되살릴 수 없어
   # HEAD 로 되돌릴 수밖에 없었다 — 그래서 티켓 없는 쓰기 한 번이 **그 파일에 쌓인 심사 통과분
@@ -964,7 +987,12 @@ if [[ "$BASENAME" == "settings.json" ]]; then
   # 차단이라 승인 프롬프트가 없다 — 실제 경로는 사람이 그 편집을 직접 하는 것이다(INV-13에
   # 같은 문장이 있다). 스위치별 방향·범위
   # 예외를 두는 대안은 '빠뜨린 조건'이라는 새 우회 표면을 만들므로 택하지 않았다.
-  HOOK_KILL_SWITCHES="disableAllHooks allowManagedHooksOnly disableCommandPluginSources"
+  # `bashEditDiffEnabled`(2026-09-15 추가): 스키마 설명이 "PostToolUse Bash hooks get the changed
+  # files" 라고 적는다 — 끄면 PostToolUse Bash 훅이 받는 **입력이 줄어든다**. 이 하네스의 탐지는
+  # git 을 직접 보므로 당장은 영향이 없지만, F75 의 완전성 프로브가 강제하는 규칙은 '훅 실행에
+  # 영향을 주는 스키마 boolean 은 전부 등록한다' 이고 이 키는 그 정의에 든다(드리프트 탐지가
+  # 실제로 새 키를 잡아 여기로 데려온 사례다).
+  HOOK_KILL_SWITCHES="disableAllHooks allowManagedHooksOnly disableCommandPluginSources bashEditDiffEnabled"
   # 각 배선을 [event, matcher, tojson(hook)] JSON 배열 한 줄로 추출한다 — 구분자·제어문자
   # 불필요(jq -c가 개행 없는 한 줄을 보장하고, 필드는 아래에서 다시 jq로 뽑는다). 이전엔 탭·SOH
   # 구분자를 썼으나 탭은 read의 whitespace라 빈 matcher에서 필드가 밀렸고 제어문자는 파일에

@@ -48,7 +48,12 @@ approved_edit() {  # $1 파일, $2 이어 붙일 내용
   # 읽혀 후행 개행이 이미 제거됨)과 검증(`printf '%s' "$(cat f)"`)이 둘 다 후행 개행을 무시한다 —
   # `git hash-object f`(파일 그대로)를 쓰면 개행으로 끝나는 파일에서 값이 달라져 티켓이 무효가 된다.
   sha=$( cd "$LAB" && printf '%s' "$(cat "$f")" | git hash-object --stdin )
-  printf '%s %s\n' "$sha" "$f" >> "$LAB/progress/.guarded-edits"
+  # **훅이 실제로 쓰는 형식을 쓴다(F78 SC-8)**: `<내용sha> <발행 시점 HEAD> <경로>`.
+  # 구 형식(`<sha> <경로>`)으로 쓰면 staleness 판정이 비활성화돼(그 형식은 `-` 로 취급된다)
+  # 이 파일의 staleness 테스트가 **아무것도 검사하지 않는 채 통과**한다 — 픽스처가 축을
+  # 지우는 그 실패 양식이다(이 라운드 자체 발견).
+  local head_at; head_at=$( cd "$LAB" && git rev-parse --verify -q HEAD 2>/dev/null || printf '-' )
+  printf '%s %s %s\n' "$sha" "$head_at" "$f" >> "$LAB/progress/.guarded-edits"
   mkdir -p "$LAB/progress/.guarded-blobs"
   cp "$LAB/$f" "$LAB/progress/.guarded-blobs/$sha"
   printf '%s' "$sha"
@@ -283,6 +288,116 @@ untracked_write() {  # $1 파일, $2 내용
   integrity > /dev/null
   grep -q 'approved-1' "$LAB/$TARGET" || {
     echo "잡음이 상한을 채워 유효 티켓이 밀려났다"; return 1; }
+}
+
+# ---------------------------------------------------------------------------
+# 2차 독립 판정(2026-09-14) — **생성 규칙**으로 쓴다.
+# 2차의 요지는 "손으로 열거하면 다음 라운드에 또 한 원소가 빠진다" 였다. 실제로 1차 대응이
+# 상태 파일 넷 중 **하나만** 조기 종료 앞으로 옮겨서 같은 백도어가 `.guarded-restore` 로
+# 옮겨갔다. 그래서 여기서는 {상태 파일} × {존재·부재} × {쓰기 수단} × {별칭}을 **코드로 생성**한다.
+# ---------------------------------------------------------------------------
+
+# 단일 출처를 테스트도 그대로 읽는다 — 훅과 다른 목록을 테스트가 따로 적으면 그 순간 축이 갈라진다.
+guarded_state_names() {
+  # shellcheck disable=SC1090
+  source "$BATS_TEST_DIRNAME/../hooks/lib.sh" 2>/dev/null || true
+  printf '%s\n' "${GUARDED_STATE_NAMES[@]}"
+}
+
+@test "F78 2차 판정: 상태 파일 목록 자체를 고정한다(생성기가 축소를 따라가지 않도록)" {
+  # **생성 규칙 테스트의 맹점**: 곱을 단일 출처에서 읽으면, 목록에서 원소를 빼는 변이가
+  # 테스트의 기대까지 함께 줄여 **아무것도 실패하지 않는다**(이 라운드 변이 M1 이 그렇게
+  # 살아남았다). F65 에서 생성기 산출 수를 고정한 것과 같은 이유로 목록 자체를 고정한다 —
+  # 원소를 더하는 것은 add-only 로 허용하고, **빼는 것은 이 테스트가 막는다**.
+  local names; names=$(guarded_state_names)
+  local n; n=$(printf '%s\n' "$names" | grep -c .)
+  [ "$n" -eq 4 ] || { echo "상태 파일 목록이 4종이 아니다: $n (원소를 더했으면 이 수를 올린다)"; return 1; }
+  local want
+  for want in .guarded-edits .guarded-restore .guarded-blobs .integrity-baseline; do
+    grep -qxF "$want" <<<"$names" || { echo "상태 파일 목록에서 빠졌다: $want"; return 1; }
+  done
+}
+
+@test "F78 2차 판정: 상태 파일 × 존재·부재 × 도구 경로 — 전수 차단(생성)" {
+  local n target rc fails=()
+  while IFS= read -r n; do
+    case "$n" in
+      .guarded-blobs) target="progress/$n/0000000000000000000000000000000000000000" ;;
+      *)              target="progress/$n" ;;
+    esac
+    # (1) 파일 부재 상태 — blob 이름은 내용 해시라 심는 행위가 **언제나 신규 생성**이다.
+    rm -f "$LAB/$target"
+    rc=$(guard_rc "$LAB/$target" 'x')
+    [ "$rc" -eq 2 ] || fails+=("부재 상태에서 통과: $target (rc=$rc)")
+    # (2) 파일 존재 상태
+    mkdir -p "$(dirname "$LAB/$target")"; printf 'y' > "$LAB/$target"
+    rc=$(guard_rc "$LAB/$target" 'x')
+    [ "$rc" -eq 2 ] || fails+=("존재 상태에서 통과: $target (rc=$rc)")
+    rm -f "$LAB/$target"
+  done < <(guarded_state_names)
+  [[ ${#fails[@]} -eq 0 ]] || { printf 'LEAK %s\n' "${fails[@]}"; return 1; }
+}
+
+@test "F78 2차 판정: 상태 파일 × 쓰기 수단 × 별칭 — 전수 차단(생성, Bash 경로)" {
+  # 쓰기 수단을 열거해서 막는 것이 아니라 **대상 경로**로 판정한다 — 그래야 `dd of=`·인터프리터
+  # 처럼 열거 밖의 수단도 같은 판정에 걸린다(2차 판정이 실측한 우회 3종).
+  local fw="$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh"
+  local n base alias_base tmpl d fails=()
+  mkdir -p "$LAB/progress/.guarded-blobs"
+  ( cd "$LAB/progress" && ln -sf .guarded-blobs blobs )
+  while IFS= read -r n; do
+    case "$n" in
+      .guarded-blobs) base="progress/$n/abc"; alias_base="progress/blobs/abc" ;;
+      *)              base="progress/$n";     alias_base="" ;;
+    esac
+    for tmpl in 'printf x > %s' 'printf x >> %s' 'cp /tmp/e %s' 'dd if=/dev/zero of=%s' 'tee %s'; do
+      # shellcheck disable=SC2059
+      for target in "$base" ${alias_base:+"$alias_base"}; do
+        d=$( cd "$LAB" && printf '%s' "$(jq -n --arg c "$(printf "$tmpl" "$target")" '{tool_input:{command:$c}}')" \
+               | bash "$fw" 2>&1 | jq -r '.hookSpecificOutput.permissionDecision // "allow"' 2>/dev/null || printf 'allow' )
+        [ "$d" = "allow" ] && fails+=("$(printf "$tmpl" "$target") -> allow")
+      done
+    done
+  done < <(guarded_state_names)
+  [[ ${#fails[@]} -eq 0 ]] || { printf 'LEAK %s\n' "${fails[@]}"; return 1; }
+}
+
+@test "F78 2차 판정: 낡은 티켓은 커밋된 내용을 덮지 않는다(staleness)" {
+  # 2차 판정 실증: 버려진 `FEATURE-A` 편집의 티켓이 대장에 남은 채 `COMMITTED-B` 를 커밋하면,
+  # 이후 복구가 FEATURE-A 를 되살려 커밋된 내용을 덮었다. 승격이 낡은 목표의 수명을 무한으로
+  # 만든 것이 원인이다 — 티켓을 발행 시점 HEAD 에 묶어 그 사이 HEAD 가 움직이면 무효로 본다.
+  approved_edit "$TARGET" $'\n# FEATURE-A\n' > /dev/null
+  ( cd "$LAB" && git checkout -q -- "$TARGET" )        # 편집을 버린다(티켓만 남는다)
+  integrity > /dev/null                                # 소비 → 복구 대장으로 승격
+  printf '\n# COMMITTED-B\n' >> "$LAB/$TARGET"
+  ( cd "$LAB" && git add -A && git -c user.email=t@t -c user.name=t commit -qm b )
+  local want; want=$(cat "$LAB/$TARGET")
+  untracked_write "$TARGET" 'PWNED'
+  local out; out=$(integrity)
+  [ "$(cat "$LAB/$TARGET")" = "$want" ] || {
+    echo "낡은 티켓이 커밋된 내용을 덮었다"; grep -c 'FEATURE-A' "$LAB/$TARGET" || true; return 1; }
+  grep -q 'FEATURE-A' "$LAB/$TARGET" && { echo "버려진 편집이 되살아났다"; return 1; }
+  grep -qE 'HEAD' <<<"$out" || { echo "무효 사유가 보고되지 않았다: $out"; return 1; }
+}
+
+@test "F78 2차 판정: 복구 대장에도 원장과 같은 GC·형식 검증이 적용된다" {
+  # 2차 판정: 대장에 GC·형식 검증이 전혀 없어 `deadbeef ../../etc/passwd`·`GARBAGE` 가 남았고,
+  # 조회가 그 파일로 폴스루하므로 **검증 없는 평면이 복구 목표를 결정**했다.
+  approved_edit "$TARGET" $'\n# approved-1\n' > /dev/null
+  ( cd "$LAB" && git checkout -q -- "$TARGET" )
+  integrity > /dev/null                                 # 대장 생성(승격)
+  {
+    printf 'deadbeef ../../etc/passwd\n'
+    printf 'GARBAGE\n'
+    printf '%040d settings.json\n' 0
+  } >> "$LAB/progress/.guarded-restore"
+  integrity > /dev/null
+  local bad
+  for bad in 'etc/passwd' 'GARBAGE' ' settings.json'; do
+    if grep -qF "$bad" "$LAB/progress/.guarded-restore" 2>/dev/null; then
+      echo "복구 대장에 걸러져야 할 줄이 남았다: $bad"; return 1
+    fi
+  done
 }
 
 @test "F78: 참조되지 않는 blob 은 정리된다" {

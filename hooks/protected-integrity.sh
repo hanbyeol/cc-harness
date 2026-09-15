@@ -146,8 +146,12 @@ consume_ticket() {
   # 모든 Bash 호출이 훅을 발화시키므로 `git stash`(파일 == HEAD → 여기서 소비) → `git stash pop`
   # 순서가 유일하게 가능한 인터리빙이고, pop 이 되살린 내용은 티켓이 없어 HEAD 로 되돌아가
   # 심사 통과분이 전부 사라졌다(1차 판정 재현). 대장은 경로당 한 줄만 유지한다(마지막 것).
-  local __last
-  __last=$(grep -E "^[0-9a-f]{40} $(printf '%s' "$path" | sed 's/[].[^$\\*\/]/\\&/g')\$" "$TICKETS" 2>/dev/null | tail -1)
+  # **두 형식을 모두 받는다(SC-8)**: 구 `<sha> <경로>` · 신 `<sha> <HEAD|-> <경로>`.
+  # 구 형식 패턴만 보면 신 형식 티켓이 승격되지 않아 `git stash pop` 축이 다시 열린다
+  # (이 라운드 자체 발견 — 형식을 바꾸면 그 형식을 읽는 **모든** 자리를 함께 옮겨야 한다).
+  local __last __esc
+  __esc=$(printf '%s' "$path" | sed 's/[].[^$\\*\/]/\\&/g')
+  __last=$(grep -E "^[0-9a-f]{40} ($__esc|([0-9a-f]{40}|-) $__esc)\$" "$TICKETS" 2>/dev/null | tail -1)
   if [[ -n "$__last" ]]; then
     local __rtmp
     __rtmp=$(mktemp) || __rtmp=""
@@ -181,7 +185,30 @@ consume_ticket() {
 # 정리한다. 자르는 것이 안전한 이유는 티켓이 오래될수록 그 내용이 이미 커밋돼(=HEAD 와 같아져)
 # 소비됐을 가능성이 크고, 남지 않은 티켓은 HEAD 폴백으로 내려갈 뿐 보호가 약해지지 않기 때문이다.
 GC_MAX_LINES=2000
-gc_ledger_and_blobs() {
+# **두 대장에 같은 규칙을 적용한다(F78 SC-7·SC-8, 2차 독립 판정).** 2차 회전은 원장만 정리하고
+# **복구 대장에는 GC·형식 검증을 두지 않았다** — `deadbeef ../../etc/passwd`·`GARBAGE` 같은 줄이
+# 훅을 세 번 돌려도 남았고, `last_ticket_sha()` 가 그리로 폴스루하므로 **검증 없는 평면이 복구
+# 목표를 결정**했다. 정리 규칙을 파일 인자로 받는 함수 하나로 두고 둘 다 그것을 거친다.
+# 줄에서 내용 sha 와 발행 시점 HEAD 를 뽑는다. 두 형식을 받는다(F78 SC-8):
+#   신형 `<내용sha> <HEAD sha|-> <경로>` · 구형 `<내용sha> <경로>`(staleness 판정 없음)
+# **정의는 GC 보다 앞에 있어야 한다** — GC 가 이 둘을 쓴다(자체 발견: 뒤에 두었더니
+# `__ticket_fresh: 명령을 찾을 수 없음` 으로 GC 가 모든 줄을 버렸고 복구 목표가 통째로 사라졌다).
+__ticket_fields() {  # $1 줄 → "sha head" (head 가 없으면 "-")
+  local line="$1" a b
+  a="${line%% *}"; b="${line#* }"; b="${b%% *}"
+  if [[ "$b" =~ ^([0-9a-f]{40}|-)$ ]]; then printf '%s %s' "$a" "$b"; else printf '%s -' "$a"; fi
+}
+# 그 줄이 **지금 복구 목표로 쓰기에 유효한가** — 발행 시점 HEAD 가 현재 HEAD 와 같아야 한다.
+# 다르면 그 사이에 다른 내용이 커밋됐다는 뜻이고, 그 티켓으로 복구하면 커밋된 내용을 덮는다.
+__ticket_fresh() {  # $1 head_at
+  local head_at="$1" now
+  [[ "$head_at" == "-" ]] && return 0      # 구 형식·빈 저장소 — 종전대로 취급
+  now=$(git rev-parse --verify -q HEAD 2>/dev/null || printf '-')
+  [[ "$head_at" == "$now" ]]
+}
+
+gc_ledger_file() {  # $1 대장 경로
+  local TICKETS="$1"
   [[ -f "$TICKETS" ]] || return 0
   local tmp n
   n=$(wc -l < "$TICKETS" 2>/dev/null | tr -d ' ')
@@ -192,12 +219,24 @@ gc_ledger_and_blobs() {
   # 여기서는 전량을 거르고, 거른 결과가 상한을 넘을 때만 오래된 쪽을 버린다.
   cat "$TICKETS" > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 0; }
   local keep; keep=$(mktemp) || { rm -f "$tmp"; return 0; }
-  local line sha rel g ok
+  local line sha rel g ok head_at rest
   while IFS= read -r line; do
-    sha="${line%% *}"; rel="${line#* }"
+    sha="${line%% *}"; rest="${line#* }"
     [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || continue          # (1) 형식
-    [[ -n "$rel" && "$rel" != "$line" ]] || continue
+    [[ -n "$rest" && "$rest" != "$line" ]] || continue
+    # 신형 `<sha> <HEAD|-> <경로>` 와 구형 `<sha> <경로>` 를 모두 받는다(SC-8).
+    head_at="${rest%% *}"
+    if [[ "$head_at" =~ ^([0-9a-f]{40}|-)$ && "$rest" == *" "* ]]; then
+      rel="${rest#* }"
+    else
+      # 구 형식(`<sha> <경로>`) — 두 번째 낱말은 **경로**지 HEAD 가 아니다. 여기서 `head_at` 을
+      # 되돌리지 않으면 `__ticket_fresh` 가 경로를 HEAD 로 비교해 **모든 구 형식 줄을 버린다**
+      # (자체 발견: 원장이 통째로 비고 복구 목표가 사라졌다).
+      rel="$rest"; head_at="-"
+    fi
     case "$rel" in /*|*..*) continue ;; esac             # (3) root 안의 상대 경로
+    # (4) **낡은 줄은 버린다(SC-8)** — 발행 시점 HEAD 가 현재와 다르면 그 목표는 이미 무효다.
+    __ticket_fresh "$head_at" || continue
     ok=1
     for g in "${PROTECTED_GLOBS[@]}"; do                 # (2) 보호 대상
       # shellcheck disable=SC2053
@@ -214,6 +253,11 @@ gc_ledger_and_blobs() {
     fi
   fi
   mv -f "$keep" "$TICKETS" 2>/dev/null || rm -f "$keep"
+}
+
+gc_ledger_and_blobs() {
+  gc_ledger_file "$TICKETS"
+  gc_ledger_file "$RESTORE_LEDGER"
   # 참조되지 않는 blob 정리.
   [[ -d "$BLOBS" ]] || return 0
   local b base
@@ -307,19 +351,26 @@ fi
 # 원장의 그 파일 마지막 티켓이 가리키는 blob 으로 되돌리고, 없거나 믿을 수 없으면 HEAD 로
 # 폴백한다. 폴백은 **조용히 하지 않는다** — 사유를 사용자 보고에 넣는다.
 # 그 파일의 마지막 티켓 sha(원장은 append-only 라 마지막 줄이 가장 최근이다).
+STALE_REASON=""
 last_ticket_sha() {
   local path="$1" esc line
   esc=$(printf '%s' "$path" | sed 's/[].[^$\\*\/]/\\&/g')
   # 원장(아직 소비되지 않은 티켓)을 먼저 보고, 없으면 **복구 대장**(소비되며 승격된 것)을 본다.
   # 소비가 복구 목표를 지우지 않는다는 것이 SC-6 이다.
-  if [[ -f "$TICKETS" ]]; then
-    line=$(grep -E "^[0-9a-f]{40} $esc\$" "$TICKETS" 2>/dev/null | tail -1)
-    [[ -n "$line" ]] && { printf '%s' "${line%% *}"; return 0; }
-  fi
-  if [[ -f "$RESTORE_LEDGER" ]]; then
-    line=$(grep -E "^[0-9a-f]{40} $esc\$" "$RESTORE_LEDGER" 2>/dev/null | tail -1)
-    [[ -n "$line" ]] && { printf '%s' "${line%% *}"; return 0; }
-  fi
+  # 두 형식을 모두 읽는다: `<sha> <경로>`(구) · `<sha> <HEAD|-> <경로>`(신, SC-8).
+  local f sha head_at
+  STALE_REASON=""
+  for f in "$TICKETS" "$RESTORE_LEDGER"; do
+    [[ -f "$f" ]] || continue
+    line=$(grep -E "^[0-9a-f]{40} ($esc|([0-9a-f]{40}|-) $esc)\$" "$f" 2>/dev/null | tail -1)
+    [[ -n "$line" ]] || continue
+    read -r sha head_at <<<"$(__ticket_fields "$line")"
+    if __ticket_fresh "$head_at"; then printf '%s' "$sha"; return 0; fi
+    # **낡은 목표는 쓰지 않는다(SC-8).** 발행 이후 HEAD 가 움직였다면 그 사이 커밋된 내용이
+    # 있고, 이 티켓으로 복구하면 그것을 덮는다 — 2차 판정이 `FEATURE-A` 로 `COMMITTED-B` 를
+    # 덮어 실증한 회귀다. 조용히 넘기지 않고 사유를 남겨 보고에 싣는다.
+    STALE_REASON="발행 시점 HEAD(${head_at:0:8})가 현재 HEAD 와 달라 티켓을 무효로 봄"
+  done
   return 1
 }
 # blob 은 **내용 주소로만** 신뢰한다(SC-2): 파일명(sha)과 내용의 해시가 같을 때만 쓴다.
@@ -350,6 +401,9 @@ for f in "${CHANGED[@]}"; do
     fi
   elif [[ -n "$tsha" ]]; then
     FALLBACK+=("$f: blob 이 없거나 내용 주소가 어긋나(위조 가능성) HEAD 로 되돌림")
+  elif [[ -n "${STALE_REASON:-}" ]]; then
+    # SC-8: 티켓은 있었으나 발행 이후 HEAD 가 움직여 무효다.
+    FALLBACK+=("$f: $STALE_REASON — HEAD 로 되돌림")
   else
     # **티켓 부재도 폴백 사유다(F78 1차 판정).** 이 줄이 없으면 `FALLBACK` 이 빈 채로 남아
     # 헤더가 '마지막으로 심사를 통과한 내용으로 복구했습니다' 를 찍는다 — 심사 통과분이

@@ -6,6 +6,22 @@ set -euo pipefail
 # 단계(NORMALIZED_CMD 구성)만으로도 매우 큰 입력에서는 몇 초가 걸릴 수 있어, 함수
 # 진입 시점부터 재면 이미 예산의 상당 부분이 조용히 소모된 뒤일 수 있다.
 __HOOK_START_NS=$(date +%s%N)
+
+# **탐지기 상태 파일의 단일 출처(F78 SC-7)** — `lib.sh` 가 `GUARDED_STATE_NAMES` 와 판정 함수를
+# 정의한다. 없으면 최소 판정을 인라인으로 세운다(fail-closed — 목록이 사라졌다고 상태 파일
+# 쓰기가 통과하면 그것이 2차 판정이 뚫은 구멍 그대로다).
+# shellcheck source=/dev/null  # 따라가지 않는다 — 다중 파일 분석에서 교차 경고가 생긴다
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh" 2>/dev/null || true
+if ! declare -f is_guarded_state_physical >/dev/null 2>&1; then
+  GUARDED_STATE_NAMES=(.guarded-edits .guarded-restore .guarded-blobs .integrity-baseline)
+  is_guarded_state_physical() {
+    local p="$1" n
+    for n in "${GUARDED_STATE_NAMES[@]}"; do
+      case "$p" in "$n"|*/"$n"|"$n"/*|*/"$n"/*) return 0 ;; esac
+    done
+    return 1
+  }
+fi
 INPUT=$(cat)
 if ! command -v jq &>/dev/null; then
   # jq 없이는 명령을 파싱할 수 없다 — 조용한 fail-open 대신 경고를 남긴다
@@ -3187,7 +3203,7 @@ fi
 # 상태 디렉터리가 있는지 본다. 비용을 유계로 둔다: 리다이렉트(`>`·`>>`)가 있는 명령에서만,
 # 대상 토큰 최대 8개까지, 부모가 실제로 존재할 때만 서브셸을 쓴다.
 __guarded_state_write_target() {
-  local cmd="$1" tok parent phys n=0 __cands="" __w
+  local cmd="$1" tok n=0 __cands="" __w
   # 후보 (1) 리다이렉트 대상. `>`·`>>` 뒤의 낱말(공백 유무 모두).
   if [[ "$cmd" == *'>'* ]]; then
     __cands=$(printf '%s' "$cmd" | tr ';|&' '   ' | sed -E 's/>>?/ > /g' \
@@ -3208,13 +3224,14 @@ $(printf '%s' "$cmd" | tr ';|&' '   ' | tr ' ' '\n' | grep '/' || true)"
     n=$((n + 1)); [[ $n -gt 8 ]] && return 1
     [[ -z "$tok" ]] && continue
     tok=${tok//\'/}; tok=${tok//\"/}
-    case "$tok" in */*) parent="${tok%/*}" ;; *) parent="." ;; esac
-    [[ -d "$parent" ]] || continue
-    phys=$( cd "$parent" 2>/dev/null && pwd -P 2>/dev/null ) || continue
-    case "$phys" in
-      */.guarded-blobs|*/.guarded-blobs/*|*/.guarded-edits|*/.guarded-restore)
-        printf '%s' "$tok"; return 0 ;;
-    esac
+    # `dd of=x`·`if=y` 처럼 **접두사가 붙은 피연산자**는 값만 떼어 본다(2차 판정 우회 3종 중
+    # 하나: `of=progress/blobs/abc` 는 부모가 `of=progress/blobs` 로 잡혀 판정에서 탈락했다).
+    case "$tok" in *=*) tok="${tok#*=}" ;; esac
+    [[ -z "$tok" ]] && continue
+    # **판정은 단일 출처(`lib.sh` 의 `is_guarded_state_physical`)가 한다** — 대상이 파일이든
+    # 디렉터리든, 철자든 심볼릭 링크 별칭이든 같은 규칙이다. 2차 판정: 부모만 물리화하던
+    # 이전 구현은 대상이 **파일**인 두 원장에 원리적으로 매치할 수 없어 그 분기가 죽은 코드였다.
+    if is_guarded_state_physical "$tok"; then printf '%s' "$tok"; return 0; fi
   done
   return 1
 }

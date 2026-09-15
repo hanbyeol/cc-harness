@@ -9,6 +9,54 @@
 # jq 사용 가능 여부
 has_jq() { command -v jq &>/dev/null; }
 
+# ---------------------------------------------------------------------------
+# **탐지기 상태 파일 — 단일 출처(F78 SC-7, 2차 독립 판정 2026-09-14).**
+#
+# 이 넷은 "무엇이 심사를 통과했는가"와 "무엇으로 복구할 것인가"를 결정한다. 쓸 수 있는 상대는
+# 심사 통과를 위조할 수 있고, 실제로 판정자가 그렇게 해서 `pass_threshold` 를 1 로 설치했다.
+# 목록이 네 곳에 따로 열거돼 있었고 2차 회전이 **그 중 하나(`.guarded-blobs`)만 고쳐서**
+# 같은 백도어가 `.guarded-restore` 로 옮겨갔다 — 그래서 목록을 여기 한 곳에 둔다.
+# 세 층이 이것을 읽는다: invariant-guard(도구 쓰기 차단)·pre-bash-firewall(Bash 경로 판정)·
+# protected-integrity(조회·GC). 원소를 더하면 세 층이 함께 따라와야 한다.
+#
+#   .guarded-edits    면제 원장(아직 소비되지 않은 티켓)
+#   .guarded-restore  복구 대장(소비되며 승격된 복구 목표)
+#   .guarded-blobs    내용 저장소(디렉터리 — 그 **안의 모든 파일**이 대상이다)
+#   .integrity-baseline 세션 기준선
+GUARDED_STATE_NAMES=(.guarded-edits .guarded-restore .guarded-blobs .integrity-baseline)
+
+# 경로가 탐지기 상태 파일(또는 그 안의 파일)인가 — **철자가 아니라 성분으로** 본다.
+# 파일 존재 여부와 무관하다: blob 이름은 내용 해시라 심는 행위가 언제나 신규 파일 생성이고,
+# 존재 여부로 갈랐던 것이 2차 판정이 뚫은 구멍이다.
+is_guarded_state_path() {  # $1 경로(절대·상대 무관)
+  local p="$1" n
+  for n in "${GUARDED_STATE_NAMES[@]}"; do
+    case "$p" in
+      "$n"|*/"$n") return 0 ;;          # 파일 자신
+      "$n"/*|*/"$n"/*) return 0 ;;      # 디렉터리 안(.guarded-blobs/<sha>)
+    esac
+  done
+  return 1
+}
+
+# 실체 경로로 같은 판정을 한다 — 심볼릭 링크 별칭(`ln -s .guarded-blobs progress/blobs`)과
+# `..` 경유를 흡수한다. 대상이 **파일**일 수도 있으므로 부모만 풀지 않는다(2차 판정: 부모만
+# 풀던 구현은 원장 두 개에 원리적으로 매치하지 못해 그 분기가 죽은 코드였다).
+is_guarded_state_physical() {  # $1 경로
+  local p="$1" parent base phys
+  is_guarded_state_path "$p" && return 0
+  case "$p" in */*) parent="${p%/*}"; base="${p##*/}" ;; *) parent="."; base="$p" ;; esac
+  [[ -d "$parent" ]] || return 1
+  phys=$( cd "$parent" 2>/dev/null && pwd -P 2>/dev/null ) || return 1
+  # 부모의 실체 + 이름으로 다시 판정하고, 대상 자신이 디렉터리면 그 실체로도 본다.
+  is_guarded_state_path "$phys/$base" && return 0
+  if [[ -d "$p" ]]; then
+    phys=$( cd "$p" 2>/dev/null && pwd -P 2>/dev/null ) || return 1
+    is_guarded_state_path "$phys" && return 0
+  fi
+  return 1
+}
+
 # 프로젝트 루트로 이동 (실패 시 호출자가 exit 0 하도록 비0 반환).
 # 사용: harness_cd || exit 0
 harness_cd() {
