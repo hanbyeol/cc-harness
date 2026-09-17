@@ -113,6 +113,24 @@ git_operation_in_progress() {
 # 정규화를 쓰게 맞춘다. 이 정규화로 구분하지 못하는 변경은 후행 개행의 증감뿐이다.
 file_sha() { printf '%s' "$(cat "$1" 2>/dev/null)" | git hash-object --stdin 2>/dev/null; }
 
+# 대장에 `<내용sha, 경로>` 쌍이 있는가 — **티켓 줄을 읽는 유일한 자리**다(F78 3차 판정).
+# 구형 `<sha> <경로>` 와 신형 `<sha> <발행HEAD|-> <경로>` 를 모두 받는다. 정규식이 아니라
+# 낱말 분해로 비교하므로 경로에 들어간 정규식 메타문자를 이스케이프할 필요가 없다.
+__ticket_line_matches() {  # $1 대장 · $2 내용 sha · $3 경로
+  local ledger="$1" sha="$2" path="$3" line a rest head_at rel
+  [[ -f "$ledger" ]] || return 1
+  while IFS= read -r line; do
+    a="${line%% *}"
+    [[ "$a" == "$sha" ]] || continue
+    rest="${line#* }"
+    [[ -n "$rest" && "$rest" != "$line" ]] || continue
+    head_at="${rest%% *}"
+    if [[ "$head_at" =~ ^([0-9a-f]{40}|-)$ && "$rest" == *" "* ]]; then rel="${rest#* }"; else rel="$rest"; fi
+    [[ "$rel" == "$path" ]] && return 0
+  done < "$ledger"
+  return 1
+}
+
 # 티켓은 **내용이 그대로인 동안 유효하다** — 일치한다고 그 자리에서 지우지 않는다.
 #
 # 왜 소비 시점을 옮겼는가: 1차 설계는 일치 즉시 티켓을 지웠다. 그런데 편집된 파일은
@@ -125,12 +143,21 @@ file_sha() { printf '%s' "$(cat "$1" 2>/dev/null)" | git hash-object --stdin 2>/
 # "경로 영구 면제"로 되돌아가지 않는 이유: 면제 근거가 경로가 아니라 **내용 해시**다.
 # 내용이 한 번 더 바뀌면 sha가 달라져 어떤 티켓과도 일치하지 않고, 그 편집은 invariant-guard
 # 심사를 새로 통과해야 티켓을 얻는다. 심사 없이 바꾼 내용은 여전히 즉시 탐지·복구된다.
+#
+# **형식을 바꿀 때는 읽는 자리를 전부 같이 옮긴다(F78 3차 판정).** SC-8 이 티켓을 3필드
+# (`<sha> <발행HEAD> <경로>`)로 바꿨는데 이 함수만 구 2필드 `grep -Fxq "<sha> <경로>"` 로
+# 남아, **심사를 통과한 편집이 발행 직후 '티켓 없는 변경'으로 판정**됐다. 그래서 여기서는
+# 낱말 수를 손으로 세지 않고 `__ticket_line_matches()` 하나를 거친다.
+#
+# **유효성에 staleness 를 섞지 않는다.** HEAD 가 움직였다는 사실은 *복구 목표*로서의 티켓을
+# 무효로 만들 뿐, 워킹트리에 있는 내용이 심사를 통과했다는 사실을 취소하지 않는다. 섞으면
+# 무관한 커밋 한 번이 대기 중인 심사 통과분을 전부 '변조'로 만든다(3차 판정 [2]).
 ticket_valid() {
   local path="$1" sha
   [[ -f "$TICKETS" ]] || return 1
   sha=$(file_sha "$path") || return 1
   [[ -n "$sha" ]] || return 1
-  grep -Fxq "$sha $path" "$TICKETS"
+  __ticket_line_matches "$TICKETS" "$sha" "$path"
 }
 
 # 티켓을 **소비**한다(줄 삭제) — 변경이 정착했을 때, 즉 파일이 다시 HEAD와 같아졌을 때
@@ -235,8 +262,15 @@ gc_ledger_file() {  # $1 대장 경로
       rel="$rest"; head_at="-"
     fi
     case "$rel" in /*|*..*) continue ;; esac             # (3) root 안의 상대 경로
-    # (4) **낡은 줄은 버린다(SC-8)** — 발행 시점 HEAD 가 현재와 다르면 그 목표는 이미 무효다.
-    __ticket_fresh "$head_at" || continue
+    # **낡음(SC-8)은 여기서 버리는 근거가 아니다(F78 3차 판정 [2]).** 2차 회전은 GC 에서
+    # `__ticket_fresh` 로 낡은 줄을 지웠는데, 그러면 무관한 파일을 커밋해 HEAD 가 움직이는
+    # 것만으로 대기 중인 심사 통과분의 티켓이 사라지고 그 파일이 곧바로 '티켓 없는 변경'으로
+    # 복구된다 — F78 이 닫으려던 손실이 원래 세 방아쇠보다 훨씬 흔한 방아쇠로 되살아났다.
+    # 낡음은 *복구 목표*로서의 자격을 잃는 것이지 심사를 통과했다는 사실이 취소되는 것이
+    # 아니므로, 판정은 조회 시점(`last_ticket_sha`) 한 곳에만 둔다. 지우지 않고 남겨 두어야
+    # 폴백 사유("발행 시점 HEAD 가 달라 무효")를 사실대로 보고할 수 있다는 이유도 있다 —
+    # GC 가 먼저 지우면 훅은 티켓이 있었다는 것조차 모른 채 '티켓 이력이 없어'라고 말한다.
+    # 무한히 쌓이지는 않는다: 정착한 티켓은 소비되고, 남은 것은 아래 상한이 자른다.
     ok=1
     for g in "${PROTECTED_GLOBS[@]}"; do                 # (2) 보호 대상
       # shellcheck disable=SC2053
@@ -352,8 +386,14 @@ fi
 # 폴백한다. 폴백은 **조용히 하지 않는다** — 사유를 사용자 보고에 넣는다.
 # 그 파일의 마지막 티켓 sha(원장은 append-only 라 마지막 줄이 가장 최근이다).
 STALE_REASON=""
+# **결과를 전역으로 돌려준다 — 명령 치환으로 부르지 않는다(F78 3차 판정).** 이전 판은 sha 를
+# stdout 으로 찍고 호출부가 `$( … )` 로 받았는데, 명령 치환은 서브셸이라 그 안에서 세운
+# `STALE_REASON` 이 호출부에 도달하지 못했다 — 낡은 티켓 사유를 싣는 분기가 통째로 죽은
+# 코드였고, 훅은 그 경우에도 '티켓 이력이 없어' 라고 **틀리게** 보고했다.
+LAST_TICKET_SHA=""
 last_ticket_sha() {
   local path="$1" esc line
+  LAST_TICKET_SHA=""
   esc=$(printf '%s' "$path" | sed 's/[].[^$\\*\/]/\\&/g')
   # 원장(아직 소비되지 않은 티켓)을 먼저 보고, 없으면 **복구 대장**(소비되며 승격된 것)을 본다.
   # 소비가 복구 목표를 지우지 않는다는 것이 SC-6 이다.
@@ -365,7 +405,7 @@ last_ticket_sha() {
     line=$(grep -E "^[0-9a-f]{40} ($esc|([0-9a-f]{40}|-) $esc)\$" "$f" 2>/dev/null | tail -1)
     [[ -n "$line" ]] || continue
     read -r sha head_at <<<"$(__ticket_fields "$line")"
-    if __ticket_fresh "$head_at"; then printf '%s' "$sha"; return 0; fi
+    if __ticket_fresh "$head_at"; then LAST_TICKET_SHA="$sha"; return 0; fi
     # **낡은 목표는 쓰지 않는다(SC-8).** 발행 이후 HEAD 가 움직였다면 그 사이 커밋된 내용이
     # 있고, 이 티켓으로 복구하면 그것을 덮는다 — 2차 판정이 `FEATURE-A` 로 `COMMITTED-B` 를
     # 덮어 실증한 회귀다. 조용히 넘기지 않고 사유를 남겨 보고에 싣는다.
@@ -388,7 +428,8 @@ RESTORED=(); FALLBACK=()
 for f in "${CHANGED[@]}"; do
   mkdir -p "$DEST/$(dirname "$f")" 2>/dev/null
   cp "$f" "$DEST/$f" 2>/dev/null || true      # 되돌리기 전에 반드시 보관 — 손실 0
-  tsha=$(last_ticket_sha "$f" 2>/dev/null || true)
+  tsha=""
+  last_ticket_sha "$f" 2>/dev/null && tsha="$LAST_TICKET_SHA"
   if [[ -n "$tsha" ]] && blob_trustworthy "$tsha"; then
     if cp "$BLOBS/$tsha" "$f" 2>/dev/null; then
       # 복원 결과가 그 티켓과 실제로 일치하는지 다시 확인한다 — 일치하지 않으면 HEAD 로 간다.

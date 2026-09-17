@@ -27,6 +27,20 @@ teardown() {
 integrity() { ( cd "$LAB" && CLAUDE_PROJECT_DIR="$LAB" bash hooks/protected-integrity.sh ) }
 dirty()     { ( cd "$LAB" && git diff --name-only | wc -l | tr -d ' ' ) }
 
+# **티켓은 운영 코드가 만들게 한다(F78 3차 판정).** 아래 '오탐 없음' 두 건은 오랫동안 티켓 줄을
+# 손으로 `<내용sha> <경로>` 라고 적었는데, SC-8 이 형식을 `<내용sha> <발행HEAD> <경로>` 로 바꾼
+# 뒤에도 픽스처는 그대로였다 — 즉 **운영 코드가 더 이상 만들지 않는 형식**을 지키고 있었다.
+# 그 결과 `ticket_valid()` 가 신형을 읽지 못하게 된 회귀를 스위트 968건 중 이 둘만이, 그것도
+# 낡은 형식으로 통과시켰다. 이제 실제 invariant-guard 를 태워 티켓을 받으므로 형식이 또 바뀌어도
+# 픽스처가 따라온다.
+mint() {  # $1 저장소 상대 경로 · $2 편집 후 전체 내용 — 심사를 통과한 편집 한 번
+  local f="$1" c="$2"
+  jq -n --arg f "$LAB/$f" --arg c "$c" \
+    '{tool_name:"Write",tool_input:{file_path:$f,content:$c}}' \
+    | ( cd "$LAB" && CLAUDE_PROJECT_DIR="$LAB" bash hooks/invariant-guard.sh ) >/dev/null 2>&1
+  printf '%s\n' "$c" > "$LAB/$f"
+}
+
 @test "F65: 리다이렉트로 훼손된 검증 파일이 복구된다" {
   ( cd "$LAB" && printf 'PWNED\n' > tests/probes.bats )
   [ "$(dirty)" -gt 0 ]
@@ -58,16 +72,28 @@ dirty()     { ( cd "$LAB" && git diff --name-only | wc -l | tr -d ' ' ) }
 }
 
 @test "F65: invariant-guard를 거친 편집은 보존된다 (오탐 없음)" {
-  # 티켓 형식은 `<내용해시> <경로>` 다(F65 SC-5) — 경로만 적으면 어떤 편집과도 일치하지 않는다.
-  # F67 전에는 hooks/lib.sh 가 PROTECTED_GLOBS 밖이라 검사 자체를 받지 않아 이 낡은 형식으로도
-  # 통과했다. 면제 arm 이 덮는 훅 전체를 탐지 대상에 넣으면서 드러났다.
-  # 해시는 훅의 file_sha() 와 같은 방식으로 계산해야 한다 — `$(cat …)` 가 후행 개행을 떨어뜨리므로
-  # `git hash-object <파일>` 과 값이 다르다.
-  ( cd "$LAB" && printf '\n# legit\n' >> hooks/lib.sh && \
-    printf '%s hooks/lib.sh\n' "$(printf '%s' "$(cat hooks/lib.sh)" | git hash-object --stdin)" \
-      > progress/.guarded-edits )
-  integrity
+  # 단정이 '문자열이 살아남았는가' 뿐이면 복구가 실제로 일어나도 blob 이 같은 문자열을 되돌려
+  # 놓아 green 이 된다(3차 판정). 그래서 **복구가 일어나지 않았다는 것**을 함께 본다.
+  mint hooks/lib.sh "$(cat "$LAB/hooks/lib.sh")
+# legit"
+  run integrity
+  [[ "$output" != *"복구"* ]] || { echo "심사를 통과한 편집이 복구됐다: $output"; false; }
   ( cd "$LAB" && grep -q 'legit' hooks/lib.sh )
+}
+
+@test "F78 3차 판정: 무관한 커밋으로 HEAD 가 움직여도 대기 중인 심사 통과분은 살아남는다" {
+  # SC-8 의 staleness 를 **유효성 판정에까지** 섞으면, 아무 파일이나 하나 커밋하는 것만으로
+  # 대기 중인 심사 통과분의 티켓이 GC 에 지워지고 그 파일이 곧바로 '티켓 없는 변경'이 된다.
+  # F78 이 닫으려던 손실이 원래 세 방아쇠(python3·stash pop·sed -i)보다 훨씬 흔한 방아쇠로
+  # 되살아난 형태다 — 실측에서 `APPROVED-WORK` 가 0건 남았다.
+  mint hooks/lib.sh "$(cat "$LAB/hooks/lib.sh")
+# APPROVED-WORK-XYZ"
+  ( cd "$LAB" && echo unrelated > unrelated.txt && git add unrelated.txt \
+      && git -c user.email=t@t -c user.name=t commit -qm unrelated )
+  run integrity
+  ( cd "$LAB" && grep -q 'APPROVED-WORK-XYZ' hooks/lib.sh ) \
+    || { echo "커밋 한 번이 대기 중인 심사 통과분을 파괴했다: $output"; false; }
+  [[ "$output" != *"복구"* ]] || { echo "복구가 일어났다: $output"; false; }
 }
 
 @test "F65: git checkout으로 HEAD가 함께 움직이면 오탐하지 않는다" {
@@ -275,9 +301,9 @@ $f (PROTECTED_GLOBS=$([ "$a" = 0 ] && echo yes || echo no), is_protected=$([ "$b
 
 @test "F65: invariant-guard 심사를 거친 hooks/*.sh 편집은 대칭 보호 하에서도 보존된다 (오탐 없음)" {
   # 위 대칭 대조가 통과하는 상태에서, 정당한 편집(티켓 있음)이 복구로 되돌려지지 않는지 확인한다.
-  ( cd "$LAB" && printf '\n# legit\n' >> hooks/lib.sh && \
-    printf '%s hooks/lib.sh\n' "$(printf '%s' "$(cat hooks/lib.sh)" | git hash-object --stdin)" \
-      > progress/.guarded-edits )
-  integrity
+  mint hooks/lib.sh "$(cat "$LAB/hooks/lib.sh")
+# legit"
+  run integrity
+  [[ "$output" != *"복구"* ]] || { echo "심사를 통과한 편집이 복구됐다: $output"; false; }
   ( cd "$LAB" && grep -q 'legit' hooks/lib.sh )
 }

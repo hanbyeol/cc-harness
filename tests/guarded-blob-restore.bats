@@ -400,6 +400,25 @@ guarded_state_names() {
   done
 }
 
+@test "F78 3차 판정: 낡은 티켓으로 폴백할 때 사유를 사실대로 보고한다" {
+  # `last_ticket_sha()` 는 낡은 티켓을 만나면 `STALE_REASON` 을 세우는데, 호출부가 그 함수를
+  # **명령 치환**으로 불렀다 — 서브셸이라 값이 호출부에 도달하지 못했고 그 분기는 도달 불가
+  # 코드였다. 훅은 티켓이 있었는데도 '티켓 이력이 없어'라고 틀리게 보고했다. GC 가 낡은 줄을
+  # 지우던 것도 같은 증상을 만들었다(지우면 티켓이 있었다는 사실 자체가 사라진다).
+  approved_edit "$TARGET" $'\n# STALE-A\n' > /dev/null
+  ( cd "$LAB" && git checkout -q -- "$TARGET" )
+  ( cd "$LAB" && echo unrelated > unrelated.txt && git add unrelated.txt \
+      && git -c user.email=t@t -c user.name=t commit -qm unrelated )   # HEAD 이동 → 티켓이 낡는다
+  untracked_write "$TARGET" 'PWNED'
+  local out; out=$(integrity)
+  [[ "$out" == *"발행 시점 HEAD"* ]] || {
+    echo "낡은 티켓 사유가 보고되지 않았다(도달 불가 분기): $out"; return 1; }
+  [[ "$out" != *"티켓 이력이 없어"* ]] || {
+    echo "티켓이 있었는데 없다고 보고했다: $out"; return 1; }
+  grep -q 'STALE-A' "$LAB/$TARGET" && { echo "낡은 티켓이 복구 목표로 쓰였다"; return 1; }
+  return 0
+}
+
 @test "F78: 참조되지 않는 blob 은 정리된다" {
   mkdir -p "$LAB/progress/.guarded-blobs"
   printf 'orphan' > "$LAB/progress/.guarded-blobs/0000000000000000000000000000000000000000"
