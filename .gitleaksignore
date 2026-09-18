@@ -1,8 +1,12 @@
 # gitleaks 오탐 억제 — **실제 시크릿이 아닌 항목만** 적는다.
 #
-# 2026-03-25 커밋 93a34e09 의 `templates/claude/agents/architect.md:33` 에 있던
-# `"adrs_written": ["ADR-001-auth.md", "ADR-002-encryption.md"]` 를 generic-api-key 로
-# 오탐한다(엔트로피 4.1). 문서의 예시 파일명이고, 그 템플릿 파일은 이후 삭제됐다 —
-# 그러나 `gitleaks detect` 는 전체 이력을 훑으므로 커밋을 되돌리지 않는 한 계속 걸린다.
-# pre-commit-gate 가 이 한 건 때문에 항상 실패해 실제 시크릿 탐지가 무의미해지고 있었다.
+# (1) 2026-03-25 커밋 93a34e09 의 `templates/claude/agents/architect.md:33`.
+#     문서 예시 JSON 의 ADR 파일명 배열을 generic-api-key 로 오탐한다(엔트로피 4.1).
+#     그 템플릿 파일은 이후 삭제됐지만 `gitleaks detect` 는 전체 이력을 훑으므로 계속 걸린다.
+#     pre-commit-gate 가 이 한 건 때문에 항상 실패해 실제 시크릿 탐지가 무의미해지고 있었다.
 93a34e097a800e6ee6099c6bb26f6cdb5ef2acaf:templates/claude/agents/architect.md:generic-api-key:33
+#
+# (2) 2026-09-18 커밋 f9eca0b 의 이 파일 4행. (1) 을 설명하면서 오탐 문자열을 **주석에 그대로
+#     인용**해, 억제 파일 자신이 새 오탐이 됐다. 이력은 되돌리지 않으므로 지문으로 억제하고,
+#     위 주석에서는 문자열을 인용하지 않도록 고쳤다. 교훈: 오탐을 설명할 때 오탐을 복제하지 않는다.
+f9eca0b30b2126d6f0f0a7ff023a870f5487c8f1:.gitleaksignore:generic-api-key:4
