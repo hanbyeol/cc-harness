@@ -152,6 +152,25 @@ __ticket_line_matches() {  # $1 대장 · $2 내용 sha · $3 경로
 # **유효성에 staleness 를 섞지 않는다.** HEAD 가 움직였다는 사실은 *복구 목표*로서의 티켓을
 # 무효로 만들 뿐, 워킹트리에 있는 내용이 심사를 통과했다는 사실을 취소하지 않는다. 섞으면
 # 무관한 커밋 한 번이 대기 중인 심사 통과분을 전부 '변조'로 만든다(3차 판정 [2]).
+# 티켓이 유효한 파일의 **실제 바이트**를 blob 저장소에 올린다(AC-7). 내용 주소는 후행 개행을
+# 무시하는 규약이라, 같은 sha 에 바이트가 다른 두 내용이 대응할 수 있다 — 그럴 때 사실인 쪽은
+# 심사를 통과한 채 디스크에 있는 이 파일이다. 심사를 통과하지 않은 내용은 여기 오지 못한다
+# (`ticket_valid` 를 지난 파일만 부른다) — 그러므로 blob 저장소 위조로 이어지지 않는다.
+promote_blob() {  # $1 저장소 상대 경로
+  local f="$1" sha tmp
+  sha=$(file_sha "$f") || return 0
+  [[ -n "$sha" ]] || return 0
+  mkdir -p "$BLOBS" 2>/dev/null || return 0
+  [[ -f "$BLOBS/$sha" ]] && cmp -s "$BLOBS/$sha" "$f" && return 0
+  tmp=$(mktemp "$BLOBS/.tmp.XXXXXX" 2>/dev/null) || return 0
+  if cp "$f" "$tmp" 2>/dev/null; then
+    mv -f "$tmp" "$BLOBS/$sha" 2>/dev/null || rm -f "$tmp" 2>/dev/null
+  else
+    rm -f "$tmp" 2>/dev/null
+  fi
+  return 0
+}
+
 ticket_valid() {
   local path="$1" sha
   [[ -f "$TICKETS" ]] || return 1
@@ -249,8 +268,11 @@ gc_ledger_file() {  # $1 대장 경로
   local line sha rel g ok head_at rest
   while IFS= read -r line; do
     sha="${line%% *}"; rest="${line#* }"
-    [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || continue          # (1) 형식
-    [[ -n "$rest" && "$rest" != "$line" ]] || continue
+    # (1) 형식 — **버리되 세어 둔다(F78 error_scenario).** 계약은 '손상된 줄만 무시하고
+    # **보고**한다' 였는데 지금까지 조용히 버렸다. 원장이 깨졌다는 사실이 사용자에게도, 다음
+    # 라운드에게도 보이지 않았다. 보호 대상이 아니라 걸러지는 줄은 손상이 아니므로 세지 않는다.
+    [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { GC_CORRUPT=$((GC_CORRUPT + 1)); continue; }
+    [[ -n "$rest" && "$rest" != "$line" ]] || { GC_CORRUPT=$((GC_CORRUPT + 1)); continue; }
     # 신형 `<sha> <HEAD|-> <경로>` 와 구형 `<sha> <경로>` 를 모두 받는다(SC-8).
     head_at="${rest%% *}"
     if [[ "$head_at" =~ ^([0-9a-f]{40}|-)$ && "$rest" == *" "* ]]; then
@@ -261,7 +283,8 @@ gc_ledger_file() {  # $1 대장 경로
       # (자체 발견: 원장이 통째로 비고 복구 목표가 사라졌다).
       rel="$rest"; head_at="-"
     fi
-    case "$rel" in /*|*..*) continue ;; esac             # (3) root 안의 상대 경로
+    # (3) root 안의 상대 경로 — 저장소 밖을 가리키는 줄도 손상으로 센다.
+    case "$rel" in /*|*..*) GC_CORRUPT=$((GC_CORRUPT + 1)); continue ;; esac
     # **낡음(SC-8)은 여기서 버리는 근거가 아니다(F78 3차 판정 [2]).** 2차 회전은 GC 에서
     # `__ticket_fresh` 로 낡은 줄을 지웠는데, 그러면 무관한 파일을 커밋해 HEAD 가 움직이는
     # 것만으로 대기 중인 심사 통과분의 티켓이 사라지고 그 파일이 곧바로 '티켓 없는 변경'으로
@@ -341,7 +364,16 @@ fi
 # 원장·blob 정리(F78 AC-4) — 판정 **전에** 돌려도 안전하다: 지우는 것은 형식이 깨졌거나 보호
 # 대상이 아니거나 저장소 밖을 가리키는 줄, 그리고 상한을 넘은 오래된 줄뿐이다. 유효 티켓은 남고,
 # 남지 않은 티켓은 HEAD 폴백으로 내려갈 뿐이라 보호가 약해지는 방향이 아니다.
+GC_CORRUPT=0
 gc_ledger_and_blobs
+# 계약의 error_scenario: '원장이 손상됐다(줄 형식 불일치) → 손상된 줄만 무시하고 **보고**한다'.
+# 유효한 줄은 그대로 쓰이므로 동작은 계속된다 — 보고는 그 사실을 사용자가 알게 하는 몫이다.
+if [[ "$GC_CORRUPT" -gt 0 ]]; then
+  {
+    echo "cc-harness: 심사 원장에서 **손상된 줄 ${GC_CORRUPT}개**를 무시했습니다(유효한 줄은 그대로 씁니다)."
+    echo "  형식이 어긋나거나 저장소 밖을 가리키는 줄입니다: progress/.guarded-edits · progress/.guarded-restore"
+  } >&2
+fi
 
 CHANGED=(); COMMITTED=()
 for f in "${FILES[@]+"${FILES[@]}"}"; do
@@ -354,7 +386,11 @@ for f in "${FILES[@]+"${FILES[@]}"}"; do
     continue
   fi
   # 아직 워킹트리에만 있는 변경 — 내용이 심사를 통과한 그대로면 통과시킨다(티켓 유지).
-  ticket_valid "$f" && continue
+  # **실제 바이트를 blob 으로 승격한다(F78 AC-7).** 발행 시점의 blob 은 PreToolUse 의 *예측*
+  # 에서 나오고 그 예측은 명령 치환을 거치므로 후행 개행이 사라진다 — 복구가 원본과 1바이트
+  # 다른 원인이 그것이다. 여기서는 티켓이 유효하다고 판정된 **디스크의 실제 내용**을 올리므로
+  # 예측이 아니라 사실이고, 바이트가 그대로다.
+  if ticket_valid "$f"; then promote_blob "$f"; continue; fi
   CHANGED+=("$f")
 done
 

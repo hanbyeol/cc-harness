@@ -744,7 +744,6 @@ record_guarded_edit() {
   # 없을 때(빈 저장소)는 `-` 를 쓴다 — 읽는 쪽이 두 형식을 모두 받아들인다(구 형식은 staleness
   # 판정 대상이 아니라 종전대로 취급된다).
   local __head_at; __head_at=$(git -C "$root" rev-parse --verify -q HEAD 2>/dev/null || printf '-')
-  printf '%s %s %s\n' "$sha" "$__head_at" "$rel" >> "$root/progress/.guarded-edits" 2>/dev/null || true
   # **F78(sprint-64): 티켓이 내용을 복구할 수 있어야 한다.** 티켓이 `sha rel` 뿐이면
   # `protected-integrity.sh` 는 "이 내용이 심사를 통과했다"만 알 뿐 그 내용을 되살릴 수 없어
   # HEAD 로 되돌릴 수밖에 없었다 — 그래서 티켓 없는 쓰기 한 번이 **그 파일에 쌓인 심사 통과분
@@ -755,13 +754,34 @@ record_guarded_edit() {
   # 티켓 해시 규약(`printf '%s' "$(cat f)"`)이 후행 개행을 무시하므로 붙여도 티켓 검증은 그대로
   # 성립한다(복원 후 재해시로 확인한다 — protected-integrity 의 SC-2 검사).
   # 원자적으로 쓴다: 임시 파일에 쓴 뒤 mv — 훅이 중간에 죽어도 반쪽 blob 이 남지 않는다.
+  #
+  # **순서가 중요하다: blob 을 먼저 확보하고 그다음 원장에 적는다(F78 error_scenarios).**
+  # 반대 순서였을 때 blob 쓰기가 실패하면 **원장에는 줄이 있고 blob 에는 내용이 없는 상태**가
+  # 남았다 — 복구할 내용이 없으니 다음 훅 실행이 HEAD 로 내려간다. 조용한 통과가 곧 손실인
+  # 자리라, 이제 어느 쪽이 실패해도 `__ticket_required_or_die` 로 **편집 시점에** 막는다(AC-3).
   local blobdir="$root/progress/.guarded-blobs" tmpblob
-  mkdir -p "$blobdir" 2>/dev/null || return 0
-  [[ -f "$blobdir/$sha" ]] && return 0   # 내용 주소라 이미 있으면 같은 내용이다
-  tmpblob=$(mktemp "$blobdir/.tmp.XXXXXX" 2>/dev/null) || return 0
-  printf '%s\n' "$NEW_CONTENT" > "$tmpblob" 2>/dev/null \
-    && mv -f "$tmpblob" "$blobdir/$sha" 2>/dev/null \
-    || rm -f "$tmpblob" 2>/dev/null
+  if [[ ! -f "$blobdir/$sha" ]]; then   # 내용 주소라 이미 있으면 같은 내용이다
+  mkdir -p "$blobdir" 2>/dev/null || { __ticket_required_or_die "blob 저장소를 만들 수 없습니다($blobdir)"; return 0; }
+  tmpblob=$(mktemp "$blobdir/.tmp.XXXXXX" 2>/dev/null) || { __ticket_required_or_die "blob 저장소에 쓸 수 없습니다($blobdir)"; return 0; }
+  # **Write 는 바이트 그대로 쓴다(F78 AC-7).** `$NEW_CONTENT` 는 명령 치환을 거쳐 후행 개행이
+  # 전부 잘린 값이라, 여기서 `printf '%s\n'` 로 하나를 되붙이면 개행 없이 끝나는 파일은 1바이트
+  # 늘고 개행이 여러 개인 파일은 줄어든다 — 그리고 해시 규약이 후행 개행을 무시하므로 **아무도
+  # 그 변형을 관측하지 못한다**(3차 독립 판정 실측). `jq -j` 는 줄바꿈을 덧붙이지 않으므로
+  # 도구가 실제로 쓸 바이트와 같다. Edit·MultiEdit 는 치환 결과가 awk 를 거치므로 여기서는
+  # 종전 규약을 쓰고, 정확한 바이트는 protected-integrity 의 `promote_blob()` 이 첫 훅 실행에서
+  # 디스크의 실제 내용으로 올린다.
+  if [[ "$TOOL" == "Write" ]] && printf '%s' "$INPUT" | jq -j '.tool_input.content // empty' > "$tmpblob" 2>/dev/null; then
+    :
+  else
+    printf '%s\n' "$NEW_CONTENT" > "$tmpblob" 2>/dev/null \
+      || { rm -f "$tmpblob" 2>/dev/null; __ticket_required_or_die "blob 을 쓸 수 없습니다"; return 0; }
+  fi
+  mv -f "$tmpblob" "$blobdir/$sha" 2>/dev/null \
+    || { rm -f "$tmpblob" 2>/dev/null; __ticket_required_or_die "blob 을 저장소에 넣을 수 없습니다"; return 0; }
+  fi
+  # 원장 append — 여기서 실패하면 티켓이 없는 것과 같으므로 역시 편집을 막는다.
+  printf '%s %s %s\n' "$sha" "$__head_at" "$rel" >> "$root/progress/.guarded-edits" 2>/dev/null \
+    || { __ticket_required_or_die "원장(progress/.guarded-edits)에 쓸 수 없습니다"; return 0; }
 }
 trap record_guarded_edit EXIT
 # 신규 생성은 대개 약화가 아니므로 통과 — 단, 아래 둘은 예외.

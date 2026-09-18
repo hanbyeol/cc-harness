@@ -338,26 +338,104 @@ guarded_state_names() {
   [[ ${#fails[@]} -eq 0 ]] || { printf 'LEAK %s\n' "${fails[@]}"; return 1; }
 }
 
-@test "F78 2차 판정: 상태 파일 × 쓰기 수단 × 별칭 — 전수 차단(생성, Bash 경로)" {
-  # 쓰기 수단을 열거해서 막는 것이 아니라 **대상 경로**로 판정한다 — 그래야 `dd of=`·인터프리터
-  # 처럼 열거 밖의 수단도 같은 판정에 걸린다(2차 판정이 실측한 우회 3종).
+# 방화벽 판정 하나. **조용히 allow 로 떨어지지 않는다** — 훅이 죽거나 출력이 깨지면 `ERROR` 를
+# 돌려준다. 이전 판은 `|| printf 'allow'` 라, 프로브가 고장 나면 누수와 구별되지 않았다.
+fw_decide() {  # $1 방화벽 경로, $2 명령
+  local fw="$1" cmd="$2" out dec
+  out=$( cd "$LAB" && jq -n --arg c "$cmd" '{tool_name:"Bash",tool_input:{command:$c}}' \
+           | CLAUDE_PROJECT_DIR="$LAB" bash "$fw" 2>/dev/null ) || { printf 'ERROR'; return 0; }
+  if [[ -z "$out" ]]; then printf 'allow'; return 0; fi   # 무출력 = 판정 없음 = allow
+  dec=$(printf '%s' "$out" | jq -r '.hookSpecificOutput.permissionDecision // empty' 2>/dev/null)
+  [[ -n "$dec" ]] || { printf 'ERROR'; return 0; }
+  printf '%s' "$dec"
+}
+
+@test "F78 3차 판정: 상태 파일 × 별칭 × 쓰기 수단 — 빈 셀 없이 전수 차단(생성, Bash 경로)" {
+  # 3차 판정의 핵심 지적: 2차의 생성기가 곱을 만들면서 **셀을 비운 채** 통과했다. 별칭 축이
+  # `.guarded-blobs` 에만 값을 주고 나머지 세 이름에는 `alias_base=""` 였고, 백도어는 정확히
+  # 그 빈 셀(파일 대상 심볼릭 링크)에 있었다. 그래서 여기서는 (1) 네 이름 **모두**에 별칭을
+  # 만들고, (2) **생성된 셀 수 자체를 핀**한다 — 생성기가 조용히 셀을 비우면 곱이 아니라 셀 수가
+  # 먼저 걸린다. 쓰기 수단은 열거로 막는 것이 아니라 **대상 경로**로 판정하므로, 계약이 적어 둔
+  # `python3 -c`·`perl -e` 도 같은 판정에 걸려야 한다.
   local fw="$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh"
-  local n base alias_base tmpl d fails=()
+  local n suffix tmpl target d fails=() cells=0 targets
   mkdir -p "$LAB/progress/.guarded-blobs"
-  ( cd "$LAB/progress" && ln -sf .guarded-blobs blobs )
+  # 별칭은 **매달린 채로** 둔다(대상 파일을 만들지 않는다) — 실제 공격이 그렇다: 아직 없는
+  # 대장을 심는 것이 곧 위조다. `readlink` 는 대상 존재와 무관하게 링크를 읽는다.
   while IFS= read -r n; do
-    case "$n" in
-      .guarded-blobs) base="progress/$n/abc"; alias_base="progress/blobs/abc" ;;
-      *)              base="progress/$n";     alias_base="" ;;
-    esac
-    for tmpl in 'printf x > %s' 'printf x >> %s' 'cp /tmp/e %s' 'dd if=/dev/zero of=%s' 'tee %s'; do
-      # shellcheck disable=SC2059
-      for target in "$base" ${alias_base:+"$alias_base"}; do
-        d=$( cd "$LAB" && printf '%s' "$(jq -n --arg c "$(printf "$tmpl" "$target")" '{tool_input:{command:$c}}')" \
-               | bash "$fw" 2>&1 | jq -r '.hookSpecificOutput.permissionDecision // "allow"' 2>/dev/null || printf 'allow' )
+    ( cd "$LAB/progress" && ln -sfn "$n" "alias-${n#.}" )
+  done < <(guarded_state_names)
+  while IFS= read -r n; do
+    suffix=""; [[ "$n" == ".guarded-blobs" ]] && suffix="/abc"
+    targets=(
+      "progress/$n$suffix"                 # 철자
+      "progress/alias-${n#.}$suffix"       # 심볼릭 링크 별칭(파일·디렉터리 모두)
+      "$LAB/progress/$n$suffix"            # 절대 경로
+      "progress//$n$suffix"                # 이중 슬래시
+    )
+    [[ ${#targets[@]} -eq 4 ]] || { echo "별칭 축이 비었다: $n"; return 1; }
+    for tmpl in 'printf x > %s' 'printf x >> %s' 'cp /tmp/e %s' 'dd if=/dev/zero of=%s' 'tee %s' \
+                "python3 -c \"open('%s','w').write('x')\"" "perl -e \"open(F,'>','%s')\""; do
+      for target in "${targets[@]}"; do
+        cells=$((cells + 1))
+        # shellcheck disable=SC2059
+        d=$(fw_decide "$fw" "$(printf "$tmpl" "$target")")
         [ "$d" = "allow" ] && fails+=("$(printf "$tmpl" "$target") -> allow")
+        [ "$d" = "ERROR" ] && fails+=("$(printf "$tmpl" "$target") -> 프로브 오류")
       done
     done
+  done < <(guarded_state_names)
+  # 이름 4 × 별칭 4 × 쓰기 수단 7 = 112. 이 수가 곧 '빈 셀이 없다'는 증거다.
+  [ "$cells" -eq 112 ] || { echo "생성된 셀이 112개가 아니다: $cells"; return 1; }
+  [[ ${#fails[@]} -eq 0 ]] || { printf 'LEAK %s\n' "${fails[@]}"; return 1; }
+}
+
+@test "F78 3차 판정: 상태 파일 이름은 모두 점으로 시작한다 (방화벽 빠른 기각의 전제)" {
+  # `__guarded_state_write_target()` 은 토큰에 점으로 시작하는 요소가 없으면 철자 판정을
+  # 건너뛴다 — 경로 800개짜리 평범한 명령을 예산 안에 끝내기 위한 기각이다. 그 기각이 옳으려면
+  # **모든 상태 파일 이름이 `.` 로 시작**해야 한다. 이름을 하나 추가하면서 이 성질을 깨면
+  # 그 이름에 대한 철자 판정이 조용히 사라지므로, 여기서 고정한다.
+  local n bad=()
+  while IFS= read -r n; do
+    case "$n" in .*) ;; *) bad+=("$n") ;; esac
+  done < <(guarded_state_names)
+  [[ ${#bad[@]} -eq 0 ]] || {
+    printf '점으로 시작하지 않는 상태 파일 이름: %s\n' "${bad[@]}"
+    echo "방화벽의 빠른 기각(case .*|*/.*)을 함께 고쳐야 한다"; return 1; }
+}
+
+@test "F78 3차 판정: 실체 판정 상한을 넘기면 allow 가 아니라 ask 로 떨어진다 (fail-closed)" {
+  # `__guarded_state_write_target()` 의 상한 초과는 종전에 `return 1`, 즉 **allow** 였다.
+  # 상한 초과는 '모른다'는 뜻이지 안전하다는 뜻이 아니다(F65 32차가 래퍼 탐지 예산에서 이미
+  # 같은 결론을 냈다). **상한에 실제로 닿는 명령으로 잰다** — 철자로 잡히는 대상을 쓰면 판정이
+  # 그 앞에서 끝나 상한이 발동하지 않고, 테스트가 아무것도 검사하지 않는다(변이 N2 가 그 사실을
+  # 잡아냈다). 그래서 부모가 심볼릭 링크인 토큰만 스무 개 늘어놓아 비싼 판정의 예산을 소진시킨다.
+  local fw="$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh" pad="" i d
+  mkdir -p "$LAB/progress/.guarded-blobs"
+  ( cd "$LAB/progress" && ln -sfn . L && ln -sfn .guarded-restore rr )
+  for ((i = 0; i < 20; i++)); do pad="$pad progress/L/x$i.txt"; done
+  d=$(fw_decide "$fw" "cp$pad progress/rr")
+  [ "$d" != "allow" ] || { echo "실체 판정 상한 밖으로 밀려 통과했다"; return 1; }
+  [ "$d" != "ERROR" ] || { echo "프로브 오류"; return 1; }
+}
+
+@test "F78 3차 판정: 앞 토큰이 많아도 철자로 지목된 상태 파일은 통과하지 않는다" {
+  local fw="$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh" pad="" i d
+  mkdir -p "$LAB/progress/.guarded-blobs"
+  for ((i = 0; i < 12; i++)); do pad="$pad a/b$i.txt"; done
+  d=$(fw_decide "$fw" "cp$pad progress/.guarded-edits")
+  [ "$d" != "allow" ] || { echo "토큰이 많다는 이유로 통과했다"; return 1; }
+  [ "$d" != "ERROR" ] || { echo "프로브 오류"; return 1; }
+}
+
+@test "F78 3차 판정: cd 로 기준을 옮긴 상태 파일 쓰기도 차단된다" {
+  local fw="$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh" n d fails=()
+  mkdir -p "$LAB/progress/.guarded-blobs"
+  while IFS= read -r n; do
+    local t="$n"; [[ "$n" == ".guarded-blobs" ]] && t="$n/abc"
+    d=$(fw_decide "$fw" "cd progress && printf x > $t")
+    [ "$d" = "allow" ] && fails+=("cd progress && printf x > $t -> allow")
+    [ "$d" = "ERROR" ] && fails+=("cd progress && printf x > $t -> 프로브 오류")
   done < <(guarded_state_names)
   [[ ${#fails[@]} -eq 0 ]] || { printf 'LEAK %s\n' "${fails[@]}"; return 1; }
 }
@@ -417,6 +495,143 @@ guarded_state_names() {
     echo "티켓이 있었는데 없다고 보고했다: $out"; return 1; }
   grep -q 'STALE-A' "$LAB/$TARGET" && { echo "낡은 티켓이 복구 목표로 쓰였다"; return 1; }
   return 0
+}
+
+# 실제 invariant-guard 를 태워 티켓과 blob 을 받고, 도구가 쓰는 것과 **같은 바이트**를 파일에
+# 쓴다. 내용은 `--rawfile` 로 넘긴다 — `$( )` 로 읽으면 후행 개행이 사라져 픽스처 자신이
+# 검사하려는 축을 지운다(1·2차 판정이 두 번 지적한 실패 양식).
+byte_mint() {  # $1 저장소 상대 경로 · $2 원본 바이트가 든 파일
+  jq -n --arg f "$LAB/$1" --rawfile c "$2" \
+     '{tool_name:"Write",tool_input:{file_path:$f,content:$c}}' \
+    | ( cd "$LAB" && CLAUDE_PROJECT_DIR="$LAB" bash hooks/invariant-guard.sh ) >/dev/null 2>&1
+  cp "$2" "$LAB/$1"
+}
+
+@test "F78 3차 판정: 복구는 바이트 동일하다 (개행 없이 끝나는 파일·개행 여러 개 포함)" {
+  # 3차 판정 실측: blob 저장이 `printf '%s\n' "$NEW_CONTENT"` 이고 `NEW_CONTENT` 는 `$( )` 로
+  # 읽혀 후행 개행이 이미 잘려 있다. `file_sha`·`blob_trustworthy` 가 후행 개행을 무시하므로
+  # **아무도 그 변형을 관측하지 못한다**(feature_list.json 165674→165675, hooks/lib.sh
+  # 9951→9952). 여기서는 `cmp` 로 바이트를 직접 본다.
+  local want="$LAB/.want-bytes" ending
+  for ending in none one three; do
+    ( cd "$LAB" && git checkout -q -- "$TARGET" )
+    case "$ending" in
+      none)  printf 'A\nB'       > "$want" ;;
+      one)   printf 'A\nB\n'     > "$want" ;;
+      three) printf 'A\nB\n\n\n' > "$want" ;;
+    esac
+    byte_mint "$TARGET" "$want"
+    integrity > /dev/null                      # 티켓이 유효하므로 복구가 없어야 한다
+    cmp -s "$want" "$LAB/$TARGET" \
+      || { echo "$ending: 훅 1회만으로 파일이 바뀌었다 ($(wc -c < "$want") → $(wc -c < "$LAB/$TARGET") 바이트)"; return 1; }
+    untracked_write "$TARGET" 'PWNED'
+    integrity > /dev/null
+    cmp -s "$want" "$LAB/$TARGET" \
+      || { echo "$ending: 복구가 바이트 동일하지 않다 ($(wc -c < "$want") → $(wc -c < "$LAB/$TARGET") 바이트)"; return 1; }
+  done
+}
+
+@test "F78 3차 판정: 훅이 한 번도 돌지 않은 채 훼손돼도 복구는 바이트 동일하다" {
+  # 앞의 두 바이트 동일성 테스트는 훼손 전에 훅을 한 번 돌리므로 `promote_blob()` 이 실제
+  # 바이트를 올린다 — 그래서 **발행 시점 blob 이 정확한지**는 검사되지 않았다(변이 N5 가 그
+  # 사실을 잡아냈다). 여기서는 심사 직후 아무 훅도 돌지 않은 상태에서 훼손한다. 이때 존재하는
+  # blob 은 invariant-guard 가 발행 시점에 남긴 것뿐이므로, 그것이 바이트 그대로여야 한다.
+  local want="$LAB/.want-mint"
+  ( cd "$LAB" && git checkout -q -- "$TARGET" )
+  printf 'A\nB' > "$want"                      # 개행 없이 끝난다
+  byte_mint "$TARGET" "$want"
+  untracked_write "$TARGET" 'PWNED'            # 훅 실행 없이 곧바로 훼손
+  integrity > /dev/null
+  cmp -s "$want" "$LAB/$TARGET" \
+    || { echo "발행 시점 blob 이 바이트 그대로가 아니다 ($(wc -c < "$want") → $(wc -c < "$LAB/$TARGET") 바이트)"; return 1; }
+}
+
+@test "F78 3차 판정: Edit 경로의 복구도 바이트 동일하다 (예측이 아니라 실제 바이트)" {
+  # Write 는 `jq -j` 로 바이트를 그대로 뜰 수 있지만 Edit·MultiEdit 의 결과는 awk 치환을 거쳐
+  # 후행 개행이 정규화된다. 그 경로의 정확성은 `promote_blob()` 이 책임진다 — 티켓이 유효하다고
+  # 판정된 **디스크의 실제 내용**을 blob 으로 올린다. 이 테스트가 그 승격을 고정한다.
+  local want="$LAB/.want-edit"
+  ( cd "$LAB" && git checkout -q -- "$TARGET" )
+  printf 'A\nOLD\nB' > "$LAB/$TARGET"          # 개행 없이 끝나는 파일
+  ( cd "$LAB" && git add -A && git -c user.email=t@t -c user.name=t commit -qm edit-base )
+  jq -n --arg f "$LAB/$TARGET" --arg o 'OLD' --arg n 'NEW' \
+     '{tool_name:"Edit",tool_input:{file_path:$f,old_string:$o,new_string:$n}}' \
+    | ( cd "$LAB" && CLAUDE_PROJECT_DIR="$LAB" bash hooks/invariant-guard.sh ) >/dev/null 2>&1
+  printf 'A\nNEW\nB' > "$want"
+  cp "$want" "$LAB/$TARGET"
+  integrity > /dev/null                        # 승격이 일어나는 실행
+  cmp -s "$want" "$LAB/$TARGET" \
+    || { echo "훅 1회만으로 파일이 바뀌었다 ($(wc -c < "$want") → $(wc -c < "$LAB/$TARGET") 바이트)"; return 1; }
+  untracked_write "$TARGET" 'PWNED'
+  integrity > /dev/null
+  cmp -s "$want" "$LAB/$TARGET" \
+    || { echo "Edit 경로의 복구가 바이트 동일하지 않다 ($(wc -c < "$want") → $(wc -c < "$LAB/$TARGET") 바이트)"; return 1; }
+}
+
+@test "F78 3차 판정 종단: blob 주조 → 대장 별칭 쓰기 → 훼손 경로로 임계값을 설치할 수 없다" {
+  # 3차 독립 판정이 세 번째로 재현한 백도어의 조립 순서를 그대로 밟는다. 1·2단계는 **정상**
+  # 이다 — payload 를 심사에 통과시켜 blob 을 만드는 것은 누구나 할 수 있다. 공격이 성립하는
+  # 유일한 자리는 3단계, 즉 **복구 대장에 한 줄을 심는 것**이고 그 줄은 '이 sha 가 저 경로의
+  # 심사 통과 내용이다'라는 뜻이다. 그러므로 대장 쓰기에 이르는 모든 표기가 막혀야 한다.
+  local fw="$BATS_TEST_DIRNAME/../hooks/pre-bash-firewall.sh" payload sha d
+  payload='{"pass_threshold": 1}'
+  # 1) 정상 심사로 payload blob 을 주조한다(비보호 경로라 티켓 없이도 통과한다 — 이 단계는 합법).
+  mkdir -p "$LAB/progress/.guarded-blobs"
+  sha=$( cd "$LAB" && printf '%s' "$payload" | git hash-object --stdin )
+  printf '%s' "$payload" > "$LAB/progress/.guarded-blobs/$sha"
+  # 2) 대장 별칭을 만든다(심볼릭 링크 생성 자체는 막지 않는다).
+  ( cd "$LAB/progress" && ln -sfn .guarded-restore rr )
+  # 3) 대장에 줄을 심는 모든 표기가 allow 가 아니어야 한다.
+  local head_at; head_at=$( cd "$LAB" && git rev-parse --verify -q HEAD )
+  local line="$sha $head_at progress/harness-config.json"
+  local fails=()
+  local c
+  for c in "printf '%s\\n' '$line' >> progress/rr" \
+           "printf '%s\\n' '$line' >> progress/.guarded-restore" \
+           "printf '%s\\n' '$line' >> $LAB/progress/rr" \
+           "cd progress && printf '%s\\n' '$line' >> rr" \
+           "python3 -c \"open('progress/rr','a').write('$line')\"" \
+           "tee -a progress/rr"; do
+    d=$(fw_decide "$fw" "$c")
+    [ "$d" = "allow" ] && fails+=("$c -> allow")
+    [ "$d" = "ERROR" ] && fails+=("$c -> 프로브 오류")
+  done
+  [[ ${#fails[@]} -eq 0 ]] || { printf '백도어 경로가 열려 있다: %s\n' "${fails[@]}"; return 1; }
+  # 방화벽을 지나지 못했으므로 임계값은 그대로여야 한다.
+  grep -q '"pass_threshold": *7' "$LAB/progress/harness-config.json" \
+    || { echo "임계값이 7 이 아니다"; return 1; }
+}
+
+@test "F78 3차 판정: blob 저장소에 쓸 수 없으면 편집이 차단된다 (error_scenario)" {
+  # 계약의 error_scenario: '티켓을 발행할 수 없으면 편집을 통과시키지 않는다'(AC-3). 세 라운드
+  # 내내 rc=0 이었고, 그 결과 **원장에는 줄이 있고 blob 에는 내용이 없는 손실 상태**가 만들어졌다
+  # — 복구할 내용이 없으니 HEAD 로 내려간다. 조용한 통과가 곧 손실인 자리다.
+  mkdir -p "$LAB/progress/.guarded-blobs"
+  chmod 500 "$LAB/progress/.guarded-blobs"
+  local rc; rc=$(guard_rc "$LAB/$TARGET" "$(cat "$LAB/$TARGET")
+# blob-store-readonly")
+  chmod 700 "$LAB/progress/.guarded-blobs"
+  [ "$rc" = "2" ] || { echo "blob 을 쓸 수 없는데 편집이 통과했다 (rc=$rc)"; return 1; }
+}
+
+@test "F78 3차 판정: 원장에 쓸 수 없으면 편집이 차단된다 (error_scenario)" {
+  mkdir -p "$LAB/progress"
+  : > "$LAB/progress/.guarded-edits"
+  chmod 400 "$LAB/progress/.guarded-edits"
+  local rc; rc=$(guard_rc "$LAB/$TARGET" "$(cat "$LAB/$TARGET")
+# ledger-readonly")
+  chmod 600 "$LAB/progress/.guarded-edits"
+  [ "$rc" = "2" ] || { echo "원장에 쓸 수 없는데 편집이 통과했다 (rc=$rc)"; return 1; }
+}
+
+@test "F78 3차 판정: 원장의 손상된 줄은 무시하되 보고한다 (error_scenario)" {
+  # 계약: '손상된 줄만 무시하고 **보고**한다'. 지금까지는 조용히 버렸다 — 원장이 깨졌다는
+  # 사실이 사용자에게도 다음 라운드에게도 보이지 않았다.
+  mkdir -p "$LAB/progress"
+  printf 'GARBAGE\n%040d ../../etc/passwd\n' 1 > "$LAB/progress/.guarded-edits"
+  untracked_write "$TARGET" 'PWNED'
+  local out; out=$(integrity)
+  [[ "$out" == *"손상"* ]] || { echo "손상된 줄이 보고되지 않았다: $out"; return 1; }
 }
 
 @test "F78: 참조되지 않는 blob 은 정리된다" {

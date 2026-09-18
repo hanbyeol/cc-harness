@@ -14,13 +14,14 @@ __HOOK_START_NS=$(date +%s%N)
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh" 2>/dev/null || true
 if ! declare -f is_guarded_state_physical >/dev/null 2>&1; then
   GUARDED_STATE_NAMES=(.guarded-edits .guarded-restore .guarded-blobs .integrity-baseline)
-  is_guarded_state_physical() {
+  is_guarded_state_path() {
     local p="$1" n
     for n in "${GUARDED_STATE_NAMES[@]}"; do
       case "$p" in "$n"|*/"$n"|"$n"/*|*/"$n"/*) return 0 ;; esac
     done
     return 1
   }
+  is_guarded_state_physical() { is_guarded_state_path "$1"; }
 fi
 INPUT=$(cat)
 if ! command -v jq &>/dev/null; then
@@ -3203,36 +3204,74 @@ fi
 # 상태 디렉터리가 있는지 본다. 비용을 유계로 둔다: 리다이렉트(`>`·`>>`)가 있는 명령에서만,
 # 대상 토큰 최대 8개까지, 부모가 실제로 존재할 때만 서브셸을 쓴다.
 __guarded_state_write_target() {
-  local cmd="$1" tok n=0 __cands="" __w
-  # 후보 (1) 리다이렉트 대상. `>`·`>>` 뒤의 낱말(공백 유무 모두).
-  if [[ "$cmd" == *'>'* ]]; then
-    __cands=$(printf '%s' "$cmd" | tr ';|&' '   ' | sed -E 's/>>?/ > /g' \
-      | awk '{for(i=1;i<=NF;i++) if($i==">") print $(i+1)}')
+  local cmd="$1" tok __cands="" __exp=0 __par __par_seen="" __par_live=0 __par_link=0 __cds="" __cd
+  # **`cd` 로 기준을 옮긴 상대 경로도 본다.** 이 파일은 철자 형태를 basename 으로 앵커하므로
+  # `cd progress && … >> .guarded-edits` 는 이미 잡힌다. 그러나 **심볼릭 링크 별칭**은 이름이
+  # 나타나지 않으므로(`cd progress && … >> rr`) 기준 디렉터리를 알아야 실체를 풀 수 있다.
+  # 3차 판정의 종단 랩이 정확히 이 조합이었다.
+  if [[ " $cmd " == *" cd "* ]]; then
+    __cds=$(printf '%s' "$cmd" | tr ';|&' '   ' | awk '{for(i=1;i<=NF;i++) if($i=="cd") print $(i+1)}' 2>/dev/null)
   fi
-  # 후보 (2) **쓰기 동사가 있으면 경로처럼 보이는 인자도 대상이다** — `cp /tmp/evil
-  # progress/blobs/abc` 처럼 리다이렉트 없이 심는 형태가 남아 있었다(이 라운드 자체 발견).
-  # 동사 목록은 이 파일이 이미 '파괴적 쓰기'로 쓰는 것 하나뿐이다(새 열거를 만들지 않는다).
-  for __w in "${ARM_DELETE_VERBS_UNCONDITIONAL[@]}"; do
-    if [[ " $cmd " == *" $__w "* ]]; then
-      __cands="$__cands
-$(printf '%s' "$cmd" | tr ';|&' '   ' | tr ' ' '\n' | grep '/' || true)"
-      break
-    fi
-  done
+  # **후보는 '쓰기 수단'이 아니라 '경로 모양 토큰' 전부다(3차 독립 판정).** 이전 판은 후보를
+  # 리다이렉트 대상과 '파괴적 동사가 있을 때의 경로 인자'로만 모았다. 그래서
+  # `python3 -c "open('progress/rr','w').write(…)"` 처럼 리다이렉트도 동사도 없는 형태는
+  # 후보에 **아예 들어오지 않았다** — 판정 함수를 고쳐도 닿지 않는 자리였다. 수단은 무한하고
+  # 대상은 유한하므로 대상 쪽에서 센다. 읽기 전용 명령은 호출부(PURE_READ)가 이미 걸러 낸다.
+  __cands=$(printf '%s' "$cmd" | tr ';|&()<>,' '        ' | tr -s ' \t' '\n\n')
   [[ -n "${__cands//[$'\n' ]/}" ]] || return 1
-  for tok in $__cands; do
-    n=$((n + 1)); [[ $n -gt 8 ]] && return 1
+  while IFS= read -r tok; do
     [[ -z "$tok" ]] && continue
-    tok=${tok//\'/}; tok=${tok//\"/}
+    case "$tok" in *[\'\"]*) tok=${tok//\'/}; tok=${tok//\"/} ;; esac
     # `dd of=x`·`if=y` 처럼 **접두사가 붙은 피연산자**는 값만 떼어 본다(2차 판정 우회 3종 중
     # 하나: `of=progress/blobs/abc` 는 부모가 `of=progress/blobs` 로 잡혀 판정에서 탈락했다).
     case "$tok" in *=*) tok="${tok#*=}" ;; esac
     [[ -z "$tok" ]] && continue
-    # **판정은 단일 출처(`lib.sh` 의 `is_guarded_state_physical`)가 한다** — 대상이 파일이든
-    # 디렉터리든, 철자든 심볼릭 링크 별칭이든 같은 규칙이다. 2차 판정: 부모만 물리화하던
-    # 이전 구현은 대상이 **파일**인 두 원장에 원리적으로 매치할 수 없어 그 분기가 죽은 코드였다.
-    if is_guarded_state_physical "$tok"; then printf '%s' "$tok"; return 0; fi
-  done
+    # (1) 철자 판정 — **포크가 없다**. 상태 파일 이름은 모두 `.` 로 시작하므로, 점으로 시작하는
+    #     요소가 없는 토큰은 철자 판정이 반드시 실패한다 — case 한 번으로 기각한다. 후보를
+    #     8개에서 전부로 넓힌 뒤 경로 800개짜리 평범한 명령이 예산 경계에 붙었고(1.3→1.5초),
+    #     이 기각이 그 비용을 되돌린다. 이름이 모두 점으로 시작한다는 성질은 테스트가 고정한다.
+    case "$tok" in
+      .*|*/.*)
+        if is_guarded_state_path "$tok"; then printf '%s' "$tok"; return 0; fi
+        ;;
+    esac
+    # (2) 실체 판정 — 심볼릭 링크나 `..` 가 실제로 낀 토큰에만 쓴다(비용을 여기에만 쓴다).
+    #     상한을 넘는 것은 '모른다'는 뜻이지 안전하다는 뜻이 아니므로 **ask 로 떨어뜨린다**.
+    #     이전 판은 상한(8) 초과가 곧 `return 1`(=allow)이라, 경로를 아홉 개 나열하면 상태 파일
+    #     쓰기가 상한 밖으로 밀려 통과했다.
+    #
+    #     **부모 판정을 기억한다.** 후보를 8개에서 전부로 늘렸으므로 토큰마다 stat 을 하면
+    #     경로 800개짜리 평범한 명령이 예산을 넘는다(실측 1.3초 → 1.7초). 한 명령의 경로들은
+    #     대개 부모를 공유하고, **부모 디렉터리가 없으면 그 토큰은 심볼릭 링크일 수도 쓰일 수도
+    #     없다**. 그래서 부모마다 한 번만 보고 결과를 다음 토큰에 재사용한다.
+    __par="${tok%/*}"; [[ "$__par" == "$tok" ]] && __par="."
+    if [[ "$__par" != "$__par_seen" ]]; then
+      __par_seen="$__par"
+      if [[ -d "$__par" ]] && declare -f __path_has_symlink_component >/dev/null 2>&1; then
+        __par_live=1
+        if __path_has_symlink_component "$__par"; then __par_link=1; else __par_link=0; fi
+      else
+        __par_live=0; __par_link=0
+      fi
+    fi
+    if [[ $__par_live -eq 1 ]] \
+       && { [[ $__par_link -eq 1 ]] || [[ -L "$tok" ]] || [[ "$tok" == *..* ]]; }; then
+      __exp=$((__exp + 1))
+      if [[ $__exp -gt 16 ]]; then printf '%s' "(실체 판정 상한 초과 — 확정 불가)"; return 0; fi
+      if is_guarded_state_physical "$tok"; then printf '%s' "$tok"; return 0; fi
+    fi
+    # `cd` 기준을 붙여 한 번 더 본다(절대 경로 토큰은 기준이 바뀌어도 같으므로 건너뛴다).
+    if [[ -n "$__cds" && "$tok" != /* ]]; then
+      while IFS= read -r __cd; do
+        [[ -z "$__cd" ]] && continue
+        __cd=${__cd//\'/}; __cd=${__cd//\"/}
+        [[ -d "$__cd" ]] || continue
+        __exp=$((__exp + 1))
+        if [[ $__exp -gt 16 ]]; then printf '%s' "(실체 판정 상한 초과 — 확정 불가)"; return 0; fi
+        if is_guarded_state_physical "$__cd/$tok"; then printf '%s' "$__cd/$tok"; return 0; fi
+      done <<< "$__cds"
+    fi
+  done <<< "$__cands"
   return 1
 }
 if [ "$PURE_READ" -eq 0 ]; then

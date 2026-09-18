@@ -42,14 +42,62 @@ is_guarded_state_path() {  # $1 경로(절대·상대 무관)
 # 실체 경로로 같은 판정을 한다 — 심볼릭 링크 별칭(`ln -s .guarded-blobs progress/blobs`)과
 # `..` 경유를 흡수한다. 대상이 **파일**일 수도 있으므로 부모만 풀지 않는다(2차 판정: 부모만
 # 풀던 구현은 원장 두 개에 원리적으로 매치하지 못해 그 분기가 죽은 코드였다).
+# 경로 구성요소 중 심볼릭 링크가 있는가 — **포크 없이** 판정한다(`[[ -L ]]` 는 셸 내장).
+# 실체화는 비싸다(서브셸 + `cd` + `pwd -P`). 그 비용을 심볼릭 링크가 실제로 낀 경로에만 쓰기
+# 위한 사전 검사다 — 이 하네스에는 경로 토큰 800개짜리 평범한 명령이 예산(1.5초) 안에 끝나야
+# 한다는 제약이 이미 있고, 토큰마다 서브셸을 띄우면 그 제약이 깨진다.
+__path_has_symlink_component() {  # $1 경로
+  local p="$1" n=0
+  [[ -L "$p" ]] && return 0
+  while [[ "$p" == */* ]]; do
+    p="${p%/*}"
+    [[ -z "$p" ]] && break
+    n=$((n + 1)); [[ $n -gt 40 ]] && return 1
+    [[ -L "$p" ]] && return 0
+  done
+  return 1
+}
+
+# 심볼릭 링크 체인을 한 단계씩 따라가 실체 경로를 낸다. `readlink -f` 는 macOS 기본 환경에
+# 없으므로 `readlink` 한 단계 + `pwd -P` 를 상한 둔 루프로 푼다(invariant-guard 의 canon_file
+# 과 같은 규약). **대상이 파일이어도 따라간다** — 3차 독립 판정이 실측한 결함이 정확히 그것이다:
+# 부모만 풀고 대상 자신은 디렉터리일 때만 풀어서, 대상이 파일인 두 원장에는 원리적으로 닿지
+# 않았고 파일 심볼릭 링크 별칭 8형이 전부 allow 였다. 링크가 매달려 있어도(대상 파일이 아직
+# 없어도) 읽는다 — 아직 없는 대장을 심는 것이 곧 위조이므로 그때가 가장 중요한 순간이다.
+__resolve_symlink_path() {  # $1 경로 → 실체 경로(stdout)
+  local p="$1" n=0 t parent base
+  while [[ -L "$p" && $n -lt 20 ]]; do
+    t=$(readlink "$p" 2>/dev/null) || break
+    [[ -z "$t" ]] && break
+    case "$t" in
+      /*) p="$t" ;;
+      *)  case "$p" in */*) p="${p%/*}/$t" ;; *) p="$t" ;; esac ;;
+    esac
+    n=$((n + 1))
+  done
+  case "$p" in */*) parent="${p%/*}"; base="${p##*/}" ;; *) parent="."; base="$p" ;; esac
+  if [[ -d "$parent" ]]; then
+    parent=$( cd "$parent" 2>/dev/null && pwd -P 2>/dev/null ) || parent=""
+  else
+    parent=""
+  fi
+  if [[ -n "$parent" ]]; then printf '%s/%s' "$parent" "$base"; else printf '%s' "$p"; fi
+}
+
 is_guarded_state_physical() {  # $1 경로
   local p="$1" parent base phys
+  # (1) 철자 판정 — 포크가 없다. 토큰이 아무리 많아도 비용이 들지 않는다.
   is_guarded_state_path "$p" && return 0
+  # (2) 실체 판정 — 심볼릭 링크나 `..` 가 실제로 낀 경로에만 쓴다. 그 둘이 없으면 실체화해도
+  #     철자와 같은 결론이 나오므로 포크를 쓸 이유가 없다.
+  __path_has_symlink_component "$p" || [[ "$p" == *..* ]] || return 1
+  phys=$(__resolve_symlink_path "$p")
+  is_guarded_state_path "$phys" && return 0
   case "$p" in */*) parent="${p%/*}"; base="${p##*/}" ;; *) parent="."; base="$p" ;; esac
-  [[ -d "$parent" ]] || return 1
-  phys=$( cd "$parent" 2>/dev/null && pwd -P 2>/dev/null ) || return 1
-  # 부모의 실체 + 이름으로 다시 판정하고, 대상 자신이 디렉터리면 그 실체로도 본다.
-  is_guarded_state_path "$phys/$base" && return 0
+  if [[ -d "$parent" ]]; then
+    phys=$( cd "$parent" 2>/dev/null && pwd -P 2>/dev/null ) || return 1
+    is_guarded_state_path "$phys/$base" && return 0
+  fi
   if [[ -d "$p" ]]; then
     phys=$( cd "$p" 2>/dev/null && pwd -P 2>/dev/null ) || return 1
     is_guarded_state_path "$phys" && return 0
