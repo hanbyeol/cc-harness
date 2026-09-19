@@ -38,6 +38,17 @@ cd "$REPO" 2>/dev/null || exit 0
 command -v git &>/dev/null || exit 0
 GITDIR=$(git rev-parse --git-dir 2>/dev/null) || exit 0
 
+# **복구 가능 화이트리스트와 재심사기(F78 5차 회전, ADR-009).** `lib.sh` 가 목록을, 같은
+# 디렉터리의 invariant-guard 가 심사를 맡는다. 둘 다 이 훅과 **같은 설치본**에서 온다 — 저장소의
+# 작업 트리 사본이 아니다(작업 트리 쪽은 위조 대상이다).
+# lib.sh 를 읽지 못하면 목록은 **비어 있는 것으로** 본다: 모든 파일이 HEAD 로 돌아간다(fail-closed).
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P)"
+# shellcheck source=/dev/null
+source "$HOOK_DIR/lib.sh" 2>/dev/null || true
+if ! declare -f is_blob_restorable >/dev/null 2>&1; then
+  is_blob_restorable() { return 1; }
+fi
+
 # 데이터 플레인 — git 추적이라 HEAD로 복구 가능한 검증 장치.
 # **invariant-guard의 is_protected()와 같은 집합이어야 한다 — 단, 문서화된 예외는 남는다**
 # (F65 4차 판정 이후 step 13: SC-8 테스트는 이 예외 목록을 근거로 두 집합의 대칭차를 기계
@@ -169,6 +180,58 @@ promote_blob() {  # $1 저장소 상대 경로
     rm -f "$tmp" 2>/dev/null
   fi
   return 0
+}
+
+# **재심사(F78 SC-11, ADR-009) — 복구 직전과 면제 판정 양쪽이 부른다.** 1~4차 판정은 모두 같은
+# 공격을 재현했다 — 복구 목표 저장소에 무언가를 심고 보호 파일을 훼손하면, 이 훅이 그 내용을
+# '심사를 통과한 내용'이라 믿고 설치했다. 매 회전이 저장소로 가는 **입구**를 막았고 판정자는
+# 매번 다음 표기를 찾았다. 입구를 명령 문자열로 판정하는 일은 결정 불가이므로 **출구**를 막는다:
+# 설치하거나 면제하기 전에 그 내용이 정상 편집으로도 통과했을지를 invariant-guard 에게 다시
+# 묻는다. 위조가 성공해도 남길 수 있는 것은 정상 편집으로 남길 수 있었던 내용뿐이 된다.
+#
+# 규칙을 복제하지 않는다 — invariant-guard 를 그대로 부른다(단일 출처). 기준선은 **HEAD** 여야
+# 한다: 훼손된 현재 파일을 기준으로 쓰면, 먼저 더 약하게 훼손해 두는 것만으로 위조가 '강화'로
+# 보인다. 그래서 임시 저장소에 HEAD 내용을 **커밋**해 두고 그 안에서 부른다(계약 분기는
+# `git show HEAD:` 로 커밋된 승인과 비교하므로 커밋까지 해야 같은 판정이 나온다).
+# invariant-guard 가 대상 외에 읽는 파일은 둘이다(실측):
+#   - `progress/harness-config.json` — 임계값. **HEAD 판**을 놓는다. 작업 트리 판은 위조 면제로
+#     낮춰진 채 남아 있을 수 있다 — 분류는 모든 파일을 본 뒤에 복구하므로, 다른 파일을 재심사할
+#     때 그 낮춘 값이 아직 디스크에 있다(변이 P3 가 살아남았던 자리).
+#   - `progress/agent-comms/` — passes 전환의 근거. 실제 디렉터리를 가리킨다. 편집 시점의 심사도
+#     같은 디렉터리를 보므로 정상 편집보다 넓히는 것이 없다.
+REVIEW_REASON=""
+review_restore_candidate() {  # $1 저장소 상대 경로 · $2 심사할 내용 파일 → 0 통과
+  local rel="$1" blob="$2" guard="$HOOK_DIR/invariant-guard.sh" tmp phys rc out
+  REVIEW_REASON=""
+  [[ -f "$guard" ]] || { REVIEW_REASON="재심사기(invariant-guard.sh)를 찾을 수 없어 재심사를 할 수 없음"; return 1; }
+  command -v jq >/dev/null 2>&1 || { REVIEW_REASON="jq 가 없어 재심사를 할 수 없음"; return 1; }
+  tmp=$(mktemp -d 2>/dev/null) || { REVIEW_REASON="재심사용 임시 저장소를 만들 수 없음"; return 1; }
+  phys=$(cd "$tmp" 2>/dev/null && pwd -P) || { rm -rf "$tmp"; REVIEW_REASON="재심사용 임시 저장소를 만들 수 없음"; return 1; }
+  if ! {
+      git -C "$phys" init -q \
+      && mkdir -p "$phys/$(dirname "$rel")" "$phys/progress" \
+      && git show "HEAD:$rel" > "$phys/$rel" \
+      && { [[ "$rel" == "progress/harness-config.json" ]] \
+           || git show "HEAD:progress/harness-config.json" > "$phys/progress/harness-config.json" 2>/dev/null \
+           || true; } \
+      && git -C "$phys" add -A \
+      && git -C "$phys" -c user.email=review@cc-harness -c user.name=cc-harness-review commit -qm review-base
+    } >/dev/null 2>&1; then
+    rm -rf "$tmp"; REVIEW_REASON="재심사용 HEAD 기준선을 만들 수 없음"; return 1
+  fi
+  [[ -d "$REPO/progress/agent-comms" ]] && ln -s "$REPO/progress/agent-comms" "$phys/progress/agent-comms" 2>/dev/null
+  out=$(jq -n --arg f "$phys/$rel" --rawfile c "$blob" \
+          '{tool_name:"Write",tool_input:{file_path:$f,content:$c}}' 2>/dev/null \
+        | ( cd "$phys" && CLAUDE_PROJECT_DIR="$phys" bash "$guard" ) 2>&1 >/dev/null)
+  rc=$?
+  rm -rf "$tmp"
+  case "$rc" in
+    0) return 0 ;;
+    2) REVIEW_REASON="재심사 거부 — $(printf '%s' "$out" | grep -m1 'INVARIANT 위반' | sed 's/^INVARIANT 위반: //')"
+       [[ "$REVIEW_REASON" == "재심사 거부 — " ]] && REVIEW_REASON="재심사 거부(사유 미상)"
+       return 1 ;;
+    *) REVIEW_REASON="재심사 실행 실패(rc=$rc)"; return 1 ;;
+  esac
 }
 
 ticket_valid() {
@@ -375,7 +438,7 @@ if [[ "$GC_CORRUPT" -gt 0 ]]; then
   } >&2
 fi
 
-CHANGED=(); COMMITTED=()
+CHANGED=(); COMMITTED=(); EXEMPT_DENIED=()
 for f in "${FILES[@]+"${FILES[@]}"}"; do
   if git diff --quiet HEAD -- "$f" 2>/dev/null; then
     # HEAD와 같다 = 변경이 정착했다(커밋했거나 되돌렸거나). 남은 티켓은 여기서 소비한다.
@@ -390,7 +453,18 @@ for f in "${FILES[@]+"${FILES[@]}"}"; do
   # 에서 나오고 그 예측은 명령 치환을 거치므로 후행 개행이 사라진다 — 복구가 원본과 1바이트
   # 다른 원인이 그것이다. 여기서는 티켓이 유효하다고 판정된 **디스크의 실제 내용**을 올리므로
   # 예측이 아니라 사실이고, 바이트가 그대로다.
-  if ticket_valid "$f"; then promote_blob "$f"; continue; fi
+  if ticket_valid "$f"; then
+    # **면제도 내용으로 판정한다(F78 5차 회전, ADR-009).** 티켓은 원장의 한 줄이고, 원장은 셸을
+    # 쥔 상대가 위조할 수 있다 — 낮춘 임계값에 위조 티켓을 붙이면 이 분기가 그것을 '심사 통과분'
+    # 으로 보고 **복구하지 않고 남겼다**. 복구 경로에 둔 재심사를 여기에도 둔다: 화이트리스트
+    # 파일은 지금 내용이 HEAD 기준으로 정상 편집이었을지 다시 묻고, 아니면 복구 대상으로 돌린다.
+    # 코드 파일은 내용을 판정할 규칙이 없어 원장을 믿는다 — ADR-009 의 알려진 한계.
+    if is_blob_restorable "$f" && ! review_restore_candidate "$f" "$REPO/$f"; then
+      EXEMPT_DENIED+=("$f: 티켓이 있지만 $REVIEW_REASON")
+      CHANGED+=("$f"); continue
+    fi
+    promote_blob "$f"; continue
+  fi
   CHANGED+=("$f")
 done
 
@@ -458,6 +532,10 @@ blob_trustworthy() {
   [[ "$got" == "$sha" ]]
 }
 
+# 재심사(`review_restore_candidate`)는 위쪽, 분류 루프보다 앞에 정의돼 있다 — 면제 분기도 그것을
+# 부르기 때문이다(정의가 호출보다 뒤에 있으면 '명령을 찾을 수 없음'으로 조용히 틀린 판정이 난다.
+# 이 파일에서 `__ticket_fresh` 로 한 번, 이 회전에서 한 번 더 실측했다).
+
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 DEST="$QUARANTINE/$STAMP"
 RESTORED=(); FALLBACK=()
@@ -466,7 +544,14 @@ for f in "${CHANGED[@]}"; do
   cp "$f" "$DEST/$f" 2>/dev/null || true      # 되돌리기 전에 반드시 보관 — 손실 0
   tsha=""
   last_ticket_sha "$f" 2>/dev/null && tsha="$LAST_TICKET_SHA"
-  if [[ -n "$tsha" ]] && blob_trustworthy "$tsha"; then
+  if [[ -n "$tsha" ]] && blob_trustworthy "$tsha" && ! is_blob_restorable "$f"; then
+    # **화이트리스트 밖(코드·산문) — 심사 통과분으로 되살리지 않는다(ADR-009).** 재심사가 그
+    # 내용을 가려낼 수 없는 파일이다. 대신 내용을 잃지 않도록 위치를 알려 준다 — 다시 적용하는
+    # 길은 Edit/Write(심사를 거치는 도구 경로)다. 위조일 수 있으므로 '확인한 뒤'를 붙인다.
+    FALLBACK+=("$f: 내용 규칙이 없는 파일이라 심사 통과분으로 되살리지 않고 HEAD 로 되돌림 — 마지막 티켓의 내용은 progress/.guarded-blobs/$tsha 에 있습니다(확인한 뒤 Edit/Write 로 다시 적용)")
+  elif [[ -n "$tsha" ]] && blob_trustworthy "$tsha" && ! review_restore_candidate "$f" "$BLOBS/$tsha"; then
+    FALLBACK+=("$f: $REVIEW_REASON — 설치하지 않고 HEAD 로 되돌림")
+  elif [[ -n "$tsha" ]] && blob_trustworthy "$tsha"; then
     if cp "$BLOBS/$tsha" "$f" 2>/dev/null; then
       # 복원 결과가 그 티켓과 실제로 일치하는지 다시 확인한다 — 일치하지 않으면 HEAD 로 간다.
       if [[ "$(file_sha "$f")" == "$tsha" ]]; then
@@ -506,6 +591,12 @@ done
   if [[ ${#FALLBACK[@]} -gt 0 ]]; then
     echo "  아래는 HEAD 로 되돌렸습니다(폴백 사유):"
     for r in "${FALLBACK[@]}"; do echo "    - $r"; done
+  fi
+  # 면제를 거부한 파일은 **티켓이 있었는데도** 복구했다는 뜻이다 — 원장이 위조됐을 수 있다는
+  # 신호이므로 따로 적는다(조용히 복구만 하면 원장이 공격받았다는 사실이 보이지 않는다).
+  if [[ ${#EXEMPT_DENIED[@]} -gt 0 ]]; then
+    echo "  아래는 원장에 티켓이 있었지만 재심사를 통과하지 못해 면제하지 않았습니다(원장 위조 가능성):"
+    for r in "${EXEMPT_DENIED[@]}"; do echo "    - $r"; done
   fi
   echo "  되돌린 내용은 버리지 않고 보관했습니다: ${DEST#"$REPO"/}"
   echo "  하네스 검증 장치는 Edit/Write(invariant-guard 심사)로만 변경할 수 있습니다."

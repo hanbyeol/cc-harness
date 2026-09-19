@@ -12,7 +12,11 @@
 setup() {
   LAB="$(mktemp -d)"
   git -C "$BATS_TEST_DIRNAME/.." archive HEAD 2>/dev/null | tar -x -C "$LAB"
-  cp "$BATS_TEST_DIRNAME/../hooks/protected-integrity.sh" "$BATS_TEST_DIRNAME/../hooks/invariant-guard.sh" "$LAB/hooks/"
+  # lib.sh 도 함께 가져온다 — protected-integrity 가 복구 화이트리스트를 거기서 읽는다(F78 5차
+  # 회전). 빠지면 HEAD 의 옛 lib.sh 를 읽어 fail-closed 로 모든 파일을 HEAD 로 돌리고, 시험하려는
+  # 코드를 시험하지 않게 된다(실측: 이 파일의 '티켓은 내용에 묶이고' 테스트가 그렇게 실패했다).
+  cp "$BATS_TEST_DIRNAME/../hooks/protected-integrity.sh" "$BATS_TEST_DIRNAME/../hooks/invariant-guard.sh" \
+     "$BATS_TEST_DIRNAME/../hooks/lib.sh" "$LAB/hooks/"
   cd "$LAB" || return 1
   git init -q .
   git add -A

@@ -3194,25 +3194,28 @@ delete_decision() {
   # (11.9KB) `git add` 가 484ms/allow 에서 3029ms/ask 로 샜다 — 포크 자체의
   # 누적 비용이 새 병목이 됐다. 1dacc31이 `__FWA_CHECK_EVERY`(200)번마다
   # 한 번만 시각을 읽도록 고쳤다.
-  local args c t0 t1 elapsed i
+  local args c t0 t1 elapsed i r best=999999
   args=""
   for ((i=0; i<800; i++)); do args="${args} path/to/file${i}.txt"; done
   c="git add${args}"
-  t0=$(date +%s%N)
-  run delete_decision "$c"
-  t1=$(date +%s%N)
-  elapsed=$(( (t1 - t0) / 1000000 ))
-  # **마찰(allow 유지)이 이 테스트의 본체다** — 결정론적이고, 회귀가 나면 반드시 걸린다.
-  [[ "$output" == *'"permissionDecision": "allow"'* ]] \
-    || { echo "경로 800개짜리 무관 명령에 새 마찰이 생겼다: $output"; false; }
-  # 시간 상한은 **잡으려는 회귀의 크기**에 맞춘다(F78 4차 회전에서 실측 후 조정, 2026-09-17).
-  # 1500ms 는 이 기계에서 더 이상 신호가 아니었다: 변경 전 릴리스 사본(8ee6942)을 그대로 재도
-  # 1232~1658ms 로 흔들려 전체 스위트가 간헐 실패했고, 같은 명령의 토큰 수를 50·200·400·800 로
-  # 바꿔 재도 순서가 뒤집힐 만큼 노이즈가 컸다. 이 테스트가 실제로 잡아야 하는 것은 토큰마다
-  # 포크를 하나 추가해 484ms 를 3029ms 로 만든 부류의 회귀이므로 상한을 그 크기에 맞춘다.
-  # F78 4차 회전이 후보 토큰을 8개에서 전부로 넓히며 더한 비용은 실측 약 100ms(+8%)다.
-  [ "$elapsed" -lt 3000 ] \
-    || { echo "경로 800개짜리 무관 명령이 ${elapsed}ms 걸렸다 — 토큰당 포크 회귀 의심"; false; }
+  # **세 번 재고 최솟값으로 판정한다(F78 5차 회전).** 한 번 잰 값은 기계 부하에 따라 크게
+  # 흔들린다 — 변경 전 사본(8ee6942)도 1232~1658ms 를 오갔고 전체 스위트가 간헐 실패했다.
+  # 최솟값은 부하 스파이크를 걷어 낸 '이 코드가 드는 비용'에 가깝다.
+  for r in 1 2 3; do
+    t0=$(date +%s%N)
+    run delete_decision "$c"
+    t1=$(date +%s%N)
+    elapsed=$(( (t1 - t0) / 1000000 ))
+    (( elapsed < best )) && best=$elapsed
+    # **마찰(allow 유지)이 이 테스트의 본체다** — 결정론적이고, 회귀가 나면 반드시 걸린다.
+    [[ "$output" == *'"permissionDecision": "allow"'* ]] \
+      || { echo "경로 800개짜리 무관 명령에 새 마찰이 생겼다: $output"; false; }
+  done
+  # 예산 2000ms(4차 독립 판정 권고). 4차 회전에서 올렸던 3000ms 는 잡으려는 회귀(토큰마다 포크를
+  # 추가해 484ms → 3029ms)보다 29ms 아래라 그 회귀가 조금만 빨라져도 통과하는 **약화**였다.
+  # 부하 없이 교대로 잰 실측은 현재 1546~1569ms, 기준선 1434~1445ms 다(4차 판정).
+  [ "$best" -lt 2000 ] \
+    || { echo "경로 800개짜리 무관 명령이 최소 ${best}ms 걸렸다 — 토큰당 포크 회귀 의심"; false; }
 }
 
 @test "F65 fail-closed: __find_wrapped_arg()'s cross-pass budget overflow always resolves to ask, never allow (32nd verdict, SC-10(4))" {

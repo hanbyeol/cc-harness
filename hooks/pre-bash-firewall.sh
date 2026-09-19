@@ -3217,7 +3217,7 @@ __guarded_state_write_target() {
   # `python3 -c "open('progress/rr','w').write(…)"` 처럼 리다이렉트도 동사도 없는 형태는
   # 후보에 **아예 들어오지 않았다** — 판정 함수를 고쳐도 닿지 않는 자리였다. 수단은 무한하고
   # 대상은 유한하므로 대상 쪽에서 센다. 읽기 전용 명령은 호출부(PURE_READ)가 이미 걸러 낸다.
-  __cands=$(printf '%s' "$cmd" | tr ';|&()<>,' '        ' | tr -s ' \t' '\n\n')
+  __cands=$(printf '%s' "$cmd" | tr ';|&()<>,' '        ' | tr -s ' \t' '\n')
   [[ -n "${__cands//[$'\n' ]/}" ]] || return 1
   while IFS= read -r tok; do
     [[ -z "$tok" ]] && continue
@@ -3278,7 +3278,9 @@ if [ "$PURE_READ" -eq 0 ]; then
   __gs_hit=$(__guarded_state_write_target "$NORMALIZED_CMD" || true)
   if [[ -n "${__gs_hit:-}" ]]; then
     log_decision ask
-    jq -n --arg reason "탐지기가 관리하는 상태 저장소에 쓰는 명령입니다 (pattern: guarded-state-write → $__gs_hit). 경로 표기가 아니라 실체 경로로 판정했습니다 — 심사 통과 기록을 위조하면 보호 파일에 임의 내용을 설치할 수 있습니다. 실행 전 확인이 필요합니다." \
+    # 사유는 '쓰는' 이 아니라 '가리키는' 이다 — 이 판정은 대상 경로만 보고 읽기·쓰기를 가리지
+    # 않으므로, 읽기 목적 명령에 '쓴다'고 말하면 사실과 다르다(4차 독립 판정 지적).
+    jq -n --arg reason "탐지기가 관리하는 상태 저장소를 가리키는 명령입니다 (pattern: guarded-state-write → $__gs_hit). 경로 표기가 아니라 실체 경로로 판정했습니다 — 심사 통과 기록을 위조하면 보호 파일에 임의 내용을 설치하려 할 수 있습니다. 실행 전 확인이 필요합니다." \
       '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "ask", permissionDecisionReason: $reason}}'
     exit 0
   fi

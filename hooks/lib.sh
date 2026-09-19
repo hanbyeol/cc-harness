@@ -25,6 +25,36 @@ has_jq() { command -v jq &>/dev/null; }
 #   .integrity-baseline 세션 기준선
 GUARDED_STATE_NAMES=(.guarded-edits .guarded-restore .guarded-blobs .integrity-baseline)
 
+# **심사 통과분(blob)으로 되살려도 되는 파일 — 화이트리스트(F78 5차 회전, ADR-009).**
+# 복구 목표 저장소는 셸을 쥔 상대가 위조할 수 있다(명령 문자열로 그 입구를 막는 일은 결정
+# 불가다 — F63·INV-14, 1~4차 판정이 매번 다음 표기를 찾았다). 그래서 protected-integrity 는
+# blob 을 설치하기 직전에 invariant-guard 로 **재심사**한다(SC-11). 그런데 재심사가 의미를
+# 갖는 것은 invariant-guard 가 그 파일의 **보안 의미를 온전히** 검사할 때뿐이다:
+#   - 들어가는 것: 임계값(INV-3)·passes 근거(INV-11)·계약 승인 전이(INV-11/12)·append-only
+#     기록(INV-12). 규칙이 곧 그 파일의 보안 의미다.
+#   - 들어가지 않는 것: 코드(`hooks/*.sh`·`tests/*.bats`)와 산문(`docs/INVARIANTS.md`·
+#     `skills/*`·`agents/*`). 규칙이 개수 비교뿐이거나 없어서, 개수를 유지한 채 내용을 비튼
+#     위조를 가려내지 못한다 — 4차 판정은 `hooks/lib.sh` 에 `has_jq(){ return 1; }` 를 설치했고,
+#     같은 내용은 정상 Write 로도 통과한다(rc=0).
+# **목록 밖은 HEAD 로 돌아간다(fail-closed).** 빠뜨린 파일의 대가는 편의 손실이지 보안 구멍이
+# 아니다 — 그래서 열거가 허용되는 방향이다. 심사 통과분은 사라지지 않고 blob 저장소에 남으며
+# 복구 보고가 그 위치를 알려 준다. 목록 자체는 테스트가 핀한다.
+BLOB_RESTORABLE_GLOBS=(
+  'progress/harness-config.json'
+  'templates/progress/harness-config.json'
+  'progress/feature_list.json'
+  'progress/contracts/sprint-*.json'
+  'progress/approval-queue.json'
+)
+is_blob_restorable() {  # $1 저장소 상대 경로
+  local g
+  for g in "${BLOB_RESTORABLE_GLOBS[@]}"; do
+    # shellcheck disable=SC2053
+    [[ "$1" == $g ]] && return 0
+  done
+  return 1
+}
+
 # 경로가 탐지기 상태 파일(또는 그 안의 파일)인가 — **철자가 아니라 성분으로** 본다.
 # 파일 존재 여부와 무관하다: blob 이름은 내용 해시라 심는 행위가 언제나 신규 파일 생성이고,
 # 존재 여부로 갈랐던 것이 2차 판정이 뚫은 구멍이다.

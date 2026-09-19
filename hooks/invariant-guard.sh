@@ -682,6 +682,62 @@ __ticket_required_or_die() {  # $1 사유
   exit 2
 }
 
+# 도구가 실제로 쓸 **바이트**를 파일로 만든다(F78 AC-7). 심사 경로(`apply_replace`·`NEW_CONTENT`)
+# 는 건드리지 않는다 — F49·F50·F53 에서 세 번 고친 자리이고, 여기 결과는 blob 에만 쓰인다.
+# 명령 치환을 한 번도 거치지 않는 것이 요점이다: 입력 문자열은 `jq -j`(줄바꿈을 덧붙이지 않음)로
+# 파일에 뜨고, awk 는 `RS` 를 제어 문자(0x01)로 두어 각 파일을 **통째로 한 레코드**로 읽는다 —
+# 그래야 후행 개행이 레코드 구분자로 소비되지 않는다(macOS awk 실측으로 확인). 그 제어 문자가
+# 내용에 들어 있으면 이 방식이 성립하지 않으므로 실패를 돌려준다(호출부가 종전 규약으로 떨어진다).
+# shellcheck disable=SC2329  # `trap record_guarded_edit EXIT` 핸들러 안에서만 호출된다(간접 호출)
+__exact_new_content() {  # $1 출력 파일 → 0 성공
+  local out="$1" d o n cur nxt i cnt
+  case "$TOOL" in
+    Write)
+      printf '%s' "$INPUT" | jq -j '.tool_input.content // empty' > "$out" 2>/dev/null
+      return $?
+      ;;
+    Edit|MultiEdit)
+      [[ -f "$FILE" ]] || return 1
+      d=$(mktemp -d 2>/dev/null) || return 1
+      cur="$d/cur"; cp "$FILE" "$cur" 2>/dev/null || { rm -rf "$d"; return 1; }
+      if [[ "$TOOL" == "Edit" ]]; then
+        cnt=1
+      else
+        cnt=$(printf '%s' "$INPUT" | jq -r '.tool_input.edits | length' 2>/dev/null) || { rm -rf "$d"; return 1; }
+      fi
+      for ((i = 0; i < cnt; i++)); do
+        o="$d/old"; n="$d/new"; nxt="$d/nxt"
+        if [[ "$TOOL" == "Edit" ]]; then
+          printf '%s' "$INPUT" | jq -j '.tool_input.old_string // empty' > "$o" 2>/dev/null || { rm -rf "$d"; return 1; }
+          printf '%s' "$INPUT" | jq -j '.tool_input.new_string // empty' > "$n" 2>/dev/null || { rm -rf "$d"; return 1; }
+        else
+          printf '%s' "$INPUT" | jq -j ".tool_input.edits[$i].old_string // empty" > "$o" 2>/dev/null || { rm -rf "$d"; return 1; }
+          printf '%s' "$INPUT" | jq -j ".tool_input.edits[$i].new_string // empty" > "$n" 2>/dev/null || { rm -rf "$d"; return 1; }
+        fi
+        [[ -s "$o" ]] || continue                        # 심사 경로와 같이 빈 old_string 은 건너뛴다
+        if LC_ALL=C grep -q $'\x01' "$cur" "$o" "$n" 2>/dev/null; then rm -rf "$d"; return 1; fi
+        LC_ALL=C awk 'BEGIN {
+            RS = sprintf("%c", 1); o = ""; n = ""
+            if ((getline o < ARGV[2]) < 0) exit 3
+            if ((getline n < ARGV[3]) < 0) exit 3
+            ARGV[2] = ""; ARGV[3] = ""
+          }
+          { buf = buf $0 }
+          END {
+            idx = index(buf, o)
+            if (idx > 0) printf "%s", substr(buf, 1, idx - 1) n substr(buf, idx + length(o))
+            else printf "%s", buf
+          }' "$cur" "$o" "$n" > "$nxt" 2>/dev/null || { rm -rf "$d"; return 1; }
+        mv -f "$nxt" "$cur" || { rm -rf "$d"; return 1; }
+      done
+      cp "$cur" "$out" 2>/dev/null; local rc=$?
+      rm -rf "$d"
+      return "$rc"
+      ;;
+  esac
+  return 1
+}
+
 record_guarded_edit() {
   local rc=$? root rel sha anc file_phys
   [[ $rc -ne 0 ]] && return 0
@@ -759,25 +815,32 @@ record_guarded_edit() {
   # 반대 순서였을 때 blob 쓰기가 실패하면 **원장에는 줄이 있고 blob 에는 내용이 없는 상태**가
   # 남았다 — 복구할 내용이 없으니 다음 훅 실행이 HEAD 로 내려간다. 조용한 통과가 곧 손실인
   # 자리라, 이제 어느 쪽이 실패해도 `__ticket_required_or_die` 로 **편집 시점에** 막는다(AC-3).
-  local blobdir="$root/progress/.guarded-blobs" tmpblob
-  if [[ ! -f "$blobdir/$sha" ]]; then   # 내용 주소라 이미 있으면 같은 내용이다
+  local blobdir="$root/progress/.guarded-blobs" tmpblob __exact=0
   mkdir -p "$blobdir" 2>/dev/null || { __ticket_required_or_die "blob 저장소를 만들 수 없습니다($blobdir)"; return 0; }
   tmpblob=$(mktemp "$blobdir/.tmp.XXXXXX" 2>/dev/null) || { __ticket_required_or_die "blob 저장소에 쓸 수 없습니다($blobdir)"; return 0; }
-  # **Write 는 바이트 그대로 쓴다(F78 AC-7).** `$NEW_CONTENT` 는 명령 치환을 거쳐 후행 개행이
-  # 전부 잘린 값이라, 여기서 `printf '%s\n'` 로 하나를 되붙이면 개행 없이 끝나는 파일은 1바이트
-  # 늘고 개행이 여러 개인 파일은 줄어든다 — 그리고 해시 규약이 후행 개행을 무시하므로 **아무도
-  # 그 변형을 관측하지 못한다**(3차 독립 판정 실측). `jq -j` 는 줄바꿈을 덧붙이지 않으므로
-  # 도구가 실제로 쓸 바이트와 같다. Edit·MultiEdit 는 치환 결과가 awk 를 거치므로 여기서는
-  # 종전 규약을 쓰고, 정확한 바이트는 protected-integrity 의 `promote_blob()` 이 첫 훅 실행에서
-  # 디스크의 실제 내용으로 올린다.
-  if [[ "$TOOL" == "Write" ]] && printf '%s' "$INPUT" | jq -j '.tool_input.content // empty' > "$tmpblob" 2>/dev/null; then
-    :
+  # **blob 은 도구가 실제로 쓸 바이트다(F78 AC-7).** `$NEW_CONTENT` 는 명령 치환을 거쳐 후행
+  # 개행이 전부 잘린 값이라, 거기에 `printf '%s\n'` 로 하나를 되붙이면 개행 없이 끝나는 파일은
+  # 1바이트 늘고 개행이 여럿인 파일은 줄어든다 — 해시 규약이 후행 개행을 무시하므로 **아무도 그
+  # 변형을 관측하지 못했다**(3·4차 판정 실측). 그래서 `__exact_new_content()` 가 바이트를 그대로
+  # 만든다. **자기 검증**: 그 결과의 정규화 해시가 티켓 sha 와 다르면 두 치환 구현이 어긋난
+  # 것이므로 버리고 종전 규약으로 떨어진다 — 그 경우의 정확성은 protected-integrity 의
+  # `promote_blob()` 이 첫 훅 실행에서 디스크의 실제 내용으로 되찾는다.
+  if __exact_new_content "$tmpblob" \
+     && [[ "$(printf '%s' "$(cat "$tmpblob")" | git hash-object --stdin 2>/dev/null)" == "$sha" ]]; then
+    __exact=1
   else
     printf '%s\n' "$NEW_CONTENT" > "$tmpblob" 2>/dev/null \
       || { rm -f "$tmpblob" 2>/dev/null; __ticket_required_or_die "blob 을 쓸 수 없습니다"; return 0; }
   fi
-  mv -f "$tmpblob" "$blobdir/$sha" 2>/dev/null \
-    || { rm -f "$tmpblob" 2>/dev/null; __ticket_required_or_die "blob 을 저장소에 넣을 수 없습니다"; return 0; }
+  # 같은 sha 의 blob 이 이미 있을 때: 내용 주소가 후행 개행을 무시하므로 **바이트가 다를 수 있다**
+  # (같은 내용을 개행만 바꿔 다시 심사받은 경우). 방금 심사를 통과한 정확한 바이트가 사실이므로
+  # 그것으로 바꾼다. 정확하지 않은(종전 규약) 결과로는 기존 blob 을 덮지 않는다 — 기존 것이
+  # `promote_blob()` 이 올린 실제 바이트일 수 있다.
+  if [[ -f "$blobdir/$sha" ]] && { [[ "$__exact" -eq 0 ]] || cmp -s "$tmpblob" "$blobdir/$sha"; }; then
+    rm -f "$tmpblob" 2>/dev/null
+  else
+    mv -f "$tmpblob" "$blobdir/$sha" 2>/dev/null \
+      || { rm -f "$tmpblob" 2>/dev/null; __ticket_required_or_die "blob 을 저장소에 넣을 수 없습니다"; return 0; }
   fi
   # 원장 append — 여기서 실패하면 티켓이 없는 것과 같으므로 역시 편집을 막는다.
   printf '%s %s %s\n' "$sha" "$__head_at" "$rel" >> "$root/progress/.guarded-edits" 2>/dev/null \
