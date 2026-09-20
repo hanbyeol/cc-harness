@@ -1164,6 +1164,14 @@ if [[ "$BASENAME" == "harness-config.json" ]]; then
       if [[ -z "$NEW_V" ]]; then
         deny "$path 제거 ($OLD_V → 없음) — 임계값 키 제거는 약화 (INV-3)"
       fi
+      # **임계값은 유한한 수여야 한다(F78 5차 독립 판정).** 이 검사가 없으면 `"nan"` 한 낱말로
+      # 규칙을 통째로 빠져나간다: awk 의 `b+0` 이 NaN 이라 `b+0 < a+0` 이 거짓이 되어 '하향'
+      # 판정이 서지 않고, 그렇게 설치된 값은 이후 min-of-5 비교(INV-11)에서도 항상 거짓이라
+      # **점수 1짜리 passes 전환까지 통과**한다. 문자열 하나가 임계값 체계 전체를 끈 셈이다.
+      # 타입까지 본다 — jq 로 숫자가 아니면(문자열 `"7"` 포함) 거부한다.
+      if ! echo "$NEW_CONTENT" | jq -e "$path | type == \"number\" and (isnan | not) and (isinfinite | not)" &>/dev/null; then
+        deny "$path 가 유한한 수가 아님 ($NEW_V) — 임계값 비교를 무력화하는 값은 약화 (INV-3)"
+      fi
       # 숫자 비교 — 하향이면 deny
       if awk -v a="$OLD_V" -v b="$NEW_V" 'BEGIN{exit !(b+0 < a+0)}'; then
         deny "$path 하향 ($OLD_V → $NEW_V) — 임계값은 add-only(상향만) (INV-3)"

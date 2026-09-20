@@ -1,0 +1,128 @@
+{
+  "timestamp": "2026-09-20T14:45:05+0900",
+  "sprint": 64,
+  "feature_id": "F78",
+  "iteration": 5,
+  "judgment_round": 5,
+  "features_evaluated": [
+    "F78"
+  ],
+  "security_tier": "critical",
+  "judged_diff": "45fb8ad..703ba5d (구현 커밋 6cceeaf, 릴리스 703ba5d = v1.39.16). 설치본 1.39.16 의 훅 13개(hooks/*.sh + hooks.json)는 HEAD 와 cmp 동일(diff=0).",
+  "prior_verdict_agreement": "4차 판정(fail, 종합 2)이 지목한 축 — 복구 경로가 설치할 내용을 재심사하지 않는다 — 은 닫혔다. 그러나 같은 목표(셸을 쥔 상대가 방화벽 allow 명령만으로 검증 장치에 임의 내용을 남기고, 훅이 그것을 '복구'라고 보고한다)가 세 가지 다른 경로로 재현됐다. verdict 는 4차와 같은 fail.",
+  "scores": {
+    "functionality": 5,
+    "code_quality": 5,
+    "security": 3,
+    "error_handling": 6,
+    "test_coverage": 4
+  },
+  "score": 3,
+  "score_method": "min_of_5",
+  "pass_threshold": 7,
+  "verdict": "fail",
+  "fail_reasons": [
+    "security 3 < 7 (critical tier) — 자동 fail",
+    "score 3 < pass_threshold 7",
+    "SC-11 종단 검증 항목('pass_threshold 하향을 담은 위조는 설치되지 않는다')이 두 가지 방식으로 실패: (a) `git replace` 로 재심사 기준선(HEAD)을 바꾸면 임계값 1 이 설치되고 훅은 '마지막으로 심사를 통과한 내용으로 복구했습니다' 라고 보고한다, (b) `pass_threshold: \"nan\"` 은 INV-3 을 그대로 통과해(정상 Write 로도 rc=0) 재심사가 걸러 내지 못하며, 설치되면 INV-11 의 min-of-5 게이트가 통째로 무력화된다",
+    "AC-6(오탐 0)이 세 가지 정상 시나리오에서 깨진다 — 계약 재승인 시퀀스, evaluator 실행 기록 48h 창 경과, 사용자 전역 git 설정(commit.gpgsign·core.hooksPath)"
+  ],
+  "issues": [
+    "[security][critical] **재심사 기준선(HEAD)을 `git replace` 로 바꿀 수 있다.** `git replace $(git rev-parse HEAD:progress/harness-config.json) $(git hash-object -w weak.json)` 는 방화벽 allow 다. `git show HEAD:` 도 `git diff --quiet HEAD` 도 refs/replace 를 따르므로 (i) 재심사가 위조된 기준선과 비교해 임계값 1 을 통과시키고, (ii) 그 명령만으로도 protected-integrity 의 탐지 자체가 무력화된다(훼손된 파일이 'HEAD 와 같다'로 보여 복구되지 않고 '커밋으로 바뀌었습니다' 보고만 난다 — git log 에는 아무것도 없다). 실측: 임계값 1 설치 + '마지막으로 심사를 통과한 내용으로 복구했습니다' 보고. 훅에 `GIT_NO_REPLACE_OBJECTS=1` 이 없다.",
+    "[security][critical] **HEAD 폴백 자체가 하이재킹된다 — smudge 필터.** `git config filter.zz.smudge 'cat /tmp/payload'` + `printf 'hooks/lib.sh filter=zz' >> .git/info/attributes` (둘 다 방화벽 allow) 뒤에 파일을 훼손하면, `git checkout HEAD -- <파일>` 이 payload 를 설치하고 훅은 'HEAD 내용으로 복구했습니다' 라고 보고한다. 실측: 4차 판정의 `has_jq(){ return 1; }` 백도어가 HEAD 복구 경로로 설치됐다. ADR-009 가 '목록 밖은 HEAD 로 돌아간다 = fail-closed 방향' 이라고 적은 전제가 성립하지 않는다(clean 필터는 같은 방식으로 `git diff --quiet HEAD` 도 속인다). 복구는 필터를 타지 않는 `git cat-file blob HEAD:<경로>` 로 써야 한다.",
+    "[security][critical] **`pass_threshold: \"nan\"` 이 INV-3 을 통과한다(정상 Write 로 rc=0 실측).** awk 의 `b+0` 이 NaN 을 만들어 `b+0 < a+0` 이 거짓이 되므로 '하향'으로 판정되지 않고, 설치된 뒤에는 INV-11 의 `m+0 < t+0` 도 항상 거짓이라 min-of-5=1 짜리 passes 전환이 통과한다(실측: 같은 전환이 HEAD 임계값에서는 rc=2). 그래서 화이트리스트의 대표 파일인 harness-config.json 에 대해 ADR-009 의 전제('들어가는 것은 규칙이 곧 그 파일의 보안 의미인 파일')가 거짓이고, 위조 저장소·위조 원장 어느 쪽으로도 이 내용이 설치·면제된다(A8·A8b 실측). 수정은 작다 — INV-3 에서 새 값이 유한 수(jq `type==\"number\"`)인지 먼저 요구한다.",
+    "[security][high] **사용자 전역 git 설정이 재심사 임시 저장소에 그대로 상속된다.** `git -C \"$phys\" init` 은 `init.templateDir` 를, `commit` 은 `core.hooksPath`/`commit.gpgsign` 을 따른다. `printf '[core]\\n\\thooksPath = …' >> ~/.gitconfig` 은 방화벽 allow 이고, 그 pre-commit 훅이 `$phys/progress/harness-config.json` 을 낮춰 두면 재심사의 기준선이 오염돼 임계값 1 이 '심사를 통과한 내용' 으로 설치된다(실측). 임시 저장소는 `-c core.hooksPath=/dev/null -c commit.gpgsign=false --template=` 로 격리해야 한다.",
+    "[security][high] **코드·산문 파일(47개)의 면제는 여전히 원장을 믿는다 — 침묵한다.** ADR-009 가 알려진 한계로 적었지만 실측 결과 그 대가가 크다: `printf '%s %s %s\\n' <sha> <HEAD> hooks/lib.sh >> progress/.guarded\\-edits` + `cd hooks && cat payload > lib.sh` 두 명령(둘 다 방화벽 allow)으로 4차 판정의 백도어가 남고, 훅은 3회 실행 동안 **아무 보고도 하지 않는다**. ADR 이 이 경로의 방어로 든 '기준선 비교 보고' 는 파일이 커밋됐을 때만 발화하므로 작업 트리에 남긴 위조에는 아무 신호가 없다 — 문서의 이 문장은 사실과 다르다. (기준선 9d61b9f^ 의 훅에서도 같은 결과 — F65 부터의 선재 한계이며 F78 이 넓힌 것은 아니다.)",
+    "[security][medium] **lib.sh 를 읽지 못할 때 면제 경로는 fail-open 이다.** 훅 주석과 테스트('lib.sh 를 읽지 못하면 화이트리스트가 비어 모든 파일이 HEAD 로 돌아간다')는 복구 경로만 고정한다. 실측: lib.sh 를 치운 뒤 위조 면제 티켓을 붙인 harness-config.json 은 재심사 없이 그대로 남았다(threshold 1 잔존). `is_blob_restorable` 폴백이 `return 1` 이라 면제 분기에서 '재심사 불필요' 로 읽히는 탓이다 — 면제 분기의 폴백은 반대 방향이어야 한다.",
+    "[functionality][high] **AC-6 오탐 (1) 계약 재승인 시퀀스.** HEAD 가 `agreed:true` 인 계약에서 심사를 통과한 두 번의 정상 편집(agreed→false, 그 뒤 agreed→true + 새 `_batch_approval`)이 다음 Bash 호출에서 통째로 HEAD 로 되돌려지고 '원장 위조 가능성' 으로 보고된다(실측, sprint-64 자신으로 재현). 재심사는 'HEAD 에서 현재 내용으로의 단일 Write' 를 묻는데 invariant-guard 의 계약 규칙은 **경로 의존적**이라 편집 시퀀스와 단일 쓰기가 같은 판정을 내지 않는다.",
+    "[functionality][high] **AC-6 오탐 (2) 시간 의존.** passes 전환의 근거인 evaluator 실행 기록은 48h 창으로 검사되는데, 재심사는 **훅이 돌 때마다** 다시 그 창을 본다. 실측: 정상으로 통과한 passes 전환이 창이 지나자 '실행 기록 부재' 로 거부돼 feature_list.json 전체가 HEAD 로 되돌아갔다(커밋 전 대기 중인 다른 편집도 함께 사라진다). F54 가 명시적으로 허용한 다세션 장기 작업이 이 경로로 손실된다.",
+    "[functionality][high] **AC-6 오탐 (3) 사용자 환경.** `commit.gpgsign=true`(서명 키가 비대화형에서 실패) 또는 전역 `core.hooksPath` pre-commit 실패만으로 재심사가 '재심사용 HEAD 기준선을 만들 수 없음' 으로 떨어지고, **화이트리스트 파일의 정상 편집이 전부 되돌려진다**(실측 2/2). 하네스의 기본 워크플로우(evaluator 의 passes 기록, /change-request 의 계약·feature_list 갱신)가 그 사용자에게는 성립하지 않는다.",
+    "[quality][medium] **훅 1회 비용이 크다.** 실 저장소·설치본 실측 7.7·8.4초(변경 없음), 대기 중인 화이트리스트 편집 3건이면 11.5초. 재심사 몫은 파일당 약 1.2초(3건 기준 +3.6초, 구현자 보고 0.65~1.8초와 일치)이고 나머지 약 8초는 선재 비용(45fb8ad·9d61b9f^ 에서도 7.1초)이다. AC-4 의 '훅 1회 실행 시간이 유의미하게 늘지 않는지' 는 이 회전만 보면 충족이지만 절대값이 이미 Bash 호출마다 8초다 — 별도 항목으로 다룰 가치가 있다.",
+    "[quality][low] 위조 면제(blob 없음) 케이스의 폴백 문구가 'blob 이 없거나 내용 주소가 어긋나(위조 가능성)' 로 나가 실제 사유(면제 재심사 거부)와 두 줄로 나뉘어 보인다 — 판정은 옳다.",
+    "[test][medium] 내가 설계한 변이 10종 중 **5종이 살아남았다**: Q2(재심사에서 `progress/agent-comms` 심볼릭 링크 제거 — 정상 passes 전환의 복구/면제가 아무 테스트로도 고정돼 있지 않다), Q3(재심사에 HEAD 판 harness-config 를 넣지 않음 — HEAD 임계값이 기본값 7 과 다른 저장소에서만 갈리는데 그 픽스처가 없다), Q4(`command -v jq` fail-closed 제거), Q5(재심사 임시 저장소 `rm -rf` 제거 — 자원 누수), Q6(EXEMPT_DENIED '원장 위조 가능성' 보고 블록 제거 — 이 회전의 핵심 산출인 보고가 테스트되지 않는다). 나머지 5종(Q1 면제 재심사를 harness-config 로 축소, Q7 재심사 기준선 미설치, Q8 blob 대신 현재 파일 심사, Q9 화이트리스트에서 계약 제거, Q10 면제 거부 무시)은 killed.",
+    "[test][medium] 이 판정이 실증한 반례 전부가 무테스트다 — `git replace`, smudge/clean 필터, `pass_threshold:\"nan\"`, 계약 재승인 시퀀스, 48h 창 경과, 전역 git 설정, lib.sh 부재 시 면제 fail-open.",
+    "[test][low] gitleaks: 커밋 상태(전체 이력·45fb8ad..HEAD) 0건으로 4차 판정이 지적한 `.gitleaksignore` 문제는 해소됐다. 다만 `gitleaks dir` 모드에서는 `agents/architect.md` 1건이 여전히 뜬다(지문 형식이 달라 억제되지 않는 선재 오탐)."
+  ],
+  "passed_criteria": {
+    "acceptance": [
+      "AC-2·AC-3·AC-4·AC-5 — 깨끗한 클론 `bats tests/` 995/996(유일한 실패 644번은 내가 변이 테스트를 병렬로 돌린 부하 중 발생한 타이밍 테스트로, 단독 재실행 3/3 통과)",
+      "AC-7 — Write·Edit·MultiEdit × 후행 개행 0·1·2 의 9조합 전부, 심사 직후 훅 없이 곧바로 훼손해도 복구가 바이트 동일(git hash-object 일치). 4차 판정이 지적한 경로가 닫혔다"
+    ],
+    "security": [
+      "SC-11 (부분) — 4차 판정의 labC7 재현: bs·brace 모드는 방화벽을 통과하지만 출구에서 hooks/lib.sh 가 HEAD 로 돌아가 백도어 실패, py 모드는 방화벽 ask. 저장소 위조로 임계값 수치 하향·근거 없는 passes 전환·계약 `_batch_approval` 주입·approval-queue 축소를 설치하려는 네 시도는 복구 경로와 면제 경로 **양쪽에서** 거부됐고 사유가 보고됐다",
+      "SC-11 반대 방향 — 정상 심사를 통과한 편집은 재심사도 통과해 그대로 복구된다(테스트 102번 + 내 실측)",
+      "SC-9·SC-7·SC-6·SC-8 — 회귀 없음(스위트 통과)"
+    ],
+    "error_scenarios": [
+      "재심사기 부재·jq 부재·비정상 종료 코드에서 설치하지 않고 HEAD 폴백 + 사유 보고(fail-closed, 테스트 + 실측)",
+      "원장 손상 줄 보고, blob 쓰기 실패 시 편집 차단"
+    ]
+  },
+  "failed_criteria": {
+    "acceptance": [
+      "AC-6 — 오탐 0 미충족(계약 재승인 시퀀스·48h 창 경과·전역 git 설정 3종 실측)",
+      "AC-1 — 문구가 '보호 파일' 전체를 대상으로 적혀 있으나 구현은 화이트리스트 5글롭(추적 파일 기준 68/115)로 좁아졌다. 사용자 결정에 따른 의도된 축소지만 AC-1 본문이 역전파되지 않았다"
+    ],
+    "security": [
+      "SC-11 — '저장소 위조가 성공해도 설치할 수 있는 것은 정상 편집으로도 설치할 수 있었던 내용뿐' 이 성립하지 않는다: `git replace` 로 기준선을 바꾸면 임계값 1 이 설치되고, 전역 pre-commit 훅으로도 같은 결과가 난다",
+      "SC-11 — 재심사가 의지하는 invariant-guard 의 규칙이 대표 화이트리스트 파일에서 불완전하다(`pass_threshold:\"nan\"`)",
+      "SC-1 — '원장 직접 편집이 탐지된다' 가 셸 확장 표기에서 성립하지 않고(4차 판정 이후 SC-10 을 마찰 층으로 격하했으므로 방화벽 쪽은 약속이 아니다), 코드 파일에서는 그 결과가 곧 위조 면제다"
+    ],
+    "error_scenarios": []
+  },
+  "criteria_gaps": {
+    "missing_criteria": [
+      "복구·재심사가 git 의 **콘텐츠 파이프라인**(refs/replace, clean/smudge 필터, core.autocrlf)과 **사용자 전역 설정**(init.templateDir·core.hooksPath·commit.gpgsign)으로부터 격리돼야 한다는 기준이 어디에도 없다 — 이번 회전이 방어를 출구로 옮기면서 그 출구가 git 설정에 노출됐다",
+      "'invariant-guard 의 규칙이 그 파일의 보안 의미를 온전히 검사한다' 를 화이트리스트 편입 **전제**로 적었으나(ADR-009), 그 전제를 검증하는 기준·테스트가 없다(NaN 사례)",
+      "재심사의 판정이 **시간·편집 순서에 독립적이어야 한다**(또는 의존을 허용한다면 그 결과가 되돌림이 아니라 보고여야 한다)는 기준이 없다"
+    ],
+    "ambiguous_criteria": [
+      "AC-1 의 '보호 파일' 과 SC-11 의 화이트리스트 축소가 같은 문서 안에서 충돌한다 — AC-1 본문을 화이트리스트 기준으로 정정해야 한다",
+      "SC-11 의 '설치되지 않는다' 가 '재심사가 거부한다' 를 뜻하는지 '약화된 내용이 디스크에 남지 않는다' 를 뜻하는지 불명확하다. 후자로 읽으면 NaN·git replace 사례가 정면 위반이다"
+    ],
+    "security_criteria_insufficient": [
+      "코드·산문 47개 파일의 면제가 원장 신뢰에 그치는 것을 '알려진 한계' 로만 두고, 그 한계에 대한 **관측 가능성 요건**(대기 중 면제 목록의 주기적 보고 등)이 기준에 없다 — 현재는 완전 침묵이다"
+    ],
+    "action_required": "다음 회전은 (1) 출구를 git 설정으로부터 격리(GIT_NO_REPLACE_OBJECTS=1, 복구를 `git cat-file blob` 로, 재심사 임시 저장소를 `-c core.hooksPath=/dev/null -c commit.gpgsign=false --template=` 로), (2) INV-3 에 수치 타입 요구 추가(NaN), (3) 재심사 실패가 **되돌림이 아니라 보고**가 되는 경로 구분(환경 실패·시간 창 경과·시퀀스 비가환은 위조가 아니다), (4) 면제 경로의 lib.sh 부재 fail-closed, (5) 화이트리스트 밖 파일의 대기 중 면제를 주기적으로 보고, (6) 위 반례 전부 테스트화 + Q2·Q3·Q4·Q6 변이 kill. 누적 backfill 이 이미 3건을 넘었고 이번에도 AC-1 역전파가 남았으므로 spec/architecture 재검토 권고는 유효하다."
+  },
+  "evidence": {
+    "tests": "깨끗한 클론(git clone HEAD)에서 `bats tests/` → 995 ok / 1 not ok / 996, 64분. 유일한 실패는 644번 'F65 brace: many sequential groups stay fast'(2068ms > 2000ms 예산)로 내가 변이 클론 5개를 병렬로 돌리던 부하 중 발생했고, 부하 없이 단독 재실행 3/3 ok. 800경로 마찰 테스트도 단독 3/3 ok.",
+    "perf": "800경로 명령 min-of-3 직접 계측: 현재 1359ms · 기준선 45fb8ad 1375ms(예산 2000ms). 4차 판정의 권고(상대 기준 또는 약 2000ms)가 반영됐다. 훅 1회 비용(실 저장소·설치본 1.39.16): 변경 없음 7711·8396ms, 대기 화이트리스트 3건 11.5초(재심사 몫 약 3.6초 = 1.2초/파일; 기준선 훅도 8~11초대로 대부분은 선재 비용).",
+    "mutation": "격리 클론 10종(내가 설계, 저장소 훅은 건드리지 않음) — KILLED 5(Q1·Q7·Q8·Q9·Q10), SURVIVED 5(Q2 agent-comms 링크 제거·Q3 HEAD 임계값 입력 제거·Q4 jq fail-closed 제거·Q5 임시 저장소 정리 제거·Q6 원장 위조 보고 제거). 각 변이는 guarded-blob-restore.bats + protected-integrity.bats 68건으로 판정.",
+    "labs": "(1) labC7 재현 3모드 — bs/brace 는 방화벽 통과 후 출구에서 '백도어 실패', py 는 ask. (2) labX1(면제 원장 위조) — 3필드 티켓 + `cd hooks && cat payload > lib.sh`, 둘 다 allow, 훅 3회 후에도 백도어 잔존·무보고. 9d61b9f^(F78 이전) 훅에서도 2필드 티켓으로 동일. (3) git replace — `git replace $(git rev-parse HEAD:progress/harness-config.json) $(git hash-object -w weak)` allow → 재심사가 위조 기준선과 비교해 임계값 1 설치, 이후 훅은 '커밋으로 바뀌었습니다' 만 보고. hooks/lib.sh 로도 동일(탐지 무력화). (4) smudge/clean 필터 — `git config filter.zz.smudge` + `.git/info/attributes` allow → `git checkout HEAD --` 가 payload 설치, 'HEAD 내용으로 복구했습니다' 보고. (5) NaN — `pass_threshold:\"nan\"` 정상 Write rc=0, 그 상태에서 min-of-5=1 passes 전환 rc=0(HEAD 임계값에서는 rc=2), 위조 복구·위조 면제 양쪽으로 설치됨. (6) 전역 pre-commit 훅으로 재심사 기준선 오염 → 임계값 1 설치. (7) 화이트리스트 위조 4부류(임계값 수치 하향·근거 없는 passes·_batch_approval 주입·approval-queue 축소)는 복구·면제 양쪽에서 거부. (8) AC-7 9/9 바이트 동일. (9) AC-6 오탐 3종 재현.",
+    "lint": "shellcheck 파일별(기준 45fb8ad): invariant-guard 0 · pre-bash-firewall −1 · protected-integrity 0 · lib 0. 프로젝트 warning/error 총합 2(선재).",
+    "gitleaks": "전체 이력 0건 · 45fb8ad..HEAD 0건 · `gitleaks dir`(커밋 트리 archive) 1건(agents/architect.md, 선재 오탐).",
+    "wiring": "설치본 ~/.claude/plugins/cache/cc-harness-marketplace/cc-harness/1.39.16 의 hooks/*.sh + hooks.json 13개가 HEAD 와 cmp 동일(diff=0). 위 랩 중 (3)~(6)은 설치본과 같은 내용의 작업 트리 훅으로 실행."
+  },
+  "escaped_defect_feedback": {
+    "note": "이 회전에서 새로 드러난 선재 결함 3종(git replace·smudge 필터·NaN 임계값)은 F65·F78 의 이전 회전을 모두 통과했다. 판정 코퍼스에 추가해 다음 회전이 재발을 감시하게 한다.",
+    "entries": [
+      {
+        "feature": "F65/F78",
+        "missed": "복구·탐지가 refs/replace 를 따른다",
+        "why": "탐지의 기준을 'HEAD' 라는 이름으로만 적었고 그 이름이 조작 가능한 참조라는 것을 보지 않았다",
+        "guard": "훅 전역에 GIT_NO_REPLACE_OBJECTS=1, 복구는 git cat-file blob"
+      },
+      {
+        "feature": "F65/F78",
+        "missed": "git checkout 이 smudge 필터를 탄다",
+        "why": "'HEAD 로 되돌린다' 를 내용 동일성으로 가정했다",
+        "guard": "필터를 타지 않는 경로로 복구 + .git/config·.git/info/attributes 변경 탐지"
+      },
+      {
+        "feature": "F41/F78",
+        "missed": "awk 수치 비교가 NaN 을 통과시킨다",
+        "why": "임계값 비교를 문자열→수치 강제변환에 맡겼다",
+        "guard": "INV-3 에서 jq type==\"number\" 선검사"
+      }
+    ]
+  },
+  "next_round_axes": [
+    "1. 출구를 git 설정으로부터 격리한다 — GIT_NO_REPLACE_OBJECTS=1, 복구를 `git cat-file blob HEAD:<경로>` 쓰기로, 재심사 임시 저장소를 `-c core.hooksPath=/dev/null -c commit.gpgsign=false --template=` 로. (이 회전의 설계를 부정하지 않는다 — 출구 방어를 실제로 성립시키는 최소 조건이다.)",
+    "2. INV-3 에 수치 타입 요구를 추가하고(NaN·inf 차단), 화이트리스트 편입 전제('규칙이 보안 의미를 온전히 검사한다')를 테스트로 고정한다.",
+    "3. 재심사 실패를 원인별로 가른다 — 위조 신호(규칙 위반)는 되돌림, 환경 실패·시간 창 경과·시퀀스 비가환은 **보고만**. AC-6 오탐 3종이 여기서 닫힌다. 계약은 'HEAD→현재 단일 Write' 대신 편집 시퀀스와 정합한 판정을 쓰거나, 계약을 화이트리스트에서 빼는 선택지도 있다.",
+    "4. 면제 경로의 lib.sh 부재를 fail-closed 로 뒤집는다.",
+    "5. 화이트리스트 밖(코드·산문 47개)의 대기 중 면제를 주기적으로 보고해 침묵을 없앤다(ADR-009 의 '기준선 비교가 방어' 문장도 함께 정정).",
+    "6. 이번 판정의 반례 전부를 테스트로 고정하고 Q2·Q3·Q4·Q6 변이를 kill 한다."
+  ]
+}

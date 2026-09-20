@@ -969,6 +969,59 @@ forge_exemption() {  # $1 저장소 상대 경로
     || { echo "낮춘 임계값에 기대 위조한 passes 가 남았다"; return 1; }
 }
 
+@test "F78 5차 판정: git replace 로 기준선을 바꿔도 위조가 설치되지 않는다" {
+  # `git replace` 는 객체 하나를 다른 객체로 바꿔치기한다 — 그 한 줄이 `git diff HEAD` 와
+  # `git show HEAD:<경로>` 를 동시에 속여 **탐지의 기준선과 재심사의 기준선을 함께** 위조한다.
+  local ev="$LAB/.ev-replace"
+  ( cd "$LAB" && git show "HEAD:$TARGET" ) | jq '.scoring.pass_threshold = 1 | ._forged = "REPLACED"' > "$ev"
+  ( cd "$LAB" && git replace "$(git rev-parse "HEAD:$TARGET")" "$(git hash-object -w "$ev")" >/dev/null 2>&1 )
+  untracked_write "$TARGET" 'PWNED'
+  integrity > /dev/null
+  grep -q REPLACED "$LAB/$TARGET" && { echo "replace 로 위조한 기준선이 설치됐다"; return 1; }
+  [ "$(jq -r '.scoring.pass_threshold' "$LAB/$TARGET")" != "1" ] \
+    || { echo "임계값이 1 로 설치됐다"; return 1; }
+}
+
+@test "F78 5차 판정: HEAD 복구가 smudge 필터로 하이재킹되지 않는다" {
+  # `git checkout HEAD --` 는 smudge 필터를 태운다 — 설정 한 줄과 attributes 한 줄이면
+  # 'HEAD 내용으로 복구했습니다' 라고 보고하면서 공격자의 내용이 설치된다.
+  printf 'SMUDGED-PAYLOAD\n' > "$LAB/.payload"
+  ( cd "$LAB" && git config filter.zz.smudge "cat $LAB/.payload" \
+      && printf '%s filter=zz\n' "$TARGET" > .git/info/attributes )
+  untracked_write "$TARGET" 'PWNED'
+  integrity > /dev/null
+  grep -q 'SMUDGED-PAYLOAD' "$LAB/$TARGET" && { echo "smudge 필터가 복구를 하이재킹했다"; return 1; }
+  [ "$(jq -r '.scoring.pass_threshold' "$LAB/$TARGET" 2>/dev/null)" = "7" ] \
+    || { echo "HEAD 내용으로 복구되지 않았다"; return 1; }
+}
+
+@test "F78 5차 판정: 전역 git 설정이 재심사를 막아도 심사 통과분을 되돌리지 않는다 (AC-6)" {
+  # 실측된 오탐: `commit.gpgsign=true` 하나로 기준선 커밋이 실패해 **정상 편집이 전부** HEAD 로
+  # 갔다. 재심사를 실행하지 못한 것은 위조의 증거가 아니다 — 되돌리지 않고 보고만 한다.
+  # 격리(`GIT_CONFIG_GLOBAL=/dev/null` 등)가 먼저 이 상황 자체를 없애지만, 격리가 뚫려도
+  # 손실로 이어지지 않는다는 성질을 함께 고정한다.
+  local home="$LAB/.fakehome" out
+  mkdir -p "$home"
+  printf '[commit]\n  gpgsign = true\n[core]\n  hooksPath = /nonexistent\n' > "$home/.gitconfig"
+  approved_edit "$TARGET" $'\n# KEEPME\n' > /dev/null
+  out=$( cd "$LAB" && HOME="$home" CLAUDE_PROJECT_DIR="$LAB" bash hooks/protected-integrity.sh 2>&1 )
+  grep -q 'KEEPME' "$LAB/$TARGET" \
+    || { echo "전역 git 설정 때문에 심사 통과분이 되돌려졌다: $out"; return 1; }
+}
+
+@test "F78 5차 판정: 임계값에 nan·무한대·문자열을 넣을 수 없다 (INV-3)" {
+  # `"nan"` 한 낱말이 임계값 체계를 통째로 껐다: awk 비교가 거짓이 되어 하향 판정이 서지 않고,
+  # 설치되면 min-of-5 비교(INV-11)도 항상 거짓이라 점수 1 짜리 passes 전환까지 통과한다.
+  local v rc fails=()
+  for v in '"nan"' '1e999' '"7"'; do
+    rc=$(guard_rc "$LAB/$TARGET" "$( cd "$LAB" && jq ".scoring.pass_threshold = $v" "$TARGET" )")
+    [ "$rc" = "2" ] || fails+=("pass_threshold=$v -> rc=$rc")
+  done
+  rc=$(guard_rc "$LAB/$TARGET" "$( cd "$LAB" && jq '.scoring.pass_threshold = 8' "$TARGET" )")
+  [ "$rc" = "0" ] || fails+=("정상 상향(8)이 막혔다 -> rc=$rc")
+  [[ ${#fails[@]} -eq 0 ]] || { printf '%s\n' "${fails[@]}"; return 1; }
+}
+
 @test "F78 5차 회전: 화이트리스트 목록 자체를 고정한다" {
   # 목록이 조용히 넓어지면(예: hooks/*.sh 추가) 코드 파일 위조가 다시 설치된다. 생성 규칙
   # 테스트에서 목록을 단일 출처로 읽다가 변이가 살아남았던 것과 같은 이유로 여기서 핀한다.

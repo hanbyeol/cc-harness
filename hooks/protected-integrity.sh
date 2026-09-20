@@ -33,6 +33,12 @@
 # 셸을 쥔 상대에게 위조 불가능하지는 않다 — INV-14에 그 한계를 적었다.
 set -uo pipefail
 
+# **git 이 우리에게 보여 주는 것부터 조작될 수 있다(F78 5차 판정).** `git replace` 는 객체 하나를
+# 다른 객체로 바꿔치기하고, 그 한 줄이 `git diff HEAD`·`git show HEAD:<경로>` 를 전부 속인다 —
+# 탐지의 기준선과 재심사의 기준선이 동시에 위조된다. 이 훅이 부르는 모든 git 은 replace 를
+# 무시한다(설정으로 끌 수 없는 환경 변수이므로 훅 전체에 건다).
+export GIT_NO_REPLACE_OBJECTS=1
+
 REPO="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
 cd "$REPO" 2>/dev/null || exit 0
 command -v git &>/dev/null || exit 0
@@ -199,23 +205,33 @@ promote_blob() {  # $1 저장소 상대 경로
 #     때 그 낮춘 값이 아직 디스크에 있다(변이 P3 가 살아남았던 자리).
 #   - `progress/agent-comms/` — passes 전환의 근거. 실제 디렉터리를 가리킨다. 편집 시점의 심사도
 #     같은 디렉터리를 보므로 정상 편집보다 넓히는 것이 없다.
+#
+# **재심사 환경은 사용자 git 설정에서 격리한다(5차 판정).** 임시 저장소가 전역·시스템 설정을
+# 상속하면 그 설정이 판정을 좌우한다 — 실측된 것 둘: `commit.gpgsign=true` 하나로 기준선 커밋이
+# 실패해 **정상 편집이 전부 되돌려졌고**(AC-6 위반), `core.hooksPath`·`init.templateDir` 의 훅이
+# 기준선 저장소 안에서 돌 수 있었다. 두 파일을 `/dev/null` 로 가리켜 전역·시스템 설정을 통째로
+# 끊고, 그래도 남는 것은 명시적으로 덮는다.
 REVIEW_REASON=""
+REVIEW_RAN=0          # 재심사기가 실제로 판정을 냈는가(0/2 로 끝났는가)
 review_restore_candidate() {  # $1 저장소 상대 경로 · $2 심사할 내용 파일 → 0 통과
   local rel="$1" blob="$2" guard="$HOOK_DIR/invariant-guard.sh" tmp phys rc out
-  REVIEW_REASON=""
+  local -x GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+  REVIEW_REASON=""; REVIEW_RAN=0
   [[ -f "$guard" ]] || { REVIEW_REASON="재심사기(invariant-guard.sh)를 찾을 수 없어 재심사를 할 수 없음"; return 1; }
   command -v jq >/dev/null 2>&1 || { REVIEW_REASON="jq 가 없어 재심사를 할 수 없음"; return 1; }
   tmp=$(mktemp -d 2>/dev/null) || { REVIEW_REASON="재심사용 임시 저장소를 만들 수 없음"; return 1; }
   phys=$(cd "$tmp" 2>/dev/null && pwd -P) || { rm -rf "$tmp"; REVIEW_REASON="재심사용 임시 저장소를 만들 수 없음"; return 1; }
   if ! {
-      git -C "$phys" init -q \
+      git -c init.templateDir= -C "$phys" init -q \
       && mkdir -p "$phys/$(dirname "$rel")" "$phys/progress" \
       && git show "HEAD:$rel" > "$phys/$rel" \
       && { [[ "$rel" == "progress/harness-config.json" ]] \
            || git show "HEAD:progress/harness-config.json" > "$phys/progress/harness-config.json" 2>/dev/null \
            || true; } \
       && git -C "$phys" add -A \
-      && git -C "$phys" -c user.email=review@cc-harness -c user.name=cc-harness-review commit -qm review-base
+      && git -C "$phys" -c user.email=review@cc-harness -c user.name=cc-harness-review \
+             -c commit.gpgsign=false -c core.hooksPath=/dev/null -c core.fsmonitor= \
+             commit -qm review-base
     } >/dev/null 2>&1; then
     rm -rf "$tmp"; REVIEW_REASON="재심사용 HEAD 기준선을 만들 수 없음"; return 1
   fi
@@ -226,8 +242,9 @@ review_restore_candidate() {  # $1 저장소 상대 경로 · $2 심사할 내�
   rc=$?
   rm -rf "$tmp"
   case "$rc" in
-    0) return 0 ;;
-    2) REVIEW_REASON="재심사 거부 — $(printf '%s' "$out" | grep -m1 'INVARIANT 위반' | sed 's/^INVARIANT 위반: //')"
+    0) REVIEW_RAN=1; return 0 ;;
+    2) REVIEW_RAN=1
+       REVIEW_REASON="재심사 거부 — $(printf '%s' "$out" | grep -m1 'INVARIANT 위반' | sed 's/^INVARIANT 위반: //')"
        [[ "$REVIEW_REASON" == "재심사 거부 — " ]] && REVIEW_REASON="재심사 거부(사유 미상)"
        return 1 ;;
     *) REVIEW_REASON="재심사 실행 실패(rc=$rc)"; return 1 ;;
@@ -438,7 +455,7 @@ if [[ "$GC_CORRUPT" -gt 0 ]]; then
   } >&2
 fi
 
-CHANGED=(); COMMITTED=(); EXEMPT_DENIED=()
+CHANGED=(); COMMITTED=(); EXEMPT_DENIED=(); EXEMPT_UNVERIFIED=()
 for f in "${FILES[@]+"${FILES[@]}"}"; do
   if git diff --quiet HEAD -- "$f" 2>/dev/null; then
     # HEAD와 같다 = 변경이 정착했다(커밋했거나 되돌렸거나). 남은 티켓은 여기서 소비한다.
@@ -460,8 +477,16 @@ for f in "${FILES[@]+"${FILES[@]}"}"; do
     # 파일은 지금 내용이 HEAD 기준으로 정상 편집이었을지 다시 묻고, 아니면 복구 대상으로 돌린다.
     # 코드 파일은 내용을 판정할 규칙이 없어 원장을 믿는다 — ADR-009 의 알려진 한계.
     if is_blob_restorable "$f" && ! review_restore_candidate "$f" "$REPO/$f"; then
-      EXEMPT_DENIED+=("$f: 티켓이 있지만 $REVIEW_REASON")
-      CHANGED+=("$f"); continue
+      if [[ "$REVIEW_RAN" -eq 1 ]]; then
+        EXEMPT_DENIED+=("$f: 티켓이 있지만 $REVIEW_REASON")
+        CHANGED+=("$f"); continue
+      fi
+      # **재심사를 실행하지 못한 것은 위조의 증거가 아니다(5차 판정, AC-6).** 여기서 되돌리면
+      # 환경 문제(전역 git 설정·의존성 부재) 하나로 **심사를 통과한 작업이 사라진다** — 실측:
+      # `commit.gpgsign=true` 만으로 정상 편집이 전부 HEAD 로 갔다. 판정이 나오지 않았을 때는
+      # 되돌리지 않고 **보고만** 한다. 복구 경로는 반대로 fail-closed 다 — 그쪽 파일 내용은 이미
+      # 티켓 없이 바뀐 상태라 믿을 수 없지만, 여기 내용은 티켓과 일치한다.
+      EXEMPT_UNVERIFIED+=("$f: $REVIEW_REASON — 되돌리지 않고 보고만 합니다(환경을 고치면 다시 검사합니다)")
     fi
     promote_blob "$f"; continue
   fi
@@ -572,8 +597,25 @@ for f in "${CHANGED[@]}"; do
     # 사라진 실행조차 그 문구를 출력했다(판정자가 '보고가 거짓' 이라고 적은 근거).
     FALLBACK+=("$f: 이 경로의 티켓 이력이 없어 HEAD 로 되돌림")
   fi
-  git checkout HEAD -- "$f" 2>/dev/null && RESTORED+=("$f")
+  # **HEAD 복구는 체크아웃이 아니라 blob 을 그대로 쓴다(5차 판정).** `git checkout` 은 smudge
+  # 필터를 태운다 — `filter.<x>.smudge` 와 `.git/info/attributes` 두 줄이면 'HEAD 로 복구했습니다'
+  # 라고 보고하면서 공격자의 내용이 설치된다. `cat-file blob` 은 필터를 거치지 않는다.
+  if git cat-file blob "HEAD:$f" > "$f" 2>/dev/null; then
+    RESTORED+=("$f")
+  elif git checkout HEAD -- "$f" 2>/dev/null; then
+    # 그 경로가 HEAD 에 없거나 blob 을 읽을 수 없는 경우의 폴백(삭제된 파일 등).
+    RESTORED+=("$f")
+  fi
 done
+
+# 복구가 하나도 없어도 '확인하지 못한 면제' 는 알려야 한다 — 되돌리지 않기로 한 대신 보이게
+# 하는 것이 이 분기의 전부이므로, 아래 보고 블록(복구가 있을 때만 도는)에 기대면 안 된다.
+if [[ ${#RESTORED[@]} -eq 0 && ${#EXEMPT_UNVERIFIED[@]} -gt 0 ]]; then
+  {
+    echo "cc-harness: 티켓이 있는 보호 파일의 재심사를 **실행하지 못했습니다**(되돌리지 않았습니다)."
+    for r in "${EXEMPT_UNVERIFIED[@]}"; do echo "    - $r"; done
+  } >&2
+fi
 
 [[ ${#RESTORED[@]} -eq 0 ]] && exit 0
 
@@ -597,6 +639,10 @@ done
   if [[ ${#EXEMPT_DENIED[@]} -gt 0 ]]; then
     echo "  아래는 원장에 티켓이 있었지만 재심사를 통과하지 못해 면제하지 않았습니다(원장 위조 가능성):"
     for r in "${EXEMPT_DENIED[@]}"; do echo "    - $r"; done
+  fi
+  if [[ ${#EXEMPT_UNVERIFIED[@]} -gt 0 ]]; then
+    echo "  아래는 재심사를 **실행하지 못해** 확인되지 않은 채 남겨 두었습니다(되돌리지 않았습니다):"
+    for r in "${EXEMPT_UNVERIFIED[@]}"; do echo "    - $r"; done
   fi
   echo "  되돌린 내용은 버리지 않고 보관했습니다: ${DEST#"$REPO"/}"
   echo "  하네스 검증 장치는 Edit/Write(invariant-guard 심사)로만 변경할 수 있습니다."
