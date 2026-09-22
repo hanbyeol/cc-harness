@@ -51,8 +51,10 @@ GITDIR=$(git rev-parse --git-dir 2>/dev/null) || exit 0
 HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P)"
 # shellcheck source=/dev/null
 source "$HOOK_DIR/lib.sh" 2>/dev/null || true
+WHITELIST_KNOWN=1
 if ! declare -f is_blob_restorable >/dev/null 2>&1; then
   is_blob_restorable() { return 1; }
+  WHITELIST_KNOWN=0
 fi
 
 # 데이터 플레인 — git 추적이라 HEAD로 복구 가능한 검증 장치.
@@ -211,15 +213,26 @@ promote_blob() {  # $1 저장소 상대 경로
 # 실패해 **정상 편집이 전부 되돌려졌고**(AC-6 위반), `core.hooksPath`·`init.templateDir` 의 훅이
 # 기준선 저장소 안에서 돌 수 있었다. 두 파일을 `/dev/null` 로 가리켜 전역·시스템 설정을 통째로
 # 끊고, 그래도 남는 것은 명시적으로 덮는다.
+# blob 은 **내용 주소로만** 신뢰한다(SC-2): 파일명(sha)과 내용의 해시가 같을 때만 쓴다.
+# 이 검사가 없으면 blob 저장소에 내용을 심는 것이 '심사 통과'를 위조하는 것과 같아진다.
+blob_trustworthy() {
+  local sha="$1" got
+  [[ -f "$BLOBS/$sha" ]] || return 1
+  got=$(printf '%s' "$(cat "$BLOBS/$sha" 2>/dev/null)" | git hash-object --stdin 2>/dev/null) || return 1
+  [[ "$got" == "$sha" ]]
+}
+
 REVIEW_REASON=""
 REVIEW_RAN=0          # 재심사기가 실제로 판정을 냈는가(0/2 로 끝났는가)
-review_restore_candidate() {  # $1 저장소 상대 경로 · $2 심사할 내용 파일 → 0 통과
-  local rel="$1" blob="$2" guard="$HOOK_DIR/invariant-guard.sh" tmp phys rc out
-  local -x GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
-  REVIEW_REASON=""; REVIEW_RAN=0
-  [[ -f "$guard" ]] || { REVIEW_REASON="재심사기(invariant-guard.sh)를 찾을 수 없어 재심사를 할 수 없음"; return 1; }
-  command -v jq >/dev/null 2>&1 || { REVIEW_REASON="jq 가 없어 재심사를 할 수 없음"; return 1; }
-  tmp=$(mktemp -d 2>/dev/null) || { REVIEW_REASON="재심사용 임시 저장소를 만들 수 없음"; return 1; }
+REVIEW_PHYS=""        # 재심사용 임시 저장소(물리 경로)
+
+# 임시 저장소를 만든다. `$2` 가 1 이면 판정 근거 디렉터리를 **복사본**으로 두고 합성 실행 기록을
+# 한 줄 더한다 — 시간 축만 바꿔 다시 묻기 위한 것이다(아래 `review_reachable` 참조).
+__review_repo_make() {  # $1 저장소 상대 경로 · $2 fresh(0|1)
+  local rel="$1" fresh="${2:-0}" tmp phys
+  REVIEW_PHYS=""
+  # 템플릿을 명시한다 — macOS 의 인자 없는 `mktemp -d` 는 TMPDIR 을 무시해 정리 검사가 헛돈다.
+  tmp=$(mktemp -d "${TMPDIR:-/tmp}/cc-review.XXXXXX" 2>/dev/null) || { REVIEW_REASON="재심사용 임시 저장소를 만들 수 없음"; return 1; }
   phys=$(cd "$tmp" 2>/dev/null && pwd -P) || { rm -rf "$tmp"; REVIEW_REASON="재심사용 임시 저장소를 만들 수 없음"; return 1; }
   if ! {
       git -c init.templateDir= -C "$phys" init -q \
@@ -229,26 +242,113 @@ review_restore_candidate() {  # $1 저장소 상대 경로 · $2 심사할 내�
            || git show "HEAD:progress/harness-config.json" > "$phys/progress/harness-config.json" 2>/dev/null \
            || true; } \
       && git -C "$phys" add -A \
-      && git -C "$phys" -c user.email=review@cc-harness -c user.name=cc-harness-review \
-             -c commit.gpgsign=false -c core.hooksPath=/dev/null -c core.fsmonitor= \
-             commit -qm review-base
+      && __review_commit "$phys" review-base
     } >/dev/null 2>&1; then
     rm -rf "$tmp"; REVIEW_REASON="재심사용 HEAD 기준선을 만들 수 없음"; return 1
   fi
-  [[ -d "$REPO/progress/agent-comms" ]] && ln -s "$REPO/progress/agent-comms" "$phys/progress/agent-comms" 2>/dev/null
-  out=$(jq -n --arg f "$phys/$rel" --rawfile c "$blob" \
+  if [[ -d "$REPO/progress/agent-comms" ]]; then
+    if [[ "$fresh" == "1" ]]; then
+      # **복사본에만** 합성 기록을 더한다 — 실제 `agent-comms` 는 건드리지 않는다.
+      cp -R "$REPO/progress/agent-comms" "$phys/progress/agent-comms" 2>/dev/null \
+        && printf '{"epoch": %s}\n' "$(date +%s 2>/dev/null || echo 0)" \
+             >> "$phys/progress/agent-comms/evaluator-runs.jsonl" 2>/dev/null
+    else
+      ln -s "$REPO/progress/agent-comms" "$phys/progress/agent-comms" 2>/dev/null
+    fi
+  fi
+  REVIEW_PHYS="$phys"
+  return 0
+}
+
+__review_commit() {  # $1 임시 저장소 · $2 메시지
+  git -C "$1" -c user.email=review@cc-harness -c user.name=cc-harness-review \
+      -c commit.gpgsign=false -c core.hooksPath=/dev/null -c core.fsmonitor= \
+      commit -qm "$2"
+}
+
+# 임시 저장소에 대고 한 번 묻는다. 종료 코드를 그대로 돌려준다(0 통과 · 2 거부 · 그 밖 실행 실패).
+__review_ask() {  # $1 임시 저장소 · $2 상대 경로 · $3 내용 파일
+  local out rc
+  out=$(jq -n --arg f "$1/$2" --rawfile c "$3" \
           '{tool_name:"Write",tool_input:{file_path:$f,content:$c}}' 2>/dev/null \
-        | ( cd "$phys" && CLAUDE_PROJECT_DIR="$phys" bash "$guard" ) 2>&1 >/dev/null)
+        | ( cd "$1" && CLAUDE_PROJECT_DIR="$1" bash "$HOOK_DIR/invariant-guard.sh" ) 2>&1 >/dev/null)
   rc=$?
-  rm -rf "$tmp"
+  if [[ "$rc" -eq 2 ]]; then
+    REVIEW_REASON="재심사 거부 — $(printf '%s' "$out" | grep -m1 'INVARIANT 위반' | sed 's/^INVARIANT 위반: //')"
+    [[ "$REVIEW_REASON" == "재심사 거부 — " ]] && REVIEW_REASON="재심사 거부(사유 미상)"
+  fi
+  return "$rc"
+}
+
+review_restore_candidate() {  # $1 저장소 상대 경로 · $2 심사할 내용 파일 → 0 통과
+  local rel="$1" blob="$2" guard="$HOOK_DIR/invariant-guard.sh" rc
+  local -x GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+  REVIEW_REASON=""; REVIEW_RAN=0
+  [[ -f "$guard" ]] || { REVIEW_REASON="재심사기(invariant-guard.sh)를 찾을 수 없어 재심사를 할 수 없음"; return 1; }
+  # 존재가 아니라 **실행**을 본다 — 깨진 jq 는 `command -v` 를 통과한다(6차 회전 자체 변이 실측).
+  jq -n 'empty' >/dev/null 2>&1 || { REVIEW_REASON="jq 가 없거나 실행되지 않아 재심사를 할 수 없음"; return 1; }
+  __review_repo_make "$rel" 0 || return 1
+  rc=0; __review_ask "$REVIEW_PHYS" "$rel" "$blob" || rc=$?
+  rm -rf "$REVIEW_PHYS"
   case "$rc" in
     0) REVIEW_RAN=1; return 0 ;;
-    2) REVIEW_RAN=1
-       REVIEW_REASON="재심사 거부 — $(printf '%s' "$out" | grep -m1 'INVARIANT 위반' | sed 's/^INVARIANT 위반: //')"
-       [[ "$REVIEW_REASON" == "재심사 거부 — " ]] && REVIEW_REASON="재심사 거부(사유 미상)"
-       return 1 ;;
+    2) REVIEW_RAN=1; return 1 ;;
     *) REVIEW_REASON="재심사 실행 실패(rc=$rc)"; return 1 ;;
   esac
+}
+
+# **거부를 원인별로 가른다 — 사유 문자열이 아니라 차등 질문으로(F78 6차 회전).**
+# 재심사는 'HEAD → 지금' 을 한 번의 Write 로 모델링한다. 그런데 가드의 규칙 일부는 **경로 의존**
+# (전이를 본다: `agreed` 를 내렸다가 올리는 정상 흐름)이고 일부는 **시간 의존**(판정 기록이 48시간
+# 창 안인가)이다. 둘 다 내용의 문제가 아니므로, 한 번 거부됐다고 되돌리면 **정상 작업이 사라진다**
+# — 5차 독립 판정이 둘 다 실측했다. 사유 문자열로 분기하는 것은 또 하나의 열거이므로(그 열거가 이
+# 스프린트를 다섯 번 실패시켰다), 변수를 하나씩만 바꿔 다시 묻는다:
+#   (1) **승인 사슬 재생** — 원장에 쌓인 그 경로의 티켓을 순서대로 재생한다. HEAD → 티켓1 → …
+#       → 지금 의 각 단계가 통과하면 그 내용은 정상 편집의 연속으로 도달 가능하다.
+#   (2) **시간 축 분리** — 사슬도 거부하면, 판정 근거 복사본에 합성 실행 기록을 더해 한 번 더
+#       묻는다. 그때 통과하면 막은 것은 '기록의 최근성' 하나뿐이다.
+# 어느 쪽도 통과하지 못하면 그 내용은 **정상 편집으로 도달할 수 없다** — 위조 신호다.
+# 사슬을 심는 것으로 이 판정을 속일 수는 없다: 사슬의 각 단계가 심사를 통과해야 하므로, 통과하는
+# 사슬이 있다는 것은 곧 정상 편집으로도 그 내용에 이를 수 있다는 뜻이다(SC-11 이 약속한 성질 그대로).
+REVIEW_STALE=0        # 시간 축 분리로만 통과했는가(보고에 싣는다)
+review_reachable() {  # $1 저장소 상대 경로 · $2 최종 내용 파일 → 0 정상 편집으로 도달 가능
+  local rel="$1" final="$2" fresh
+  REVIEW_STALE=0
+  for fresh in 0 1; do
+    if __review_chain "$rel" "$final" "$fresh"; then
+      [[ "$fresh" == "1" ]] && REVIEW_STALE=1
+      return 0
+    fi
+  done
+  return 1
+}
+
+__review_chain() {  # $1 상대 경로 · $2 최종 내용 파일 · $3 fresh(0|1)
+  local rel="$1" final="$2" fresh="$3" line sha rest head_at ok=1
+  local -x GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+  __review_repo_make "$rel" "$fresh" || return 1
+  # 그 경로의 티켓을 **원장에 쌓인 순서대로** 재생한다(마지막 티켓은 지금 내용과 같으므로 건너뛴다).
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    sha="${line%% *}"; rest="${line#* }"
+    head_at="${rest%% *}"
+    case "$head_at" in
+      [0-9a-f]*|-) [[ "$rest" == *" "* ]] && rest="${rest#* }" ;;
+    esac
+    [[ "$rest" == "$rel" ]] || continue
+    [[ -f "$BLOBS/$sha" ]] || continue            # blob 이 없으면 그 단계는 재생할 수 없다
+    blob_trustworthy "$sha" || continue
+    cmp -s "$BLOBS/$sha" "$final" && continue      # 마지막 단계는 아래에서 한 번만 본다
+    if ! __review_ask "$REVIEW_PHYS" "$rel" "$BLOBS/$sha"; then ok=0; break; fi
+    cp "$BLOBS/$sha" "$REVIEW_PHYS/$rel" 2>/dev/null || { ok=0; break; }
+    git -C "$REVIEW_PHYS" add -A >/dev/null 2>&1 || { ok=0; break; }
+    __review_commit "$REVIEW_PHYS" review-step >/dev/null 2>&1 || { ok=0; break; }
+  done < <(cat "$TICKETS" 2>/dev/null)
+  if [[ "$ok" -eq 1 ]]; then
+    __review_ask "$REVIEW_PHYS" "$rel" "$final" || ok=0
+  fi
+  rm -rf "$REVIEW_PHYS"
+  [[ "$ok" -eq 1 ]]
 }
 
 ticket_valid() {
@@ -455,7 +555,7 @@ if [[ "$GC_CORRUPT" -gt 0 ]]; then
   } >&2
 fi
 
-CHANGED=(); COMMITTED=(); EXEMPT_DENIED=(); EXEMPT_UNVERIFIED=()
+CHANGED=(); COMMITTED=(); EXEMPT_DENIED=(); EXEMPT_UNVERIFIED=(); EXEMPT_STALE=(); EXEMPT_UNRULED=()
 for f in "${FILES[@]+"${FILES[@]}"}"; do
   if git diff --quiet HEAD -- "$f" 2>/dev/null; then
     # HEAD와 같다 = 변경이 정착했다(커밋했거나 되돌렸거나). 남은 티켓은 여기서 소비한다.
@@ -476,17 +576,35 @@ for f in "${FILES[@]+"${FILES[@]}"}"; do
     # 으로 보고 **복구하지 않고 남겼다**. 복구 경로에 둔 재심사를 여기에도 둔다: 화이트리스트
     # 파일은 지금 내용이 HEAD 기준으로 정상 편집이었을지 다시 묻고, 아니면 복구 대상으로 돌린다.
     # 코드 파일은 내용을 판정할 규칙이 없어 원장을 믿는다 — ADR-009 의 알려진 한계.
-    if is_blob_restorable "$f" && ! review_restore_candidate "$f" "$REPO/$f"; then
+    if [[ "$WHITELIST_KNOWN" -eq 0 ]]; then
+      # **목록의 출처를 모르면 면제 판정을 믿지 않는다(F78 6차, fail-closed 방향 정렬).** 복구
+      # 경로는 목록을 모를 때 전부 HEAD 로 간다. 면제 쪽은 되돌리지 않지만(그것이 AC-6 이다)
+      # 통과시켰다는 사실을 반드시 보이게 한다 — 그러지 않으면 목록이 사라지는 것만으로 면제
+      # 검사가 조용히 꺼진다.
+      EXEMPT_UNVERIFIED+=("$f: 복구 화이트리스트의 출처(lib.sh)를 읽지 못해 면제 검사를 하지 못했습니다")
+    elif ! is_blob_restorable "$f"; then
+      # 코드·산문 — 내용을 판정할 규칙이 없어 **원장을 믿고** 통과시킨다. 5차 판정이 '완전 침묵'
+      # 이라고 적은 자리다. 되돌릴 근거는 없지만, 믿었다는 사실은 남긴다(ADR-009 의 알려진 한계).
+      EXEMPT_UNRULED+=("$f")
+    elif ! review_restore_candidate "$f" "$REPO/$f"; then
       if [[ "$REVIEW_RAN" -eq 1 ]]; then
-        EXEMPT_DENIED+=("$f: 티켓이 있지만 $REVIEW_REASON")
-        CHANGED+=("$f"); continue
+        # 한 번 거부됐다고 되돌리지 않는다 — 경로 의존·시간 의존 규칙 때문일 수 있다.
+        if review_reachable "$f" "$REPO/$f"; then
+          if [[ "$REVIEW_STALE" -eq 1 ]]; then
+            EXEMPT_STALE+=("$f: 판정 기록이 최근성 창 밖이지만 내용은 정상 편집으로 도달 가능합니다 — 되돌리지 않았습니다")
+          fi
+        else
+          EXEMPT_DENIED+=("$f: 티켓이 있지만 $REVIEW_REASON")
+          CHANGED+=("$f"); continue
+        fi
+      else
+        # **재심사를 실행하지 못한 것은 위조의 증거가 아니다(5차 판정, AC-6).** 여기서 되돌리면
+        # 환경 문제(전역 git 설정·의존성 부재) 하나로 **심사를 통과한 작업이 사라진다** — 실측:
+        # `commit.gpgsign=true` 만으로 정상 편집이 전부 HEAD 로 갔다. 판정이 나오지 않았을 때는
+        # 되돌리지 않고 **보고만** 한다. 복구 경로는 반대로 fail-closed 다 — 그쪽 파일 내용은
+        # 이미 티켓 없이 바뀐 상태라 믿을 수 없지만, 여기 내용은 티켓과 일치한다.
+        EXEMPT_UNVERIFIED+=("$f: $REVIEW_REASON — 되돌리지 않고 보고만 합니다(환경을 고치면 다시 검사합니다)")
       fi
-      # **재심사를 실행하지 못한 것은 위조의 증거가 아니다(5차 판정, AC-6).** 여기서 되돌리면
-      # 환경 문제(전역 git 설정·의존성 부재) 하나로 **심사를 통과한 작업이 사라진다** — 실측:
-      # `commit.gpgsign=true` 만으로 정상 편집이 전부 HEAD 로 갔다. 판정이 나오지 않았을 때는
-      # 되돌리지 않고 **보고만** 한다. 복구 경로는 반대로 fail-closed 다 — 그쪽 파일 내용은 이미
-      # 티켓 없이 바뀐 상태라 믿을 수 없지만, 여기 내용은 티켓과 일치한다.
-      EXEMPT_UNVERIFIED+=("$f: $REVIEW_REASON — 되돌리지 않고 보고만 합니다(환경을 고치면 다시 검사합니다)")
     fi
     promote_blob "$f"; continue
   fi
@@ -501,7 +619,26 @@ if [[ ${#COMMITTED[@]} -gt 0 ]]; then
   } >&2
 fi
 
-[[ ${#CHANGED[@]} -eq 0 ]] && exit 0
+# **되돌리지 않기로 한 면제들을 먼저 알린다(F78 6차).** 복구할 것이 하나도 없어도 이 보고는
+# 나가야 한다 — 그러지 않으면 '아무 일도 없었다' 와 '믿고 통과시켰다' 가 구별되지 않는다.
+# 5차 판정이 '완전 침묵' 이라고 적은 자리이고, 조용한 통과를 없애는 것이 이 블록의 전부다.
+report_unreverted_exemptions() {
+  [[ ${#EXEMPT_UNVERIFIED[@]} -gt 0 || ${#EXEMPT_STALE[@]} -gt 0 || ${#EXEMPT_UNRULED[@]} -gt 0 ]] || return 0
+  local r
+  {
+    echo "cc-harness: 티켓으로 면제 중인 보호 파일이 있습니다(되돌리지 않았습니다)."
+    for r in "${EXEMPT_UNVERIFIED[@]+"${EXEMPT_UNVERIFIED[@]}"}"; do echo "    - 재심사 실행 불가: $r"; done
+    for r in "${EXEMPT_STALE[@]+"${EXEMPT_STALE[@]}"}"; do echo "    - $r"; done
+    for r in "${EXEMPT_UNRULED[@]+"${EXEMPT_UNRULED[@]}"}"; do
+      echo "    - 내용 규칙이 없어 원장을 믿고 통과: $r"
+    done
+  } >&2
+}
+
+if [[ ${#CHANGED[@]} -eq 0 ]]; then
+  report_unreverted_exemptions
+  exit 0
+fi
 
 if git_operation_in_progress; then
   {
@@ -550,12 +687,9 @@ last_ticket_sha() {
 }
 # blob 은 **내용 주소로만** 신뢰한다(SC-2): 파일명(sha)과 내용의 해시가 같을 때만 쓴다.
 # 이 검사가 없으면 blob 저장소에 내용을 심는 것이 '심사 통과'를 위조하는 것과 같아진다.
-blob_trustworthy() {
-  local sha="$1" got
-  [[ -f "$BLOBS/$sha" ]] || return 1
-  got=$(printf '%s' "$(cat "$BLOBS/$sha" 2>/dev/null)" | git hash-object --stdin 2>/dev/null) || return 1
-  [[ "$got" == "$sha" ]]
-}
+# `blob_trustworthy` 의 정의는 위쪽(재심사 앞)으로 옮겼다 — 승인 사슬 재생이 그것을 쓴다.
+# 정의를 호출보다 뒤에 두면 '명령을 찾을 수 없음' 으로 **조용히 틀린 판정**이 난다(이 파일에서
+# `__ticket_fresh`·`review_restore_candidate` 에 이어 세 번째다).
 
 # 재심사(`review_restore_candidate`)는 위쪽, 분류 루프보다 앞에 정의돼 있다 — 면제 분기도 그것을
 # 부르기 때문이다(정의가 호출보다 뒤에 있으면 '명령을 찾을 수 없음'으로 조용히 틀린 판정이 난다.
@@ -608,14 +742,14 @@ for f in "${CHANGED[@]}"; do
   fi
 done
 
-# 복구가 하나도 없어도 '확인하지 못한 면제' 는 알려야 한다 — 되돌리지 않기로 한 대신 보이게
-# 하는 것이 이 분기의 전부이므로, 아래 보고 블록(복구가 있을 때만 도는)에 기대면 안 된다.
-if [[ ${#RESTORED[@]} -eq 0 && ${#EXEMPT_UNVERIFIED[@]} -gt 0 ]]; then
-  {
-    echo "cc-harness: 티켓이 있는 보호 파일의 재심사를 **실행하지 못했습니다**(되돌리지 않았습니다)."
-    for r in "${EXEMPT_UNVERIFIED[@]}"; do echo "    - $r"; done
-  } >&2
-fi
+# **되돌리지 않기로 한 것들은 보이게 한다.** 복구가 하나도 없어도 알려야 하므로, 아래 보고
+# 블록(복구가 있을 때만 도는)에 기대지 않는다. 셋 다 '조용한 통과' 를 막는 것이 전부인 분기다:
+#   - 재심사를 실행하지 못한 면제(환경 문제일 수 있다)
+#   - 시간 축으로만 통과한 면제(판정 기록이 최근성 창 밖이다)
+#   - 화이트리스트 밖(코드·산문) 파일의 면제 — 내용을 판정할 규칙이 없어 **원장을 믿고** 통과시킨
+#     것들이다(ADR-009 의 알려진 한계). 5차 판정이 '완전 침묵' 이라고 적은 자리이며, 위조된
+#     면제가 아무 흔적 없이 남던 것이 여기서 끝난다.
+[[ ${#RESTORED[@]} -eq 0 ]] && report_unreverted_exemptions
 
 [[ ${#RESTORED[@]} -eq 0 ]] && exit 0
 
@@ -643,6 +777,13 @@ fi
   if [[ ${#EXEMPT_UNVERIFIED[@]} -gt 0 ]]; then
     echo "  아래는 재심사를 **실행하지 못해** 확인되지 않은 채 남겨 두었습니다(되돌리지 않았습니다):"
     for r in "${EXEMPT_UNVERIFIED[@]}"; do echo "    - $r"; done
+  fi
+  if [[ ${#EXEMPT_STALE[@]} -gt 0 ]]; then
+    for r in "${EXEMPT_STALE[@]}"; do echo "    - $r"; done
+  fi
+  if [[ ${#EXEMPT_UNRULED[@]} -gt 0 ]]; then
+    echo "  아래는 내용 규칙이 없어 **원장을 믿고** 면제했습니다(ADR-009 의 알려진 한계):"
+    for r in "${EXEMPT_UNRULED[@]}"; do echo "    - $r"; done
   fi
   echo "  되돌린 내용은 버리지 않고 보관했습니다: ${DEST#"$REPO"/}"
   echo "  하네스 검증 장치는 Edit/Write(invariant-guard 심사)로만 변경할 수 있습니다."

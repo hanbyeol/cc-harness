@@ -969,6 +969,153 @@ forge_exemption() {  # $1 저장소 상대 경로
     || { echo "낮춘 임계값에 기대 위조한 passes 가 남았다"; return 1; }
 }
 
+# 실제 invariant-guard 를 태워 심사를 받고, 통과하면 그 내용을 파일에 쓴다 — **심사 통과 편집
+# 한 번**의 정확한 모형이다(티켓과 blob 이 운영 코드가 만드는 그대로 생긴다).
+mint_write() {  # $1 저장소 상대 경로 · $2 새 내용 전체 → 가드의 종료 코드
+  local rc=0
+  jq -n --arg f "$LAB/$1" --arg c "$2" '{tool_name:"Write",tool_input:{file_path:$f,content:$c}}' \
+    | ( cd "$LAB" && CLAUDE_PROJECT_DIR="$LAB" bash hooks/invariant-guard.sh ) >/dev/null 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] && printf '%s\n' "$2" > "$LAB/$1"
+  printf '%s' "$rc"
+}
+
+@test "F78 5차 판정: 계약 재승인 시퀀스는 정상 편집이다 — 되돌리지 않는다 (AC-6)" {
+  # 재심사는 'HEAD → 지금' 을 **한 번의 Write** 로 모델링하는데, 계약 규칙은 **전이**를 본다:
+  # 커밋된 `_batch_approval` 과 다른 값은 단일 쓰기로 바꿀 수 없다(INV-12). 정상 흐름은 두 번의
+  # 편집이다 — 승인을 내리며 기록을 무효화하고, 새 범위로 다시 올린다. 그 두 단계를 하나로
+  # 접으면 정상 작업이 위조로 보인다(5차 판정 실측).
+  # HEAD 는 `agreed:true` 이고 승인 기록이 없는 계약이다(저장소의 실제 모양). 정상 흐름은
+  # 승인을 내렸다가(1단계) 새 범위와 함께 다시 올리는 것(2단계)이고, 두 단계 각각은 심사를
+  # 통과한다. 그러나 HEAD 와 최종 내용만 비교하면 '합의된 계약의 승인 범위를 수정했다' 로 보인다.
+  # 계약은 `agreed:true` 전환에 acceptance_criteria 와 implementation_steps 를 요구하므로(INV-11)
+  # 둘 다 갖춘 계약을 고른다 — 그렇지 않으면 2단계가 **다른 이유로** 막혀 시험이 헛돈다.
+  local c="progress/contracts/sprint-10.json" rc
+  [ "$( cd "$LAB" && jq -r '.agreed' "$c" )" = "true" ] || { echo "픽스처 전제(HEAD agreed:true)가 깨졌다"; return 1; }
+  rc=$(mint_write "$c" "$( cd "$LAB" && jq '.agreed = false' "$c" )")
+  [ "$rc" = "0" ] || { echo "1단계(승인 내림)가 심사에서 막혔다 — 픽스처가 정상 흐름이 아니다 (rc=$rc)"; return 1; }
+  rc=$(mint_write "$c" "$( cd "$LAB" && jq '.agreed = true | ._batch_approval = {"scope":["F2"],"at":"2026-02-02"}' "$c" )")
+  [ "$rc" = "0" ] || { echo "2단계(새 범위 승인)가 심사에서 막혔다 (rc=$rc)"; return 1; }
+  local out; out=$(integrity)
+  [ "$( cd "$LAB" && jq -r '._batch_approval.scope[0] // "없음"' "$c" )" = "F2" ] \
+    || { echo "정상 재승인 시퀀스가 되돌려졌다: $out"; return 1; }
+}
+
+@test "F78 5차 판정: 판정 기록이 오래돼도 심사를 통과한 passes 전환을 되돌리지 않는다 (AC-6)" {
+  # 최근성(≤48h)은 **내용이 아니라 시점**에 대한 규칙이다. 편집 시점에는 만족했는데 커밋 전에
+  # 창을 넘기면, 재심사가 지금 기준으로 다시 물어 거부한다 — 그러면 feature_list 전체가 HEAD 로
+  # 간다(5차 판정 실측). 시간이 흘렀다는 사실은 위조의 증거가 아니다.
+  local fl="progress/feature_list.json" fid now rc
+  fid=$( cd "$LAB" && jq -r '[.features[] | select(.passes == false)][0].id' "$fl" )
+  [[ -n "$fid" && "$fid" != "null" ]] || { echo "passes:false 기능이 없어 픽스처를 만들 수 없다"; return 1; }
+  now=$(date +%s)
+  jq -n --arg id "$fid" '{verdict:"pass", features_evaluated:[$id],
+      scores:{functionality:9,code_quality:9,security:9,error_handling:9,test_coverage:9}}' \
+    > "$LAB/progress/agent-comms/evaluator-feedback-9999-12-31T00-00-00+0900.json"
+  printf '{"epoch": %s}\n' "$now" >> "$LAB/progress/agent-comms/evaluator-runs.jsonl"
+  rc=$(mint_write "$fl" "$( cd "$LAB" && jq --arg id "$fid" '(.features[] | select(.id == $id) | .passes) = true' "$fl" )")
+  [ "$rc" = "0" ] || { echo "정상 passes 전환이 심사에서 막혔다 — 픽스처가 정상 흐름이 아니다 (rc=$rc)"; return 1; }
+  # 시간이 흐른다 — 실행 기록이 48시간 창 밖으로 나간다.
+  printf '{"epoch": %s}\n' "$((now - 200000))" > "$LAB/progress/agent-comms/evaluator-runs.jsonl"
+  local out; out=$(integrity)
+  [ "$( cd "$LAB" && jq -r --arg id "$fid" '.features[] | select(.id == $id) | .passes' "$fl" )" = "true" ] \
+    || { echo "창이 지났다는 이유로 심사 통과분이 되돌려졌다: $out"; return 1; }
+}
+
+@test "F78 6차 회전: 화이트리스트 밖 파일의 면제는 침묵하지 않는다" {
+  # 5차 판정: 코드·산문 47개 파일의 면제 위조는 **완전 침묵**이었다 — 원장 한 줄과 Bash 쓰기로
+  # 백도어가 남는데 훅이 세 번 돌도록 아무 보고가 없었다. 되돌릴 근거는 없지만(내용 규칙이 없다)
+  # 믿었다는 사실은 남겨야 '문서화된 수용 가능한 위험' 이라 부를 수 있다.
+  local g="hooks/lib.sh" out
+  approved_edit "$g" $'\n# approved-code\n' > /dev/null
+  out=$(integrity)
+  [[ "$out" == *"$g"* ]] || { echo "면제 중인 코드 파일이 보고되지 않았다: $out"; return 1; }
+  [[ "$out" == *"내용 규칙"* ]] || { echo "면제 사유가 보고되지 않았다: $out"; return 1; }
+  grep -q 'approved-code' "$LAB/$g" || { echo "코드 파일의 심사 통과 편집이 되돌려졌다"; return 1; }
+}
+
+@test "F78 6차 회전: 화이트리스트 출처를 읽지 못하면 면제도 보고한다 (fail-closed 방향)" {
+  # 복구 경로는 목록을 모를 때 전부 HEAD 로 간다(fail-closed). 면제 쪽은 되돌리지 않지만,
+  # 통과시켰다는 사실을 보고해야 한다 — 그러지 않으면 목록이 사라지는 것만으로 면제 검사가
+  # 조용히 꺼진다(5차 판정 [6]).
+  local bin out; bin=$(mktemp -d)
+  cp "$LAB/hooks/protected-integrity.sh" "$LAB/hooks/invariant-guard.sh" "$bin/"   # lib.sh 없음
+  approved_edit "$TARGET" $'\n# approved-nolib\n' > /dev/null
+  out=$( cd "$LAB" && CLAUDE_PROJECT_DIR="$LAB" bash "$bin/protected-integrity.sh" 2>&1 )
+  rm -rf "$bin"
+  [[ "$out" == *"$TARGET"* ]] || { echo "목록 출처 없이 통과시킨 면제가 보고되지 않았다: $out"; return 1; }
+  grep -q 'approved-nolib' "$LAB/$TARGET" || { echo "심사 통과분이 되돌려졌다"; return 1; }
+}
+
+@test "F78 6차 회전: 판정 근거 디렉터리 없이는 정상 passes 전환이 복구되지 않는다 (Q2)" {
+  # 5차 판정의 생존 변이 Q2: 재심사 임시 저장소에서 `agent-comms` 링크를 없애도 아무 테스트가
+  # 죽지 않았다 — 정상 passes 전환의 복구·면제를 고정한 테스트가 없었다는 뜻이다. 근거가 보이면
+  # 통과하고(아래), 보이지 않으면 거부된다(변이가 만든 상태)는 양방향을 함께 고정한다.
+  local fl="progress/feature_list.json" fid now rc
+  fid=$( cd "$LAB" && jq -r '[.features[] | select(.passes == false)][0].id' "$fl" )
+  now=$(date +%s)
+  jq -n --arg id "$fid" '{verdict:"pass", features_evaluated:[$id],
+      scores:{functionality:9,code_quality:9,security:9,error_handling:9,test_coverage:9}}' \
+    > "$LAB/progress/agent-comms/evaluator-feedback-9999-12-31T00-00-00+0900.json"
+  printf '{"epoch": %s}\n' "$now" >> "$LAB/progress/agent-comms/evaluator-runs.jsonl"
+  rc=$(mint_write "$fl" "$( cd "$LAB" && jq --arg id "$fid" '(.features[] | select(.id == $id) | .passes) = true' "$fl" )")
+  [ "$rc" = "0" ] || { echo "정상 passes 전환이 심사에서 막혔다 (rc=$rc)"; return 1; }
+  untracked_write "$fl" 'PWNED'          # 복구 경로로 보낸다
+  integrity > /dev/null
+  [ "$( cd "$LAB" && jq -r --arg id "$fid" '.features[] | select(.id == $id) | .passes' "$fl" )" = "true" ] \
+    || { echo "근거가 있는 정상 passes 전환이 복구되지 않았다"; return 1; }
+}
+
+@test "F78 6차 회전: 재심사는 HEAD 임계값으로 점수를 본다 (Q3)" {
+  # 생존 변이 Q3: 임시 저장소에 HEAD 판 `harness-config.json` 을 놓지 않아도 아무도 죽지 않았다.
+  # 기본값(7)과 HEAD 값이 같으면 차이가 드러나지 않기 때문이다 — HEAD 를 **8 로 올려** 가른다.
+  local fl="progress/feature_list.json" cfg="progress/harness-config.json" fid now rc
+  ( cd "$LAB" && jq '.scoring.pass_threshold = 8 | .scoring.security_thresholds.critical = 8' "$cfg" > "$cfg.tmp" \
+      && mv "$cfg.tmp" "$cfg" && git add -A && git -c user.email=t@t -c user.name=t commit -qm raise-threshold )
+  fid=$( cd "$LAB" && jq -r '[.features[] | select(.passes == false)][0].id' "$fl" )
+  now=$(date +%s)
+  # 점수 7 — HEAD 임계값(8)에는 못 미치고 기본값(7)에는 닿는다.
+  jq -n --arg id "$fid" '{verdict:"pass", features_evaluated:[$id],
+      scores:{functionality:7,code_quality:7,security:7,error_handling:7,test_coverage:7}}' \
+    > "$LAB/progress/agent-comms/evaluator-feedback-9999-12-31T00-00-00+0900.json"
+  printf '{"epoch": %s}\n' "$now" >> "$LAB/progress/agent-comms/evaluator-runs.jsonl"
+  # 심사 자체가 막아야 한다(편집 시점) — 그러므로 위조로 심는다.
+  local ev="$LAB/.ev-q3"
+  ( cd "$LAB" && git show "HEAD:$fl" ) | jq --arg id "$fid" '(.features[] | select(.id == $id) | .passes) = true' > "$ev"
+  forgery_blocked "$fl" "$ev" '"passes": true' >/dev/null 2>&1 || true
+  [ "$( cd "$LAB" && jq -r --arg id "$fid" '.features[] | select(.id == $id) | .passes' "$fl" )" = "false" ] \
+    || { echo "HEAD 임계값(8)에 못 미치는 점수로 passes 가 설치됐다: $FORGERY_OUT"; return 1; }
+}
+
+@test "F78 6차 회전: jq 가 없으면 재심사 없이 설치하지 않는다 (Q4)" {
+  # 생존 변이 Q4: `jq` fail-closed 가지를 지워도 죽는 테스트가 없었다.
+  local bin; bin=$(mktemp -d)
+  cp "$LAB/hooks/protected-integrity.sh" "$LAB/hooks/invariant-guard.sh" "$LAB/hooks/lib.sh" "$bin/"
+  printf '#!/usr/bin/env bash\nexit 127\n' > "$bin/jq"; chmod +x "$bin/jq"
+  approved_edit "$TARGET" $'\n# approved-q4\n' > /dev/null
+  local head; head=$( cd "$LAB" && git show "HEAD:$TARGET" | cksum )
+  untracked_write "$TARGET" 'PWNED'
+  local out
+  out=$( cd "$LAB" && PATH="$bin:$PATH" CLAUDE_PROJECT_DIR="$LAB" bash "$bin/protected-integrity.sh" 2>&1 )
+  rm -rf "$bin"
+  [ "$(cksum < "$LAB/$TARGET")" = "$head" ] || { echo "jq 없이 재심사를 건너뛰고 blob 이 설치됐다"; return 1; }
+  # 결과만 보면 가드 자신의 jq fail-closed 가 같은 결과를 내므로 이 가지를 지워도 살아남는다
+  # (6차 회전 자체 변이 실측). 보고가 실제 사유를 말하는지까지 고정한다.
+  [[ "$out" == *"jq 가 없거나 실행되지 않아 재심사를 할 수 없음"* ]] || { echo "보고에 jq 부재 사유가 없다: $out"; return 1; }
+}
+
+@test "F78 6차 회전: 재심사가 임시 저장소를 남기지 않는다 (Q5)" {
+  # 생존 변이 Q5: 임시 저장소 정리를 지워도 죽지 않았다. 훅 실행마다 저장소 사본이 쌓이면
+  # 디스크가 차고, 그 안에는 보호 파일의 내용이 그대로 들어 있다.
+  local td="$LAB/.tmpdir" before after
+  mkdir -p "$td"
+  approved_edit "$TARGET" $'\n# approved-q5\n' > /dev/null
+  untracked_write "$TARGET" 'PWNED'
+  before=$(find "$td" -mindepth 1 -maxdepth 1 | wc -l | tr -d ' ')
+  ( cd "$LAB" && TMPDIR="$td" CLAUDE_PROJECT_DIR="$LAB" bash hooks/protected-integrity.sh >/dev/null 2>&1 )
+  after=$(find "$td" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
+  [ "$after" -eq 0 ] || { echo "재심사용 임시 저장소가 남았다 (이전 $before → 이후 $after)"; find "$td" -mindepth 1 -maxdepth 1 | head -3; return 1; }
+}
+
 @test "F78 5차 판정: git replace 로 기준선을 바꿔도 위조가 설치되지 않는다" {
   # `git replace` 는 객체 하나를 다른 객체로 바꿔치기한다 — 그 한 줄이 `git diff HEAD` 와
   # `git show HEAD:<경로>` 를 동시에 속여 **탐지의 기준선과 재심사의 기준선을 함께** 위조한다.
@@ -1007,6 +1154,10 @@ forge_exemption() {  # $1 저장소 상대 경로
   out=$( cd "$LAB" && HOME="$home" CLAUDE_PROJECT_DIR="$LAB" bash hooks/protected-integrity.sh 2>&1 )
   grep -q 'KEEPME' "$LAB/$TARGET" \
     || { echo "전역 git 설정 때문에 심사 통과분이 되돌려졌다: $out"; return 1; }
+  # 위 단정은 안전망(되돌리지 않고 보고)만 본다 — 격리를 통째로 지워도 통과했다(6차 회전 자체
+  # 변이 R2 생존). 격리가 먼저 작동해 재심사가 **실제로 실행됐는지**를 따로 단정한다.
+  [[ "$out" != *"재심사 실행 불가"* && "$out" != *"실행하지 못해"* ]] \
+    || { echo "전역 git 설정이 재심사 임시 저장소로 새어 재심사가 실행되지 못했다: $out"; return 1; }
 }
 
 @test "F78 5차 판정: 임계값에 nan·무한대·문자열을 넣을 수 없다 (INV-3)" {
