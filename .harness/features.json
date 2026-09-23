@@ -42,7 +42,7 @@
         "F3",
         "F4"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F6",
@@ -52,7 +52,7 @@
         "F2",
         "F5"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F7",

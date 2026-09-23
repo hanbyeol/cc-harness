@@ -1,0 +1,38 @@
+{
+  "feature": "F5",
+  "round": 2,
+  "commit": "0e819a7",
+  "independence": "fresh-context",
+  "evaluator": {
+    "scores": {
+      "functionality": 9,
+      "quality": 8,
+      "security": 8,
+      "errors": 8,
+      "tests": 9
+    },
+    "blocking": 0,
+    "judged_at": "9cc2194 (round-1 evaluator; no blocking findings)"
+  },
+  "security_reviewer": {
+    "scores": {
+      "security": 8
+    },
+    "blocking": 0
+  },
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 8,
+    "tests": 9
+  },
+  "score": 8,
+  "verdict": "pass",
+  "convergence": {
+    "previous_blocking": 1,
+    "current_blocking": 0,
+    "divergence": false
+  },
+  "note": "Non-blocking regression reported by the reviewer (aborted repro counted as reproduced, introduced by 0e819a7) fixed in the same commit that records this verdict; mutation-checked test F5 AC-3 interrupted repro."
+}

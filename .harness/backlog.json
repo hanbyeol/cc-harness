@@ -1,6 +1,11 @@
 {
   "items": [
     {
+      "source": "F6-r2",
+      "priority": "high",
+      "summary": "Case collision with the user's own unprotected checked-out branch (user on 'work', integration_branch 'Work') on a case-insensitive FS: the --no-ff merge advances the user's branch. Refuse an integration_branch that case-folds to an existing local branch spelled differently or to any branch checked out in a worktree."
+    },
+    {
       "source": "F1-r1",
       "summary": "init on a partially present .harness/ (e.g. only contracts/) fails with 'config.json: not found' because main() treats any .harness dir as initialized before init runs."
     },
@@ -255,6 +260,10 @@
     {
       "source": "F6-r1",
       "summary": "features.json security_tier drives the critical stop but is not cross-checked against the contract's tier."
+    },
+    {
+      "source": "F6-r2-sec",
+      "summary": "Branch case folding uses toLowerCase only (no NFC/NFD normalization) — exotic names."
     }
   ]
 }

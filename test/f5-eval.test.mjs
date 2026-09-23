@@ -621,3 +621,15 @@ test('F5 SC-2 quoted HOME with a suffix: "$HOME"/* spellings are denied', () => 
     assert.equal(deniedPattern(cmd), 'rm -rf ~', cmd);
   }
 });
+
+test('F5 AC-3 interrupted repro: an aborted repro is not a reproduced finding and nothing is recorded', async () => {
+  const dir = fixture();
+  const ac = new AbortController();
+  const runAdapter = scripted({ evaluator: [good({}, [{ criterion_id: 'AC-1', dimension: 'functionality', summary: 's', repro: 'node scripts/sleep.mjs' }])] });
+  setTimeout(() => ac.abort(), 500);
+  await assert.rejects(
+    evaluate({ root: dir, featureId: 'F9', round: 1, base: 'main', config: cfg(), verifyResult: PASS_VERIFY, runAdapter, signal: ac.signal }),
+    (e) => e.code === 'interrupted');
+  assert.equal(fs.existsSync(path.join(dir, '.harness', 'verdicts', 'F9-r1.json')), false);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, '.harness', 'backlog.json'), 'utf8')).items, []);
+});
