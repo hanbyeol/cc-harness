@@ -552,3 +552,45 @@ test('F6 ES-3 abort kills the step: an aborted runCommand leaves no process behi
   for (let i = 0; i < 30 && alive; i += 1) { try { process.kill(pid, 0); await new Promise((res) => setTimeout(res, 100)); } catch { alive = false; } }
   assert.equal(alive, false, `step process ${pid} survived the abort`);
 });
+
+// ------------------------------------------------------------------ round-1 review regressions
+
+const PASS_VERIFY = { pass: true, commands: [], criteria: [], integrity: { markers: [], harnessPaths: [], testCount: { status: 'unset' } } };
+
+test('F6 SC-1 case variants: an integration branch that differs from a protected one only by case is refused', async () => {
+  for (const [integration_branch, protected_branches] of [['Main', []], ['MAIN', []], ['Release', ['release']]]) {
+    const dir = fixture([{ id: 'F1' }]);
+    if (protected_branches.length) git(dir, 'branch', protected_branches[0]);
+    const before = git(dir, 'rev-parse', 'main');
+    await assert.rejects(
+      runFeatures({ root: dir, config: cfg({ integration_branch, protected_branches }), deps: { build: fakeBuild(), verify: async () => PASS_VERIFY, evaluate: async () => ({ verdict: 'pass', blocking: [], costUsd: 0 }) } }),
+      (e) => e instanceof HarnessError && e.code === 'protected_branch', integration_branch);
+    assert.equal(git(dir, 'rev-parse', 'main'), before, integration_branch);
+  }
+});
+
+test('F6 AC-11 resume mid-round: completed build attempts are not repeated', async () => {
+  const dir = fixture([{ id: 'F1' }]);
+  const ac = new AbortController();
+  const builds = [];
+  const build = async (a) => { builds.push(`${a.round}.${a.attempt}`); if (builds.length === 3) ac.abort(); writeFiles(a.cwd, { 'F1.txt': 'x' }); return { ok: true, costUsd: 0 }; };
+  const failVerify = async () => ({ pass: false, commands: [], criteria: [{ id: 'AC-1', check: 'x', pass: false, message: 'exit 1' }], integrity: { markers: [], harnessPaths: [], testCount: { status: 'unset' } } });
+  const evaluate = async () => ({ verdict: 'pass', blocking: [], costUsd: 0 });
+  await runFeatures({ root: dir, config: cfg({ max_rounds: 1 }), signal: ac.signal, deps: { build, verify: failVerify, evaluate } });
+  await runFeatures({ root: dir, resume: true, deps: { build, verify: failVerify, evaluate } });
+  // attempt 3 was interrupted mid-build, so only it is redone: 1.1 1.2 1.3 | 1.3
+  assert.deepEqual(builds, ['1.1', '1.2', '1.3', '1.3']);
+});
+
+test('F6 ES-3 abort reaches verify and eval: both receive the run signal', async () => {
+  const dir = fixture([{ id: 'F1' }]);
+  const ac = new AbortController();
+  const seen = {};
+  await runFeatures({ root: dir, config: cfg(), signal: ac.signal, deps: {
+    build: fakeBuild(),
+    verify: async (a) => { seen.verify = a.signal; return PASS_VERIFY; },
+    evaluate: async (a) => { seen.evaluate = a.signal; return { verdict: 'pass', blocking: [], costUsd: 0 }; },
+  } });
+  assert.equal(seen.verify, ac.signal);
+  assert.equal(seen.evaluate, ac.signal);
+});

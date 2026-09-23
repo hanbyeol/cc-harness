@@ -1,0 +1,33 @@
+{
+  "feature": "F5",
+  "round": 1,
+  "commit": "f4b9c5d",
+  "independence": "fresh-context",
+  "evaluator": {
+    "scores": {
+      "functionality": 9,
+      "quality": 8,
+      "security": 8,
+      "errors": 8,
+      "tests": 9
+    },
+    "blocking": 0,
+    "judged_at": "9cc2194"
+  },
+  "security_reviewer": {
+    "scores": {
+      "security": 6
+    },
+    "blocking": 1
+  },
+  "score": 6,
+  "verdict": "fail",
+  "blocking_findings": [
+    {
+      "criterion_id": "SC-2",
+      "source": "security-reviewer",
+      "summary": "quoted HOME with a suffix (rm -rf \"$HOME\"/*) passed the deny check",
+      "repro_confirmed": "exit 1 before, 0 after d5e1d18"
+    }
+  ]
+}

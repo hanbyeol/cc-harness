@@ -1,0 +1,41 @@
+{
+  "feature": "F6",
+  "round": 1,
+  "commit": "f4b9c5d",
+  "independence": "fresh-context",
+  "evaluator": {
+    "scores": {
+      "functionality": 6,
+      "quality": 8,
+      "security": 4,
+      "errors": 6,
+      "tests": 7
+    },
+    "blocking": 3
+  },
+  "security_reviewer": {
+    "scores": {
+      "security": 4
+    },
+    "blocking": 3
+  },
+  "score": 4,
+  "verdict": "fail",
+  "blocking_findings": [
+    {
+      "criterion_id": "SC-1",
+      "summary": "integration_branch differing from a protected branch only by case merged into main on case-insensitive filesystems",
+      "repro_confirmed": "both reviewers; exit 1 before, 0 after"
+    },
+    {
+      "criterion_id": "ES-3",
+      "summary": "abort/SIGINT did not reach verify and evaluate; their processes (incl. the paid evaluator CLI) outlived the run",
+      "repro_confirmed": "both reviewers; exit 1 before, 0 after"
+    },
+    {
+      "criterion_id": "AC-11",
+      "summary": "--resume restarted build attempts at 1, exceeding the per-round cap of 3",
+      "repro_confirmed": "exit 1 before, 0 after"
+    }
+  ]
+}

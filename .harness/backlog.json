@@ -183,6 +183,78 @@
     {
       "source": "F6-impl",
       "summary": "F6 ES-3 SIGINT test returns early on Windows (signals cannot be sent to a child there), so it is vacuous on Windows."
+    },
+    {
+      "source": "F5-r1-sec",
+      "summary": "secret_globs matching is undefined in SPEC; a glob with '/' is anchored at the repo root (deep/secrets/ leaks with 'secrets/')."
+    },
+    {
+      "source": "F5-r1-sec",
+      "summary": "Deny list misses source <(curl …), . <(curl …), and download-then-sh."
+    },
+    {
+      "source": "F5-r1-sec",
+      "summary": "SR-4 is path-based; renaming .env to env.bak sends its contents. Read-only model sessions can still read .env through CLI read tools."
+    },
+    {
+      "source": "F5-r1",
+      "summary": "Repro exit 126 (found but not executable) blocks; consider treating 126 as repro_not_runnable."
+    },
+    {
+      "source": "F5-r1",
+      "summary": "Security-reviewer findings in non-security dimensions also block; SPEC 7.4 ambiguous."
+    },
+    {
+      "source": "F5-r1",
+      "summary": "SR-3 deny false positives ('git stash push', 'echo sudo') — safe (backlogged)."
+    },
+    {
+      "source": "F5-r1",
+      "summary": "harness eval --round k silently overwrites an existing verdict file."
+    },
+    {
+      "source": "F5-r1",
+      "summary": "Backlog entries classified before a later eval_error (re-ask or reviewer) are dropped."
+    },
+    {
+      "source": "F5-r1",
+      "summary": "validateOutput accepts non-integer scores and missing out_of_scope although OUTPUT_SCHEMA declares them."
+    },
+    {
+      "source": "F6-r1-sec",
+      "summary": "SIGTERM/SIGHUP are not handled like SIGINT; detached step groups (incl. the builder) outlive the harness."
+    },
+    {
+      "source": "F6-r1-sec",
+      "summary": "merge() commits untracked verify artifacts (git add -A); post-merge verify then dirties _integration and the next merge throws an uncaught HarnessError that --resume cannot pass."
+    },
+    {
+      "source": "F6-r1-sec",
+      "summary": "protected_branches has no glob support (release/*)."
+    },
+    {
+      "source": "F6-r1",
+      "summary": "SPEC inconsistency: step timeout → blocked(budget) (§8) vs adapter timeout during eval → eval_error (§7.3)."
+    },
+    {
+      "source": "F6-r1",
+      "summary": "Hard crash between git worktree add -b and save() leaves stage=worktree; resume then blocks the feature (worktree)."
+    },
+    {
+      "source": "F6-r1",
+      "summary": "Terminal Ctrl-C can kill a git merge child mid-merge; classified as merge_conflict before the interrupted exit."
+    },
+    {
+      "source": "F6-r1",
+      "summary": "integration_branch 'refs/heads/main' / 'heads/main' refused only at merge time (run aborts after starting)."
+    },
+    {
+      "source": "F6-r1",
+      "summary": "A dirty integration worktree or failing git add/commit in merge() escapes runFeatures without a report."
+    },
+    {
+      "source": "F6-r1",
+      "summary": "features.json security_tier drives the critical stop but is not cross-checked against the contract's tier."
     }
   ]
 }
