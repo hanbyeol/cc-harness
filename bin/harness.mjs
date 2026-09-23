@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { HarnessError } from '../lib/errors.mjs';
-import { isInitialized, loadFeatures } from '../lib/state.mjs';
+import { isInitialized, loadFeatures, paths } from '../lib/state.mjs';
 import { loadConfig } from '../lib/config.mjs';
 
 const LIB = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'lib', 'commands');
@@ -37,7 +37,13 @@ export async function main(argv, { root = process.cwd(), out = console.log, err 
     const spec = Object.hasOwn(COMMANDS, name) ? COMMANDS[name] : undefined;
     if (!spec) throw new HarnessError(`unknown command '${name}'. Run \`harness --help\`.`, { code: 'usage' });
     // Every command refuses to run on corrupted state (SPEC E6), including init.
-    if (isInitialized(root)) { loadConfig(root); loadFeatures(root); }
+    // init may complete a partial .harness/ (e.g. only contracts/), so a file that
+    // is missing is not an error for it — one that exists is still checked.
+    if (isInitialized(root)) {
+      const p = paths(root);
+      if (name !== 'init' || fs.existsSync(p.config)) loadConfig(root);
+      if (name !== 'init' || fs.existsSync(p.features)) loadFeatures(root);
+    }
     else if (spec[1]) throw new HarnessError('not initialized — run `harness init`', { code: 'not_initialized' });
 
     let mod;
