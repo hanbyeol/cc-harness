@@ -26,7 +26,7 @@ AI 코딩 CLI(Claude Code · Codex CLI · Gemini CLI, 그 외 AGENTS.md 호환 �
 | 파일 | 내용 |
 |------|------|
 | `config.json` | profile, verify 명령, 임계값, 예산, max_rounds, 어댑터 역할 배정. 병합 순서 DEFAULTS ← profile ← config (config 우선). `init` 은 verify.commands 를 쓰지 않는다 — 사용자가 정하기 전까지 프로필 기본값이 적용된다. 최상위는 JSON 객체여야 하고, 기본값이 객체인 키(`budget`·`verify`·`limits`·`roles`·`rubric`)는 지정 시 객체여야 한다. `verify.commands`·`verify.skip_markers`·`verify.test_paths`·`env_allowlist`·`secret_globs`·`protected_branches` 는 지정 시 빈 문자열이 아닌 문자열의 배열이어야 하고(오류는 키 이름과 원소 번호 `key[i]`), `verify.test_count` 는 문자열 또는 null 이어야 한다. 형식 검사는 프로필과 병합하기 전 사용자 파일에 대해 한다 |
-| `features.json` | `[{id, title, security_tier, depends_on[], status}]` — status ∈ `todo·approved·in_progress·passed·blocked·skipped`. 각 항목의 `id`·`title`·`status` 는 필수 문자열 |
+| `features.json` | `[{id, title, security_tier, depends_on[], status}]` — status ∈ `todo·approved·in_progress·passed·blocked·skipped`. 각 항목의 `id`·`title`·`status` 는 필수 문자열. `eval_round`(선택)는 대화형 eval 이 상태를 기록한 마지막 라운드(§7.6) |
 | `contracts/F{n}.json` | 계약 (§5) |
 | `verdicts/F{n}-r{k}.json` | 라운드별 판정 (§7) |
 | `backlog.json` | 범위 밖 발견 · blocked 재범위 제안 |
@@ -95,6 +95,14 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
    - 차단적 finding 0 인데 score < threshold(critical의 security < 7 포함) → `unsupported_low_score`. evaluator에 "재현 가능한 finding을 제시하거나 점수를 정정하라"고 **1회** 재요청. 여전히 근거가 없으면 기능 `blocked(needs-human)` — 거짓 통과도, 근거 없는 재작업 루프도 만들지 않는다.
 4. critical: security-reviewer 역할로 같은 절차 1회 추가. security-reviewer 는 **security 차원과 그 finding 만** 판정에 반영한다(최종 security = min(evaluator, reviewer)). 나머지 차원 점수는 기록만 한다. 둘 다 pass여야 pass.
 5. `independence`: evaluator 어댑터가 builder와 다른 모델이면 `cross-model`, 아니면 `fresh-context`.
+6. **대화형 eval 의 상태 기록** (`harness eval F{n}` 직접 호출 — `run` 은 이 경로를 쓰지 않고 §8.5 대로 병합 후 verify 를 거쳐서만 `passed` 를 기록한다). 수렴 판정은 run 의 `convergence()` 와 같다. verdict 파일에는 `origin: eval`(run 은 `origin: run`)이 남는다.
+   - 사전 거부(어댑터 호출 없음, verdict 파일 없음, exit 2): 계약 미승인·해시 불일치 또는 status 가 `approved`·`in_progress` 가 아님. status 가 `passed`·`blocked` 면 메시지에 현재 status. `--round k` 로 이미 verdict 가 있는 라운드를 지정하면 덮어쓰지 않는다. 직전 라운드 verdict 가 JSON 으로 읽히지 않으면 `state_corrupt`(파일 경로 포함, E6).
+   - pass → `passed` (출력 `status: passed`, exit 0).
+   - fail, 라운드 k < max_rounds, 수렴(k=1 이거나 차단 id 집합이 직전 라운드의 진부분집합) → `in_progress`, exit 1, 출력에 남은 라운드 수(`rounds left: n`).
+   - fail 이면서 직전 라운드에 없던 차단 id → `blocked`(reason `divergence`), 차단 집합이 줄지 않음 → `blocked`(reason `stall`), k = max_rounds → `blocked`(reason `rounds`). verify 실패만 있고 finding 이 없는 라운드의 차단 집합은 `VERIFY`.
+   - needs-human → `blocked`(reason `needs_human`). eval_error 1회 → status 변화 없음(exit 2), 2회 연속 → `blocked`(reason `eval_error`).
+   - `blocked` 이면 backlog.json 에 `source: F{n}-blocked`, `reason`, 재범위 선택지 `split`·`rewrite`·`accept` 항목을 추가한다(같은 라운드·reason 은 한 번만).
+   - features.json 쓰기가 실패하면 verdict 파일은 남기고 exit 2(`io`). features 항목의 `eval_round` 가 기록된 마지막 라운드이며, 최신 `origin: eval` verdict 의 라운드가 그와 다르면 다음 `harness eval F{n}` 은 새 평가 없이 그 라운드의 상태 기록을 재시도한다.
 
 ## 8. 자율 실행 (`harness run [F…] [--max-usd N]`)
 기능별(의존 순서, `approved`만):

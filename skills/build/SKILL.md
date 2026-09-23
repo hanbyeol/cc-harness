@@ -47,11 +47,24 @@ When verify passes, run `harness eval F{n}`. A separate read-only session scores
 and the core decides the verdict. You do not grade your own work, and you do not change
 the verdict.
 
-- **pass**: the core records the feature as `passed`. Report to the user.
-- **fail**: read the blocking findings in the new verdict and go back to step 2. Each round
-  must reduce the set of blocking findings.
-- **blocked**: stop. Show the user the reason and the re-scoping options the core wrote to
-  `.harness/backlog.json` (split, rewrite a criterion, accept the risk). Do not retry.
+The core records the feature status from the verdict (the output ends with a `status:` line),
+with the same convergence rules as `harness run`:
+
+- **pass** → `passed`. Report to the user.
+- **fail** → `in_progress` while rounds are left (the output shows `rounds left: n`): read the
+  blocking findings in the new verdict and go back to step 2. Each round must reduce the set
+  of blocking criterion ids.
+- **fail** that cannot converge → `blocked`, with a reason: `divergence` (a criterion that
+  was not blocking in the previous round blocks now), `stall` (the blocking set did not
+  shrink), or `rounds` (the last round, `max_rounds`, failed).
+- **needs-human** → `blocked` (`needs_human`). **eval_error** once leaves the status as it
+  is — run `harness eval F{n}` again; twice in a row → `blocked` (`eval_error`).
+
+When the feature is `blocked`, stop. Show the user the reason and the re-scoping options the
+core wrote to `.harness/backlog.json` (split, rewrite a criterion, accept the risk). Do not
+retry: `harness eval` refuses a `passed` or `blocked` feature. If the status could not be
+written (exit 2, `io`), fix the cause and run `harness eval F{n}` again — it records the same
+round without a new evaluation.
 
 Findings without a reproducible defect go to the backlog automatically; do not act on them
 in this feature.
