@@ -75,7 +75,7 @@ worktree 안의 `.harness/` 는 코어가 쓰는 기록 경로 `verdicts/**`, `b
 
 ### 6.3 기준 check
 계약의 모든 check 실행 → 기준별 pass/fail. check 가 하나도 없는 계약은 fail(공허한 통과 방지). `new: true` 기준은 **base에서 fail이어야 한다**(base에서 이미 통과하면 공허한 기준 → fail로 보고).
-base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_globs` 와 같은 규칙) 에 맞는 테스트 파일 중 merge-base 대비 **추가·수정된 것(untracked 포함)** 을 작업 트리 내용 그대로 base 임시 worktree 에 얹는다 — "기능의 테스트가 기능 이전 코드에서 이미 통과하는가"를 본다. 새 테스트 파일에 든 기준이 base 에서 "테스트 없음"으로 실패해 non-vacuous 로 세어지던 빈틈을 막는다. 삭제된 테스트 파일은 base 쪽에 그대로 둔다. 작업 트리 쪽 경로가 심볼릭 링크면 얹지 않고, base 쪽 대상이 심볼릭 링크나 디렉터리면 먼저 지운 뒤 쓴다(링크를 따라 쓰지 않는다). `verify.test_paths` 가 비어 있으면 얹지 않고, `new: true` 기준이 있을 때 경고한다. sdlc 프로필 기본값: `test/**`, `tests/**`, `__tests__/**`, `*.test.*`, `*.spec.*`, `*_test.*`, `test_*.py`.
+base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_globs` 와 같은 규칙) 에 맞는 테스트 파일 중 merge-base 대비 **추가·수정된 것(untracked 포함)** 을 작업 트리 내용 그대로 base 임시 worktree 에 얹는다 — "기능의 테스트가 기능 이전 코드에서 이미 통과하는가"를 본다. 새 테스트 파일에 든 기준이 base 에서 "테스트 없음"으로 실패해 non-vacuous 로 세어지던 빈틈을 막는다. 삭제된 테스트 파일은 base 쪽에 그대로 둔다. 작업 트리 쪽 경로가 심볼릭 링크면 얹지 않고, base 쪽 대상이 심볼릭 링크나 디렉터리면 먼저 지운 뒤 쓴다(링크를 따라 쓰지 않는다). `verify.test_paths` 가 비어 있으면 얹지 않고, `new: true` 기준이 있을 때 경고한다. §6.2-3 의 `test_count` 는 얹기 전 base 에서 센다(얹은 뒤에 세면 기능이 지운 테스트가 base 쪽에서도 사라져 감소를 못 잡는다). 얹기가 실패하면 verify 는 `io` 오류로 끝난다. 경로는 프로젝트(`.harness` 가 있는 디렉터리) 기준으로 매칭한다. sdlc 프로필 기본값: `test/**`, `tests/**`, `__tests__/**`, `*.test.*`, `*.spec.*`, `*_test.*`, `test_*.py`.
 
 ## 7. 독립 평가 (`harness eval F{n}`)
 1. evaluator 역할 어댑터로 headless **읽기 전용** 세션 실행. 입력: 동결 계약 + diff(시크릿 제외 §9) + verify 결과.
