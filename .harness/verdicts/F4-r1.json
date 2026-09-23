@@ -1,0 +1,26 @@
+{
+  "feature": "F4",
+  "round": 1,
+  "commit": "0ccee87",
+  "independence": "fresh-context",
+  "evaluator": "claude (general-purpose subagent, bootstrap)",
+  "scores": {
+    "functionality": 8,
+    "quality": 8,
+    "security": 8,
+    "errors": 5,
+    "tests": 7
+  },
+  "score": 5,
+  "verdict": "fail",
+  "blocking_findings": [
+    {
+      "criterion_id": "ES-1",
+      "dimension": "errors",
+      "summary": "run() crashes the core with unhandled EPIPE on child.stdin when the CLI exits without reading a large prompt (missing interpreter behind a shim, cmd.exe 9009, early-exiting CLI).",
+      "repro": "node scratchpad/f4-es1-repro.mjs (2 MiB prompt to a script whose interpreter is missing; expects adapter_unavailable)",
+      "repro_confirmed": "exit 1 before fix (process crash), exit 0 after"
+    }
+  ],
+  "out_of_scope_count": 10
+}

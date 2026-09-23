@@ -356,3 +356,11 @@ test('F4 ES-2 timeout kills the child and returns timeout', async () => {
   }
   assert.equal(alive, false, `child ${pid} still running`);
 });
+
+test('F4 ES-1 large prompt: a CLI that exits without reading stdin returns an error code, no crash', async () => {
+  // 2 MiB exceeds any pipe buffer, so the stdin write fails with EPIPE once the child is gone.
+  const r = await getAdapter('claude').run({ prompt: 'x'.repeat(1 << 21), cwd: REPO, readOnly: true, timeoutSec: 20, ...fake('exit', '3') });
+  assert.equal(r.ok, false);
+  assert.equal(r.error, 'exit_nonzero');
+  assert.equal(r.exitCode, 3);
+});

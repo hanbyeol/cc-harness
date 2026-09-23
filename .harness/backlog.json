@@ -43,6 +43,54 @@
     {
       "source": "F7-impl",
       "summary": "v1 agents/*.md (model: claude-opus-5) are also loaded by Gemini as agents until F8 removes them."
+    },
+    {
+      "source": "F4-r1",
+      "summary": "Model names are not validated; a model like '--yolo' lands in argv as a flag. Reject values starting with '-' or pass --model=<v>."
+    },
+    {
+      "source": "F4-r1",
+      "summary": "run() ignores role; force readOnly for READ_ONLY_ROLES as defence in depth."
+    },
+    {
+      "source": "F4-r1",
+      "summary": "Nonexistent cwd is reported as adapter_unavailable (misattributed cause)."
+    },
+    {
+      "source": "F4-r1",
+      "summary": "Non-numeric timeoutSec becomes NaN (1 ms timeout); detail text 'killed after undefineds' when omitted."
+    },
+    {
+      "source": "F4-r1",
+      "summary": "gemini error wrapper exiting 0 would be read as model JSON (theoretical today)."
+    },
+    {
+      "source": "F4-r1",
+      "summary": "A model verdict with type:'result' and is_error is misread as a claude wrapper (contrived)."
+    },
+    {
+      "source": "F4-r1",
+      "summary": "independence() is optimistic when one side uses the CLI default model; consider fresh-context when either model is unknown."
+    },
+    {
+      "source": "F4-r1",
+      "summary": "doctor's defaultProbe requires --version; a generic CLI without it reads as not installed."
+    },
+    {
+      "source": "F4-r1",
+      "summary": "Process-group kill cannot reach setsid/daemonized grandchildren (and Windows orphans); exec now destroys the pipes so close still fires, but the orphan keeps running."
+    },
+    {
+      "source": "F3-impl",
+      "summary": "Timed-out verify commands are rerun once (worst case 2x step_timeout_sec); consider not retrying timeouts."
+    },
+    {
+      "source": "F3-impl",
+      "summary": "Code that holds skip markers as data fails its own verify; F3 splits marker strings as a workaround. Consider a per-contract marker_exempt_paths frozen by the approval hash."
+    },
+    {
+      "source": "F3-impl",
+      "summary": "verify with cwd=root reports uncommitted core writes to .harness/features.json as a .harness change (false positive if the core ever leaves them uncommitted)."
     }
   ]
 }

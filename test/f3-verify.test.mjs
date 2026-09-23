@@ -63,7 +63,8 @@ function fixture({ files = {}, contract: c = contract() } = {}) {
   return dir;
 }
 
-const cfg = (over = {}) => resolveConfig({ base_branch: 'main', ...over, budget: { step_timeout_sec: 30, ...(over.budget || {}) } });
+// verify.commands defaults to [] here: the sdlc profile would otherwise inject `npm test`.
+const cfg = (over = {}) => resolveConfig({ base_branch: 'main', ...over, verify: { commands: [], ...(over.verify || {}) }, budget: { step_timeout_sec: 30, ...(over.budget || {}) } });
 const run = (dir, over = {}, extra = {}) => verify({ root: dir, featureId: 'F9', base: 'main', config: cfg(over), ...extra });
 const worktreeCount = (dir) => git(dir, 'worktree', 'list', '--porcelain').split('\n').filter((l) => l.startsWith('worktree ')).length;
 
@@ -382,4 +383,18 @@ test('F3 ES-2: base_branch from config is the default and a missing one also exi
   const r = harness(['verify', 'F9'], { cwd: dir });
   assert.equal(r.code, 2);
   assert.match(r.stderr, /base ref 'main' not found/);
+});
+
+test('F3 SC-1 leftover background: a child that outlives its parent cannot stall the timeout', async () => {
+  const { runCommand } = await import('../lib/exec.mjs');
+  // The parent exits at once; its child inherits stdout and keeps the pipe open for 20s.
+  const leftover = { file: process.execPath, args: ['-e', "require('child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, 20000)'], { stdio: 'inherit' }).unref(); console.log('started')"] };
+  const started = Date.now();
+  const r = await runCommand(leftover, { cwd: process.cwd(), timeoutSec: 1 });
+  assert.equal(r.timedOut, true);
+  assert.ok(Date.now() - started < 5000, `returned after ${Date.now() - started} ms`);
+  const again = Date.now();
+  const g = await runCommand(leftover, { cwd: process.cwd(), timeoutSec: 60 });
+  assert.equal(g.code, 0);
+  assert.ok(Date.now() - again < 8000, `grace cleanup took ${Date.now() - again} ms`);
 });
