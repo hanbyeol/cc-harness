@@ -127,6 +127,15 @@
         "F8"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F15",
+      "title": "migrate-v1 — 실제 v1 데이터 호환 (title 필드 · 비 F<n> id · 제거 상태)",
+      "security_tier": "standard",
+      "depends_on": [
+        "F8"
+      ],
+      "status": "approved"
     }
   ]
 }

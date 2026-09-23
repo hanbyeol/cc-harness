@@ -1,0 +1,63 @@
+{
+  "id": "F15",
+  "title": "migrate-v1 — 실제 v1 데이터 호환 (title 필드 · 비 F<n> id · 제거 상태)",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "v1 항목에 name 이 없고 title 이 있으면 v2 title 은 v1 title 이다(name 우선, 둘 다 없으면 id)",
+      "check": "node test/t.mjs \"F15 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "id 가 F<n> 이 아닌 항목은 목록 순서대로 아직 쓰이지 않은 가장 작은 F<n> 을 받고 원래 id 는 v1.id 에 남는다. 원래 F<n> id 는 바뀌지 않고, v1 dependencies 는 새 id 로 변환되어 depends_on 에 들어간다",
+      "check": "node test/t.mjs \"F15 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "v1 status 가 removed · cancelled · archived 로 시작하면(대소문자 무시) passes 와 관계없이 v2 status 는 skipped 다",
+      "check": "node test/t.mjs \"F15 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "그 외 항목은 passes:true 면 passed, 아니면 todo 이고 원래 status 는 v1.status 에 보존된다",
+      "check": "node test/t.mjs \"F15 AC-4\"",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "요약 출력에 passed · todo · skipped 개수와 재번호된 항목 수가 나온다",
+      "check": "node test/t.mjs \"F15 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "inno-infra 형태 픽스처(title 필드, 비 F<n> id, 다양한 status)를 옮긴 뒤 harness status 가 exit 0 이고 모든 id 가 F<n> 이다",
+      "check": "node test/t.mjs \"F15 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "v1 id 가 중복되면 아무것도 쓰지 않고 exit 2, 메시지에 중복 id 가 나온다",
+      "check": "node test/t.mjs \"F15 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "v1 계약 변환",
+    "dependencies 의 알 수 없는 id 는 depends_on 에서 빼고 경고만"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T15:51:35.200Z",
+    "hash": "8d7ea77dfdf05c3badc09de816ba79814021f5e94a9184650d3e5c8587d31e6c",
+    "via": "plan-gate (AskUserQuestion, session 2026-09-24)"
+  }
+}
