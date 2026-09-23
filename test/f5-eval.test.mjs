@@ -615,3 +615,9 @@ test('F5 ES-2 repro timeout → non-blocking and recorded in backlog.json', asyn
   assert.equal(items.length, 1);
   assert.deepEqual([items[0].reason, items[0].criterion_id, items[0].repro], ['repro_timeout', 'ES-1', 'node scripts/sleep.mjs']);
 });
+
+test('F5 SC-2 quoted HOME with a suffix: "$HOME"/* spellings are denied', () => {
+  for (const cmd of ['rm -rf "$HOME"/*', 'rm -rf "$HOME"/', 'rm -rf "${HOME}"/*', "rm -rf '~'/"]) {
+    assert.equal(deniedPattern(cmd), 'rm -rf ~', cmd);
+  }
+});
