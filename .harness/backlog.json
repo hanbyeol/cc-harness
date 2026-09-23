@@ -3,23 +3,28 @@
     {
       "source": "F6-r2",
       "priority": "high",
-      "summary": "Case collision with the user's own unprotected checked-out branch (user on 'work', integration_branch 'Work') on a case-insensitive FS: the --no-ff merge advances the user's branch. Refuse an integration_branch that case-folds to an existing local branch spelled differently or to any branch checked out in a worktree."
+      "summary": "Case collision with the user's own unprotected checked-out branch (user on 'work', integration_branch 'Work') on a case-insensitive FS: the --no-ff merge advances the user's branch. Refuse an integration_branch that case-folds to an existing local branch spelled differently or to any branch checked out in a worktree.",
+      "resolved_by": "F10"
     },
     {
       "source": "F1-r1",
-      "summary": "init on a partially present .harness/ (e.g. only contracts/) fails with 'config.json: not found' because main() treats any .harness dir as initialized before init runs."
+      "summary": "init on a partially present .harness/ (e.g. only contracts/) fails with 'config.json: not found' because main() treats any .harness dir as initialized before init runs.",
+      "resolved_by": "F12"
     },
     {
       "source": "F1-r1",
-      "summary": "writeJsonAtomic leaves a partial .tmp-* file and escapes a raw error (exit 1) when writing the temp file itself fails (e.g. ENOSPC)."
+      "summary": "writeJsonAtomic leaves a partial .tmp-* file and escapes a raw error (exit 1) when writing the temp file itself fails (e.g. ENOSPC).",
+      "resolved_by": "F12"
     },
     {
       "source": "F1-r1",
-      "summary": "resolveConfig/loadConfig accept non-object config (null, budget:null) without validation or defaults."
+      "summary": "resolveConfig/loadConfig accept non-object config (null, budget:null) without validation or defaults.",
+      "resolved_by": "F12"
     },
     {
       "source": "F1-r1",
-      "summary": "status crashes with internal error on malformed feature entries (missing id/status/title) instead of state_corrupt."
+      "summary": "status crashes with internal error on malformed feature entries (missing id/status/title) instead of state_corrupt.",
+      "resolved_by": "F12"
     },
     {
       "source": "F1-r1",
@@ -31,7 +36,8 @@
     },
     {
       "source": "F2-impl",
-      "summary": "SPEC section 5 gaps found while implementing F2 were backfilled in 562408f (re-approval semantics, id/section rule, run_steps, pattern case rules, invalid tier)."
+      "summary": "SPEC section 5 gaps found while implementing F2 were backfilled in 562408f (re-approval semantics, id/section rule, run_steps, pattern case rules, invalid tier).",
+      "resolved_by": "562408f"
     },
     {
       "source": "F4-impl",
@@ -39,7 +45,8 @@
     },
     {
       "source": "F4-impl",
-      "summary": "Windows .cmd shim escaping is unit-tested but never executed on Windows; covered once F8 CI runs on windows-latest."
+      "summary": "Windows .cmd shim escaping is unit-tested but never executed on Windows; covered once F8 CI runs on windows-latest.",
+      "resolved_by": "F14"
     },
     {
       "source": "F7-impl",
@@ -47,7 +54,8 @@
     },
     {
       "source": "F7-impl",
-      "summary": "v1 agents/*.md (model: claude-opus-5) are also loaded by Gemini as agents until F8 removes them."
+      "summary": "v1 agents/*.md (model: claude-opus-5) are also loaded by Gemini as agents until F8 removes them.",
+      "resolved_by": "F8"
     },
     {
       "source": "F4-r1",
@@ -151,7 +159,8 @@
     },
     {
       "source": "F2-r1",
-      "summary": "verify does not check the approval hash (wire in F6 via executableFeatures)."
+      "summary": "verify does not check the approval hash (wire in F6 via executableFeatures).",
+      "resolved_by": "F6"
     },
     {
       "source": "F2-r1",
@@ -276,7 +285,8 @@
     {
       "source": "F5-2nd",
       "priority": "high",
-      "summary": "SR-4 exclusion is path-only: a secret committed before base and renamed within the feature (git mv .env notes.txt) enters the evaluator prompt with its content. User decision: add as a criterion in the next F5 contract version (e.g. exclude an added path whose blob equals a deleted secret path's blob)."
+      "summary": "SR-4 exclusion is path-only: a secret committed before base and renamed within the feature (git mv .env notes.txt) enters the evaluator prompt with its content. User decision: add as a criterion in the next F5 contract version (e.g. exclude an added path whose blob equals a deleted secret path's blob).",
+      "resolved_by": "F9"
     },
     {
       "source": "F5-2nd",
