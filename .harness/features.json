@@ -156,6 +156,15 @@
         "F6"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F18",
+      "title": "재승인 후 라운드 — 계약 버전 단위 라운드 계산과 판정 기록 보존",
+      "security_tier": "critical",
+      "depends_on": [
+        "F17"
+      ],
+      "status": "approved"
     }
   ]
 }

@@ -1,0 +1,76 @@
+{
+  "id": "F18",
+  "title": "재승인 후 라운드 — 계약 버전 단위 라운드 계산과 판정 기록 보존",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "old 계약 해시의 fail 판정 r1·r2·r3 이 있고 blocked 된 기능을 새 버전으로 재승인한 뒤 harness eval 이 fail 이면, 판정은 F{n}-r4.json 에 기록되고 status 는 in_progress, 남은 라운드는 max_rounds-1 이다",
+      "check": "node test/t.mjs \"F18 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "수렴 비교는 현재 승인 해시와 같은 contract_hash 의 직전 판정하고만 한다 — old 해시 판정의 차단 id 가 {AC-1} 이고 새 계약 첫 판정의 차단 id 가 {AC-2} 이면 divergence 가 아니라 in_progress",
+      "check": "node test/t.mjs \"F18 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "max_rounds 는 계약 해시별로 센다 — 재승인 뒤 새 해시의 fail 이 max_rounds 번째일 때 blocked(rounds) 가 되고, 그 전에는 되지 않는다",
+      "check": "node test/t.mjs \"F18 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "새 판정 기록에 contract_round(현재 계약 해시 안에서의 라운드 번호)가 들어가고, harness eval 출력에 'round <contract_round>/<max_rounds>' 가 나온다",
+      "check": "node test/t.mjs \"F18 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "F{n}-r1.json·r2.json 이 이미 있는 기능을 harness run 으로 실행하면(가짜 어댑터 fixture) 새 판정은 r3.json 에 기록되고, run 보고서의 라운드 수는 이번 계약의 라운드(1)다",
+      "check": "node test/t.mjs \"F18 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "SPEC §7·§8 이 판정 파일 번호는 기능별로 계속 증가하고 라운드 상한·수렴 비교는 계약 해시 단위라는 규칙을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F18 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "harness run 과 harness eval 모두 기존 판정 파일을 덮어쓰지 않는다 — r1 이 있는 fixture 에서 각 경로로 한 라운드를 실행한 뒤 r1 의 바이트가 실행 전과 같다(경로별 개별 테스트)",
+      "check": "node test/t.mjs \"F18 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "contract_hash 가 없는 기존 판정(F18 이전 기록)은 다른 계약의 라운드로 취급해 라운드 수·수렴 비교에 넣지 않고, 파일 번호 계산에는 넣는다",
+      "check": "node test/t.mjs \"F18 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "현재 해시의 직전 판정 파일이 JSON 으로 읽히지 않으면 어댑터를 호출하지 않고 exit 2(state_corrupt), 메시지에 파일 경로가 나오고 스택 트레이스(\"    at \")가 없다",
+      "check": "node test/t.mjs \"F18 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "기존 판정 파일의 이름 변경·이전(migration)",
+    "eval_error 파일의 번호 규칙",
+    "status 명령의 라운드 이력 표시"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T23:39:53.107Z",
+    "hash": "9a95688b925c6bc97349261e16d1bdfe9bacf3aef3af6022c28a8d38c7d6398f"
+  }
+}
