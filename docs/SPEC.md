@@ -25,7 +25,7 @@ AI 코딩 CLI(Claude Code · Codex CLI · Gemini CLI, 그 외 AGENTS.md 호환 �
 ## 4. 상태 파일 (`.harness/`, git 추적)
 | 파일 | 내용 |
 |------|------|
-| `config.json` | profile, verify 명령, 임계값, 예산, max_rounds, 어댑터 역할 배정. 병합 순서 DEFAULTS ← profile ← config (config 우선). `init` 은 verify.commands 를 쓰지 않는다 — 사용자가 정하기 전까지 프로필 기본값이 적용된다. 최상위는 JSON 객체여야 하고, 기본값이 객체인 키(`budget`·`verify`·`limits`·`roles`·`rubric`)는 지정 시 객체여야 한다 |
+| `config.json` | profile, verify 명령, 임계값, 예산, max_rounds, 어댑터 역할 배정. 병합 순서 DEFAULTS ← profile ← config (config 우선). `init` 은 verify.commands 를 쓰지 않는다 — 사용자가 정하기 전까지 프로필 기본값이 적용된다. 최상위는 JSON 객체여야 하고, 기본값이 객체인 키(`budget`·`verify`·`limits`·`roles`·`rubric`)는 지정 시 객체여야 한다. `verify.commands`·`verify.skip_markers`·`env_allowlist`·`secret_globs`·`protected_branches` 는 지정 시 빈 문자열이 아닌 문자열의 배열이어야 하고(오류는 키 이름과 원소 번호 `key[i]`), `verify.test_count` 는 문자열 또는 null 이어야 한다. 형식 검사는 프로필과 병합하기 전 사용자 파일에 대해 한다 |
 | `features.json` | `[{id, title, security_tier, depends_on[], status}]` — status ∈ `todo·approved·in_progress·passed·blocked·skipped`. 각 항목의 `id`·`title`·`status` 는 필수 문자열 |
 | `contracts/F{n}.json` | 계약 (§5) |
 | `verdicts/F{n}-r{k}.json` | 라운드별 판정 (§7) |
@@ -110,7 +110,7 @@ worktree 안의 `.harness/` 는 코어가 쓰는 기록 경로 `verdicts/**`, `b
 8. 종료 → `runs/{ts}.md` 보고서. integration → main 병합은 하지 않는다(PR 생성은 `gh` 가 있으면 제안만).
 
 예산: 단계별 timeout(기본 30분), 단계별 USD(어댑터 지원 시), run 전체 USD. 단계 초과 시 해당 기능 blocked(`budget`), run 초과 시 진행 중 기능 blocked(`budget`) 후 전체 정지.
-중단 복구: run은 상태 파일(`runs/current.json`, config 스냅샷 포함)만으로 재개 가능(`harness run --resume`). SIGINT 는 진행 중 단계의 프로세스 트리를 종료하고 상태를 저장한 뒤 exit 130.
+중단 복구: run은 상태 파일(`runs/current.json`, config 스냅샷 포함)만으로 재개 가능(`harness run --resume`). run 이 실제로 쓰는 config 스냅샷(새 run·재개·직접 전달 모두)은 시작 전에 §4 의 형식 검사를 다시 거친다 — 형식이 틀리면 작업 없이 `config_invalid` exit 2. SIGINT 는 진행 중 단계의 프로세스 트리를 종료하고 상태를 저장한 뒤 exit 130.
 이전 run 의 `harness/F{n}` 브랜치가 남아 있으면 자동으로 지우지 않는다(작업 보존) — 해당 기능은 blocked(`worktree`), 사용자가 브랜치를 지우고 재시도한다. blocked 기능의 worktree 는 점검용으로 남기고, passed 기능의 worktree·브랜치는 제거한다.
 
 ## 9. 보안 요구사항
@@ -161,7 +161,7 @@ hooks/hooks.json             Claude SessionStart 1개: `harness status --brief` 
 | E3 | 병합 충돌 | 병합 중단(`git merge --abort`), 기능 blocked(`merge_conflict`) |
 | E4 | worktree 생성 실패 | 기능 blocked, 나머지 계속 |
 | E5 | 예산·timeout 초과 | 프로세스 종료(자식 포함), blocked(`budget`) |
-| E6 | 상태 파일 손상(JSON 파싱 불가, §4 형식 위반 — config 가 객체 아님·객체 키의 타입 오류, features 항목의 id·title·status 누락/비문자열) | 즉시 정지(exit 2), 파일 경로·필드 이름 또는 항목 번호(`features[i]`)를 포함한 수정 안내 — 추측 복구 금지 |
+| E6 | 상태 파일 손상(JSON 파싱 불가, §4 형식 위반 — config 가 객체 아님·객체 키의 타입 오류·배열 키가 배열 아님 또는 빈/비문자열 원소·test_count 타입 오류, features 항목의 id·title·status 누락/비문자열) | 즉시 정지(exit 2), 파일 경로·필드 이름 또는 항목 번호(`features[i]`)를 포함한 수정 안내 — 추측 복구 금지 |
 | E7 | 실행 중 인터럽트(SIGINT) | 현재 단계 종료, 상태 저장, `--resume` 안내 |
 
 ## 13. v1 마이그레이션 (`harness migrate-v1`)

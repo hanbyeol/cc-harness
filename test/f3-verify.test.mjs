@@ -341,7 +341,8 @@ test('F3 SC-3: an empty config skip_markers list keeps all 8 default markers', a
 });
 
 test('F3 SC-3: config markers are added to, never replace, the defaults', async () => {
-  const c = cfg({ verify: { skip_markers: ['@Flaky', '', null] } });
+  // Raw object: config loading rejects '' and null since F13; effectiveMarkers still filters them.
+  const c = { verify: { skip_markers: ['@Flaky', '', null] } };
   assert.deepEqual(effectiveMarkers(c), [...MARKERS, '@Flaky']);
   const dir = fixture();
   writeFiles(dir, { 'src/b.test.js': `@Flaky\nit${ONLY}1)\n` });
