@@ -135,7 +135,7 @@
       "depends_on": [
         "F8"
       ],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }

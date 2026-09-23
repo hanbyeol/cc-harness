@@ -1,0 +1,32 @@
+{
+  "feature": "F15",
+  "round": 1,
+  "commit": "6993616",
+  "independence": "cross-model",
+  "evaluator": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 9,
+      "quality": 9,
+      "security": 8,
+      "errors": 9,
+      "tests": 9
+    },
+    "blocking": 0
+  },
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "score": 8,
+  "verdict": "pass",
+  "convergence": {
+    "previous_blocking": null,
+    "current_blocking": 0,
+    "divergence": false
+  },
+  "note": "Checked on copies of two real v1 lists: inno-infra (108, title field, non-F<n> ids) and cbtilite-service (28; ids/titles identical to v2.0.1, 3 removed features now skipped, depends_on filled)."
+}
