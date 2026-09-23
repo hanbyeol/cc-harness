@@ -1,0 +1,44 @@
+{
+  "feature": "F14",
+  "round": 2,
+  "commit": "326c9a9",
+  "independence": "cross-model",
+  "evaluator": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 9,
+      "quality": 9,
+      "security": 8,
+      "errors": 9,
+      "tests": 9
+    },
+    "blocking": 0,
+    "judged_at": "803335a (round 1)"
+  },
+  "security_reviewer": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 9,
+      "quality": 8,
+      "security": 9,
+      "errors": 9,
+      "tests": 8
+    },
+    "blocking": 0
+  },
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 9,
+    "tests": 8
+  },
+  "score": 8,
+  "verdict": "pass",
+  "convergence": {
+    "previous_blocking": 1,
+    "current_blocking": 0,
+    "divergence": false
+  },
+  "note": "Anchored to cmd.exe's own first stderr line. Windows behaviour judged from injected-platform tests and the first windows-latest CI log. AC-3, SC-1 and ES-1 were marked new:true but already held on base (regression guards) - contract-authoring slip, noted."
+}

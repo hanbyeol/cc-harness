@@ -1,0 +1,36 @@
+{
+  "feature": "F14",
+  "round": 1,
+  "commit": "803335a",
+  "independence": "cross-model",
+  "evaluator": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 9,
+      "quality": 9,
+      "security": 8,
+      "errors": 9,
+      "tests": 9
+    },
+    "blocking": 0
+  },
+  "security_reviewer": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 8,
+      "quality": 7,
+      "security": 4,
+      "errors": 7,
+      "tests": 6
+    },
+    "blocking": 1
+  },
+  "score": 4,
+  "verdict": "fail",
+  "blocking_findings": [
+    {
+      "criterion_id": "REGRESSION",
+      "summary": "win32 not-found phrase matched anywhere in stderr; a failing repro that quotes it became repro_not_runnable"
+    }
+  ]
+}

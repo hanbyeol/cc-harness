@@ -340,6 +340,14 @@
     {
       "source": "F13-r2",
       "summary": "runFeatures({config}) (programmatic callers) gets shape checks but not the DEFAULTS/profile merge that loadConfig applies; the two paths differ."
+    },
+    {
+      "source": "F14-r2",
+      "summary": "win32 not-found anchoring rejects a program name containing an apostrophe ('d'oh.exe') - safe direction (treated as a real failure)."
+    },
+    {
+      "source": "F14-r1",
+      "summary": "Windows not-found detection only knows the English cmd.exe wording; other locales are reported as plain failures."
     }
   ]
 }
