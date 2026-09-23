@@ -140,3 +140,22 @@ test('F9 ES-1 an empty base secret does not trigger content matching: a new empt
   assert.ok(d.files.includes('empty-committed.txt'), 'empty-committed.txt must stay in files');
   assert.equal(d.excluded, 0);
 });
+
+// Round 2: past git's default diff.renameLimit (1000 paths) rename detection is skipped
+// silently unless the core lifts the limit.
+test('F9 AC-3 large diff: a renamed-and-edited secret is excluded beyond diff.renameLimit', async () => {
+  const N = 1000;
+  const files = { '.env': 'KEY_0=F9_BIG_SECRET_0\nKEY_1=F9_BIG_SECRET_1\n' };
+  for (let i = 0; i < N; i++) files[`old/${i}.txt`] = `unique base content ${i} padding padding\n`;
+  const dir = gitRepo(files);
+  fs.rmSync(path.join(dir, 'old'), { recursive: true });
+  const added = {};
+  for (let i = 0; i < N; i++) added[`new/${i}.txt`] = `unique new content ${i} padding padding\n`;
+  writeFiles(dir, added);
+  git(dir, 'mv', '.env', 'config.txt');
+  fs.writeFileSync(path.join(dir, 'config.txt'), 'KEY_0=CHANGED\nKEY_1=F9_BIG_SECRET_1\n');
+  commitAll(dir, 'churn + secret rename with edit');
+  const d = await buildDiff({ cwd: dir, base: 'main' });
+  assert.equal(d.text.includes('F9_BIG_SECRET'), false);
+  assert.equal(d.files.includes('config.txt'), false);
+});
