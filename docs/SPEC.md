@@ -114,7 +114,7 @@ worktree 안의 `.harness/` 는 코어가 쓰지 않으므로 **그 아래 어�
 ## 9. 보안 요구사항
 - SR-1 verify·check·repro 명령은 **worktree를 cwd로**, timeout과 함께 실행된다.
 - SR-2 repro/check 실행 환경은 env 허용목록(PATH, HOME, LANG, TMP 계열, config에서 추가한 이름)만 전달 — API 키·토큰 미전달.
-- SR-3 repro는 deny 패턴(`git push`, `rm -rf /`, `rm -rf ~`, `curl … | sh`, `sudo`)에 걸리면 실행하지 않고 finding을 비차단 처리.
+- SR-3 repro는 deny 패턴(`git push`, `rm -rf /`, `rm -rf ~`, `curl … | sh`, `sudo`)에 걸리면 실행하지 않고 finding을 비차단 처리. 판정은 셸이 실제로 실행할 명령 기준 — 줄 이음(백슬래시+개행)을 제거한 뒤 검사한다.
 - SR-4 headless 프롬프트에 들어가는 diff에서 `.env*`, `*.pem`, `*.key`, `id_*`, `*.p12`, config의 `secret_globs` 경로 제외.
 - SR-5 코어는 `main`(및 config의 protected 브랜치)에 병합·push하지 않는다.
 - SR-6 evaluator·security-reviewer는 읽기 전용 모드로 호출된다(어댑터별 플래그).
