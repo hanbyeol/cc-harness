@@ -1,0 +1,64 @@
+{
+  "id": "F13",
+  "title": "config 배열·스칼라 형식 검증 — verify.commands·protected_branches 등",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "config.json 의 verify.commands 가 문자열(\"npm test\")이면 status 와 verify 가 명령을 실행하지 않고 exit 2, 메시지에 verify.commands 가 나온다",
+      "check": "node test/t.mjs \"F13 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "verify.commands 배열에 문자열이 아니거나 빈 문자열인 원소가 있으면 exit 2, 메시지에 verify.commands[<index>] 가 나온다",
+      "check": "node test/t.mjs \"F13 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "verify.skip_markers · env_allowlist · secret_globs 각각이 배열이 아니거나 문자열이 아닌 원소를 가지면 exit 2, 메시지에 해당 키 이름이 나온다(키별 개별 테스트)",
+      "check": "node test/t.mjs \"F13 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "verify.test_count 가 문자열도 null 도 아니면(숫자·배열·객체) exit 2, 메시지에 verify.test_count 가 나온다",
+      "check": "node test/t.mjs \"F13 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "init 이 만든 config, profiles/sdlc·iac·ops 기본값, verify 를 {} 로 둔 config, 이 저장소의 .harness/config.json 은 그대로 로드된다",
+      "check": "node test/t.mjs \"F13 AC-5\"",
+      "new": false
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "protected_branches 가 문자열(\"v2\")이거나 문자열이 아닌 원소를 가지면 run 이 시작 전에 exit 2 로 멈추고, 가짜 어댑터 fixture 에서 v2 의 커밋 해시가 변하지 않는다",
+      "check": "node test/t.mjs \"F13 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "AC-1~AC-4·SC-1 의 오류는 모두 HarnessError(code config_invalid) 로 보고되어 exit 2 이며 출력에 스택 트레이스(\"    at \")가 없다",
+      "check": "node test/t.mjs \"F13 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "threshold·max_rounds·base_branch 등 스칼라 키의 범위 검증",
+    "profiles/*.json 자체의 형식 검증(패키지에 포함된 파일)"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T12:44:12.853Z",
+    "hash": "9fe7ceaf5907226d3f4a9e5866c8cba5dbd793831e1261dc3e44e3986c765468",
+    "via": "plan-gate (AskUserQuestion, session 2026-09-23)"
+  }
+}

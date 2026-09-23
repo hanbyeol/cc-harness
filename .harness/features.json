@@ -108,6 +108,15 @@
         "F1"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F13",
+      "title": "config 배열·스칼라 형식 검증 — verify.commands·protected_branches 등",
+      "security_tier": "critical",
+      "depends_on": [
+        "F12"
+      ],
+      "status": "approved"
     }
   ]
 }
