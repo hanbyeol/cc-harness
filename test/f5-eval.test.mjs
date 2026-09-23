@@ -5,6 +5,7 @@ import path from 'node:path';
 import { harness, REPO } from './helpers.mjs';
 import { git, gitRepo, writeFiles, commitAll } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
+import { hashContract } from '../lib/contract.mjs';
 import {
   evaluate, decideVerdict, validateOutput, deniedPattern, isSecretPath, OUTPUT_SCHEMA,
 } from '../lib/eval.mjs';
@@ -436,8 +437,12 @@ test('F5 AC-7 independence is cross-model when builder and evaluator differ; the
 });
 
 test('F5 AC-7 CLI: harness eval exits 0 on pass, 1 on fail, 2 on eval_error and usage errors', () => {
+  // harness eval refuses a contract that is not approved (F17 SC-2), so the CLI fixture freezes it.
+  const approved = contract();
+  approved.approval = { by: 'test', at: '2026-09-23T00:00:00.000Z', hash: hashContract(approved) };
   const cliFixture = (evaluatorCmd) => {
     const dir = fixture({
+      contract: approved,
       config: {
         roles: { builder: 'claude', evaluator: 'generic', 'security-reviewer': 'generic' },
         adapters: { generic: evaluatorCmd ? { read_only_command: evaluatorCmd } : { command: [process.execPath, FAKE_CLI, 'print', REPLY_PASS] } },
