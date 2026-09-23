@@ -398,3 +398,28 @@ test('F3 SC-1 leftover background: a child that outlives its parent cannot stall
   assert.equal(g.code, 0);
   assert.ok(Date.now() - again < 8000, `grace cleanup took ${Date.now() - again} ms`);
 });
+
+test('F3 AC-4 subdirectory project: .harness changes are caught when the project is not the repo root', async () => {
+  const c = contract();
+  const dir = gitRepo({ 'sub/.harness/config.json': { profile: 'sdlc', base_branch: 'main' }, 'sub/.harness/features.json': { features: [] },
+    'sub/.harness/contracts/F9.json': c, 'sub/check.mjs': 'process.exit(0);\n' });
+  const root = path.join(dir, 'sub');
+  writeFiles(root, { '.harness/verdicts/F9-r1.json': { verdict: 'pass' } });
+  const r = await verify({ root, featureId: 'F9', base: 'main', config: cfg() });
+  assert.equal(r.pass, false);
+  assert.deepEqual(r.integrity.harnessPaths, ['sub/.harness/verdicts/F9-r1.json']);
+});
+
+test('F3 SC-1 redirected background: a leftover child that released the pipes is still killed', async () => {
+  // POSIX process-group semantics; Windows orphans are a known limitation (backlog).
+  if (process.platform === 'win32') return;
+  const { runCommand } = await import('../lib/exec.mjs');
+  const r = await runCommand('sleep 20 >/dev/null 2>&1 & echo $!', { cwd: process.cwd(), timeoutSec: 10 });
+  const pid = Number(r.stdout.trim());
+  let gone = false;
+  for (let i = 0; i < 30 && !gone; i += 1) {
+    if (!alive(pid)) gone = true; else await new Promise((res) => setTimeout(res, 100));
+  }
+  if (!gone) process.kill(pid, 'SIGKILL');
+  assert.equal(gone, true, `background child ${pid} survived runCommand`);
+});
