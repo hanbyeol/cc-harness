@@ -1,0 +1,60 @@
+{
+  "project": "cc-harness",
+  "features": [
+    {
+      "id": "F2",
+      "name": "Bash firewall 정밀화",
+      "description": "pre-bash-firewall.sh의 오버블로킹 제거 — 'rm -rf /' substring 매치, 백틱 전면 차단, kubectl/docker exec 차단, --force-with-lease 차단 등. den",
+      "security_tier": "critical",
+      "status": "passed",
+      "passes": true,
+      "iteration": 0,
+      "dependencies": [],
+      "assigned_sprint": 1
+    },
+    {
+      "id": "F4",
+      "name": "데드 기능 활성화",
+      "description": "session-handoff-draft.json 작성 지시를 CLAUDE.md 템플릿/skills에 추가(merge 로직만 있고 작성 주체 없음), harness-config.json의 agent_comms.max_",
+      "security_tier": "low",
+      "status": "passed",
+      "passes": true,
+      "iteration": 0,
+      "dependencies": [],
+      "assigned_sprint": 1
+    },
+    {
+      "id": "F63",
+      "name": "방화벽 과탐 제거 — 보호 경로 읽기(sed -n·awk)를 쓰기와 구분",
+      "description": "[2026-07-27, 사용자 보고] 방화벽이 보호 경로에 대한 **읽기 전용** sed/awk 사용을 쓰기와 구분하지 않고 ask로 판정해 불필요한 승인 프롬프트를 반복 유발한다. hooks/pre-bash-fir",
+      "security_tier": "critical",
+      "status": "superseded",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F32",
+        "F33",
+        "F34"
+      ],
+      "assigned_sprint": 49,
+      "superseded_by": "F65, F73"
+    },
+    {
+      "id": "F66",
+      "name": "하네스 런타임 부재·스테일 탐지 — 마커가 아니라 실제 실행 경로를 근거로",
+      "description": "[2026-07-28, 사용자 보고] 하네스가 어떤 프로젝트에서 **실제로 실행되고 있는지**를 아무도 확인하지 않는다. `.claude/.cc-harness-installed` 마커는 '과거 어느 세션에 setup",
+      "security_tier": "standard",
+      "status": "pending",
+      "passes": false,
+      "iteration": 0,
+      "dependencies": [
+        "F6",
+        "F13",
+        "F27",
+        "F36",
+        "F52"
+      ],
+      "assigned_sprint": 52
+    }
+  ]
+}
