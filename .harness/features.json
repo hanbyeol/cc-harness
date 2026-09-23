@@ -146,6 +146,16 @@
         "F13"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F17",
+      "title": "대화형 eval — 판정 후 상태 기록과 수렴 규칙 집행 (run 과 같은 규칙)",
+      "security_tier": "critical",
+      "depends_on": [
+        "F5",
+        "F6"
+      ],
+      "status": "approved"
     }
   ]
 }

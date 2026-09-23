@@ -1,0 +1,100 @@
+{
+  "id": "F17",
+  "title": "대화형 eval — 판정 후 상태 기록과 수렴 규칙 집행 (run 과 같은 규칙)",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness eval F{n} 의 verdict 가 pass 이면 features.json 의 해당 기능 status 가 passed 가 되고, 출력에 'status: passed' 가 나온다",
+      "check": "node test/t.mjs \"F17 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "verdict 가 fail 이고 라운드 k < max_rounds 이며 (k=1 이거나 차단 finding 집합이 직전 라운드의 진부분집합이면) status 는 in_progress 가 되고 exit 1, 출력에 남은 라운드 수가 나온다",
+      "check": "node test/t.mjs \"F17 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "verdict 가 fail 이고 라운드 k = max_rounds 이면 status 는 blocked 가 되고 backlog.json 에 source F{n}-blocked, reason rounds 항목과 재범위 선택지(split·rewrite·accept)가 기록된다",
+      "check": "node test/t.mjs \"F17 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "라운드 2 이상의 fail 에서 직전 라운드에 없던 차단 id 가 나오면 reason divergence, 차단 집합이 줄지 않으면 reason stall 로 blocked 가 된다 — run.mjs 의 convergence() 와 같은 판정(각각 개별 테스트)",
+      "check": "node test/t.mjs \"F17 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "eval_error 가 2회 연속이면 status 가 blocked(reason eval_error)가 되고, 1회면 status 는 바뀌지 않는다",
+      "check": "node test/t.mjs \"F17 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "needs-human verdict 이면 status 는 blocked(reason needs_human)가 된다",
+      "check": "node test/t.mjs \"F17 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "harness run 이 호출하는 평가 경로의 상태 기록은 그대로다 — 가짜 어댑터 run fixture 에서 pass 기능은 병합 후 verify 를 거쳐서만 passed 가 되고, 평가 직후 병합 전에는 passed 가 아니다",
+      "check": "node test/t.mjs \"F17 AC-7\"",
+      "new": true
+    },
+    {
+      "id": "AC-8",
+      "criterion": "skills/build/SKILL.md 와 SPEC §7 이 대화형 eval 의 상태 기록 규칙(passed·in_progress·blocked 와 reason)을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F17 AC-8\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "status 가 passed 또는 blocked 인 기능에 harness eval 을 실행하면 어댑터를 호출하지 않고 exit 2, 메시지에 현재 status 가 나오며 verdict 파일이 새로 생기지 않는다",
+      "check": "node test/t.mjs \"F17 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "승인되지 않았거나 계약 해시가 승인 값과 다른 기능에 harness eval 을 실행하면 어댑터를 호출하지 않고 exit 2 로 끝나고 status 는 바뀌지 않는다",
+      "check": "node test/t.mjs \"F17 SC-2\"",
+      "new": true
+    },
+    {
+      "id": "SC-3",
+      "criterion": "--round k 로 이미 있는 라운드를 다시 지정하면 verdict 파일을 덮어쓰지 않고 exit 2 로 끝난다",
+      "check": "node test/t.mjs \"F17 SC-3\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "직전 라운드 verdict 파일이 JSON 으로 읽히지 않으면 status 를 바꾸지 않고 exit 2(state_corrupt), 메시지에 파일 경로가 나오고 스택 트레이스(\"    at \")가 없다",
+      "check": "node test/t.mjs \"F17 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "features.json 쓰기가 실패해도 verdict 파일은 남고 exit 2(io) 로 끝나며, 다시 실행하면 SC-1 이 아니라 같은 라운드의 상태 기록을 재시도한다",
+      "check": "node test/t.mjs \"F17 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "대화형 경로의 integration 브랜치 병합 — 병합은 사람이 한다",
+    "doctor 의 CLI 인증 판정 (backlog F4-impl)",
+    "eval 의 evaluator 명령줄 지정 옵션"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T22:45:00.888Z",
+    "hash": "68dec27f4bc60078fa726f9910750cedd26b69695cb4971738b43bded4285f9b"
+  }
+}
