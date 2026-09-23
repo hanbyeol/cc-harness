@@ -167,6 +167,14 @@
     {
       "source": "F3-r2-sec",
       "summary": "projectRel uses fs.realpathSync (no case normalization on macOS); a programmatic caller passing root with different case would miss sub/.harness. Use fs.realpathSync.native."
+    },
+    {
+      "source": "F2-r2",
+      "summary": "jsonErrorOffset is recursive; ~20,000-level nesting with a positionless error escapes as RangeError (6,000 handled)."
+    },
+    {
+      "source": "F2-r2",
+      "summary": "status says 'changed after approval' for an approved feature whose contract is missing or has no hash; wording misleading."
     }
   ]
 }
