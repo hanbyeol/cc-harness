@@ -110,7 +110,7 @@ worktree 안의 `.harness/` 는 코어가 쓰는 기록 경로 `verdicts/**`, `b
 8. 종료 → `runs/{ts}.md` 보고서. integration → main 병합은 하지 않는다(PR 생성은 `gh` 가 있으면 제안만).
 
 예산: 단계별 timeout(기본 30분), 단계별 USD(어댑터 지원 시), run 전체 USD. 단계 초과 시 해당 기능 blocked(`budget`), run 초과 시 진행 중 기능 blocked(`budget`) 후 전체 정지.
-중단 복구: run은 상태 파일(`runs/current.json`, config 스냅샷 포함)만으로 재개 가능(`harness run --resume`). SIGINT 는 진행 중 단계의 프로세스 트리를 종료하고 상태를 저장한 뒤 exit 130.
+중단 복구: run은 상태 파일(`runs/current.json`, config 스냅샷 포함)만으로 재개 가능(`harness run --resume`). run 이 실제로 쓰는 config 스냅샷(새 run·재개·직접 전달 모두)은 시작 전에 §4 의 형식 검사를 다시 거친다 — 형식이 틀리면 작업 없이 `config_invalid` exit 2. SIGINT 는 진행 중 단계의 프로세스 트리를 종료하고 상태를 저장한 뒤 exit 130.
 이전 run 의 `harness/F{n}` 브랜치가 남아 있으면 자동으로 지우지 않는다(작업 보존) — 해당 기능은 blocked(`worktree`), 사용자가 브랜치를 지우고 재시도한다. blocked 기능의 worktree 는 점검용으로 남기고, passed 기능의 worktree·브랜치는 제거한다.
 
 ## 9. 보안 요구사항

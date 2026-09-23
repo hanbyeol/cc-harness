@@ -200,3 +200,31 @@ test('F13 ES-1 every shape error is config_invalid, exit 2, with no stack trace'
     for (const cmd of ['status', 'run']) cliRejects(dir, [cmd], needle);
   }
 });
+
+// Round 2: the run acts on its config snapshot, not on config.json. A state file written
+// before F13 (or a config handed to runFeatures directly) must get the same checks.
+test('F13 SC-1 resume: a saved run whose config snapshot has protected_branches "v2" stops before any work', async () => {
+  const dir = repo(configured({ integration_branch: 'v2', protected_branches: ['main', 'v2'], verify: { commands: [] } }));
+  git(dir, 'branch', 'v2', 'main');
+  const before = git(dir, 'rev-parse', 'refs/heads/v2');
+  const snapshot = { ...resolveConfig(configured({ integration_branch: 'v2', verify: { commands: [] } })), protected_branches: 'v2' };
+  const statePath = path.join(dir, '.harness', 'runs', 'current.json');
+  writeJson(statePath, { version: 1, runId: 'pre-f13', startedAt: '2026-09-23T00:00:00.000Z', scope: null, maxUsd: null,
+    config: snapshot, costUsd: 0, results: [], current: null, stopped: null });
+  const { deps, calls } = fakeDeps();
+  await assert.rejects(runFeatures({ root: dir, resume: true, deps }),
+    (e) => e instanceof HarnessError && e.code === 'config_invalid' && e.exit === 2 && /protected_branches/.test(e.message) && /current\.json/.test(e.message));
+  assert.deepEqual(calls, [], 'no build ran');
+  assert.equal(git(dir, 'rev-parse', 'refs/heads/v2'), before, 'v2 did not move');
+});
+
+test('F13 SC-1 direct config: runFeatures({config}) with protected_branches "v2" stops before any work', async () => {
+  const dir = repo(configured({ integration_branch: 'v2', protected_branches: ['main', 'v2'], verify: { commands: [] } }));
+  git(dir, 'branch', 'v2', 'main');
+  const before = git(dir, 'rev-parse', 'refs/heads/v2');
+  const config = { ...resolveConfig(configured({ integration_branch: 'v2', verify: { commands: [] } })), protected_branches: 'v2' };
+  const { deps, calls } = fakeDeps();
+  await assert.rejects(runFeatures({ root: dir, config, deps }), (e) => e instanceof HarnessError && e.code === 'config_invalid');
+  assert.deepEqual(calls, []);
+  assert.equal(git(dir, 'rev-parse', 'refs/heads/v2'), before);
+});
