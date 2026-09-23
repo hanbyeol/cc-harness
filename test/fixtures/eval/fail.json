@@ -1,0 +1,18 @@
+{
+  "scores": {
+    "functionality": 3,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "findings": [
+    {
+      "criterion_id": "AC-1",
+      "dimension": "functionality",
+      "summary": "AC-1 broken",
+      "repro": "node scripts/fail.mjs"
+    }
+  ],
+  "out_of_scope": []
+}

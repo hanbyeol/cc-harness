@@ -1,0 +1,11 @@
+{
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "findings": [],
+  "out_of_scope": []
+}
