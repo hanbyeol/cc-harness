@@ -1,0 +1,16 @@
+{
+  "name": "ops",
+  "description": "Kubernetes day-2 operations: manifests are verified offline; live changes go through the human-approved rollout skill, never through harness run.",
+  "verify": {
+    "commands": [
+      "kubeconform -strict -summary k8s/"
+    ]
+  },
+  "rubric": {
+    "functionality": "The manifests express the desired state the contract names (image, replicas, resources, config) and nothing else changes.",
+    "quality": "Labels and selectors consistent, resource requests and limits set, no duplicated config that should be shared.",
+    "security": "RBAC least privilege, NetworkPolicy for new workloads, Pod Security restricted (non-root, read-only root filesystem, no privilege escalation), no secrets in plain manifests.",
+    "errors": "Readiness and liveness probes defined; a rollback path (previous image tag or revision) exists for every change that will reach a live cluster.",
+    "tests": "Offline validation passes. Live verification (rollout status, probes, smoke checks) belongs to the rollout skill and is not scored here."
+  }
+}

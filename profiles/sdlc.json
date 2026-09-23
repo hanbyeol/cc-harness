@@ -1,0 +1,16 @@
+{
+  "name": "sdlc",
+  "description": "Application development: tests, lint and build are the deterministic anchor.",
+  "verify": {
+    "commands": [
+      "npm test"
+    ]
+  },
+  "rubric": {
+    "functionality": "Each acceptance criterion behaves as written, including the edge cases it names. Score from observed behaviour (run the check), not from reading intent.",
+    "quality": "Readable, consistent with the surrounding code, no dead code or duplication introduced by the change. Style preferences are not defects.",
+    "security": "Input validation at trust boundaries, no secrets in code or logs, safe defaults, least privilege. Only the contract's SC criteria and regressions are blocking.",
+    "errors": "Every ES scenario handled as specified; failures reported with a clear message and exit code, never swallowed; no stack traces leaked to users.",
+    "tests": "Each new criterion has a test that fails without the change and passes with it. No skipped or focused tests, no weakened assertions."
+  }
+}

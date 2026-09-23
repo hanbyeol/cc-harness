@@ -1,20 +1,19 @@
 {
   "name": "cc-harness",
-  "version": "1.39.18",
-  "description": "Full-SDLC harness for Claude Code — 8 agents, 11 hooks, 11 skills, 11 rules with lifecycle profiles (sdlc/iac/ops) and a recursive self-improvement loop",
+  "version": "2.0.0-alpha.0",
+  "description": "Evaluation-driven development harness for AI coding CLIs: frozen contracts, deterministic verification, independent evaluation, guaranteed convergence",
   "author": {
     "name": "Studio J"
   },
   "repository": "https://github.com/hanbyeol/cc-harness",
+  "homepage": "https://github.com/hanbyeol/cc-harness",
   "license": "MIT",
   "keywords": [
     "sdlc",
     "harness",
-    "agents",
-    "hooks",
-    "quality-gates",
-    "security",
-    "deployment"
-  ],
-  "homepage": "https://github.com/hanbyeol/cc-harness"
+    "evaluation",
+    "tdd",
+    "contracts",
+    "agents"
+  ]
 }
