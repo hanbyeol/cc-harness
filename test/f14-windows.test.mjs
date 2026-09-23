@@ -47,3 +47,12 @@ test('F14 ES-1 a non-English cmd.exe message with exit 1 is a plain failure, no 
   assert.equal(isNotFound({ code: 1, stderr: localized }, 'win32'), false);
   assert.equal(isNotFound({ code: 1 }, 'win32'), false); // no stderr at all
 });
+
+// Round 2 (regression found by the security review): the phrase must be cmd.exe's own
+// message, not text a failing tool happens to print.
+test('F14 AC-3 win32: a failing tool that quotes the phrase is not command not found', () => {
+  const quoted = "assertion failed: got \"'legacy.exe' is not recognized as an internal or external command\" from fallback branch\n";
+  assert.equal(isNotFound({ code: 1, stderr: quoted }, 'win32'), false);
+  assert.equal(isNotFound({ code: 1, stderr: `some output\n${WIN_MSG}` }, 'win32'), false);
+  assert.equal(isNotFound({ code: 1, stderr: `\r\n  ${WIN_MSG}` }, 'win32'), true); // leading blank lines are fine
+});
