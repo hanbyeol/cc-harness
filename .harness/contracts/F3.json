@@ -2,7 +2,7 @@
   "id": "F3",
   "title": "verify — 결정적 검증 앵커",
   "security_tier": "critical",
-  "version": 1,
+  "version": 2,
   "acceptance_criteria": [
     {
       "id": "AC-1",
@@ -24,7 +24,7 @@
     },
     {
       "id": "AC-4",
-      "criterion": "diff 가 .harness/config.json·contracts/**·verdicts/** 를 건드리면 fail",
+      "criterion": "diff 가 .harness/config.json·contracts/**·features.json, 또는 면제 경로(verdicts/**·backlog.json·runs/**) 외의 .harness 경로를 건드리면 fail",
       "check": "node test/t.mjs \"F3 AC-4\"",
       "new": true
     },
@@ -78,8 +78,8 @@
   "out_of_scope": [],
   "approval": {
     "by": "hanbyeol@gmail.com",
-    "at": "2026-09-23T01:48:06.153Z",
-    "hash": "9a84cd1807893238542c014a016a3d3cfb6e03b4eb03cef8ed47054511070827",
-    "via": "plan-gate (AskUserQuestion, session 2026-09-23)"
+    "at": "2026-09-23T11:12:29.407Z",
+    "hash": "ee75f5ad102e76af8731aa0df3e0a23f7427da3ac5a2d9711d49bd3d30cd2808",
+    "via": "user decision in session (AskUserQuestion: F3 v2 re-approval to align AC-4 with F11, 2026-09-23)"
   }
 }

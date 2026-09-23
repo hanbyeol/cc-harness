@@ -23,7 +23,7 @@
       "depends_on": [
         "F1"
       ],
-      "status": "passed"
+      "status": "approved"
     },
     {
       "id": "F4",
