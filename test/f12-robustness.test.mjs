@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { harness, tmpdir, project, readJson, writeJson } from './helpers.mjs';
 import { writeJsonAtomic, loadFeatures } from '../lib/state.mjs';
@@ -120,4 +121,11 @@ test('F12 ES-3: a features.json entry without a string id, status or title exits
     assert.equal(r.code, 2, JSON.stringify(entry));
     assert.match(r.stderr, /features\[1\]/);
   }
+});
+
+// Round 2: creating the parent directory is a step of the write too.
+test('F12 AC-2 mkdir: a failing parent-directory creation throws HarnessError(io), not a raw error', () => {
+  const failingFs = { mkdirSync: () => { throw Object.assign(new Error('EACCES: permission denied'), { code: 'EACCES' }); } };
+  assert.throws(() => writeJsonAtomic(path.join(os.tmpdir(), 'harness-f12-none', 'x.json'), { a: 1 }, { fsImpl: failingFs }),
+    (e) => e instanceof HarnessError && e.code === 'io');
 });
