@@ -159,3 +159,13 @@ test('F9 AC-3 large diff: a renamed-and-edited secret is excluded beyond diff.re
   assert.equal(d.text.includes('F9_BIG_SECRET'), false);
   assert.equal(d.files.includes('config.txt'), false);
 });
+
+// Round 2 (regression): F9 adds several git calls to buildDiff, so an abort now often lands
+// while one is running; it must surface as 'interrupted', not as a git failure.
+test('F9 regression: an abort during buildDiff reports interrupted, not a git error', async () => {
+  const dir = gitRepo({ 'a.txt': 'a\n' });
+  writeFiles(dir, { 'b.txt': 'b\n' });
+  const ac = new AbortController();
+  ac.abort();
+  await assert.rejects(buildDiff({ cwd: dir, base: 'main', signal: ac.signal }), (e) => e.code === 'interrupted');
+});
