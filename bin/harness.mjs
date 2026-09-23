@@ -34,7 +34,7 @@ export async function main(argv, { root = process.cwd(), out = console.log, err 
     return 0;
   }
   try {
-    const spec = COMMANDS[name];
+    const spec = Object.hasOwn(COMMANDS, name) ? COMMANDS[name] : undefined;
     if (!spec) throw new HarnessError(`unknown command '${name}'. Run \`harness --help\`.`, { code: 'usage' });
     // Every command refuses to run on corrupted state (SPEC E6), including init.
     if (isInitialized(root)) { loadConfig(root); loadFeatures(root); }

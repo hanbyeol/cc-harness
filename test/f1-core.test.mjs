@@ -98,3 +98,11 @@ test('F1 ES-2: unknown subcommand points to help and exits 2', () => {
   assert.equal(r.code, 2);
   assert.match(r.stderr, /unknown command 'frobnicate'.*--help/);
 });
+
+test('F1 ES-2 prototype keys: names like constructor are unknown commands too', () => {
+  for (const name of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+    const r = harness([name], { cwd: tmpdir() });
+    assert.equal(r.code, 2, name);
+    assert.match(r.stderr, new RegExp(`unknown command '${name}'.*--help`), name);
+  }
+});

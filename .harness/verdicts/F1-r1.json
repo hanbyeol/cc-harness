@@ -1,0 +1,26 @@
+{
+  "feature": "F1",
+  "round": 1,
+  "commit": "4a72e3e",
+  "independence": "fresh-context",
+  "evaluator": "claude (general-purpose subagent, bootstrap — harness eval not built yet)",
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 6,
+    "tests": 8
+  },
+  "score": 6,
+  "verdict": "fail",
+  "blocking_findings": [
+    {
+      "criterion_id": "ES-2",
+      "dimension": "errors",
+      "summary": "Unknown subcommands colliding with Object.prototype keys (constructor, __proto__, toString, hasOwnProperty) pass the COMMANDS[name] lookup and exit 2 without the --help pointer.",
+      "repro": "out=$(node bin/harness.mjs constructor 2>&1); [ $? -eq 2 ] && printf '%s' \"$out\" | grep -q -- '--help'",
+      "repro_confirmed": "exit 1 on 4a72e3e (reproduced by the core loop before fixing)"
+    }
+  ],
+  "out_of_scope_count": 7
+}
