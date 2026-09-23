@@ -1,0 +1,58 @@
+{
+  "id": "F14",
+  "title": "Windows 이식성 — 명령 없음 판정 · leftover 테스트 전제 · 안내 경로 표기",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "platform 이 win32 일 때 exit 1 이고 stderr 에 'is not recognized as an internal or external command' 가 있으면 isNotFound 가 true 이고, verify 명령 메시지는 'command not found: <이름>' 이다(platform 주입으로 모든 OS 에서 테스트)",
+      "check": "node test/t.mjs \"F14 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "POSIX exit 127, cmd.exe exit 9009, spawn ENOENT 는 계속 명령 없음으로 판정된다",
+      "check": "node test/t.mjs \"F14 AC-2\"",
+      "new": false
+    },
+    {
+      "id": "AC-3",
+      "criterion": "platform 이 win32 이어도 exit 1 에 그 문구가 없으면 명령 없음이 아니다(일반 실패), linux 에서는 그 문구가 있어도 exit 1 은 명령 없음이 아니다",
+      "check": "node test/t.mjs \"F14 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "migrate-v1 의 v1 상태 없음 안내는 path 구현이 win32 여도 progress/feature_list.json 을 슬래시로 표기한다(path.win32 주입 테스트)",
+      "check": "node test/t.mjs \"F14 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "runCommand 로 파이프를 물려받은 자식을 남기는 명령을 timeoutSec 1 로 실행하면 5초 안에 반환한다 — 파이프가 붙잡히는 플랫폼에서는 timedOut true, 붙잡히지 않는 플랫폼(Windows)에서는 timeout 없이 정상 종료; 어느 쪽이든 멈추지 않는다",
+      "check": "node test/t.mjs \"F14 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "win32 에서 영문이 아닌 cmd 오류 문구와 exit 1 은 명령 없음으로 판정하지 않고 일반 실패로 보고하며 예외를 던지지 않는다",
+      "check": "node test/t.mjs \"F14 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "Windows 에서 부모보다 오래 사는 자식 프로세스의 종료(백로그 F4-r1 유지)",
+    "로케일별 cmd.exe 오류 문구 인식"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T13:42:44.073Z",
+    "hash": "b99dc3014376cf9dfb2a0a736b68f57ac32fccd6f83f2fe6b1eb0fe5be821f82",
+    "via": "plan-gate (AskUserQuestion, session 2026-09-23)"
+  }
+}

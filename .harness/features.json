@@ -117,6 +117,16 @@
         "F12"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F14",
+      "title": "Windows 이식성 — 명령 없음 판정 · leftover 테스트 전제 · 안내 경로 표기",
+      "security_tier": "critical",
+      "depends_on": [
+        "F3",
+        "F8"
+      ],
+      "status": "approved"
     }
   ]
 }
