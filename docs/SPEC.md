@@ -117,7 +117,7 @@ worktree 안의 `.harness/` 는 코어가 쓰는 기록 경로 `verdicts/**`, `b
 - SR-1 verify·check·repro 명령은 **worktree를 cwd로**, timeout과 함께 실행된다.
 - SR-2 repro/check 실행 환경은 env 허용목록(PATH, HOME, LANG, TMP 계열, config에서 추가한 이름)만 전달 — API 키·토큰 미전달.
 - SR-3 repro는 deny 패턴(`git push`, `rm -rf /`, `rm -rf ~`, `curl … | sh`, `sudo`)에 걸리면 실행하지 않고 finding을 비차단 처리. 판정은 셸이 실제로 실행할 명령 기준 — 줄 이음(백슬래시+개행)을 제거한 뒤 검사한다.
-- SR-4 headless 프롬프트에 들어가는 diff에서 `.env*`, `*.pem`, `*.key`, `id_*`, `*.p12`, config의 `secret_globs` 경로 제외.
+- SR-4 headless 프롬프트에 들어가는 diff에서 `.env*`, `*.pem`, `*.key`, `id_*`, `*.p12`, config의 `secret_globs` 경로 제외. 시크릿 파일의 내용이 다른 경로로 옮겨진 경우도 제외한다: merge-base·HEAD·index·작업 트리에서 시크릿 경로가 가진 blob 과 내용(작업 트리 파일, 또는 추적 파일의 merge-base 버전)이 같은 경로(이름 변경·git 밖 이동·복사), 그리고 git 이름 변경 탐지(`-M`, 유사도 50% 이상, `diff.renameLimit` 제한 없음)가 시크릿 경로를 원본으로 짝지은 대상 경로. 빈 blob 은 내용 일치에 쓰지 않는다. 제외된 경로는 모두 excluded 에 집계된다. 부분 인용·과거 이력의 시크릿은 범위 밖.
 - SR-5 코어는 `main`(및 config의 protected 브랜치)에 병합·push하지 않는다. 브랜치 이름은 대소문자를 무시하고 비교한다(대소문자 비구분 파일시스템에서는 같은 loose ref). run 시작 전 로컬 브랜치 목록(`git for-each-ref refs/heads/`)을 확인해, `integration_branch` 와 대소문자만 다른 기존 브랜치(예: `Work` vs `work`)가 있으면 브랜치 생성·worktree 추가·병합 전에 두 이름을 모두 담은 메시지로 exit 2. 철자가 정확히 같은 브랜치는 그대로 쓰고, 없으면 base 에서 만든다. 브랜치 목록을 얻지 못하면 run 을 시작하지 않고 exit 2.
 - SR-6 evaluator·security-reviewer는 읽기 전용 모드로 호출된다(어댑터별 플래그).
 - SR-7 ops 프로필의 라이브 변경 skill(`rollout`)은 `run` 대상이 될 수 없다(lint가 거부).
