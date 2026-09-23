@@ -13,10 +13,24 @@
     },
     "blocking": 0
   },
-  "security_reviewer": "pending",
-  "verdict": "pending-security-review",
+  "security_reviewer": {
+    "scores": {
+      "security": 8
+    },
+    "blocking": 0
+  },
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 9,
+    "tests": 8
+  },
+  "score": 8,
+  "verdict": "pass",
   "convergence": {
     "previous_blocking": 2,
-    "current_blocking_evaluator": 0
+    "current_blocking": 0,
+    "divergence": false
   }
 }

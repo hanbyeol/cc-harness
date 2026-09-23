@@ -159,6 +159,14 @@
     {
       "source": "F3-r2",
       "summary": "Untracked symlinks and nested git repos are skipped by the untracked-content scan."
+    },
+    {
+      "source": "F3-r2-sec",
+      "summary": "close-time process-group kill has a theoretical PID-reuse window after the group empties."
+    },
+    {
+      "source": "F3-r2-sec",
+      "summary": "projectRel uses fs.realpathSync (no case normalization on macOS); a programmatic caller passing root with different case would miss sub/.harness. Use fs.realpathSync.native."
     }
   ]
 }
