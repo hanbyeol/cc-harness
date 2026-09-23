@@ -1,0 +1,36 @@
+{
+  "feature": "F9",
+  "round": 1,
+  "commit": "f6f8e9b",
+  "independence": "cross-model",
+  "evaluator": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 5,
+      "quality": 8,
+      "security": 3,
+      "errors": 7,
+      "tests": 5
+    },
+    "blocking": 1
+  },
+  "security_reviewer": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 8,
+      "quality": 8,
+      "security": 8,
+      "errors": 7,
+      "tests": 9
+    },
+    "blocking": 0
+  },
+  "score": 3,
+  "verdict": "fail",
+  "blocking_findings": [
+    {
+      "criterion_id": "AC-3",
+      "summary": "past diff.renameLimit (1000 paths) git skips rename detection; an edited secret rename leaks"
+    }
+  ]
+}

@@ -318,6 +318,18 @@
     {
       "source": "F12-r1",
       "summary": "validateUser rejects any object-default config key (budget, verify, limits, roles, rubric) set to a non-object — broader than ES-2's literal scope; documented in SPEC §4."
+    },
+    {
+      "source": "F9-r1",
+      "summary": "A lightly edited copy of a secret that keeps the original (cp .env backup.txt, then tweak) is neither a hash match nor a -M rename pair; content reaches the eval diff. Contract out_of_scope (partial content); consider -C copy detection with a secret source."
+    },
+    {
+      "source": "F9-r1",
+      "summary": "Content-hash exclusion also drops a legitimate file that is byte-identical to a secret by coincidence."
+    },
+    {
+      "source": "F9-r2",
+      "summary": "Exhaustive rename detection (renameLimit=0) is worst-case quadratic; ~5s at 3000 renamed paths, watch for diffs with tens of thousands of paths."
     }
   ]
 }

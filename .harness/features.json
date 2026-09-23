@@ -80,7 +80,7 @@
       "depends_on": [
         "F5"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F10",
