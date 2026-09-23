@@ -181,3 +181,10 @@ test('F7 ES-1 unknown profile: config loader fails with exit 2 and lists availab
   assert.equal(r.code, 2);
   assert.match(r.stderr, /unknown profile 'nope'.*sdlc/);
 });
+
+test('F7 AC-3 init: a freshly initialized project gets the profile verify commands', () => {
+  const dir = tmpdir();
+  assert.equal(harness(['init'], { cwd: dir }).code, 0);
+  const profile = readJson(path.join(REPO, 'profiles', 'sdlc.json'));
+  assert.deepEqual(loadConfig(dir).verify.commands, profile.verify.commands);
+});

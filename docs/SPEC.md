@@ -25,7 +25,7 @@ AI 코딩 CLI(Claude Code · Codex CLI · Gemini CLI, 그 외 AGENTS.md 호환 �
 ## 4. 상태 파일 (`.harness/`, git 추적)
 | 파일 | 내용 |
 |------|------|
-| `config.json` | profile, verify 명령, 임계값, 예산, max_rounds, 어댑터 역할 배정 |
+| `config.json` | profile, verify 명령, 임계값, 예산, max_rounds, 어댑터 역할 배정. 병합 순서 DEFAULTS ← profile ← config (config 우선). `init` 은 verify.commands 를 쓰지 않는다 — 사용자가 정하기 전까지 프로필 기본값이 적용된다 |
 | `features.json` | `[{id, title, security_tier, depends_on[], status}]` — status ∈ `todo·approved·in_progress·passed·blocked·skipped` |
 | `contracts/F{n}.json` | 계약 (§5) |
 | `verdicts/F{n}-r{k}.json` | 라운드별 판정 (§7) |
@@ -87,7 +87,7 @@ worktree 안의 `.harness/` 는 코어가 쓰지 않으므로 **그 아래 어�
    - `score = min(5개 점수)`. critical이면 security < 7 자동 fail.
    - **verdict = pass** ⇔ verify pass ∧ 차단적 finding 0 ∧ score ≥ threshold.
    - 차단적 finding 0 인데 score < threshold(critical의 security < 7 포함) → `unsupported_low_score`. evaluator에 "재현 가능한 finding을 제시하거나 점수를 정정하라"고 **1회** 재요청. 여전히 근거가 없으면 기능 `blocked(needs-human)` — 거짓 통과도, 근거 없는 재작업 루프도 만들지 않는다.
-4. critical: security-reviewer 역할로 같은 절차 1회 추가. 둘 다 pass여야 pass.
+4. critical: security-reviewer 역할로 같은 절차 1회 추가. security-reviewer 는 **security 차원과 그 finding 만** 판정에 반영한다(최종 security = min(evaluator, reviewer)). 나머지 차원 점수는 기록만 한다. 둘 다 pass여야 pass.
 5. `independence`: evaluator 어댑터가 builder와 다른 모델이면 `cross-model`, 아니면 `fresh-context`.
 
 ## 8. 자율 실행 (`harness run [F…] [--max-usd N]`)
@@ -143,7 +143,7 @@ agents/                      builder · evaluator · security-reviewer (Claude s
 profiles/                    sdlc · iac · ops (.json: verify 명령·루브릭)
 rules/                       언어별 규칙 (v1 유지)
 bin/harness.mjs, lib/*.mjs   코어 (Node ≥ 20, 런타임 의존성 0)
-hooks/hooks.json             Claude SessionStart 1개: `harness status --brief`
+hooks/hooks.json             Claude SessionStart 1개: `harness status --brief` — Claude 전용(`${CLAUDE_PLUGIN_ROOT}`). Gemini 도 이 파일을 로드하지만 변수가 비어 실패(비치명). Gemini 는 `${extensionPath}` 변형을 쓰는 방법이 확인될 때까지 hook 없음으로 간주
 ```
 설치: `npx cc-harness init` (대상 프로젝트에 `.harness/` 생성, 감지된 CLI별 설치 안내 출력).
 

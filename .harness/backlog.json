@@ -35,6 +35,14 @@
     {
       "source": "F4-impl",
       "summary": "Windows .cmd shim escaping is unit-tested but never executed on Windows; covered once F8 CI runs on windows-latest."
+    },
+    {
+      "source": "F7-impl",
+      "summary": "hooks/hooks.json SessionStart uses ${CLAUDE_PLUGIN_ROOT}; under Gemini (which also loads hooks/hooks.json) it expands empty and fails non-fatally. Verify a host-neutral command form."
+    },
+    {
+      "source": "F7-impl",
+      "summary": "v1 agents/*.md (model: claude-opus-5) are also loaded by Gemini as agents until F8 removes them."
     }
   ]
 }
