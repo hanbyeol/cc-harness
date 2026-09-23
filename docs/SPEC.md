@@ -67,10 +67,10 @@ config의 `verify.commands`(예: test·lint·build)를 순서대로 실행. 하�
 
 ### 6.2 무결성 검사 (base 대비 diff)
 diff = `merge-base(base, HEAD)` ↔ **작업 트리**(커밋 안 된 변경 + untracked 파일 포함). base 측 실행(test_count·vacuous 검사)은 merge-base 를 임시 detached worktree 로 꺼내 수행하고 끝나면 제거한다.
-worktree 안의 `.harness/` 는 코어가 쓰지 않으므로 **그 아래 어떤 경로든** 변경되면 fail (아래 2는 그 부분집합).
+worktree 안의 `.harness/` 는 코어가 쓰는 기록 경로 `verdicts/**`, `backlog.json`, `runs/**` 만 면제하고, **그 외 어떤 경로든** 변경되면 fail (아래 2는 그 부분집합). 면제는 git 이 보고하는 `/` 경로의 정확한 세그먼트 기준이다(`verdicts-x/…`, `backlog.json.bak`, `runs` 라는 파일은 보호). 모노레포 하위 프로젝트는 그 프로젝트의 `<sub>/.harness` 기준으로 같다.
 1. 추가된 줄에 skip/focus 마커 없음: `.skip(`, `.only(`, `xit(`, `xdescribe(`, `@pytest.mark.skip`, `@Disabled`, `t.Skip(`, `@Ignore` (목록은 config로 추가 가능, 제거 불가 — 기본 목록은 코드에 고정).
    마커는 **토큰 경계**로 매칭한다: 마커가 식별자 문자로 시작하면 바로 앞 문자가 식별자 문자가 아니어야 한다(`process.exit(` ≠ `xit(`, `list.Skip(` ≠ `t.Skip(`). 구두점으로 시작하는 마커는 부분문자열 매칭.
-2. `.harness/config.json`, `.harness/contracts/**`, `.harness/verdicts/**` 변경 없음.
+2. `.harness/config.json`, `.harness/contracts/**`, `.harness/features.json` 변경 없음 (면제 경로와 함께 바뀌어도 fail, 보고 목록에는 보호 경로만).
 3. `verify.test_count` 명령이 설정된 경우 base 대비 테스트 수 비감소. 미설정 시 경고만.
 
 ### 6.3 기준 check
