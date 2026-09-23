@@ -264,6 +264,14 @@
     {
       "source": "F6-r2-sec",
       "summary": "Branch case folding uses toLowerCase only (no NFC/NFD normalization) — exotic names."
+    },
+    {
+      "source": "F8-r1",
+      "summary": "F8 AC-2 frozen criterion text lists fewer paths than SPEC 13 and the test (docs/DECISIONS, settings.json, profiles/*.md, v1 agents/skills); tighten wording on the next contract version."
+    },
+    {
+      "source": "F8-r1",
+      "summary": "F8 AC-2 test checks absence via fs.existsSync, not git ls-files (equivalent in a clean checkout)."
     }
   ]
 }

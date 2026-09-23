@@ -61,7 +61,7 @@
       "depends_on": [
         "F1"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F8",
@@ -71,7 +71,7 @@
         "F6",
         "F7"
       ],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }
