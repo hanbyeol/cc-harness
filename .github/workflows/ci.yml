@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        node: [20, 22]
+        node: [22, 24]
     defaults:
       run:
         # bash on every OS (Git Bash on Windows) so the test file glob expands the same way.
@@ -35,9 +35,8 @@ jobs:
           git config --global user.name "cc-harness CI"
           git config --global user.email "ci@example.invalid"
           git config --global init.defaultBranch main
-      # Node 20 does not expand globs passed to --test (added in Node 21), so the shell
-      # expands the list; all test files live directly under test/.
+      # node --test expands the quoted glob itself (Node ≥ 21), identically on every OS.
       - name: Unit and integration tests
-        run: node --test test/*.test.mjs
+        run: node --test "test/**/*.test.mjs"
       - name: Lint the repository's own contracts
         run: node bin/harness.mjs lint-contract

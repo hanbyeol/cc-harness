@@ -144,7 +144,7 @@ skills/                      spec · plan · build · fix · status · plan-revi
 agents/                      builder · evaluator · security-reviewer (Claude subagent 겸 headless 역할 프롬프트)
 profiles/                    sdlc · iac · ops (.json: verify 명령·루브릭)
 rules/                       언어별 규칙 (v1 유지)
-bin/harness.mjs, lib/*.mjs   코어 (Node ≥ 20, 런타임 의존성 0)
+bin/harness.mjs, lib/*.mjs   코어 (Node ≥ 22 — Node 20 은 2026-04 EOL 이고 `node --test` glob 이 21+ 부터; 런타임 의존성 0)
 hooks/hooks.json             Claude SessionStart 1개: `harness status --brief` — Claude 전용(`${CLAUDE_PLUGIN_ROOT}`). Gemini 도 이 파일을 로드하지만 변수가 비어 실패(비치명). Gemini 는 `${extensionPath}` 변형을 쓰는 방법이 확인될 때까지 hook 없음으로 간주
 ```
 설치: `npx cc-harness init` (대상 프로젝트에 `.harness/` 생성, 감지된 CLI별 설치 안내 출력).
@@ -162,4 +162,5 @@ hooks/hooks.json             Claude SessionStart 1개: `harness status --brief` 
 
 ## 13. v1 마이그레이션 (`harness migrate-v1`)
 `progress/feature_list.json` → `.harness/features.json` (id·이름·passes→status 보존). v1 계약은 변환하지 않고 참조 경로만 기록.
+v1 `security_tier: low` 는 `standard` 로 매핑(원래 값은 `v1.security_tier`). v1 의존성은 `depends_on` 으로 옮기지 않고 `v1.dependencies` 에 보존(v1 기능은 v2 에서 실행 대상이 아니므로). `.harness/features.json` 이 이미 있으면(빈 목록 포함) `--force` 없이 거부.
 v1 파일(hooks/*.sh, scripts/, docs/INVARIANTS.md, tests/*.bats, init.sh, progress/)은 v2 브랜치에서 제거 — `v1.39.18-final` 태그로 보존.

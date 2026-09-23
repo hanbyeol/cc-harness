@@ -42,6 +42,6 @@
   "license": "MIT",
   "author": "Studio J",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   }
 }

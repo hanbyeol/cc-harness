@@ -14,7 +14,7 @@ v2는 v1을 처음부터 다시 쓴 버전입니다. 설계 근거는 `docs/brai
 
 | 구성 요소 | 내용 |
 |-----------|------|
-| 코어 CLI | `bin/harness.mjs`, `lib/` — Node ≥ 20, 런타임 의존성 0, Windows·macOS·Linux |
+| 코어 CLI | `bin/harness.mjs`, `lib/` — Node ≥ 22, 런타임 의존성 0, Windows·macOS·Linux |
 | 워크플로우 지시 | `AGENTS.md` — 모든 CLI가 읽는 단일 원천 |
 | Skills | `spec` · `plan` · `build` · `fix` · `status` · `plan-review`(iac) · `rollout`(ops) |
 | 역할 | `agents/` — builder · evaluator · security-reviewer (Claude subagent 겸 headless 프롬프트) |
@@ -137,12 +137,12 @@ v1은 에너지 대부분을 "자율 구동 모델의 파괴적 행위 방어"�
 ## 개발
 
 ```bash
-node --test "test/**/*.test.mjs"      # 전체 테스트 (Node 21+의 glob; Node 20은 test/*.test.mjs)
+node --test "test/**/*.test.mjs"      # 전체 테스트
 node test/t.mjs "F8 AC-1"             # 기준 하나의 check
 node bin/harness.mjs lint-contract    # 이 저장소 자신의 계약 lint
 ```
 
-CI는 ubuntu · macos · windows × Node 20 · 22 매트릭스에서 테스트와 lint를 실행합니다.
+CI는 ubuntu · macos · windows × Node 22 · 24 매트릭스에서 테스트와 lint를 실행합니다.
 
 ## License
 
