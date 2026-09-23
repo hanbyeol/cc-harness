@@ -392,7 +392,9 @@ test('F3 SC-1 leftover background: a child that outlives its parent cannot stall
   const leftover = { file: process.execPath, args: ['-e', "require('child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, 20000)'], { stdio: 'inherit' }).unref(); console.log('started')"] };
   const started = Date.now();
   const r = await runCommand(leftover, { cwd: process.cwd(), timeoutSec: 1 });
-  assert.equal(r.timedOut, true);
+  // On Windows the grandchild does not keep our pipes open, so there is nothing to stall:
+  // the command ends normally. Either way the call returns promptly (F14 SC-1).
+  if (process.platform !== 'win32') assert.equal(r.timedOut, true);
   assert.ok(Date.now() - started < 5000, `returned after ${Date.now() - started} ms`);
   const again = Date.now();
   const g = await runCommand(leftover, { cwd: process.cwd(), timeoutSec: 60 });
