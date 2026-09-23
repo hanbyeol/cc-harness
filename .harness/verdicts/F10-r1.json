@@ -1,0 +1,43 @@
+{
+  "feature": "F10",
+  "round": 1,
+  "commit": "75ebb6c",
+  "independence": "cross-model",
+  "evaluator": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 9,
+      "quality": 9,
+      "security": 9,
+      "errors": 9,
+      "tests": 9
+    },
+    "blocking": 0
+  },
+  "security_reviewer": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 9,
+      "quality": 8,
+      "security": 9,
+      "errors": 9,
+      "tests": 9
+    },
+    "blocking": 0
+  },
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "score": 8,
+  "verdict": "pass",
+  "convergence": {
+    "previous_blocking": null,
+    "current_blocking": 0,
+    "divergence": false
+  },
+  "note": "Both reviewers ran the real CLI in a fixture: exit 2 naming both spellings, no Work branch created, work unchanged. assertIntegrationAllowed runs before any mutation on fresh and --resume runs."
+}
