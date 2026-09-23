@@ -535,3 +535,20 @@ test('F6 ES-4: worktree creation failure blocks that feature; the others continu
   assert.deepEqual(build.calls.map((c) => c.featureId), ['F2']);
   assert.equal(backlog(dir)[0].reason, 'worktree');
 });
+
+test('F6 ES-3 abort kills the step: an aborted runCommand leaves no process behind', async () => {
+  const { runCommand } = await import('../lib/exec.mjs');
+  const ac = new AbortController();
+  const pidfile = path.join(tmpdir(), 'pid');
+  const p = runCommand({ file: process.execPath, args: [path.join(REPO, 'test', 'fixtures', 'fake-cli.mjs'), 'sleep', pidfile] }, { cwd: REPO, timeoutSec: 60, signal: ac.signal });
+  for (let i = 0; i < 50 && !fs.existsSync(pidfile); i += 1) await new Promise((r) => setTimeout(r, 100));
+  const started = Date.now();
+  ac.abort();
+  const r = await p;
+  assert.equal(r.aborted, true);
+  assert.ok(Date.now() - started < 5000);
+  const pid = Number(fs.readFileSync(pidfile, 'utf8'));
+  let alive = true;
+  for (let i = 0; i < 30 && alive; i += 1) { try { process.kill(pid, 0); await new Promise((res) => setTimeout(res, 100)); } catch { alive = false; } }
+  assert.equal(alive, false, `step process ${pid} survived the abort`);
+});

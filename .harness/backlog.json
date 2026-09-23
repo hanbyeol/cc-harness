@@ -175,6 +175,14 @@
     {
       "source": "F2-r2",
       "summary": "status says 'changed after approval' for an approved feature whose contract is missing or has no hash; wording misleading."
+    },
+    {
+      "source": "F5-impl",
+      "summary": "When cwd == root, earlier verdict/eval_error files under .harness/verdicts show up as untracked noise in later evaluation diffs."
+    },
+    {
+      "source": "F6-impl",
+      "summary": "F6 ES-3 SIGINT test returns early on Windows (signals cannot be sent to a child there), so it is vacuous on Windows."
     }
   ]
 }

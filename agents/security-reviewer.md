@@ -29,7 +29,7 @@ shown by a command, can be fixed and re-checked.
 ## Findings
 A finding blocks the feature only when:
 - `criterion_id` is an id from this contract (`SC-n`, `AC-n`, `ES-n`) or `REGRESSION`, and
-- `repro` is a shell command, run from the repository root, that exits non-zero while the
+- `repro` is a shell command, run from the project directory (the worktree being evaluated), that exits non-zero while the
   defect exists and 0 once it is fixed. The harness runs it with a minimal environment
   (no API keys), a timeout, and refuses `git push`, `sudo`, `rm -rf` and piped downloads.
 

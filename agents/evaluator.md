@@ -29,7 +29,7 @@ The contract is frozen so that every round aims at the same target. A finding bl
 feature only when all of these hold, and the harness checks them mechanically:
 - `criterion_id` is an id from this contract (`AC-n`, `SC-n`, `ES-n`) or `REGRESSION`
   for previously working behaviour that this diff broke.
-- `repro` is a shell command, run from the repository root, that exits non-zero while the
+- `repro` is a shell command, run from the project directory (the worktree being evaluated), that exits non-zero while the
   defect exists and exits 0 once it is fixed. The harness runs it itself; if it does not
   fail, the finding is dropped. Good repros: `node test/t.mjs "F3 AC-2"`, a one-line
   script that calls the code and asserts, `! grep -q 'password' logs/app.log`.

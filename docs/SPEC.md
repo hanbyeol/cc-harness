@@ -83,8 +83,9 @@ worktree 안의 `.harness/` 는 코어가 쓰지 않으므로 **그 아래 어�
  "out_of_scope": [{"summary":"..."}]}
 ```
 3. 코어 판정:
-   - 스키마 불일치 → 1회 재요청, 재실패 시 라운드 무효(`eval_error`, 라운드 소모 없음, 2회 연속이면 blocked).
-   - finding이 **차단적**이려면: `criterion_id`가 계약에 존재(또는 `REGRESSION`) ∧ `repro` 존재 ∧ **코어가 worktree에서 repro를 실행해 비정상 종료 재현**. 그 외는 `backlog.json`으로.
+   - 스키마 불일치 → 1회 재요청, 재실패 시 라운드 무효(`eval_error`, 라운드 소모 없음, 2회 연속이면 blocked). eval_error 는 `verdicts/F{n}-r{k}.eval_error.json`(consecutive 카운터 포함)에 기록하며 라운드 파일로 세지 않는다. 어댑터 `timeout`·`exit_nonzero` 도 eval_error(재시도 없음).
+   - finding이 **차단적**이려면: `criterion_id`가 계약에 존재(또는 `REGRESSION`) ∧ `repro` 존재 ∧ **코어가 worktree에서 repro를 실행해 비정상 종료 재현**. 그 외는 `backlog.json`으로. repro 가 명령 미발견(127/9009)·실행 불가면 비차단(`repro_not_runnable`), 시그널 종료는 비정상 종료로 본다. 코어는 repro 가 git 내부 조작(update-index 플래그, filter clean/smudge, replace, hooksPath, git config, `.git/config`·`.git/info`)을 포함하면 실행하지 않고 `adversarial_scenario` 로 backlog 한다(D1 의 결정적 보조).
+   - verify 가 실패한 상태로 `harness eval` 을 직접 호출하면 evaluator 는 실행되지만 verdict 는 fail 이고 low-score 재요청은 하지 않는다. (`run` 은 verify 통과 후에만 평가를 호출한다 — §8.3.)
    - **위협 경계(D1)**: 결함이 성립하려면 빌더가 **고의로** git 내부·설정(index 플래그 `skip-worktree`/`assume-unchanged`, clean/smudge filter, replace ref, hooks, `.git/config`·`.git/info/*`)이나 셸·런타임 의미를 조작해야 하는 finding은 적대적 시나리오로 분류해 `out_of_scope`(backlog)로 보낸다 — repro가 있어도 차단적이지 않다. 협력적 모델의 **사고**(평범한 도구 사용·평범한 실수로 생기는 결함)만 차단한다. 구조적 백스톱은 §8.5의 병합 후 verify(실제로 병합된 커밋 검증)다. (2026-09-23 사용자 결정 — v1의 비수렴 원인 재발 방지)
    - `score = min(5개 점수)`. critical이면 security < 7 자동 fail.
    - **verdict = pass** ⇔ verify pass ∧ 차단적 finding 0 ∧ score ≥ threshold.
@@ -96,18 +97,19 @@ worktree 안의 `.harness/` 는 코어가 쓰지 않으므로 **그 아래 어�
 기능별(의존 순서, `approved`만):
 1. worktree `.harness/wt/F{n}` + 브랜치 `harness/F{n}` (base = integration 브랜치)
 2. **build**: builder headless 세션(쓰기 가능, CLI 네이티브 sandbox) — 계약 + 직전 라운드 차단적 finding 전달
-3. verify (§6) 실패 시 build 재시도, 라운드당 최대 3회
+3. verify (§6) 실패 시 build 재시도, 라운드당 최대 3회. 3회 모두 실패하면 평가 없이 라운드 fail — 차단 집합 = 실패 기준 id (+`VERIFY:commands`/`VERIFY:integrity`)
 4. eval (§7)
-5. pass → `integration` 브랜치에 `--no-ff` 병합 → 병합 후 verify → 성공 시 `passed`
+5. pass → `integration` 브랜치에 `--no-ff` 병합(사용자 작업 트리가 아닌 전용 `.harness/wt/_integration` 에서) → 병합 후 verify → 성공 시 `passed`. 병합 후 verify 실패 → integration 을 병합 전 커밋으로 되돌리고 blocked(`post_merge_verify`)
 6. fail → **수렴 검사**: 라운드 k(≥2)에서
    - 발산: k-1에서 통과한 기준 id가 k에서 차단적 finding으로 등장
-   - 정체: 차단적 finding 수가 k-1 대비 감소하지 않음
+   - 정체: **차단 기준 id 집합**의 크기가 k-1 대비 감소하지 않음(같은 기준의 finding 여러 개는 하나로 센다)
    - 둘 중 하나, 또는 k = max_rounds(기본 3) 소진 → `blocked`
 7. blocked → 재범위 제안(분할/기준 재작성/위험 수용)을 backlog에 기록, 의존 기능은 `skipped`, 독립 기능은 계속. **critical이 blocked면 run 전체 정지.**
 8. 종료 → `runs/{ts}.md` 보고서. integration → main 병합은 하지 않는다(PR 생성은 `gh` 가 있으면 제안만).
 
-예산: 단계별 timeout(기본 30분), 단계별 USD(어댑터 지원 시), run 전체 USD. 초과 시 해당 기능 blocked(run 초과 시 전체 정지).
-중단 복구: run은 상태 파일만으로 재개 가능(`harness run --resume`).
+예산: 단계별 timeout(기본 30분), 단계별 USD(어댑터 지원 시), run 전체 USD. 단계 초과 시 해당 기능 blocked(`budget`), run 초과 시 진행 중 기능 blocked(`budget`) 후 전체 정지.
+중단 복구: run은 상태 파일(`runs/current.json`, config 스냅샷 포함)만으로 재개 가능(`harness run --resume`). SIGINT 는 진행 중 단계의 프로세스 트리를 종료하고 상태를 저장한 뒤 exit 130.
+이전 run 의 `harness/F{n}` 브랜치가 남아 있으면 자동으로 지우지 않는다(작업 보존) — 해당 기능은 blocked(`worktree`), 사용자가 브랜치를 지우고 재시도한다. blocked 기능의 worktree 는 점검용으로 남기고, passed 기능의 worktree·브랜치는 제거한다.
 
 ## 9. 보안 요구사항
 - SR-1 verify·check·repro 명령은 **worktree를 cwd로**, timeout과 함께 실행된다.
