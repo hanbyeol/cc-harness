@@ -18,7 +18,10 @@
   },
   "roles": {
     "builder": "claude",
-    "evaluator": "gemini",
+    "evaluator": {
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
     "security-reviewer": "claude"
   }
 }
