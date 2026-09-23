@@ -62,7 +62,7 @@ lint 규칙(전부 결정적, 위반 = error):
 
 ## 6. 결정적 검증 (`harness verify F{n}`)
 ### 6.1 명령
-config의 `verify.commands`(예: test·lint·build)를 순서대로 실행. 하나라도 비정상 종료 = fail.
+config의 `verify.commands`(예: test·lint·build)를 순서대로 실행. 하나라도 비정상 종료 = fail. 실행 파일이 없으면 `command not found: <이름>` 으로 보고한다(판정 규칙은 §7.3 의 명령 미발견과 같다).
 실패 시 **1회 재실행**, 결과가 다르면 `flaky`로 기록하고 fail로 취급.
 
 ### 6.2 무결성 검사 (base 대비 diff)
@@ -86,7 +86,7 @@ worktree 안의 `.harness/` 는 코어가 쓰는 기록 경로 `verdicts/**`, `b
 ```
 3. 코어 판정:
    - 스키마 불일치 → 1회 재요청, 재실패 시 라운드 무효(`eval_error`, 라운드 소모 없음, 2회 연속이면 blocked). eval_error 는 `verdicts/F{n}-r{k}.eval_error.json`(consecutive 카운터 포함)에 기록하며 라운드 파일로 세지 않는다. 어댑터 `timeout`·`exit_nonzero` 도 eval_error(재시도 없음).
-   - finding이 **차단적**이려면: `criterion_id`가 계약에 존재(또는 `REGRESSION`) ∧ `repro` 존재 ∧ **코어가 worktree에서 repro를 실행해 비정상 종료 재현**. 그 외는 `backlog.json`으로. repro 가 명령 미발견(127/9009)·실행 불가면 비차단(`repro_not_runnable`), 시그널 종료는 비정상 종료로 본다. 코어는 repro 가 git 내부 조작(update-index 플래그, filter clean/smudge, replace, hooksPath, git config, `.git/config`·`.git/info`)을 포함하면 실행하지 않고 `adversarial_scenario` 로 backlog 한다(D1 의 결정적 보조).
+   - finding이 **차단적**이려면: `criterion_id`가 계약에 존재(또는 `REGRESSION`) ∧ `repro` 존재 ∧ **코어가 worktree에서 repro를 실행해 비정상 종료 재현**. 그 외는 `backlog.json`으로. repro 가 명령 미발견(127/9009, Windows `cmd.exe` 의 exit 1 + 영문 'is not recognized as an internal or external command')·실행 불가면 비차단(`repro_not_runnable`), 시그널 종료는 비정상 종료로 본다. 코어는 repro 가 git 내부 조작(update-index 플래그, filter clean/smudge, replace, hooksPath, git config, `.git/config`·`.git/info`)을 포함하면 실행하지 않고 `adversarial_scenario` 로 backlog 한다(D1 의 결정적 보조).
    - verify 가 실패한 상태로 `harness eval` 을 직접 호출하면 evaluator 는 실행되지만 verdict 는 fail 이고 low-score 재요청은 하지 않는다. (`run` 은 verify 통과 후에만 평가를 호출한다 — §8.3.)
    - **위협 경계(D1)**: 결함이 성립하려면 빌더가 **고의로** git 내부·설정(index 플래그 `skip-worktree`/`assume-unchanged`, clean/smudge filter, replace ref, hooks, `.git/config`·`.git/info/*`)이나 셸·런타임 의미를 조작해야 하는 finding은 적대적 시나리오로 분류해 `out_of_scope`(backlog)로 보낸다 — repro가 있어도 차단적이지 않다. 협력적 모델의 **사고**(평범한 도구 사용·평범한 실수로 생기는 결함)만 차단한다. 구조적 백스톱은 §8.5의 병합 후 verify(실제로 병합된 커밋 검증)다. (2026-09-23 사용자 결정 — v1의 비수렴 원인 재발 방지)
    - `score = min(5개 점수)`. critical이면 security < 7 자동 fail.
