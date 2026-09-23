@@ -272,6 +272,35 @@
     {
       "source": "F8-r1",
       "summary": "F8 AC-2 test checks absence via fs.existsSync, not git ls-files (equivalent in a clean checkout)."
+    },
+    {
+      "source": "F5-2nd",
+      "priority": "high",
+      "summary": "SR-4 exclusion is path-only: a secret committed before base and renamed within the feature (git mv .env notes.txt) enters the evaluator prompt with its content. User decision: add as a criterion in the next F5 contract version (e.g. exclude an added path whose blob equals a deleted secret path's blob)."
+    },
+    {
+      "source": "F5-2nd",
+      "summary": "validateOutput accepts non-integer scores (6.5) although OUTPUT_SCHEMA declares integer."
+    },
+    {
+      "source": "F5-r3",
+      "summary": "Continuation stripping ignores backslash escape parity ('a\\\\\\\\<newline>git push'); over-deny direction, not a bypass."
+    },
+    {
+      "source": "F5-r3",
+      "summary": "Deny patterns match token co-occurrence, so 'echo git push …' is denied (over-deny, pre-existing)."
+    },
+    {
+      "source": "F6-2nd",
+      "summary": "run.mjs's own git() plumbing (merge --no-ff, worktree remove, branch -D, reset --hard) does not receive the AbortSignal; SIGINT waits for it (possibly intentional: killing mid-merge could corrupt the integration worktree)."
+    },
+    {
+      "source": "F6-2nd",
+      "summary": "eval.mjs HarnessError('interrupted') (bd484d0) is effectively unreachable under run.mjs step()'s abort race, isFatal() would not classify it as an interrupt, and the abandoned evaluate() keeps running ~1s after state is saved."
+    },
+    {
+      "source": "F6-2nd",
+      "summary": "AC-8 stops the run only when a critical feature is literally blocked, not when it is transitively skipped by a blocked dependency."
     }
   ]
 }
