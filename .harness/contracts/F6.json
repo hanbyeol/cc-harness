@@ -2,7 +2,7 @@
   "id": "F6",
   "title": "run — 수렴이 보장된 자율 실행",
   "security_tier": "critical",
-  "version": 1,
+  "version": 2,
   "acceptance_criteria": [
     {
       "id": "AC-1",
@@ -82,7 +82,7 @@
       "id": "SC-2",
       "criterion": "builder 가 .harness/ 상태를 바꾼 diff 는 verify 무결성 검사로 fail 한다",
       "check": "node test/t.mjs \"F6 SC-2\"",
-      "new": true
+      "new": false
     }
   ],
   "error_scenarios": [
@@ -114,8 +114,7 @@
   "out_of_scope": [],
   "approval": {
     "by": "hanbyeol@gmail.com",
-    "at": "2026-09-23T01:48:06.153Z",
-    "hash": "67fb55bff44fcb76051daa1c50c87712bf7d929349bfbed8b8867a5e3130bebd",
-    "via": "plan-gate (AskUserQuestion, session 2026-09-23)"
+    "at": "2026-09-23T08:50:25.092Z",
+    "hash": "64f8202a66bcfd5af5348befcda726178841b3a1e6978807f8d95809b7458767"
   }
 }
