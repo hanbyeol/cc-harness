@@ -1,0 +1,51 @@
+{
+  "id": "F12",
+  "title": "코어 견고성 — 부분 초기화·설정 검증·손상 상태 보고",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": ".harness/ 에 contracts/ 만 있는 프로젝트에서 init 이 config.json 과 features.json 을 만들고 exit 0, 기존 contracts/ 파일은 그대로 남는다",
+      "check": "node test/t.mjs \"F12 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "writeJsonAtomic 이 임시 파일 쓰기 도중 실패하면 .tmp-* 파일을 남기지 않고 HarnessError(code io) 를 던지며 대상 파일 내용은 그대로다",
+      "check": "node test/t.mjs \"F12 AC-2\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "config.json 이 null·배열·숫자이면 config 를 읽는 명령이 exit 2 와 config.json 경로를 포함한 메시지로 끝난다(내부 에러 exit 1 아님)",
+      "check": "node test/t.mjs \"F12 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "config.json 의 budget 이 null 이거나 객체가 아니면 exit 2 와 필드 이름 budget 을 포함한 메시지",
+      "check": "node test/t.mjs \"F12 ES-2\"",
+      "new": true
+    },
+    {
+      "id": "ES-3",
+      "criterion": "features.json 의 항목에 id·status·title 중 하나가 없거나 문자열이 아니면 status 가 exit 2 와 항목 번호를 포함한 state_corrupt 메시지로 끝난다",
+      "check": "node test/t.mjs \"F12 ES-3\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "하위 디렉터리에서 상위 .harness 탐색(동작 변경이라 별도 기능)",
+    "t.mjs id 매칭 정밀화"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T09:43:06.206Z",
+    "hash": "45e8ba5b299d73e213a2f445c44a3b39c78647d3a9e6d8b8ff7c6bfcfe105382",
+    "via": "plan-gate (AskUserQuestion, session 2026-09-23)"
+  }
+}

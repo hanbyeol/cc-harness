@@ -72,6 +72,42 @@
         "F7"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F9",
+      "title": "eval diff — 이름이 바뀌거나 복사된 시크릿 파일 제외 (SR-4 확장)",
+      "security_tier": "critical",
+      "depends_on": [
+        "F5"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F10",
+      "title": "run — integration_branch 대소문자 충돌 거부",
+      "security_tier": "critical",
+      "depends_on": [
+        "F6"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F11",
+      "title": "verify — 코어가 쓰는 기록 경로를 무결성 검사에서 면제",
+      "security_tier": "critical",
+      "depends_on": [
+        "F3"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F12",
+      "title": "코어 견고성 — 부분 초기화·설정 검증·손상 상태 보고",
+      "security_tier": "standard",
+      "depends_on": [
+        "F1"
+      ],
+      "status": "approved"
     }
   ]
 }

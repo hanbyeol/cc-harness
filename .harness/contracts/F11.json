@@ -1,0 +1,70 @@
+{
+  "id": "F11",
+  "title": "verify — 코어가 쓰는 기록 경로를 무결성 검사에서 면제",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": ".harness/verdicts/ 아래 파일의 추가·수정(커밋된 것과 untracked 모두)은 무결성 검사를 fail 시키지 않는다",
+      "check": "node test/t.mjs \"F11 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": ".harness/backlog.json 변경은 무결성 검사를 fail 시키지 않는다",
+      "check": "node test/t.mjs \"F11 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": ".harness/runs/ 아래 파일 추가는 무결성 검사를 fail 시키지 않는다",
+      "check": "node test/t.mjs \"F11 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "SPEC §6.2 가 면제 경로 3종과 보호 경로를 명시한다(문서 check: SPEC 에 verdicts/·backlog.json·runs/ 면제 문구 존재)",
+      "check": "node test/t.mjs \"F11 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": ".harness/config.json, .harness/contracts/F1.json, .harness/features.json 각각의 변경은 여전히 무결성 fail 이다",
+      "check": "node test/t.mjs \"F11 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "면제 판정은 정확한 경로 기준이다 — .harness/verdicts-x/a.json, .harness/backlog.json.bak, .harness/runs 라는 이름의 파일은 각각 fail 이다",
+      "check": "node test/t.mjs \"F11 SC-2\"",
+      "new": true
+    },
+    {
+      "id": "SC-3",
+      "criterion": "면제 경로와 보호 경로가 함께 바뀌면 fail 이고 harnessPaths 에는 보호 경로만 나온다",
+      "check": "node test/t.mjs \"F11 SC-3\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "모노레포 하위 프로젝트(pkg/app/.harness)에서도 같은 면제가 적용되고 pkg/app/.harness/config.json 변경은 fail 이다",
+      "check": "node test/t.mjs \"F11 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "재승인으로 contracts/·features.json 이 바뀐 커밋이 같은 브랜치에 있을 때의 FAIL(보호 유지)",
+    "verdict 파일 내용 검증"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T09:43:06.206Z",
+    "hash": "61fd0d5334fe7d8786148b319b3f13ffdc11eff8a37e9b9172d9fcbce89cbaf0",
+    "via": "plan-gate (AskUserQuestion, session 2026-09-23)"
+  }
+}

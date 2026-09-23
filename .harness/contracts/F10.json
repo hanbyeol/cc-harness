@@ -1,0 +1,52 @@
+{
+  "id": "F10",
+  "title": "run — integration_branch 대소문자 충돌 거부",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "integration_branch 가 대소문자만 다른 기존 로컬 브랜치(예: Work vs work)와 겹치면 run 이 병합·브랜치 생성 전에 exit 2 로 멈추고, 메시지에 두 이름이 모두 나온다",
+      "check": "node test/t.mjs \"F10 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "integration_branch 와 철자가 정확히 같은 기존 브랜치는 지금처럼 허용된다(재개·반복 실행)",
+      "check": "node test/t.mjs \"F10 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "같은 이름의 브랜치가 없으면 지금처럼 base 에서 integration_branch 를 만든다",
+      "check": "node test/t.mjs \"F10 AC-3\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "AC-1 상황에서 가짜 어댑터로 run 을 실행한 뒤 사용자 브랜치 work 의 커밋 해시가 변하지 않는다",
+      "check": "node test/t.mjs \"F10 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "git for-each-ref 로 로컬 브랜치 목록을 얻지 못하면 run 을 시작하지 않고 exit 2",
+      "check": "node test/t.mjs \"F10 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "NFC/NFD 유니코드 정규화 차이(백로그 유지)",
+    "원격 브랜치와의 충돌"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T09:43:06.206Z",
+    "hash": "9099799ecab4e94978adda8d129175791582ed86ad2f4a3788457dc54fe0c8be",
+    "via": "plan-gate (AskUserQuestion, session 2026-09-23)"
+  }
+}

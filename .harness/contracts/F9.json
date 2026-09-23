@@ -1,0 +1,64 @@
+{
+  "id": "F9",
+  "title": "eval diff — 이름이 바뀌거나 복사된 시크릿 파일 제외 (SR-4 확장)",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "base 에 있던 .env 를 기능 브랜치에서 git mv .env notes.txt 로 커밋하면 buildDiff 결과 text 에 .env 의 내용이 없고 notes.txt 가 excluded 에 집계된다",
+      "check": "node test/t.mjs \"F9 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "git 밖에서 mv 한 경우(추적된 .env 삭제 + 같은 내용의 untracked notes.txt)에도 buildDiff text 에 그 내용이 없다",
+      "check": "node test/t.mjs \"F9 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "이름 변경과 함께 한 줄을 수정해 커밋한 경우(git 유사도 50% 이상)에도 buildDiff text 에 원래 시크릿 줄이 없다",
+      "check": "node test/t.mjs \"F9 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "시크릿이 아닌 파일의 이름 변경(src/a.mjs → src/b.mjs)과 신규 파일은 계속 buildDiff text 에 포함된다",
+      "check": "node test/t.mjs \"F9 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "기본 패턴 4종(.env, id_rsa, server.pem, cert.p12)과 config.secret_globs 매칭 경로 1종 각각을 AC-1 방식으로 이름 변경하면 원래 내용이 buildDiff text 에 없다",
+      "check": "node test/t.mjs \"F9 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "시크릿 파일을 원본을 둔 채 다른 이름으로 복사(cp .env backup.txt, untracked 와 커밋 두 경우)하면 복사본 내용이 buildDiff text 에 없다",
+      "check": "node test/t.mjs \"F9 SC-2\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "base 의 시크릿 파일이 빈 파일이면 내용 일치 제외를 적용하지 않는다 — 새로 추가한 빈 파일 empty.txt 가 buildDiff files 에 남는다",
+      "check": "node test/t.mjs \"F9 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "시크릿 값을 부분 인용하거나 다른 파일에 붙여 넣는 경우(내용 기반 비밀 탐지)",
+    "git 이력 속 과거 버전의 시크릿"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T09:43:06.206Z",
+    "hash": "0735ff7f5d651324dad55b982e63d3da18b1c0626ef96d127065c3982beb4dd4",
+    "via": "plan-gate (AskUserQuestion, session 2026-09-23)"
+  }
+}
