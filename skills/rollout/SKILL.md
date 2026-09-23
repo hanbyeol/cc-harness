@@ -1,51 +1,46 @@
 ---
 name: rollout
-description: "라이브 k8s 변경 안전 루프 (ops 프로파일). TRIGGER: 사용자가 '롤아웃', '배포 변경', 'rollout', '스케일', '재시작', '이미지 업데이트', '조치해줘' 등 돌아가는 클러스터에 변경을 가하려 하면 이 스킬 실행. SDLC의 evaluator를 대신하는 ops 검증 게이트(health+회귀)."
+description: Apply a change to a live Kubernetes cluster (ops profile) — observe, get the user's approval, apply with a rollback path, verify health, roll back on failure. Use for rollouts, scaling, restarts or image updates. Always human-approved; never part of harness run.
 ---
-# /rollout — 라이브 변경 안전 루프
 
-ops 프로파일의 핵심 조치 게이트. 돌아가는 시스템에 변경을 **롤백 준비된 채로** 가하고
-health로 검증한다. 변경을 작성한 주체가 스스로 "OK"를 판정하지 않는다 — Plan 게이트와 health가 승인한다.
+# rollout — live change with a rollback path
 
-## 사용법
-```
-/rollout                    # 현재 컨텍스트 변경
-/rollout prod               # 특정 환경 (승인 필수)
-```
+A live cluster has no base branch to compare against and no second attempt that is free.
+So every live change is approved by a human, one at a time, and never runs unattended:
+the core's linter rejects any contract that puts `rollout` in `harness run`.
 
-## Process
+## 1. Observe before acting
+- Confirm the context: `kubectl config current-context` and the namespace. Say them out
+  loud to the user; a change in the wrong cluster is the most common serious mistake.
+- Current state: `kubectl get deploy,sts,ds,pods -n <ns>`, `kubectl describe` for the
+  target, recent `kubectl get events -n <ns>`.
+- Rollback target: `kubectl rollout history <kind>/<name> -n <ns>` and the current image
+  tag or chart revision (`helm history <release>`).
+- Blast radius: which services depend on the target, and how much traffic it serves.
 
-### 1. 현 상태 관측 (조치 전 필수)
-- `kubectl get/describe`로 대상 리소스의 현재 상태·replica·이미지·health 확인
-- 이전 안정 버전(롤백 대상) 식별: 이미지 태그(git SHA), `kubectl rollout history`
-- 영향 범위(blast radius): 네임스페이스·의존 서비스·트래픽 비중
+## 2. Propose and ask
+Present: what changes, where, why, the expected effect, how you will check health, and the
+exact rollback command. Then ask the user to approve this specific change. Only a clear yes
+counts. For production, stateful workloads, scale to zero, deletes, or node drains, restate
+the impact before asking.
 
-### 2. 변경안 제시 + Plan 게이트
-- 무엇을·어디에·왜 바꾸는지, 예상 영향, **롤백 방법**을 요약
-- **prod·critical은 ExitPlanMode로 사용자 승인 필수** (auto-approve 금지)
-- standard는 변경안 표시 후 진행
+## 3. Apply
+Prefer declarative, reviewable changes: `kubectl apply -f <file>` or
+`helm upgrade <release> <chart> --atomic`, with a rolling or canary strategy where available.
+Apply only what was approved.
 
-### 3. 롤백 준비 적용
-- 적용 전 롤백 경로 확보 (이전 이미지 태그 보존, `kubectl rollout undo` 가능 상태 확인)
-- 가능하면 점진 적용(canary/rolling) — deploy-operator 패턴 재사용
-- `kubectl apply`/`helm upgrade`/`kubectl set image` 등으로 변경
+## 4. Verify health
+- `kubectl rollout status <kind>/<name> -n <ns> --timeout=5m` succeeds.
+- Pods are Running and Ready; readiness and liveness probes pass; restarts are not rising.
+- Error rates and logs show no new failures; the service's smoke check passes.
 
-### 4. health/회귀 검증 (evaluator 대신)
-- 롤아웃 완료: `kubectl rollout status` 성공
-- health: readiness/liveness 프로브 정상, Pod Running, 에러 로그 급증 없음
-- 회귀: 기존 엔드포인트/기능 smoke 확인 (영향 서비스 포함)
+## 5. Roll back on failure
+If any check fails, roll back immediately — `kubectl rollout undo <kind>/<name> -n <ns>` or
+`helm rollback <release> <revision>` — and confirm health again. Then report what failed.
+Do not retry the same change; find the cause first.
 
-### 5. 실패 시 자동 롤백
-- 위 검증 실패 → **즉시 이전 안정 버전으로 롤백**(`kubectl rollout undo` / 이전 태그 재배포)
-- 롤백 후 원인은 `/debug`로 추적 — 같은 변경을 무작정 재시도하지 않는다
-
-## 판정 (evaluator 대신) — ops 게이트
-조치 성공 = 롤아웃 status 성공 + readiness/liveness 정상 + 회귀 없음.
-- **prod·critical**: 위 전부 + Plan 게이트 승인 + 롤백 준비 확인.
-- **standard**: 게이트 통과 시 진행.
-
-## Constraints
-- 현 상태를 관측하지 않고 조치하지 않는다
-- 모든 라이브 변경은 롤백 경로를 준비한다 (실패 시 즉시 복구)
-- prod 라이브 변경은 사용자 확인 없이 실행하지 않는다 — firewall이 delete/scale 0/uninstall/undo/drain을 ask로 강제
-- ops 게이트(health+회귀)의 통과 기준을 임의로 낮추지 않는다 (add-only, INV-8)
+## Boundaries
+- Never act without observing first and without the user's approval of the specific change.
+- Never run `kubectl delete namespace`, `kubectl delete ... --all`, or cluster-wide deletes
+  unless the user asked for that exact command.
+- This skill is interactive only. It must not be a step of `harness run`.
