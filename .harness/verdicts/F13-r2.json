@@ -1,0 +1,44 @@
+{
+  "feature": "F13",
+  "round": 2,
+  "commit": "0b2c82d",
+  "independence": "cross-model",
+  "evaluator": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 9,
+      "quality": 9,
+      "security": 9,
+      "errors": 9,
+      "tests": 9
+    },
+    "blocking": 0,
+    "judged_at": "53d5deb (round 1)"
+  },
+  "security_reviewer": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 9,
+      "quality": 9,
+      "security": 9,
+      "errors": 9,
+      "tests": 9
+    },
+    "blocking": 0
+  },
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "score": 9,
+  "verdict": "pass",
+  "convergence": {
+    "previous_blocking": 1,
+    "current_blocking": 0,
+    "divergence": false
+  },
+  "note": "runFeatures validates the snapshot it acts on (fresh, resume, direct config); round-1 repro now exits 0; mutation-checked; legitimate interrupt/resume still works."
+}

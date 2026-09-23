@@ -334,7 +334,12 @@
     {
       "source": "F3-r3",
       "priority": "high",
-      "summary": "config verify.commands given as a string (\"npm test\") passes F12 validation and verify iterates it character by character as separate shell commands. validateUser checks only object-default keys; add array checks for verify.commands, verify.skip_markers, env_allowlist, secret_globs."
+      "summary": "config verify.commands given as a string (\"npm test\") passes F12 validation and verify iterates it character by character as separate shell commands. validateUser checks only object-default keys; add array checks for verify.commands, verify.skip_markers, env_allowlist, secret_globs.",
+      "resolved_by": "F13"
+    },
+    {
+      "source": "F13-r2",
+      "summary": "runFeatures({config}) (programmatic callers) gets shape checks but not the DEFAULTS/profile merge that loadConfig applies; the two paths differ."
     }
   ]
 }

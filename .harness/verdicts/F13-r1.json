@@ -1,0 +1,36 @@
+{
+  "feature": "F13",
+  "round": 1,
+  "commit": "53d5deb",
+  "independence": "cross-model",
+  "evaluator": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 9,
+      "quality": 9,
+      "security": 9,
+      "errors": 9,
+      "tests": 9
+    },
+    "blocking": 0
+  },
+  "security_reviewer": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 7,
+      "quality": 8,
+      "security": 3,
+      "errors": 5,
+      "tests": 4
+    },
+    "blocking": 1
+  },
+  "score": 3,
+  "verdict": "fail",
+  "blocking_findings": [
+    {
+      "criterion_id": "SC-1",
+      "summary": "--resume used the runs/current.json config snapshot without shape checks; protected_branches \"v2\" let the resumed run merge into v2"
+    }
+  ]
+}

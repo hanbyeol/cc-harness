@@ -116,7 +116,7 @@
       "depends_on": [
         "F12"
       ],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }
