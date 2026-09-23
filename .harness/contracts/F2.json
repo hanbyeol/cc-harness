@@ -2,7 +2,7 @@
   "id": "F2",
   "title": "lint-contract · approve (결정가능성 게이트)",
   "security_tier": "standard",
-  "version": 1,
+  "version": 2,
   "acceptance_criteria": [
     {
       "id": "AC-1",
@@ -51,7 +51,7 @@
   "error_scenarios": [
     {
       "id": "ES-1",
-      "criterion": "존재하지 않는 계약 id 로 approve 시 exit 2, 어떤 파일도 쓰지 않는다",
+      "criterion": "존재하지 않는 계약 id 로 approve 시 exit 2, .harness/ 아래 파일 내용이 변하지 않는다",
       "check": "node test/t.mjs \"F2 ES-1\"",
       "new": true
     },

@@ -42,18 +42,21 @@ AI 코딩 CLI(Claude Code · Codex CLI · Gemini CLI, 그 외 AGENTS.md 호환 �
   "security_criteria":   [{"id": "SC-1", ...}],
   "error_scenarios":     [{"id": "ES-1", ...}],
   "out_of_scope": ["..."],
+  "run_steps": ["build", "verify", "eval"],
   "approval": {"by": "...", "at": "ISO8601", "hash": "sha256"}
 }
 ```
+`security_tier` 는 `standard|critical` 외 값이면 error. `run_steps` 는 선택(생략 시 위 기본값).
 lint 규칙(전부 결정적, 위반 = error):
 1. 모든 기준에 비어 있지 않은 `check`.
-2. 기준 id 유일, 형식 `AC-n|SC-n|ES-n`.
-3. **전칭 부정 금지**: criterion 문장이 금지 패턴(`어떤 .*도`, `모든 .*에 대해`, `우회 불가`, `절대`, `any possible`, `cannot be bypassed`, `no way to`, `never`)에 걸리고 `cases` 배열(열거된 시나리오, 각 항목에 check)이 없으면 error.
+2. 기준 id 유일, 형식 `AC-n|SC-n|ES-n` (n ≥ 1), 접두사는 소속 배열과 일치. 계약 `id` 는 파일명과 일치.
+3. **전칭 부정 금지**: criterion 문장이 금지 패턴(`어떤 .*도`, `모든 .*에 대해`, `우회 불가`, `절대(로)?` + 공백/끝, `any possible`, `cannot be bypassed`, `no way to`, `never`)에 걸리고 `cases` 배열(열거된 시나리오, 각 항목에 check)이 없으면 error. 영문은 대소문자 무시, `never` 는 단어 경계.
+7. `run_steps` 에 `rollout` 포함 시 error (SR-7).
 4. 크기 상한: AC ≤ 12, SC ≤ 8, ES ≤ 8, 파일 ≤ 20KB (설정값).
 5. `security_tier: critical` ⇒ SC ≥ 1.
 6. `approval.hash` = `sha256(JSON.stringify(계약에서 approval 키를 제거한 객체))` (키 순서는 파일에 저장된 순서). hash 가 있으면 현재 내용(approval 제외)의 해시와 일치해야 함 — 불일치 = 승인 후 변경 → 재승인 필요.
 
-`harness approve F3 [F4 ...]`: lint 통과한 계약에 approval 기록, features.status → `approved`.
+`harness approve F3 [F4 ...]`: 규칙 1–5·7 을 통과한 계약에 approval 을 (재)기록, features.status → `approved`. 기존 approval 의 hash 불일치(규칙 6)는 재승인을 막지 않는다 — 재승인이 곧 해소 수단이다. hash 없는 approval 은 lint error 는 아니지만 실행 대상이 아니다.
 
 ## 6. 결정적 검증 (`harness verify F{n}`)
 ### 6.1 명령

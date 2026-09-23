@@ -129,7 +129,7 @@ test('F2 AC-3 cases: cases must be non-empty and every case needs a non-empty ch
 });
 
 test('F2 AC-3 boundary: "never" is word-bounded; unrelated text passes', () => {
-  for (const s of ['works nevertheless', 'stops at the first error', '모든 파일을 읽는다']) {
+  for (const s of ['works nevertheless', 'stops at the first error', '모든 파일을 읽는다', '절대경로로 변환한다']) {
     assert.deepEqual(errors(contract({ acceptance_criteria: [crit('AC-1', { criterion: s })] })), [], s);
   }
 });
