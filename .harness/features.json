@@ -98,7 +98,7 @@
       "depends_on": [
         "F3"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F12",

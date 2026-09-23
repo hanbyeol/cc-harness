@@ -1,0 +1,44 @@
+{
+  "feature": "F11",
+  "round": 2,
+  "commit": "d52e996",
+  "independence": "cross-model",
+  "evaluator": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 9,
+      "quality": 9,
+      "security": 9,
+      "errors": 9,
+      "tests": 9
+    },
+    "blocking": 0,
+    "judged_at": "bac0e66 (round 1; fix touches one line in the root derivation)"
+  },
+  "security_reviewer": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 9,
+      "quality": 8,
+      "security": 9,
+      "errors": 8,
+      "tests": 9
+    },
+    "blocking": 0
+  },
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 8,
+    "tests": 9
+  },
+  "score": 8,
+  "verdict": "pass",
+  "convergence": {
+    "previous_blocking": 2,
+    "current_blocking": 0,
+    "divergence": false
+  },
+  "note": "realpathSync.native; mutation-checked; symlinked/trailing-slash/relative/compound case-flipped roots also verified."
+}

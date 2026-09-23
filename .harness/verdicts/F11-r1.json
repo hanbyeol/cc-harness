@@ -1,0 +1,40 @@
+{
+  "feature": "F11",
+  "round": 1,
+  "commit": "bac0e66",
+  "independence": "cross-model",
+  "evaluator": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 9,
+      "quality": 9,
+      "security": 9,
+      "errors": 9,
+      "tests": 9
+    },
+    "blocking": 0
+  },
+  "security_reviewer": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 8,
+      "quality": 8,
+      "security": 2,
+      "errors": 6,
+      "tests": 6
+    },
+    "blocking": 2
+  },
+  "score": 2,
+  "verdict": "fail",
+  "blocking_findings": [
+    {
+      "criterion_id": "SC-1",
+      "summary": "root spelled in another case (case-insensitive FS) makes harnessDir match no git path; config.json edit passes"
+    },
+    {
+      "criterion_id": "ES-1",
+      "summary": "same for a subproject root (pkg/App)"
+    }
+  ]
+}
