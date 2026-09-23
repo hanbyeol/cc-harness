@@ -65,8 +65,7 @@
   "out_of_scope": [],
   "approval": {
     "by": "hanbyeol@gmail.com",
-    "at": "2026-09-23T01:48:06.153Z",
-    "hash": "3c3d9f1ed2b1794d4850315ab6df46d1cb6552d6370bcaf70aa20ba77b2b657d",
-    "via": "plan-gate (AskUserQuestion, session 2026-09-23)"
+    "at": "2026-09-23T06:30:20.638Z",
+    "hash": "6add960bc5641b2b26fa9e2158af790e75ace69aecd8b044081849361d43cf7d"
   }
 }
