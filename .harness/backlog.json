@@ -27,6 +27,14 @@
     {
       "source": "F2-impl",
       "summary": "SPEC section 5 gaps found while implementing F2 were backfilled in 562408f (re-approval semantics, id/section rule, run_steps, pattern case rules, invalid tier)."
+    },
+    {
+      "source": "F4-impl",
+      "summary": "doctor checks flags only, not authentication — it reports gemini usable while gemini exits 41 (no auth). A run would fail at eval with exit_nonzero rather than adapter_unavailable. Consider a zero-cost auth probe per CLI or mapping known auth-error exits to adapter_unavailable."
+    },
+    {
+      "source": "F4-impl",
+      "summary": "Windows .cmd shim escaping is unit-tested but never executed on Windows; covered once F8 CI runs on windows-latest."
     }
   ]
 }

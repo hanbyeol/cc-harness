@@ -117,12 +117,14 @@ worktree 안의 `.harness/` 는 코어가 쓰지 않으므로 **그 아래 어�
 - SR-7 ops 프로필의 라이브 변경 skill(`rollout`)은 `run` 대상이 될 수 없다(lint가 거부).
 
 ## 10. 어댑터 (`harness doctor`)
-| 어댑터 | 쓰기(builder) | 읽기전용(evaluator) | 구조화 출력 | 예산 |
-|--------|--------------|--------------------|------------|------|
-| claude | `claude -p --permission-mode auto --disallowedTools <deny>` | `--permission-mode plan` | `--output-format json --json-schema` | `--max-budget-usd` |
-| gemini | `gemini -p --approval-mode yolo -s` | `--approval-mode plan` | `-o json` | timeout만 |
-| codex (experimental) | `codex exec --sandbox workspace-write` | `--sandbox read-only` | 프롬프트 + JSON 추출 | timeout만 |
-| generic | config의 명령 템플릿 | 〃 | JSON 추출 | timeout만 |
+| 어댑터 | 쓰기(builder) | 읽기전용(evaluator) | 구조화 출력 | 예산 | 모델 |
+|--------|--------------|--------------------|------------|------|------|
+| claude | `claude -p --permission-mode auto --disallowedTools <deny>` | `--permission-mode plan` | `--output-format json` (+ schema 가 있으면 `--json-schema`) — 비용은 래퍼의 `total_cost_usd`(예산 소진 exit 1 에도 존재) | `--max-budget-usd` | `--model` |
+| gemini | `gemini -p "" --approval-mode yolo -s` (`-p ""` 는 headless 선택, 프롬프트는 stdin) | `--approval-mode plan` | `-o json` | timeout만 | `-m` |
+| codex (experimental, 플래그 미실측) | `codex exec --sandbox workspace-write -` | `--sandbox read-only` | 프롬프트 + JSON 추출 | timeout만 | `--model` |
+| generic | config `adapters.generic.command` | config `adapters.generic.read_only_command` — **없으면 읽기전용 역할 배정 불가**(쓰기 모드로 폴백 금지, SR-6) | JSON 추출 | timeout만 | — |
+
+역할 배정(`config.roles.<role>`)은 `"claude"` 또는 `{"adapter": "claude", "model": "opus"}`. model 생략 시 `adapters.<name>.model`.
 
 - 프롬프트는 **stdin**으로 전달한다(Windows 명령줄 길이 한계 회피).
 - `<deny>`(builder 쓰기 모드의 네이티브 deny 목록, SPEC D1의 "~5줄"): `Bash(git push:*)`, `Bash(git reset --hard:*)`, `Bash(rm -rf /:*)`, `Bash(rm -rf ~:*)`, `Bash(sudo:*)`. 지원하지 않는 CLI는 해당 CLI의 sandbox 플래그로 대체.
