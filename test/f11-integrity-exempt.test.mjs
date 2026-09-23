@@ -187,3 +187,29 @@ test('F11 ES-1: in a monorepo subproject (pkg/app/.harness) the same exemption a
   assert.equal(isHarnessPath('pkg/app/.harness/config.json', 'pkg/app/.harness'), true);
   assert.equal(isHarnessPath('pkg/app/.harness/runs', 'pkg/app/.harness'), true);
 });
+
+// ---------- round 2: a root spelled in another letter case (case-insensitive filesystems) ----------
+// On macOS/Windows the same directory is reachable under another case; git still reports the
+// on-disk case, so the protected set must not depend on how the caller spelled `root`.
+// On a case-sensitive filesystem the variant path does not exist and there is nothing to test.
+const caseVariant = (p) => path.join(path.dirname(p), path.basename(p).toUpperCase());
+
+test('F11 SC-1 case-varied root: config.json still fails when root is spelled in another case', async () => {
+  const { root } = fixture();
+  const variant = caseVariant(root);
+  if (variant === root || !fs.existsSync(variant)) return; // case-sensitive filesystem
+  writeFiles(root, { '.harness/config.json': { profile: 'sdlc', base_branch: 'main', verify: { commands: ['node x.mjs'] } } });
+  const r = await run(variant);
+  assert.equal(r.pass, false);
+  assert.deepEqual(r.integrity.harnessPaths, ['.harness/config.json']);
+});
+
+test('F11 ES-1 case-varied subproject root: pkg/App resolves to pkg/app/.harness', async () => {
+  const { dir } = fixture('pkg/app');
+  const variant = path.join(dir, 'pkg', 'App');
+  if (!fs.existsSync(variant)) return; // case-sensitive filesystem
+  writeFiles(path.join(dir, 'pkg', 'app'), { '.harness/config.json': { profile: 'sdlc', base_branch: 'main', verify: { commands: ['node x.mjs'] } } });
+  const r = await run(variant);
+  assert.equal(r.pass, false);
+  assert.deepEqual(r.integrity.harnessPaths, ['pkg/app/.harness/config.json']);
+});
