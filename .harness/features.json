@@ -5,7 +5,7 @@
       "title": "코어 골격 · 상태 파일 · init",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F2",
