@@ -165,4 +165,4 @@ hooks/hooks.json             Claude SessionStart 1개: `harness status --brief` 
 ## 13. v1 마이그레이션 (`harness migrate-v1`)
 `progress/feature_list.json` → `.harness/features.json` (id·이름·passes→status 보존). v1 계약은 변환하지 않고 참조 경로만 기록.
 v1 `security_tier: low` 는 `standard` 로 매핑(원래 값은 `v1.security_tier`). v1 의존성은 `depends_on` 으로 옮기지 않고 `v1.dependencies` 에 보존(v1 기능은 v2 에서 실행 대상이 아니므로). `.harness/features.json` 이 이미 있으면(빈 목록 포함) `--force` 없이 거부.
-v1 파일(hooks/*.sh, scripts/, docs/INVARIANTS.md, tests/*.bats, init.sh, progress/)은 v2 브랜치에서 제거 — `v1.39.18-final` 태그로 보존.
+v1 파일은 v2 브랜치에서 제거 — `v1.39.18-final` 태그로 보존: hooks/*.sh, scripts/, docs/INVARIANTS.md, docs/DECISIONS/, tests/, init.sh, templates/, evals/, config/, progress/, 루트 settings.json, profiles/*.md, v1 전용 agents(architect·deploy-operator·implementer·qa-reviewer·security-auditor·spec-writer·test-writer)·skills(brainstorm·change-request·debug·finish-branch·hotfix·implement·improve·progress·sync-docs). 남겨 두면 플러그인이 v2 skills 와 함께 로드해 충돌한다.

@@ -1,32 +1,8 @@
 *.bak
 *.tmp
 .tmp/
-.tmp-eval/
 .DS_Store
 node_modules/
 
 # Claude Code runtime state (project-local, not plugin source)
 .claude/
-
-# Runtime artifacts mutated by hooks (would keep the tree permanently dirty)
-progress/session-handoff.json
-progress/session-handoff-draft.json
-progress/coverage-report.json
-progress/agent-comms/archive/
-progress/agent-comms/evaluator-runs.jsonl
-
-# Quality gate cache (per-tree, transient)
-progress/.gate-cache
-
-# F38 KPI telemetry counters (per-project runtime, append-only observability)
-progress/.gate-stats
-progress/.firewall-stats
-
-# Self-improvement metrics history (per-project trend, regenerated)
-progress/metrics-history.json
-progress/.guarded-edits
-progress/.guarded-blobs/
-progress/.guarded-restore
-progress/.integrity-restores
-progress/.integrity-baseline
-progress/.integrity-quarantine/

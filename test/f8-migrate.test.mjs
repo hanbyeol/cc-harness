@@ -164,3 +164,13 @@ test('F8 ES-2: unknown option exits 2 and writes nothing', () => {
   assert.match(r.stderr, /usage: harness migrate-v1 \[--force\]/);
   assert.deepEqual(snapshot(dir), before);
 });
+
+test('F8 AC-2: v1-only files are gone from the v2 tree', () => {
+  const gone = ['scripts', 'docs/INVARIANTS.md', 'tests', 'init.sh', 'templates', 'evals', 'config', 'progress',
+    'docs/DECISIONS', 'settings.json', 'profiles/iac.md', 'profiles/ops.md'];
+  for (const p of gone) assert.equal(fs.existsSync(path.join(REPO, p)), false, p);
+  const hookScripts = fs.readdirSync(path.join(REPO, 'hooks')).filter((f) => f.endsWith('.sh'));
+  assert.deepEqual(hookScripts, []);
+  assert.deepEqual(fs.readdirSync(path.join(REPO, 'agents')).sort(), ['builder.md', 'evaluator.md', 'security-reviewer.md']);
+  assert.deepEqual(fs.readdirSync(path.join(REPO, 'skills')).sort(), ['build', 'fix', 'plan', 'plan-review', 'rollout', 'spec', 'status']);
+});
