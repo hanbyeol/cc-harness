@@ -1,5 +1,6 @@
 {
   "name": "cc-harness-marketplace",
+  "description": "cc-harness v2 — evaluation-driven development harness for AI coding CLIs",
   "owner": {
     "name": "Studio J"
   },
@@ -7,7 +8,7 @@
     {
       "name": "cc-harness",
       "source": "./",
-      "description": "Full-SDLC harness: 8 agents, 11 hooks, 11 skills, lifecycle profiles (sdlc/iac/ops), quality gates, security audit, self-improvement loop",
+      "description": "Evaluation-driven development harness for AI coding CLIs: frozen contracts, deterministic verification, independent evaluation, guaranteed convergence",
       "version": "2.0.1"
     }
   ]
