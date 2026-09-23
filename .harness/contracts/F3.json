@@ -1,0 +1,85 @@
+{
+  "id": "F3",
+  "title": "verify — 결정적 검증 앵커",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify.commands 를 순서대로 실행하고 하나라도 실패하면 fail, 결과 JSON 에 명령별 exit code 기록",
+      "check": "node test/t.mjs \"F3 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "실패 명령은 1회 재실행하고 결과가 다르면 flaky 로 기록하되 fail 로 취급한다",
+      "check": "node test/t.mjs \"F3 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "base 대비 diff 의 추가 줄에 기본 skip/focus 마커 8종 중 하나가 있으면 fail — 8종 각각 개별 테스트",
+      "check": "node test/t.mjs \"F3 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "diff 가 .harness/config.json·contracts/**·verdicts/** 를 건드리면 fail",
+      "check": "node test/t.mjs \"F3 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "test_count 설정 시 base 보다 적으면 fail, 미설정 시 warning 만",
+      "check": "node test/t.mjs \"F3 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "계약의 각 check 결과를 기준별로 기록하고, new:true 기준이 base 에서도 통과하면 vacuous 로 fail",
+      "check": "node test/t.mjs \"F3 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "모든 명령은 cwd=worktree, timeout 초과 시 프로세스 트리 종료 (SR-1)",
+      "check": "node test/t.mjs \"F3 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "자식 프로세스 env 는 허용목록만 포함 — 테스트가 주입한 ANTHROPIC_API_KEY·GITHUB_TOKEN·FOO_SECRET 이 자식에서 보이지 않는다 (SR-2)",
+      "check": "node test/t.mjs \"F3 SC-2\"",
+      "new": true
+    },
+    {
+      "id": "SC-3",
+      "criterion": "기본 skip 마커 목록은 config 로 추가만 가능하고, config 에 빈 목록을 줘도 기본 8종이 유지된다",
+      "check": "node test/t.mjs \"F3 SC-3\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "verify 명령이 존재하지 않는 실행파일이면 fail + 원인 메시지, 크래시 없음",
+      "check": "node test/t.mjs \"F3 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "base 브랜치가 없으면 exit 2 와 원인 메시지",
+      "check": "node test/t.mjs \"F3 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T01:48:06.153Z",
+    "hash": "9a84cd1807893238542c014a016a3d3cfb6e03b4eb03cef8ed47054511070827",
+    "via": "plan-gate (AskUserQuestion, session 2026-09-23)"
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "id": "F5",
+  "title": "eval — 독립 평가와 판정 규칙",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "evaluator 입력 프롬프트에 동결 계약·diff·verify 결과가 포함된다",
+      "check": "node test/t.mjs \"F5 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "스키마 불일치 출력은 1회 재요청, 2회 연속이면 eval_error",
+      "check": "node test/t.mjs \"F5 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "finding 은 criterion_id 가 계약에 있거나 REGRESSION 이고 repro 가 worktree 에서 비정상 종료할 때만 차단적이며, 나머지는 backlog.json 에 기록된다",
+      "check": "node test/t.mjs \"F5 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "score=min(5) · critical security<7 · threshold 규칙대로 verdict 를 계산한다(표 기반 테스트)",
+      "check": "node test/t.mjs \"F5 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "차단적 finding 0 & score<threshold 이면 1회 재요청, 여전히 근거 없으면 needs-human",
+      "check": "node test/t.mjs \"F5 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "critical 은 security-reviewer 판정이 추가되고 둘 다 pass 여야 pass",
+      "check": "node test/t.mjs \"F5 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "판정이 verdicts/F{n}-r{k}.json 에 independence 와 함께 기록된다",
+      "check": "node test/t.mjs \"F5 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "diff 입력에서 .env*·*.pem·*.key·id_*·*.p12·secret_globs 경로가 제외된다 (SR-4)",
+      "check": "node test/t.mjs \"F5 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "repro 가 deny 패턴 5종에 걸리면 실행되지 않고 비차단 처리된다 (SR-3) — 5종 각각 개별 테스트",
+      "check": "node test/t.mjs \"F5 SC-2\"",
+      "new": true
+    },
+    {
+      "id": "SC-3",
+      "criterion": "repro 실행은 F3 과 같은 cwd·timeout·env 허용목록 제약을 따른다",
+      "check": "node test/t.mjs \"F5 SC-3\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "어댑터가 adapter_unavailable 을 반환하면 판정 없이 eval_error(adapter_unavailable)",
+      "check": "node test/t.mjs \"F5 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "repro 가 timeout 이면 비차단 + backlog 기록",
+      "check": "node test/t.mjs \"F5 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T01:48:06.153Z",
+    "hash": "aa54b72dc85df709e399868c7bcbf7036675d24ef7d1f7da66d7aa570f531a89",
+    "via": "plan-gate (AskUserQuestion, session 2026-09-23)"
+  }
+}

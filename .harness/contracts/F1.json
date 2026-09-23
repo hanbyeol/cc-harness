@@ -1,0 +1,73 @@
+{
+  "id": "F1",
+  "title": "코어 골격 · 상태 파일 · init",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "`node bin/harness.mjs --help` 가 모든 하위 명령(init·lint-contract·approve·verify·eval·run·status·doctor·migrate-v1)을 나열하고 exit 0",
+      "check": "node test/t.mjs \"F1 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "`harness init` 이 빈 디렉터리에 .harness/{config.json,features.json,backlog.json,contracts/,verdicts/,runs/} 를 만들고, 이미 있으면 기존 파일을 덮어쓰지 않는다",
+      "check": "node test/t.mjs \"F1 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "config 로더가 누락 키를 기본값(max_rounds 3, threshold 7, step_timeout_sec 1800)으로 채운다",
+      "check": "node test/t.mjs \"F1 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "`harness status` 가 features 상태별 개수와 다음 실행 가능 기능을 출력한다",
+      "check": "node test/t.mjs \"F1 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "package.json 에 runtime dependencies 가 없고 engines.node >= 20 이다",
+      "check": "node test/t.mjs \"F1 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "test/t.mjs 는 이름 패턴에 매칭되는 테스트가 0개이면 exit 1 이다",
+      "check": "node test/t.mjs \"F1 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "state 쓰기는 임시 파일 작성 후 rename(원자적)으로 수행되어, 쓰기 도중 중단 시뮬레이션 후에도 기존 파일이 파싱 가능하다",
+      "check": "node test/t.mjs \"F1 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "손상된 features.json(JSON 파싱 불가)에서 모든 명령이 파일 경로를 담은 오류와 exit 2 로 정지하고 파일을 수정하지 않는다",
+      "check": "node test/t.mjs \"F1 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "알 수 없는 하위 명령은 도움말 안내와 exit 2",
+      "check": "node test/t.mjs \"F1 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T01:48:06.153Z",
+    "hash": "4553dd1f347dda8db5ba4c0d27121f6a4205c2941e9286775ed295dd77248d43",
+    "via": "plan-gate (AskUserQuestion, session 2026-09-23)"
+  }
+}

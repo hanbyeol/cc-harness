@@ -1,0 +1,72 @@
+{
+  "id": "F2",
+  "title": "lint-contract · approve (결정가능성 게이트)",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "check 가 비었거나 없는 기준이 있으면 해당 기준 id 를 담은 error",
+      "check": "node test/t.mjs \"F2 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "기준 id 중복 또는 형식(AC-n|SC-n|ES-n) 위반 시 error",
+      "check": "node test/t.mjs \"F2 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "SPEC §5 금지 패턴 8종 각각이 cases 없이 쓰이면 error, cases(각 항목 check 포함)가 있으면 통과 — 8종 각각을 개별 테스트 케이스로 검증",
+      "check": "node test/t.mjs \"F2 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "AC>12, SC>8, ES>8, 파일>20KB 각각 error (상한은 config 로 조정)",
+      "check": "node test/t.mjs \"F2 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "critical 인데 SC 가 0개면 error",
+      "check": "node test/t.mjs \"F2 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "approve 는 lint 통과 계약에만 approval{by,at,hash} 를 기록하고 feature status 를 approved 로 바꾼다",
+      "check": "node test/t.mjs \"F2 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "approval 이후 계약 내용이 바뀌면 lint 가 hash 불일치 error 를 내고 approved 상태는 실행 대상에서 제외된다",
+      "check": "node test/t.mjs \"F2 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "존재하지 않는 계약 id 로 approve 시 exit 2, 어떤 파일도 쓰지 않는다",
+      "check": "node test/t.mjs \"F2 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "계약 JSON 파싱 불가 시 파일 경로와 위치를 담은 error",
+      "check": "node test/t.mjs \"F2 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T01:48:06.153Z",
+    "hash": "3c3d9f1ed2b1794d4850315ab6df46d1cb6552d6370bcaf70aa20ba77b2b657d",
+    "via": "plan-gate (AskUserQuestion, session 2026-09-23)"
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "id": "F7",
+  "title": "콘텐츠 — AGENTS.md · skills · 역할 · 프로필 · 매니페스트",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "skills/ 의 7개(spec·plan·build·fix·status·plan-review·rollout) 각각 SKILL.md 에 name·description frontmatter",
+      "check": "node test/t.mjs \"F7 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "agents/ 의 builder·evaluator·security-reviewer 가 Claude subagent frontmatter 를 갖고, 본문이 코어의 역할 프롬프트로 로드된다",
+      "check": "node test/t.mjs \"F7 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "profiles/{sdlc,iac,ops}.json 이 verify.commands 와 rubric 을 가지며 config 로더가 병합한다",
+      "check": "node test/t.mjs \"F7 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": ".claude-plugin/plugin.json 과 gemini-extension.json(contextFileName AGENTS.md) 이 유효 JSON 이고 버전이 package.json 과 같다",
+      "check": "node test/t.mjs \"F7 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "hooks/hooks.json 은 SessionStart 1개만 있고 harness status --brief 를 호출한다",
+      "check": "node test/t.mjs \"F7 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "AGENTS.md 와 skills 본문이 참조하는 harness 하위 명령이 모두 실제 존재한다",
+      "check": "node test/t.mjs \"F7 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "AGENTS.md ≤ 150줄, skills 본문 합계 ≤ 600줄",
+      "check": "node test/t.mjs \"F7 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "lint-contract 는 rollout 을 자율 실행 단계로 지정한 계약(run_steps 에 rollout 포함)을 거부한다 (SR-7)",
+      "check": "node test/t.mjs \"F7 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "프로필 이름이 존재하지 않으면 config 로더가 사용 가능한 프로필 목록과 exit 2",
+      "check": "node test/t.mjs \"F7 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T01:48:06.153Z",
+    "hash": "5004b1924a65ec5fe216e1110b91f603b4a54e79818eac3611d0e86b1743d368",
+    "via": "plan-gate (AskUserQuestion, session 2026-09-23)"
+  }
+}

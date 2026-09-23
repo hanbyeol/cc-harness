@@ -1,0 +1,77 @@
+{
+  "features": [
+    {
+      "id": "F1",
+      "title": "코어 골격 · 상태 파일 · init",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F2",
+      "title": "lint-contract · approve (결정가능성 게이트)",
+      "security_tier": "standard",
+      "depends_on": [
+        "F1"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F3",
+      "title": "verify — 결정적 검증 앵커",
+      "security_tier": "critical",
+      "depends_on": [
+        "F1"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F4",
+      "title": "어댑터 · doctor",
+      "security_tier": "standard",
+      "depends_on": [
+        "F1"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F5",
+      "title": "eval — 독립 평가와 판정 규칙",
+      "security_tier": "critical",
+      "depends_on": [
+        "F3",
+        "F4"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F6",
+      "title": "run — 수렴이 보장된 자율 실행",
+      "security_tier": "critical",
+      "depends_on": [
+        "F2",
+        "F5"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F7",
+      "title": "콘텐츠 — AGENTS.md · skills · 역할 · 프로필 · 매니페스트",
+      "security_tier": "standard",
+      "depends_on": [
+        "F1"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F8",
+      "title": "v1 제거 · migrate-v1 · 문서",
+      "security_tier": "standard",
+      "depends_on": [
+        "F6",
+        "F7"
+      ],
+      "status": "approved"
+    }
+  ]
+}

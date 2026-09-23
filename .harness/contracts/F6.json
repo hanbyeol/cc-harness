@@ -1,0 +1,121 @@
+{
+  "id": "F6",
+  "title": "run — 수렴이 보장된 자율 실행",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "approved 기능만, depends_on 순서로 처리한다",
+      "check": "node test/t.mjs \"F6 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "기능별 worktree 와 harness/F{n} 브랜치를 integration 기준으로 만든다",
+      "check": "node test/t.mjs \"F6 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "verify 실패 시 라운드당 build 재시도 ≤3",
+      "check": "node test/t.mjs \"F6 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "발산(직전 통과 기준이 차단적 finding 으로 등장)이면 blocked",
+      "check": "node test/t.mjs \"F6 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "정체(차단적 finding 수 비감소)이면 blocked",
+      "check": "node test/t.mjs \"F6 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "max_rounds 소진이면 blocked, 재범위 제안이 backlog 에 기록된다",
+      "check": "node test/t.mjs \"F6 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "blocked 기능의 의존 기능은 skipped, 독립 기능은 계속 진행",
+      "check": "node test/t.mjs \"F6 AC-7\"",
+      "new": true
+    },
+    {
+      "id": "AC-8",
+      "criterion": "critical 기능이 blocked 이면 run 전체 정지",
+      "check": "node test/t.mjs \"F6 AC-8\"",
+      "new": true
+    },
+    {
+      "id": "AC-9",
+      "criterion": "pass 기능은 integration 에 --no-ff 병합 후 verify 재실행, 성공 시에만 passed",
+      "check": "node test/t.mjs \"F6 AC-9\"",
+      "new": true
+    },
+    {
+      "id": "AC-10",
+      "criterion": "종료 시 runs/{ts}.md 에 기능별 결과·라운드·independence·비용·blocked 사유가 기록된다",
+      "check": "node test/t.mjs \"F6 AC-10\"",
+      "new": true
+    },
+    {
+      "id": "AC-11",
+      "criterion": "--resume 은 상태 파일만으로 중단 지점부터 재개한다",
+      "check": "node test/t.mjs \"F6 AC-11\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "코어는 main 및 config.protected_branches 에 병합·push 하지 않는다 — 가짜 어댑터로 전체 run 후 main 의 커밋 해시가 불변 (SR-5)",
+      "check": "node test/t.mjs \"F6 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "builder 가 .harness/ 상태를 바꾼 diff 는 verify 무결성 검사로 fail 한다",
+      "check": "node test/t.mjs \"F6 SC-2\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "병합 충돌 시 merge --abort 후 blocked(merge_conflict), 작업 트리 깨끗",
+      "check": "node test/t.mjs \"F6 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "단계 timeout/예산 초과 시 blocked(budget), run USD 초과 시 전체 정지",
+      "check": "node test/t.mjs \"F6 ES-2\"",
+      "new": true
+    },
+    {
+      "id": "ES-3",
+      "criterion": "SIGINT 시 상태 저장 후 exit 130, --resume 안내 출력",
+      "check": "node test/t.mjs \"F6 ES-3\"",
+      "new": true
+    },
+    {
+      "id": "ES-4",
+      "criterion": "worktree 생성 실패 시 해당 기능 blocked, 나머지 계속",
+      "check": "node test/t.mjs \"F6 ES-4\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T01:48:06.153Z",
+    "hash": "67fb55bff44fcb76051daa1c50c87712bf7d929349bfbed8b8867a5e3130bebd",
+    "via": "plan-gate (AskUserQuestion, session 2026-09-23)"
+  }
+}

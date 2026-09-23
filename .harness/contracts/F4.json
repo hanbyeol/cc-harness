@@ -1,0 +1,67 @@
+{
+  "id": "F4",
+  "title": "어댑터 · doctor",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "claude·gemini·codex·generic 어댑터가 공통 인터페이스 run({role,prompt,cwd,readOnly,schema,timeoutSec,budgetUsd,model}) 를 구현한다",
+      "check": "node test/t.mjs \"F4 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "각 어댑터가 SPEC §10 표의 인자 배열을 생성한다(스냅샷 테스트)",
+      "check": "node test/t.mjs \"F4 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "headless 출력에서 JSON 을 추출한다: 순수 JSON · json 코드펜스 · claude --output-format json 래퍼 3형식",
+      "check": "node test/t.mjs \"F4 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "doctor 는 가짜 --help 출력 픽스처로 플래그 존재 여부를 판정하고, 부재 플래그가 있는 역할 배정을 불가로 보고한다",
+      "check": "node test/t.mjs \"F4 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "builder 와 evaluator 가 같은 어댑터·모델이면 independence=fresh-context, 다르면 cross-model",
+      "check": "node test/t.mjs \"F4 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "readOnly:true 호출 시 claude 는 --permission-mode plan, gemini 는 --approval-mode plan, codex 는 --sandbox read-only 를 포함하고 쓰기 모드 플래그를 포함하지 않는다 (SR-6)",
+      "check": "node test/t.mjs \"F4 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "CLI 실행파일이 없으면 adapter_unavailable 오류 코드로 반환(throw 로 코어를 죽이지 않음)",
+      "check": "node test/t.mjs \"F4 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "timeout 초과 시 자식 종료 후 timeout 오류 코드 반환",
+      "check": "node test/t.mjs \"F4 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T01:48:06.153Z",
+    "hash": "2c45c23257a91dd969c7cb60eff8896dea65707b70b29333f7a8d4632d76443f",
+    "via": "plan-gate (AskUserQuestion, session 2026-09-23)"
+  }
+}

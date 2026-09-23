@@ -1,0 +1,24 @@
+{
+  "profile": "sdlc",
+  "base_branch": "v2",
+  "integration_branch": "harness/integration",
+  "protected_branches": [
+    "main",
+    "v2"
+  ],
+  "verify": {
+    "commands": [
+      "node --test test/"
+    ]
+  },
+  "threshold": 7,
+  "max_rounds": 3,
+  "budget": {
+    "step_timeout_sec": 1800
+  },
+  "roles": {
+    "builder": "claude",
+    "evaluator": "gemini",
+    "security-reviewer": "claude"
+  }
+}

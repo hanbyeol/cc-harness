@@ -1,0 +1,54 @@
+{
+  "id": "F8",
+  "title": "v1 제거 · migrate-v1 · 문서",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "migrate-v1 이 v1 feature_list.json 픽스처를 features.json 으로 변환(id·이름·passes→status 보존)",
+      "check": "node test/t.mjs \"F8 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "v1 전용 파일(hooks/*.sh, scripts/, docs/INVARIANTS.md, tests/, init.sh, templates/, evals/, config/, progress/)이 v2 브랜치에 없다",
+      "check": "node test/t.mjs \"F8 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "README 가 설치(Claude·Gemini·Codex) · 대화형/자율 사용 · 수렴 규칙 · v1 마이그레이션 절을 가진다",
+      "check": "node test/t.mjs \"F8 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "CI 워크플로가 ubuntu·macos·windows 매트릭스에서 node --test 를 실행한다",
+      "check": "node test/t.mjs \"F8 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "v1 파일이 없는 디렉터리에서 migrate-v1 은 아무것도 쓰지 않고 안내 후 exit 2",
+      "check": "node test/t.mjs \"F8 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": ".harness/features.json 이 이미 있으면 --force 없이 덮어쓰지 않는다",
+      "check": "node test/t.mjs \"F8 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T01:48:06.153Z",
+    "hash": "e29248d7628a94795403d1915b9e46dba6d0faae270bb4704cedbd3ee8bcc65e",
+    "via": "plan-gate (AskUserQuestion, session 2026-09-23)"
+  }
+}
