@@ -169,7 +169,7 @@ test('F3 AC-3: markers already present on base, or on removed lines, do not fail
 for (const [label, rel, content] of [
   ['config.json', '.harness/config.json', { profile: 'sdlc', verify: { commands: [] } }],
   ['contracts/**', '.harness/contracts/F9.json', contract({ acceptance_criteria: [{ id: 'AC-1', criterion: 'x', check: 'node scripts/ok.mjs', new: false }] })],
-  ['verdicts/**', '.harness/verdicts/F9-r1.json', { verdict: 'pass' }],
+  ['other paths', '.harness/notes.txt', 'x\n'], // verdicts/** is exempt since F11 (SPEC §6.2)
 ]) {
   test(`F3 AC-4: a diff touching .harness/${label} fails`, async () => {
     const dir = fixture();
@@ -404,10 +404,11 @@ test('F3 AC-4 subdirectory project: .harness changes are caught when the project
   const dir = gitRepo({ 'sub/.harness/config.json': { profile: 'sdlc', base_branch: 'main' }, 'sub/.harness/features.json': { features: [] },
     'sub/.harness/contracts/F9.json': c, 'sub/check.mjs': 'process.exit(0);\n' });
   const root = path.join(dir, 'sub');
-  writeFiles(root, { '.harness/verdicts/F9-r1.json': { verdict: 'pass' } });
+  // verdicts/** is exempt since F11 (SPEC §6.2); config.json stays protected.
+  writeFiles(root, { '.harness/config.json': { profile: 'sdlc', base_branch: 'main', verify: { commands: ['x'] } } });
   const r = await verify({ root, featureId: 'F9', base: 'main', config: cfg() });
   assert.equal(r.pass, false);
-  assert.deepEqual(r.integrity.harnessPaths, ['sub/.harness/verdicts/F9-r1.json']);
+  assert.deepEqual(r.integrity.harnessPaths, ['sub/.harness/config.json']);
 });
 
 test('F3 SC-1 redirected background: a leftover child that released the pipes is still killed', async () => {
