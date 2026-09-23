@@ -29,11 +29,13 @@ v2는 v1을 처음부터 다시 쓴 버전입니다. 설계 근거는 `docs/brai
 어느 CLI를 쓰든 먼저 대상 프로젝트에 상태 디렉터리를 만듭니다.
 
 ```bash
-npx cc-harness init      # .harness/ 생성 (기존 파일은 덮어쓰지 않음)
-npx cc-harness doctor    # 설치된 CLI·버전, 역할별 플래그 지원 여부 확인
+npx github:hanbyeol/cc-harness init      # .harness/ 생성 (기존 파일은 덮어쓰지 않음)
+npx github:hanbyeol/cc-harness doctor    # 설치된 CLI·버전, 역할별 플래그 지원 여부 확인
 ```
 
-`harness`가 PATH에 없으면 이후 모든 명령을 `npx cc-harness <command>`로 실행하면 됩니다.
+`harness`가 PATH에 없으면 이후 모든 명령을 `npx github:hanbyeol/cc-harness <command>`로 실행하면 됩니다
+(`npm i -g github:hanbyeol/cc-harness`로 설치하면 `harness`가 PATH에 생깁니다).
+**주의:** npm 레지스트리의 `cc-harness` 패키지는 이 프로젝트와 무관한 다른 도구입니다 — 항상 위의 `github:hanbyeol/cc-harness` 지정자로 실행하세요.
 
 ### Claude Code 플러그인
 
@@ -56,7 +58,7 @@ gemini extensions install https://github.com/hanbyeol/cc-harness
 ### Codex CLI 및 기타 도구 (AGENTS.md + skills)
 
 Codex·Cursor·opencode 등 AGENTS.md를 읽는 도구는 이 저장소의 `AGENTS.md`를 프로젝트 루트에 두고
-`skills/`를 도구가 읽는 위치에 복사하면 됩니다. 코어 명령은 `npx cc-harness <command>`로 호출합니다.
+`skills/`를 도구가 읽는 위치에 복사하면 됩니다. 코어 명령은 `npx github:hanbyeol/cc-harness <command>`로 호출합니다.
 Codex 어댑터는 experimental입니다(`harness doctor`로 플래그 확인).
 
 ## 사용법

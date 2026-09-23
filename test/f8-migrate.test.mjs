@@ -81,7 +81,7 @@ test('F8 AC-3: README has install, usage, convergence and v1 migration sections'
   }
   const section = (h) => text.split(new RegExp(`^${h}\\s*$`, 'm'))[1].split(/^## /m)[0];
   const install = section('## 설치');
-  for (const w of ['Claude Code', 'Gemini', 'Codex', 'AGENTS.md', 'npx cc-harness init']) assert.ok(install.includes(w), `설치: ${w}`);
+  for (const w of ['Claude Code', 'Gemini', 'Codex', 'AGENTS.md', 'npx github:hanbyeol/cc-harness init']) assert.ok(install.includes(w), `설치: ${w}`);
   const usage = section('## 사용법');
   for (const w of ['spec', 'plan', 'build', 'harness approve', 'harness run']) assert.ok(usage.includes(w), `사용법: ${w}`);
   const conv = section('## 수렴 규칙');
@@ -173,4 +173,13 @@ test('F8 AC-2: v1-only files are gone from the v2 tree', () => {
   assert.deepEqual(hookScripts, []);
   assert.deepEqual(fs.readdirSync(path.join(REPO, 'agents')).sort(), ['builder.md', 'evaluator.md', 'security-reviewer.md']);
   assert.deepEqual(fs.readdirSync(path.join(REPO, 'skills')).sort(), ['build', 'fix', 'plan', 'plan-review', 'rollout', 'spec', 'status']);
+});
+
+// The npm registry name cc-harness belongs to an unrelated project: docs must never
+// tell users to run it.
+test('F8 AC-3 docs never point at the unrelated npm package cc-harness', () => {
+  for (const f of ['README.md', 'AGENTS.md', 'docs/SPEC.md', ...fs.readdirSync(path.join(REPO, 'skills')).map((d) => `skills/${d}/SKILL.md`)]) {
+    const text = fs.readFileSync(path.join(REPO, f), 'utf8');
+    assert.doesNotMatch(text, /npx\s+cc-harness\b|npm\s+(i|install)\s+(-g\s+)?cc-harness\b/, f);
+  }
 });

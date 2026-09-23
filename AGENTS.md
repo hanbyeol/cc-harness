@@ -5,7 +5,8 @@ approval, to code that is checked by deterministic verification and then by an i
 evaluator. The rules below exist so that work always converges — either a feature passes,
 or it stops and a human decides. They apply to any AI coding CLI reading this file.
 
-`harness` below is the cc-harness CLI. If it is not on PATH, use `npx cc-harness <command>`.
+`harness` below is the cc-harness CLI. If it is not on PATH, use `npx github:hanbyeol/cc-harness <command>`
+(the npm package named `cc-harness` is a different project).
 The commands are: `harness init`, `harness lint-contract`, `harness approve`,
 `harness verify`, `harness eval`, `harness run`, `harness status`, `harness doctor`,
 `harness migrate-v1`. Run `harness --help` for options.
