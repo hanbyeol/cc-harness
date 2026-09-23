@@ -60,7 +60,9 @@ lint 규칙(전부 결정적, 위반 = error):
 config의 `verify.commands`(예: test·lint·build)를 순서대로 실행. 하나라도 비정상 종료 = fail.
 실패 시 **1회 재실행**, 결과가 다르면 `flaky`로 기록하고 fail로 취급.
 
-### 6.2 무결성 검사 (base 브랜치 대비 diff)
+### 6.2 무결성 검사 (base 대비 diff)
+diff = `merge-base(base, HEAD)` ↔ **작업 트리**(커밋 안 된 변경 + untracked 파일 포함). base 측 실행(test_count·vacuous 검사)은 merge-base 를 임시 detached worktree 로 꺼내 수행하고 끝나면 제거한다.
+worktree 안의 `.harness/` 는 코어가 쓰지 않으므로 **그 아래 어떤 경로든** 변경되면 fail (아래 2는 그 부분집합).
 1. 추가된 줄에 skip/focus 마커 없음: `.skip(`, `.only(`, `xit(`, `xdescribe(`, `@pytest.mark.skip`, `@Disabled`, `t.Skip(`, `@Ignore` (목록은 config로 추가 가능, 제거 불가 — 기본 목록은 코드에 고정).
 2. `.harness/config.json`, `.harness/contracts/**`, `.harness/verdicts/**` 변경 없음.
 3. `verify.test_count` 명령이 설정된 경우 base 대비 테스트 수 비감소. 미설정 시 경고만.
@@ -114,10 +116,14 @@ config의 `verify.commands`(예: test·lint·build)를 순서대로 실행. 하�
 ## 10. 어댑터 (`harness doctor`)
 | 어댑터 | 쓰기(builder) | 읽기전용(evaluator) | 구조화 출력 | 예산 |
 |--------|--------------|--------------------|------------|------|
-| claude | `claude -p --permission-mode acceptEdits` + sandbox 설정 | `--permission-mode plan` | `--output-format json --json-schema` | `--max-budget-usd` |
+| claude | `claude -p --permission-mode auto --disallowedTools <deny>` | `--permission-mode plan` | `--output-format json --json-schema` | `--max-budget-usd` |
 | gemini | `gemini -p --approval-mode yolo -s` | `--approval-mode plan` | `-o json` | timeout만 |
 | codex (experimental) | `codex exec --sandbox workspace-write` | `--sandbox read-only` | 프롬프트 + JSON 추출 | timeout만 |
 | generic | config의 명령 템플릿 | 〃 | JSON 추출 | timeout만 |
+
+- 프롬프트는 **stdin**으로 전달한다(Windows 명령줄 길이 한계 회피).
+- `<deny>`(builder 쓰기 모드의 네이티브 deny 목록, SPEC D1의 "~5줄"): `Bash(git push:*)`, `Bash(git reset --hard:*)`, `Bash(rm -rf /:*)`, `Bash(rm -rf ~:*)`, `Bash(sudo:*)`. 지원하지 않는 CLI는 해당 CLI의 sandbox 플래그로 대체.
+- 어댑터 호출은 CLI 인증을 위해 **부모 env를 상속**한다(SR-2의 허용목록은 verify·check·repro 명령에만 적용).
 
 `doctor`: 설치된 CLI·버전 탐지, 각 어댑터가 쓰는 플래그가 `--help` 출력에 존재하는지 확인, 역할 배정 권장(builder ≠ evaluator 모델).
 플래그 부재 시 해당 역할 배정 불가로 보고(추측 실행 금지).
