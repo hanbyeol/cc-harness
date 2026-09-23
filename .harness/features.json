@@ -136,6 +136,16 @@
         "F8"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F16",
+      "title": "verify — vacuity 검사에 기능의 테스트 파일을 base 에 얹어 실행",
+      "security_tier": "critical",
+      "depends_on": [
+        "F3",
+        "F13"
+      ],
+      "status": "approved"
     }
   ]
 }

@@ -1,0 +1,94 @@
+{
+  "id": "F16",
+  "title": "verify — vacuity 검사에 기능의 테스트 파일을 base 에 얹어 실행",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify.test_paths 가 설정되고, new:true 기준의 테스트가 기능에서 새로 추가한 테스트 파일에 있으며 그 동작이 base 에 이미 있으면, verify 는 그 기준을 vacuous 로 fail 시키고 메시지에 'already passes on base' 가 나온다",
+      "check": "node test/t.mjs \"F16 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "AC-1 과 같은 구성이지만 동작을 기능에서 소스 변경으로 추가했으면 그 기준은 pass 이고 vacuous 가 false 다",
+      "check": "node test/t.mjs \"F16 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "기존 테스트 파일을 수정해 추가한 테스트와 커밋하지 않은 untracked 테스트 파일도 base 쪽 실행에 얹힌다 — 두 경우 각각 동작이 base 에 이미 있으면 vacuous 로 fail",
+      "check": "node test/t.mjs \"F16 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "verify.test_paths 가 비어 있으면 base 쪽 실행은 지금처럼 얹기 없이 하고, 계약에 new:true 기준이 있을 때 warnings 에 verify.test_paths 가 언급된다",
+      "check": "node test/t.mjs \"F16 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "sdlc 프로필의 verify.test_paths 기본값에 test/**, tests/**, __tests__/**, *.test.*, *.spec.*, *_test.*, test_*.py 가 있고, 경로 매칭은 secret_globs 와 같은 규칙('/' 없는 패턴은 아무 세그먼트, '/' 있는 패턴은 전체 경로)을 따른다",
+      "check": "node test/t.mjs \"F16 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "config.json 의 verify.test_paths 가 배열이 아니거나 빈 문자열·문자열이 아닌 원소를 가지면 exit 2(config_invalid), 메시지에 verify.test_paths 가 나온다",
+      "check": "node test/t.mjs \"F16 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "SPEC §6.3 이 테스트 파일 얹기와 verify.test_paths 를 설명하고, SPEC §2 의 config 형식 규칙에 verify.test_paths 가 들어 있다(문서 check)",
+      "check": "node test/t.mjs \"F16 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "base 에서 테스트 경로가 저장소 밖 파일을 가리키는 심볼릭 링크이고 기능이 그 경로를 일반 파일로 바꿨을 때, verify 후 링크 대상 파일의 내용은 바뀌지 않는다(링크를 따라 쓰지 않는다)",
+      "check": "node test/t.mjs \"F16 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "작업 트리의 테스트 경로가 심볼릭 링크이면 base 쪽에 얹지 않는다 — 저장소 밖 파일을 가리키는 링크로 테스트해 base 임시 worktree 에 그 파일 내용이 복사되지 않음을 확인",
+      "check": "node test/t.mjs \"F16 SC-2\"",
+      "new": true
+    },
+    {
+      "id": "SC-3",
+      "criterion": "얹기를 수행한 verify 전후로 작업 트리의 git status --porcelain -uall 출력이 같고, base 임시 worktree 는 제거되어 git worktree list 에 남지 않는다",
+      "check": "node test/t.mjs \"F16 SC-3\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "기능에서 삭제한 테스트 파일은 base 쪽에서 그대로 두고, 삭제만 있는 경우 verify 가 내부 오류 없이 끝난다",
+      "check": "node test/t.mjs \"F16 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "base 에서 디렉터리였던 테스트 경로가 기능에서 파일이 된 경우 base 쪽에서 디렉터리를 지우고 파일을 얹으며, verify 가 exit 0 또는 1 로 끝나고 출력에 스택 트레이스(\"    at \")가 없다",
+      "check": "node test/t.mjs \"F16 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "테스트가 아닌 새 헬퍼·픽스처가 test_paths 밖에 있을 때의 vacuity 정밀도 (base 에서 import 실패 → non-vacuous 로 보는 현재 동작 유지)",
+    "iac·ops 프로필의 test_paths 기본값",
+    "base 쪽 실행의 의존성 설치(node_modules 등) — 기존 backlog F3-r1/F3-r2"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-23T16:39:08.672Z",
+    "hash": "a64685175655438d5cfd0d171ad01c97193c23fe0fedcedef5d88d0fdab999ae"
+  }
+}
