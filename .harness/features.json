@@ -32,7 +32,7 @@
       "depends_on": [
         "F1"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F5",

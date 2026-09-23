@@ -91,6 +91,14 @@
     {
       "source": "F3-impl",
       "summary": "verify with cwd=root reports uncommitted core writes to .harness/features.json as a .harness change (false positive if the core ever leaves them uncommitted)."
+    },
+    {
+      "source": "F4-r2",
+      "summary": "If timeoutSec < 2s exit grace and a background child holds the pipes after a clean exit, the result is reported as timeout."
+    },
+    {
+      "source": "F4-r2",
+      "summary": "killTree signals the process group after the leader exited; pgid reuse is theoretically possible (only while a member still holds the pipes)."
     }
   ]
 }

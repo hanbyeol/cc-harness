@@ -1,0 +1,23 @@
+{
+  "feature": "F4",
+  "round": 2,
+  "commit": "afd24b7",
+  "independence": "fresh-context",
+  "evaluator": "claude (general-purpose subagent, bootstrap)",
+  "scores": {
+    "functionality": 8,
+    "quality": 8,
+    "security": 8,
+    "errors": 8,
+    "tests": 7
+  },
+  "score": 7,
+  "verdict": "pass",
+  "blocking_findings": [],
+  "convergence": {
+    "previous_blocking": 1,
+    "current_blocking": 0,
+    "divergence": false
+  },
+  "note": "Non-blocking: the round-1 regression test did not exercise EPIPE; replaced by an exit-unread fake mode and mutation-checked (test fails with the fix removed)."
+}
