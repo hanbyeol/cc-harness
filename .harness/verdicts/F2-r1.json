@@ -1,0 +1,29 @@
+{
+  "feature": "F2",
+  "round": 1,
+  "commit": "47670f9",
+  "independence": "fresh-context",
+  "evaluator": "claude (general-purpose subagent, bootstrap)",
+  "scores": {
+    "functionality": 6,
+    "quality": 8,
+    "security": 8,
+    "errors": 6,
+    "tests": 7
+  },
+  "score": 6,
+  "verdict": "fail",
+  "blocking_findings": [
+    {
+      "criterion_id": "AC-7",
+      "summary": "status/status --brief listed an approved-then-edited contract as runnable/next (used runnableFeatures, not executableFeatures)",
+      "repro_confirmed": "exit 1 before, 0 after"
+    },
+    {
+      "criterion_id": "ES-2",
+      "summary": "positionless V8 parse errors (bare value, BOM, bad literal) reported no line/column",
+      "repro_confirmed": "exit 1 before, 0 after"
+    }
+  ],
+  "out_of_scope_count": 6
+}

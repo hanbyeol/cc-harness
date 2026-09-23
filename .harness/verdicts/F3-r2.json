@@ -1,0 +1,22 @@
+{
+  "feature": "F3",
+  "round": 2,
+  "commit": "37aa3f4",
+  "independence": "fresh-context",
+  "evaluator": {
+    "scores": {
+      "functionality": 9,
+      "quality": 8,
+      "security": 8,
+      "errors": 9,
+      "tests": 8
+    },
+    "blocking": 0
+  },
+  "security_reviewer": "pending",
+  "verdict": "pending-security-review",
+  "convergence": {
+    "previous_blocking": 2,
+    "current_blocking_evaluator": 0
+  }
+}

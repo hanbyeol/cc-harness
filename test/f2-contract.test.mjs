@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { harness, project, readJson, writeJson } from './helpers.mjs';
 import {
-  FORBIDDEN_PATTERNS, executableFeatures, hashContract, isApprovalValid, lintContract, loadContract,
+  FORBIDDEN_PATTERNS, executableFeatures, hashContract, isApprovalValid, lintContract, loadContract, parseContract,
 } from '../lib/contract.mjs';
 
 const crit = (id, extra = {}) => ({ id, criterion: `criterion ${id}`, check: `node test/t.mjs "X ${id}"`, ...extra });
@@ -285,4 +285,27 @@ test('F2 ES-2: unparsable contract JSON reports the file path and position', () 
   assert.equal(a.code, 2);
   assert.ok(a.stderr.includes(file));
   assert.deepEqual(snapshot(dir), before);
+});
+
+test('F2 AC-7 status: an approved contract edited afterwards is not reported as runnable', async () => {
+  const { harness, project } = await import('./helpers.mjs');
+  const dir = project([{ id: 'F3', title: 't', security_tier: 'standard', depends_on: [], status: 'todo' }]);
+  const file = path.join(dir, '.harness', 'contracts', 'F3.json');
+  fs.writeFileSync(file, JSON.stringify({ id: 'F3', title: 't', security_tier: 'standard', version: 1,
+    acceptance_criteria: [{ id: 'AC-1', criterion: 'x', check: 'true' }], security_criteria: [], error_scenarios: [] }));
+  assert.equal(harness(['approve', 'F3', '--by', 'a'], { cwd: dir }).code, 0);
+  assert.match(harness(['status', '--brief'], { cwd: dir }).stdout, /next: F3/);
+  const c = JSON.parse(fs.readFileSync(file, 'utf8'));
+  c.acceptance_criteria[0].criterion = 'weakened';
+  fs.writeFileSync(file, JSON.stringify(c));
+  const full = harness(['status'], { cwd: dir }).stdout;
+  const brief = harness(['status', '--brief'], { cwd: dir }).stdout;
+  assert.doesNotMatch(full + brief, /runnable: F3|next: F3/);
+  assert.match(brief, /re-approve: F3/);
+});
+
+test('F2 ES-2 positionless errors: bare values, BOM and bad literals still get line and column', () => {
+  for (const text of ['{\n  "title": x\n}\n', '﻿{"a": 1}', '{"a": tru}', '{"a": 1,}']) {
+    assert.throws(() => parseContract(text, 'F3.json'), /F3\.json: invalid JSON at line \d+ column \d+/, JSON.stringify(text));
+  }
 });

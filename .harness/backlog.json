@@ -127,6 +127,38 @@
     {
       "source": "F3-r1",
       "summary": "Self-verify on the integration branch (base == HEAD) marks every criterion vacuous; needs --base <pre-feature ref>."
+    },
+    {
+      "source": "F2-r1",
+      "summary": "'어떤 .*도' / '모든 .*에 대해' do not match across newlines (consider the s flag)."
+    },
+    {
+      "source": "F2-r1",
+      "summary": "Non-string criterion skips rule 3 with only a warning."
+    },
+    {
+      "source": "F2-r1",
+      "summary": "run_steps as a string or with different case/whitespace ('Rollout', ' rollout') is not rejected; non-array run_steps is not an error."
+    },
+    {
+      "source": "F2-r1",
+      "summary": "approve pretty-prints the contract; a compact contract just under 20KB can exceed the byte limit after approval."
+    },
+    {
+      "source": "F2-r1",
+      "summary": "verify does not check the approval hash (wire in F6 via executableFeatures)."
+    },
+    {
+      "source": "F2-r1",
+      "summary": "approve writes contracts one by one then features.json; an I/O fault mid-way can leave partial state."
+    },
+    {
+      "source": "F3-r2",
+      "summary": "Base-side vacuity runs without installed dependencies (node_modules), so a dependency-needing vacuous check can be scored non-vacuous."
+    },
+    {
+      "source": "F3-r2",
+      "summary": "Untracked symlinks and nested git repos are skipped by the untracked-content scan."
     }
   ]
 }

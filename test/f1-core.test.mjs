@@ -42,6 +42,12 @@ test('F1 AC-4: status shows counts per status and the next runnable feature', ()
     { id: 'F3', title: 'c', status: 'approved', depends_on: ['F2'] },
     { id: 'F4', title: 'd', status: 'todo', depends_on: [] },
   ]);
+  // Only features with a hash-valid approved contract are runnable (F2 AC-7).
+  for (const id of ['F2', 'F3']) {
+    writeJson(path.join(dir, '.harness', 'contracts', `${id}.json`), { id, title: id, security_tier: 'standard', version: 1,
+      acceptance_criteria: [{ id: 'AC-1', criterion: 'x', check: 'true' }], security_criteria: [], error_scenarios: [] });
+  }
+  assert.equal(harness(['approve', 'F2', 'F3', '--by', 't'], { cwd: dir }).code, 0);
   const r = harness(['status'], { cwd: dir });
   assert.equal(r.code, 0);
   assert.match(r.stdout, /1 passed/);
