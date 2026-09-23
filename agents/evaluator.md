@@ -40,6 +40,12 @@ Anything else you notice — style, ideas, risks not covered by a criterion — 
 `out_of_scope`. Out-of-scope observations never lower a score and never block; they are
 recorded in the backlog for a human to consider as future work. Do not invent criteria.
 
+The builder is assumed cooperative: judge against accidents and ordinary mistakes, not a
+deliberate adversary. A defect that only exists if the builder intentionally manipulates git
+internals or configuration (index flags such as skip-worktree or assume-unchanged, clean or
+smudge filters, replace refs, hooks, `.git/config`, `.git/info/*`) or shell/runtime semantics
+is out of scope, even with a working repro. The core verifies the merged commit afterwards.
+
 ## Output
 Reply with a single JSON object and nothing else:
 

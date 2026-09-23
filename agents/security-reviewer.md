@@ -36,6 +36,11 @@ A finding blocks the feature only when:
 Hardening ideas and risks outside the contract go in `out_of_scope`. They never lower a
 score and never block; a human decides whether they become new work.
 
+The threat model is a cooperative builder making accidents, not a deliberate adversary. A
+defect that only exists if the builder intentionally manipulates git internals or
+configuration (index flags, clean/smudge filters, replace refs, hooks, `.git/config`,
+`.git/info/*`) or shell/runtime semantics is out of scope, even with a working repro.
+
 ## Output
 Reply with a single JSON object and nothing else:
 

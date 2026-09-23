@@ -99,6 +99,34 @@
     {
       "source": "F4-r2",
       "summary": "killTree signals the process group after the leader exited; pgid reuse is theoretically possible (only while a member still holds the pipes)."
+    },
+    {
+      "source": "F3-r1",
+      "summary": "[D1-adversarial] skip-worktree/assume-unchanged index flags hide working-tree changes from verify's git diff. Structural option: verify the committed tree in a clean checkout."
+    },
+    {
+      "source": "F3-r1",
+      "summary": "[D1-adversarial] clean filters configured via .git/info/attributes alter what git diff sees."
+    },
+    {
+      "source": "F3-r1",
+      "summary": "hooksPath points at a fixed <tmpdir>/harness-no-hooks-dir; on shared /tmp another local user could plant a hook that runs during git worktree add. Use a fresh mkdtemp dir or /dev/null."
+    },
+    {
+      "source": "F3-r1",
+      "summary": "Ignored untracked files (.gitignore, .git/info/exclude) are not scanned for markers or .harness paths."
+    },
+    {
+      "source": "F3-r1",
+      "summary": "Base-side vacuity runs in a clean worktree without installed dependencies, so a dependency-needing check fails on base for unrelated reasons (vacuous criterion scored non-vacuous)."
+    },
+    {
+      "source": "F3-r1",
+      "summary": "Marker list misses t.Skipf/t.SkipNow, fit(/fdescribe(, *.skip.each, pytestmark = pytest.mark.skipif (contract fixes 8 markers)."
+    },
+    {
+      "source": "F3-r1",
+      "summary": "Self-verify on the integration branch (base == HEAD) marks every criterion vacuous; needs --base <pre-feature ref>."
     }
   ]
 }

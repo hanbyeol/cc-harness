@@ -1,0 +1,54 @@
+{
+  "feature": "F3",
+  "round": 1,
+  "commit": "afd24b7",
+  "independence": "fresh-context",
+  "evaluator": {
+    "scores": {
+      "functionality": 6,
+      "quality": 8,
+      "security": 5,
+      "errors": 9,
+      "tests": 8
+    }
+  },
+  "security_reviewer": {
+    "scores": {
+      "security": 6
+    }
+  },
+  "score": 5,
+  "verdict": "fail",
+  "blocking_findings": [
+    {
+      "criterion_id": "SC-1",
+      "source": "security-reviewer",
+      "summary": "Redirected background child survives: 'close' cancelled the grace kill.",
+      "repro_confirmed": "exit 1 before, 0 after 73f2e7c"
+    },
+    {
+      "criterion_id": "AC-4",
+      "source": "evaluator",
+      "summary": ".harness changes in a monorepo subdirectory project were not detected.",
+      "repro_confirmed": "exit 1 before, 0 after 73f2e7c"
+    }
+  ],
+  "reclassified_out_of_scope": [
+    {
+      "criterion_id": "AC-3",
+      "summary": "skip-worktree/assume-unchanged hides a marker from git diff",
+      "reason": "D1 threat boundary (SPEC 7.3, user decision 2026-09-23): requires deliberate git index manipulation"
+    },
+    {
+      "criterion_id": "AC-3",
+      "summary": "clean filter via .git/info/attributes strips markers from the diff",
+      "reason": "D1: deliberate filter configuration"
+    },
+    {
+      "criterion_id": "F6/SC-2",
+      "summary": "assume-unchanged hides a .harness edit",
+      "reason": "D1: deliberate git index manipulation"
+    }
+  ],
+  "note": "The round-1 evaluator prompt omitted D1 (the security reviewer had it); that prompt gap is fixed in agents/evaluator.md."
+}
