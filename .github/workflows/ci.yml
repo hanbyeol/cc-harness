@@ -2,87 +2,42 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, v2]
   pull_request:
-    branches: [main]
+    branches: [main, v2]
+
+permissions:
+  contents: read
 
 jobs:
-  shellcheck:
-    name: ShellCheck
-    runs-on: ubuntu-latest
+  test:
+    name: test (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [20, 22]
+    defaults:
+      run:
+        # bash on every OS (Git Bash on Windows) so the test file glob expands the same way.
+        shell: bash
     steps:
+      # Keep LF endings on Windows so content tests see the same bytes as on Linux/macOS.
+      - name: Disable CRLF conversion
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
-      - name: Run shellcheck on all hook scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Configure git identity for fixture repositories
         run: |
-          shellcheck hooks/*.sh
-          shellcheck init.sh
-          shellcheck scripts/probes/*.sh
-          shellcheck scripts/cost-report.sh
-          shellcheck scripts/build-golden-set.sh
-          shellcheck scripts/verify-caller-copy-guard.sh
-
-  json-validate:
-    name: JSON Validation
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Validate all JSON files
-        run: |
-          failed=0
-          for f in package.json .claude-plugin/plugin.json .claude-plugin/marketplace.json \
-                   settings.json hooks/hooks.json \
-                   templates/progress/phase-gate.json \
-                   templates/progress/feature_list.json \
-                   templates/evals/acceptance-criteria.json; do
-            if [ -f "$f" ]; then
-              if ! jq '.' "$f" > /dev/null 2>&1; then
-                echo "FAIL: $f is not valid JSON"
-                failed=1
-              fi
-            fi
-          done
-          exit $failed
-
-  version-check:
-    name: Version Consistency
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check version consistency across manifests
-        run: |
-          PKG=$(jq -r '.version' package.json)
-          PLUGIN=$(jq -r '.version' .claude-plugin/plugin.json)
-          MKT=$(jq -r '.plugins[0].version' .claude-plugin/marketplace.json)
-          echo "package.json:    $PKG"
-          echo "plugin.json:     $PLUGIN"
-          echo "marketplace.json: $MKT"
-          if [ "$PKG" != "$PLUGIN" ] || [ "$PKG" != "$MKT" ]; then
-            echo "ERROR: Version mismatch detected"
-            exit 1
-          fi
-
-  hook-tests:
-    name: Hook Tests (bats)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install bats-core
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q bats
-      - name: Ensure jq is installed (invariant-guard machine-check dependency)
-        # jq 부재 시 invariant-guard는 fail-closed(보호 파일 편집 차단)한다.
-        # CI에서 jq 존재를 명시적으로 보증해 기계 검증(INV-1~10)이 항상 활성 상태가 되게 한다.
-        run: |
-          if ! command -v jq >/dev/null 2>&1; then
-            sudo apt-get update -q
-            sudo apt-get install -y -q jq
-          fi
-          jq --version
-      - name: Run hook tests
-        run: bats tests/
-      # F62 사본 가드의 mutation 배터리. bats만으로는 가드가 약해지는 것을 못 본다 —
-      # 3차 수정이 직전 버전이 잡던 드리프트를 놓치는 회귀를 만들었을 때 bats는 전부
-      # 초록이었다. 배터리를 저장소에 두는 것만으로는 상설이 아니며 여기서 불러야 한다.
-      - name: Run caller-copy guard mutation battery
-        run: bash scripts/verify-caller-copy-guard.sh
+          git config --global user.name "cc-harness CI"
+          git config --global user.email "ci@example.invalid"
+          git config --global init.defaultBranch main
+      # Node 20 does not expand globs passed to --test (added in Node 21), so the shell
+      # expands the list; all test files live directly under test/.
+      - name: Unit and integration tests
+        run: node --test test/*.test.mjs
+      - name: Lint the repository's own contracts
+        run: node bin/harness.mjs lint-contract

@@ -1,0 +1,17 @@
+{
+  "sprint": 1,
+  "title": "SOTA best-practice 기반 하네스 강화 (v1.5.0)",
+  "features": [
+    "F1",
+    "F2",
+    "F3",
+    "F4",
+    "F5",
+    "F6"
+  ],
+  "security_tier": "critical",
+  "acceptance_criteria": [
+    "F1: 플러그인 설치 환경에서 agents/skills가 단일 네임스페이스로만 노출된다 (cc-harness:* 와 로컬 복사본 이중 등록 없음)",
+    "F1: setup-claudemd.sh 재실행 시 CLAUDE.md에 cc-harness 섹션이 정확히 1벌만 존재한다 (기존 내용과 동일하면 삽입 스킵)"
+  ]
+}
