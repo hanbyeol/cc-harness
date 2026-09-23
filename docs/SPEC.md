@@ -166,5 +166,5 @@ hooks/hooks.json             Claude SessionStart 1개: `harness status --brief` 
 
 ## 13. v1 마이그레이션 (`harness migrate-v1`)
 `progress/feature_list.json` → `.harness/features.json` (id·이름·passes→status 보존). v1 계약은 변환하지 않고 참조 경로만 기록.
-v1 `security_tier: low` 는 `standard` 로 매핑(원래 값은 `v1.security_tier`). v1 의존성은 `depends_on` 으로 옮기지 않고 `v1.dependencies` 에 보존(v1 기능은 v2 에서 실행 대상이 아니므로). `.harness/features.json` 이 이미 있으면(빈 목록 포함) `--force` 없이 거부.
+v1 `security_tier: low` 는 `standard` 로 매핑(원래 값은 `v1.security_tier`). v1 항목의 이름은 `name`, 없으면 `title`, 둘 다 없으면 id. id 가 `F<n>` 이 아니면 목록 순서대로 쓰이지 않은 가장 작은 `F<n>` 을 받고 원래 id 는 `v1.id` 에 남는다(`F<n>` id 는 그대로). v1 의존성은 새 id 로 바꿔 `depends_on` 에 넣고(목록에 없는 id 는 빼고 경고) 원본은 `v1.dependencies` 에 보존. v1 status 가 `removed`·`cancelled`·`archived` 로 시작하면(대소문자 무시) `skipped`, 그 외는 passes 로 `passed`/`todo`. 요약에 passed·todo·skipped·재번호 수를 출력. `.harness/features.json` 이 이미 있으면(빈 목록 포함) `--force` 없이 거부.
 v1 파일은 v2 브랜치에서 제거 — `v1.39.18-final` 태그로 보존: hooks/*.sh, scripts/, docs/INVARIANTS.md, docs/DECISIONS/, tests/, init.sh, templates/, evals/, config/, progress/, 루트 settings.json, profiles/*.md, v1 전용 agents(architect·deploy-operator·implementer·qa-reviewer·security-auditor·spec-writer·test-writer)·skills(brainstorm·change-request·debug·finish-branch·hotfix·implement·improve·progress·sync-docs). 남겨 두면 플러그인이 v2 skills 와 함께 로드해 충돌한다.
