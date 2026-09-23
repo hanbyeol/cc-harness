@@ -422,6 +422,70 @@
       "summary": "The overlay is unbounded: a very large or very numerous set of changed test files is read fully into memory and copied. This is not a trust-boundary issue under threat model D1.",
       "reason": "out_of_scope",
       "source": "security-reviewer"
+    },
+    {
+      "feature": "F17",
+      "round": 1,
+      "at": "2026-09-23T23:08:37.292Z",
+      "summary": "When features.json cannot be written while recording a blocked(eval_error) decision, the io error message tells the user to rerun `harness eval F{n}` to record the status. eval_error verdicts are stored as F{n}-r{k}.eval_error.json and are not picked up by the ES-2 retry path. A rerun therefore evaluates again instead of recording the earlier decision, and that guidance is misleading for this case.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F17",
+      "round": 1,
+      "at": "2026-09-23T23:08:37.292Z",
+      "summary": "Round numbering continues across contract versions (nextRound is one past the highest existing verdict file), and the previous verdict used for the convergence check may belong to an older contract. After a re-approved contract version, the first interactive eval can already be at k >= max_rounds and go straight to blocked(rounds). SPEC does not say whether rounds reset on a new contract version; this may be worth clarifying.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F17",
+      "round": 1,
+      "at": "2026-09-23T23:08:37.292Z",
+      "summary": "decideStatus and record share the eval_error/status-null case only implicitly: `record` returns early for a null status, and `eval_round` is deliberately not set for eval_error. A short comment or a dedicated test for the eval_error blocked → features write failure path would make the ES-2 boundary clearer.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F17",
+      "round": 1,
+      "at": "2026-09-23T23:08:37.292Z",
+      "summary": "The `deps` parameter of evalCommand is split into `{runAdapter, verifyResult}` plus `rest` and then re-wrapped as `deps` for evalAndRecord. This is slightly convoluted; passing a single deps object through would read simpler.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F17",
+      "round": 1,
+      "at": "2026-09-23T23:08:37.292Z",
+      "summary": "The ES-2 retry path in evalAndRecord runs before the status gate (feature_closed / EVALUABLE check). If an interactive verdict's status was never recorded and a human then set the feature to `skipped` or `todo` (without a new contract version), the next `harness eval` still records that old verdict and overwrites the human-chosen status (e.g. sets `passed`). No adapter is called. Consider allowing the retry only when the status is approved/in_progress, or only when it is still the status from before that round.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "feature": "F17",
+      "round": 1,
+      "at": "2026-09-23T23:08:37.292Z",
+      "summary": "`--round k` with a gap (e.g. r1 and r3 exist, `--round 2`) is accepted: SC-3 only covers existing rounds. Afterwards the latest eval verdict (r3) differs from eval_round (2), so the next `harness eval` re-records r3's status through the retry path. A cooperative builder is unlikely to hit this, but `--round` could be limited to nextRound() or lower.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "feature": "F17",
+      "round": 1,
+      "at": "2026-09-23T23:08:37.292Z",
+      "summary": "decideStatus uses the previous verdict for convergence only when that verdict was `fail`. Run's convergence() compares against the previous failing round's blocking set. After a needs-human or pass verdict with no blocking ids, the comparison resets to the round-1 rule. This cannot happen in practice because those verdicts close the feature, but the two paths are not literally identical.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "feature": "F17",
+      "round": 1,
+      "at": "2026-09-23T23:08:37.292Z",
+      "summary": "A features.json io failure on a second consecutive eval_error has no retry key: eval_round is not set for eval_error, and no F{n}-r{k}.json exists. A rerun calls the evaluator again (3rd consecutive) instead of re-recording. The outcome (blocked) is the same, but it costs one more adapter call.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
     }
   ]
 }
