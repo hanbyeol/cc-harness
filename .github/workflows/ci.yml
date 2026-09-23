@@ -20,7 +20,7 @@ jobs:
         node: [22, 24]
     defaults:
       run:
-        # bash on every OS (Git Bash on Windows) so the test file glob expands the same way.
+        # bash on every OS (Git Bash on Windows) for identical step syntax.
         shell: bash
     steps:
       # Keep LF endings on Windows so content tests see the same bytes as on Linux/macOS.

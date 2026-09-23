@@ -110,8 +110,8 @@ test('F8 AC-4: CI runs node --test on an ubuntu/macos/windows matrix', () => {
   const names = os[1].split(',').map((s) => s.trim());
   for (const n of ['ubuntu-latest', 'macos-latest', 'windows-latest']) assert.ok(names.includes(n), n);
   assert.match(ci, /runs-on:\s*\$\{\{\s*matrix\.os\s*\}\}/);
-  assert.match(ci, /^\s*node:\s*\[\s*20\s*,\s*22\s*\]/m);
-  assert.match(ci, /^\s*(-\s*)?run:\s*node --test\s+\S*test\/\S*\.test\.mjs/m);
+  assert.match(ci, /^\s*node:\s*\[\s*22\s*,\s*24\s*\]/m);
+  assert.match(ci, /^\s*(-\s*)?run:\s*node --test\s+"?test\/\S*\.test\.mjs/m);
   assert.match(ci, /^\s*(-\s*)?run:\s*node bin\/harness\.mjs lint-contract\s*$/m);
   assert.match(ci, /branches:\s*\[[^\]]*\bmain\b[^\]]*\bv2\b[^\]]*\]/);
   // v1 shell tooling is gone from CI.
