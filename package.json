@@ -1,29 +1,35 @@
 {
   "name": "cc-harness",
-  "version": "1.39.18",
-  "description": "One command to bootstrap a full-SDLC harness for Claude Code",
+  "version": "2.0.0-alpha.0",
+  "description": "Evaluation-driven development harness for AI coding CLIs (Claude Code, Codex, Gemini) — deterministic verification, independent evaluation, guaranteed convergence",
+  "type": "module",
   "bin": {
-    "cc-harness": "./init.sh"
+    "harness": "bin/harness.mjs",
+    "cc-harness": "bin/harness.mjs"
   },
   "files": [
-    "init.sh",
-    ".claude-plugin/",
+    "bin/",
+    "lib/",
     "agents/",
     "skills/",
-    "hooks/",
+    "profiles/",
     "rules/",
-    "settings.json",
-    "templates/"
+    "hooks/hooks.json",
+    "AGENTS.md",
+    ".claude-plugin/",
+    "gemini-extension.json"
   ],
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\""
+  },
   "keywords": [
     "claude-code",
+    "codex",
+    "gemini-cli",
+    "agents",
     "harness",
-    "sdlc",
-    "ai-agent",
-    "claude",
-    "anthropic",
-    "bootstrapper",
-    "developer-tools"
+    "evaluation",
+    "sdlc"
   ],
   "repository": {
     "type": "git",
@@ -36,6 +42,6 @@
   "license": "MIT",
   "author": "Studio J",
   "engines": {
-    "node": ">=16"
+    "node": ">=20"
   }
 }
