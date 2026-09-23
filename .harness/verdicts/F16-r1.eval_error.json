@@ -1,0 +1,15 @@
+{
+  "feature": "F16",
+  "round": 1,
+  "verdict": "eval_error",
+  "error": "exit_nonzero",
+  "detail": "{\n  \"session_id\": \"e8c39da7-8d1d-4b94-9ee9-78df6d3ae56b\",\n  \"error\": {\n    \"type\": \"Error\",\n    \"message\": \"Please set an Auth method in your /Users/hanbyeol/.gemini/settings.json or specify one of the following environment variables before running: GEMINI_API_KEY, GOOGLE_GENAI_USE_VERTEXAI, GOOGLE_GENAI_USE_GCA\",\n    \"code\": 41\n  }\n}",
+  "consecutive": 1,
+  "score": null,
+  "scores": null,
+  "blocking": [],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 0,
+  "at": "2026-09-23T16:48:45.729Z"
+}

@@ -1,0 +1,85 @@
+{
+  "feature": "F16",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "featureTestFiles checks lstat only on the leaf path. This is safe because git tracks a symlinked directory as a single symlink entry, so no file path is listed beneath it. If the file list ever came from a source that expands directories, a symlinked parent directory in the working tree would need its own check.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "overlayFiles runs fs.statSync(src) after the exclusive write, and does so once per file. The mode could be read once alongside the content, and a file that disappears between the lstat filter and the copy would surface as an io error. This is only a minor race and not a real problem for a cooperative builder.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "The vacuity failure message differs depending on whether an overlay was applied ('with the feature's test files' or not). Both variants contain 'already passes on base', so AC-1 holds. Consumers that match the full message text would need to know about both variants.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "verify.test_count is unset in this repository, so the verify run warns that a test-count decrease is not checked. Setting it in .harness/config.json would give the project this protection.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "The isTestPath alias in lib/glob.mjs is a thin wrapper over matchesAnyGlob. It adds a second name for the same function without adding behaviour, and could be dropped or documented as intentional.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "featureTestFiles checks lstat only on the final path, not its parents. Scenario: base tracks test/a.test.mjs, and the feature replaces the test/ directory with a symlink to an outside directory that also contains a.test.mjs. `git diff --name-only` still lists test/a.test.mjs (as deleted), and lstat(top/test/a.test.mjs) follows the parent symlink and reports a regular file. The outside file's content is then copied into the temporary base worktree. SC-2 covers only a test path that is itself a symlink, so this is not a blocking defect, and the impact is low: the head-side run already executes through the link and the base worktree is removed afterwards. Hardening: skip a path when any parent segment under `top` is a symlink, or when realpath(src) is outside `top`.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "summary": "overlayFiles copies file mode bits with `statSync(src).mode & 0o777`, which can include group/other write bits from the working tree. This is harmless in a temporary worktree; masking with 0o755 would be tidier.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "summary": "The overlay is unbounded: a very large or very numerous set of changed test files is read fully into memory and copied. This is not a trust-boundary issue under threat model D1.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.6044837999999999,
+  "contract_hash": "a64685175655438d5cfd0d171ad01c97193c23fe0fedcedef5d88d0fdab999ae",
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false
+    }
+  },
+  "at": "2026-09-23T17:10:11.421Z"
+}
