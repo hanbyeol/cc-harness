@@ -330,6 +330,11 @@
     {
       "source": "F9-r2",
       "summary": "Exhaustive rename detection (renameLimit=0) is worst-case quadratic; ~5s at 3000 renamed paths, watch for diffs with tens of thousands of paths."
+    },
+    {
+      "source": "F3-r3",
+      "priority": "high",
+      "summary": "config verify.commands given as a string (\"npm test\") passes F12 validation and verify iterates it character by character as separate shell commands. validateUser checks only object-default keys; add array checks for verify.commands, verify.skip_markers, env_allowlist, secret_globs."
     }
   ]
 }

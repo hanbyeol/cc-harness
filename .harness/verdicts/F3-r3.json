@@ -1,0 +1,43 @@
+{
+  "feature": "F3",
+  "round": 3,
+  "commit": "2af2de8",
+  "independence": "cross-model",
+  "evaluator": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 9,
+      "quality": 9,
+      "security": 9,
+      "errors": 9,
+      "tests": 9
+    },
+    "blocking": 0
+  },
+  "security_reviewer": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 9,
+      "quality": 9,
+      "security": 9,
+      "errors": 8,
+      "tests": 9
+    },
+    "blocking": 0
+  },
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 8,
+    "tests": 9
+  },
+  "score": 8,
+  "verdict": "pass",
+  "convergence": {
+    "previous_blocking": 0,
+    "current_blocking": 0,
+    "divergence": false
+  },
+  "note": "Re-evaluation after the user re-approved F3 contract v2 (AC-4 protected set aligned with F11's exemption). No code change to F3 criteria beyond F11/F12; all 11 checks pass on current HEAD."
+}
