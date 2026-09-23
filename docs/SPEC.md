@@ -25,12 +25,14 @@ AI 코딩 CLI(Claude Code · Codex CLI · Gemini CLI, 그 외 AGENTS.md 호환 �
 ## 4. 상태 파일 (`.harness/`, git 추적)
 | 파일 | 내용 |
 |------|------|
-| `config.json` | profile, verify 명령, 임계값, 예산, max_rounds, 어댑터 역할 배정. 병합 순서 DEFAULTS ← profile ← config (config 우선). `init` 은 verify.commands 를 쓰지 않는다 — 사용자가 정하기 전까지 프로필 기본값이 적용된다 |
-| `features.json` | `[{id, title, security_tier, depends_on[], status}]` — status ∈ `todo·approved·in_progress·passed·blocked·skipped` |
+| `config.json` | profile, verify 명령, 임계값, 예산, max_rounds, 어댑터 역할 배정. 병합 순서 DEFAULTS ← profile ← config (config 우선). `init` 은 verify.commands 를 쓰지 않는다 — 사용자가 정하기 전까지 프로필 기본값이 적용된다. 최상위는 JSON 객체여야 하고, 기본값이 객체인 키(`budget`·`verify`·`limits`·`roles`·`rubric`)는 지정 시 객체여야 한다 |
+| `features.json` | `[{id, title, security_tier, depends_on[], status}]` — status ∈ `todo·approved·in_progress·passed·blocked·skipped`. 각 항목의 `id`·`title`·`status` 는 필수 문자열 |
 | `contracts/F{n}.json` | 계약 (§5) |
 | `verdicts/F{n}-r{k}.json` | 라운드별 판정 (§7) |
 | `backlog.json` | 범위 밖 발견 · blocked 재범위 제안 |
 | `runs/{ts}.md` | 자율 실행 보고서 |
+
+`init` 은 없는 파일·디렉터리만 만든다. `.harness/` 가 일부만 있어도(예: `contracts/` 만) 빠진 것을 채우고 기존 파일은 건드리지 않는다. 상태 파일 쓰기는 원자적이다(같은 디렉터리의 임시 파일 → rename). 어느 단계에서 실패해도 임시 파일을 지우고 대상 파일은 이전 내용 그대로 남는다(`io` 에러).
 
 `status: passed`는 **코어만** 기록한다(§7의 규칙을 통과한 경우). 모델 역할(builder)은 이 필드를 쓰지 않는다 — 협력적 모델 가정 하의 규약이며, 위반은 verify의 무결성 검사가 결정적으로 잡는다(§6.2).
 
@@ -159,7 +161,7 @@ hooks/hooks.json             Claude SessionStart 1개: `harness status --brief` 
 | E3 | 병합 충돌 | 병합 중단(`git merge --abort`), 기능 blocked(`merge_conflict`) |
 | E4 | worktree 생성 실패 | 기능 blocked, 나머지 계속 |
 | E5 | 예산·timeout 초과 | 프로세스 종료(자식 포함), blocked(`budget`) |
-| E6 | 상태 파일 손상(JSON 파싱 불가) | 즉시 정지, 수정 안내 — 추측 복구 금지 |
+| E6 | 상태 파일 손상(JSON 파싱 불가, §4 형식 위반 — config 가 객체 아님·객체 키의 타입 오류, features 항목의 id·title·status 누락/비문자열) | 즉시 정지(exit 2), 파일 경로·필드 이름 또는 항목 번호(`features[i]`)를 포함한 수정 안내 — 추측 복구 금지 |
 | E7 | 실행 중 인터럽트(SIGINT) | 현재 단계 종료, 상태 저장, `--resume` 안내 |
 
 ## 13. v1 마이그레이션 (`harness migrate-v1`)
