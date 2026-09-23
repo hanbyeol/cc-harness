@@ -4,6 +4,15 @@
   "verify": {
     "commands": [
       "npm test"
+    ],
+    "test_paths": [
+      "test/**",
+      "tests/**",
+      "__tests__/**",
+      "*.test.*",
+      "*.spec.*",
+      "*_test.*",
+      "test_*.py"
     ]
   },
   "rubric": {
