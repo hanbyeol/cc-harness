@@ -1,0 +1,32 @@
+{
+  "feature": "F12",
+  "round": 2,
+  "commit": "1c8ecc3",
+  "independence": "cross-model",
+  "evaluator": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 9,
+      "quality": 9,
+      "security": 8,
+      "errors": 9,
+      "tests": 9
+    },
+    "blocking": 0
+  },
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "score": 8,
+  "verdict": "pass",
+  "convergence": {
+    "previous_blocking": 1,
+    "current_blocking": 0,
+    "divergence": false
+  },
+  "note": "Round 1 (b12db72): AC-2 mkdirSync outside the guarded block escaped as a raw error. Fixed in 1c8ecc3 (mutation-checked; ENOTDIR real-fs case also verified)."
+}

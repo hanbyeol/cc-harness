@@ -1,0 +1,25 @@
+{
+  "feature": "F12",
+  "round": 1,
+  "commit": "b12db72",
+  "independence": "cross-model",
+  "evaluator": {
+    "model": "claude-sonnet-5",
+    "scores": {
+      "functionality": 5,
+      "quality": 8,
+      "security": 9,
+      "errors": 9,
+      "tests": 8
+    },
+    "blocking": 1
+  },
+  "score": 5,
+  "verdict": "fail",
+  "blocking_findings": [
+    {
+      "criterion_id": "AC-2",
+      "summary": "writeJsonAtomic mkdirSync failure escapes as raw error (exit 1) instead of HarnessError(io)"
+    }
+  ]
+}
