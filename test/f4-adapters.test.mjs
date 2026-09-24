@@ -345,7 +345,9 @@ test('F4 ES-1 missing CLI binary → adapter_unavailable, no throw', async () =>
 test('F4 ES-2 timeout kills the child and returns timeout', async () => {
   const pidfile = path.join(tmpdir(), 'pid');
   const started = Date.now();
-  const r = await getAdapter('claude').run({ prompt: 'x', cwd: REPO, readOnly: false, timeoutSec: 0.5, ...fake('sleep', pidfile) });
+  // 3 s leaves room for node to start and write its pid under load (at 0.5 s a loaded
+  // machine killed the child before it wrote the pidfile, so the kill check had no pid).
+  const r = await getAdapter('claude').run({ prompt: 'x', cwd: REPO, readOnly: false, timeoutSec: 3, ...fake('sleep', pidfile) });
   assert.equal(r.ok, false);
   assert.equal(r.error, 'timeout');
   assert.ok(Date.now() - started < 20_000);
