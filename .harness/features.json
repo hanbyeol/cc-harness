@@ -174,6 +174,15 @@
         "F18"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F20",
+      "title": "run 사전 점검 — 역할 CLI 사용 가능·인증 여부를 build 전에 확인 (gemini 인증 판정 포함)",
+      "security_tier": "critical",
+      "depends_on": [
+        "F19"
+      ],
+      "status": "approved"
     }
   ]
 }
