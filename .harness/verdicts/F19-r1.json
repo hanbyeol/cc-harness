@@ -1,0 +1,82 @@
+{
+  "feature": "F19",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "`node --test` over the full suite showed one transient git 'add failed' error in f9-secret-rename.test.mjs during my first run. The file passes 13/13 when run alone, so it looks like a load or environment flake, not F19.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "`endRound` decides whether a failing round is the run's first with `e.history.length > carried`, which relies on `history` and `carried` staying in sync. A short comment or a dedicated `firstRunRound` flag would make that clearer.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "When run blocks with `max_rounds` before any round (SC-1), it sets `e.round = e.carried` and reports 'N of M rounds ... already evaluated'. That is correct, but the state is set inside `runOne` as a side effect. Consider moving the check next to the carry-over setup.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "`verify.test_count` is unset, so the harness does not check whether the test count decreases. Consider setting it.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "The SC-1 early block in runOne only fires when e.stage === 'worktree'. A resumed run keeps its saved e.carried/e.round, so this is consistent today. But if a future change resets the stage on resume, the carried-rounds guard could be skipped. Consider asserting the round limit wherever e.round is incremented.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "summary": "Carried eval_error verdicts count toward `carried` (the round limit) but add an empty blocking set to history and set carriedPrev to null. The run's evalErrors counter still starts at 0, so consecutive eval_error verdicts from interactive eval are not carried into MAX_EVAL_ERRORS. The contract does not cover this.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "summary": "Before starting a feature, the run re-reads every verdict file of that feature, including files from other contract hashes. A corrupt verdict from an old contract therefore stops the run with state_corrupt, even though it is outside the current hash. This matches the existing E6 behavior of contractVerdicts, but it is stricter than ES-1 requires.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.6164985999999999,
+  "contract_hash": "7b5a8cb5c0b988a53b4c0bfb43cfcb1a93c7e1efee0f3cfc062da1e7ee49e4bb",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false
+    }
+  },
+  "at": "2026-09-24T06:51:38.504Z",
+  "origin": "run"
+}

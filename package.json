@@ -1,6 +1,6 @@
 {
   "name": "cc-harness",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "description": "Evaluation-driven development harness for AI coding CLIs (Claude Code, Codex, Gemini) — deterministic verification, independent evaluation, guaranteed convergence",
   "type": "module",
   "bin": {

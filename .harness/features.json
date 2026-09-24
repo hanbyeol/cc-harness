@@ -173,7 +173,7 @@
       "depends_on": [
         "F18"
       ],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }
