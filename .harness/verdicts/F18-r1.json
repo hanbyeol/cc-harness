@@ -1,0 +1,91 @@
+{
+  "feature": "F18",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "`evaluate()` and `evalAndRecord` both check for an existing verdict file (`round_exists`). The check in `evalAndRecord` is now redundant with the one in `evaluate`. It could be dropped or shared, but it is not a defect.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "`contractVerdicts` reads and parses every verdict file for the feature on each call. In `evalAndRecord`, `evaluate` then calls `contractRound`, which reads them all a second time. This is harmless at small round counts, but `evaluate` could take the already-read list.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "A verdict file that parses as JSON but has no string `verdict` field is now `state_corrupt` in the run path. Previously `run` never read old verdicts. This is consistent with SPEC E6 and ES-2, but it is new strictness for `run` on hand-edited or legacy files.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "`contract_round` is derived from the verdict files and `round` from the run's in-memory counter, so the two can differ in run reports. A short note in the run report may help if the distinction confuses users.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "`verify.test_count` is unset, so a decrease in the number of tests is not checked (verify warns about this).",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "evaluate() checks that the verdict file does not exist (refuseExisting) and then writes it with writeJsonAtomic, which renames over any existing file. Two concurrent evals of the same feature could both pass the check, and the second rename would overwrite the first verdict. Creating the file exclusively (open with 'wx', or link/rename-noreplace) would make the no-overwrite rule atomic.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "summary": "harness run keeps its own round counter (e.round starts at 1 per run entry) for max_rounds and the report. The verdict's contract_round is counted from the files on disk. If same-hash verdicts already exist from an earlier eval or run of the same contract, the run gets max_rounds fresh rounds while the verdicts record contract_round > e.round, so the run can exceed max_rounds per contract hash. SPEC §8.8 only covers the re-approval case.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "summary": "contractVerdicts reads every verdict file of the feature, including those of old contracts, so a corrupt verdict from an old contract (or a pre-F18 one) also stops eval and run with state_corrupt. This is stricter than ES-2 (the previous verdict of the current hash) and matches SPEC §7.6 ('hash unknown'), but it cannot be recovered without touching old records.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "summary": "In the eval summary, 'round <n>' in the first line is the verdict file number, while the new line shows 'contract round <n>/<max>'. Seeing two different 'round' numbers may confuse users. Consider renaming the first one to 'verdict r<n>'.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.508769,
+  "contract_hash": "9a95688b925c6bc97349261e16d1bdfe9bacf3aef3af6022c28a8d38c7d6398f",
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 8,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false
+    }
+  },
+  "at": "2026-09-23T23:55:34.327Z",
+  "origin": "run"
+}
