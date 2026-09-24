@@ -106,7 +106,7 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
    - features.json 쓰기가 실패하면 verdict 파일은 남기고 exit 2(`io`). features 항목의 `eval_round` 가 기록된 마지막 라운드이며, 최신 `origin: eval` verdict 의 라운드가 그와 다르면 다음 `harness eval F{n}` 은 새 평가 없이 그 라운드의 상태 기록을 재시도한다.
 
 ## 8. 자율 실행 (`harness run [F…] [--max-usd N]`)
-기능별(의존 순서, `approved`만):
+기능별(의존 순서, `approved`와 대화형 eval 이 남긴 `in_progress`):
 1. worktree `.harness/wt/F{n}` + 브랜치 `harness/F{n}` (base = integration 브랜치)
 2. **build**: builder headless 세션(쓰기 가능, CLI 네이티브 sandbox) — 계약 + 직전 라운드 차단적 finding 전달
 3. verify (§6) 실패 시 build 재시도, 라운드당 최대 3회. 3회 모두 실패하면 평가 없이 라운드 fail — 차단 집합 = 실패 기준 id (+`VERIFY:commands`/`VERIFY:integrity`)
@@ -117,7 +117,7 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
    - 정체: **차단 기준 id 집합**의 크기가 k-1 대비 감소하지 않음(같은 기준의 finding 여러 개는 하나로 센다)
    - 둘 중 하나, 또는 k = max_rounds(기본 3) 소진 → `blocked`
 7. blocked → 재범위 제안(분할/기준 재작성/위험 수용)을 backlog에 기록, 의존 기능은 `skipped`, 독립 기능은 계속. **critical이 blocked면 run 전체 정지.**
-8. 라운드 k 는 이번 계약(승인 해시)의 라운드이고 보고서의 라운드 수도 그것이다. 라운드 상한·수렴 비교는 계약 해시 단위이며, 판정 파일 번호는 기능별로 계속 증가한다(§7.6) — 이전 계약의 `F{n}-r{k}.json` 이 있으면 새 판정은 다음 번호에 쓰고 기존 파일은 덮어쓰지 않는다.
+8. 라운드 k 는 이번 계약(승인 해시)의 라운드이고 보고서의 라운드 수도 그것이다. 라운드 상한·수렴 비교는 계약 해시 단위이며, 판정 파일 번호는 기능별로 계속 증가한다(§7.6) — 이전 계약의 `F{n}-r{k}.json` 이 있으면 새 판정은 다음 번호에 쓰고 기존 파일은 덮어쓰지 않는다. run 은 같은 계약 해시의 이전 판정(대화형 `harness eval` 의 판정 포함)을 이어받아 라운드 상한과 수렴 비교에 넣는다 — 그 판정이 j 개면 run 의 첫 라운드는 j+1 이고(보고서·결과의 라운드 수도 이 번호), 첫 라운드의 fail 은 그 해시의 직전 판정(fail 일 때)과 수렴 비교한다. j ≥ max_rounds 면 builder 를 부르지 않고 `blocked`(`max_rounds`). 이전 판정 파일이 JSON 으로 읽히지 않으면 builder 호출 전에 `state_corrupt`(파일 경로 포함, exit 2, E6).
 9. 종료 → `runs/{ts}.md` 보고서. integration → main 병합은 하지 않는다(PR 생성은 `gh` 가 있으면 제안만).
 
 예산: 단계별 timeout(기본 30분), 단계별 USD(어댑터 지원 시), run 전체 USD. 단계 초과 시 해당 기능 blocked(`budget`), run 초과 시 진행 중 기능 blocked(`budget`) 후 전체 정지.
