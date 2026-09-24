@@ -165,6 +165,15 @@
         "F17"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F19",
+      "title": "run — 같은 계약의 이전 라운드를 이어받아 라운드 상한·수렴 비교 (대화형 eval 과 혼용 시)",
+      "security_tier": "critical",
+      "depends_on": [
+        "F18"
+      ],
+      "status": "approved"
     }
   ]
 }

@@ -1,0 +1,63 @@
+{
+  "id": "F19",
+  "title": "run — 같은 계약의 이전 라운드를 이어받아 라운드 상한·수렴 비교 (대화형 eval 과 혼용 시)",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "현재 계약 해시의 fail 판정이 2개(대화형 eval) 있는 in_progress 기능을 max_rounds 3 으로 harness run 하고 가짜 어댑터 평가가 계속 fail 이면, builder 는 한 라운드만 실행되고 기능은 blocked(rounds)가 되며 새 판정의 contract_round 는 3 이다",
+      "check": "node test/t.mjs \"F19 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "run 의 첫 라운드 fail 은 같은 해시의 직전 판정과 수렴 비교한다 — 직전 차단 id {AC-1}, run 라운드 차단 id {AC-2} 이면 blocked(divergence), 직전 {AC-1, AC-2} 에서 {AC-1} 로 줄면 다음 라운드로 진행",
+      "check": "node test/t.mjs \"F19 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "현재 해시의 판정이 없는 기능(다른 해시의 판정만 있는 경우 포함)은 지금처럼 run 에서 max_rounds 라운드를 모두 받는다",
+      "check": "node test/t.mjs \"F19 AC-3\"",
+      "new": false
+    },
+    {
+      "id": "AC-4",
+      "criterion": "run 보고서와 결과의 라운드 수는 계약 라운드(contract_round) 기준이다 — AC-1 상황에서 보고서의 Rounds 는 3",
+      "check": "node test/t.mjs \"F19 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "SPEC §8 이 run 이 같은 계약 해시의 이전 판정(대화형 포함)을 라운드 상한과 수렴 비교에 이어받는다는 규칙을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F19 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "현재 해시의 판정이 이미 max_rounds 개인 in_progress 기능은 run 이 builder 를 호출하지 않고 blocked(rounds) 로 기록한다",
+      "check": "node test/t.mjs \"F19 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "현재 해시의 이전 판정 파일이 JSON 으로 읽히지 않으면 run 은 그 기능의 builder 를 호출하지 않고 exit 2(state_corrupt)로 멈추며, 메시지에 파일 경로가 있고 스택 트레이스(\"    at \")가 없다",
+      "check": "node test/t.mjs \"F19 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "판정 파일을 반복해서 읽는 성능 최적화",
+    "같은 기능에 대한 동시 eval·run 실행의 경쟁 조건"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-24T06:38:49.331Z",
+    "hash": "7b5a8cb5c0b988a53b4c0bfb43cfcb1a93c7e1efee0f3cfc062da1e7ee49e4bb"
+  }
+}
