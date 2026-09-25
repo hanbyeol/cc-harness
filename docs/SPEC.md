@@ -106,6 +106,9 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
    - features.json 쓰기가 실패하면 verdict 파일은 남기고 exit 2(`io`). features 항목의 `eval_round` 가 기록된 마지막 라운드이며, 최신 `origin: eval` verdict 의 라운드가 그와 다르면 다음 `harness eval F{n}` 은 새 평가 없이 그 라운드의 상태 기록을 재시도한다.
 
 ## 8. 자율 실행 (`harness run [F…] [--max-usd N]`)
+**사전 점검**: 새 run 은 integration 브랜치·첫 기능의 worktree·`harness/F{n}` 브랜치를 만들거나 builder 를 부르기 전에 `harness doctor`(§10)의 역할 판정을 확인한다. builder·evaluator 가, 범위(인자로 준 기능, 없으면 `approved`/`in_progress` 기능 전체)에 `critical` 기능이 있으면 security-reviewer 도 usable 이어야 한다 — 하나라도 usable 이 아니면 각 역할 이름과 이유(`not installed`, `--help lacks …`, `not authenticated …`)를 담은 메시지로 exit 2, 아무것도 만들지 않는다. critical 기능이 범위에 없으면 security-reviewer 는 보지 않는다. 범위에 실행할 기능이 없으면 점검하지 않는다. `--resume` 재개는 점검하지 않는다.
+run 도중 evaluator(또는 security-reviewer) 어댑터가 `adapter_unavailable`(예: gemini 인증 실패 exit 41)을 돌려주면 그 기능은 eval_error 재시도 없이 바로 blocked(`adapter_unavailable`)이고, 다음 기능도 같은 역할을 쓰므로 run 전체가 정지한다(`stopped: adapter_unavailable`).
+
 기능별(의존 순서, `approved`와 대화형 eval 이 남긴 `in_progress`):
 1. worktree `.harness/wt/F{n}` + 브랜치 `harness/F{n}` (base = integration 브랜치)
 2. **build**: builder headless 세션(쓰기 가능, CLI 네이티브 sandbox) — 계약 + 직전 라운드 차단적 finding 전달
@@ -149,6 +152,9 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
 
 `doctor`: 설치된 CLI·버전 탐지, 각 어댑터가 쓰는 플래그가 `--help` 출력에 존재하는지 확인, 역할 배정 권장(builder ≠ evaluator 모델).
 플래그 부재 시 해당 역할 배정 불가로 보고(추측 실행 금지).
+
+gemini 인증 판정(비용이 드는 호출 없이): 환경 변수 `GEMINI_API_KEY` · `GOOGLE_GENAI_USE_VERTEXAI` · `GOOGLE_GENAI_USE_GCA` 중 하나가 (비어 있지 않게) 있거나, 사용자 `~/.gemini/settings.json`(HOME 기준)에 `security.auth.selectedType` 이 있으면 인증됨. 모두 없으면 `not authenticated` — gemini 를 쓰는 역할은 usable 이 아니다(플래그 검사를 통과해도). `settings.json` 이 JSON 으로 읽히지 않으면 스택 트레이스 없이 `not authenticated (settings.json unreadable)`. 판정은 변수·키의 **존재만** 보고, 값은 doctor·run 출력과 보고서에 쓰지 않는다. doctor 는 설치된 gemini 의 CLI 줄에 인증 상태(`authenticated (<변수 이름 또는 settings.json>)` / 이유)를 표시한다 — 역할에 배정되지 않았으면 종료 코드에 영향이 없다. claude·codex 의 인증은 판정하지 않는다.
+gemini 실행이 exit 41(인증 실패)로 끝나면 결과는 `exit_nonzero` 가 아니라 `adapter_unavailable` 이고 detail 에 `authentication` 이 나온다(CLI 의 stderr 는 옮기지 않는다).
 
 ## 11. 배포 형태 (단일 루트, 빌드 단계 없음)
 ```
