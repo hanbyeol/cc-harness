@@ -614,6 +614,29 @@
       "summary": "Before starting a feature, the run re-reads every verdict file of that feature, including files from other contract hashes. A corrupt verdict from an old contract therefore stops the run with state_corrupt, even though it is outside the current hash. This matches the existing E6 behavior of contractVerdicts, but it is stricter than ES-1 requires.",
       "reason": "out_of_scope",
       "source": "security-reviewer"
+    },
+    {
+      "source": "run:F20",
+      "feature": "F20",
+      "kind": "rescope",
+      "reason": "budget",
+      "rounds": 1,
+      "blocking": [],
+      "summary": "F20 blocked (budget): a step timed out or the budget was exhausted — build timed out after 1800s",
+      "options": [
+        {
+          "kind": "split",
+          "summary": "split F20 so the feature ship as a separate feature with its own contract"
+        },
+        {
+          "kind": "rewrite",
+          "summary": "rewrite the criteria for the feature (new contract version, re-approval)"
+        },
+        {
+          "kind": "accept-risk",
+          "summary": "accept the risk: drop or relax the feature with a recorded decision"
+        }
+      ]
     }
   ]
 }
