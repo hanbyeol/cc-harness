@@ -74,10 +74,11 @@ test('F4 AC-1 run() reports exit_nonzero (with cost) and no_json without throwin
   assert.equal(budget.error, 'exit_nonzero');
   assert.equal(budget.exitCode, 1);
   assert.equal(budget.costUsd, 0.0663634); // spend is still reported for budget accounting
-  const fail = await adapters().gemini.run({ prompt: 'x', cwd: REPO, timeoutSec: 30, ...fake('exit', '41') });
+  // (gemini exit 41 is an authentication failure → adapter_unavailable, F20 AC-4)
+  const fail = await adapters().gemini.run({ prompt: 'x', cwd: REPO, timeoutSec: 30, ...fake('exit', '42') });
   assert.equal(fail.ok, false);
   assert.equal(fail.error, 'exit_nonzero');
-  assert.equal(fail.exitCode, 41);
+  assert.equal(fail.exitCode, 42);
   const noJson = await adapters().codex.run({ prompt: 'x', cwd: REPO, readOnly: true, schema: SCHEMA, timeoutSec: 30, ...fake('text', 'no json here') });
   assert.equal(noJson.error, 'no_json');
   assert.equal(noJson.text, 'no json here');
@@ -219,7 +220,8 @@ test('F4 AC-4 missingFlags checks flags and their choice values against measured
 
 test('F4 AC-4 doctor: all roles usable with measured help fixtures → exit 0', async () => {
   const config = resolveConfig({ roles: { builder: 'claude', evaluator: 'gemini', 'security-reviewer': 'claude' } });
-  const report = await diagnose({ config, probe: fixtureProbe({ claude: CLAUDE_HELP, gemini: GEMINI_HELP }) });
+  // gemini counts as authenticated only with an auth variable or login (F20); pin it here
+  const report = await diagnose({ config, probe: fixtureProbe({ claude: CLAUDE_HELP, gemini: GEMINI_HELP }), env: { GEMINI_API_KEY: 'x' } });
   assert.equal(report.ok, true, JSON.stringify(report.roles));
   assert.deepEqual(report.roles.map((r) => [r.role, r.adapter, r.readOnly, r.usable]),
     [['builder', 'claude', false, true], ['evaluator', 'gemini', true, true], ['security-reviewer', 'claude', true, true]]);

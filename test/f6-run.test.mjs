@@ -486,7 +486,8 @@ test('F6 ES-3: SIGINT during a slow build saves state, prints the --resume hint 
     '.harness/config.json': {
       profile: 'sdlc', base_branch: 'main', verify: { commands: [] },
       roles: { builder: 'generic', evaluator: 'generic', 'security-reviewer': 'generic' },
-      adapters: { generic: { command: [process.execPath, FAKE_CLI, 'sleep', pidFile] } },
+      // read_only_command: the run preflight (F20) needs a usable evaluator before any build
+      adapters: { generic: { command: [process.execPath, FAKE_CLI, 'sleep', pidFile], read_only_command: [process.execPath, FAKE_CLI, 'echo-args'] } },
     },
   });
   commitAll(dir, 'slow builder config');

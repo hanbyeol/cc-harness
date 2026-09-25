@@ -228,6 +228,13 @@ test('F19 ES-1 an unreadable previous verdict: no builder, exit 2 state_corrupt,
 
 test('F19 ES-1 harness run CLI: exit 2 with the verdict path and no stack trace', () => {
   const dir = runFixture({ verdicts: { 1: evalVerdict(1, ['AC-1', 'AC-2']), 2: '{ not json' } });
+  // Roles on a stand-in CLI so the run preflight (F20) passes without any model CLI installed.
+  const fakeCli = [process.execPath, path.join(REPO, 'test', 'fixtures', 'fake-cli.mjs'), 'echo-args'];
+  writeFiles(dir, { '.harness/config.json': {
+    profile: 'sdlc', base_branch: 'main', verify: { commands: [] }, max_rounds: 3,
+    roles: { builder: 'generic', evaluator: 'generic', 'security-reviewer': 'generic' },
+    adapters: { generic: { command: fakeCli, read_only_command: fakeCli } },
+  } });
   const cli = harness(['run'], { cwd: dir });
   assert.equal(cli.code, 2, cli.stdout + cli.stderr);
   assert.ok(cli.stderr.includes('F9-r2.json'), cli.stderr);
