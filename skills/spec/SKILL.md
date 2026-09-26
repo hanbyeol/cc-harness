@@ -76,6 +76,10 @@ to `features.json`. Do not add an `approval` block; approval writes it.
 - Size limits: at most 12 AC, 8 SC, 8 ES. A bigger feature should be split.
 - `security_tier: critical` needs at least one SC.
 - IDs are `AC-n`, `SC-n`, `ES-n`, unique within the contract.
+- Documentation criteria: put the feature's detailed description in a file under `docs/`
+  (the SPEC or a topic page) and check that file. Keep a README change to one summary line,
+  or none — features built in parallel each add README text, and together they can break a
+  size limit that each of them met alone.
 
 ## 4. Hand off
 Run `harness lint-contract F{n}` and fix every error. Then continue with the `plan` skill
