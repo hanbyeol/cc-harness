@@ -108,8 +108,9 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
   모든 방식에서 (base 커밋, 명령)별로 `.harness/runs/test-count-cache.json`에 캐시되어 다음 verify는 base에서 다시 세지 않습니다.
 - **병합 충돌** — 기능 병합이 충돌하면 코어가 그 기능 worktree에서 integration을 병합해 충돌 상태를 만들고,
   충돌 파일 목록과 함께 builder를 1회 부릅니다. 해결 결과는 verify·eval을 다시 거친 뒤 병합됩니다. 그래도 충돌하거나
-  builder가 실패하거나 충돌 표시(`<<<<<<<`)가 남으면 `blocked`(`merge_conflict`)이고 integration은 그대로입니다.
-  충돌 해결은 기능당 1회이며 라운드를 소모하지 않습니다.
+  builder가 실패하거나 줄 시작 충돌 표시가 남으면 `blocked`(`merge_conflict`)이고 integration은 그대로입니다. 병합 후
+  verify 실패도 실패 항목과 함께 builder를 1회 불러 복구합니다. 두 복구는 합쳐서 기능당 1회이며 라운드를 소모하지 않습니다.
+  복구 규칙, 보고서의 `Merge recovery` 열, 판정의 `verify_failures`·`flaky_tests`는 [docs/run.md](docs/run.md)에 있습니다.
 - **사전 점검** — run은 worktree·브랜치를 만들거나 builder를 부르기 전에 역할별 CLI(`builder`·`evaluator`, 범위에
   critical 기능이 있으면 `security-reviewer`)가 usable인지 확인하고, 아니면 exit 2로 멈춥니다. gemini는 인증 정보
   (`GEMINI_API_KEY`·`GOOGLE_GENAI_USE_VERTEXAI`·`GOOGLE_GENAI_USE_GCA` 또는 settings의 `security.auth.selectedType`)가
@@ -117,9 +118,10 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
 - **잠자기** — run 동안 macOS는 `caffeinate -i`, Linux는 `systemd-inhibit`으로 유휴 잠자기를 막습니다(Windows 미지원,
   배터리로 덮개를 닫으면 OS가 강제로 재웁니다). 그래도 잠들어 단계가 시간 제한에 걸리면 `blocked(budget)`가 아니라
   중단으로 처리되고, `harness run --resume`이 그 단계부터 다시 수행합니다.
-- **시간 제한** — `budget.step_timeout_sec`(기본 1800)은 역할 CLI 호출과 `verify.commands`·기준 check·`test_count`·repro를,
-  `budget.git_timeout_sec`(기본 300)은 코어가 직접 부르는 git(worktree·diff·merge·rev-parse 등)을 따로 제한합니다. 넘긴 git은
-  프로세스 트리째 종료되고 `git <명령> timed out after <N>s` 오류로 끝납니다.
+- **시간 제한** — `budget.step_timeout_sec`(기본 1800)은 역할 CLI·`verify.commands`·기준 check·`test_count`·repro를, `budget.git_timeout_sec`
+  (기본 300)은 코어 git(worktree·diff·merge 등)을 제한합니다. 넘긴 git은 트리째 종료되고 `git <명령> timed out after <N>s`로 끝납니다.
+  base vacuity 실행은 `verify.vacuity_timeout_sec`(기본 120)과 `budget.step_timeout_sec` 중 작은 값으로 제한되고, 넘기면
+  vacuous가 아닌 것으로 봅니다(`base_timed_out: true`, 자세한 규칙은 `docs/run.md`).
 - **명령 없음** — verify·병합 후 verify에서 `verify.commands`·`test_count`·기준 check의 프로그램이 설치돼 있지 않으면
   (exit 127·9009, `not recognized`, ENOENT) 기능은 `blocked`가 아닙니다. run이 상태를 저장하고 명령 이름과
   `command not found`를 출력하며 멈춥니다(병합 후 verify면 병합을 되돌린 뒤). 설치하거나 PATH를 고친 뒤
