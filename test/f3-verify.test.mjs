@@ -203,7 +203,7 @@ test('F3 AC-5: test_count below base fails; the base worktree is removed afterwa
   const dir = fixture({ files: { 'count.txt': '5\n' } });
   writeFiles(dir, { 'count.txt': '4\n' });
   const r = await run(dir, { verify: { commands: [], test_count: 'node scripts/count.mjs' } });
-  assert.deepEqual(r.integrity.testCount, { base: 5, head: 4, status: 'decreased' });
+  assert.deepEqual(r.integrity.testCount, { base: 5, head: 4, status: 'decreased', source: { head: 'ran', base: 'ran' } });
   assert.equal(r.pass, false);
   assert.equal(worktreeCount(dir), 1);
 });
@@ -212,7 +212,7 @@ test('F3 AC-5: test_count equal or above base passes', async () => {
   const dir = fixture({ files: { 'count.txt': '5\n' } });
   writeFiles(dir, { 'count.txt': '6\n' });
   const r = await run(dir, { verify: { commands: [], test_count: 'node scripts/count.mjs' } });
-  assert.deepEqual(r.integrity.testCount, { base: 5, head: 6, status: 'ok' });
+  assert.deepEqual(r.integrity.testCount, { base: 5, head: 6, status: 'ok', source: { head: 'ran', base: 'ran' } });
   assert.equal(r.pass, true, JSON.stringify(r, null, 2));
 });
 
