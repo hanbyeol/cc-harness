@@ -199,7 +199,9 @@ test('F26 AC-4: base vacuity runs start only after the base test count and the o
   assert.equal(r.integrity.testCount.head, 1);
   const baseCount = events(log).find((e) => e.ev === 'count' && e.side === 'base');
   const baseRuns = intervals(log).filter((x) => x.side === 'base');
-  assert.equal(baseRuns.length, ids.length, 'every new criterion ran on base');
+  // A base run that failed while others ran is re-run alone once (F35), so count criteria, not runs.
+  assert.deepEqual([...new Set(baseRuns.map((b) => b.id))].sort(), ids, 'every new criterion ran on base');
+  assert.ok(baseRuns.length <= 2 * ids.length, 'at most one solo re-run per criterion');
   for (const b of baseRuns) {
     assert.ok(b.start >= baseCount.t, `${b.id} started on base before the base test count finished`);
     assert.equal(b.probe, true, `${b.id} ran on base before the feature's test files were placed`);
@@ -261,7 +263,9 @@ test('F26 SC-1: concurrent head checks run in the working tree, base runs in a t
   const head = runs.filter((x) => x.side === 'head');
   const base = runs.filter((x) => x.side === 'base');
   assert.equal(head.length, ids.length + 1);
-  assert.equal(base.length, ids.length + 1);
+  // Base runs that failed while others ran are re-run alone once (F35): count criteria, not runs.
+  assert.deepEqual([...new Set(base.map((b) => b.id))].sort(), [...ids, 'count'].sort());
+  assert.ok(base.length <= 2 * ids.length + 1, 'at most one solo re-run per criterion');
   for (const h of head) assert.equal(h.cwd, dir);
   const baseDirs = new Set(base.map((b) => b.cwd));
   assert.equal(baseDirs.size, 1, 'one base worktree');
