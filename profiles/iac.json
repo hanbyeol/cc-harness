@@ -3,11 +3,12 @@
   "description": "Infrastructure as code (Terraform): the plan diff is the specification; apply is always a human decision.",
   "verify": {
     "commands": [
-      "terraform fmt -check -recursive",
-      "terraform init -backend=false -input=false",
-      "terraform validate"
+      "harness tf-check"
     ]
   },
+  "env_allowlist": [
+    "TF_PLUGIN_CACHE_DIR"
+  ],
   "rubric": {
     "functionality": "The resources added, changed or destroyed match the contract. A replace or destroy of a stateful resource (databases, state backends, DNS) that the contract does not name is a blocking REGRESSION finding.",
     "quality": "Follows the repository's module and environment layout; variables typed and described; no hard-coded account ids, regions or credentials.",
