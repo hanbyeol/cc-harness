@@ -58,6 +58,9 @@ Reply with a single JSON object and nothing else:
 - `scores`: integers 0-10 for all five keys.
 - `findings`: blocking defects only; `dimension` is one of the five score keys. Empty list if none.
 - `out_of_scope`: everything else worth recording. Empty list if none.
+- Optional on findings and `out_of_scope` entries: `severity` (`high`, `medium` or `low`),
+  recorded as the backlog item's priority, and `backlog_id` — when the prompt lists an open
+  backlog item that is the same issue, give its id (e.g. `"B3"`) instead of a new entry.
 
 If you find no reproducible defect, score honestly high. A low score with no finding cannot
 be acted on: the harness will ask you once to supply a repro or correct the score, and then
