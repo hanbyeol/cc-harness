@@ -1330,7 +1330,11 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B177"
+      "id": "B177",
+      "seen": 2,
+      "sources": [
+        "F31-r2"
+      ]
     },
     {
       "feature": "F26",
@@ -1401,9 +1405,10 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B184",
-      "seen": 2,
+      "seen": 3,
       "sources": [
-        "F31-r1"
+        "F31-r1",
+        "F31-r2"
       ]
     },
     {
@@ -1809,6 +1814,66 @@
         }
       ],
       "id": "B220"
+    },
+    {
+      "feature": "F31",
+      "round": 2,
+      "at": "2026-09-26T11:18:46.432Z",
+      "summary": "In verify's finally block, the cleanup `git worktree remove --force` and `git worktree prune` now throw HarnessError(git) when they time out. Such a throw can replace the original verify error or result. Consider catching cleanup timeouts, as the other cleanup errors are already ignored.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B221"
+    },
+    {
+      "feature": "F31",
+      "round": 2,
+      "at": "2026-09-26T11:18:46.432Z",
+      "summary": "`lib/commands/approve.mjs` runs `git config user.email` through spawnSync with no time limit, so it uses neither budget.git_timeout_sec nor any other cap. It is not a verify, eval or run git call, so it is outside AC-1.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B222"
+    },
+    {
+      "feature": "F31",
+      "round": 2,
+      "at": "2026-09-26T11:18:46.432Z",
+      "summary": "The F31 tests depend on wall-clock timing (sleep 5 with step_timeout_sec 3, a 15 s hang budget, a 3 s kill window). The first `harness verify` run of the full suite failed and was marked flaky. It passed 703/703 when run again, so the timing margins remain a load-sensitivity risk. Related to B177 and B185.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B223"
+    },
+    {
+      "feature": "F31",
+      "round": 2,
+      "at": "2026-09-26T11:18:46.432Z",
+      "summary": "The Windows path is untested. Every fake-git test returns early when the platform is not POSIX, so tree-kill and git timeout behaviour on Windows have no coverage.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B224"
+    },
+    {
+      "feature": "F31",
+      "round": 2,
+      "at": "2026-09-26T11:18:46.432Z",
+      "summary": "In runFeatures, gitOpts.timeoutSec is set only after validateUser. Any core git call made before that point uses the runner's default of 300 s, not the configured budget.git_timeout_sec, and an injected deps.git receives {timeoutSec: undefined}. Today this is harmless because no git call happens before config resolution, but the ordering invariant is implicit.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B225"
+    },
+    {
+      "feature": "F31",
+      "round": 2,
+      "at": "2026-09-26T11:18:46.432Z",
+      "summary": "Every POSIX-only F31 test (fake git shebang script) returns early on Windows, so on the Windows CI leg the process-tree kill for core git timeouts (SC-1) and the timeout message (AC-3) are not exercised end to end. Only killTree's taskkill path covers Windows.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B226"
     }
   ]
 }

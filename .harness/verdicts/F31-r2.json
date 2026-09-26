@@ -1,0 +1,101 @@
+{
+  "feature": "F31",
+  "round": 2,
+  "verdict": "fail",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": false,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "In verify's finally block, the cleanup `git worktree remove --force` and `git worktree prune` now throw HarnessError(git) when they time out. Such a throw can replace the original verify error or result. Consider catching cleanup timeouts, as the other cleanup errors are already ignored.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "`lib/commands/approve.mjs` runs `git config user.email` through spawnSync with no time limit, so it uses neither budget.git_timeout_sec nor any other cap. It is not a verify, eval or run git call, so it is outside AC-1.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The F31 tests depend on wall-clock timing (sleep 5 with step_timeout_sec 3, a 15 s hang budget, a 3 s kill window). The first `harness verify` run of the full suite failed and was marked flaky. It passed 703/703 when run again, so the timing margins remain a load-sensitivity risk. Related to B177 and B185.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The Windows path is untested. Every fake-git test returns early when the platform is not POSIX, so tree-kill and git timeout behaviour on Windows have no coverage.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The verify.mjs base-worktree cleanup in `finally` (`worktree remove --force`, `worktree prune`) now throws gitTimeoutError when it times out, where before it returned a result. If the main body already threw (for example a `worktree add` timeout or a check error), a cleanup timeout replaces the original error, and `fs.rmSync` of baseDir is skipped when `remove` throws. The error code is still `git`, but the message can name the cleanup subcommand instead of the one that actually failed. Consider catching cleanup errors separately.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B184"
+    },
+    {
+      "summary": "In runFeatures, gitOpts.timeoutSec is set only after validateUser. Any core git call made before that point uses the runner's default of 300 s, not the configured budget.git_timeout_sec, and an injected deps.git receives {timeoutSec: undefined}. Today this is harmless because no git call happens before config resolution, but the ordering invariant is implicit.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The full-suite verify command was reported flaky (exit 1 on one run). A local re-run of `node --test \"test/**/*.test.mjs\"` exited 0. Timing-dependent tests remain a source of flakes: the F31 AC-1 tests use 3 s and 5 s sleeps, and the F31 SC-1 tests use a 15 s hang budget with a 3 s liveness window.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B177"
+    },
+    {
+      "summary": "Every POSIX-only F31 test (fake git shebang script) returns early on Windows, so on the Windows CI leg the process-tree kill for core git timeouts (SC-1) and the timeout message (AC-3) are not exercised end to end. Only killTree's taskkill path covers Windows.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.7977216,
+  "contract_hash": "761f32bba2bfc31e6173ae9b2ad86fb16ed69c5a500e2633cb60c66000c59450",
+  "contract_round": 2,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T11:18:46.432Z",
+  "origin": "eval"
+}
