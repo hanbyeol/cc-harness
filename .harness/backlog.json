@@ -72,7 +72,11 @@
     {
       "source": "F4-r1",
       "summary": "Model names are not validated; a model like '--yolo' lands in argv as a flag. Reject values starting with '-' or pass --model=<v>.",
-      "id": "B13"
+      "id": "B13",
+      "seen": 3,
+      "sources": [
+        "F28-r1"
+      ]
     },
     {
       "source": "F4-r1",
@@ -1407,6 +1411,160 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B185"
+    },
+    {
+      "feature": "F28",
+      "round": 1,
+      "at": "2026-09-26T07:44:29.975Z",
+      "summary": "Interactive `harness eval` computes independence with conflict=false, so a builder conflict_model used in an earlier run round is not counted. Only `harness run` passes the actual builder models via `builders`.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B186"
+    },
+    {
+      "feature": "F28",
+      "round": 1,
+      "at": "2026-09-26T07:44:29.975Z",
+      "summary": "lib/eval.mjs defaultRunAdapter still calls resolveRole and falls back to it when opts.model is undefined. This is redundant now that evaluate always passes a model, and a null model is not distinguished from 'unset'.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B187"
+    },
+    {
+      "feature": "F28",
+      "round": 1,
+      "at": "2026-09-26T07:44:29.975Z",
+      "summary": "The unit test of the doctor warning and the AC-5 block-shape regexes depend on exact padding and label text such as 'escalate (r≥2)'. They are brittle to cosmetic output changes.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B188"
+    },
+    {
+      "feature": "F28",
+      "round": 1,
+      "at": "2026-09-26T07:44:29.975Z",
+      "summary": "SPEC §10 says model values are \"checked again right before adapter arguments\", but the re-check lives only in roleModel(). The adapter buildArgs (claude/codex/gemini) and eval.mjs defaultRunAdapter's resolveRole fallback do not check the value themselves. Every current path goes through validated config (validateUser runs in loadConfig, and in runFeatures for both fresh and resumed runs) or through roleModel, so no bypass exists today. Moving isSafeModel into buildArgs would make this defence-in-depth claim hold for future callers.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B189"
+    },
+    {
+      "feature": "F28",
+      "round": 1,
+      "at": "2026-09-26T07:44:29.975Z",
+      "summary": "Doctor's policyOf reads spec.escalate and spec.conflict_model directly and not through roleModel. This is safe because the config is validated first, but the builder's escalate and conflict display lines follow a different code path from the tier lines.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B190"
+    },
+    {
+      "feature": "F29",
+      "round": 1,
+      "at": "2026-09-26T08:02:25.788Z",
+      "summary": "Redaction (SC-1) only replaces literal values of 8 or more characters taken from the run's env. A secret that is shorter, transformed (base64, URL-encoded, split across lines) or absent from the env would still reach the report. The 8-character cutoff is documented in SPEC §8.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B191"
+    },
+    {
+      "feature": "F29",
+      "round": 1,
+      "at": "2026-09-26T08:02:25.788Z",
+      "summary": "Missing commands are recognised only by exit code (127 or 9009), the shell's 'not recognized' text, or ENOENT. A feature script or verify command that itself exits 127 for its own reasons is treated as an environment stop instead of a round failure. The run then stops on every --resume rather than blocking.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B192"
+    },
+    {
+      "feature": "F29",
+      "round": 1,
+      "at": "2026-09-26T08:02:25.788Z",
+      "summary": "The Windows paths (exit 9009 and the cmd.exe 'is not recognized' line) are covered only by a missingProgram unit test on fake stderr. No end-to-end test exercises them, since the fixtures run on POSIX.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B193"
+    },
+    {
+      "feature": "F29",
+      "round": 1,
+      "at": "2026-09-26T08:02:25.788Z",
+      "summary": "An environment stop caused by a missing program in the vacuity (base) run of a criterion check is not distinguished. Only head check results, verify commands and test_count feed environmentFailure.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B194"
+    },
+    {
+      "feature": "F29",
+      "round": 1,
+      "at": "2026-09-26T08:02:25.788Z",
+      "summary": "The `- failed:` lines are derived from the last verify of the round and kept in e.verifyFailures. A feature blocked for a non-verify reason (for example stall after an evaluator failure) can carry failure items from an earlier failed attempt. This matches the SPEC wording but may be noisy.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B195"
+    },
+    {
+      "feature": "F29",
+      "round": 1,
+      "at": "2026-09-26T08:02:25.788Z",
+      "summary": "Redaction runs after verify.mjs has already cut the output with tail() to the last 2000 characters. If the cut falls inside a secret value, the remaining suffix no longer matches the full value, so it is not redacted. It then appears near the start of the 300-character report message. Example: with SECRET_TOKEN=sk-abcdefghijklmnopqrstuvwxyz0123456789 and output = value + 1990 'x' characters, the report shows '0123456789xxx…'. Commands run with a filtered env, so this needs the secret to reach the output some other way (for example, read from a file). Fix idea: redact before tail(), or also redact a leading partial match of each value.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B196"
+    },
+    {
+      "feature": "F29",
+      "round": 1,
+      "at": "2026-09-26T08:02:25.788Z",
+      "summary": "Only report messages are redacted. The state file .harness/runs/current.json still stores e.lastVerify, whose command output is unredacted, and the blocked post_merge_verify `detail` uses v.error unredacted. Both behaved this way before F29 and SC-1 covers only the report's failure messages, but the redaction is not applied consistently.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B197"
+    },
+    {
+      "feature": "F29",
+      "round": 1,
+      "at": "2026-09-26T08:02:25.788Z",
+      "summary": "The redactor skips values shorter than 8 characters, so short secrets (such as PINs) outside env_allowlist are never redacted. This is documented in SPEC §8, but it is a deliberate gap.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B198"
+    },
+    {
+      "source": "run:F29",
+      "feature": "F29",
+      "kind": "rescope",
+      "reason": "post_merge_verify",
+      "rounds": 1,
+      "blocking": [],
+      "summary": "F29 blocked (post_merge_verify): verify failed on the integration branch after the merge — verify failed on the merged integration branch; merge rolled back",
+      "options": [
+        {
+          "kind": "split",
+          "summary": "split F29 so the feature ship as a separate feature with its own contract"
+        },
+        {
+          "kind": "rewrite",
+          "summary": "rewrite the criteria for the feature (new contract version, re-approval)"
+        },
+        {
+          "kind": "accept-risk",
+          "summary": "accept the risk: drop or relax the feature with a recorded decision"
+        }
+      ],
+      "id": "B199"
     }
   ]
 }

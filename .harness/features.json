@@ -255,7 +255,7 @@
       "depends_on": [
         "F27"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F29",

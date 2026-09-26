@@ -1,0 +1,91 @@
+{
+  "feature": "F28",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "Interactive `harness eval` computes independence with conflict=false, so a builder conflict_model used in an earlier run round is not counted. Only `harness run` passes the actual builder models via `builders`.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The model safety check (isSafeModel) sits in config validation and in roleModel, but adapter.run itself does not re-check a model passed by a caller. It is safe today because every caller goes through roleModel. This also resolves the concern in B13 for the policy paths.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B13"
+    },
+    {
+      "summary": "lib/eval.mjs defaultRunAdapter still calls resolveRole and falls back to it when opts.model is undefined. This is redundant now that evaluate always passes a model, and a null model is not distinguished from 'unset'.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The unit test of the doctor warning and the AC-5 block-shape regexes depend on exact padding and label text such as 'escalate (r≥2)'. They are brittle to cosmetic output changes.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "SPEC §10 says model values are \"checked again right before adapter arguments\", but the re-check lives only in roleModel(). The adapter buildArgs (claude/codex/gemini) and eval.mjs defaultRunAdapter's resolveRole fallback do not check the value themselves. Every current path goes through validated config (validateUser runs in loadConfig, and in runFeatures for both fresh and resumed runs) or through roleModel, so no bypass exists today. Moving isSafeModel into buildArgs would make this defence-in-depth claim hold for future callers.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "B13 (model names not validated, so '--yolo' lands in argv) now appears to be fixed by SC-1. validateModels rejects a leading '-', whitespace and control or format characters for every model key, and doctor and run exit 2 before any CLI call. The item can be resolved.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B13"
+    },
+    {
+      "summary": "Doctor's policyOf reads spec.escalate and spec.conflict_model directly and not through roleModel. This is safe because the config is validated first, but the builder's escalate and conflict display lines follow a different code path from the tier lines.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.9656176,
+  "contract_hash": "0cca9de6e1ad2e302dd977bd7843b44a432e7631b552c7d069e67427ac5b7134",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false
+    }
+  },
+  "at": "2026-09-26T07:44:29.975Z",
+  "origin": "run"
+}
