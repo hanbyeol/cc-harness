@@ -304,6 +304,24 @@
       ],
       "status": "passed",
       "eval_round": 2
+    },
+    {
+      "id": "F34",
+      "title": "기록 파일의 비밀 값 가리기 — run 상태 파일·판정·지표에 남는 명령 출력을 보고서와 같은 규칙으로 redact",
+      "security_tier": "critical",
+      "depends_on": [
+        "F33"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F35",
+      "title": "verify·병합 견고성 — base vacuity 단독 재확인, base worktree 생성 실패 정리, integration 참조 확인, 캐시 파일 커밋 방지",
+      "security_tier": "critical",
+      "depends_on": [
+        "F33"
+      ],
+      "status": "approved"
     }
   ]
 }
