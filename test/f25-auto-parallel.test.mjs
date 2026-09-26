@@ -145,7 +145,14 @@ test('F25 AC-2: --parallel 1 overrides auto and runs features one at a time', as
 
 test('F25 AC-2: --parallel 3 caps four features at 3', async () => {
   const dir = fixture(IDS4);
-  const build = slowBuild({ delay: () => 600 });
+  // Builds wait until three have started (up to 30 s) instead of relying on a 600 ms overlap;
+  // if the cap were higher, the fourth would start too and the maximum would be 4.
+  const build = slowBuild({
+    delay: () => 600,
+    onCall: async () => {
+      for (const t0 = Date.now(); build.calls.length < 3 && Date.now() - t0 < 30_000;) await sleep(20);
+    },
+  });
   await run(dir, { build }, { parallel: 3 });
   assert.equal(maxConcurrent(build.calls), 3);
 });

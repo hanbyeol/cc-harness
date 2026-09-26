@@ -83,11 +83,13 @@ test('F31 AC-1: budget.git_timeout_sec defaults to 300 and does not follow step_
   assert.equal(c.budget.step_timeout_sec, 1);
 });
 
-test('F31 AC-1: verify passes with step_timeout_sec 1 while a fake git takes 2s for worktree add', async () => {
+test('F31 AC-1: verify passes with step_timeout_sec 3 while a fake git takes 5s for worktree add', async () => {
   if (!POSIX) return; // the fake git is a shebang script
   const dir = fixture();
-  const bin = fakeGit('worktree add', 'sleep 2');
-  const r = await withPath(bin, () => runVerify(dir, cfg({ step_timeout_sec: 1 })));
+  // The criterion check (a node process) also runs under step_timeout_sec: 3 s leaves it room
+  // to start on a loaded machine, while the 5 s worktree add still exceeds it.
+  const bin = fakeGit('worktree add', 'sleep 5');
+  const r = await withPath(bin, () => runVerify(dir, cfg({ step_timeout_sec: 3 })));
   assert.equal(r.pass, true, JSON.stringify(r.criteria));
   assert.equal(r.criteria[0].vacuous, false);
 });
