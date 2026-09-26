@@ -41,6 +41,24 @@ Pick the next free id `F{n}` from `.harness/features.json`. Write
 }
 ```
 
+### Backlog items this feature resolves
+Before drafting, read `.harness/backlog.json` (or `harness status`, which lists the open
+`high` items). Each item has an id `B<n>`; it is open while it has no `resolved_by`.
+Review the open `high` items and, for each one this feature actually fixes, put its id in
+the optional `resolves` array (e.g. `"resolves": ["B12"]`) and cover the fix with a
+criterion. When the feature is recorded `passed` (by `harness eval` or `harness run`), the
+core sets `resolved_by` on those items; a fail or blocked leaves them open.
+`harness lint-contract` rejects a `resolves` that is not an array of strings and warns
+about an id that does not exist or is already resolved.
+
+How the backlog is kept (the core does this; you only read it):
+- ids `B1`, `B2`, … are given in file order to items without one; existing ids never change.
+- the evaluator may give each backlog entry a `severity` (`high`, `medium`, `low`), recorded
+  as the item's `priority`; any other value is ignored.
+- the evaluator sees the open items and sets `backlog_id` when it reports the same issue
+  again; the core then bumps that item's `seen` and adds the round to its `sources`
+  instead of adding a duplicate. An unknown or resolved `backlog_id` adds a new item.
+
 Then add `{"id": "F3", "title": "...", "security_tier": "standard", "depends_on": [], "status": "todo"}`
 to `features.json`. Do not add an `approval` block; approval writes it.
 

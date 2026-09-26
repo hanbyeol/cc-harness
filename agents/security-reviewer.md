@@ -55,3 +55,5 @@ Reply with a single JSON object and nothing else:
   fails it, so such a score must be backed by a blocking finding.
 - `findings`: blocking defects only; `dimension` is one of the five score keys.
 - `out_of_scope`: everything else worth recording.
+- Optional on findings and `out_of_scope` entries: `severity` (`high`, `medium` or `low`)
+  and `backlog_id` — the id of a listed open backlog item that is the same issue.
