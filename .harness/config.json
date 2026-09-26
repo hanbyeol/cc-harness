@@ -20,11 +20,17 @@
   "roles": {
     "builder": {
       "adapter": "claude",
-      "model": "claude-opus-5-5"
+      "model": "claude-opus-5-5",
+      "by_tier": {
+        "standard": "claude-sonnet-5"
+      }
     },
     "evaluator": {
       "adapter": "claude",
-      "model": "claude-sonnet-5"
+      "model": "claude-sonnet-5",
+      "by_tier": {
+        "standard": "claude-opus-5-5"
+      }
     },
     "security-reviewer": {
       "adapter": "claude",

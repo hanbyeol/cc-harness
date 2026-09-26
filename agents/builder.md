@@ -27,6 +27,19 @@ this work, so build exactly what it says — no more, no less.
 5. For a finding from a previous round, run its `repro`, fix the cause, and confirm the
    `repro` now exits 0 and no other check regressed.
 
+## Tests that hold on every platform
+Verification runs where you run, but CI also runs Windows, macOS and Linux, and a test that
+passes only on your machine fails the release later. Write tests that do not depend on:
+- **Wall-clock timing** — do not assert that something finished within N ms or that two
+  sleeps overlapped. Make the order explicit instead: wait on a barrier (the other side has
+  started, a file exists) with a generous upper bound, then assert.
+- **Path spelling** — compare paths with `fs.realpathSync.native` on both sides; Windows can
+  spell one directory as a short name (`RUNNER~1`) in one API and in full in another.
+- **Process ids as identity** — pids are reused quickly (Windows especially); pair start and
+  end events by order or by a token you generate, not by pid alone.
+- **Startup speed** — a child process may be killed before it writes anything; do not make
+  its first output a precondition of the assertion without waiting for it.
+
 ## Boundaries
 These keep the process convergent and the verdict trustworthy:
 - Do not edit anything under `.harness/` (config, contracts, verdicts, features, backlog).
