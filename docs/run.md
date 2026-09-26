@@ -66,10 +66,19 @@ run 보고서에 `flaky_tests` 로 기록된다.
 
 ## base vacuity 실행의 시간 제한
 
-`new: true` 기준을 base 임시 worktree 에서 다시 돌리는 vacuity 실행은 `verify.vacuity_timeout_sec`(기본 120)과
-`budget.step_timeout_sec` 중 작은 값으로 제한된다. 시간을 넘긴 base 실행은 프로세스 트리째 종료되고 "base 에서 통과하지
-않음"으로 본다 — 그 기준은 vacuous 가 아니고 head 결과대로 판정되며 결과에 `base_timed_out: true` 가 남는다. head 쪽 기준
-check·`verify.commands`·`test_count` 는 `budget.step_timeout_sec` 로만 제한된다.
+`new: true` 기준을 base 임시 worktree 에서 다시 돌리는 vacuity 실행은 max(`verify.vacuity_timeout_sec`(기본 120),
+같은 check 의 head 쪽 실행 시간의 3배) 로 제한되고, `budget.step_timeout_sec` 을 넘지 않는다. head 실행 시간은 코어가 잰
+값이고 check 출력으로 바꿀 수 없다. 그래서 head 에서 5초 걸리는 check 는 `vacuity_timeout_sec` 이 2 여도 base 에서 15초까지
+돌 수 있고, base 에서 6초 뒤 통과하면 vacuous 로 잡힌다. head 쪽 check 가 실패해 base 실행을 하지 않는 기준은 제한을
+계산하지 않는다. 시간을 넘긴 base 실행은 프로세스 트리째 종료되고 "base 에서 통과하지 않음"으로 본다 — 그 기준은 vacuous
+가 아니고 head 결과대로 판정되며 결과에 `base_timed_out: true` 와 적용된 제한 `base_timeout_sec`(초)가 남고, verify
+`warnings` 에도 그 초가 나온다. head 쪽 기준 check·`verify.commands`·`test_count` 는 `budget.step_timeout_sec` 로만
+제한된다.
+
+base vacuity 실행이 명령 없음(127·9009·`not recognized`·ENOENT, 출력 `command not found`)으로 끝나면 — 예: base
+worktree 에 설치되지 않은 도구 — vacuity 를 판정할 수 없다. 그 기준은 `base_not_found: true` 와 `command not found on base: <프로그램>` 으로 fail 이고,
+run 의 verify 에서는 기능을 blocked 하지 않고 다른 명령 없음과 똑같이 environment 사유로 멈춘다(`command not found`,
+`harness run --resume`).
 
 ## 범위 밖
 
