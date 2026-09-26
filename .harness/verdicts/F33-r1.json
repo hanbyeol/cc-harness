@@ -1,0 +1,103 @@
+{
+  "feature": "F33",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 8,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The base-side vacuity limit only applies to `verify.vacuity_timeout_sec` inside `verify()`. `run --resume` state files written before F33 have no `vacuity_timeout_sec`, so they fall back to DEFAULTS through `?? DEFAULTS.verify.vacuity_timeout_sec`. That is correct, but no test covers a resumed snapshot without the key.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "A base run that times out is treated as non-vacuous. A criterion whose check hangs on base for reasons unrelated to the feature therefore skips the vacuity guarantee, and only `base_timed_out: true` in the result records this. This follows the contract, but nothing in the verify output or the eval prompt surfaces the flag to a human or the evaluator.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The F33 tests rely on wall-clock timing: 3 s and 10 s vacuity limits, a 5 s head check, and a 3 s pid-liveness wait. They may flake on a heavily loaded host, as B177 and B185 already note for other tests.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B185"
+    },
+    {
+      "summary": "Base vacuity runs are never retried alone (B182). With F33 a base timeout caused by contention also counts as non-vacuous. The SPEC §6.3 addition does not mention this interaction.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B182"
+    },
+    {
+      "summary": "A base timeout now counts as 'did not pass on base'. A check that really passes on base but takes longer than vacuity_timeout_sec (default 120s, e.g. a slow full test suite) is therefore reported as non-vacuous, and a vacuous criterion can pass. The contract (AC-2) and SPEC §6.3 specify this behaviour. Consider adding a warning line to the verify output when base_timed_out is set, so a reviewer can notice it.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "medium"
+    },
+    {
+      "summary": "verify.vacuity_timeout_sec accepts any positive number, including very small ones such as 0.001. With such a value every base vacuity run times out, which in effect turns off the vacuity check for all new criteria without any warning. Consider a minimum value, or a doctor or verify warning for values below a few seconds.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "Only the timed-out case is distinguished for base runs. A base run that fails because a program is missing is still counted as non-vacuous, with no environment-stop signal. This existing gap is unchanged by F33.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B194"
+    },
+    {
+      "summary": "A base run that fails only because of contention with concurrent runs is still never retried alone. F33 adds timeouts as a second way for a base run to count as non-vacuous without a real fail on base.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B182"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.5051148000000001,
+  "contract_hash": "dd7a12895e458a0d1a39c3f8906eff8a52450527f29f14906e40e0c4bf06632d",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 8,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T12:41:16.864Z",
+  "origin": "run"
+}

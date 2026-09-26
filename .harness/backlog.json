@@ -1189,9 +1189,10 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B165",
-      "seen": 2,
+      "seen": 3,
       "sources": [
-        "F25-r2"
+        "F25-r2",
+        "F32-r1"
       ]
     },
     {
@@ -1280,7 +1281,11 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B172"
+      "id": "B172",
+      "seen": 2,
+      "sources": [
+        "F32-r1"
+      ]
     },
     {
       "feature": "F27",
@@ -1384,7 +1389,11 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "medium",
-      "id": "B182"
+      "id": "B182",
+      "seen": 3,
+      "sources": [
+        "F33-r1"
+      ]
     },
     {
       "feature": "F26",
@@ -1419,7 +1428,11 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B185"
+      "id": "B185",
+      "seen": 2,
+      "sources": [
+        "F33-r1"
+      ]
     },
     {
       "feature": "F28",
@@ -1517,7 +1530,11 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B194"
+      "id": "B194",
+      "seen": 2,
+      "sources": [
+        "F33-r1"
+      ]
     },
     {
       "feature": "F29",
@@ -1552,9 +1569,10 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B197",
-      "seen": 3,
+      "seen": 4,
       "sources": [
-        "F29-r2"
+        "F29-r2",
+        "F32-r1"
       ]
     },
     {
@@ -1954,6 +1972,120 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B234"
+    },
+    {
+      "feature": "F32",
+      "round": 1,
+      "at": "2026-09-26T12:39:59.028Z",
+      "summary": "When the recovery's merge of integration into the feature worktree itself conflicts (integration moved after the failed post-merge verify), the feature is blocked as post_merge_verify with 'automatic post-merge verify recovery failed: cannot merge …'. The SPEC only says a conflict after the recovery's re-merge is merge_conflict and does not cover this case.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B235"
+    },
+    {
+      "feature": "F32",
+      "round": 1,
+      "at": "2026-09-26T12:39:59.028Z",
+      "summary": "e.conflictTried is no longer written anywhere; it is read only for the pre-F32 state-file migration in runOne. The migration line is the only remaining user, so the field name lingers in state validation and docs.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B236"
+    },
+    {
+      "feature": "F32",
+      "round": 1,
+      "at": "2026-09-26T12:39:59.028Z",
+      "summary": "failedTestNames trims leading whitespace before matching '✖ ' / 'not ok ', so indented nested failures count. This is broader than the contract's literal 'lines starting with'; it is documented in SPEC §6.1 and docs/run.md but is a deliberate extension.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B237"
+    },
+    {
+      "feature": "F32",
+      "round": 1,
+      "at": "2026-09-26T12:39:59.028Z",
+      "summary": "flaky_tests names come from raw command output and are not passed through the env-value redactor before they go into the verdict and the run report, unlike verify_failures messages.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B238"
+    },
+    {
+      "feature": "F32",
+      "round": 1,
+      "at": "2026-09-26T12:39:59.028Z",
+      "summary": "flaky_tests names are copied from the first run's raw stdout/stderr into the verify result, the verdict file and the run report without the env redactor that verify_failures uses. A test name that contains an env secret value (for example a parametrized test title) would appear unredacted.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B239"
+    },
+    {
+      "feature": "F33",
+      "round": 1,
+      "at": "2026-09-26T12:41:16.864Z",
+      "summary": "The base-side vacuity limit only applies to `verify.vacuity_timeout_sec` inside `verify()`. `run --resume` state files written before F33 have no `vacuity_timeout_sec`, so they fall back to DEFAULTS through `?? DEFAULTS.verify.vacuity_timeout_sec`. That is correct, but no test covers a resumed snapshot without the key.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B240"
+    },
+    {
+      "feature": "F33",
+      "round": 1,
+      "at": "2026-09-26T12:41:16.864Z",
+      "summary": "A base run that times out is treated as non-vacuous. A criterion whose check hangs on base for reasons unrelated to the feature therefore skips the vacuity guarantee, and only `base_timed_out: true` in the result records this. This follows the contract, but nothing in the verify output or the eval prompt surfaces the flag to a human or the evaluator.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B241"
+    },
+    {
+      "feature": "F33",
+      "round": 1,
+      "at": "2026-09-26T12:41:16.864Z",
+      "summary": "A base timeout now counts as 'did not pass on base'. A check that really passes on base but takes longer than vacuity_timeout_sec (default 120s, e.g. a slow full test suite) is therefore reported as non-vacuous, and a vacuous criterion can pass. The contract (AC-2) and SPEC §6.3 specify this behaviour. Consider adding a warning line to the verify output when base_timed_out is set, so a reviewer can notice it.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "medium",
+      "id": "B242"
+    },
+    {
+      "feature": "F33",
+      "round": 1,
+      "at": "2026-09-26T12:41:16.864Z",
+      "summary": "verify.vacuity_timeout_sec accepts any positive number, including very small ones such as 0.001. With such a value every base vacuity run times out, which in effect turns off the vacuity check for all new criteria without any warning. Consider a minimum value, or a doctor or verify warning for values below a few seconds.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B243"
+    },
+    {
+      "source": "run:F33",
+      "feature": "F33",
+      "kind": "rescope",
+      "reason": "post_merge_verify",
+      "rounds": 1,
+      "blocking": [],
+      "summary": "F33 blocked (post_merge_verify): verify failed on the integration branch after the merge — verify failed on the merged integration branch; merge rolled back",
+      "options": [
+        {
+          "kind": "split",
+          "summary": "split F33 so the feature ship as a separate feature with its own contract"
+        },
+        {
+          "kind": "rewrite",
+          "summary": "rewrite the criteria for the feature (new contract version, re-approval)"
+        },
+        {
+          "kind": "accept-risk",
+          "summary": "accept the risk: drop or relax the feature with a recorded decision"
+        }
+      ],
+      "id": "B244"
     }
   ]
 }

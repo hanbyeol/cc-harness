@@ -1,0 +1,16 @@
+{
+  "entries": [
+    {
+      "base": "c03bd9f1faaf2e56610a3b27184c73fc12c9e06f",
+      "command": "node --test \"test/**/*.test.mjs\"",
+      "rule": "summary",
+      "count": 703
+    },
+    {
+      "base": "f6788eed64e96f12ad8ba99cc7dfcf2d23f402cd",
+      "command": "node --test \"test/**/*.test.mjs\"",
+      "rule": "summary",
+      "count": 733
+    }
+  ]
+}

@@ -1,0 +1,102 @@
+{
+  "feature": "F32",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 8,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "When the recovery's merge of integration into the feature worktree itself conflicts (integration moved after the failed post-merge verify), the feature is blocked as post_merge_verify with 'automatic post-merge verify recovery failed: cannot merge …'. The SPEC only says a conflict after the recovery's re-merge is merge_conflict and does not cover this case.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "e.conflictTried is no longer written anywhere; it is read only for the pre-F32 state-file migration in runOne. The migration line is the only remaining user, so the field name lingers in state validation and docs.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "failedTestNames trims leading whitespace before matching '✖ ' / 'not ok ', so indented nested failures count. This is broader than the contract's literal 'lines starting with'; it is documented in SPEC §6.1 and docs/run.md but is a deliberate extension.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "flaky_tests names come from raw command output and are not passed through the env-value redactor before they go into the verdict and the run report, unlike verify_failures messages.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "flaky_tests names are copied from the first run's raw stdout/stderr into the verify result, the verdict file and the run report without the env redactor that verify_failures uses. A test name that contains an env secret value (for example a parametrized test title) would appear unredacted.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "recoverPostMerge passes the result of revParse(refs/heads/<integration>) straight to merge-base/merge without a null check. This is the same unclear-failure pattern as B165, now in the post-merge recovery path.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B165"
+    },
+    {
+      "summary": "The blocked post_merge_verify detail still includes v.error unredacted (B197). The new recovery path appends to that detail without redacting it.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B197"
+    },
+    {
+      "summary": "The recovery fail() path does not check the result of `git merge --abort` in the feature worktree, so a failed abort leaves the worktree mid-merge and the blocked detail does not say so. This mirrors B172 for resolveConflict.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B172"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.9031774,
+  "contract_hash": "7a2e73c7d283bc1c5f889fd734ff86d696a7b76d0f8114587431f1a6ef6203ed",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 8,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T12:39:59.028Z",
+  "origin": "run"
+}
