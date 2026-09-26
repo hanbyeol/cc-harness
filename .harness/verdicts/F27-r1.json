@@ -1,0 +1,61 @@
+{
+  "feature": "F27",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "Rows with a missing or unparseable ended_at are silently dropped by `--since` (NaN comparison is false). Rule (a) sorts them as time 0. A hand-edited metrics line that is valid JSON but lacks fields still counts toward `lines` without any warning. ES-1 only covers non-object lines.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "`harness stats --json` with no metrics files prints the plain text 'no metrics yet' instead of a JSON document. This follows ES-2 literally, but it means machine consumers of --json must special-case this output.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Metrics files grow without bound and `harness stats` re-reads every file on each call. There is no rotation or pruning; --since only filters at aggregation time.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Rule (c) checks only that features.json contains any standard-tier feature. It does not check whether the builder cost actually came from standard features, so the suggestion can appear when the cost is driven by critical features.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.214347,
+  "contract_hash": "b12a0a111764fba2a8af77e4fe597442ed8b09b0eebb9c1d980cd73351039bd5",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false
+    }
+  },
+  "at": "2026-09-26T06:20:47.745Z",
+  "origin": "run"
+}

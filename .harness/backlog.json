@@ -1277,6 +1277,136 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B172"
+    },
+    {
+      "feature": "F27",
+      "round": 1,
+      "at": "2026-09-26T06:20:47.745Z",
+      "summary": "Rows with a missing or unparseable ended_at are silently dropped by `--since` (NaN comparison is false). Rule (a) sorts them as time 0. A hand-edited metrics line that is valid JSON but lacks fields still counts toward `lines` without any warning. ES-1 only covers non-object lines.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B173"
+    },
+    {
+      "feature": "F27",
+      "round": 1,
+      "at": "2026-09-26T06:20:47.745Z",
+      "summary": "`harness stats --json` with no metrics files prints the plain text 'no metrics yet' instead of a JSON document. This follows ES-2 literally, but it means machine consumers of --json must special-case this output.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B174"
+    },
+    {
+      "feature": "F27",
+      "round": 1,
+      "at": "2026-09-26T06:20:47.745Z",
+      "summary": "Metrics files grow without bound and `harness stats` re-reads every file on each call. There is no rotation or pruning; --since only filters at aggregation time.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B175"
+    },
+    {
+      "feature": "F27",
+      "round": 1,
+      "at": "2026-09-26T06:20:47.745Z",
+      "summary": "Rule (c) checks only that features.json contains any standard-tier feature. It does not check whether the builder cost actually came from standard features, so the suggestion can appear when the cost is driven by critical features.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B176"
+    },
+    {
+      "feature": "F26",
+      "round": 1,
+      "at": "2026-09-26T06:36:11.201Z",
+      "summary": "Timing-based overlap assertions in test/f26-verify-parallel.test.mjs (for example maxOverlap === limit, or the 300 ms and 1000 ms sleeps) can be flaky on a heavily loaded CI machine. The f26 test file took about 59 s to run.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B177"
+    },
+    {
+      "feature": "F26",
+      "round": 1,
+      "at": "2026-09-26T06:36:11.201Z",
+      "summary": "A check that fails while another run is active is retried alone, and 'overlapped' is set whenever any other pool run was live at any point during it. A check that fails on its own merits during a busy period is therefore run twice. That doubles worst-case time for genuinely failing checks (up to 2x step_timeout_sec if a non-timeout failure is slow). This is consistent with the SPEC but worth noting next to B22.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B178"
+    },
+    {
+      "feature": "F26",
+      "round": 1,
+      "at": "2026-09-26T06:36:11.201Z",
+      "summary": "Head checks and base vacuity runs share a single pool, and a new criterion's vacuity run only queues after its head check has passed. With a small limit, base vacuity runs can queue behind later head checks. This is harmless for correctness, but overall latency depends on scheduling order.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B179"
+    },
+    {
+      "feature": "F26",
+      "round": 1,
+      "at": "2026-09-26T06:36:11.201Z",
+      "summary": "Verify still builds the base worktree lazily when test_count is unset. The 'base test count → overlay → vacuity' ordering is then enforced only through the lazy ensureOverlaidBase promise, not through an explicit phase barrier. It is correct today, but the invariant is implicit.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B180"
+    },
+    {
+      "feature": "F26",
+      "round": 1,
+      "at": "2026-09-26T06:36:11.201Z",
+      "summary": "The interval-check fixture decides head or base with fs.statSync('.git').isDirectory(). It will misclassify if the test repo is itself created inside a linked worktree or with a different git layout, so the fixture assumes the standard gitRepo() layout.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B181"
+    },
+    {
+      "feature": "F26",
+      "round": 1,
+      "at": "2026-09-26T06:36:11.201Z",
+      "summary": "Base vacuity runs are never retried alone. If a new criterion's base run fails only because of contention with concurrent runs (shared DB, port or temp file), the criterion counts as non-vacuous and a vacuous criterion can pass. The solo retry covers only head failures. Consider re-running an overlapped base failure alone too, or documenting this asymmetry in SPEC §6.3.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "medium",
+      "id": "B182"
+    },
+    {
+      "feature": "F26",
+      "round": 1,
+      "at": "2026-09-26T06:36:11.201Z",
+      "summary": "Total process concurrency is run.verify_parallel × verify.check_parallel. With both on 'auto' that is about floor(cpus/8) × floor(cpus/4); on 32 CPUs, 4 verifies × 8 checks = 32 concurrent check processes plus test_count runs. The contract does not bound or document this combined load.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B183"
+    },
+    {
+      "feature": "F26",
+      "round": 1,
+      "at": "2026-09-26T06:36:11.201Z",
+      "summary": "`baseDir` is assigned before `git worktree add` completes. If the add fails, the finally block runs `worktree remove --force` on a path that is not a worktree and ignores the result. This is harmless because rmSync and prune follow, but the add failure is reported only through gitOk's error and the cleanup errors are silent. This behaviour existed before F26.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B184"
+    },
+    {
+      "feature": "F26",
+      "round": 1,
+      "at": "2026-09-26T06:36:11.201Z",
+      "summary": "The AC-1 and ES-2 tests depend on wall-clock timing (1000 ms sleeps, a 2 s timeout, and startup overlap). On a heavily loaded CI host, maxOverlap could fall below the limit and the tests could flake. Consider synchronization barriers, as fbbfe32 did for F25 AC-3.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B185"
     }
   ]
 }
