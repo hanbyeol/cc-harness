@@ -118,12 +118,10 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
 - **잠자기** — run 동안 macOS는 `caffeinate -i`, Linux는 `systemd-inhibit`으로 유휴 잠자기를 막습니다(Windows 미지원,
   배터리로 덮개를 닫으면 OS가 강제로 재웁니다). 그래도 잠들어 단계가 시간 제한에 걸리면 `blocked(budget)`가 아니라
   중단으로 처리되고, `harness run --resume`이 그 단계부터 다시 수행합니다.
-- **시간 제한** — `budget.step_timeout_sec`(기본 1800)은 역할 CLI 호출과 `verify.commands`·기준 check·`test_count`·repro를,
-  `budget.git_timeout_sec`(기본 300)은 코어가 직접 부르는 git(worktree·diff·merge·rev-parse 등)을 따로 제한합니다. 넘긴 git은
-  프로세스 트리째 종료되고 `git <명령> timed out after <N>s` 오류로 끝납니다.
-  `new: true` 기준을 base에서 다시 돌리는 vacuity 실행은 `verify.vacuity_timeout_sec`(기본 120)과
-  `budget.step_timeout_sec` 중 작은 값으로 제한됩니다. base 쪽이 시간을 넘기면 프로세스 트리째 종료되고 base에서
-  통과하지 않은 것으로 봅니다 — vacuous가 아니고 head 결과대로 판정되며 결과에 `base_timed_out: true`가 남습니다.
+- **시간 제한** — `budget.step_timeout_sec`(기본 1800)은 역할 CLI·`verify.commands`·기준 check·`test_count`·repro를, `budget.git_timeout_sec`
+  (기본 300)은 코어 git(worktree·diff·merge 등)을 제한합니다. 넘긴 git은 트리째 종료되고 `git <명령> timed out after <N>s`로 끝납니다.
+  base vacuity 실행은 `verify.vacuity_timeout_sec`(기본 120)과 `budget.step_timeout_sec` 중 작은 값으로 제한되고, 넘기면
+  vacuous가 아닌 것으로 봅니다(`base_timed_out: true`, 자세한 규칙은 `docs/run.md`).
 - **명령 없음** — verify·병합 후 verify에서 `verify.commands`·`test_count`·기준 check의 프로그램이 설치돼 있지 않으면
   (exit 127·9009, `not recognized`, ENOENT) 기능은 `blocked`가 아닙니다. run이 상태를 저장하고 명령 이름과
   `command not found`를 출력하며 멈춥니다(병합 후 verify면 병합을 되돌린 뒤). 설치하거나 PATH를 고친 뒤

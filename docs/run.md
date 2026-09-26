@@ -64,6 +64,13 @@ verify 명령이 첫 실행에 실패하고 재실행에 통과하면 flaky 다(
 `(12ms)` 시간과 TAP `# …` 지시어는 떼고, 같은 이름은 한 번만 센다. 이 목록이 verify 결과(명령별과 전체)·판정 파일·
 run 보고서에 `flaky_tests` 로 기록된다.
 
+## base vacuity 실행의 시간 제한
+
+`new: true` 기준을 base 임시 worktree 에서 다시 돌리는 vacuity 실행은 `verify.vacuity_timeout_sec`(기본 120)과
+`budget.step_timeout_sec` 중 작은 값으로 제한된다. 시간을 넘긴 base 실행은 프로세스 트리째 종료되고 "base 에서 통과하지
+않음"으로 본다 — 그 기준은 vacuous 가 아니고 head 결과대로 판정되며 결과에 `base_timed_out: true` 가 남는다. head 쪽 기준
+check·`verify.commands`·`test_count` 는 `budget.step_timeout_sec` 로만 제한된다.
+
 ## 범위 밖
 
 - 복구 시도 횟수를 설정으로 늘리기 — 항상 기능당 1회다.
