@@ -125,6 +125,8 @@ run 도중 evaluator(또는 security-reviewer) 어댑터가 `adapter_unavailable
 
 예산: 단계별 timeout(기본 30분), 단계별 USD(어댑터 지원 시), run 전체 USD. 단계 초과 시 해당 기능 blocked(`budget`), run 초과 시 진행 중 기능 blocked(`budget`) 후 전체 정지.
 중단 복구: run은 상태 파일(`runs/current.json`, config 스냅샷 포함)만으로 재개 가능(`harness run --resume`). run 이 실제로 쓰는 config 스냅샷(새 run·재개·직접 전달 모두)은 시작 전에 §4 의 형식 검사를 다시 거친다 — 형식이 틀리면 작업 없이 `config_invalid` exit 2. SIGINT 는 진행 중 단계의 프로세스 트리를 종료하고 상태를 저장한 뒤 exit 130.
+잠자기 방지: run 은 첫 기능 전에 시스템 잠자기를 막는 프로세스를 시작하고 run 이 끝나면(SIGINT 중단 포함) 종료한다 — darwin 은 `caffeinate -i -w <run 의 pid>`, linux 는 `systemd-inhibit --what=idle:sleep --mode=block …`(run 의 pid 가 사라지면 끝나는 대기 명령을 붙잡는다). PATH 검색으로 찾은 고정 이름만 인자 배열로, 셸 없이 실행하며 config 값·기능 id 는 인자에 넣지 않는다. 명령이 PATH 에 없거나 시작 직후(또는 run 도중) 종료되면, 또는 win32 등 그 밖의 platform 이면 run 은 그대로 진행하고 출력과 run 보고서에 `sleep inhibitor unavailable` 이 나온다(Windows 의 잠자기 방지, 배터리에서 덮개를 닫을 때의 강제 잠자기는 범위 밖).
+잠자기로 끊긴 단계: 단계(build·verify·병합 후 verify 포함·eval) 도중 시스템 잠자기가 60초 이상 감지되고(벽시계 경과 − 단조 시계 경과, 또는 주기 tick 사이 벽시계 간격의 초과분) 그 단계가 timeout 으로 끝나면(build·eval 어댑터의 `timeout`, verify 명령·기준 check 의 timeout) 그 기능은 blocked(`budget`)가 아니다 — run 은 상태를 저장하고 중단하며 출력에 `system sleep` 과 `harness run --resume` 이 나온다(exit 1). 기능 status 는 바뀌지 않고(`in_progress`), build 시도 횟수와 eval_error 횟수도 소모되지 않는다. `harness run --resume` 은 같은 라운드의 중단된 단계를 다시 수행한다(build 가 끝나고 verify 가 끊겼으면 verify 부터). 잠자기가 감지되지 않은(60초 미만 포함) timeout 은 지금처럼 blocked(`budget`)이고, timeout 없이 잠자기만 있었던 단계는 영향이 없다. 잠자기 시간만큼 단계 제한 시간을 늘리지는 않는다.
 이전 run 의 `harness/F{n}` 브랜치가 남아 있으면 자동으로 지우지 않는다(작업 보존) — 해당 기능은 blocked(`worktree`), 사용자가 브랜치를 지우고 재시도한다. blocked 기능의 worktree 는 점검용으로 남기고, passed 기능의 worktree·브랜치는 제거한다.
 
 ## 9. 보안 요구사항
