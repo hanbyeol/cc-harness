@@ -202,6 +202,7 @@ run 도중 evaluator(또는 security-reviewer) 어댑터가 `adapter_unavailable
 - SR-6 evaluator·security-reviewer는 읽기 전용 모드로 호출된다(어댑터별 플래그).
 - SR-7 ops 프로필의 라이브 변경 skill(`rollout`)은 `run` 대상이 될 수 없다(lint가 거부).
 - SR-8 기록 파일의 가림: run 상태 파일(`.harness/runs/current.json`), verdict 파일(`F{n}-r{k}.json`·`.eval_error.json`), backlog 항목에 저장되는 문자열(verify 명령·기준 출력과 메시지, `verify_failures`, blocking·backlog 의 요약·repro, re-scope 제안)에서 env_allowlist(SR-2) 밖 환경 변수의 값(8자 이상)은 보고서(§8)와 같은 규칙으로 `[redacted]` 로 바뀐다. 값은 문자열 그대로(정규식 아님) 비교하고, 허용목록 안 변수와 8자 미만 값은 가리지 않는다. 가림은 파일을 쓰기 직전 사본에 적용되고(상태 파일은 모든 저장 경로 — 중단·blocked 포함), run 은 메모리의 원래 값으로 계속한다. 파일을 다시 읽는 데 쓰는 식별자(config 스냅샷, 기능·기준 id, 커밋 sha, 충돌 파일 경로, 라운드 이력)는 가리지 않으므로 `--resume` 은 가려진 상태 파일로도 이어진다. 이미 커밋된 과거 기록과 환경 변수 밖의 비밀은 범위 밖.
+- SR-9 가림과 자르기의 순서: verify 명령 출력은 끝 2000자로 자르기 전에 가리므로(test_count 출력의 앞 80자도 같다) 잘린 경계가 비밀 값 한가운데를 지나도 조각이 남지 않는다 — 그래서 verify 결과의 출력은 메모리에서도 가려져 있다. 상태 파일·run 보고서·verdict·backlog·metrics(§8.11) 다섯 기록 경로는 같은 가림 함수를 쓰고, 이 함수는 값 전체를 `[redacted]` 로 바꾼 뒤 문자열의 첫머리가 값의 8자 이상 접미사와 같거나 끝이 값의 8자 이상 접두사와 같으면 그 잘린 조각도 `[redacted]` 로 바꾼다(어댑터 오류처럼 먼저 잘린 출력). 2000자보다 긴 값이 출력 전체면 출력은 `[redacted]` 가 된다. 문자열 가운데의 부분 조각, 8자 미만 조각, 인코딩·분할된 값은 범위 밖.
 
 ## 10. 어댑터 (`harness doctor`)
 | 어댑터 | 쓰기(builder) | 읽기전용(evaluator) | 구조화 출력 | 예산 | 모델 |
