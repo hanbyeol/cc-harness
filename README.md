@@ -114,6 +114,13 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
 - **잠자기** — run 동안 macOS는 `caffeinate -i`, Linux는 `systemd-inhibit`으로 유휴 잠자기를 막습니다(Windows 미지원,
   배터리로 덮개를 닫으면 OS가 강제로 재웁니다). 그래도 잠들어 단계가 시간 제한에 걸리면 `blocked(budget)`가 아니라
   중단으로 처리되고, `harness run --resume`이 그 단계부터 다시 수행합니다.
+- **명령 없음** — verify·병합 후 verify에서 `verify.commands`·`test_count`·기준 check의 프로그램이 설치돼 있지 않으면
+  (exit 127·9009, `not recognized`, ENOENT) 기능은 `blocked`가 아닙니다. run이 상태를 저장하고 명령 이름과
+  `command not found`를 출력하며 멈춥니다(병합 후 verify면 병합을 되돌린 뒤). 설치하거나 PATH를 고친 뒤
+  `harness run --resume`하면 그 단계부터 다시 수행하고 라운드를 소모하지 않습니다. 병렬 run에서는 새 기능을 시작하지 않고
+  진행 중인 기능은 현재 단계를 끝낸 뒤 멈춥니다. exit 1 같은 일반 실패는 지금처럼 라운드 실패입니다.
+- **보고서의 실패 항목** — verify·병합 후 verify 실패로 blocked 된 기능은 보고서에 실패한 명령 문자열 또는 기준 id와
+  메시지 앞 300자가 `- failed:` 줄로 나옵니다. env_allowlist 밖 환경 변수 값은 `[redacted]`로 가려집니다.
 - **지표와 `harness stats`** — run은 단계(build·verify·eval·merge·post_merge_verify·conflict_resolve)가 끝날 때마다
   `.harness/runs/{ts}.metrics.jsonl`에 시간·비용·역할·모델을 한 줄씩 남기고(대화형 `harness eval`은
   `.harness/runs/eval.metrics.jsonl`), 보고서에 기능별 단계 표를 넣습니다. 프롬프트·출력·환경 변수 값은 기록하지 않습니다.
@@ -121,6 +128,11 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
   평균 라운드 수를 보여주고, 규칙 기반 제안을 냅니다 — 최근 10단계 중 2개 이상이 `budget.step_timeout_sec`의 90% 이상이면
   step_timeout 상향, verify 시간이 30% 초과면 `verify.check_parallel` 상향, builder 비용이 70% 초과이고 standard 기능이
   있으면 standard 기능 builder 모델 변경. 제안은 자동 적용되지 않습니다.
+- **역할 모델 정책** — `roles.<역할>`에 등급별 모델 `by_tier`, builder 승격 모델 `escalate`, 충돌 해결 모델 `conflict_model`:
+  `{"adapter": "claude", "model": "sonnet", "by_tier": {"critical": "opus"}, "escalate": "opus", "conflict_model": "opus"}`.
+  선택 순서: `conflict_model`(충돌 해결) → `escalate`(같은 계약 2라운드 이상, builder만) → `by_tier.<등급>` → `model` →
+  `adapters.<name>.model`. `-`로 시작하거나 공백·제어 문자가 든 모델 값과 잘못된 `by_tier` 키는 `config_invalid`(exit 2).
+  metrics·verdict에는 호출한 모델이, independence는 실제로 쓴 모델로, doctor는 `fresh-context for <tier>` 경고를 냅니다.
 - **대화형과 혼용** — run은 같은 계약 해시로 이미 평가된 라운드(대화형 `harness eval` 포함)를 이어받아 라운드 상한과
   수렴 비교에 넣습니다.
 
@@ -166,13 +178,8 @@ v1은 에너지 대부분을 "자율 구동 모델의 파괴적 행위 방어"�
 한 기능(F65)이 판정 43회 이상, 커밋 88개를 거치며 보안 점수가 3↔5를 오갔고 7에 한 번도 닿지 않았습니다 —
 이른바 45회 루프입니다. 원인은 구현 품질이 아니라 설계였습니다.
 
-| v1 원인 | v2 대응 |
-|---------|---------|
-| 결정 불가능한 목표("어떤 셸 표기로도 우회 불가") | 결정가능성 lint, 전칭 부정 거부 |
-| 라운드마다 evaluator 범위 확장, 기준 흡수 | 계약 동결 + criterion_id·repro 필수 + 코어 재현 |
-| 정지 규칙 부재 | 최대 3라운드, 실패 엄격 감소, `blocked` |
-| 하네스가 하네스를 지키는 자기참조(~5,700줄 bash 방어 훅) | in-process 방어 제거, D1 위협 경계, CLI 네이티브 sandbox |
-| Claude Code 전용 | CLI 중립 코어 + 어댑터(claude · gemini · codex · generic) |
+원인별 v2 대응(결정가능성 lint, 계약 동결, 라운드 상한, in-process 방어 제거, CLI 중립 코어)과 설계 근거는
+`docs/brainstorms/2026-09-23-v2-from-scratch.md`에 있습니다.
 
 ## 개발
 
