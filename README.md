@@ -114,6 +114,13 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
 - **잠자기** — run 동안 macOS는 `caffeinate -i`, Linux는 `systemd-inhibit`으로 유휴 잠자기를 막습니다(Windows 미지원,
   배터리로 덮개를 닫으면 OS가 강제로 재웁니다). 그래도 잠들어 단계가 시간 제한에 걸리면 `blocked(budget)`가 아니라
   중단으로 처리되고, `harness run --resume`이 그 단계부터 다시 수행합니다.
+- **명령 없음** — verify·병합 후 verify에서 `verify.commands`·`test_count`·기준 check의 프로그램이 설치돼 있지 않으면
+  (exit 127·9009, `not recognized`, ENOENT) 기능은 `blocked`가 아닙니다. run이 상태를 저장하고 명령 이름과
+  `command not found`를 출력하며 멈춥니다(병합 후 verify면 병합을 되돌린 뒤). 설치하거나 PATH를 고친 뒤
+  `harness run --resume`하면 그 단계부터 다시 수행하고 라운드를 소모하지 않습니다. 병렬 run에서는 새 기능을 시작하지 않고
+  진행 중인 기능은 현재 단계를 끝낸 뒤 멈춥니다. exit 1 같은 일반 실패는 지금처럼 라운드 실패입니다.
+- **보고서의 실패 항목** — verify·병합 후 verify 실패로 blocked 된 기능은 보고서에 실패한 명령 문자열 또는 기준 id와
+  메시지 앞 300자가 `- failed:` 줄로 나옵니다. env_allowlist 밖 환경 변수 값은 `[redacted]`로 가려집니다.
 - **지표와 `harness stats`** — run은 단계(build·verify·eval·merge·post_merge_verify·conflict_resolve)가 끝날 때마다
   `.harness/runs/{ts}.metrics.jsonl`에 시간·비용·역할·모델을 한 줄씩 남기고(대화형 `harness eval`은
   `.harness/runs/eval.metrics.jsonl`), 보고서에 기능별 단계 표를 넣습니다. 프롬프트·출력·환경 변수 값은 기록하지 않습니다.
