@@ -314,10 +314,11 @@ test('F24 AC-7: SIGINT stops every step in flight, saves all in-flight features,
 });
 
 // ------------------------------------------------------------------ AC-8
-test('F24 AC-8: with max_parallel 1 (default) features run one at a time', async () => {
+test('F24 AC-8: with max_parallel 1 features run one at a time', async () => {
   const dir = fixture([{ id: 'F1' }, { id: 'F2' }]);
   const build = slowBuild({ delay: () => 200 });
-  const r = await run(dir, { build });
+  // The default became 'auto' in F25; 1 still means one feature at a time.
+  const r = await run(dir, { build }, { config: { run: { max_parallel: 1 } } });
   assert.deepEqual(statuses(dir), { F1: 'passed', F2: 'passed' });
   assert.ok(!overlap(buildsOf(build, 'F1')[0], buildsOf(build, 'F2')[0]), 'build intervals do not overlap');
   assert.match(fs.readFileSync(r.report, 'utf8'), /max parallel: 1/);
@@ -403,7 +404,8 @@ test('F24 ES-2: two parallel features changing the same line — the second merg
   const log = (m) => { if (m === 'F1: passed') afterF1 = git(dir, 'rev-parse', 'harness/integration'); };
   const build = slowBuild({
     delay: (a) => (a.featureId === 'F1' ? 1000 : 2000),
-    files: (a) => ({ [`${a.featureId}.txt`]: 'x\n', 'shared.txt': `changed by ${a.featureId}\n` }),
+    // The one automatic resolution (F25) leaves the conflict markers: the feature stays blocked.
+    files: (a) => (a.conflicts ? {} : { [`${a.featureId}.txt`]: 'x\n', 'shared.txt': `changed by ${a.featureId}\n` }),
   });
   const r = await run(dir, { build, log }, { parallel: 2 });
   assert.ok(overlap(buildsOf(build, 'F1')[0], buildsOf(build, 'F2')[0]));

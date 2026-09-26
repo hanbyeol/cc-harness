@@ -84,8 +84,8 @@ pass는 `passed`, 라운드가 남은 fail은 `in_progress`(남은 라운드 수
 
 ```bash
 harness approve F3 F4 F5          # 사람이 계약을 일괄 승인 (lint 통과 계약만)
-harness run --max-usd 20          # approved 기능을 의존 순서대로 끝까지 진행
-harness run --parallel 2          # 서로 독립인 기능 2개씩 동시에 진행 (병합은 직렬)
+harness run --max-usd 20          # approved 기능을 의존 순서대로 끝까지 진행 (준비된 기능은 모두 동시에)
+harness run --parallel 2          # 동시에 진행하는 기능을 2개로 제한 (1 이면 순차)
 harness run --resume              # 중단된 run을 상태 파일만으로 재개
 ```
 
@@ -93,6 +93,14 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
 통과하면 integration 브랜치에 병합한 뒤 병합 결과를 다시 verify합니다. 종료 시 `.harness/runs/{ts}.md`
 보고서를 씁니다. 코어는 `main`(및 protected 브랜치)에 병합·push하지 않습니다 — main 병합은 사람이 결정합니다.
 
+- **병렬** — `run.max_parallel`이 없거나 `'auto'`면 의존성이 충족된 기능을 개수 제한 없이 모두 동시에 진행합니다.
+  양의 정수나 `--parallel N`이면 그 수가 상한입니다. verify(병합 후 verify 포함)는 build·eval과 별도인 풀에서
+  최대 `run.verify_parallel`개만 동시에 돕니다(`'auto'`·미지정 = `max(1, floor(CPU 수 / 8))`). worktree·브랜치·병합
+  git 호출은 하나의 잠금으로 직렬화되고 병합은 한 번에 하나입니다.
+- **병합 충돌** — 기능 병합이 충돌하면 코어가 그 기능 worktree에서 integration을 병합해 충돌 상태를 만들고,
+  충돌 파일 목록과 함께 builder를 1회 부릅니다. 해결 결과는 verify·eval을 다시 거친 뒤 병합됩니다. 그래도 충돌하거나
+  builder가 실패하거나 충돌 표시(`<<<<<<<`)가 남으면 `blocked`(`merge_conflict`)이고 integration은 그대로입니다.
+  충돌 해결은 기능당 1회이며 라운드를 소모하지 않습니다.
 - **사전 점검** — run은 worktree·브랜치를 만들거나 builder를 부르기 전에 역할별 CLI(`builder`·`evaluator`, 범위에
   critical 기능이 있으면 `security-reviewer`)가 usable인지 확인하고, 아니면 exit 2로 멈춥니다. gemini는 인증 정보
   (`GEMINI_API_KEY`·`GOOGLE_GENAI_USE_VERTEXAI`·`GOOGLE_GENAI_USE_GCA` 또는 settings의 `security.auth.selectedType`)가

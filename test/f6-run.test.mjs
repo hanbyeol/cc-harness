@@ -53,8 +53,10 @@ function fixture(features, { files = {} } = {}) {
   return gitRepo({ ...state, ...SCRIPTS, ...files }, { branch: null });
 }
 
+// These tests describe one feature at a time; auto parallel (F25) is covered in f24/f25.
 const cfg = (over = {}) => resolveConfig({
   base_branch: 'main', ...over,
+  run: { max_parallel: 1, ...(over.run || {}) },
   verify: { commands: [], ...(over.verify || {}) },
   budget: { step_timeout_sec: 60, ...(over.budget || {}) },
 });
@@ -426,6 +428,7 @@ test('F6 ES-1: a merge conflict aborts the merge, blocks the feature (merge_conf
     commit: true,
     files: (a) => ({ [`${a.featureId}.txt`]: 'x\n', 'shared.txt': `${a.featureId}\n` }),
     onCall: async (a) => {
+      if (a.conflicts) return { ok: false, error: 'exit_nonzero', costUsd: 0 }; // the one resolution attempt fails (F25)
       if (a.featureId === 'F2') { // runs right after F1's aborted merge
         const gitDir = path.resolve(intWt, git(intWt, 'rev-parse', '--git-dir'));
         afterAbort = { status: git(intWt, 'status', '--porcelain'), mergeHead: fs.existsSync(path.join(gitDir, 'MERGE_HEAD')), tip: git(intWt, 'rev-parse', 'HEAD') };
