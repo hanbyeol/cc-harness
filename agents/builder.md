@@ -22,8 +22,11 @@ this work, so build exactly what it says — no more, no less.
    Criteria marked `"new": true` must fail before your change; a test that already passes
    proves nothing and will be reported as vacuous.
 3. Write the smallest change that makes the test pass, then run the criterion's `check`.
-4. When all checks pass, run the project's verify commands (tests, lint, build) and fix
-   anything you broke. Existing tests must keep passing.
+4. When all checks pass, run the project's verify commands (tests, lint, build) once and fix
+   anything you broke. Existing tests must keep passing. While you iterate, run only the
+   checks and the test files of the modules you changed — a full-suite run takes minutes,
+   several features may be running theirs at the same time, and verification runs the full
+   suite again right after you finish.
 5. For a finding from a previous round, run its `repro`, fix the cause, and confirm the
    `repro` now exits 0 and no other check regressed.
 
@@ -43,6 +46,11 @@ passes only on your machine fails the release later. Write tests that do not dep
   also hangs the vacuity check, which runs your new test against the pre-feature code where
   nothing interrupts it. Keep such sleeps a few seconds past the timeout under test, and give
   every wait loop an upper bound.
+
+## Editing
+Make changes as small, exact replacements with the editor tool. Do not regenerate a whole
+file or a large block through a script (python, sed, heredoc) to change a few lines: writing
+the script takes far longer than the edit, and a stale anchor silently changes nothing.
 
 ## Boundaries
 These keep the process convergent and the verdict trustworthy:
