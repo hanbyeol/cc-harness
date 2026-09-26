@@ -40,6 +40,24 @@ builder 가 실패하거나, 다시 거친 verify·eval·병합 후 verify 가 �
 줄 중간에 `` `<<<<<<<` `` 를 인용한 문서(SPEC, 이 문서)는 충돌 표시가 아니므로 그런 파일이 충돌 파일이어도 해결이
 받아들여진다.
 
+검사 대상은 git 이 충돌로 보고한 파일만이 아니라 해결 과정에서 바뀐 모든 파일이다 — 병합 직후 상태와 내용이 달라진
+추적 파일·새 파일(builder 가 커밋했으면 그 커밋의 파일 포함). integration 에서 병합된 뒤 builder 가 건드리지 않은
+파일(예: 단독 `=======` 밑줄이 있는 Markdown 제목)은 검사하지 않는다.
+
+### merge --abort 실패
+
+복구가 실패하면 코어는 기능 worktree 의 병합을 `git merge --abort` 로 되돌린다. `merge --abort` 가 실패하면
+그 worktree 를 `git reset --hard` 로 병합 전 커밋으로 정리한다 — MERGE_HEAD 가 남지 않고 integration 브랜치 커밋은
+바뀌지 않는다. blocked detail 에 `merge --abort failed`, 실패 메시지와 되돌린 커밋이 나온다. `reset --hard` 까지
+실패하면 그 기능은 `blocked(merge_conflict)` 이고 detail 에 worktree 경로와 두 실패 메시지가 나온다(손으로 정리한다).
+run 은 다른 기능을 계속 진행한다.
+
+### git 직렬화
+
+worktree·브랜치를 바꾸는 호출(`git worktree add`·`remove`, `git branch`, `git merge`)과 코어가 기능·integration
+worktree 에서 실행하는 `git add`·`git commit`·`git reset --hard` 는 하나의 잠금으로 직렬화된다 — 병렬 기능들의 이런
+호출은 서로 겹치지 않는다.
+
 ## 실패 기록
 
 ### 보고서 (`.harness/runs/{runId}.md`)
@@ -66,10 +84,19 @@ run 보고서에 `flaky_tests` 로 기록된다.
 
 ## base vacuity 실행의 시간 제한
 
-`new: true` 기준을 base 임시 worktree 에서 다시 돌리는 vacuity 실행은 `verify.vacuity_timeout_sec`(기본 120)과
-`budget.step_timeout_sec` 중 작은 값으로 제한된다. 시간을 넘긴 base 실행은 프로세스 트리째 종료되고 "base 에서 통과하지
-않음"으로 본다 — 그 기준은 vacuous 가 아니고 head 결과대로 판정되며 결과에 `base_timed_out: true` 가 남는다. head 쪽 기준
-check·`verify.commands`·`test_count` 는 `budget.step_timeout_sec` 로만 제한된다.
+`new: true` 기준을 base 임시 worktree 에서 다시 돌리는 vacuity 실행은 max(`verify.vacuity_timeout_sec`(기본 120),
+같은 check 의 head 쪽 실행 시간의 3배) 로 제한되고, `budget.step_timeout_sec` 을 넘지 않는다. head 실행 시간은 코어가 잰
+값이고 check 출력으로 바꿀 수 없다. 그래서 head 에서 5초 걸리는 check 는 `vacuity_timeout_sec` 이 2 여도 base 에서 15초까지
+돌 수 있고, base 에서 6초 뒤 통과하면 vacuous 로 잡힌다. head 쪽 check 가 실패해 base 실행을 하지 않는 기준은 제한을
+계산하지 않는다. 시간을 넘긴 base 실행은 프로세스 트리째 종료되고 "base 에서 통과하지 않음"으로 본다 — 그 기준은 vacuous
+가 아니고 head 결과대로 판정되며 결과에 `base_timed_out: true` 와 적용된 제한 `base_timeout_sec`(초)가 남고, verify
+`warnings` 에도 그 초가 나온다. head 쪽 기준 check·`verify.commands`·`test_count` 는 `budget.step_timeout_sec` 로만
+제한된다.
+
+base vacuity 실행이 명령 없음(127·9009·`not recognized`·ENOENT, 출력 `command not found`)으로 끝나면 — 예: base
+worktree 에 설치되지 않은 도구 — vacuity 를 판정할 수 없다. 그 기준은 `base_not_found: true` 와 `command not found on base: <프로그램>` 으로 fail 이고,
+run 의 verify 에서는 기능을 blocked 하지 않고 다른 명령 없음과 똑같이 environment 사유로 멈춘다(`command not found`,
+`harness run --resume`).
 
 ## 범위 밖
 
