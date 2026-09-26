@@ -323,7 +323,8 @@
     {
       "source": "F10-impl",
       "priority": "high",
-      "summary": "Vacuity check gap: a criterion marked new:true whose test lives in a NEW test file always counts as non-vacuous (the check fails on base because the test name is missing), even when the behaviour already existed (F10 AC-2/AC-3, F11 SC-1, F9 AC-4/ES-1). Contracts should mark regression guards new:false; consider having verify detect 'no test matched' on base separately from a real failure."
+      "summary": "Vacuity check gap: a criterion marked new:true whose test lives in a NEW test file always counts as non-vacuous (the check fails on base because the test name is missing), even when the behaviour already existed (F10 AC-2/AC-3, F11 SC-1, F9 AC-4/ES-1). Contracts should mark regression guards new:false; consider having verify detect 'no test matched' on base separately from a real failure.",
+      "resolved_by": "F16"
     },
     {
       "source": "F12-r1",
