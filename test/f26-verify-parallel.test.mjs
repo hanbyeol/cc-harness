@@ -264,7 +264,9 @@ test('F26 SC-1: concurrent head checks run in the working tree, base runs in a t
   assert.ok(!baseDir.startsWith(dir + path.sep), 'base worktree is outside the working tree');
   assert.equal(fs.existsSync(baseDir), false, 'base worktree directory removed');
   const list = git(dir, 'worktree', 'list', '--porcelain').split('\n').filter((l) => l.startsWith('worktree '));
-  assert.deepEqual(list.map((l) => fs.realpathSync(l.slice(9))), [dir]);
+  // .native on both sides: on Windows the temp dir can be spelled as an 8.3 short name
+  // (RUNNER~1) by one API and in full by git.
+  assert.deepEqual(list.map((l) => fs.realpathSync.native(l.slice(9))), [fs.realpathSync.native(dir)]);
 });
 
 // ---------- ES-1 ----------
