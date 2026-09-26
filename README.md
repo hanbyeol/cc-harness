@@ -189,13 +189,7 @@ v1은 에너지 대부분을 "자율 구동 모델의 파괴적 행위 방어"�
 
 ## 개발
 
-```bash
-node --test "test/**/*.test.mjs"      # 전체 테스트
-node test/t.mjs "F8 AC-1"             # 기준 하나의 check
-node bin/harness.mjs lint-contract    # 이 저장소 자신의 계약 lint
-```
-
-CI는 ubuntu · macos · windows × Node 22 · 24 매트릭스에서 테스트와 lint를 실행합니다.
+테스트·기준 check·lint 명령과 CI 매트릭스(ubuntu · macos · windows × Node 22 · 24)는 `CLAUDE.md`에 있습니다.
 
 ## License
 
