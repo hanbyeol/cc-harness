@@ -1,0 +1,56 @@
+{
+  "id": "F39",
+  "title": "migrate-v1 상태 충실도 — v1 진행 상태를 보존·표시하고 부분 완료를 구분",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "migrate-v1 은 v1 status 가 PARTIAL·in_progress·in-progress·blocked·deferred·hold 로 시작하면(대소문자 무시) v2 status 를 todo 로 두되 v1.state 에 partial·in_progress·blocked·deferred 중 하나를 기록한다(값별 개별 테스트)",
+      "check": "node test/t.mjs \"F39 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "harness status 는 v1 에서 온 todo 기능 뒤에 '(v1: <v1.status 앞 60자>)' 를 붙여 보여 주고, --brief 는 todo 수를 'todo N (v1 partial P · blocked B)' 로 나눠 보여 준다",
+      "check": "node test/t.mjs \"F39 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "harness status --todo-v1 은 v1 에서 온 todo 기능만 v1.state 별로 묶어 id·제목·v1 status 앞 120자를 보여 준다",
+      "check": "node test/t.mjs \"F39 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "v1 필드가 없는 기능과 v2 에서 만든 기능의 status 출력은 지금과 같다",
+      "check": "node test/t.mjs \"F39 AC-4\"",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "SPEC §13 과 README 의 마이그레이션 절이 v1.state 와 표시 규칙을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F39 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "features.json 의 v1.status 가 문자열이 아니면(숫자·객체) status 는 그 기능을 v1 표시 없이 보여 주고 exit 0 이다",
+      "check": "node test/t.mjs \"F39 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "v1 계약을 v2 계약으로 변환",
+    "코드에 기능이 이미 있는지 자동 추정"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T15:11:56.434Z",
+    "hash": "553b076e4a2272b08fccba75d1ba8c1a232409e2bf31c4776458ec14012e8c4f"
+  }
+}

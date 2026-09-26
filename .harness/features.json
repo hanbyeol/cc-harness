@@ -349,6 +349,24 @@
         "F35"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F39",
+      "title": "migrate-v1 상태 충실도 — v1 진행 상태를 보존·표시하고 부분 완료를 구분",
+      "security_tier": "standard",
+      "depends_on": [
+        "F38"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F40",
+      "title": "iac 프로필 개선 — 모듈 디렉터리별 fmt·validate, provider 캐시 공유",
+      "security_tier": "standard",
+      "depends_on": [
+        "F38"
+      ],
+      "status": "approved"
     }
   ]
 }

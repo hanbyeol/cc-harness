@@ -1,0 +1,62 @@
+{
+  "id": "F40",
+  "title": "iac 프로필 개선 — 모듈 디렉터리별 fmt·validate, provider 캐시 공유",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "iac 프로필의 기본 verify.commands 는 'harness tf-check' 한 명령이고, 이 명령은 저장소에서 *.tf 가 있는 디렉터리마다(.terraform·.harness 제외) terraform init -backend=false 와 validate 를 실행하고 terraform fmt -check -recursive 를 한 번 실행한다 — 모듈 3개(하나는 validate 오류) fixture 에서 exit 1, 오류 모듈 경로가 출력된다",
+      "check": "node test/t.mjs \"F40 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "harness tf-check 는 TF_PLUGIN_CACHE_DIR 이 없으면 <사용자 캐시 디렉터리>/cc-harness/terraform-plugins 를 만들어 설정하고, 두 번째 실행에서 provider 를 다시 받지 않는다 — 가짜 terraform(PATH 앞)이 받은 환경 변수로 확인",
+      "check": "node test/t.mjs \"F40 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "iac 프로필의 env_allowlist 기본값에 TF_PLUGIN_CACHE_DIR 이 있어 verify 명령에 전달된다",
+      "check": "node test/t.mjs \"F40 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "harness tf-check --dir <path> 는 그 디렉터리 아래만 검사한다",
+      "check": "node test/t.mjs \"F40 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "SPEC §4 프로필 절과 docs 가 tf-check 동작과 캐시를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F40 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "terraform 이 PATH 에 없으면 tf-check 는 'command not found: terraform' 을 출력하고 exit 127 로 끝나 run 의 environment 중단(F29) 규칙에 걸린다",
+      "check": "node test/t.mjs \"F40 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "init 이 실패한 디렉터리는 그 경로와 init 오류 앞 300자를 출력하고 나머지 디렉터리 검사를 계속한 뒤 exit 1 이다",
+      "check": "node test/t.mjs \"F40 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "terraform plan·apply",
+    "tflint·trivy 등 정책 스캐너 실행"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T15:11:56.434Z",
+    "hash": "b1566dd3c0838f3e401d939d07bcb31ba62775949ba30c8b825c9529c605de39"
+  }
+}
