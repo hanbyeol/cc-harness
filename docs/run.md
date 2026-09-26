@@ -98,6 +98,16 @@ worktree 에 설치되지 않은 도구 — vacuity 를 판정할 수 없다. �
 run 의 verify 에서는 기능을 blocked 하지 않고 다른 명령 없음과 똑같이 environment 사유로 멈춘다(`command not found`,
 `harness run --resume`).
 
+## base vacuity 실행의 진입 스크립트
+
+`new: true` 기준의 check 가 `node <경로>`·`bash <경로>`·`sh <경로>`·`python3 <경로>`·`./<경로>` 로 저장소 안 파일을
+직접 실행하고 그 파일을 기능이 새로 만들었으면(merge-base 에 없고 `verify.test_paths` 에 맞음), 그 기준의 base 실행에는
+그 진입 스크립트를 얹지 않는다 — 기능의 나머지 테스트 파일은 그대로 얹는다. 기능이 만든 `test/tool.mjs` 를 check 로 쓰면
+base 쪽은 파일이 없어 실패하고 vacuous 가 아니다(`./<경로>` 의 127 도 환경 실패가 아닌 일반 실패). 그 기준의 verify 결과
+항목에 `base_entry: "test/tool.mjs"` 가 남는다. `node test/t.mjs "F1 AC-1"` 처럼 base 에도 있는 진입 스크립트는 지금처럼
+기능의 테스트 파일과 함께 얹힌다. `..` 로 저장소 밖을 가리키거나 `/`·`C:` 로 시작하는 경로, 해석할 수 없는 check(따옴표
+불일치 등)는 규칙 없이 지금처럼 처리한다. `&&`·`;` 뒤의 명령은 보지 않는다.
+
 ## build 이어가기 — 진척이 있는 시간 초과
 
 큰 기능은 build 한 번이 `budget.step_timeout_sec` 안에 끝나지 않을 수 있다. build 가 시간 초과로 끝나면 코어는 기능
