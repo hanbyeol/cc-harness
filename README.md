@@ -108,8 +108,9 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
   모든 방식에서 (base 커밋, 명령)별로 `.harness/runs/test-count-cache.json`에 캐시되어 다음 verify는 base에서 다시 세지 않습니다.
 - **병합 충돌** — 기능 병합이 충돌하면 코어가 그 기능 worktree에서 integration을 병합해 충돌 상태를 만들고,
   충돌 파일 목록과 함께 builder를 1회 부릅니다. 해결 결과는 verify·eval을 다시 거친 뒤 병합됩니다. 그래도 충돌하거나
-  builder가 실패하거나 충돌 표시(`<<<<<<<`)가 남으면 `blocked`(`merge_conflict`)이고 integration은 그대로입니다.
-  충돌 해결은 기능당 1회이며 라운드를 소모하지 않습니다.
+  builder가 실패하거나 줄 시작 충돌 표시가 남으면 `blocked`(`merge_conflict`)이고 integration은 그대로입니다. 병합 후
+  verify 실패도 실패 항목과 함께 builder를 1회 불러 복구합니다. 두 복구는 합쳐서 기능당 1회이며 라운드를 소모하지 않습니다.
+  복구 규칙, 보고서의 `Merge recovery` 열, 판정의 `verify_failures`·`flaky_tests`는 [docs/run.md](docs/run.md)에 있습니다.
 - **사전 점검** — run은 worktree·브랜치를 만들거나 builder를 부르기 전에 역할별 CLI(`builder`·`evaluator`, 범위에
   critical 기능이 있으면 `security-reviewer`)가 usable인지 확인하고, 아니면 exit 2로 멈춥니다. gemini는 인증 정보
   (`GEMINI_API_KEY`·`GOOGLE_GENAI_USE_VERTEXAI`·`GOOGLE_GENAI_USE_GCA` 또는 settings의 `security.auth.selectedType`)가
