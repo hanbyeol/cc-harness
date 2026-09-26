@@ -1,0 +1,81 @@
+{
+  "id": "F26",
+  "title": "verify 내부 병렬화 — 기준 check·base vacuity 동시 실행(CPU 기반 상한), 실패 check 단독 재확인, head·base 테스트 수 동시 산출",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify 는 기준 check 들을 동시에 최대 verify.check_parallel 개 실행한다. check_parallel 이 없거나 'auto' 이면 max(1, floor(가용 CPU 수 / 4)) 이다 — CPU 수 주입(16→4, 4→1)과 check 명령이 기록한 실행 구간으로 동시 실행 수를 확인",
+      "check": "node test/t.mjs \"F26 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "verify 결과의 criteria 순서는 check 가 끝난 순서와 무관하게 계약 순서다 — 뒤의 기준이 먼저 끝나는 fixture 로 확인",
+      "check": "node test/t.mjs \"F26 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "동시 실행에서 실패한 check 는 모든 동시 실행이 끝난 뒤 혼자 한 번 더 실행하고, 그때 통과하면 pass 로 기록하며 결과에 parallel_retry: true 와 warnings 에 기준 id 가 남는다. 다시 실패하면 fail 이다(경우별 개별 테스트)",
+      "check": "node test/t.mjs \"F26 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "new:true 기준의 base 쪽 vacuity 실행도 같은 상한으로 동시에 실행되지만, base 테스트 수 산출이 끝나고 기능 테스트 파일을 base 에 얹은 뒤에만 시작한다 — 기능이 테스트를 지운 fixture 에서 test count 가 여전히 decreased 로 판정된다",
+      "check": "node test/t.mjs \"F26 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "verify.test_count 의 head 쪽과 base 쪽 산출은 동시에 실행된다 — 가짜 count 명령이 기록한 두 구간이 겹친다",
+      "check": "node test/t.mjs \"F26 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "verify.check_parallel 이 1 이면 기준 check 와 base 실행이 지금처럼 하나씩 순서대로 실행된다",
+      "check": "node test/t.mjs \"F26 AC-6\"",
+      "new": false
+    },
+    {
+      "id": "AC-7",
+      "criterion": "SPEC §6 과 README 가 check_parallel·단독 재확인·실행 순서 제약(base 테스트 수 → 얹기 → base vacuity)을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F26 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "head 쪽 check 는 항상 작업 트리에서, base 쪽 실행은 항상 base 임시 worktree 에서 실행된다 — 동시 실행 중 check 명령이 기록한 cwd 로 확인하고, base 임시 worktree 는 verify 후 git worktree list 에 남지 않는다",
+      "check": "node test/t.mjs \"F26 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "verify.check_parallel 이 'auto' 또는 양의 정수가 아니면(0·소수·다른 문자열) 작업 없이 exit 2(config_invalid), 메시지에 verify.check_parallel 이 나온다",
+      "check": "node test/t.mjs \"F26 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "동시 실행 중 한 check 가 timeout 되어도 다른 check 결과는 기록되고, timeout 된 check 는 단독 재확인 없이 fail(timedOut) 이다",
+      "check": "node test/t.mjs \"F26 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "verify.commands 끼리의 병렬 실행",
+    "check 별 자원 충돌(DB·포트) 자동 감지 — 필요한 프로젝트는 check_parallel 1 로 설정"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T05:54:02.286Z",
+    "hash": "f438f6fa4349c0b342305ebb261752c3b527dc7f5d99a1016c9589ced9b75fe7"
+  }
+}

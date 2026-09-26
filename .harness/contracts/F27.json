@@ -1,0 +1,82 @@
+{
+  "id": "F27",
+  "title": "실행 지표와 harness stats — 단계별 시간·비용·모델 기록, 누적 분석, 규칙 기반 개선 제안",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness run 은 단계(build·verify·eval·merge·post_merge_verify, 있으면 conflict_resolve)가 끝날 때마다 .harness/runs/<runId>.metrics.jsonl 에 한 줄을 추가한다 — 필드는 feature·round·step·started_at·ended_at·duration_ms·cost_usd·role·adapter·model·outcome 이고, 가짜 어댑터 run 에서 단계 수만큼 줄이 생긴다",
+      "check": "node test/t.mjs \"F27 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "대화형 harness eval 도 evaluator·security-reviewer 각각의 호출을 .harness/runs/eval.metrics.jsonl 에 같은 형식으로 한 줄씩 추가한다",
+      "check": "node test/t.mjs \"F27 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "run 보고서에 기능별 단계 표(단계·시간·비용·모델)가 들어간다",
+      "check": "node test/t.mjs \"F27 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "harness stats 는 모든 metrics 파일을 모아 단계별 횟수·중앙값·p90 시간·비용 합과 평균, 역할·모델별 비용 합, 기능별 1라운드 통과율과 평균 라운드 수를 출력하고, --json 이면 같은 내용을 JSON 으로 출력한다(고정 fixture 의 기대값과 비교)",
+      "check": "node test/t.mjs \"F27 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "harness stats --since YYYY-MM-DD 는 ended_at 이 그 날짜 이후인 줄만 집계한다",
+      "check": "node test/t.mjs \"F27 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "harness stats 는 규칙 기반 제안을 출력한다 — (a) 최근 10개 중 2개 이상 단계 시간이 step_timeout_sec 의 90% 이상이면 step_timeout 조정, (b) verify·post_merge_verify 시간 합이 전체의 30% 초과면 verify.check_parallel 조정, (c) builder 비용이 전체의 70% 초과이고 standard 기능이 있으면 standard 기능 builder 모델 조정 제안. 규칙별 fixture 에서 해당 제안만 나온다",
+      "check": "node test/t.mjs \"F27 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "SPEC 과 README 가 metrics 파일 형식, harness stats 출력, 제안 규칙을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F27 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "metrics 줄에는 AC-1 의 필드만 있고 프롬프트·diff·출력 본문·환경 변수 값이 들어가지 않는다 — 프롬프트와 어댑터 출력에 표식 문자열을 넣고 GEMINI_API_KEY=sk-test-secret 로 실행한 뒤 metrics 파일에 표식과 sk-test-secret 이 없다",
+      "check": "node test/t.mjs \"F27 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "metrics 파일에 JSON 이 아닌 줄이 있으면 harness stats 는 그 줄을 건너뛰고 파일 이름과 줄 번호를 담은 경고를 내며 exit 0 이다",
+      "check": "node test/t.mjs \"F27 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "metrics 파일이 하나도 없으면 harness stats 는 'no metrics yet' 을 출력하고 exit 0 이다",
+      "check": "node test/t.mjs \"F27 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "기존 run 보고서·verdict 에서 과거 지표를 역산",
+    "제안을 config 에 자동 적용",
+    "비용이 보고되지 않는 어댑터의 비용 추정"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T05:54:02.286Z",
+    "hash": "b12a0a111764fba2a8af77e4fe597442ed8b09b0eebb9c1d980cd73351039bd5"
+  }
+}

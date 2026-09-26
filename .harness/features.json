@@ -237,7 +237,7 @@
       "depends_on": [
         "F25"
       ],
-      "status": "todo"
+      "status": "approved"
     },
     {
       "id": "F27",
@@ -246,7 +246,7 @@
       "depends_on": [
         "F25"
       ],
-      "status": "todo"
+      "status": "approved"
     }
   ]
 }
