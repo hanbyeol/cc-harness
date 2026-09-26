@@ -1,0 +1,70 @@
+{
+  "feature": "F41",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "test/assert-count.mjs counts assert calls per file, not per test as AC-3 describes. Moving an assert from one test to another in the same file, or replacing an assertion with a weaker one of the same count (for example loosening a wall-clock bound, as f3 SC-1 does from 15 s to 45 s), goes undetected. Test names given as template literals with ${} interpolation (for example F41 ES-1's loop) are compared as raw template text.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The F41 AC-2 unit test only greps stress.mjs source for the glob and '--test'. The real load behaviour is covered only by the criterion check `node test/stress.mjs 2`, which is not part of the suite or CI (the contract says so explicitly).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Several fixes widen time bounds (f21 until 10 s→60 s, gone 5 s→30 s, SC-1 timeout 60 s→180 s; f31 GIT_T 5→20, HANG_T 15→30; f37 base wait 20 s→45 s). This makes each run slower in the failure path and the suite longer overall. B208 and B177 note that suite duration is already a concern.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "stress.mjs discards child stderr (child.stderr.resume()). A crash that prints only to stderr is reported only as '<test runner exited N without a failing test>', with no diagnostic text.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "B177 (the f26 timing assertions) is listed in `resolves`, but the diff does not touch test/f26-verify-parallel.test.mjs. Its stability rests on the AC-2 stress check passing, not on a targeted fix.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B177"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.42144180000000003,
+  "contract_hash": "3b3eddc4a9a25cd84246145a187feca2f511367b635a71880da82ed578a9a165",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T17:26:41.097Z",
+  "origin": "eval"
+}

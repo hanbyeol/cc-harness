@@ -375,7 +375,8 @@
       "depends_on": [
         "F40"
       ],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 1
     }
   ]
 }

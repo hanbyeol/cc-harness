@@ -1356,10 +1356,12 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B177",
-      "seen": 2,
+      "seen": 3,
       "sources": [
-        "F31-r2"
-      ]
+        "F31-r2",
+        "F41-r1"
+      ],
+      "resolved_by": "F41"
     },
     {
       "feature": "F26",
@@ -1455,7 +1457,8 @@
       "sources": [
         "F33-r1",
         "F35-r1"
-      ]
+      ],
+      "resolved_by": "F41"
     },
     {
       "feature": "F28",
@@ -2628,6 +2631,46 @@
         }
       ],
       "id": "B292"
+    },
+    {
+      "feature": "F41",
+      "round": 1,
+      "at": "2026-09-26T17:26:41.097Z",
+      "summary": "test/assert-count.mjs counts assert calls per file, not per test as AC-3 describes. Moving an assert from one test to another in the same file, or replacing an assertion with a weaker one of the same count (for example loosening a wall-clock bound, as f3 SC-1 does from 15 s to 45 s), goes undetected. Test names given as template literals with ${} interpolation (for example F41 ES-1's loop) are compared as raw template text.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B293"
+    },
+    {
+      "feature": "F41",
+      "round": 1,
+      "at": "2026-09-26T17:26:41.097Z",
+      "summary": "The F41 AC-2 unit test only greps stress.mjs source for the glob and '--test'. The real load behaviour is covered only by the criterion check `node test/stress.mjs 2`, which is not part of the suite or CI (the contract says so explicitly).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B294"
+    },
+    {
+      "feature": "F41",
+      "round": 1,
+      "at": "2026-09-26T17:26:41.097Z",
+      "summary": "Several fixes widen time bounds (f21 until 10 s→60 s, gone 5 s→30 s, SC-1 timeout 60 s→180 s; f31 GIT_T 5→20, HANG_T 15→30; f37 base wait 20 s→45 s). This makes each run slower in the failure path and the suite longer overall. B208 and B177 note that suite duration is already a concern.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B295"
+    },
+    {
+      "feature": "F41",
+      "round": 1,
+      "at": "2026-09-26T17:26:41.097Z",
+      "summary": "stress.mjs discards child stderr (child.stderr.resume()). A crash that prints only to stderr is reported only as '<test runner exited N without a failing test>', with no diagnostic text.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B296"
     }
   ]
 }
