@@ -364,7 +364,10 @@ test('F21 SC-2 the inhibitor is the fixed name with fixed arguments, no shell, n
   for (const platform of ['darwin', 'linux']) {
     const dir = fixture(['F7'], { integration: 'zzmarker-integ' });
     const fk = fakeInhibitors();
-    const r = await run(dir, { build: fakeBuild(), platform, env: fk.env }, {
+    // Hold the build until the inhibitor has logged: under load the fake run could finish and
+    // stop the inhibitor before its shell script wrote the log.
+    const build = fakeBuild(async () => { await until(() => fk.entries().length > 0); return null; });
+    const r = await run(dir, { build, platform, env: fk.env }, {
       config: { integration_branch: 'zzmarker-integ', protected_branches: ['zzmarker-prot'], env_allowlist: ['ZZMARKER_ENV'] },
     });
     assert.equal(r.results[0].status, 'passed', r.out);
