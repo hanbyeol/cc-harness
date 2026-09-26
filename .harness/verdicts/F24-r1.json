@@ -1,0 +1,87 @@
+{
+  "feature": "F24",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The F24 tests rely on wall-clock timing: AC-1 uses 12s builder delays and a 0.75× bound, and AC-2, AC-6, AC-7 and ES-2 use hundreds of ms of sleep to order events. They add about 25s or more to the suite and may be flaky on a loaded CI machine. Consider making the ordering deterministic with latches or gates instead of sleeps.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "The `--parallel` value is validated in two places: `parseArgs` in lib/commands/run.mjs and `runFeatures` in lib/run.mjs. The rules could drift apart. Sharing one validator, like `isMaxParallel` in config.mjs, would help.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "`signal` is either the run's own AbortController signal or the caller's. That choice depends on `maxParallel`, `state.active.length` and whether `outer` exists, which is subtle. Always using `ac.signal` and forwarding `outer` would be simpler.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "An unused security-reviewer result still costs money. If `unused` reviewer costs are counted in the run total, that is right, but the SPEC does not say so explicitly.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "worktreeLock only serializes `git worktree add`; the `git worktree remove --force` and `git branch -D` calls in merge() run under mergeLock instead. With --parallel ≥ 3, a new feature's worktree add can therefore run at the same time as another feature's worktree remove or branch deletion in the shared .git. Git's per-ref locks make an actual collision unlikely, but a transient lock error would show up as blocked('worktree'). One option is to run the post-merge cleanup under worktreeLock too.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "summary": "In merge(), the builder-changes commit (git add -A / commit in the feature worktree) runs inside mergeLock, so it is serialized behind other features' post-merge verifies even though it only touches that feature's own worktree. This costs throughput, not correctness.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "summary": "When the evaluator has a blocking finding, the security-reviewer still runs to completion concurrently and its cost is spent even though the result is recorded as 'unused'. The contract accepts this trade-off, but the spend could be surfaced in the verdict or report.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "summary": "If the evaluator returns ev.error for a critical feature, any error from the concurrently running security-reviewer is silently dropped because only the evaluator error is reported. That matches sequential behaviour (the reviewer would not have run at all), but the reviewer's cost and error are not recorded anywhere.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.7147854,
+  "contract_hash": "325e4a1d51afa598583f8a7c42e0d2b7db68729dc3655079f5f25fc22a8fae3f",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 8,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false
+    }
+  },
+  "at": "2026-09-26T03:57:35.142Z",
+  "origin": "run"
+}
