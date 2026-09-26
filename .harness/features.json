@@ -247,6 +247,24 @@
         "F25"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F28",
+      "title": "역할 모델 정책 — 등급별 모델, 실패 라운드 승격, 충돌 해결 모델, 모델 값 검증",
+      "security_tier": "critical",
+      "depends_on": [
+        "F27"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F29",
+      "title": "환경 실패 구분 — 실행 파일 없음은 기능 blocked 가 아닌 run 중단(재개 가능), 실패한 명령·기준을 보고서에 기록",
+      "security_tier": "critical",
+      "depends_on": [
+        "F27"
+      ],
+      "status": "approved"
     }
   ]
 }

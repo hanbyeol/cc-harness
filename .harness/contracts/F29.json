@@ -1,0 +1,69 @@
+{
+  "id": "F29",
+  "title": "환경 실패 구분 — 실행 파일 없음은 기능 blocked 가 아닌 run 중단(재개 가능), 실패한 명령·기준을 보고서에 기록",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "run 의 verify 또는 병합 후 verify 에서 verify.commands·test_count·기준 check 중 하나가 명령 없음(POSIX 127, Windows 9009·not recognized, spawn ENOENT)으로 끝나면 기능은 blocked 가 되지 않고 run 이 상태를 저장한 채 environment 사유로 멈추며, 출력에 명령 이름·'command not found'·'harness run --resume' 이 나온다(병합 후 verify 는 병합을 되돌린 뒤)",
+      "check": "node test/t.mjs \"F29 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "AC-1 로 멈춘 run 을 명령이 다시 있는 상태에서 harness run --resume 하면 중단된 단계부터 다시 수행해 passed 가 되고, 라운드를 소모하지 않는다",
+      "check": "node test/t.mjs \"F29 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "병렬 run 에서 한 기능이 AC-1 로 멈추면 새 기능을 시작하지 않고 진행 중인 기능의 현재 단계를 끝낸 뒤 run 이 멈추며, 모든 진행 중 기능이 상태 파일에 남는다",
+      "check": "node test/t.mjs \"F29 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "verify·병합 후 verify 실패로 blocked 된 기능의 run 보고서에 실패한 항목(명령 문자열 또는 기준 id)과 그 메시지 앞 300자가 나온다",
+      "check": "node test/t.mjs \"F29 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "명령 없음이 아닌 일반 실패(exit 1 등)는 지금처럼 라운드 실패·blocked 규칙을 따른다",
+      "check": "node test/t.mjs \"F29 AC-5\"",
+      "new": false
+    },
+    {
+      "id": "AC-6",
+      "criterion": "SPEC §8 과 README 가 environment 중단 규칙과 보고서의 실패 항목 표시를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F29 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "보고서의 실패 메시지에는 env_allowlist 밖 환경 변수 값이 들어가지 않는다 — 실패 명령이 SECRET_TOKEN=sk-test-secret 을 출력하는 fixture 에서 보고서에 sk-test-secret 이 없다",
+      "check": "node test/t.mjs \"F29 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "environment 로 멈춘 상태에서 명령이 여전히 없는데 --resume 하면 builder 를 호출하지 않고 같은 사유로 다시 멈춘다(exit 1, 라운드·비용 소모 없음)",
+      "check": "node test/t.mjs \"F29 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "명령 없음 외의 환경 문제(디스크 가득 참·네트워크) 분류",
+    "실행 파일을 찾아 PATH 를 고치는 자동 복구"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T07:15:39.497Z",
+    "hash": "6d0d13fd66bc97df90df4cd88f066e6dad8e76b521067a4a26039ad9ac132856"
+  }
+}

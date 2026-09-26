@@ -1,0 +1,70 @@
+{
+  "id": "F28",
+  "title": "역할 모델 정책 — 등급별 모델, 실패 라운드 승격, 충돌 해결 모델, 모델 값 검증",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "roles.<역할> 이 {adapter, model, by_tier: {critical?, standard?}} 이면 그 기능의 security_tier 에 해당하는 by_tier 모델을 쓰고, 없으면 model 을 쓴다 — builder·evaluator·security-reviewer 각각 가짜 어댑터가 받은 --model 값으로 확인",
+      "check": "node test/t.mjs \"F28 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "roles.builder.escalate 가 있으면 같은 계약의 2라운드 이상 build 는 그 모델을 쓰고, 1라운드는 AC-1 규칙을 따른다(harness run 의 이어받은 라운드 포함)",
+      "check": "node test/t.mjs \"F28 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "병합 충돌 해결 builder 호출은 roles.builder.conflict_model 이 있으면 그 모델을, 없으면 그 라운드의 builder 모델을 쓴다",
+      "check": "node test/t.mjs \"F28 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "verdict 의 reviews 와 metrics 줄의 model 필드는 실제로 호출한 모델이고, independence 는 그 기능에 실제로 쓴 builder 모델과 evaluator 모델로 판정한다 — standard 기능에서 두 모델이 같게 설정되면 fresh-context 로 기록",
+      "check": "node test/t.mjs \"F28 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "harness doctor 는 역할마다 기본 모델과 등급별·승격·충돌 모델을 한 줄씩 보여 주고, 등급별로 builder 와 evaluator 모델이 같으면 'fresh-context for <tier>' 경고를 낸다",
+      "check": "node test/t.mjs \"F28 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "SPEC §4·§10 과 README 가 역할 모델 정책(by_tier·escalate·conflict_model)과 선택 순서를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F28 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "'-' 로 시작하거나 공백·제어 문자를 포함한 모델 값(model·by_tier·escalate·conflict_model·adapters.<name>.model)은 config 검사에서 exit 2(config_invalid)로 거부되어 어댑터 인자에 들어가지 않는다(값별 개별 테스트)",
+      "check": "node test/t.mjs \"F28 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "by_tier 에 critical·standard 외의 키가 있거나 값이 빈 문자열·문자열이 아니면, escalate·conflict_model 이 빈 문자열·문자열이 아니면 exit 2(config_invalid), 메시지에 키 경로(예: roles.builder.by_tier.low)가 나온다",
+      "check": "node test/t.mjs \"F28 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "stats 데이터로 모델을 자동 선택",
+    "기능 크기(diff 규모)에 따른 모델 선택",
+    "어댑터별 모델 이름 유효성 확인(CLI 호출 필요)"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T07:15:39.497Z",
+    "hash": "0cca9de6e1ad2e302dd977bd7843b44a432e7631b552c7d069e67427ac5b7134"
+  }
+}
