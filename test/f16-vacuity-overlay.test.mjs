@@ -50,10 +50,14 @@ const MATH_TEST = (cases) => [
 const ADD_CASE = "add: (m) => typeof m.add === 'function' && m.add(1, 2) === 3";
 const MUL_CASE = "mul: (m) => typeof m.mul === 'function' && m.mul(2, 3) === 6";
 const MATH_FULL = 'export const add = (a, b) => a + b;\nexport const mul = (a, b) => a * b;\n';
+// A runner that exists on base and runs a test file: a check that ran a new test file
+// directly would not get that file on base (F42 entry script rule).
+const RUNNER = "import { spawnSync } from 'node:child_process';\n"
+  + "process.exit(spawnSync(process.execPath, process.argv.slice(2), { stdio: 'inherit' }).status ?? 1);\n";
 
 // ---------- AC-1 ----------
 test('F16 AC-1: a new test file whose behaviour already exists on base is vacuous', async () => {
-  const dir = gitRepo({ ...HARNESS([['AC-1', 'node test/math.test.mjs']]), 'lib/math.mjs': MATH_FULL });
+  const dir = gitRepo({ ...HARNESS([['AC-1', 'node run.mjs test/math.test.mjs']]), 'lib/math.mjs': MATH_FULL, 'run.mjs': RUNNER });
   writeFiles(dir, { 'test/math.test.mjs': MATH_TEST(ADD_CASE) });
   commitAll(dir, 'feature adds a test for existing behaviour');
   const c = byId(await run(dir))['AC-1'];
@@ -67,8 +71,9 @@ test('F16 AC-2: a new test file for behaviour the feature adds is not vacuous', 
   // AC-0 (sub existed on base) proves the file was placed on base in this same run.
   const SUB_CASE = "sub: (m) => typeof m.sub === 'function' && m.sub(3, 1) === 2";
   const dir = gitRepo({
-    ...HARNESS([['AC-0', 'node test/math.test.mjs sub'], ['AC-1', 'node test/math.test.mjs']]),
+    ...HARNESS([['AC-0', 'node run.mjs test/math.test.mjs sub'], ['AC-1', 'node run.mjs test/math.test.mjs']]),
     'lib/math.mjs': 'export const sub = (a, b) => a - b;\n',
+    'run.mjs': RUNNER,
   });
   writeFiles(dir, { 'lib/math.mjs': `${MATH_FULL}export const sub = (a, b) => a - b;\n`, 'test/math.test.mjs': MATH_TEST(`${ADD_CASE}, ${SUB_CASE}`) });
   commitAll(dir, 'feature adds add() and its test');
@@ -94,7 +99,7 @@ test('F16 AC-3: a test added to an existing test file is placed on base (vacuous
 });
 
 test('F16 AC-3: an untracked new test file is placed on base (vacuous when behaviour exists)', async () => {
-  const dir = gitRepo({ ...HARNESS([['AC-1', 'node test/math.test.mjs']]), 'lib/math.mjs': MATH_FULL });
+  const dir = gitRepo({ ...HARNESS([['AC-1', 'node run.mjs test/math.test.mjs']]), 'lib/math.mjs': MATH_FULL, 'run.mjs': RUNNER });
   writeFiles(dir, { 'test/math.test.mjs': MATH_TEST(ADD_CASE) }); // not committed
   const c = byId(await run(dir))['AC-1'];
   assert.equal(c.vacuous, true, JSON.stringify(c));
@@ -231,7 +236,7 @@ test('F16 SC-2: a working-tree symlinked test path is not placed on base', async
 
 // ---------- SC-3 ----------
 test('F16 SC-3: the working tree is unchanged and the base worktree is removed after an overlay run', async () => {
-  const dir = gitRepo({ ...HARNESS([['AC-1', 'node test/math.test.mjs']]), 'lib/math.mjs': MATH_FULL });
+  const dir = gitRepo({ ...HARNESS([['AC-1', 'node run.mjs test/math.test.mjs']]), 'lib/math.mjs': MATH_FULL, 'run.mjs': RUNNER });
   writeFiles(dir, { 'test/math.test.mjs': MATH_TEST(ADD_CASE) });
   commitAll(dir, 'feature');
   writeFiles(dir, { 'test/extra.test.mjs': 'process.exit(0);\n', 'lib/math.mjs': `${MATH_FULL}// wip\n` });
