@@ -100,7 +100,7 @@ function presetRepo(preset, name, out) {
 test('F23 AC-1: preset:node-test counts the last "# tests N" of node --test --test-reporter=tap (failing tests count)', async () => {
   const dir = fixture(NODE_TESTS);
   const r = await verify({ root: dir, featureId: 'F9', base: 'main', config: cfg('preset:node-test') });
-  assert.deepEqual(r.integrity.testCount, { base: 3, head: 3, status: 'ok' });
+  assert.deepEqual(r.integrity.testCount, { base: 3, head: 3, status: 'ok', source: { head: 'ran', base: 'ran' } });
   assert.equal(r.pass, true, JSON.stringify(r, null, 2));
 });
 
@@ -125,7 +125,7 @@ const GO_LIST = [
 test('F23 AC-2: preset:go counts Test/Example/Fuzz lines of `go test -list . ./...` (fake go first on PATH)', () => {
   const dir = presetRepo('preset:go', 'go', GO_LIST);
   const r = cliVerify(dir, withFakes(fakeBin()));
-  assert.deepEqual(r.json.integrity.testCount, { base: 5, head: 5, status: 'ok' });
+  assert.deepEqual(r.json.integrity.testCount, { base: 5, head: 5, status: 'ok', source: { head: 'ran', base: 'ran' } });
   assert.deepEqual(readJson(path.join(dir, 'go-args.json')), ['test', '-list', '.', './...']);
   assert.equal(r.code, 0, JSON.stringify(r.json, null, 2));
 });
@@ -144,7 +144,7 @@ for (const [label, out, n] of [
   test(`F23 AC-3: preset:pytest reads N from '${label}' collect-only output (fake python)`, () => {
     const dir = presetRepo('preset:pytest', 'python', out);
     const r = cliVerify(dir, withFakes(fakeBin()));
-    assert.deepEqual(r.json.integrity.testCount, { base: n, head: n, status: 'ok' });
+    assert.deepEqual(r.json.integrity.testCount, { base: n, head: n, status: 'ok', source: { head: 'ran', base: 'ran' } });
     assert.deepEqual(readJson(path.join(dir, 'python-args.json')), ['-m', 'pytest', '--collect-only', '-q']);
   });
 }
@@ -164,7 +164,7 @@ test('F23 AC-4: a feature deleting a node:test test makes the preset count decre
   const dir = fixture(NODE_TESTS);
   fs.rmSync(path.join(dir, 'test', 'b.test.mjs'));
   const r = await verify({ root: dir, featureId: 'F9', base: 'main', config: cfg('preset:node-test') });
-  assert.deepEqual(r.integrity.testCount, { base: 3, head: 2, status: 'decreased' });
+  assert.deepEqual(r.integrity.testCount, { base: 3, head: 2, status: 'decreased', source: { head: 'ran', base: 'ran' } });
   assert.equal(r.pass, false);
 });
 

@@ -103,6 +103,9 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
   check는 모두 끝난 뒤 혼자 한 번 더 돌려 통과하면 pass(`parallel_retry: true`와 경고)로 기록합니다. 시간 초과는
   재확인 없이 fail입니다. check끼리 DB·포트 같은 자원을 공유하면 `verify.check_parallel`을 1로 두세요 — 전처럼
   하나씩 순서대로 실행됩니다. `verify.commands`는 항상 순서대로 실행됩니다.
+- **테스트 수** — `verify.test_count`를 `from:commands[i]`로 두면 `verify.commands[i]` 출력의 마지막 `# tests N`(TAP)
+  또는 `ℹ tests N`(node spec) 줄에서 수를 읽어 따로 실행하지 않습니다(base에서는 같은 명령을 한 번 실행). base 쪽 수는
+  모든 방식에서 (base 커밋, 명령)별로 `.harness/runs/test-count-cache.json`에 캐시되어 다음 verify는 base에서 다시 세지 않습니다.
 - **병합 충돌** — 기능 병합이 충돌하면 코어가 그 기능 worktree에서 integration을 병합해 충돌 상태를 만들고,
   충돌 파일 목록과 함께 builder를 1회 부릅니다. 해결 결과는 verify·eval을 다시 거친 뒤 병합됩니다. 그래도 충돌하거나
   builder가 실패하거나 충돌 표시(`<<<<<<<`)가 남으면 `blocked`(`merge_conflict`)이고 integration은 그대로입니다.
@@ -114,6 +117,9 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
 - **잠자기** — run 동안 macOS는 `caffeinate -i`, Linux는 `systemd-inhibit`으로 유휴 잠자기를 막습니다(Windows 미지원,
   배터리로 덮개를 닫으면 OS가 강제로 재웁니다). 그래도 잠들어 단계가 시간 제한에 걸리면 `blocked(budget)`가 아니라
   중단으로 처리되고, `harness run --resume`이 그 단계부터 다시 수행합니다.
+- **시간 제한** — `budget.step_timeout_sec`(기본 1800)은 역할 CLI 호출과 `verify.commands`·기준 check·`test_count`·repro를,
+  `budget.git_timeout_sec`(기본 300)은 코어가 직접 부르는 git(worktree·diff·merge·rev-parse 등)을 따로 제한합니다. 넘긴 git은
+  프로세스 트리째 종료되고 `git <명령> timed out after <N>s` 오류로 끝납니다.
 - **명령 없음** — verify·병합 후 verify에서 `verify.commands`·`test_count`·기준 check의 프로그램이 설치돼 있지 않으면
   (exit 127·9009, `not recognized`, ENOENT) 기능은 `blocked`가 아닙니다. run이 상태를 저장하고 명령 이름과
   `command not found`를 출력하며 멈춥니다(병합 후 verify면 병합을 되돌린 뒤). 설치하거나 PATH를 고친 뒤
@@ -183,13 +189,7 @@ v1은 에너지 대부분을 "자율 구동 모델의 파괴적 행위 방어"�
 
 ## 개발
 
-```bash
-node --test "test/**/*.test.mjs"      # 전체 테스트
-node test/t.mjs "F8 AC-1"             # 기준 하나의 check
-node bin/harness.mjs lint-contract    # 이 저장소 자신의 계약 lint
-```
-
-CI는 ubuntu · macos · windows × Node 22 · 24 매트릭스에서 테스트와 lint를 실행합니다.
+테스트·기준 check·lint 명령과 CI 매트릭스(ubuntu · macos · windows × Node 22 · 24)는 `CLAUDE.md`에 있습니다.
 
 ## License
 
