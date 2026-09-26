@@ -270,7 +270,7 @@ test('F20 AC-5 evaluator adapter_unavailable blocks the feature at once and stop
     calls.evaluate.push(a.featureId);
     return { feature: a.featureId, round: a.round, verdict: 'eval_error', error: 'adapter_unavailable', detail: 'gemini: authentication failed (exit 41)', consecutive: 1, blocking: [], costUsd: 0 };
   };
-  const r = await runFeatures({ root: dir, deps: { build, evaluate, verify: async () => PASS_VERIFY } });
+  const r = await runFeatures({ root: dir, parallel: 1, deps: { build, evaluate, verify: async () => PASS_VERIFY } });
   assert.deepEqual(calls.evaluate, ['F1'], 'evaluated once — no second eval_error attempt');
   assert.deepEqual(calls.build, ['F1'], 'F2 was not started');
   assert.deepEqual(r.results.map((x) => [x.feature, x.status, x.reason]), [['F1', 'blocked', 'adapter_unavailable']]);
@@ -288,7 +288,7 @@ test('F20 AC-5 through the real evaluate: an unavailable evaluator adapter block
     adapterCalls.push(role);
     return { ok: false, error: 'adapter_unavailable', text: '', json: null, costUsd: null, exitCode: 41, detail: 'gemini: authentication failed (exit 41)' };
   };
-  const r = await runFeatures({ root: dir, deps: { build, runAdapter, verify: async () => PASS_VERIFY } });
+  const r = await runFeatures({ root: dir, parallel: 1, deps: { build, runAdapter, verify: async () => PASS_VERIFY } });
   assert.deepEqual(adapterCalls, ['evaluator']);
   assert.deepEqual(r.results.map((x) => [x.feature, x.status, x.reason]), [['F1', 'blocked', 'adapter_unavailable']]);
   assert.match(r.results[0].detail, /authentication/);
