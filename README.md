@@ -22,7 +22,7 @@ v2는 v1을 처음부터 다시 쓴 버전입니다. 설계 근거는 `docs/brai
 | 상태 | 대상 프로젝트의 `.harness/` (git 추적) — config · features · contracts · verdicts · backlog · runs |
 
 코어 명령: `harness init`, `harness lint-contract`, `harness approve`, `harness verify`, `harness eval`,
-`harness run`, `harness status`, `harness doctor`, `harness migrate-v1`. 옵션은 `harness --help`.
+`harness run`, `harness status`, `harness stats`, `harness doctor`, `harness migrate-v1`. 옵션은 `harness --help`.
 
 ## 설치
 
@@ -108,6 +108,13 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
 - **잠자기** — run 동안 macOS는 `caffeinate -i`, Linux는 `systemd-inhibit`으로 유휴 잠자기를 막습니다(Windows 미지원,
   배터리로 덮개를 닫으면 OS가 강제로 재웁니다). 그래도 잠들어 단계가 시간 제한에 걸리면 `blocked(budget)`가 아니라
   중단으로 처리되고, `harness run --resume`이 그 단계부터 다시 수행합니다.
+- **지표와 `harness stats`** — run은 단계(build·verify·eval·merge·post_merge_verify·conflict_resolve)가 끝날 때마다
+  `.harness/runs/{ts}.metrics.jsonl`에 시간·비용·역할·모델을 한 줄씩 남기고(대화형 `harness eval`은
+  `.harness/runs/eval.metrics.jsonl`), 보고서에 기능별 단계 표를 넣습니다. 프롬프트·출력·환경 변수 값은 기록하지 않습니다.
+  `harness stats [--since YYYY-MM-DD] [--json]`은 단계별 횟수·중앙값·p90 시간·비용, 역할·모델별 비용, 1라운드 통과율과
+  평균 라운드 수를 보여주고, 규칙 기반 제안을 냅니다 — 최근 10단계 중 2개 이상이 `budget.step_timeout_sec`의 90% 이상이면
+  step_timeout 상향, verify 시간이 30% 초과면 `verify.check_parallel` 상향, builder 비용이 70% 초과이고 standard 기능이
+  있으면 standard 기능 builder 모델 변경. 제안은 자동 적용되지 않습니다.
 - **대화형과 혼용** — run은 같은 계약 해시로 이미 평가된 라운드(대화형 `harness eval` 포함)를 이어받아 라운드 상한과
   수렴 비교에 넣습니다.
 

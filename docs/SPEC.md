@@ -31,6 +31,7 @@ AI 코딩 CLI(Claude Code · Codex CLI · Gemini CLI, 그 외 AGENTS.md 호환 �
 | `verdicts/F{n}-r{k}.json` | 라운드별 판정 (§7) |
 | `backlog.json` | `{ items: [...] }` — 범위 밖 발견 · blocked 재범위 제안. 항목 id(`B<n>`)·`priority`·`seen`·`sources`·`resolved_by` 규칙은 §7.7 |
 | `runs/{ts}.md` | 자율 실행 보고서 |
+| `runs/{ts}.metrics.jsonl`, `runs/eval.metrics.jsonl` | 단계별 실행 지표(한 줄 = 끝난 단계 하나, §8 실행 지표). `harness stats` 가 집계한다 |
 
 `init` 은 없는 파일·디렉터리만 만든다. `.harness/` 가 일부만 있어도(예: `contracts/` 만) 빠진 것을 채우고 기존 파일은 건드리지 않는다. 상태 파일 쓰기는 원자적이다(같은 디렉터리의 임시 파일 → rename). 어느 단계에서 실패해도 임시 파일을 지우고 대상 파일은 이전 내용 그대로 남는다(`io` 에러).
 
@@ -152,6 +153,16 @@ run 도중 evaluator(또는 security-reviewer) 어댑터가 `adapter_unavailable
 - critical 기능의 evaluator 와 security-reviewer 는 동시에 실행된다. evaluator 에 차단 finding 이 있으면 reviewer 결과는 `unused` 로 기록된다(§7.4).
 - 보고서에 실제 적용된 `max parallel: N`(`auto` 면 `auto (no limit)`)·`verify parallel: N`(`auto` 면 CPU 수와 함께), 병렬로 진행된 모든 기능의 결과와 기능별 충돌 해결 여부(`no`·`resolved`·`failed`)가 나온다.
 - 범위 밖: verify 명령·test_count 자체의 병렬화, 여러 run 프로세스의 동시 실행, 진행 중 기능의 우선순위 조정, API 요금 한도(429)에 따른 자동 감속, 파일 겹침을 미리 예측하는 스케줄링.
+
+**실행 지표와 `harness stats`** (§8.11):
+- `harness run` 은 단계가 끝날 때마다 `runs/{runId}.metrics.jsonl` 에 JSON 한 줄을 추가한다. 단계는 `build`(build 시도마다)·`verify`(기능 worktree 의 verify 마다)·`eval`·`merge`(integration 병합 시도, outcome `merged`·`conflict`)·`post_merge_verify`, 충돌 해결이 있으면 `conflict_resolve` 다. 필드는 정확히 `feature`·`round`(이번 계약의 라운드)·`step`·`started_at`·`ended_at`(ISO 8601)·`duration_ms`·`cost_usd`(어댑터가 보고하지 않거나 코어 단계면 null)·`role`(`builder`·`evaluator`, verify·merge 같은 코어 단계는 `core`)·`adapter`·`model`(역할 배정에서 해석한 값, 코어 단계는 null)·`outcome`(build·conflict_resolve 는 `ok` 또는 어댑터 오류, verify 는 `pass`·`fail`·`error`, eval 은 판정) 이다. run 의 eval 단계는 한 줄이고 비용은 evaluator 와 security-reviewer 의 합이다.
+- 대화형 `harness eval` 은 evaluator·security-reviewer 어댑터 호출(재요청 포함)마다 `runs/eval.metrics.jsonl` 에 같은 형식의 한 줄을 추가한다(`step` = `eval`, `role` = 호출한 역할, `outcome` = `ok` 또는 어댑터 오류).
+- 지표 줄에는 위 필드만 있다 — 프롬프트·diff·어댑터 출력 본문·환경 변수 값은 들어가지 않는다.
+- run 보고서에 기능별 단계 표(`## Steps`, 라운드·단계·시간·비용·모델·outcome)가 들어간다.
+- `harness stats [--since YYYY-MM-DD] [--json]` 은 `runs/` 의 모든 `*.metrics.jsonl` 을 모아 단계별 횟수·중앙값·p90(nearest rank: 정렬한 값의 ceil(0.9·n) 번째) 시간·비용 합과 평균, 역할·모델 쌍별 비용 합, 기능별 1라운드 통과율과 평균 라운드 수(판정 outcome `pass`·`fail` 이 있는 eval 줄 기준 — 기능의 라운드 수는 그 줄들의 최대 round, 1라운드 통과는 round 1 의 `pass`)와 제안을 출력한다. `--json` 이면 같은 내용을 JSON(`steps`·`cost_by_role_model`·`features`·`suggestions` 등)으로 출력한다. `--since` 는 `ended_at` 이 그 날짜(UTC 0시) 이후인 줄만 집계하고, 날짜 형식이 틀리면 `usage`(exit 2).
+- JSON 객체가 아닌 줄은 건너뛰고 stderr 에 파일 이름과 줄 번호(`warning: <file>:<line>: …`)를 담은 경고를 내며 exit 0 이다. metrics 파일이 하나도 없으면 `no metrics yet` 을 출력하고 exit 0 이다.
+- 제안(규칙 기반, config 에 자동 적용하지 않는다): (a) `ended_at` 기준 최근 10개 줄 중 2개 이상의 시간이 `budget.step_timeout_sec 의 90%` 이상이면 `step_timeout` — `budget.step_timeout_sec` 상향, (b) `verify`·`post_merge_verify` 시간 합이 전체 단계 시간의 30% 를 넘으면 `verify.check_parallel` 상향, (c) builder 비용이 전체 비용의 70% 를 넘고 features.json 에 standard 기능이 있으면 `builder_model` — standard 기능의 builder 에 더 싼 모델. 조건이 맞는 규칙만 출력한다.
+- 범위 밖: 기존 보고서·판정에서 과거 지표를 역산, 제안의 자동 적용, 비용을 보고하지 않는 어댑터의 비용 추정.
 
 예산: 단계별 timeout(기본 30분), 단계별 USD(어댑터 지원 시), run 전체 USD. 단계 초과 시 해당 기능 blocked(`budget`), run 초과 시 진행 중 기능 blocked(`budget`) 후 전체 정지.
 중단 복구: run은 상태 파일(`runs/current.json`, config 스냅샷 포함)만으로 재개 가능(`harness run --resume`). run 이 실제로 쓰는 config 스냅샷(새 run·재개·직접 전달 모두)은 시작 전에 §4 의 형식 검사를 다시 거친다 — 형식이 틀리면 작업 없이 `config_invalid` exit 2. SIGINT 는 진행 중 단계의 프로세스 트리를 종료하고 상태를 저장한 뒤 exit 130.
