@@ -1,0 +1,101 @@
+{
+  "feature": "F35",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "In the builder-changes commit, the pathspec `:(exclude,literal)<cache>` only leaves out the test-count cache. If a project already tracks that file, its modifications stay unstaged after the commit and the feature worktree is left dirty. The cache is now gitignored by `harness init`, but projects initialised earlier have no such entry.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The solo base re-run loop at the end of verify runs `runCommand` directly and does not go through the pool or check for an abort signal. A SIGINT during that phase is only noticed by whatever runs next. The same gap exists for the head solo re-run loop.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The AC-1, AC-2 and ES-1 tests use wall-clock polling: a 3 s wait for another run to be seen, an 8 s hang, and 5 s vacuity timeouts. They could be flaky on a heavily loaded CI host, as with B185 and B177.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "A base run that timed out while overlapped is now re-run alone. A genuinely slow base check can therefore take up to twice `vacuity_timeout_sec`. This matches the SPEC wording but adds worst-case latency.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B242"
+    },
+    {
+      "summary": "If .harness/runs/test-count-cache.json is already tracked on the base (it was committed before 3be2b83), the builder-commit pathspec exclude leaves its modification unstaged. The feature worktree then stays dirty after the builder commit, and nothing reports it. Consider `git rm --cached` or a warning when the cache is tracked.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The solo base re-run loop runs after the head retry loop but does not check the abort signal between iterations. A SIGINT during a long series of solo base re-runs relies on runCommand's own signal handling (via `run`), and every queued re-run is still started in turn.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The AC-3 test returns early on Windows (the fake git is a shebang script), so the failed-worktree-add cleanup path is exercised only on POSIX.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "Timing-based fixture for AC-1/ES-1 (3 s polling window, 5 s vacuity timeout, 8 s hang) may flake on a heavily loaded CI host, similar to the existing F26 timing concerns.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B185"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.5950055999999999,
+  "contract_hash": "c33bb02790d66c9949d5ccbcbdf0b0a5f7c5cf40d5d95000c0c364e67202d0c8",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T13:41:09.206Z",
+  "origin": "run"
+}

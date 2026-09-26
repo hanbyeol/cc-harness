@@ -1,0 +1,109 @@
+{
+  "feature": "F34",
+  "round": 2,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "KEEP_UNREDACTED in lib/run.mjs and lib/eval.mjs exempts keys by name at any depth (e.g. 'files', 'title', 'feature', 'history', 'config'). Today no command output is stored under those keys, but a future field with one of those names would silently skip redaction. The 'config' snapshot is also saved verbatim, so a secret placed in the config (for example an adapter command line) is not redacted.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The redactor treats every env var outside the allowlist as secret, so values such as PWD, OLDPWD or EDITOR are also replaced in the state file, verdicts and backlog. Resume-critical fields are exempt, and the F34 tests resume successfully with a real process.env. Any future state field that stores an absolute path outside the exempt list would be garbled when PWD is a prefix of it.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Metrics lines (.metrics files) are not passed through redaction. Their outcome fields currently hold only short enums or adapter error codes, so no output reaches them today. The feature title mentions metrics, but no criterion covers them.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The AC-3 tests for allowlisted and short values both call runBlocked() separately. That makes them slow (about 2.5 s each), and they only check that the value stays in one intercepted write. B196 (redaction after the output is cut with tail()) also still applies to the new state and verdict redaction.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B196"
+    },
+    {
+      "summary": "B197 (state file and post_merge_verify detail not redacted) is resolved by this diff: lastVerify, results and detail all go through redactDeep before saving.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B197"
+    },
+    {
+      "summary": "The run report (renderReport in runFeatures, lib/run.mjs ~L1340) is still built from the in-memory state. Values that are not failure messages, such as results[].detail (for example a post_merge_verify detail built from v.error), are not passed through redactDeep before they go into the report file. The state file copy of the same value is now redacted, so the two records no longer agree.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B197"
+    },
+    {
+      "summary": "Redaction still runs after verify's tail() cut. A secret split at the 2000-character boundary leaves a suffix that no longer matches the full value, so it is not redacted in current.json, verdicts or backlog either. The same gap was already known for the report.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B196"
+    },
+    {
+      "summary": "evaluate() returns the redacted record on the normal path (`{...saved, file}`) but the unredacted record on the finishError path. Nothing leaks, because the run's save() redacts again, but callers now see different data on the two paths.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "KEEP_UNREDACTED is matched by key name at any depth (for example 'files', 'title', 'feature', 'history'), not by path. A future verify or finding field that holds command output under one of these key names would silently skip redaction. Matching paths such as active[].conflict.files would make the exemption narrower.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.7724561999999999,
+  "contract_hash": "81a6328277da825aa3fb0bedbb44c41b03a9bc0a7f7639cf430b0fc63651adc4",
+  "contract_round": 2,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 8,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T13:37:07.386Z",
+  "origin": "run"
+}

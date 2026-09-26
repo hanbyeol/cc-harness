@@ -76,7 +76,8 @@
       "seen": 3,
       "sources": [
         "F28-r1"
-      ]
+      ],
+      "resolved_by": "F34"
     },
     {
       "source": "F4-r1",
@@ -1193,7 +1194,8 @@
       "sources": [
         "F25-r2",
         "F32-r1"
-      ]
+      ],
+      "resolved_by": "F35"
     },
     {
       "feature": "F25",
@@ -1393,7 +1395,8 @@
       "seen": 3,
       "sources": [
         "F33-r1"
-      ]
+      ],
+      "resolved_by": "F35"
     },
     {
       "feature": "F26",
@@ -1418,7 +1421,8 @@
       "sources": [
         "F31-r1",
         "F31-r2"
-      ]
+      ],
+      "resolved_by": "F35"
     },
     {
       "feature": "F26",
@@ -1429,9 +1433,10 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B185",
-      "seen": 2,
+      "seen": 3,
       "sources": [
-        "F33-r1"
+        "F33-r1",
+        "F35-r1"
       ]
     },
     {
@@ -1493,9 +1498,10 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B191",
-      "seen": 2,
+      "seen": 3,
       "sources": [
-        "F29-r2"
+        "F29-r2",
+        "F34-r1"
       ]
     },
     {
@@ -1555,9 +1561,11 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B196",
-      "seen": 2,
+      "seen": 5,
       "sources": [
-        "F29-r2"
+        "F29-r2",
+        "F34-r1",
+        "F34-r2"
       ]
     },
     {
@@ -1569,11 +1577,13 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B197",
-      "seen": 4,
+      "seen": 6,
       "sources": [
         "F29-r2",
-        "F32-r1"
-      ]
+        "F32-r1",
+        "F34-r2"
+      ],
+      "resolved_by": "F34"
     },
     {
       "feature": "F29",
@@ -2052,9 +2062,10 @@
       "source": "security-reviewer",
       "priority": "medium",
       "id": "B242",
-      "seen": 3,
+      "seen": 4,
       "sources": [
-        "F33-r2"
+        "F33-r2",
+        "F35-r1"
       ]
     },
     {
@@ -2120,6 +2131,156 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B247"
+    },
+    {
+      "feature": "F34",
+      "round": 1,
+      "at": "2026-09-26T13:26:55.371Z",
+      "summary": "KEEP_UNREDACTED in lib/run.mjs is matched by key name at any depth (e.g. 'files', 'title', 'feature', 'history', 'config'). A future nested field with one of those names that holds command output would be saved unredacted. Today none of the verify or state shapes do. Consider limiting the keep-list to top-level paths of the state and result entries.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B248"
+    },
+    {
+      "feature": "F34",
+      "round": 1,
+      "at": "2026-09-26T13:26:55.371Z",
+      "summary": "Redaction covers every non-allowlisted env value of 8 or more characters, so variables such as PWD or OLDPWD also rewrite absolute paths inside the state file. For example, lastVerify.cwd can be saved as '[redacted]/.harness/wt/F34'. Nothing reads these fields back on --resume, so this is only cosmetic, but it can hamper debugging of a saved state.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B249"
+    },
+    {
+      "feature": "F34",
+      "round": 1,
+      "at": "2026-09-26T13:26:55.371Z",
+      "summary": "The F34 tests write records with an injected env, but there is no test for the interactive `harness eval` command, which uses the default env = process.env. The default path is a one-line default parameter, so the risk is low.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B250"
+    },
+    {
+      "feature": "F34",
+      "round": 1,
+      "at": "2026-09-26T13:26:55.371Z",
+      "summary": "The run.mjs KEEP_UNREDACTED set is key-name based and applies at any depth: 'title', 'files', 'feature', 'history' and 'config' are exempt wherever they appear in state. No path puts command output under those keys today, but a future field with one of those names would silently skip redaction. Consider scoping the exemption to known paths.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B251"
+    },
+    {
+      "feature": "F34",
+      "round": 2,
+      "at": "2026-09-26T13:37:07.386Z",
+      "summary": "KEEP_UNREDACTED in lib/run.mjs and lib/eval.mjs exempts keys by name at any depth (e.g. 'files', 'title', 'feature', 'history', 'config'). Today no command output is stored under those keys, but a future field with one of those names would silently skip redaction. The 'config' snapshot is also saved verbatim, so a secret placed in the config (for example an adapter command line) is not redacted.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B252"
+    },
+    {
+      "feature": "F34",
+      "round": 2,
+      "at": "2026-09-26T13:37:07.386Z",
+      "summary": "The redactor treats every env var outside the allowlist as secret, so values such as PWD, OLDPWD or EDITOR are also replaced in the state file, verdicts and backlog. Resume-critical fields are exempt, and the F34 tests resume successfully with a real process.env. Any future state field that stores an absolute path outside the exempt list would be garbled when PWD is a prefix of it.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B253"
+    },
+    {
+      "feature": "F34",
+      "round": 2,
+      "at": "2026-09-26T13:37:07.386Z",
+      "summary": "Metrics lines (.metrics files) are not passed through redaction. Their outcome fields currently hold only short enums or adapter error codes, so no output reaches them today. The feature title mentions metrics, but no criterion covers them.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B254"
+    },
+    {
+      "feature": "F34",
+      "round": 2,
+      "at": "2026-09-26T13:37:07.386Z",
+      "summary": "evaluate() returns the redacted record on the normal path (`{...saved, file}`) but the unredacted record on the finishError path. Nothing leaks, because the run's save() redacts again, but callers now see different data on the two paths.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B255"
+    },
+    {
+      "feature": "F34",
+      "round": 2,
+      "at": "2026-09-26T13:37:07.386Z",
+      "summary": "KEEP_UNREDACTED is matched by key name at any depth (for example 'files', 'title', 'feature', 'history'), not by path. A future verify or finding field that holds command output under one of these key names would silently skip redaction. Matching paths such as active[].conflict.files would make the exemption narrower.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B256"
+    },
+    {
+      "feature": "F35",
+      "round": 1,
+      "at": "2026-09-26T13:41:09.206Z",
+      "summary": "In the builder-changes commit, the pathspec `:(exclude,literal)<cache>` only leaves out the test-count cache. If a project already tracks that file, its modifications stay unstaged after the commit and the feature worktree is left dirty. The cache is now gitignored by `harness init`, but projects initialised earlier have no such entry.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B257"
+    },
+    {
+      "feature": "F35",
+      "round": 1,
+      "at": "2026-09-26T13:41:09.206Z",
+      "summary": "The solo base re-run loop at the end of verify runs `runCommand` directly and does not go through the pool or check for an abort signal. A SIGINT during that phase is only noticed by whatever runs next. The same gap exists for the head solo re-run loop.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B258"
+    },
+    {
+      "feature": "F35",
+      "round": 1,
+      "at": "2026-09-26T13:41:09.206Z",
+      "summary": "The AC-1, AC-2 and ES-1 tests use wall-clock polling: a 3 s wait for another run to be seen, an 8 s hang, and 5 s vacuity timeouts. They could be flaky on a heavily loaded CI host, as with B185 and B177.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B259"
+    },
+    {
+      "feature": "F35",
+      "round": 1,
+      "at": "2026-09-26T13:41:09.206Z",
+      "summary": "If .harness/runs/test-count-cache.json is already tracked on the base (it was committed before 3be2b83), the builder-commit pathspec exclude leaves its modification unstaged. The feature worktree then stays dirty after the builder commit, and nothing reports it. Consider `git rm --cached` or a warning when the cache is tracked.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B260"
+    },
+    {
+      "feature": "F35",
+      "round": 1,
+      "at": "2026-09-26T13:41:09.206Z",
+      "summary": "The solo base re-run loop runs after the head retry loop but does not check the abort signal between iterations. A SIGINT during a long series of solo base re-runs relies on runCommand's own signal handling (via `run`), and every queued re-run is still started in turn.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B261"
+    },
+    {
+      "feature": "F35",
+      "round": 1,
+      "at": "2026-09-26T13:41:09.206Z",
+      "summary": "The AC-3 test returns early on Windows (the fake git is a shebang script), so the failed-worktree-add cleanup path is exercised only on POSIX.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B262"
     }
   ]
 }

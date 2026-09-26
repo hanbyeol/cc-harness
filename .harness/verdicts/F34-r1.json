@@ -1,0 +1,98 @@
+{
+  "feature": "F34",
+  "round": 1,
+  "verdict": "fail",
+  "score": 6,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 6,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [
+    {
+      "criterion_id": "AC-2",
+      "dimension": "security",
+      "summary": "eval.mjs KEEP_UNREDACTED exempts 'criterion_id' from redaction, but for backlogged findings that key holds the reviewer's raw text (the `later()` path in classify copies f.criterion_id verbatim when it is missing from the contract). A secret env value in a reviewer's criterion_id is therefore written unredacted to both backlog.json and the verdict file (backlogged[]). The run.mjs keep-set has the same key, but only in-contract ids reach it there.",
+      "repro": "node --input-type=module -e 'import fs from \"node:fs\";import path from \"node:path\";const R=process.cwd();const {gitRepo}=await import(path.join(R,\"test/gitfixture.mjs\"));const {resolveConfig}=await import(path.join(R,\"lib/config.mjs\"));const {hashContract}=await import(path.join(R,\"lib/contract.mjs\"));const {evaluate}=await import(path.join(R,\"lib/eval.mjs\"));const c={id:\"F1\",title:\"t\",security_tier:\"standard\",version:1,acceptance_criteria:[{id:\"AC-1\",criterion:\"ok\",check:\"node ok.mjs\",new:false}],security_criteria:[],error_scenarios:[],out_of_scope:[]};c.approval={by:\"t\",at:\"2026-09-26T00:00:00.000Z\",hash:hashContract(c)};const dir=gitRepo({\".harness/config.json\":{profile:\"sdlc\",base_branch:\"main\",verify:{commands:[]}},\".harness/backlog.json\":{items:[]},\".harness/.gitignore\":\"wt/\\n*.tmp-*\\n\",\".harness/features.json\":{features:[{id:\"F1\",title:\"t\",security_tier:\"standard\",depends_on:[],status:\"approved\"}]},\".harness/contracts/F1.json\":c,\"ok.mjs\":\"process.exit(0)\\n\"},{branch:null});const config=resolveConfig({base_branch:\"main\",verify:{commands:[]},roles:{builder:\"claude\",evaluator:\"generic\",\"security-reviewer\":\"generic\"},adapters:{generic:{read_only_command:[process.execPath,\"-e\",\"0\"]}}});const S=\"sk-test-secret\";const json={scores:{functionality:9,quality:9,security:9,errors:9,tests:9},findings:[{criterion_id:\"SECRET_TOKEN=\"+S,dimension:\"security\",summary:\"x\",repro:\"false\"}],out_of_scope:[]};const runAdapter=async()=>({ok:true,error:null,text:JSON.stringify(json),json,costUsd:0,exitCode:0});const v=await evaluate({root:dir,featureId:\"F1\",base:\"main\",config,verifyResult:{pass:true,commands:[],criteria:[]},runAdapter,env:{...process.env,SECRET_TOKEN:S}});const t=fs.readFileSync(path.join(dir,\".harness/backlog.json\"),\"utf8\")+fs.readFileSync(v.file,\"utf8\");process.exit(t.includes(S)?1:0)'",
+      "source": "security-reviewer",
+      "exit": 1
+    }
+  ],
+  "backlogged": [
+    {
+      "summary": "KEEP_UNREDACTED in lib/run.mjs is matched by key name at any depth (e.g. 'files', 'title', 'feature', 'history', 'config'). A future nested field with one of those names that holds command output would be saved unredacted. Today none of the verify or state shapes do. Consider limiting the keep-list to top-level paths of the state and result entries.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Redaction covers every non-allowlisted env value of 8 or more characters, so variables such as PWD or OLDPWD also rewrite absolute paths inside the state file. For example, lastVerify.cwd can be saved as '[redacted]/.harness/wt/F34'. Nothing reads these fields back on --resume, so this is only cosmetic, but it can hamper debugging of a saved state.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The F34 tests write records with an injected env, but there is no test for the interactive `harness eval` command, which uses the default env = process.env. The default path is a one-line default parameter, so the risk is low.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Redaction still runs after verify.mjs's tail() has cut the output, so a secret split at the cut boundary leaves an unredacted suffix. This now also applies to the state file and verdicts.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B196"
+    },
+    {
+      "summary": "The run.mjs KEEP_UNREDACTED set is key-name based and applies at any depth: 'title', 'files', 'feature', 'history' and 'config' are exempt wherever they appear in state. No path puts command output under those keys today, but a future field with one of those names would silently skip redaction. Consider scoping the exemption to known paths.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "Only values of 8 or more characters from the passed env are redacted. Short or transformed secrets still reach the state file, verdicts and backlog (documented in SR-8).",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B191"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.8540574000000001,
+  "contract_hash": "81a6328277da825aa3fb0bedbb44c41b03a9bc0a7f7639cf430b0fc63651adc4",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 7,
+        "quality": 8,
+        "security": 6,
+        "errors": 8,
+        "tests": 7
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T13:26:55.371Z",
+  "origin": "run"
+}
