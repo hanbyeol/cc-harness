@@ -35,6 +35,12 @@ AI 코딩 CLI(Claude Code · Codex CLI · Gemini CLI, 그 외 AGENTS.md 호환 �
 
 `init` 은 없는 파일·디렉터리만 만든다. `.harness/` 가 일부만 있어도(예: `contracts/` 만) 빠진 것을 채우고 기존 파일은 건드리지 않는다. 상태 파일 쓰기는 원자적이다(같은 디렉터리의 임시 파일 → rename). 어느 단계에서 실패해도 임시 파일을 지우고 대상 파일은 이전 내용 그대로 남는다(`io` 에러).
 
+**프로필(`profiles/*.json`)** 은 verify 명령·`env_allowlist`·루브릭의 기본값이다(병합 순서는 위 `config.json` 행). iac 프로필의 기본값은 다음과 같다(설명: `docs/iac.md`).
+- `verify.commands` 는 `harness tf-check` 한 명령이다. `tf-check [--dir <path>]` 는 `*.tf` 파일이 있는 디렉터리마다(`.terraform`·`.harness`·`.git` 아래와 심볼릭 링크 디렉터리는 제외) `terraform init -backend=false -input=false` 와 `terraform validate` 를 그 디렉터리에서 실행하고, `terraform fmt -check -recursive` 를 한 번 실행한다. `--dir` 을 주면 그 디렉터리 아래만 검사한다(없는 디렉터리는 `usage`, exit 2). 하나라도 실패하면 exit 1 이고 실패한 디렉터리 경로(프로젝트 기준, `/` 구분)와 오류를 stderr 에 출력한다. init 이 실패한 디렉터리는 경로와 init 오류 앞 300자를 출력하고 validate 는 건너뛰되 나머지 디렉터리 검사는 계속한다. `terraform` 이 PATH 에 없으면 `command not found: terraform` 을 stderr 에 출력하고 exit 127 로 끝나며, run 은 이를 환경 문제로 보고 중단한다(§8, F29).
+- provider 캐시: `tf-check` 는 `TF_PLUGIN_CACHE_DIR` 이 없으면 `<사용자 캐시 디렉터리>/cc-harness/terraform-plugins`(Windows `%LOCALAPPDATA%`, macOS `~/Library/Caches`, 그 외 `$XDG_CACHE_HOME` 또는 `~/.cache`)를 만들어 terraform 에 설정한다. 이미 설정돼 있으면 그 값을 그대로 쓴다. 모듈 디렉터리와 실행 사이에 provider 를 다시 받지 않는다. 캐시를 만들 수 없으면 경고하고 캐시 없이 계속한다.
+- `env_allowlist` 는 `["TF_PLUGIN_CACHE_DIR"]` 이라 사용자가 설정한 캐시 경로가 verify 명령(SR-2)에 전달된다. config 가 `env_allowlist` 를 지정하면 배열이 프로필 값을 대체하므로 이름을 다시 넣어야 한다.
+- `terraform plan`·`apply` 와 tflint·trivy 등 정책 스캐너는 실행하지 않는다.
+
 `status: passed`는 **코어만** 기록한다(§7의 규칙을 통과한 경우). 모델 역할(builder)은 이 필드를 쓰지 않는다 — 협력적 모델 가정 하의 규약이며, 위반은 verify의 무결성 검사가 결정적으로 잡는다(§6.2).
 
 ## 5. 계약과 결정가능성 lint (`harness lint-contract`)
