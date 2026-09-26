@@ -367,6 +367,15 @@
         "F38"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F41",
+      "title": "부하 조건의 테스트 안정성 — 동시 스위트 3개에서도 통과, 스트레스 명령 제공",
+      "security_tier": "standard",
+      "depends_on": [
+        "F40"
+      ],
+      "status": "approved"
     }
   ]
 }

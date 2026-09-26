@@ -1,0 +1,54 @@
+{
+  "id": "F41",
+  "title": "부하 조건의 테스트 안정성 — 동시 스위트 3개에서도 통과, 스트레스 명령 제공",
+  "security_tier": "standard",
+  "version": 1,
+  "resolves": [
+    "B185",
+    "B177"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "test/stress.mjs N 은 전체 테스트 스위트(node --test \"test/**/*.test.mjs\")를 N 개 동시에 실행하고, 모두 통과하면 exit 0, 하나라도 실패하면 실패한 테스트 이름과 실패 횟수를 출력하고 exit 1 이다 — 실패하는 가짜 테스트를 넣은 fixture 디렉터리로 확인",
+      "check": "node test/t.mjs \"F41 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "이 저장소에서 node test/stress.mjs 3 이 exit 0 이다(현재 F3 SC-1·F21 AC-3·SC-1·SC-2·F31 AC-3·SC-1 이 부하에서 실패)",
+      "check": "node test/stress.mjs 3",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "AC-2 를 위해 고친 테스트는 검증 내용을 약화하지 않는다 — 각 테스트의 assert 개수가 줄지 않고(파일별 assert 호출 수를 base 와 비교하는 test/assert-count.mjs 가 exit 0), 테스트 이름이 바뀌지 않는다",
+      "check": "node test/t.mjs \"F41 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "CLAUDE.md 의 개발 명령 절이 test/stress.mjs 사용법과 언제 돌리는지를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F41 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "test/stress.mjs 에 양의 정수가 아닌 인자를 주면 usage 를 출력하고 exit 2 이다",
+      "check": "node test/t.mjs \"F41 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "CI 에 스트레스 작업 추가",
+    "제품 코드의 시간 제한 기본값 변경"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T16:16:03.791Z",
+    "hash": "567da6d352d3e795dfe0a6cb298b1514f8ec1b2886ebc5a01e0002eaedd132ed"
+  }
+}
