@@ -73,6 +73,11 @@ CLI 안에서 skill을 순서대로 부릅니다. skill이 필요한 코어 명�
    승인을 받으면 `harness approve F{n}`으로 해시 동결한다.
 3. **build** — TDD로 구현한 뒤 `harness verify F{n}`(결정적 검증)과 `harness eval F{n}`(독립 평가)을 실행한다.
 
+`harness eval`은 판정 뒤 기능 상태를 코어가 직접 기록하고, run과 같은 수렴 규칙을 적용합니다.
+pass는 `passed`, 라운드가 남은 fail은 `in_progress`(남은 라운드 수 출력), 라운드 소진·발산·정체·eval_error 2회 연속·
+근거 없는 저점은 `blocked`(사유와 재범위 제안을 backlog에 기록)입니다. 이미 `passed`·`blocked`인 기능, 승인되지 않았거나
+해시가 바뀐 계약, 이미 있는 라운드 번호는 어댑터 호출 없이 거부합니다(exit 2).
+
 작고 원인이 명확한 수정(3파일 이하, 비보안)은 `fix` skill, 현황은 `status` skill(`harness status`)을 씁니다.
 
 ### 자율: approve → run
@@ -86,6 +91,16 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
 기능마다 `.harness/wt/F{n}` worktree와 `harness/F{n}` 브랜치에서 build → verify → eval 라운드를 돌고,
 통과하면 integration 브랜치에 병합한 뒤 병합 결과를 다시 verify합니다. 종료 시 `.harness/runs/{ts}.md`
 보고서를 씁니다. 코어는 `main`(및 protected 브랜치)에 병합·push하지 않습니다 — main 병합은 사람이 결정합니다.
+
+- **사전 점검** — run은 worktree·브랜치를 만들거나 builder를 부르기 전에 역할별 CLI(`builder`·`evaluator`, 범위에
+  critical 기능이 있으면 `security-reviewer`)가 usable인지 확인하고, 아니면 exit 2로 멈춥니다. gemini는 인증 정보
+  (`GEMINI_API_KEY`·`GOOGLE_GENAI_USE_VERTEXAI`·`GOOGLE_GENAI_USE_GCA` 또는 settings의 `security.auth.selectedType`)가
+  없으면 `not authenticated`로 unusable입니다. `harness doctor`로 미리 확인하세요.
+- **잠자기** — run 동안 macOS는 `caffeinate -i`, Linux는 `systemd-inhibit`으로 유휴 잠자기를 막습니다(Windows 미지원,
+  배터리로 덮개를 닫으면 OS가 강제로 재웁니다). 그래도 잠들어 단계가 시간 제한에 걸리면 `blocked(budget)`가 아니라
+  중단으로 처리되고, `harness run --resume`이 그 단계부터 다시 수행합니다.
+- **대화형과 혼용** — run은 같은 계약 해시로 이미 평가된 라운드(대화형 `harness eval` 포함)를 이어받아 라운드 상한과
+  수렴 비교에 넣습니다.
 
 ## 수렴 규칙
 
@@ -102,7 +117,8 @@ v2의 핵심은 모든 기능이 **통과하거나, 멈추고 사람에게 넘�
   filter, replace ref, hooks)나 셸·런타임 의미를 조작해야 성립하는 finding은 범위 밖(backlog)입니다.
   파괴 방지는 각 CLI의 네이티브 sandbox·권한, worktree 격리, 최소 deny 목록, 병합 후 verify가 맡습니다.
 - **최대 3라운드, 실패는 엄격히 감소** — 기능당 `max_rounds`(기본 3). 2라운드부터 차단적 finding 수가
-  직전보다 줄어야 하고, 직전에 통과한 기준이 다시 실패하면 발산입니다.
+  직전보다 줄어야 하고, 직전에 통과한 기준이 다시 실패하면 발산입니다. 라운드와 수렴 비교는 **계약 해시 단위**입니다 —
+  재승인한 새 버전은 1라운드부터 다시 세고, 판정 파일(`verdicts/F{n}-r{k}.json`) 번호는 기능별로 계속 늘어나며 덮어쓰지 않습니다.
 - **blocked** — 발산·정체·라운드 소진 시 기능은 `blocked`가 되고 재범위 제안(분할 / 기준 재작성 / 위험 수용)이
   backlog에 기록됩니다. 의존 기능은 `skipped`, 독립 기능은 계속 진행합니다. critical 기능이 blocked면 run 전체가 멈춥니다.
 - **min-of-5** — 점수 = 기능·품질·보안·에러·테스트의 최솟값. `security_tier: critical`은 보안 7 미만이면 fail이고
