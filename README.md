@@ -175,6 +175,7 @@ harness migrate-v1 --force    # 이미 있는 .harness/features.json을 덮어�
 
 - 기능의 id·이름·security_tier를 옮기고, `passes: true`는 `passed`, 나머지는 `todo`가 됩니다. v1의 `low` 티어는
   `standard`로 매핑되며, 원래 status·티어·의존성·계약 경로(`progress/contracts/sprint-{n}.json`)는 각 기능의 `v1` 필드에 남습니다.
+- v1 status가 `PARTIAL`·`in_progress`(`in-progress`)·`blocked`·`deferred`(`hold`)로 시작하면(대소문자 무시) `todo`로 두고 `v1.state`에 `partial`·`in_progress`·`blocked`·`deferred` 중 하나를 기록해 시작한 작업을 구분합니다. `harness status`는 v1에서 온 todo 기능에 `(v1: <v1.status 앞 60자>)`를 붙이고, `--brief`는 `N todo (v1 partial P · blocked B)`로 나눠 보이며, `harness status --todo-v1`은 그 기능만 `v1.state`별로 id·제목·v1 status(앞 120자)를 보여 줍니다.
 - v1 계약은 변환하지 않습니다. 필요한 기능은 `spec` skill로 v2 계약을 새로 씁니다.
 - `.harness/`가 없으면 `harness init`과 같은 구조로 만듭니다. v1 파일이 없으면 아무것도 쓰지 않고 exit 2.
 - v1은 태그 **`v1.39.18-final`**로 보존됩니다. v2 브랜치에서는 v1 전용 파일(`hooks/*.sh`, `scripts/`,
