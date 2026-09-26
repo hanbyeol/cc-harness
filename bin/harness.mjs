@@ -17,6 +17,7 @@ const COMMANDS = {
   eval: ['run the independent evaluator for a feature', true],
   run: ['autonomously build, verify and evaluate approved features', true],
   status: ['show feature status and what can run next', false],
+  stats: ['aggregate step metrics and suggest config changes', true],
   doctor: ['detect installed CLIs and check adapter flags', false],
   'migrate-v1': ['convert cc-harness v1 progress/ state into .harness/', false],
 };
