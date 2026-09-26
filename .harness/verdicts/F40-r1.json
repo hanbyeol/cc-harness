@@ -1,0 +1,70 @@
+{
+  "feature": "F40",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The iac profile's verify command is the bare string 'harness tf-check'. In target projects where harness is not on PATH (CLAUDE.md suggests `npx github:hanbyeol/cc-harness`), verify fails with 'command not found: harness', which makes it an environment stop. The docs do not tell iac users that harness must be on PATH, and they do not say how to override the command (e.g. `npx ... tf-check`).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "medium"
+    },
+    {
+      "summary": "tf-check runs terraform subcommands with runCommand's default 1800 s timeout for each call, independent of the outer verify step timeout. A hanging init in one directory can use up the whole step budget, and the per-call timeout is neither documented nor configurable.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Validate and fmt error output is printed in full, while init errors are truncated to 300 characters. Validate output on a large module can be long. This is consistent with the contract but asymmetric.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "If terraform exits 127 on its own (for example, a wrapper script failing), tf-check reports 'command not found: terraform'. The run then treats this as an environment stop rather than a feature failure (related to B192).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B192"
+    },
+    {
+      "summary": "The provider-cache test on Linux relies on XDG_CACHE_HOME. The docs note that verify's filtered env drops XDG_CACHE_HOME, so the path used inside verify differs from the one used by a direct CLI call. This is documented but may surprise users.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.3331252,
+  "contract_hash": "b1566dd3c0838f3e401d939d07bcb31ba62775949ba30c8b825c9529c605de39",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T15:28:12.043Z",
+  "origin": "run"
+}

@@ -1531,10 +1531,11 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B192",
-      "seen": 5,
+      "seen": 6,
       "sources": [
         "F29-r2",
-        "F37-r1"
+        "F37-r1",
+        "F40-r1"
       ]
     },
     {
@@ -2489,6 +2490,120 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B280"
+    },
+    {
+      "feature": "F40",
+      "round": 1,
+      "at": "2026-09-26T15:28:12.043Z",
+      "summary": "The iac profile's verify command is the bare string 'harness tf-check'. In target projects where harness is not on PATH (CLAUDE.md suggests `npx github:hanbyeol/cc-harness`), verify fails with 'command not found: harness', which makes it an environment stop. The docs do not tell iac users that harness must be on PATH, and they do not say how to override the command (e.g. `npx ... tf-check`).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "medium",
+      "id": "B281",
+      "seen": 2,
+      "sources": [
+        "F40-r2"
+      ]
+    },
+    {
+      "feature": "F40",
+      "round": 1,
+      "at": "2026-09-26T15:28:12.043Z",
+      "summary": "tf-check runs terraform subcommands with runCommand's default 1800 s timeout for each call, independent of the outer verify step timeout. A hanging init in one directory can use up the whole step budget, and the per-call timeout is neither documented nor configurable.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B282"
+    },
+    {
+      "feature": "F40",
+      "round": 1,
+      "at": "2026-09-26T15:28:12.043Z",
+      "summary": "Validate and fmt error output is printed in full, while init errors are truncated to 300 characters. Validate output on a large module can be long. This is consistent with the contract but asymmetric.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B283"
+    },
+    {
+      "feature": "F40",
+      "round": 1,
+      "at": "2026-09-26T15:28:12.043Z",
+      "summary": "The provider-cache test on Linux relies on XDG_CACHE_HOME. The docs note that verify's filtered env drops XDG_CACHE_HOME, so the path used inside verify differs from the one used by a direct CLI call. This is documented but may surprise users.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B284"
+    },
+    {
+      "feature": "F39",
+      "round": 1,
+      "at": "2026-09-26T15:31:52.621Z",
+      "summary": "The AC-2 criterion text writes the brief format as 'todo N (v1 partial P · blocked B)'. The implementation keeps the existing 'N todo' order, giving 'N todo (v1 partial P · blocked B)', and SPEC §13 and README use that order too. The contract wording and the output differ only in word order, so the contract text could be aligned in a later version.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B285"
+    },
+    {
+      "feature": "F39",
+      "round": 1,
+      "at": "2026-09-26T15:31:52.621Z",
+      "summary": "The --brief split counts only partial and blocked, following the contract. in_progress and deferred v1 features are folded into the unsplit remainder, so an in_progress v1 feature (arguably the most 'started' kind) is not highlighted in the SessionStart brief.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B286"
+    },
+    {
+      "feature": "F39",
+      "round": 1,
+      "at": "2026-09-26T15:31:52.621Z",
+      "summary": "Nothing tests the in_progress group in `status --todo-v1`. The fixtures cover the partial, blocked, deferred and no-state groups but not in_progress, so the group ordering for in_progress is checked only by reading the code.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B287"
+    },
+    {
+      "feature": "F39",
+      "round": 1,
+      "at": "2026-09-26T15:31:52.621Z",
+      "summary": "The CLI help and usage text do not mention the new `status --todo-v1` flag; it is documented only in README and SPEC §13.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B288"
+    },
+    {
+      "feature": "F40",
+      "round": 2,
+      "at": "2026-09-26T15:43:59.760Z",
+      "summary": "tf-check runs `terraform fmt -check -recursive` from the top directory. It relies on terraform's own traversal, so it may descend into .terraform/ module copies or into .harness/wt worktrees, which the per-directory walk excludes. A badly formatted file in a worktree could then fail fmt for the main checkout.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B289"
+    },
+    {
+      "feature": "F40",
+      "round": 2,
+      "at": "2026-09-26T15:43:59.760Z",
+      "summary": "`--dir` accepts paths outside the project root, for example `--dir ../other`. The directories are then reported with `..` relative paths. This is harmless but not described in the docs.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B290"
+    },
+    {
+      "feature": "F40",
+      "round": 2,
+      "at": "2026-09-26T15:43:59.760Z",
+      "summary": "The fake terraform in the tests keeps state in marker files, and the tests never exercise a real terraform binary. Behaviour against a real terraform, such as how -recursive fmt treats hidden directories, is untested.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B291"
     }
   ]
 }

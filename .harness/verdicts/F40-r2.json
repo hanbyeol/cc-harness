@@ -1,0 +1,64 @@
+{
+  "feature": "F40",
+  "round": 2,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "tf-check runs `terraform fmt -check -recursive` from the top directory. It relies on terraform's own traversal, so it may descend into .terraform/ module copies or into .harness/wt worktrees, which the per-directory walk excludes. A badly formatted file in a worktree could then fail fmt for the main checkout.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "`--dir` accepts paths outside the project root, for example `--dir ../other`. The directories are then reported with `..` relative paths. This is harmless but not described in the docs.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The iac profile verify command is the bare string 'harness tf-check', which assumes harness is on PATH.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "medium",
+      "backlog_id": "B281"
+    },
+    {
+      "summary": "The fake terraform in the tests keeps state in marker files, and the tests never exercise a real terraform binary. Behaviour against a real terraform, such as how -recursive fmt treats hidden directories, is untested.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.318506,
+  "contract_hash": "b1566dd3c0838f3e401d939d07bcb31ba62775949ba30c8b825c9529c605de39",
+  "contract_round": 2,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T15:43:59.760Z",
+  "origin": "run"
+}

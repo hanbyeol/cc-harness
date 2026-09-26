@@ -1,0 +1,63 @@
+{
+  "feature": "F39",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The AC-2 criterion text writes the brief format as 'todo N (v1 partial P · blocked B)'. The implementation keeps the existing 'N todo' order, giving 'N todo (v1 partial P · blocked B)', and SPEC §13 and README use that order too. The contract wording and the output differ only in word order, so the contract text could be aligned in a later version.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The --brief split counts only partial and blocked, following the contract. in_progress and deferred v1 features are folded into the unsplit remainder, so an in_progress v1 feature (arguably the most 'started' kind) is not highlighted in the SessionStart brief.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Nothing tests the in_progress group in `status --todo-v1`. The fixtures cover the partial, blocked, deferred and no-state groups but not in_progress, so the group ordering for in_progress is checked only by reading the code.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The CLI help and usage text do not mention the new `status --todo-v1` flag; it is documented only in README and SPEC §13.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.30770120000000006,
+  "contract_hash": "553b076e4a2272b08fccba75d1ba8c1a232409e2bf31c4776458ec14012e8c4f",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T15:31:52.621Z",
+  "origin": "run"
+}
