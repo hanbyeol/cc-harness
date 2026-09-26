@@ -1,0 +1,95 @@
+{
+  "feature": "F25",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "isSerializedGit covers worktree add/remove/prune and branch/merge/checkout/switch only. Other state-changing core git calls (`git add`, `git commit` and `git reset --hard` in a feature or integration worktree) run outside the lock. This matches the contract's wording, but the SPEC's 'all git calls that change worktrees, branches or merge state' could be read more broadly.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "resolveConflict skips the builder when the integration merge into the feature worktree applies cleanly (`files` empty). This can happen if integration moved after the first conflict. The feature is then re-verified and re-evaluated without a builder call and still counts as 'resolved'. The behaviour is reasonable but not described in the SPEC.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The conflictResolution report value for a feature that hit a conflict and was later blocked for an unrelated reason (for example budget or a post-merge verify failure) is 'failed'. The value is derived only from `e.conflictTried` and the final status, so it may overstate that the resolution itself failed.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The AC-4 test records only calls that `isSerializedGit` selects, so it cannot notice a mutating git call that the predicate misses. Its coverage depends on the predicate being complete.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Conflict-marker check after the automatic resolution only scans the files git reported as conflicted; markers the builder leaves or copies into other files are not detected before re-verify/eval (verify/eval would usually catch this).",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "resolveConflict passes the integration SHA straight to `git merge` without checking it for null; if refs/heads/<integration> cannot be resolved, the argv holds a null element and the failure message is unclear instead of a clean blocked(merge_conflict) detail.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "Integration-tip invariance (SC-1) depends on the builder being cooperative. A builder writing through absolute paths into .harness/wt/_integration during resolution is not detected until the re-merge's `git status --porcelain` check, which then throws a run-level worktree error rather than blocking only that feature. This is outside threat model D1.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "isSerializedGit also serializes checkout/switch/worktree prune beyond the contract's list; `git reset --hard` and `git commit` in the integration worktree are not under the git lock and rely on the merge lock instead. This is correct today but the two locks are easy to confuse.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.8157501999999999,
+  "contract_hash": "4a5e0c4efa08dc3fef78c3fb852434c19f08148bd9edf0a201cb58083149d18d",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 8,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false
+    }
+  },
+  "at": "2026-09-26T05:07:40.923Z",
+  "origin": "run"
+}

@@ -228,6 +228,24 @@
         "F24"
       ],
       "status": "approved"
+    },
+    {
+      "id": "F26",
+      "title": "verify 내부 병렬화 — 기준 check·base vacuity 동시 실행(CPU 기반 상한), 실패 check 단독 재확인, head·base 테스트 수 동시 산출",
+      "security_tier": "critical",
+      "depends_on": [
+        "F25"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "F27",
+      "title": "실행 지표와 harness stats — 단계별 시간·비용·모델 기록, 누적 분석, 규칙 기반 개선 제안",
+      "security_tier": "standard",
+      "depends_on": [
+        "F25"
+      ],
+      "status": "todo"
     }
   ]
 }

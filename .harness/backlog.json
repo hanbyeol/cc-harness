@@ -4,361 +4,447 @@
       "source": "F6-r2",
       "priority": "high",
       "summary": "Case collision with the user's own unprotected checked-out branch (user on 'work', integration_branch 'Work') on a case-insensitive FS: the --no-ff merge advances the user's branch. Refuse an integration_branch that case-folds to an existing local branch spelled differently or to any branch checked out in a worktree.",
-      "resolved_by": "F10"
+      "resolved_by": "F10",
+      "id": "B1"
     },
     {
       "source": "F1-r1",
       "summary": "init on a partially present .harness/ (e.g. only contracts/) fails with 'config.json: not found' because main() treats any .harness dir as initialized before init runs.",
-      "resolved_by": "F12"
+      "resolved_by": "F12",
+      "id": "B2"
     },
     {
       "source": "F1-r1",
       "summary": "writeJsonAtomic leaves a partial .tmp-* file and escapes a raw error (exit 1) when writing the temp file itself fails (e.g. ENOSPC).",
-      "resolved_by": "F12"
+      "resolved_by": "F12",
+      "id": "B3"
     },
     {
       "source": "F1-r1",
       "summary": "resolveConfig/loadConfig accept non-object config (null, budget:null) without validation or defaults.",
-      "resolved_by": "F12"
+      "resolved_by": "F12",
+      "id": "B4"
     },
     {
       "source": "F1-r1",
       "summary": "status crashes with internal error on malformed feature entries (missing id/status/title) instead of state_corrupt.",
-      "resolved_by": "F12"
+      "resolved_by": "F12",
+      "id": "B5"
     },
     {
       "source": "F1-r1",
-      "summary": "t.mjs ^<id>\\b also matches names like 'F1 AC-1-foo' or 'F1 AC-1.2' (harmless under current naming)."
+      "summary": "t.mjs ^<id>\\b also matches names like 'F1 AC-1-foo' or 'F1 AC-1.2' (harmless under current naming).",
+      "id": "B6"
     },
     {
       "source": "F1-r1",
-      "summary": "Harness root is process.cwd(); running from a subdirectory reports 'not initialized' (no upward search)."
+      "summary": "Harness root is process.cwd(); running from a subdirectory reports 'not initialized' (no upward search).",
+      "id": "B7"
     },
     {
       "source": "F2-impl",
       "summary": "SPEC section 5 gaps found while implementing F2 were backfilled in 562408f (re-approval semantics, id/section rule, run_steps, pattern case rules, invalid tier).",
-      "resolved_by": "562408f"
+      "resolved_by": "562408f",
+      "id": "B8"
     },
     {
       "source": "F4-impl",
-      "summary": "doctor checks flags only, not authentication — it reports gemini usable while gemini exits 41 (no auth). A run would fail at eval with exit_nonzero rather than adapter_unavailable. Consider a zero-cost auth probe per CLI or mapping known auth-error exits to adapter_unavailable."
+      "summary": "doctor checks flags only, not authentication — it reports gemini usable while gemini exits 41 (no auth). A run would fail at eval with exit_nonzero rather than adapter_unavailable. Consider a zero-cost auth probe per CLI or mapping known auth-error exits to adapter_unavailable.",
+      "id": "B9"
     },
     {
       "source": "F4-impl",
       "summary": "Windows .cmd shim escaping is unit-tested but never executed on Windows; covered once F8 CI runs on windows-latest.",
-      "resolved_by": "F14"
+      "resolved_by": "F14",
+      "id": "B10"
     },
     {
       "source": "F7-impl",
-      "summary": "hooks/hooks.json SessionStart uses ${CLAUDE_PLUGIN_ROOT}; under Gemini (which also loads hooks/hooks.json) it expands empty and fails non-fatally. Verify a host-neutral command form."
+      "summary": "hooks/hooks.json SessionStart uses ${CLAUDE_PLUGIN_ROOT}; under Gemini (which also loads hooks/hooks.json) it expands empty and fails non-fatally. Verify a host-neutral command form.",
+      "id": "B11"
     },
     {
       "source": "F7-impl",
       "summary": "v1 agents/*.md (model: claude-opus-5) are also loaded by Gemini as agents until F8 removes them.",
-      "resolved_by": "F8"
+      "resolved_by": "F8",
+      "id": "B12"
     },
     {
       "source": "F4-r1",
-      "summary": "Model names are not validated; a model like '--yolo' lands in argv as a flag. Reject values starting with '-' or pass --model=<v>."
+      "summary": "Model names are not validated; a model like '--yolo' lands in argv as a flag. Reject values starting with '-' or pass --model=<v>.",
+      "id": "B13"
     },
     {
       "source": "F4-r1",
-      "summary": "run() ignores role; force readOnly for READ_ONLY_ROLES as defence in depth."
+      "summary": "run() ignores role; force readOnly for READ_ONLY_ROLES as defence in depth.",
+      "id": "B14"
     },
     {
       "source": "F4-r1",
-      "summary": "Nonexistent cwd is reported as adapter_unavailable (misattributed cause)."
+      "summary": "Nonexistent cwd is reported as adapter_unavailable (misattributed cause).",
+      "id": "B15"
     },
     {
       "source": "F4-r1",
-      "summary": "Non-numeric timeoutSec becomes NaN (1 ms timeout); detail text 'killed after undefineds' when omitted."
+      "summary": "Non-numeric timeoutSec becomes NaN (1 ms timeout); detail text 'killed after undefineds' when omitted.",
+      "id": "B16"
     },
     {
       "source": "F4-r1",
-      "summary": "gemini error wrapper exiting 0 would be read as model JSON (theoretical today)."
+      "summary": "gemini error wrapper exiting 0 would be read as model JSON (theoretical today).",
+      "id": "B17"
     },
     {
       "source": "F4-r1",
-      "summary": "A model verdict with type:'result' and is_error is misread as a claude wrapper (contrived)."
+      "summary": "A model verdict with type:'result' and is_error is misread as a claude wrapper (contrived).",
+      "id": "B18"
     },
     {
       "source": "F4-r1",
-      "summary": "independence() is optimistic when one side uses the CLI default model; consider fresh-context when either model is unknown."
+      "summary": "independence() is optimistic when one side uses the CLI default model; consider fresh-context when either model is unknown.",
+      "id": "B19"
     },
     {
       "source": "F4-r1",
-      "summary": "doctor's defaultProbe requires --version; a generic CLI without it reads as not installed."
+      "summary": "doctor's defaultProbe requires --version; a generic CLI without it reads as not installed.",
+      "id": "B20"
     },
     {
       "source": "F4-r1",
-      "summary": "Process-group kill cannot reach setsid/daemonized grandchildren (and Windows orphans); exec now destroys the pipes so close still fires, but the orphan keeps running."
+      "summary": "Process-group kill cannot reach setsid/daemonized grandchildren (and Windows orphans); exec now destroys the pipes so close still fires, but the orphan keeps running.",
+      "id": "B21"
     },
     {
       "source": "F3-impl",
-      "summary": "Timed-out verify commands are rerun once (worst case 2x step_timeout_sec); consider not retrying timeouts."
+      "summary": "Timed-out verify commands are rerun once (worst case 2x step_timeout_sec); consider not retrying timeouts.",
+      "id": "B22"
     },
     {
       "source": "F3-impl",
-      "summary": "Code that holds skip markers as data fails its own verify; F3 splits marker strings as a workaround. Consider a per-contract marker_exempt_paths frozen by the approval hash."
+      "summary": "Code that holds skip markers as data fails its own verify; F3 splits marker strings as a workaround. Consider a per-contract marker_exempt_paths frozen by the approval hash.",
+      "id": "B23"
     },
     {
       "source": "F3-impl",
-      "summary": "verify with cwd=root reports uncommitted core writes to .harness/features.json as a .harness change (false positive if the core ever leaves them uncommitted)."
+      "summary": "verify with cwd=root reports uncommitted core writes to .harness/features.json as a .harness change (false positive if the core ever leaves them uncommitted).",
+      "id": "B24"
     },
     {
       "source": "F4-r2",
-      "summary": "If timeoutSec < 2s exit grace and a background child holds the pipes after a clean exit, the result is reported as timeout."
+      "summary": "If timeoutSec < 2s exit grace and a background child holds the pipes after a clean exit, the result is reported as timeout.",
+      "id": "B25"
     },
     {
       "source": "F4-r2",
-      "summary": "killTree signals the process group after the leader exited; pgid reuse is theoretically possible (only while a member still holds the pipes)."
+      "summary": "killTree signals the process group after the leader exited; pgid reuse is theoretically possible (only while a member still holds the pipes).",
+      "id": "B26"
     },
     {
       "source": "F3-r1",
-      "summary": "[D1-adversarial] skip-worktree/assume-unchanged index flags hide working-tree changes from verify's git diff. Structural option: verify the committed tree in a clean checkout."
+      "summary": "[D1-adversarial] skip-worktree/assume-unchanged index flags hide working-tree changes from verify's git diff. Structural option: verify the committed tree in a clean checkout.",
+      "id": "B27"
     },
     {
       "source": "F3-r1",
-      "summary": "[D1-adversarial] clean filters configured via .git/info/attributes alter what git diff sees."
+      "summary": "[D1-adversarial] clean filters configured via .git/info/attributes alter what git diff sees.",
+      "id": "B28"
     },
     {
       "source": "F3-r1",
-      "summary": "hooksPath points at a fixed <tmpdir>/harness-no-hooks-dir; on shared /tmp another local user could plant a hook that runs during git worktree add. Use a fresh mkdtemp dir or /dev/null."
+      "summary": "hooksPath points at a fixed <tmpdir>/harness-no-hooks-dir; on shared /tmp another local user could plant a hook that runs during git worktree add. Use a fresh mkdtemp dir or /dev/null.",
+      "id": "B29"
     },
     {
       "source": "F3-r1",
-      "summary": "Ignored untracked files (.gitignore, .git/info/exclude) are not scanned for markers or .harness paths."
+      "summary": "Ignored untracked files (.gitignore, .git/info/exclude) are not scanned for markers or .harness paths.",
+      "id": "B30"
     },
     {
       "source": "F3-r1",
-      "summary": "Base-side vacuity runs in a clean worktree without installed dependencies, so a dependency-needing check fails on base for unrelated reasons (vacuous criterion scored non-vacuous)."
+      "summary": "Base-side vacuity runs in a clean worktree without installed dependencies, so a dependency-needing check fails on base for unrelated reasons (vacuous criterion scored non-vacuous).",
+      "id": "B31"
     },
     {
       "source": "F3-r1",
-      "summary": "Marker list misses t.Skipf/t.SkipNow, fit(/fdescribe(, *.skip.each, pytestmark = pytest.mark.skipif (contract fixes 8 markers)."
+      "summary": "Marker list misses t.Skipf/t.SkipNow, fit(/fdescribe(, *.skip.each, pytestmark = pytest.mark.skipif (contract fixes 8 markers).",
+      "id": "B32"
     },
     {
       "source": "F3-r1",
-      "summary": "Self-verify on the integration branch (base == HEAD) marks every criterion vacuous; needs --base <pre-feature ref>."
+      "summary": "Self-verify on the integration branch (base == HEAD) marks every criterion vacuous; needs --base <pre-feature ref>.",
+      "id": "B33"
     },
     {
       "source": "F2-r1",
-      "summary": "'어떤 .*도' / '모든 .*에 대해' do not match across newlines (consider the s flag)."
+      "summary": "'어떤 .*도' / '모든 .*에 대해' do not match across newlines (consider the s flag).",
+      "id": "B34"
     },
     {
       "source": "F2-r1",
-      "summary": "Non-string criterion skips rule 3 with only a warning."
+      "summary": "Non-string criterion skips rule 3 with only a warning.",
+      "id": "B35"
     },
     {
       "source": "F2-r1",
-      "summary": "run_steps as a string or with different case/whitespace ('Rollout', ' rollout') is not rejected; non-array run_steps is not an error."
+      "summary": "run_steps as a string or with different case/whitespace ('Rollout', ' rollout') is not rejected; non-array run_steps is not an error.",
+      "id": "B36"
     },
     {
       "source": "F2-r1",
-      "summary": "approve pretty-prints the contract; a compact contract just under 20KB can exceed the byte limit after approval."
+      "summary": "approve pretty-prints the contract; a compact contract just under 20KB can exceed the byte limit after approval.",
+      "id": "B37"
     },
     {
       "source": "F2-r1",
       "summary": "verify does not check the approval hash (wire in F6 via executableFeatures).",
-      "resolved_by": "F6"
+      "resolved_by": "F6",
+      "id": "B38"
     },
     {
       "source": "F2-r1",
-      "summary": "approve writes contracts one by one then features.json; an I/O fault mid-way can leave partial state."
+      "summary": "approve writes contracts one by one then features.json; an I/O fault mid-way can leave partial state.",
+      "id": "B39"
     },
     {
       "source": "F3-r2",
-      "summary": "Base-side vacuity runs without installed dependencies (node_modules), so a dependency-needing vacuous check can be scored non-vacuous."
+      "summary": "Base-side vacuity runs without installed dependencies (node_modules), so a dependency-needing vacuous check can be scored non-vacuous.",
+      "id": "B40"
     },
     {
       "source": "F3-r2",
-      "summary": "Untracked symlinks and nested git repos are skipped by the untracked-content scan."
+      "summary": "Untracked symlinks and nested git repos are skipped by the untracked-content scan.",
+      "id": "B41"
     },
     {
       "source": "F3-r2-sec",
-      "summary": "close-time process-group kill has a theoretical PID-reuse window after the group empties."
+      "summary": "close-time process-group kill has a theoretical PID-reuse window after the group empties.",
+      "id": "B42"
     },
     {
       "source": "F3-r2-sec",
-      "summary": "projectRel uses fs.realpathSync (no case normalization on macOS); a programmatic caller passing root with different case would miss sub/.harness. Use fs.realpathSync.native."
+      "summary": "projectRel uses fs.realpathSync (no case normalization on macOS); a programmatic caller passing root with different case would miss sub/.harness. Use fs.realpathSync.native.",
+      "id": "B43"
     },
     {
       "source": "F2-r2",
-      "summary": "jsonErrorOffset is recursive; ~20,000-level nesting with a positionless error escapes as RangeError (6,000 handled)."
+      "summary": "jsonErrorOffset is recursive; ~20,000-level nesting with a positionless error escapes as RangeError (6,000 handled).",
+      "id": "B44"
     },
     {
       "source": "F2-r2",
-      "summary": "status says 'changed after approval' for an approved feature whose contract is missing or has no hash; wording misleading."
+      "summary": "status says 'changed after approval' for an approved feature whose contract is missing or has no hash; wording misleading.",
+      "id": "B45"
     },
     {
       "source": "F5-impl",
-      "summary": "When cwd == root, earlier verdict/eval_error files under .harness/verdicts show up as untracked noise in later evaluation diffs."
+      "summary": "When cwd == root, earlier verdict/eval_error files under .harness/verdicts show up as untracked noise in later evaluation diffs.",
+      "id": "B46"
     },
     {
       "source": "F6-impl",
-      "summary": "F6 ES-3 SIGINT test returns early on Windows (signals cannot be sent to a child there), so it is vacuous on Windows."
+      "summary": "F6 ES-3 SIGINT test returns early on Windows (signals cannot be sent to a child there), so it is vacuous on Windows.",
+      "id": "B47"
     },
     {
       "source": "F5-r1-sec",
-      "summary": "secret_globs matching is undefined in SPEC; a glob with '/' is anchored at the repo root (deep/secrets/ leaks with 'secrets/')."
+      "summary": "secret_globs matching is undefined in SPEC; a glob with '/' is anchored at the repo root (deep/secrets/ leaks with 'secrets/').",
+      "id": "B48"
     },
     {
       "source": "F5-r1-sec",
-      "summary": "Deny list misses source <(curl …), . <(curl …), and download-then-sh."
+      "summary": "Deny list misses source <(curl …), . <(curl …), and download-then-sh.",
+      "id": "B49"
     },
     {
       "source": "F5-r1-sec",
-      "summary": "SR-4 is path-based; renaming .env to env.bak sends its contents. Read-only model sessions can still read .env through CLI read tools."
+      "summary": "SR-4 is path-based; renaming .env to env.bak sends its contents. Read-only model sessions can still read .env through CLI read tools.",
+      "id": "B50"
     },
     {
       "source": "F5-r1",
-      "summary": "Repro exit 126 (found but not executable) blocks; consider treating 126 as repro_not_runnable."
+      "summary": "Repro exit 126 (found but not executable) blocks; consider treating 126 as repro_not_runnable.",
+      "id": "B51"
     },
     {
       "source": "F5-r1",
-      "summary": "Security-reviewer findings in non-security dimensions also block; SPEC 7.4 ambiguous."
+      "summary": "Security-reviewer findings in non-security dimensions also block; SPEC 7.4 ambiguous.",
+      "id": "B52"
     },
     {
       "source": "F5-r1",
-      "summary": "SR-3 deny false positives ('git stash push', 'echo sudo') — safe (backlogged)."
+      "summary": "SR-3 deny false positives ('git stash push', 'echo sudo') — safe (backlogged).",
+      "id": "B53"
     },
     {
       "source": "F5-r1",
-      "summary": "harness eval --round k silently overwrites an existing verdict file."
+      "summary": "harness eval --round k silently overwrites an existing verdict file.",
+      "id": "B54"
     },
     {
       "source": "F5-r1",
-      "summary": "Backlog entries classified before a later eval_error (re-ask or reviewer) are dropped."
+      "summary": "Backlog entries classified before a later eval_error (re-ask or reviewer) are dropped.",
+      "id": "B55"
     },
     {
       "source": "F5-r1",
-      "summary": "validateOutput accepts non-integer scores and missing out_of_scope although OUTPUT_SCHEMA declares them."
+      "summary": "validateOutput accepts non-integer scores and missing out_of_scope although OUTPUT_SCHEMA declares them.",
+      "id": "B56"
     },
     {
       "source": "F6-r1-sec",
-      "summary": "SIGTERM/SIGHUP are not handled like SIGINT; detached step groups (incl. the builder) outlive the harness."
+      "summary": "SIGTERM/SIGHUP are not handled like SIGINT; detached step groups (incl. the builder) outlive the harness.",
+      "id": "B57"
     },
     {
       "source": "F6-r1-sec",
-      "summary": "merge() commits untracked verify artifacts (git add -A); post-merge verify then dirties _integration and the next merge throws an uncaught HarnessError that --resume cannot pass."
+      "summary": "merge() commits untracked verify artifacts (git add -A); post-merge verify then dirties _integration and the next merge throws an uncaught HarnessError that --resume cannot pass.",
+      "id": "B58"
     },
     {
       "source": "F6-r1-sec",
-      "summary": "protected_branches has no glob support (release/*)."
+      "summary": "protected_branches has no glob support (release/*).",
+      "id": "B59"
     },
     {
       "source": "F6-r1",
-      "summary": "SPEC inconsistency: step timeout → blocked(budget) (§8) vs adapter timeout during eval → eval_error (§7.3)."
+      "summary": "SPEC inconsistency: step timeout → blocked(budget) (§8) vs adapter timeout during eval → eval_error (§7.3).",
+      "id": "B60"
     },
     {
       "source": "F6-r1",
-      "summary": "Hard crash between git worktree add -b and save() leaves stage=worktree; resume then blocks the feature (worktree)."
+      "summary": "Hard crash between git worktree add -b and save() leaves stage=worktree; resume then blocks the feature (worktree).",
+      "id": "B61"
     },
     {
       "source": "F6-r1",
-      "summary": "Terminal Ctrl-C can kill a git merge child mid-merge; classified as merge_conflict before the interrupted exit."
+      "summary": "Terminal Ctrl-C can kill a git merge child mid-merge; classified as merge_conflict before the interrupted exit.",
+      "id": "B62"
     },
     {
       "source": "F6-r1",
-      "summary": "integration_branch 'refs/heads/main' / 'heads/main' refused only at merge time (run aborts after starting)."
+      "summary": "integration_branch 'refs/heads/main' / 'heads/main' refused only at merge time (run aborts after starting).",
+      "id": "B63"
     },
     {
       "source": "F6-r1",
-      "summary": "A dirty integration worktree or failing git add/commit in merge() escapes runFeatures without a report."
+      "summary": "A dirty integration worktree or failing git add/commit in merge() escapes runFeatures without a report.",
+      "id": "B64"
     },
     {
       "source": "F6-r1",
-      "summary": "features.json security_tier drives the critical stop but is not cross-checked against the contract's tier."
+      "summary": "features.json security_tier drives the critical stop but is not cross-checked against the contract's tier.",
+      "id": "B65"
     },
     {
       "source": "F6-r2-sec",
-      "summary": "Branch case folding uses toLowerCase only (no NFC/NFD normalization) — exotic names."
+      "summary": "Branch case folding uses toLowerCase only (no NFC/NFD normalization) — exotic names.",
+      "id": "B66"
     },
     {
       "source": "F8-r1",
-      "summary": "F8 AC-2 frozen criterion text lists fewer paths than SPEC 13 and the test (docs/DECISIONS, settings.json, profiles/*.md, v1 agents/skills); tighten wording on the next contract version."
+      "summary": "F8 AC-2 frozen criterion text lists fewer paths than SPEC 13 and the test (docs/DECISIONS, settings.json, profiles/*.md, v1 agents/skills); tighten wording on the next contract version.",
+      "id": "B67"
     },
     {
       "source": "F8-r1",
-      "summary": "F8 AC-2 test checks absence via fs.existsSync, not git ls-files (equivalent in a clean checkout)."
+      "summary": "F8 AC-2 test checks absence via fs.existsSync, not git ls-files (equivalent in a clean checkout).",
+      "id": "B68"
     },
     {
       "source": "F5-2nd",
       "priority": "high",
       "summary": "SR-4 exclusion is path-only: a secret committed before base and renamed within the feature (git mv .env notes.txt) enters the evaluator prompt with its content. User decision: add as a criterion in the next F5 contract version (e.g. exclude an added path whose blob equals a deleted secret path's blob).",
-      "resolved_by": "F9"
+      "resolved_by": "F9",
+      "id": "B69"
     },
     {
       "source": "F5-2nd",
-      "summary": "validateOutput accepts non-integer scores (6.5) although OUTPUT_SCHEMA declares integer."
+      "summary": "validateOutput accepts non-integer scores (6.5) although OUTPUT_SCHEMA declares integer.",
+      "id": "B70"
     },
     {
       "source": "F5-r3",
-      "summary": "Continuation stripping ignores backslash escape parity ('a\\\\\\\\<newline>git push'); over-deny direction, not a bypass."
+      "summary": "Continuation stripping ignores backslash escape parity ('a\\\\\\\\<newline>git push'); over-deny direction, not a bypass.",
+      "id": "B71"
     },
     {
       "source": "F5-r3",
-      "summary": "Deny patterns match token co-occurrence, so 'echo git push …' is denied (over-deny, pre-existing)."
+      "summary": "Deny patterns match token co-occurrence, so 'echo git push …' is denied (over-deny, pre-existing).",
+      "id": "B72"
     },
     {
       "source": "F6-2nd",
-      "summary": "run.mjs's own git() plumbing (merge --no-ff, worktree remove, branch -D, reset --hard) does not receive the AbortSignal; SIGINT waits for it (possibly intentional: killing mid-merge could corrupt the integration worktree)."
+      "summary": "run.mjs's own git() plumbing (merge --no-ff, worktree remove, branch -D, reset --hard) does not receive the AbortSignal; SIGINT waits for it (possibly intentional: killing mid-merge could corrupt the integration worktree).",
+      "id": "B73"
     },
     {
       "source": "F6-2nd",
-      "summary": "eval.mjs HarnessError('interrupted') (bd484d0) is effectively unreachable under run.mjs step()'s abort race, isFatal() would not classify it as an interrupt, and the abandoned evaluate() keeps running ~1s after state is saved."
+      "summary": "eval.mjs HarnessError('interrupted') (bd484d0) is effectively unreachable under run.mjs step()'s abort race, isFatal() would not classify it as an interrupt, and the abandoned evaluate() keeps running ~1s after state is saved.",
+      "id": "B74"
     },
     {
       "source": "F6-2nd",
-      "summary": "AC-8 stops the run only when a critical feature is literally blocked, not when it is transitively skipped by a blocked dependency."
+      "summary": "AC-8 stops the run only when a critical feature is literally blocked, not when it is transitively skipped by a blocked dependency.",
+      "id": "B75"
     },
     {
       "source": "F10-r1",
-      "summary": "harness/F{n} feature branches get no explicit case-collision check against local branches (e.g. Harness/F1). Safe today only because git's core.ignorecase guard refuses the branch and run maps it to blocked(worktree); add an explicit check with an SR-5 message."
+      "summary": "harness/F{n} feature branches get no explicit case-collision check against local branches (e.g. Harness/F1). Safe today only because git's core.ignorecase guard refuses the branch and run maps it to blocked(worktree); add an explicit check with an SR-5 message.",
+      "id": "B76"
     },
     {
       "source": "F10-r1",
-      "summary": "foldBranch uses JS toLowerCase, which only approximates filesystem case folding for non-ASCII names (adjacent to the NFC/NFD item)."
+      "summary": "foldBranch uses JS toLowerCase, which only approximates filesystem case folding for non-ASCII names (adjacent to the NFC/NFD item).",
+      "id": "B77"
     },
     {
       "source": "F10-impl",
       "priority": "high",
       "summary": "Vacuity check gap: a criterion marked new:true whose test lives in a NEW test file always counts as non-vacuous (the check fails on base because the test name is missing), even when the behaviour already existed (F10 AC-2/AC-3, F11 SC-1, F9 AC-4/ES-1). Contracts should mark regression guards new:false; consider having verify detect 'no test matched' on base separately from a real failure.",
-      "resolved_by": "F16"
+      "resolved_by": "F16",
+      "id": "B78"
     },
     {
       "source": "F12-r1",
-      "summary": "validateUser rejects any object-default config key (budget, verify, limits, roles, rubric) set to a non-object — broader than ES-2's literal scope; documented in SPEC §4."
+      "summary": "validateUser rejects any object-default config key (budget, verify, limits, roles, rubric) set to a non-object — broader than ES-2's literal scope; documented in SPEC §4.",
+      "id": "B79"
     },
     {
       "source": "F9-r1",
-      "summary": "A lightly edited copy of a secret that keeps the original (cp .env backup.txt, then tweak) is neither a hash match nor a -M rename pair; content reaches the eval diff. Contract out_of_scope (partial content); consider -C copy detection with a secret source."
+      "summary": "A lightly edited copy of a secret that keeps the original (cp .env backup.txt, then tweak) is neither a hash match nor a -M rename pair; content reaches the eval diff. Contract out_of_scope (partial content); consider -C copy detection with a secret source.",
+      "id": "B80"
     },
     {
       "source": "F9-r1",
-      "summary": "Content-hash exclusion also drops a legitimate file that is byte-identical to a secret by coincidence."
+      "summary": "Content-hash exclusion also drops a legitimate file that is byte-identical to a secret by coincidence.",
+      "id": "B81"
     },
     {
       "source": "F9-r2",
-      "summary": "Exhaustive rename detection (renameLimit=0) is worst-case quadratic; ~5s at 3000 renamed paths, watch for diffs with tens of thousands of paths."
+      "summary": "Exhaustive rename detection (renameLimit=0) is worst-case quadratic; ~5s at 3000 renamed paths, watch for diffs with tens of thousands of paths.",
+      "id": "B82"
     },
     {
       "source": "F3-r3",
       "priority": "high",
       "summary": "config verify.commands given as a string (\"npm test\") passes F12 validation and verify iterates it character by character as separate shell commands. validateUser checks only object-default keys; add array checks for verify.commands, verify.skip_markers, env_allowlist, secret_globs.",
-      "resolved_by": "F13"
+      "resolved_by": "F13",
+      "id": "B83"
     },
     {
       "source": "F13-r2",
-      "summary": "runFeatures({config}) (programmatic callers) gets shape checks but not the DEFAULTS/profile merge that loadConfig applies; the two paths differ."
+      "summary": "runFeatures({config}) (programmatic callers) gets shape checks but not the DEFAULTS/profile merge that loadConfig applies; the two paths differ.",
+      "id": "B84"
     },
     {
       "source": "F14-r2",
-      "summary": "win32 not-found anchoring rejects a program name containing an apostrophe ('d'oh.exe') - safe direction (treated as a real failure)."
+      "summary": "win32 not-found anchoring rejects a program name containing an apostrophe ('d'oh.exe') - safe direction (treated as a real failure).",
+      "id": "B85"
     },
     {
       "source": "F14-r1",
-      "summary": "Windows not-found detection only knows the English cmd.exe wording; other locales are reported as plain failures."
+      "summary": "Windows not-found detection only knows the English cmd.exe wording; other locales are reported as plain failures.",
+      "id": "B86"
     },
     {
       "feature": "F16",
@@ -366,7 +452,8 @@
       "at": "2026-09-23T17:10:11.421Z",
       "summary": "featureTestFiles checks lstat only on the leaf path. This is safe because git tracks a symlinked directory as a single symlink entry, so no file path is listed beneath it. If the file list ever came from a source that expands directories, a symlinked parent directory in the working tree would need its own check.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B87"
     },
     {
       "feature": "F16",
@@ -374,7 +461,8 @@
       "at": "2026-09-23T17:10:11.421Z",
       "summary": "overlayFiles runs fs.statSync(src) after the exclusive write, and does so once per file. The mode could be read once alongside the content, and a file that disappears between the lstat filter and the copy would surface as an io error. This is only a minor race and not a real problem for a cooperative builder.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B88"
     },
     {
       "feature": "F16",
@@ -382,7 +470,8 @@
       "at": "2026-09-23T17:10:11.421Z",
       "summary": "The vacuity failure message differs depending on whether an overlay was applied ('with the feature's test files' or not). Both variants contain 'already passes on base', so AC-1 holds. Consumers that match the full message text would need to know about both variants.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B89"
     },
     {
       "feature": "F16",
@@ -390,7 +479,8 @@
       "at": "2026-09-23T17:10:11.421Z",
       "summary": "verify.test_count is unset in this repository, so the verify run warns that a test-count decrease is not checked. Setting it in .harness/config.json would give the project this protection.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B90"
     },
     {
       "feature": "F16",
@@ -398,7 +488,8 @@
       "at": "2026-09-23T17:10:11.421Z",
       "summary": "The isTestPath alias in lib/glob.mjs is a thin wrapper over matchesAnyGlob. It adds a second name for the same function without adding behaviour, and could be dropped or documented as intentional.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B91"
     },
     {
       "feature": "F16",
@@ -406,7 +497,8 @@
       "at": "2026-09-23T17:10:11.421Z",
       "summary": "featureTestFiles checks lstat only on the final path, not its parents. Scenario: base tracks test/a.test.mjs, and the feature replaces the test/ directory with a symlink to an outside directory that also contains a.test.mjs. `git diff --name-only` still lists test/a.test.mjs (as deleted), and lstat(top/test/a.test.mjs) follows the parent symlink and reports a regular file. The outside file's content is then copied into the temporary base worktree. SC-2 covers only a test path that is itself a symlink, so this is not a blocking defect, and the impact is low: the head-side run already executes through the link and the base worktree is removed afterwards. Hardening: skip a path when any parent segment under `top` is a symlink, or when realpath(src) is outside `top`.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B92"
     },
     {
       "feature": "F16",
@@ -414,7 +506,8 @@
       "at": "2026-09-23T17:10:11.421Z",
       "summary": "overlayFiles copies file mode bits with `statSync(src).mode & 0o777`, which can include group/other write bits from the working tree. This is harmless in a temporary worktree; masking with 0o755 would be tidier.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B93"
     },
     {
       "feature": "F16",
@@ -422,7 +515,8 @@
       "at": "2026-09-23T17:10:11.421Z",
       "summary": "The overlay is unbounded: a very large or very numerous set of changed test files is read fully into memory and copied. This is not a trust-boundary issue under threat model D1.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B94"
     },
     {
       "feature": "F17",
@@ -430,7 +524,8 @@
       "at": "2026-09-23T23:08:37.292Z",
       "summary": "When features.json cannot be written while recording a blocked(eval_error) decision, the io error message tells the user to rerun `harness eval F{n}` to record the status. eval_error verdicts are stored as F{n}-r{k}.eval_error.json and are not picked up by the ES-2 retry path. A rerun therefore evaluates again instead of recording the earlier decision, and that guidance is misleading for this case.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B95"
     },
     {
       "feature": "F17",
@@ -438,7 +533,8 @@
       "at": "2026-09-23T23:08:37.292Z",
       "summary": "Round numbering continues across contract versions (nextRound is one past the highest existing verdict file), and the previous verdict used for the convergence check may belong to an older contract. After a re-approved contract version, the first interactive eval can already be at k >= max_rounds and go straight to blocked(rounds). SPEC does not say whether rounds reset on a new contract version; this may be worth clarifying.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B96"
     },
     {
       "feature": "F17",
@@ -446,7 +542,8 @@
       "at": "2026-09-23T23:08:37.292Z",
       "summary": "decideStatus and record share the eval_error/status-null case only implicitly: `record` returns early for a null status, and `eval_round` is deliberately not set for eval_error. A short comment or a dedicated test for the eval_error blocked → features write failure path would make the ES-2 boundary clearer.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B97"
     },
     {
       "feature": "F17",
@@ -454,7 +551,8 @@
       "at": "2026-09-23T23:08:37.292Z",
       "summary": "The `deps` parameter of evalCommand is split into `{runAdapter, verifyResult}` plus `rest` and then re-wrapped as `deps` for evalAndRecord. This is slightly convoluted; passing a single deps object through would read simpler.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B98"
     },
     {
       "feature": "F17",
@@ -462,7 +560,8 @@
       "at": "2026-09-23T23:08:37.292Z",
       "summary": "The ES-2 retry path in evalAndRecord runs before the status gate (feature_closed / EVALUABLE check). If an interactive verdict's status was never recorded and a human then set the feature to `skipped` or `todo` (without a new contract version), the next `harness eval` still records that old verdict and overwrites the human-chosen status (e.g. sets `passed`). No adapter is called. Consider allowing the retry only when the status is approved/in_progress, or only when it is still the status from before that round.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B99"
     },
     {
       "feature": "F17",
@@ -470,7 +569,8 @@
       "at": "2026-09-23T23:08:37.292Z",
       "summary": "`--round k` with a gap (e.g. r1 and r3 exist, `--round 2`) is accepted: SC-3 only covers existing rounds. Afterwards the latest eval verdict (r3) differs from eval_round (2), so the next `harness eval` re-records r3's status through the retry path. A cooperative builder is unlikely to hit this, but `--round` could be limited to nextRound() or lower.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B100"
     },
     {
       "feature": "F17",
@@ -478,7 +578,8 @@
       "at": "2026-09-23T23:08:37.292Z",
       "summary": "decideStatus uses the previous verdict for convergence only when that verdict was `fail`. Run's convergence() compares against the previous failing round's blocking set. After a needs-human or pass verdict with no blocking ids, the comparison resets to the round-1 rule. This cannot happen in practice because those verdicts close the feature, but the two paths are not literally identical.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B101"
     },
     {
       "feature": "F17",
@@ -486,7 +587,8 @@
       "at": "2026-09-23T23:08:37.292Z",
       "summary": "A features.json io failure on a second consecutive eval_error has no retry key: eval_round is not set for eval_error, and no F{n}-r{k}.json exists. A rerun calls the evaluator again (3rd consecutive) instead of re-recording. The outcome (blocked) is the same, but it costs one more adapter call.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B102"
     },
     {
       "feature": "F18",
@@ -494,7 +596,8 @@
       "at": "2026-09-23T23:55:34.327Z",
       "summary": "`evaluate()` and `evalAndRecord` both check for an existing verdict file (`round_exists`). The check in `evalAndRecord` is now redundant with the one in `evaluate`. It could be dropped or shared, but it is not a defect.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B103"
     },
     {
       "feature": "F18",
@@ -502,7 +605,8 @@
       "at": "2026-09-23T23:55:34.327Z",
       "summary": "`contractVerdicts` reads and parses every verdict file for the feature on each call. In `evalAndRecord`, `evaluate` then calls `contractRound`, which reads them all a second time. This is harmless at small round counts, but `evaluate` could take the already-read list.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B104"
     },
     {
       "feature": "F18",
@@ -510,7 +614,8 @@
       "at": "2026-09-23T23:55:34.327Z",
       "summary": "A verdict file that parses as JSON but has no string `verdict` field is now `state_corrupt` in the run path. Previously `run` never read old verdicts. This is consistent with SPEC E6 and ES-2, but it is new strictness for `run` on hand-edited or legacy files.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B105"
     },
     {
       "feature": "F18",
@@ -518,7 +623,8 @@
       "at": "2026-09-23T23:55:34.327Z",
       "summary": "`contract_round` is derived from the verdict files and `round` from the run's in-memory counter, so the two can differ in run reports. A short note in the run report may help if the distinction confuses users.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B106"
     },
     {
       "feature": "F18",
@@ -526,7 +632,8 @@
       "at": "2026-09-23T23:55:34.327Z",
       "summary": "`verify.test_count` is unset, so a decrease in the number of tests is not checked (verify warns about this).",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B107"
     },
     {
       "feature": "F18",
@@ -534,7 +641,8 @@
       "at": "2026-09-23T23:55:34.327Z",
       "summary": "evaluate() checks that the verdict file does not exist (refuseExisting) and then writes it with writeJsonAtomic, which renames over any existing file. Two concurrent evals of the same feature could both pass the check, and the second rename would overwrite the first verdict. Creating the file exclusively (open with 'wx', or link/rename-noreplace) would make the no-overwrite rule atomic.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B108"
     },
     {
       "feature": "F18",
@@ -542,7 +650,8 @@
       "at": "2026-09-23T23:55:34.327Z",
       "summary": "harness run keeps its own round counter (e.round starts at 1 per run entry) for max_rounds and the report. The verdict's contract_round is counted from the files on disk. If same-hash verdicts already exist from an earlier eval or run of the same contract, the run gets max_rounds fresh rounds while the verdicts record contract_round > e.round, so the run can exceed max_rounds per contract hash. SPEC §8.8 only covers the re-approval case.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B109"
     },
     {
       "feature": "F18",
@@ -550,7 +659,8 @@
       "at": "2026-09-23T23:55:34.327Z",
       "summary": "contractVerdicts reads every verdict file of the feature, including those of old contracts, so a corrupt verdict from an old contract (or a pre-F18 one) also stops eval and run with state_corrupt. This is stricter than ES-2 (the previous verdict of the current hash) and matches SPEC §7.6 ('hash unknown'), but it cannot be recovered without touching old records.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B110"
     },
     {
       "feature": "F18",
@@ -558,7 +668,8 @@
       "at": "2026-09-23T23:55:34.327Z",
       "summary": "In the eval summary, 'round <n>' in the first line is the verdict file number, while the new line shows 'contract round <n>/<max>'. Seeing two different 'round' numbers may confuse users. Consider renaming the first one to 'verdict r<n>'.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B111"
     },
     {
       "feature": "F19",
@@ -566,7 +677,8 @@
       "at": "2026-09-24T06:51:38.504Z",
       "summary": "`node --test` over the full suite showed one transient git 'add failed' error in f9-secret-rename.test.mjs during my first run. The file passes 13/13 when run alone, so it looks like a load or environment flake, not F19.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B112"
     },
     {
       "feature": "F19",
@@ -574,7 +686,8 @@
       "at": "2026-09-24T06:51:38.504Z",
       "summary": "`endRound` decides whether a failing round is the run's first with `e.history.length > carried`, which relies on `history` and `carried` staying in sync. A short comment or a dedicated `firstRunRound` flag would make that clearer.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B113"
     },
     {
       "feature": "F19",
@@ -582,7 +695,8 @@
       "at": "2026-09-24T06:51:38.504Z",
       "summary": "When run blocks with `max_rounds` before any round (SC-1), it sets `e.round = e.carried` and reports 'N of M rounds ... already evaluated'. That is correct, but the state is set inside `runOne` as a side effect. Consider moving the check next to the carry-over setup.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B114"
     },
     {
       "feature": "F19",
@@ -590,7 +704,8 @@
       "at": "2026-09-24T06:51:38.504Z",
       "summary": "`verify.test_count` is unset, so the harness does not check whether the test count decreases. Consider setting it.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B115"
     },
     {
       "feature": "F19",
@@ -598,7 +713,8 @@
       "at": "2026-09-24T06:51:38.504Z",
       "summary": "The SC-1 early block in runOne only fires when e.stage === 'worktree'. A resumed run keeps its saved e.carried/e.round, so this is consistent today. But if a future change resets the stage on resume, the carried-rounds guard could be skipped. Consider asserting the round limit wherever e.round is incremented.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B116"
     },
     {
       "feature": "F19",
@@ -606,7 +722,8 @@
       "at": "2026-09-24T06:51:38.504Z",
       "summary": "Carried eval_error verdicts count toward `carried` (the round limit) but add an empty blocking set to history and set carriedPrev to null. The run's evalErrors counter still starts at 0, so consecutive eval_error verdicts from interactive eval are not carried into MAX_EVAL_ERRORS. The contract does not cover this.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B117"
     },
     {
       "feature": "F19",
@@ -614,7 +731,8 @@
       "at": "2026-09-24T06:51:38.504Z",
       "summary": "Before starting a feature, the run re-reads every verdict file of that feature, including files from other contract hashes. A corrupt verdict from an old contract therefore stops the run with state_corrupt, even though it is outside the current hash. This matches the existing E6 behavior of contractVerdicts, but it is stricter than ES-1 requires.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B118"
     },
     {
       "source": "run:F20",
@@ -637,7 +755,8 @@
           "kind": "accept-risk",
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
-      ]
+      ],
+      "id": "B119"
     },
     {
       "feature": "F20",
@@ -645,7 +764,8 @@
       "at": "2026-09-25T14:53:19.613Z",
       "summary": "AC-5 handling covers only the evaluator path. A security-reviewer adapter returning adapter_unavailable mid-run is described in SPEC §8 as stopping the run, but no test covers it separately.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B120"
     },
     {
       "feature": "F20",
@@ -653,7 +773,8 @@
       "at": "2026-09-25T14:53:19.613Z",
       "summary": "In the preflight, `callsCli` skips the check when build and evaluate/runAdapter are injected. That is test-only plumbing, and it adds a condition to the run entry point.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B121"
     },
     {
       "feature": "F20",
@@ -661,7 +782,8 @@
       "at": "2026-09-25T14:53:19.613Z",
       "summary": "authStatus treats a settings.json that parses to a non-object, such as `null` or `[]`, as 'not authenticated' with the generic reason. That is acceptable, but it is not distinguished from an absent file.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B122"
     },
     {
       "feature": "F20",
@@ -669,7 +791,8 @@
       "at": "2026-09-25T14:53:19.613Z",
       "summary": "verify.test_count is not configured, so a decrease in test count is not checked.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B123"
     },
     {
       "feature": "F20",
@@ -677,7 +800,8 @@
       "at": "2026-09-25T14:53:19.613Z",
       "summary": "For gemini exit codes other than 41 (and for other adapters), runAdapter still puts tail(stderr) into detail as exit_nonzero. If a CLI echoes a credential on some other failure, that text can end up in the run report or verdict. This behaviour existed before F20 and SC-1 only covers the auth decision, so it is not blocking; redacting known auth-variable values from the detail would be a hardening follow-up.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B124"
     },
     {
       "feature": "F20",
@@ -685,7 +809,8 @@
       "at": "2026-09-25T14:53:19.613Z",
       "summary": "authStatus trusts any non-empty GOOGLE_GENAI_USE_VERTEXAI / GOOGLE_GENAI_USE_GCA value, including 'false'. That can report 'authenticated' when gemini will actually fail with exit 41. The run then blocks with adapter_unavailable (AC-5), so it fails safe, but the preflight passes when it should not.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B125"
     },
     {
       "feature": "F20",
@@ -693,7 +818,8 @@
       "at": "2026-09-25T14:53:19.613Z",
       "summary": "Preflight is skipped when both build and evaluate/runAdapter are injected without diagnose. This only affects tests, but a future caller that injects only one of them without diagnose would silently skip the preflight.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B126"
     },
     {
       "feature": "F21",
@@ -701,7 +827,8 @@
       "at": "2026-09-26T01:15:38.335Z",
       "summary": "In runFeatures, the inhibitor is started before `meter = sleepMeter(...)` and `save()`. If either throws (for example a state-file write error), the try/finally that calls inhibitor.stop() and meter.stop() has not been entered yet. The detached inhibitor then stays alive until the process exits. The process-exit hook covers a normal exit, so the impact is small. Moving the `try` up to cover those two lines would close the gap.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B127"
     },
     {
       "feature": "F21",
@@ -709,7 +836,8 @@
       "at": "2026-09-26T01:15:38.335Z",
       "summary": "The AC-4 CLI test only greps lib/commands/run.mjs for the strings `r.sleep`, `system sleep` and `harness run --resume`. It never runs the CLI and never checks the exit code 1 or the stderr text. A regression that broke the printed message would go unnoticed.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B128"
     },
     {
       "feature": "F21",
@@ -717,7 +845,8 @@
       "at": "2026-09-26T01:15:38.335Z",
       "summary": "There is no test for the post-merge verify path. A sleep during that step throws SystemSleep, and on resume the merge is recognised as done and verified again. That path is implemented, but no test covers it.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B129"
     },
     {
       "feature": "F21",
@@ -725,7 +854,8 @@
       "at": "2026-09-26T01:15:38.335Z",
       "summary": "There are no unit tests for the ticker-gap signal in sleepMeter (the `gapMs` accumulation). All AC-4 tests use the wall-minus-monotonic signal.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B130"
     },
     {
       "feature": "F21",
@@ -733,7 +863,8 @@
       "at": "2026-09-26T01:15:38.335Z",
       "summary": "On win32 the sleep-related tests (AC-1, AC-2, AC-3 exit-case, SC-1, SC-2) return early, so they pass without checking anything.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B131"
     },
     {
       "feature": "F21",
@@ -741,7 +872,8 @@
       "at": "2026-09-26T01:15:38.335Z",
       "summary": "The `verify.test_count` warning still shows in verify output; it comes from project config, not from this change.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B132"
     },
     {
       "feature": "F21",
@@ -749,7 +881,8 @@
       "at": "2026-09-26T01:15:38.335Z",
       "summary": "The CLI test for AC-4 ('the CLI prints \"system sleep\" and the --resume hint') only greps lib/commands/run.mjs for the strings. It never runs the command, so it would still pass if the r.sleep branch printed the wrong thing or returned the wrong exit code. The exit 1 that SPEC §8 requires is not asserted anywhere.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B133"
     },
     {
       "feature": "F21",
@@ -757,7 +890,8 @@
       "at": "2026-09-26T01:15:38.335Z",
       "summary": "The inhibitor is stopped only by the finally block around loop(). It starts before the try, so if save() or sleepMeter() throws in between, the finally never runs. The process.once('exit') handler and caffeinate -w / the linux pid watcher still end it, so no process is left behind. Moving the start inside the try would be cleaner.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B134"
     },
     {
       "feature": "F21",
@@ -765,7 +899,8 @@
       "at": "2026-09-26T01:15:38.335Z",
       "summary": "The inhibitor gets the full process.env (d.env) rather than the adapter env allowlist. It is a fixed system binary, so this is harmless. Noted only for least privilege.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B135"
     },
     {
       "feature": "F21",
@@ -773,7 +908,8 @@
       "at": "2026-09-26T01:15:38.335Z",
       "summary": "The linux watcher checks the run pid with kill(pid, 0). If the OS reuses that pid after the run is SIGKILLed, the inhibitor could be kept alive. This needs pid reuse within 1s of death, is not reachable under the cooperative-builder model, and SC-1 only covers SIGINT, where stop() kills the process group explicitly.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B136"
     },
     {
       "feature": "F21",
@@ -781,7 +917,8 @@
       "at": "2026-09-26T01:15:38.335Z",
       "summary": "No test covers an inhibitor that dies in the middle of a run, the onLost path that SPEC §8 names ('또는 run 도중'). AC-3 only tests the not-on-PATH case and exiting right after start.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B137"
     },
     {
       "feature": "F22",
@@ -789,7 +926,8 @@
       "at": "2026-09-26T02:27:07.993Z",
       "summary": "In lib/run.mjs `finish`, resolveItems runs before setStatus. If the features.json write then fails, the backlog items are already marked resolved_by while the feature is not passed. Ordering it after the status write, or making it retryable, would remove the window.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B138"
     },
     {
       "feature": "F22",
@@ -797,7 +935,8 @@
       "at": "2026-09-26T02:27:07.993Z",
       "summary": "recordEntries bumps `seen` once per entry. Two entries in the same round that carry the same backlog_id raise seen by 2 but add only one `sources` tag, so seen and sources.length can drift apart.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B139"
     },
     {
       "feature": "F22",
@@ -805,7 +944,8 @@
       "at": "2026-09-26T02:27:07.993Z",
       "summary": "An existing item that a later entry hits does not get its priority updated or raised, even when the new entry carries a higher severity. This follows the contract (no retroactive priority), but the evaluator's higher severity is silently lost.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B140"
     },
     {
       "feature": "F22",
@@ -813,7 +953,8 @@
       "at": "2026-09-26T02:27:07.993Z",
       "summary": "Items without an id get B<n> only in memory when status or the prompt reads them, and are persisted on the next core write. This is consistent and tested. Until that write happens, the id shown in status is not stored anywhere.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B141"
     },
     {
       "feature": "F22",
@@ -821,7 +962,8 @@
       "at": "2026-09-26T02:27:07.993Z",
       "summary": "lint-contract now reads backlog.json for every run. A corrupt or duplicate-id backlog therefore makes lint-contract exit 2 for contracts that do not use resolves. SPEC §7.7 documents this, but it is broader than the AC-6 wording.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B142"
     },
     {
       "feature": "F23",
@@ -829,7 +971,8 @@
       "at": "2026-09-26T02:59:32.209Z",
       "summary": "lib/verify.mjs now imports resolveInvocation from lib/adapters/common.mjs, coupling the verify core to the adapter layer. The helper could move to a shared module such as exec.mjs.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B143"
     },
     {
       "feature": "F23",
@@ -837,7 +980,8 @@
       "at": "2026-09-26T02:59:32.209Z",
       "summary": "On Windows the preset executable is resolved with whichWin32 against the parent process.env, while runCommand runs with an allowlisted env. If the allowlist ever drops PATH, the two lookups could disagree.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B144"
     },
     {
       "feature": "F23",
@@ -845,7 +989,8 @@
       "at": "2026-09-26T02:59:32.209Z",
       "summary": "The pytest parser only matches 'N tests collected'. Output such as '3/5 tests collected (2 deselected)' or a run with plugins that change the summary line gives 'no test count in output'. It fails closed, so this is acceptable, but the SPEC could mention it.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B145"
     },
     {
       "feature": "F23",
@@ -853,7 +998,8 @@
       "at": "2026-09-26T02:59:32.209Z",
       "summary": "preset:node-test runs the project's whole test suite (node --test) just to count tests, once for base and once for head. This is slow for large suites and would recurse if a test itself invoked verify. Consider documenting it, or a --test-only-list approach.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B146"
     },
     {
       "feature": "F23",
@@ -861,7 +1007,8 @@
       "at": "2026-09-26T02:59:32.209Z",
       "summary": "detectPreset matches scripts.test with a substring 'node --test'. It would also match a script like 'echo node --test' or 'node --test-only', which gives a suggestion only and is harmless.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B147"
     },
     {
       "feature": "F23",
@@ -869,7 +1016,8 @@
       "at": "2026-09-26T02:59:32.209Z",
       "summary": "Presets look up bare names (node, go, python) on PATH, the same trust model as a shell test_count. preset:node-test runs whatever `node` is first on PATH rather than process.execPath. That is within the contract, but pinning node to the running interpreter would be a small hardening step.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B148"
     },
     {
       "feature": "F23",
@@ -877,7 +1025,8 @@
       "at": "2026-09-26T02:59:32.209Z",
       "summary": "On Windows, resolveInvocation turns a .cmd/.bat shim (for example python.cmd) into a cmd.exe command string. The arguments are fixed and escaped, so nothing from config reaches the shell. Even so, SC-1's 'without a shell' holds strictly only when the runner is a .exe; the SPEC could mention this.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B149"
     },
     {
       "feature": "F23",
@@ -885,7 +1034,8 @@
       "at": "2026-09-26T02:59:32.209Z",
       "summary": "A value with leading whitespace, such as ' preset:go', is not treated as a preset and runs as a shell command. This matches the existing shell test_count behavior, but a leading-whitespace value that contains 'preset:' could be rejected or warned about to avoid confusion.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B150"
     },
     {
       "feature": "F23",
@@ -893,7 +1043,8 @@
       "at": "2026-09-26T02:59:32.209Z",
       "summary": "The preset error message includes up to 80 characters of the runner's last stdout/stderr line. That output comes from the project's own runner and env is filtered, so the risk is low. Truncation already limits exposure.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B151"
     },
     {
       "feature": "F24",
@@ -901,7 +1052,8 @@
       "at": "2026-09-26T03:57:35.142Z",
       "summary": "The F24 tests rely on wall-clock timing: AC-1 uses 12s builder delays and a 0.75× bound, and AC-2, AC-6, AC-7 and ES-2 use hundreds of ms of sleep to order events. They add about 25s or more to the suite and may be flaky on a loaded CI machine. Consider making the ordering deterministic with latches or gates instead of sleeps.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B152"
     },
     {
       "feature": "F24",
@@ -909,7 +1061,8 @@
       "at": "2026-09-26T03:57:35.142Z",
       "summary": "The `--parallel` value is validated in two places: `parseArgs` in lib/commands/run.mjs and `runFeatures` in lib/run.mjs. The rules could drift apart. Sharing one validator, like `isMaxParallel` in config.mjs, would help.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B153"
     },
     {
       "feature": "F24",
@@ -917,7 +1070,8 @@
       "at": "2026-09-26T03:57:35.142Z",
       "summary": "`signal` is either the run's own AbortController signal or the caller's. That choice depends on `maxParallel`, `state.active.length` and whether `outer` exists, which is subtle. Always using `ac.signal` and forwarding `outer` would be simpler.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B154"
     },
     {
       "feature": "F24",
@@ -925,7 +1079,8 @@
       "at": "2026-09-26T03:57:35.142Z",
       "summary": "An unused security-reviewer result still costs money. If `unused` reviewer costs are counted in the run total, that is right, but the SPEC does not say so explicitly.",
       "reason": "out_of_scope",
-      "source": "evaluator"
+      "source": "evaluator",
+      "id": "B155"
     },
     {
       "feature": "F24",
@@ -933,7 +1088,8 @@
       "at": "2026-09-26T03:57:35.142Z",
       "summary": "worktreeLock only serializes `git worktree add`; the `git worktree remove --force` and `git branch -D` calls in merge() run under mergeLock instead. With --parallel ≥ 3, a new feature's worktree add can therefore run at the same time as another feature's worktree remove or branch deletion in the shared .git. Git's per-ref locks make an actual collision unlikely, but a transient lock error would show up as blocked('worktree'). One option is to run the post-merge cleanup under worktreeLock too.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B156"
     },
     {
       "feature": "F24",
@@ -941,7 +1097,8 @@
       "at": "2026-09-26T03:57:35.142Z",
       "summary": "In merge(), the builder-changes commit (git add -A / commit in the feature worktree) runs inside mergeLock, so it is serialized behind other features' post-merge verifies even though it only touches that feature's own worktree. This costs throughput, not correctness.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B157"
     },
     {
       "feature": "F24",
@@ -949,7 +1106,8 @@
       "at": "2026-09-26T03:57:35.142Z",
       "summary": "When the evaluator has a blocking finding, the security-reviewer still runs to completion concurrently and its cost is spent even though the result is recorded as 'unused'. The contract accepts this trade-off, but the spend could be surfaced in the verdict or report.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B158"
     },
     {
       "feature": "F24",
@@ -957,7 +1115,112 @@
       "at": "2026-09-26T03:57:35.142Z",
       "summary": "If the evaluator returns ev.error for a critical feature, any error from the concurrently running security-reviewer is silently dropped because only the evaluator error is reported. That matches sequential behaviour (the reviewer would not have run at all), but the reviewer's cost and error are not recorded anywhere.",
       "reason": "out_of_scope",
-      "source": "security-reviewer"
+      "source": "security-reviewer",
+      "id": "B159"
+    },
+    {
+      "feature": "F25",
+      "round": 1,
+      "at": "2026-09-26T05:07:40.923Z",
+      "summary": "isSerializedGit covers worktree add/remove/prune and branch/merge/checkout/switch only. Other state-changing core git calls (`git add`, `git commit` and `git reset --hard` in a feature or integration worktree) run outside the lock. This matches the contract's wording, but the SPEC's 'all git calls that change worktrees, branches or merge state' could be read more broadly.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B160"
+    },
+    {
+      "feature": "F25",
+      "round": 1,
+      "at": "2026-09-26T05:07:40.923Z",
+      "summary": "resolveConflict skips the builder when the integration merge into the feature worktree applies cleanly (`files` empty). This can happen if integration moved after the first conflict. The feature is then re-verified and re-evaluated without a builder call and still counts as 'resolved'. The behaviour is reasonable but not described in the SPEC.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B161"
+    },
+    {
+      "feature": "F25",
+      "round": 1,
+      "at": "2026-09-26T05:07:40.923Z",
+      "summary": "The conflictResolution report value for a feature that hit a conflict and was later blocked for an unrelated reason (for example budget or a post-merge verify failure) is 'failed'. The value is derived only from `e.conflictTried` and the final status, so it may overstate that the resolution itself failed.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B162"
+    },
+    {
+      "feature": "F25",
+      "round": 1,
+      "at": "2026-09-26T05:07:40.923Z",
+      "summary": "The AC-4 test records only calls that `isSerializedGit` selects, so it cannot notice a mutating git call that the predicate misses. Its coverage depends on the predicate being complete.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B163"
+    },
+    {
+      "feature": "F25",
+      "round": 1,
+      "at": "2026-09-26T05:07:40.923Z",
+      "summary": "Conflict-marker check after the automatic resolution only scans the files git reported as conflicted; markers the builder leaves or copies into other files are not detected before re-verify/eval (verify/eval would usually catch this).",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B164"
+    },
+    {
+      "feature": "F25",
+      "round": 1,
+      "at": "2026-09-26T05:07:40.923Z",
+      "summary": "resolveConflict passes the integration SHA straight to `git merge` without checking it for null; if refs/heads/<integration> cannot be resolved, the argv holds a null element and the failure message is unclear instead of a clean blocked(merge_conflict) detail.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B165"
+    },
+    {
+      "feature": "F25",
+      "round": 1,
+      "at": "2026-09-26T05:07:40.923Z",
+      "summary": "Integration-tip invariance (SC-1) depends on the builder being cooperative. A builder writing through absolute paths into .harness/wt/_integration during resolution is not detected until the re-merge's `git status --porcelain` check, which then throws a run-level worktree error rather than blocking only that feature. This is outside threat model D1.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B166"
+    },
+    {
+      "feature": "F25",
+      "round": 1,
+      "at": "2026-09-26T05:07:40.923Z",
+      "summary": "isSerializedGit also serializes checkout/switch/worktree prune beyond the contract's list; `git reset --hard` and `git commit` in the integration worktree are not under the git lock and rely on the merge lock instead. This is correct today but the two locks are easy to confuse.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B167"
+    },
+    {
+      "source": "run:F25",
+      "feature": "F25",
+      "kind": "rescope",
+      "reason": "post_merge_verify",
+      "rounds": 1,
+      "blocking": [],
+      "summary": "F25 blocked (post_merge_verify): verify failed on the integration branch after the merge — verify failed on the merged integration branch; merge rolled back",
+      "options": [
+        {
+          "kind": "split",
+          "summary": "split F25 so the feature ship as a separate feature with its own contract"
+        },
+        {
+          "kind": "rewrite",
+          "summary": "rewrite the criteria for the feature (new contract version, re-approval)"
+        },
+        {
+          "kind": "accept-risk",
+          "summary": "accept the risk: drop or relax the feature with a recorded decision"
+        }
+      ],
+      "id": "B168"
     }
   ]
 }
