@@ -44,10 +44,16 @@ const logFile = () => path.join(fs.realpathSync(tmpdir('harness-f26-log-')), 'lo
 const events = (log) => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l)) : []);
 
 // Runs as {id, side, cwd, start, end} (end: Infinity when the run never finished).
+// Each start pairs with the first later, unused end of the same pid: Windows reuses pids
+// quickly, and keying ends by pid alone gave an early run a later run's end (a false overlap).
 function intervals(log) {
   const ev = events(log);
-  const ends = new Map(ev.filter((e) => e.ev === 'end').map((e) => [e.pid, e.t]));
-  return ev.filter((e) => e.ev === 'start').map((e) => ({ ...e, start: e.t, end: ends.get(e.pid) ?? Infinity }));
+  const used = new Set();
+  return ev.filter((e) => e.ev === 'start').map((s) => {
+    const i = ev.findIndex((e, k) => !used.has(k) && e.ev === 'end' && e.pid === s.pid && e.t >= s.t);
+    if (i >= 0) used.add(i);
+    return { ...s, start: s.t, end: i >= 0 ? ev[i].t : Infinity };
+  });
 }
 
 // Largest number of runs active at the same moment.
