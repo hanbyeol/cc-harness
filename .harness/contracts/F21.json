@@ -1,0 +1,82 @@
+{
+  "id": "F21",
+  "title": "run 중 시스템 잠자기 — 잠자기 방지와 잠자기로 끊긴 단계를 budget 이 아닌 중단(재개 가능)으로 처리",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "platform darwin 에서 harness run 은 첫 기능 전에 caffeinate -i -w <run 의 pid> 를 시작하고, run 이 끝나면 그 프로세스가 남아 있지 않다(PATH 앞에 둔 가짜 caffeinate 가 인자와 pid 를 기록)",
+      "check": "node test/t.mjs \"F21 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "platform linux 에서 harness run 은 systemd-inhibit --what=idle:sleep --mode=block 으로 잠자기를 막는 프로세스를 run 동안 유지하고 run 이 끝나면 종료한다(가짜 systemd-inhibit, platform 주입)",
+      "check": "node test/t.mjs \"F21 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "잠자기 방지 명령이 PATH 에 없거나 시작 직후 종료되면 run 은 계속 진행하고, 출력과 run 보고서에 'sleep inhibitor unavailable' 이 나온다(경우별 개별 테스트)",
+      "check": "node test/t.mjs \"F21 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "단계(build·verify·eval) 도중 시스템 잠자기가 60초 이상 감지되고 그 단계가 timeout 으로 끝나면(시계 주입) 기능은 blocked(budget)가 되지 않는다 — run 은 상태를 저장하고 중단되며 출력에 'system sleep' 과 'harness run --resume' 이 나오고, 기능 status 는 바뀌지 않고 build 시도 횟수도 소모되지 않는다",
+      "check": "node test/t.mjs \"F21 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "AC-4 로 중단된 run 을 harness run --resume 하면 같은 라운드의 중단된 단계를 다시 수행하고, 가짜 어댑터가 성공하면 기능이 passed 가 된다",
+      "check": "node test/t.mjs \"F21 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "잠자기가 감지되지 않은 timeout 은 지금처럼 blocked(budget)이다",
+      "check": "node test/t.mjs \"F21 AC-6\"",
+      "new": false
+    },
+    {
+      "id": "AC-7",
+      "criterion": "SPEC §8 이 run 의 잠자기 방지(darwin·linux)와 잠자기로 끊긴 단계의 중단·재개 규칙을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F21 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "SIGINT 로 run 이 중단되어도 잠자기 방지 프로세스가 남지 않는다 — 가짜 방지 명령이 기록한 pid 가 run 종료 후 살아 있지 않다",
+      "check": "node test/t.mjs \"F21 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "잠자기 방지 명령은 PATH 검색으로 찾은 고정 이름(caffeinate·systemd-inhibit)만 인자 배열로 실행하고 셸을 거치지 않는다 — config 값이나 기능 id 가 그 인자에 들어가지 않는다",
+      "check": "node test/t.mjs \"F21 SC-2\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "win32 에서는 잠자기 방지를 시도하지 않고 run 보고서에 'sleep inhibitor unavailable' 이 나오며 run 은 정상 진행한다(platform 주입)",
+      "check": "node test/t.mjs \"F21 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "배터리 사용 중 덮개를 닫을 때의 강제 잠자기 방지 (OS 가 허용하지 않음)",
+    "Windows 의 잠자기 방지 구현",
+    "잠자기 시간만큼 단계 시간 제한을 연장하는 방식"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T00:56:54.960Z",
+    "hash": "98d806a547a951aa7dd11264db0a47fa70a34276ce8bc611fa2198c1cea4079a"
+  }
+}

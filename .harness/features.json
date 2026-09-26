@@ -182,6 +182,15 @@
       "depends_on": [
         "F19"
       ],
+      "status": "passed"
+    },
+    {
+      "id": "F21",
+      "title": "run 중 시스템 잠자기 — 잠자기 방지와 잠자기로 끊긴 단계를 budget 이 아닌 중단(재개 가능)으로 처리",
+      "security_tier": "critical",
+      "depends_on": [
+        "F20"
+      ],
       "status": "approved"
     }
   ]

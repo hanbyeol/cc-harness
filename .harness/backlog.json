@@ -637,6 +637,62 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ]
+    },
+    {
+      "feature": "F20",
+      "round": 1,
+      "at": "2026-09-25T14:53:19.613Z",
+      "summary": "AC-5 handling covers only the evaluator path. A security-reviewer adapter returning adapter_unavailable mid-run is described in SPEC §8 as stopping the run, but no test covers it separately.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F20",
+      "round": 1,
+      "at": "2026-09-25T14:53:19.613Z",
+      "summary": "In the preflight, `callsCli` skips the check when build and evaluate/runAdapter are injected. That is test-only plumbing, and it adds a condition to the run entry point.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F20",
+      "round": 1,
+      "at": "2026-09-25T14:53:19.613Z",
+      "summary": "authStatus treats a settings.json that parses to a non-object, such as `null` or `[]`, as 'not authenticated' with the generic reason. That is acceptable, but it is not distinguished from an absent file.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F20",
+      "round": 1,
+      "at": "2026-09-25T14:53:19.613Z",
+      "summary": "verify.test_count is not configured, so a decrease in test count is not checked.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F20",
+      "round": 1,
+      "at": "2026-09-25T14:53:19.613Z",
+      "summary": "For gemini exit codes other than 41 (and for other adapters), runAdapter still puts tail(stderr) into detail as exit_nonzero. If a CLI echoes a credential on some other failure, that text can end up in the run report or verdict. This behaviour existed before F20 and SC-1 only covers the auth decision, so it is not blocking; redacting known auth-variable values from the detail would be a hardening follow-up.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "feature": "F20",
+      "round": 1,
+      "at": "2026-09-25T14:53:19.613Z",
+      "summary": "authStatus trusts any non-empty GOOGLE_GENAI_USE_VERTEXAI / GOOGLE_GENAI_USE_GCA value, including 'false'. That can report 'authenticated' when gemini will actually fail with exit 41. The run then blocks with adapter_unavailable (AC-5), so it fails safe, but the preflight passes when it should not.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "feature": "F20",
+      "round": 1,
+      "at": "2026-09-25T14:53:19.613Z",
+      "summary": "Preflight is skipped when both build and evaluate/runAdapter are injected without diagnose. This only affects tests, but a future caller that injects only one of them without diagnose would silently skip the preflight.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
     }
   ]
 }
