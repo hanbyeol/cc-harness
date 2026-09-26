@@ -18,7 +18,7 @@ v2는 v1을 처음부터 다시 쓴 버전입니다. 설계 근거는 `docs/brai
 | 워크플로우 지시 | `AGENTS.md` — 모든 CLI가 읽는 단일 원천 |
 | Skills | `spec` · `plan` · `build` · `fix` · `status` · `plan-review`(iac) · `rollout`(ops) |
 | 역할 | `agents/` — builder · evaluator · security-reviewer (Claude subagent 겸 headless 프롬프트) |
-| 프로필 | `profiles/` — `sdlc`(기본) · `iac` · `ops` |
+| 프로필 | `profiles/` — `sdlc`(기본) · `iac`(`harness tf-check`, [docs/iac.md](docs/iac.md)) · `ops` |
 | 상태 | 대상 프로젝트의 `.harness/` (git 추적) — config · features · contracts · verdicts · backlog · runs |
 
 코어 명령: `harness init`, `harness lint-contract`, `harness approve`, `harness verify`, `harness eval`,
