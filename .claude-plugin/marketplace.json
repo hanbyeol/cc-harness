@@ -9,7 +9,7 @@
       "name": "cc-harness",
       "source": "./",
       "description": "Evaluation-driven development harness for AI coding CLIs: frozen contracts, deterministic verification, independent evaluation, guaranteed convergence",
-      "version": "2.0.18"
+      "version": "2.0.19"
     }
   ]
 }
