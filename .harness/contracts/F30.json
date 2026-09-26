@@ -1,0 +1,81 @@
+{
+  "id": "F30",
+  "title": "verify 시간 단축 — 테스트 수를 verify 명령 출력에서 읽기, base 테스트 수를 커밋별로 캐시",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify.test_count 가 'from:commands[i]' 이면 head 쪽 테스트 수를 verify.commands[i] 의 stdout 에서 마지막 '# tests N'(TAP) 또는 'ℹ tests N'(node spec) 으로 읽고, 테스트 수를 위해 명령을 따로 실행하지 않는다 — 실행 횟수를 기록하는 fixture 명령으로 확인",
+      "check": "node test/t.mjs \"F30 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "from:commands[i] 의 base 쪽 테스트 수는 같은 명령을 base 임시 worktree 에서 한 번 실행한 출력에서 같은 규칙으로 읽고, 감소 판정은 지금과 같다 — 기능이 테스트를 지운 fixture 에서 decreased",
+      "check": "node test/t.mjs \"F30 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "base 쪽 테스트 수는 (base 커밋 sha, 명령 문자열) 을 키로 .harness/runs/test-count-cache.json 에 저장되고, 같은 키의 다음 verify 는 base 에서 명령을 실행하지 않고 캐시 값을 쓴다. 키가 다르면(커밋·명령 변경) 다시 실행한다(경우별 개별 테스트)",
+      "check": "node test/t.mjs \"F30 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "기존 명령형 test_count(명령 문자열·preset)도 base 쪽 결과는 AC-3 캐시를 쓴다",
+      "check": "node test/t.mjs \"F30 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "verify 결과의 testCount 에 head·base 값의 출처(parsed·ran·cache)가 기록되고 verify 출력에 나온다",
+      "check": "node test/t.mjs \"F30 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "SPEC §6.2 와 README 가 from:commands[i]·출력 형식·base 캐시 규칙을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F30 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "캐시는 .harness/runs/test-count-cache.json 에만 쓰이고, 캐시 값이 정수가 아니거나 음수인 항목은 쓰지 않고 다시 실행한다 — 캐시에 base 수를 크게 조작해 넣어도(문자열·음수) 감소 판정이 실제 실행 값으로 이루어진다",
+      "check": "node test/t.mjs \"F30 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "from:commands[i] 의 i 가 verify.commands 범위를 벗어나면 config 검사에서 exit 2(config_invalid), 메시지에 verify.test_count 가 나온다",
+      "check": "node test/t.mjs \"F30 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "명령 출력에 테스트 수가 없으면 test count 가 error 이고 메시지에 'no test count in output' 과 명령 번호가 나온다",
+      "check": "node test/t.mjs \"F30 ES-2\"",
+      "new": true
+    },
+    {
+      "id": "ES-3",
+      "criterion": "캐시 파일이 JSON 으로 읽히지 않으면 무시하고 base 에서 다시 실행하며 warnings 에 캐시 경로가 남고, verify 는 그 이유로 실패하지 않는다",
+      "check": "node test/t.mjs \"F30 ES-3\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "이 저장소 config 를 from:commands[0] 으로 바꾸기 (승인 후 별도 설정 변경)",
+    "verify.commands 자체의 결과 캐시"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T09:37:44.544Z",
+    "hash": "3d367eb66a2ead56f4d88492414f135659b440e694a21a5c94837ac15efff604"
+  }
+}

@@ -266,6 +266,24 @@
       ],
       "status": "passed",
       "eval_round": 2
+    },
+    {
+      "id": "F30",
+      "title": "verify 시간 단축 — 테스트 수를 verify 명령 출력에서 읽기, base 테스트 수를 커밋별로 캐시",
+      "security_tier": "critical",
+      "depends_on": [
+        "F29"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F31",
+      "title": "코어 git 작업의 시간 제한 분리 — budget.git_timeout_sec, 사용자 명령 제한과 독립",
+      "security_tier": "critical",
+      "depends_on": [
+        "F29"
+      ],
+      "status": "approved"
     }
   ]
 }

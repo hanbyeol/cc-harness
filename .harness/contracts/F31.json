@@ -1,0 +1,57 @@
+{
+  "id": "F31",
+  "title": "코어 git 작업의 시간 제한 분리 — budget.git_timeout_sec, 사용자 명령 제한과 독립",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify·eval·run 이 코어 목적으로 실행하는 git 명령(worktree add·remove, diff, merge, rev-parse, for-each-ref 등)은 budget.git_timeout_sec(기본 300)을 쓰고 step_timeout_sec 과 무관하다 — step_timeout_sec 1 에서 worktree add 를 2초 늦추는 가짜 git(PATH 앞)으로 verify 가 성공한다",
+      "check": "node test/t.mjs \"F31 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "verify.commands·기준 check·test_count 명령은 지금처럼 step_timeout_sec 으로 제한된다",
+      "check": "node test/t.mjs \"F31 AC-2\"",
+      "new": false
+    },
+    {
+      "id": "AC-3",
+      "criterion": "코어 git 명령이 git_timeout_sec 을 넘으면 HarnessError(code git) 이고 메시지에 git 하위 명령 이름과 'timed out after <N>s' 가 나온다",
+      "check": "node test/t.mjs \"F31 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "SPEC §4·§6 과 README 가 git_timeout_sec 과 두 시간 제한의 적용 범위를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F31 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "git_timeout_sec 을 넘긴 코어 git 명령은 프로세스 트리째 종료되어 run·verify 가 끝난 뒤 남지 않는다 — 가짜 git 이 자식 프로세스를 띄우고 pid 를 기록하는 fixture 에서 두 pid 모두 3초 안에 살아 있지 않다",
+      "check": "node test/t.mjs \"F31 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "budget.git_timeout_sec 이 양수가 아니거나 숫자가 아니면 exit 2(config_invalid), 메시지에 budget.git_timeout_sec 이 나온다(경우별 개별 테스트)",
+      "check": "node test/t.mjs \"F31 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "어댑터(CLI) 호출의 시간 제한",
+    "git 명령 재시도"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T09:37:44.544Z",
+    "hash": "761f32bba2bfc31e6173ae9b2ad86fb16ed69c5a500e2633cb60c66000c59450"
+  }
+}
