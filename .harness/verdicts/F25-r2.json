@@ -1,0 +1,99 @@
+{
+  "feature": "F25",
+  "round": 2,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "`resolveConflict` catches a conflict-resolution builder that is cancelled or times out only via the generic `fail`/sleep paths. A resumed run from stage 'resolve' with a stale `e.conflict` but no MERGE_HEAD re-merges integration at its new tip, so the conflict files may differ from the persisted list. Behaviour is reasonable but not described in the SPEC.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "`validateState` accepts `verifyParallel` only as `{value, auto, cpus}`. An older state file without the field is re-derived on resume, so the applied verify pool size can differ from the one the run started with if the CPU count changed.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "B160/B167: `git add`, `git commit` and `git reset --hard` run outside the git lock, and `isSerializedGit` serializes more than the contract lists (checkout, switch, prune). Both are consistent with the contract wording.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B160"
+    },
+    {
+      "summary": "B164: the conflict-marker scan after resolution only covers the files git reported as conflicted.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B164"
+    },
+    {
+      "summary": "The conflict-marker check in resolveConflict uses fs.statSync/readFileSync, which follow symlinks. If a conflicted path is a symlink, the core reads the file the link points to, which may be outside the worktree. Nothing is written, so the only effect is a wrong marker verdict. Consider lstat or restricting the check to regular files inside the worktree.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "If `git merge --abort` fails in the fail() path, resolveConflict does not check the result. The feature worktree can be left mid-merge while the blocked detail says nothing about it. The integration merge path reports a dirty state in this case; the resolution path does not.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "resolveConflict can pass a null integration SHA to git merge.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B165"
+    },
+    {
+      "summary": "Integration-tip invariance still assumes a cooperative builder. A builder that writes into _integration by absolute path causes a run-level worktree error rather than blocking only that feature.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B166"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.7918338,
+  "contract_hash": "4a5e0c4efa08dc3fef78c3fb852434c19f08148bd9edf0a201cb58083149d18d",
+  "contract_round": 2,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 8,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false
+    }
+  },
+  "at": "2026-09-26T05:37:07.550Z",
+  "origin": "eval"
+}

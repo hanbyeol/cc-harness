@@ -1,6 +1,6 @@
 {
   "name": "cc-harness",
-  "version": "2.0.9",
+  "version": "2.0.10",
   "description": "Evaluation-driven development harness for AI coding CLIs: frozen contracts, deterministic verification, independent evaluation, guaranteed convergence",
   "author": {
     "name": "Studio J"

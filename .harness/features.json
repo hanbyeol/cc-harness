@@ -227,7 +227,8 @@
       "depends_on": [
         "F24"
       ],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 2
     },
     {
       "id": "F26",
