@@ -154,6 +154,7 @@ run 도중 evaluator(또는 security-reviewer) 어댑터가 `adapter_unavailable
 1. worktree `.harness/wt/F{n}` + 브랜치 `harness/F{n}` (base = integration 브랜치)
 2. **build**: builder headless 세션(쓰기 가능, CLI 네이티브 sandbox) — 계약 + 직전 라운드 차단적 finding 전달
 3. verify (§6) 실패 시 build 재시도, 라운드당 최대 3회. 3회 모두 실패하면 평가 없이 라운드 fail — 차단 집합 = 실패 기준 id (+`VERIFY:commands`/`VERIFY:integrity`)
+   - **build 이어가기**: build 가 시간 초과(`budget.step_timeout_sec`)로 끝났을 때 기능 worktree 에 base 대비 변경(base 이후 커밋·staged·unstaged·untracked 파일)이 있으면 blocked(`budget`) 대신 verify 없이 같은 라운드의 다음 build 시도로 넘어간다. 그 시도의 builder 프롬프트에는 이전 시도가 시간 초과로 끝났으니 작업 트리의 변경을 이어서 끝내라는 안내와 변경 파일 목록(경로만 — 파일 내용·환경 변수 값은 넣지 않는다)이 들어간다. 이어가기 시도도 build 시도 3회 한도에 포함되어 3회째 시간 초과는 blocked(`budget`)다. 변경이 없는 시간 초과와, 변경 여부를 확인하는 git 명령(`diff`·`status`)이 실패한 시간 초과도 blocked(`budget`)이고 후자는 detail 에 git 오류가 나온다. 이어간 시간 초과 시도의 metrics·보고서 build outcome 은 `timeout-continued`, 막힌 시간 초과는 `timeout` 이다. 범위 밖: build 시간 제한 자체의 자동 조정.
 4. eval (§7)
 5. pass → `integration` 브랜치에 `--no-ff` 병합(사용자 작업 트리가 아닌 전용 `.harness/wt/_integration` 에서) → 병합 후 verify → 성공 시 `passed`. 병합 후 verify 실패 → integration 을 병합 전 커밋으로 되돌리고 1회 복구(아래 **병합 후 verify 복구**), 복구 뒤에도 실패하면 blocked(`post_merge_verify`)
 6. fail → **수렴 검사**: 라운드 k(≥2)에서
@@ -184,7 +185,7 @@ run 도중 evaluator(또는 security-reviewer) 어댑터가 `adapter_unavailable
 - 범위 밖: verify 명령의 병렬화(기준 check·base 실행·test_count 의 동시 실행은 §6.3), 여러 run 프로세스의 동시 실행, 진행 중 기능의 우선순위 조정, API 요금 한도(429)에 따른 자동 감속, 파일 겹침을 미리 예측하는 스케줄링.
 
 **실행 지표와 `harness stats`** (§8.11):
-- `harness run` 은 단계가 끝날 때마다 `runs/{runId}.metrics.jsonl` 에 JSON 한 줄을 추가한다. 단계는 `build`(build 시도마다)·`verify`(기능 worktree 의 verify 마다)·`eval`·`merge`(integration 병합 시도, outcome `merged`·`conflict`)·`post_merge_verify`, 충돌 해결이 있으면 `conflict_resolve`, 병합 후 verify 복구가 있으면 `post_merge_recovery` 다. 필드는 정확히 `feature`·`round`(이번 계약의 라운드)·`step`·`started_at`·`ended_at`(ISO 8601)·`duration_ms`·`cost_usd`(어댑터가 보고하지 않거나 코어 단계면 null)·`role`(`builder`·`evaluator`, verify·merge 같은 코어 단계는 `core`)·`adapter`·`model`(그 단계에서 실제로 호출한 값 — §10 역할 모델 정책으로 고른 등급별·승격·충돌 모델, 코어 단계는 null)·`outcome`(build·conflict_resolve·post_merge_recovery 는 `ok` 또는 어댑터 오류, verify 는 `pass`·`fail`·`error`, eval 은 판정) 이다. run 의 eval 단계는 한 줄이고 비용은 evaluator 와 security-reviewer 의 합이다.
+- `harness run` 은 단계가 끝날 때마다 `runs/{runId}.metrics.jsonl` 에 JSON 한 줄을 추가한다. 단계는 `build`(build 시도마다)·`verify`(기능 worktree 의 verify 마다)·`eval`·`merge`(integration 병합 시도, outcome `merged`·`conflict`)·`post_merge_verify`, 충돌 해결이 있으면 `conflict_resolve`, 병합 후 verify 복구가 있으면 `post_merge_recovery` 다. 필드는 정확히 `feature`·`round`(이번 계약의 라운드)·`step`·`started_at`·`ended_at`(ISO 8601)·`duration_ms`·`cost_usd`(어댑터가 보고하지 않거나 코어 단계면 null)·`role`(`builder`·`evaluator`, verify·merge 같은 코어 단계는 `core`)·`adapter`·`model`(그 단계에서 실제로 호출한 값 — §10 역할 모델 정책으로 고른 등급별·승격·충돌 모델, 코어 단계는 null)·`outcome`(build·conflict_resolve·post_merge_recovery 는 `ok` 또는 어댑터 오류 — 이어간 build 시간 초과는 `timeout-continued`(§8 3.), verify 는 `pass`·`fail`·`error`, eval 은 판정) 이다. run 의 eval 단계는 한 줄이고 비용은 evaluator 와 security-reviewer 의 합이다.
 - 대화형 `harness eval` 은 evaluator·security-reviewer 어댑터 호출(재요청 포함)마다 `runs/eval.metrics.jsonl` 에 같은 형식의 한 줄을 추가한다(`step` = `eval`, `role` = 호출한 역할, `outcome` = `ok` 또는 어댑터 오류).
 - 지표 줄에는 위 필드만 있다 — 프롬프트·diff·어댑터 출력 본문·환경 변수 값은 들어가지 않는다.
 - run 보고서에 기능별 단계 표(`## Steps`, 라운드·단계·시간·비용·모델·outcome)가 들어간다.

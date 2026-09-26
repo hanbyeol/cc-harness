@@ -108,6 +108,23 @@ base 쪽은 파일이 없어 실패하고 vacuous 가 아니다(`./<경로>` 의
 기능의 테스트 파일과 함께 얹힌다. `..` 로 저장소 밖을 가리키거나 `/`·`C:` 로 시작하는 경로, 해석할 수 없는 check(따옴표
 불일치 등)는 규칙 없이 지금처럼 처리한다. `&&`·`;` 뒤의 명령은 보지 않는다.
 
+## build 이어가기 — 진척이 있는 시간 초과
+
+큰 기능은 build 한 번이 `budget.step_timeout_sec` 안에 끝나지 않을 수 있다. build 가 시간 초과로 끝나면 코어는 기능
+worktree 에 base 대비 변경(base 이후 커밋·staged·unstaged·untracked 파일)이 있는지 git(`diff`·`status`)으로 확인한다.
+
+| 시간 초과 시점 | 결과 | build outcome |
+|---|---|---|
+| 변경이 있고 1·2번째 시도 | verify 없이 같은 라운드의 다음 build 시도로 이어가기 | `timeout-continued` |
+| 변경이 없음 | blocked(`budget`) — 지금과 같다 | `timeout` |
+| 3번째 시도 | blocked(`budget`) — 이어가기도 시도 3회 한도에 포함된다 | `timeout` |
+| 변경 확인 git 명령 실패 | blocked(`budget`), detail 에 git 오류 | `timeout` |
+
+이어가기 시도의 builder 프롬프트에는 이전 시도가 시간 초과로 끝났으니 작업 트리의 변경을 이어서 끝내라는 안내와
+변경 파일 목록이 들어간다. 목록은 경로만이다 — 파일 내용과 환경 변수 값은 프롬프트에 들어가지 않는다. outcome 은 run
+보고서의 단계 표와 `runs/{runId}.metrics.jsonl` 에 같은 값으로 남는다. `--resume` 은 이어가기 시도부터 다시 시작한다.
+
 ## 범위 밖
 
 - 복구 시도 횟수를 설정으로 늘리기 — 항상 기능당 1회다.
+- build 시간 제한 자체의 자동 조정 — 이어가기는 시간 제한을 바꾸지 않는다.
