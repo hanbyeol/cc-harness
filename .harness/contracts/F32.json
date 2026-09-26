@@ -1,0 +1,69 @@
+{
+  "id": "F32",
+  "title": "병합 복구와 실패 기록 — 충돌 표시 줄 시작 판정, 병합 후 verify 실패 1회 복구, verify 실패·흔들린 테스트를 판정에 기록",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "충돌 해결 뒤 충돌 표시 검사는 줄 시작의 '<<<<<<< '·'>>>>>>> '·단독 '=======' 줄만 표시로 본다 — 줄 중간에 '`<<<<<<<`' 를 인용한 문서가 충돌 파일이어도 해결이 받아들여져 passed 가 되고, 줄 시작 표시가 남으면 blocked(merge_conflict)이다(경우별 개별 테스트)",
+      "check": "node test/t.mjs \"F32 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "병합 후 verify 가 (명령 없음이 아닌 이유로) 실패하면 코어가 integration 병합을 되돌린 뒤 즉시 blocked 하지 않고, 그 기능 worktree 에 integration 을 병합한 상태에서 실패한 항목(명령 또는 기준 id 와 메시지)을 담아 builder 를 1회 호출하고, verify·eval(base 는 integration)을 다시 거쳐 통과하면 병합해 passed 가 된다(가짜 builder 가 고치는 fixture)",
+      "check": "node test/t.mjs \"F32 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "AC-2 의 복구와 병합 충돌 해결은 합쳐서 기능당 1회이고 라운드를 소모하지 않는다. 복구 뒤에도 verify·eval·병합 후 verify 가 실패하거나 builder 가 실패하면 blocked(post_merge_verify)이고 integration 은 그 기능 병합 전 커밋 그대로다",
+      "check": "node test/t.mjs \"F32 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "run 보고서가 기능별로 병합 복구 시도(conflict·post_merge_verify·없음)와 결과를 보여 주고, SPEC §8 과 docs/ 의 run 문서가 규칙을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F32 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "harness eval 이 verify 실패로 fail 이면 verdict 파일에 verify_failures(실패한 명령 문자열 또는 기준 id 와 메시지 앞 300자)가 기록되고 eval 출력에 같은 항목이 나온다",
+      "check": "node test/t.mjs \"F32 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "verify 명령이 첫 실행에 실패하고 재실행에 통과하면(flaky) 첫 실행 출력에서 '✖ ' 또는 'not ok ' 로 시작하는 줄의 테스트 이름(최대 20개)이 verify 결과·verdict·run 보고서에 flaky_tests 로 기록된다",
+      "check": "node test/t.mjs \"F32 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "복구 builder 는 그 기능 worktree 에서만 실행되고, 복구가 통과해 다시 병합되기 전까지 integration 브랜치 커밋은 바뀌지 않는다(복구 전후 rev-parse 비교)",
+      "check": "node test/t.mjs \"F32 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "병합 후 verify 실패가 명령 없음(F29)이면 복구하지 않고 지금처럼 environment 사유로 run 이 멈춘다",
+      "check": "node test/t.mjs \"F32 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "기존 기능 문서 기준(README 포함 여부)의 변경",
+    "복구 시도 횟수를 설정으로 늘리기"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T12:06:04.366Z",
+    "hash": "7a2e73c7d283bc1c5f889fd734ff86d696a7b76d0f8114587431f1a6ef6203ed"
+  }
+}

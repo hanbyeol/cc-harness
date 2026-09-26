@@ -1,0 +1,57 @@
+{
+  "id": "F33",
+  "title": "vacuity 확인의 base 실행 시간 제한 — verify.vacuity_timeout_sec, 시간 초과는 base 에서 통과하지 않은 것",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "new:true 기준의 base 쪽 vacuity 실행은 verify.vacuity_timeout_sec(기본 120) 과 step_timeout_sec 중 작은 값으로 제한된다 — base 에서 600초 멈추는 check 를 vacuity_timeout_sec 3 으로 두면 verify 가 60초 안에 끝난다",
+      "check": "node test/t.mjs \"F33 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "base 쪽 실행이 시간 초과면 그 기준은 vacuous 가 아니고(base 에서 통과하지 않음) head 결과대로 판정되며, 결과에 base_timed_out: true 가 기록된다",
+      "check": "node test/t.mjs \"F33 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "head 쪽 기준 check·verify.commands·test_count 는 지금처럼 step_timeout_sec 으로만 제한된다 — vacuity_timeout_sec 3 에서 head 쪽 5초 check 가 통과한다",
+      "check": "node test/t.mjs \"F33 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "SPEC §6.3 과 docs 가 vacuity_timeout_sec 과 시간 초과의 판정 규칙을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F33 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "시간 초과된 base 쪽 실행은 프로세스 트리째 종료되고 base 임시 worktree 는 verify 뒤 git worktree list 에 남지 않는다 — check 가 띄운 자식 pid 가 3초 안에 살아 있지 않다",
+      "check": "node test/t.mjs \"F33 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "verify.vacuity_timeout_sec 이 양수가 아니거나 숫자가 아니면 exit 2(config_invalid), 메시지에 verify.vacuity_timeout_sec 이 나온다(경우별 개별 테스트)",
+      "check": "node test/t.mjs \"F33 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "head 쪽 실행 시간 제한의 변경",
+    "base 쪽 실행 결과 캐시"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T12:06:04.366Z",
+    "hash": "dd7a12895e458a0d1a39c3f8906eff8a52450527f29f14906e40e0c4bf06632d"
+  }
+}

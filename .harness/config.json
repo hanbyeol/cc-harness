@@ -10,7 +10,7 @@
     "commands": [
       "node --test \"test/**/*.test.mjs\""
     ],
-    "test_count": "node test/count.mjs"
+    "test_count": "from:commands[0]"
   },
   "threshold": 7,
   "max_rounds": 3,

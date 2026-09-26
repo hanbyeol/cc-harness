@@ -285,6 +285,24 @@
       ],
       "status": "passed",
       "eval_round": 3
+    },
+    {
+      "id": "F32",
+      "title": "병합 복구와 실패 기록 — 충돌 표시 줄 시작 판정, 병합 후 verify 실패 1회 복구, verify 실패·흔들린 테스트를 판정에 기록",
+      "security_tier": "critical",
+      "depends_on": [
+        "F31"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F33",
+      "title": "vacuity 확인의 base 실행 시간 제한 — verify.vacuity_timeout_sec, 시간 초과는 base 에서 통과하지 않은 것",
+      "security_tier": "critical",
+      "depends_on": [
+        "F31"
+      ],
+      "status": "approved"
     }
   ]
 }
