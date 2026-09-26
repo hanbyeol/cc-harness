@@ -782,6 +782,118 @@
       "summary": "No test covers an inhibitor that dies in the middle of a run, the onLost path that SPEC §8 names ('또는 run 도중'). AC-3 only tests the not-on-PATH case and exiting right after start.",
       "reason": "out_of_scope",
       "source": "security-reviewer"
+    },
+    {
+      "feature": "F22",
+      "round": 1,
+      "at": "2026-09-26T02:27:07.993Z",
+      "summary": "In lib/run.mjs `finish`, resolveItems runs before setStatus. If the features.json write then fails, the backlog items are already marked resolved_by while the feature is not passed. Ordering it after the status write, or making it retryable, would remove the window.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F22",
+      "round": 1,
+      "at": "2026-09-26T02:27:07.993Z",
+      "summary": "recordEntries bumps `seen` once per entry. Two entries in the same round that carry the same backlog_id raise seen by 2 but add only one `sources` tag, so seen and sources.length can drift apart.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F22",
+      "round": 1,
+      "at": "2026-09-26T02:27:07.993Z",
+      "summary": "An existing item that a later entry hits does not get its priority updated or raised, even when the new entry carries a higher severity. This follows the contract (no retroactive priority), but the evaluator's higher severity is silently lost.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F22",
+      "round": 1,
+      "at": "2026-09-26T02:27:07.993Z",
+      "summary": "Items without an id get B<n> only in memory when status or the prompt reads them, and are persisted on the next core write. This is consistent and tested. Until that write happens, the id shown in status is not stored anywhere.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F22",
+      "round": 1,
+      "at": "2026-09-26T02:27:07.993Z",
+      "summary": "lint-contract now reads backlog.json for every run. A corrupt or duplicate-id backlog therefore makes lint-contract exit 2 for contracts that do not use resolves. SPEC §7.7 documents this, but it is broader than the AC-6 wording.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F23",
+      "round": 1,
+      "at": "2026-09-26T02:59:32.209Z",
+      "summary": "lib/verify.mjs now imports resolveInvocation from lib/adapters/common.mjs, coupling the verify core to the adapter layer. The helper could move to a shared module such as exec.mjs.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F23",
+      "round": 1,
+      "at": "2026-09-26T02:59:32.209Z",
+      "summary": "On Windows the preset executable is resolved with whichWin32 against the parent process.env, while runCommand runs with an allowlisted env. If the allowlist ever drops PATH, the two lookups could disagree.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F23",
+      "round": 1,
+      "at": "2026-09-26T02:59:32.209Z",
+      "summary": "The pytest parser only matches 'N tests collected'. Output such as '3/5 tests collected (2 deselected)' or a run with plugins that change the summary line gives 'no test count in output'. It fails closed, so this is acceptable, but the SPEC could mention it.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F23",
+      "round": 1,
+      "at": "2026-09-26T02:59:32.209Z",
+      "summary": "preset:node-test runs the project's whole test suite (node --test) just to count tests, once for base and once for head. This is slow for large suites and would recurse if a test itself invoked verify. Consider documenting it, or a --test-only-list approach.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F23",
+      "round": 1,
+      "at": "2026-09-26T02:59:32.209Z",
+      "summary": "detectPreset matches scripts.test with a substring 'node --test'. It would also match a script like 'echo node --test' or 'node --test-only', which gives a suggestion only and is harmless.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "feature": "F23",
+      "round": 1,
+      "at": "2026-09-26T02:59:32.209Z",
+      "summary": "Presets look up bare names (node, go, python) on PATH, the same trust model as a shell test_count. preset:node-test runs whatever `node` is first on PATH rather than process.execPath. That is within the contract, but pinning node to the running interpreter would be a small hardening step.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "feature": "F23",
+      "round": 1,
+      "at": "2026-09-26T02:59:32.209Z",
+      "summary": "On Windows, resolveInvocation turns a .cmd/.bat shim (for example python.cmd) into a cmd.exe command string. The arguments are fixed and escaped, so nothing from config reaches the shell. Even so, SC-1's 'without a shell' holds strictly only when the runner is a .exe; the SPEC could mention this.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "feature": "F23",
+      "round": 1,
+      "at": "2026-09-26T02:59:32.209Z",
+      "summary": "A value with leading whitespace, such as ' preset:go', is not treated as a preset and runs as a shell command. This matches the existing shell test_count behavior, but a leading-whitespace value that contains 'preset:' could be rejected or warned about to avoid confusion.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "feature": "F23",
+      "round": 1,
+      "at": "2026-09-26T02:59:32.209Z",
+      "summary": "The preset error message includes up to 80 characters of the runner's last stdout/stderr line. That output comes from the project's own runner and env is filtered, so the risk is low. Truncation already limits exposure.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
     }
   ]
 }

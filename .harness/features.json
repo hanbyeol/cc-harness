@@ -200,11 +200,20 @@
       "depends_on": [
         "F21"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F23",
       "title": "test_count 프리셋과 자동 감지 — node-test·go·pytest, init·doctor 가 설정을 제안",
+      "security_tier": "critical",
+      "depends_on": [
+        "F21"
+      ],
+      "status": "passed"
+    },
+    {
+      "id": "F24",
+      "title": "run 병렬화 — 독립 기능의 동시 build·verify·eval (max_parallel), 병합은 직렬, evaluator·security-reviewer 동시 실행",
       "security_tier": "critical",
       "depends_on": [
         "F21"

@@ -1,0 +1,92 @@
+{
+  "feature": "F23",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "lib/verify.mjs now imports resolveInvocation from lib/adapters/common.mjs, coupling the verify core to the adapter layer. The helper could move to a shared module such as exec.mjs.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "On Windows the preset executable is resolved with whichWin32 against the parent process.env, while runCommand runs with an allowlisted env. If the allowlist ever drops PATH, the two lookups could disagree.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "The pytest parser only matches 'N tests collected'. Output such as '3/5 tests collected (2 deselected)' or a run with plugins that change the summary line gives 'no test count in output'. It fails closed, so this is acceptable, but the SPEC could mention it.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "preset:node-test runs the project's whole test suite (node --test) just to count tests, once for base and once for head. This is slow for large suites and would recurse if a test itself invoked verify. Consider documenting it, or a --test-only-list approach.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "detectPreset matches scripts.test with a substring 'node --test'. It would also match a script like 'echo node --test' or 'node --test-only', which gives a suggestion only and is harmless.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "Presets look up bare names (node, go, python) on PATH, the same trust model as a shell test_count. preset:node-test runs whatever `node` is first on PATH rather than process.execPath. That is within the contract, but pinning node to the running interpreter would be a small hardening step.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "summary": "On Windows, resolveInvocation turns a .cmd/.bat shim (for example python.cmd) into a cmd.exe command string. The arguments are fixed and escaped, so nothing from config reaches the shell. Even so, SC-1's 'without a shell' holds strictly only when the runner is a .exe; the SPEC could mention this.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "summary": "A value with leading whitespace, such as ' preset:go', is not treated as a preset and runs as a shell command. This matches the existing shell test_count behavior, but a leading-whitespace value that contains 'preset:' could be rejected or warned about to avoid confusion.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "summary": "The preset error message includes up to 80 characters of the runner's last stdout/stderr line. That output comes from the project's own runner and env is filtered, so the risk is low. Truncation already limits exposure.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.621809,
+  "contract_hash": "4e32f118e9e9939e5f76e60da6b963494800f831f114646ed734d8de6f75bd80",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false
+    }
+  },
+  "at": "2026-09-26T02:59:32.209Z",
+  "origin": "run"
+}

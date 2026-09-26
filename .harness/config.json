@@ -15,7 +15,7 @@
   "threshold": 7,
   "max_rounds": 3,
   "budget": {
-    "step_timeout_sec": 1800
+    "step_timeout_sec": 2700
   },
   "roles": {
     "builder": "claude",
