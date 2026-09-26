@@ -2604,6 +2604,30 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B291"
+    },
+    {
+      "source": "run:F41",
+      "feature": "F41",
+      "kind": "rescope",
+      "reason": "budget",
+      "rounds": 1,
+      "blocking": [],
+      "summary": "F41 blocked (budget): a step timed out or the budget was exhausted — build timed out after 2700s",
+      "options": [
+        {
+          "kind": "split",
+          "summary": "split F41 so the feature ship as a separate feature with its own contract"
+        },
+        {
+          "kind": "rewrite",
+          "summary": "rewrite the criteria for the feature (new contract version, re-approval)"
+        },
+        {
+          "kind": "accept-risk",
+          "summary": "accept the risk: drop or relax the feature with a recorded decision"
+        }
+      ],
+      "id": "B292"
     }
   ]
 }

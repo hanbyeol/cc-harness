@@ -1,0 +1,1 @@
+{"feature":"F41","round":1,"step":"build","started_at":"2026-09-26T16:16:12.127Z","ended_at":"2026-09-26T17:01:12.256Z","duration_ms":2700129,"cost_usd":null,"role":"builder","adapter":"claude","model":"claude-sonnet-5","outcome":"timeout"}
