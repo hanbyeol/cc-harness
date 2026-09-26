@@ -85,6 +85,7 @@ pass는 `passed`, 라운드가 남은 fail은 `in_progress`(남은 라운드 수
 ```bash
 harness approve F3 F4 F5          # 사람이 계약을 일괄 승인 (lint 통과 계약만)
 harness run --max-usd 20          # approved 기능을 의존 순서대로 끝까지 진행
+harness run --parallel 2          # 서로 독립인 기능 2개씩 동시에 진행 (병합은 직렬)
 harness run --resume              # 중단된 run을 상태 파일만으로 재개
 ```
 

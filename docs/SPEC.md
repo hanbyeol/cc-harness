@@ -25,7 +25,7 @@ AI 코딩 CLI(Claude Code · Codex CLI · Gemini CLI, 그 외 AGENTS.md 호환 �
 ## 4. 상태 파일 (`.harness/`, git 추적)
 | 파일 | 내용 |
 |------|------|
-| `config.json` | profile, verify 명령, 임계값, 예산, max_rounds, 어댑터 역할 배정. 병합 순서 DEFAULTS ← profile ← config (config 우선). `init` 은 verify.commands 를 쓰지 않는다 — 사용자가 정하기 전까지 프로필 기본값이 적용된다. `init` 이 config.json 을 새로 만들 때는 프로젝트의 테스트 러너를 감지해 `verify.test_count` 를 쓴다: `package.json` 의 `scripts.test` 에 `node --test` 가 있으면 `preset:node-test`, 아니고 `go.mod` 가 있으면 `preset:go`, 아니고 `pytest.ini`·`conftest.py` 가 있거나 `pyproject.toml` 에 `[tool.pytest.ini_options]` 절이 있으면 `preset:pytest`. 해당 없으면 키를 쓰지 않는다. 기존 config.json 은 바꾸지 않는다 — `doctor` 가 같은 규칙으로 제안만 한다(§10). 최상위는 JSON 객체여야 하고, 기본값이 객체인 키(`budget`·`verify`·`limits`·`roles`·`rubric`)는 지정 시 객체여야 한다. `verify.commands`·`verify.skip_markers`·`verify.test_paths`·`env_allowlist`·`secret_globs`·`protected_branches` 는 지정 시 빈 문자열이 아닌 문자열의 배열이어야 하고(오류는 키 이름과 원소 번호 `key[i]`), `verify.test_count` 는 문자열 또는 null 이어야 하고, `preset:` 으로 시작하면 `preset:node-test`·`preset:go`·`preset:pytest` 중 하나와 정확히 같아야 한다(아니면 `verify.test_count` 와 사용 가능한 프리셋 이름을 담은 `config_invalid`, §6.2-3). 형식 검사는 프로필과 병합하기 전 사용자 파일에 대해 한다 |
+| `config.json` | profile, verify 명령, 임계값, 예산, max_rounds, 어댑터 역할 배정. 병합 순서 DEFAULTS ← profile ← config (config 우선). `init` 은 verify.commands 를 쓰지 않는다 — 사용자가 정하기 전까지 프로필 기본값이 적용된다. `init` 이 config.json 을 새로 만들 때는 프로젝트의 테스트 러너를 감지해 `verify.test_count` 를 쓴다: `package.json` 의 `scripts.test` 에 `node --test` 가 있으면 `preset:node-test`, 아니고 `go.mod` 가 있으면 `preset:go`, 아니고 `pytest.ini`·`conftest.py` 가 있거나 `pyproject.toml` 에 `[tool.pytest.ini_options]` 절이 있으면 `preset:pytest`. 해당 없으면 키를 쓰지 않는다. 기존 config.json 은 바꾸지 않는다 — `doctor` 가 같은 규칙으로 제안만 한다(§10). 최상위는 JSON 객체여야 하고, 기본값이 객체인 키(`budget`·`run`·`verify`·`limits`·`roles`·`rubric`)는 지정 시 객체여야 한다. `verify.commands`·`verify.skip_markers`·`verify.test_paths`·`env_allowlist`·`secret_globs`·`protected_branches` 는 지정 시 빈 문자열이 아닌 문자열의 배열이어야 하고(오류는 키 이름과 원소 번호 `key[i]`), `verify.test_count` 는 문자열 또는 null 이어야 하고, `run.max_parallel` 은 1 이상의 정수여야 하고(§8 병렬 실행), `preset:` 으로 시작하면 `preset:node-test`·`preset:go`·`preset:pytest` 중 하나와 정확히 같아야 한다(아니면 `verify.test_count` 와 사용 가능한 프리셋 이름을 담은 `config_invalid`, §6.2-3). 형식 검사는 프로필과 병합하기 전 사용자 파일에 대해 한다 |
 | `features.json` | `[{id, title, security_tier, depends_on[], status}]` — status ∈ `todo·approved·in_progress·passed·blocked·skipped`. 각 항목의 `id`·`title`·`status` 는 필수 문자열. `eval_round`(선택)는 대화형 eval 이 상태를 기록한 마지막 라운드(§7.6) |
 | `contracts/F{n}.json` | 계약 (§5) |
 | `verdicts/F{n}-r{k}.json` | 라운드별 판정 (§7) |
@@ -101,7 +101,7 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
    - `score = min(5개 점수)`. critical이면 security < 7 자동 fail.
    - **verdict = pass** ⇔ verify pass ∧ 차단적 finding 0 ∧ score ≥ threshold.
    - 차단적 finding 0 인데 score < threshold(critical의 security < 7 포함) → `unsupported_low_score`. evaluator에 "재현 가능한 finding을 제시하거나 점수를 정정하라"고 **1회** 재요청. 여전히 근거가 없으면 기능 `blocked(needs-human)` — 거짓 통과도, 근거 없는 재작업 루프도 만들지 않는다.
-4. critical: security-reviewer 역할로 같은 절차 1회 추가. security-reviewer 는 **security 차원과 그 finding 만** 판정에 반영한다(최종 security = min(evaluator, reviewer)). 나머지 차원 점수는 기록만 한다. 둘 다 pass여야 pass.
+4. critical: security-reviewer 역할로 같은 절차 1회 추가. security-reviewer 는 **security 차원과 그 finding 만** 판정에 반영한다(최종 security = min(evaluator, reviewer)). 나머지 차원 점수는 기록만 한다. 둘 다 pass여야 pass. evaluator 와 security-reviewer 는 **동시에** 실행된다. reviewer 의 low-score 재요청은 순차 실행 때처럼 evaluator 에 차단 finding 이 없을 때만 하며, 그래서 evaluator 결과를 기다린다. evaluator 에 차단 finding 이 있으면 reviewer 결과(점수·finding·backlog 항목·오류)는 판정에 쓰지 않고 verdict 의 `reviews.security-reviewer` 에 `"unused"` 로 기록한다. 판정은 어차피 fail 이라 순차 실행 때와 같다.
 5. `independence`: evaluator 어댑터가 builder와 다른 모델이면 `cross-model`, 아니면 `fresh-context`.
 6. **대화형 eval 의 상태 기록** (`harness eval F{n}` 직접 호출 — `run` 은 이 경로를 쓰지 않고 §8.5 대로 병합 후 verify 를 거쳐서만 `passed` 를 기록한다). 수렴 판정은 run 의 `convergence()` 와 같다. verdict 파일에는 `origin: eval`(run 은 `origin: run`)이 남는다.
    - 사전 거부(어댑터 호출 없음, verdict 파일 없음, exit 2): 계약 미승인·해시 불일치 또는 status 가 `approved`·`in_progress` 가 아님. status 가 `passed`·`blocked` 면 메시지에 현재 status. `--round k` 로 이미 verdict 가 있는 라운드를 지정하면 덮어쓰지 않는다. 직전 라운드 verdict 가 JSON 으로 읽히지 않으면 `state_corrupt`(파일 경로 포함, E6).
@@ -121,7 +121,7 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
    - **status**: `harness status` 는 `backlog: N open (high a · medium b · low c · none d)` 줄과 열린 `high` 항목 최대 5개(id·summary 앞 100자)를 보여 준다. `--brief` 에는 열린 high 항목 수만 ` — backlog high: n` 으로 덧붙인다(0 이면 생략). backlog.json 이 `{ items: [...] }` 가 아니면 status 도 E6 로 exit 2.
    - **새 계약을 쓸 때**(spec skill): 열린 `high` 항목을 검토해 이 기능이 해결하는 항목의 id 를 `resolves` 에 넣는다.
 
-## 8. 자율 실행 (`harness run [F…] [--max-usd N]`)
+## 8. 자율 실행 (`harness run [F…] [--max-usd N] [--parallel N]`)
 **사전 점검**: 새 run 은 integration 브랜치·첫 기능의 worktree·`harness/F{n}` 브랜치를 만들거나 builder 를 부르기 전에 `harness doctor`(§10)의 역할 판정을 확인한다. builder·evaluator 가, 범위(인자로 준 기능, 없으면 `approved`/`in_progress` 기능 전체)에 `critical` 기능이 있으면 security-reviewer 도 usable 이어야 한다 — 하나라도 usable 이 아니면 각 역할 이름과 이유(`not installed`, `--help lacks …`, `not authenticated …`)를 담은 메시지로 exit 2, 아무것도 만들지 않는다. critical 기능이 범위에 없으면 security-reviewer 는 보지 않는다. 범위에 실행할 기능이 없으면 점검하지 않는다. `--resume` 재개는 점검하지 않는다.
 run 도중 evaluator(또는 security-reviewer) 어댑터가 `adapter_unavailable`(예: gemini 인증 실패 exit 41)을 돌려주면 그 기능은 eval_error 재시도 없이 바로 blocked(`adapter_unavailable`)이고, 다음 기능도 같은 역할을 쓰므로 run 전체가 정지한다(`stopped: adapter_unavailable`).
 
@@ -138,6 +138,17 @@ run 도중 evaluator(또는 security-reviewer) 어댑터가 `adapter_unavailable
 7. blocked → 재범위 제안(분할/기준 재작성/위험 수용)을 backlog에 기록, 의존 기능은 `skipped`, 독립 기능은 계속. **critical이 blocked면 run 전체 정지.**
 8. 라운드 k 는 이번 계약(승인 해시)의 라운드이고 보고서의 라운드 수도 그것이다. 라운드 상한·수렴 비교는 계약 해시 단위이며, 판정 파일 번호는 기능별로 계속 증가한다(§7.6) — 이전 계약의 `F{n}-r{k}.json` 이 있으면 새 판정은 다음 번호에 쓰고 기존 파일은 덮어쓰지 않는다. run 은 같은 계약 해시의 이전 판정(대화형 `harness eval` 의 판정 포함)을 이어받아 라운드 상한과 수렴 비교에 넣는다 — 그 판정이 j 개면 run 의 첫 라운드는 j+1 이고(보고서·결과의 라운드 수도 이 번호), 첫 라운드의 fail 은 그 해시의 직전 판정(fail 일 때)과 수렴 비교한다. j ≥ max_rounds 면 builder 를 부르지 않고 `blocked`(`max_rounds`). 이전 판정 파일이 JSON 으로 읽히지 않으면 builder 호출 전에 `state_corrupt`(파일 경로 포함, exit 2, E6).
 9. 종료 → `runs/{ts}.md` 보고서. integration → main 병합은 하지 않는다(PR 생성은 `gh` 가 있으면 제안만).
+
+**병렬 실행** (`run.max_parallel`, `harness run --parallel N`):
+- `run.max_parallel`(정수 ≥ 1, 기본 1) 또는 `--parallel N`(우선, `--resume` 에서도 바꿀 수 있음)만큼의 기능을 동시에 진행한다. 동시에 시작하는 기능은 서로 의존하지 않는다. 범위 안의 기능에 직접·전이 의존하는 기능은 빈 슬롯이 있어도 의존 기능이 `passed`(병합과 병합 후 verify 완료)가 된 뒤에만 시작한다. 1 이면 지금처럼 기능을 하나씩 진행한다. `run.max_parallel` 이 1 이상의 정수가 아니면 작업 없이 `config_invalid`(exit 2), `--parallel` 값이 양의 정수가 아니면 `usage`(exit 2)이고, 둘 다 메시지에 키·옵션 이름이 나온다.
+- 기능마다 자기 worktree(`.harness/wt/F{n}`)에서만 build·verify·eval 이 실행된다. 상태 파일의 `active` 가 진행 중인 기능 전부를 담는다(`current` 는 그 첫 항목). 한 프로세스가 동기적으로 쓰므로 쓰기가 유실되지 않는다.
+- integration 브랜치 병합은 한 번에 하나만 한다. 각 병합의 병합 후 verify 가 끝난 뒤에야 다음 병합이 시작된다. 병합이 충돌하면 그 기능만 blocked(`merge_conflict`)이고, integration 은 그 병합 전 커밋 그대로이며, 먼저 병합된 기능은 `passed` 로 남는다.
+- 비용은 run 합계 하나로 누적된다. 합계가 run 예산을 넘으면 새 기능도 새 단계(build·verify·eval·병합)도 시작하지 않고, 진행 중인 기능은 현재 단계가 끝나면 blocked(`budget`)가 된다. 그 뒤 run 이 `budget` 으로 멈춘다.
+- critical 기능이 blocked 되면(그 밖의 run 정지 사유도 마찬가지) 새 기능을 시작하지 않는다. 진행 중인 다른 기능은 현재 라운드를 끝낸다. 통과하면 병합까지 하고, 라운드가 fail 이면 다음 라운드 없이 blocked(`run_stopped`, backlog 재범위 제안 없음)가 된다. 그 뒤 run 이 `critical_blocked` 로 멈춘다.
+- SIGINT 는 진행 중인 모든 단계의 프로세스 트리를 종료하고 진행 중이던 기능 전부를 상태 파일에 저장한다. `--resume` 은 그 기능 전부를 슬롯 수와 상관없이 이어서 진행한다. 한 기능의 치명적 오류(시스템 잠자기 뒤 timeout 난 단계, 상태 파일 손상)도 다른 기능의 단계를 멈추고 같은 방식으로 저장한다.
+- critical 기능의 evaluator 와 security-reviewer 는 동시에 실행된다. evaluator 에 차단 finding 이 있으면 reviewer 결과는 `unused` 로 기록된다(§7.4).
+- 보고서에 `max parallel: N` 과 병렬로 진행된 모든 기능의 결과가 나온다.
+- 범위 밖: verify 명령·test_count 자체의 병렬화, 여러 run 프로세스의 동시 실행, 진행 중 기능의 우선순위 조정.
 
 예산: 단계별 timeout(기본 30분), 단계별 USD(어댑터 지원 시), run 전체 USD. 단계 초과 시 해당 기능 blocked(`budget`), run 초과 시 진행 중 기능 blocked(`budget`) 후 전체 정지.
 중단 복구: run은 상태 파일(`runs/current.json`, config 스냅샷 포함)만으로 재개 가능(`harness run --resume`). run 이 실제로 쓰는 config 스냅샷(새 run·재개·직접 전달 모두)은 시작 전에 §4 의 형식 검사를 다시 거친다 — 형식이 틀리면 작업 없이 `config_invalid` exit 2. SIGINT 는 진행 중 단계의 프로세스 트리를 종료하고 상태를 저장한 뒤 exit 130.
