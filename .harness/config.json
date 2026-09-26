@@ -18,11 +18,17 @@
     "step_timeout_sec": 2700
   },
   "roles": {
-    "builder": "claude",
+    "builder": {
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    },
     "evaluator": {
       "adapter": "claude",
       "model": "claude-sonnet-5"
     },
-    "security-reviewer": "claude"
+    "security-reviewer": {
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
   }
 }
