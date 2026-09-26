@@ -128,6 +128,11 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
   평균 라운드 수를 보여주고, 규칙 기반 제안을 냅니다 — 최근 10단계 중 2개 이상이 `budget.step_timeout_sec`의 90% 이상이면
   step_timeout 상향, verify 시간이 30% 초과면 `verify.check_parallel` 상향, builder 비용이 70% 초과이고 standard 기능이
   있으면 standard 기능 builder 모델 변경. 제안은 자동 적용되지 않습니다.
+- **역할 모델 정책** — `roles.<역할>`에 등급별 모델 `by_tier`, builder 승격 모델 `escalate`, 충돌 해결 모델 `conflict_model`:
+  `{"adapter": "claude", "model": "sonnet", "by_tier": {"critical": "opus"}, "escalate": "opus", "conflict_model": "opus"}`.
+  선택 순서: `conflict_model`(충돌 해결) → `escalate`(같은 계약 2라운드 이상, builder만) → `by_tier.<등급>` → `model` →
+  `adapters.<name>.model`. `-`로 시작하거나 공백·제어 문자가 든 모델 값과 잘못된 `by_tier` 키는 `config_invalid`(exit 2).
+  metrics·verdict에는 호출한 모델이, independence는 실제로 쓴 모델로, doctor는 `fresh-context for <tier>` 경고를 냅니다.
 - **대화형과 혼용** — run은 같은 계약 해시로 이미 평가된 라운드(대화형 `harness eval` 포함)를 이어받아 라운드 상한과
   수렴 비교에 넣습니다.
 
