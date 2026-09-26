@@ -1,0 +1,102 @@
+{
+  "feature": "F21",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 8,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "In runFeatures, the inhibitor is started before `meter = sleepMeter(...)` and `save()`. If either throws (for example a state-file write error), the try/finally that calls inhibitor.stop() and meter.stop() has not been entered yet. The detached inhibitor then stays alive until the process exits. The process-exit hook covers a normal exit, so the impact is small. Moving the `try` up to cover those two lines would close the gap.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "The AC-4 CLI test only greps lib/commands/run.mjs for the strings `r.sleep`, `system sleep` and `harness run --resume`. It never runs the CLI and never checks the exit code 1 or the stderr text. A regression that broke the printed message would go unnoticed.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "There is no test for the post-merge verify path. A sleep during that step throws SystemSleep, and on resume the merge is recognised as done and verified again. That path is implemented, but no test covers it.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "There are no unit tests for the ticker-gap signal in sleepMeter (the `gapMs` accumulation). All AC-4 tests use the wall-minus-monotonic signal.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "On win32 the sleep-related tests (AC-1, AC-2, AC-3 exit-case, SC-1, SC-2) return early, so they pass without checking anything.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "The `verify.test_count` warning still shows in verify output; it comes from project config, not from this change.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "The CLI test for AC-4 ('the CLI prints \"system sleep\" and the --resume hint') only greps lib/commands/run.mjs for the strings. It never runs the command, so it would still pass if the r.sleep branch printed the wrong thing or returned the wrong exit code. The exit 1 that SPEC §8 requires is not asserted anywhere.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "summary": "The inhibitor is stopped only by the finally block around loop(). It starts before the try, so if save() or sleepMeter() throws in between, the finally never runs. The process.once('exit') handler and caffeinate -w / the linux pid watcher still end it, so no process is left behind. Moving the start inside the try would be cleaner.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "summary": "The inhibitor gets the full process.env (d.env) rather than the adapter env allowlist. It is a fixed system binary, so this is harmless. Noted only for least privilege.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "summary": "The linux watcher checks the run pid with kill(pid, 0). If the OS reuses that pid after the run is SIGKILLed, the inhibitor could be kept alive. This needs pid reuse within 1s of death, is not reachable under the cooperative-builder model, and SC-1 only covers SIGINT, where stop() kills the process group explicitly.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    },
+    {
+      "summary": "No test covers an inhibitor that dies in the middle of a run, the onLost path that SPEC §8 names ('또는 run 도중'). AC-3 only tests the not-on-PATH case and exiting right after start.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.7253906000000001,
+  "contract_hash": "98d806a547a951aa7dd11264db0a47fa70a34276ce8bc611fa2198c1cea4079a",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 8,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 7
+      },
+      "reasked": false
+    }
+  },
+  "at": "2026-09-26T01:15:38.335Z",
+  "origin": "run"
+}

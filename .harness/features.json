@@ -191,7 +191,7 @@
       "depends_on": [
         "F20"
       ],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }
