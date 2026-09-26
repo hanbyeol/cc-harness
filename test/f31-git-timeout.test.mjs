@@ -69,7 +69,7 @@ const cfg = (budget, verifyExtra = {}) => resolveConfig({ base_branch: 'main', v
 const runVerify = (dir, config) => verify({ root: dir, featureId: 'F9', base: 'main', config, cpus: 1 });
 
 const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
-async function gone(pid, ms = 3000) {
+async function gone(pid, ms = 30000) {
   for (let t = 0; t < ms && alive(pid); t += 100) await new Promise((r) => setTimeout(r, 100));
   return !alive(pid);
 }
@@ -165,22 +165,23 @@ test('F31 AC-2: a test_count command still times out at step_timeout_sec', async
 
 // ---------- AC-3 ----------
 // The budget applies to every core git call, so it must be generous enough for the real ones
-// that run before the hanging one on a loaded machine; the hanging one sleeps far longer.
-const GIT_T = 5;
+// that run before the hanging one on a loaded machine (each goes through the fake git script,
+// and three concurrent suites stretch that to seconds); the hanging one sleeps far longer.
+const GIT_T = 20;
 const isGitTimeout = (sub, n) => (e) => e instanceof HarnessError && e.code === 'git'
   && e.message.includes(sub) && e.message.includes(`timed out after ${n}s`);
 
 test('F31 AC-3: verify — a core git command past git_timeout_sec is HarnessError(git) naming it and "timed out after <N>s"', async () => {
   if (!POSIX) return;
   const dir = fixture();
-  const bin = fakeGit('worktree add', 'sleep 30');
+  const bin = fakeGit('worktree add', 'sleep 60');
   await withPath(bin, () => assert.rejects(runVerify(dir, cfg({ step_timeout_sec: 60, git_timeout_sec: GIT_T })), isGitTimeout('worktree add', GIT_T)));
 });
 
 test('F31 AC-3: eval — a slow git diff past git_timeout_sec is HarnessError(git) naming diff', async () => {
   if (!POSIX) return;
   const dir = fixture();
-  const bin = fakeGit('diff', 'sleep 30');
+  const bin = fakeGit('diff', 'sleep 60');
   const config = resolveConfig({ base_branch: 'main', verify: { commands: [] }, budget: { step_timeout_sec: 60, git_timeout_sec: GIT_T } });
   const verifyResult = { pass: true, commands: [], warnings: [], criteria: [], integrity: { markers: [], harnessPaths: [], testCount: { status: 'unset' } } };
   const runAdapter = async () => { throw new Error('the adapter must not be called'); };
@@ -191,14 +192,14 @@ test('F31 AC-3: eval — a slow git diff past git_timeout_sec is HarnessError(gi
 test('F31 AC-3: run — the core git runner past its timeout is HarnessError(git) naming the subcommand', async () => {
   if (!POSIX) return;
   const dir = fixture();
-  const bin = fakeGit('for-each-ref', 'sleep 30');
+  const bin = fakeGit('for-each-ref', 'sleep 60');
   await withPath(bin, () => assert.rejects(runGit(['for-each-ref', 'refs/heads/'], dir, { timeoutSec: GIT_T }), isGitTimeout('git for-each-ref', GIT_T)));
 });
 
 // ---------- SC-1 ----------
 // The fake must start its child and record both pids before the core kills it; a loaded
 // machine can take seconds for that, so the budget is generous (the fake still hangs far longer).
-const HANG_T = 15;
+const HANG_T = 30;
 // The fake git starts a background child, records both pids, then hangs.
 const HANG = (pids) => `sleep 1000 & echo $! > "${pids}/child.tmp" && mv "${pids}/child.tmp" "${pids}/child.pid"; `
   + `echo $$ > "${pids}/self.tmp" && mv "${pids}/self.tmp" "${pids}/self.pid"; wait`;

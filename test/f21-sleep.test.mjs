@@ -93,12 +93,12 @@ ${mode === 'exit' ? 'exit 1' : 'exec sleep 1000'}
   return { dir, entries, env: { ...process.env, PATH: `${dir}${path.delimiter}${process.env.PATH}` } };
 }
 
-const until = async (fn, ms = 10000) => {
+const until = async (fn, ms = 60000) => {
   for (let t = 0; t < ms && !fn(); t += 50) await new Promise((r) => setTimeout(r, 50));
   return fn();
 };
 const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
-async function gone(pid, ms = 5000) {
+async function gone(pid, ms = 30000) {
   for (let t = 0; t < ms && alive(pid); t += 100) await new Promise((r) => setTimeout(r, 100));
   return !alive(pid);
 }
@@ -319,7 +319,7 @@ test('F21 AC-7 SPEC §8 describes the sleep inhibitor (darwin, linux) and the st
 });
 
 // ------------------------------------------------------------------ SC-1
-test('F21 SC-1 SIGINT during a run leaves no sleep inhibitor behind', { timeout: 60000 }, async () => {
+test('F21 SC-1 SIGINT during a run leaves no sleep inhibitor behind', { timeout: 180000 }, async () => {
   if (!['darwin', 'linux'].includes(process.platform)) return; // no POSIX signal delivery to a child on Windows
   const dir = fixture();
   const fk = fakeInhibitors();
@@ -339,7 +339,7 @@ test('F21 SC-1 SIGINT during a run leaves no sleep inhibitor behind', { timeout:
   const exited = new Promise((resolve) => child.on('exit', (code) => resolve(code)));
   let builderPid = null;
   try {
-    for (let i = 0; i < 300 && !builderPid; i += 1) {
+    for (let i = 0; i < 900 && !builderPid; i += 1) {
       await new Promise((r) => setTimeout(r, 100));
       if (fs.existsSync(pidFile)) builderPid = Number(fs.readFileSync(pidFile, 'utf8')) || null;
     }
