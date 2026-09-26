@@ -1,0 +1,61 @@
+{
+  "id": "F38",
+  "title": "병합 경로 견고성 — merge --abort 결과 확인, 충돌 표시 전 파일 검사, 상태를 바꾸는 코어 git 직렬화",
+  "security_tier": "critical",
+  "version": 1,
+  "resolves": [
+    "B172",
+    "B164",
+    "B160"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "충돌 해결·병합 복구의 실패 처리에서 git merge --abort 가 실패하면 기능 worktree 를 정리(reset --hard 로 병합 전 커밋)하고, blocked detail 에 'merge --abort failed' 와 정리 결과가 나온다(가짜 git 으로 abort 실패)",
+      "check": "node test/t.mjs \"F38 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "충돌 해결 뒤 충돌 표시 검사는 git 이 충돌로 보고한 파일뿐 아니라 해결 과정에서 바뀐 모든 파일을 줄 시작 기준으로 검사한다 — 다른 파일에 표시를 남긴 fixture 에서 blocked(merge_conflict)",
+      "check": "node test/t.mjs \"F38 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "코어가 기능·integration worktree 에서 실행하는 git add·commit·reset --hard 도 worktree·브랜치 변경과 같은 잠금으로 직렬화된다 — 병렬 기능 4개 fixture 에서 주입한 git 기록기의 해당 호출 구간이 겹치지 않는다",
+      "check": "node test/t.mjs \"F38 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "SPEC §8 과 docs/run.md 가 세 규칙을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F38 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "AC-1 정리 뒤 기능 worktree 에 MERGE_HEAD 가 남지 않고 integration 브랜치 커밋은 바뀌지 않는다",
+      "check": "node test/t.mjs \"F38 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "reset --hard 까지 실패하면 그 기능은 blocked(merge_conflict)이고 detail 에 worktree 경로와 두 실패 메시지가 나오며 run 은 다른 기능을 계속 진행한다",
+      "check": "node test/t.mjs \"F38 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "사용자 worktree 의 git 명령"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T14:04:59.174Z",
+    "hash": "b6ffcbd7f36e45286c79092ac1f286db8436a6d32a6b0f75ac65e1f20895861e"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "id": "F36",
+  "title": "비밀 값 가리기의 정확성 — 자르기 전에 가리고, 잘린 경계의 비밀 조각도 가림",
+  "security_tier": "critical",
+  "version": 1,
+  "resolves": [
+    "B196"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify 결과·run 보고서·상태 파일·verdict 에 들어가는 명령 출력은 앞뒤를 자르기 전에 가린다 — 출력 끝 2000자 경계가 비밀 값 한가운데를 지나는 fixture 에서 current.json·run 보고서·verdict 파일 각각에 그 값의 8자 이상 조각이 없다",
+      "check": "node test/t.mjs \"F36 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "잘린 출력의 첫머리가 가림 대상 값의 8자 이상 접미사와 같거나 끝이 8자 이상 접두사와 같으면 그 조각도 '[redacted]' 로 바뀐다(경우별 개별 테스트)",
+      "check": "node test/t.mjs \"F36 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "가림 대상이 아닌 출력은 자르기 규칙(끝 2000자)이 지금과 같다",
+      "check": "node test/t.mjs \"F36 AC-3\"",
+      "new": false
+    },
+    {
+      "id": "AC-4",
+      "criterion": "SPEC 의 보안 요구사항 절이 가림과 자르기의 순서, 잘린 조각 규칙을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F36 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "가림은 기록 경로 다섯 곳(상태 파일·run 보고서·verdict·backlog·metrics)에서 같은 함수로 수행된다 — 경계에 걸친 비밀 fixture 로 다섯 파일 각각에 값 조각이 남지 않음을 확인한다",
+      "check": "node test/t.mjs \"F36 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "가림 대상 값이 2000자보다 길어도 출력 전체가 '[redacted]' 로 바뀌고 오류가 나지 않는다",
+      "check": "node test/t.mjs \"F36 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "환경 변수 밖 비밀(인코딩·분할된 값) 탐지"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T14:04:59.174Z",
+    "hash": "1027d32f5432eb63443a3cbd3869eb835de289410c8ba27a01f627d368946bac"
+  }
+}

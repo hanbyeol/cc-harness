@@ -1,0 +1,60 @@
+{
+  "id": "F37",
+  "title": "vacuity·환경 판정 정확성 — base 제한을 head 실행 시간에 맞추고, base 쪽 명령 없음도 환경 중단",
+  "security_tier": "critical",
+  "version": 1,
+  "resolves": [
+    "B242",
+    "B194"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "new:true 기준의 base 쪽 vacuity 실행 제한은 max(verify.vacuity_timeout_sec, head 쪽 같은 check 실행 시간의 3배) 이고 step_timeout_sec 을 넘지 않는다 — head 에서 5초 걸리고 base 에서 6초 뒤 통과하는 check 를 vacuity_timeout_sec 2 로 두면 vacuous 로 판정된다",
+      "check": "node test/t.mjs \"F37 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "base 쪽 실행이 그 제한을 넘기면 지금처럼 base_timed_out 이고, 결과와 warnings 에 적용된 제한 초가 나온다",
+      "check": "node test/t.mjs \"F37 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "run 의 verify 에서 base 쪽 vacuity 실행이 명령 없음(127·9009·not recognized·ENOENT)으로 끝나면 기능은 blocked 되지 않고 run 이 environment 사유로 멈춘다(F29 와 같은 출력)",
+      "check": "node test/t.mjs \"F37 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "SPEC §6.3·§8 과 docs/run.md 가 두 규칙을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F37 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "base 제한 계산에 쓰이는 head 실행 시간은 코어가 잰 값이고 check 출력으로 바꿀 수 없다 — 출력에 'duration: 9999' 를 찍는 check 로 제한이 달라지지 않음을 확인",
+      "check": "node test/t.mjs \"F37 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "head 쪽 check 가 실패해 base 실행을 하지 않는 기준은 제한 계산 없이 지금처럼 처리된다",
+      "check": "node test/t.mjs \"F37 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "base 실행 결과 캐시"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T14:04:59.174Z",
+    "hash": "4f2f66c63bc2fa434e64667b7d6eb9d615809ec72a843e61097ea5508c86b270"
+  }
+}

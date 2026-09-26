@@ -322,6 +322,33 @@
         "F33"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F36",
+      "title": "비밀 값 가리기의 정확성 — 자르기 전에 가리고, 잘린 경계의 비밀 조각도 가림",
+      "security_tier": "critical",
+      "depends_on": [
+        "F35"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F37",
+      "title": "vacuity·환경 판정 정확성 — base 제한을 head 실행 시간에 맞추고, base 쪽 명령 없음도 환경 중단",
+      "security_tier": "critical",
+      "depends_on": [
+        "F35"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F38",
+      "title": "병합 경로 견고성 — merge --abort 결과 확인, 충돌 표시 전 파일 검사, 상태를 바꾸는 코어 git 직렬화",
+      "security_tier": "critical",
+      "depends_on": [
+        "F35"
+      ],
+      "status": "approved"
     }
   ]
 }
