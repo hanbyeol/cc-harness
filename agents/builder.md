@@ -39,6 +39,10 @@ passes only on your machine fails the release later. Write tests that do not dep
   end events by order or by a token you generate, not by pid alone.
 - **Startup speed** — a child process may be killed before it writes anything; do not make
   its first output a precondition of the assertion without waiting for it.
+- **Unbounded waits** — a fake process or hook that sleeps (`sleep 1000`) to simulate a hang
+  also hangs the vacuity check, which runs your new test against the pre-feature code where
+  nothing interrupts it. Keep such sleeps a few seconds past the timeout under test, and give
+  every wait loop an upper bound.
 
 ## Boundaries
 These keep the process convergent and the verdict trustworthy:
