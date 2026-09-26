@@ -198,6 +198,7 @@ run 도중 evaluator(또는 security-reviewer) 어댑터가 `adapter_unavailable
 - SR-5 코어는 `main`(및 config의 protected 브랜치)에 병합·push하지 않는다. 브랜치 이름은 대소문자를 무시하고 비교한다(대소문자 비구분 파일시스템에서는 같은 loose ref). run 시작 전 로컬 브랜치 목록(`git for-each-ref refs/heads/`)을 확인해, `integration_branch` 와 대소문자만 다른 기존 브랜치(예: `Work` vs `work`)가 있으면 브랜치 생성·worktree 추가·병합 전에 두 이름을 모두 담은 메시지로 exit 2. 철자가 정확히 같은 브랜치는 그대로 쓰고, 없으면 base 에서 만든다. 브랜치 목록을 얻지 못하면 run 을 시작하지 않고 exit 2.
 - SR-6 evaluator·security-reviewer는 읽기 전용 모드로 호출된다(어댑터별 플래그).
 - SR-7 ops 프로필의 라이브 변경 skill(`rollout`)은 `run` 대상이 될 수 없다(lint가 거부).
+- SR-8 기록 파일의 가림: run 상태 파일(`.harness/runs/current.json`), verdict 파일(`F{n}-r{k}.json`·`.eval_error.json`), backlog 항목에 저장되는 문자열(verify 명령·기준 출력과 메시지, `verify_failures`, blocking·backlog 의 요약·repro, re-scope 제안)에서 env_allowlist(SR-2) 밖 환경 변수의 값(8자 이상)은 보고서(§8)와 같은 규칙으로 `[redacted]` 로 바뀐다. 값은 문자열 그대로(정규식 아님) 비교하고, 허용목록 안 변수와 8자 미만 값은 가리지 않는다. 가림은 파일을 쓰기 직전 사본에 적용되고(상태 파일은 모든 저장 경로 — 중단·blocked 포함), run 은 메모리의 원래 값으로 계속한다. 파일을 다시 읽는 데 쓰는 식별자(config 스냅샷, 기능·기준 id, 커밋 sha, 충돌 파일 경로, 라운드 이력)는 가리지 않으므로 `--resume` 은 가려진 상태 파일로도 이어진다. 이미 커밋된 과거 기록과 환경 변수 밖의 비밀은 범위 밖.
 
 ## 10. 어댑터 (`harness doctor`)
 | 어댑터 | 쓰기(builder) | 읽기전용(evaluator) | 구조화 출력 | 예산 | 모델 |
