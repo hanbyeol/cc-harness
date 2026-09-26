@@ -63,6 +63,14 @@ const overlap = (a, b) => a.start < b.end && b.start < a.end;
 const PASSING = { pass: true, commands: [], criteria: [], integrity: { markers: [], harnessPaths: [], testCount: { status: 'unset' } }, warnings: [] };
 
 // Fake builder: waits `delay(a)` ms, writes files (default <id>.txt), records the interval.
+// onCall hook: the first builds of `ids` wait until all of them have started (up to 30 s), so
+// "these builds overlap" holds by construction instead of by timing — on a slow machine a
+// fixed delay let the first build end before the second began (windows-latest).
+const startTogether = (ids) => async (a, calls) => {
+  if (!ids.includes(a.featureId) || calls.filter((c) => c.featureId === a.featureId).length > 1) return;
+  for (const t0 = Date.now(); !ids.every((id) => calls.some((c) => c.featureId === id)) && Date.now() - t0 < 30_000;) await sleep(20);
+};
+
 function slowBuild({ delay = () => 0, files, cost = () => 0, onCall } = {}) {
   const calls = [];
   const fn = async (a) => {
@@ -166,7 +174,7 @@ test('F24 AC-2: a dependent starts only after its (direct and transitive) depend
   const dir = fixture([{ id: 'F1' }, { id: 'F2' }, { id: 'F3', deps: ['F1'] }, { id: 'F4', deps: ['F3'] }]);
   const passedAt = {};
   const log = (m) => { const x = /^(F\d+): passed$/.exec(m); if (x) passedAt[x[1]] = now(); };
-  const build = slowBuild({ delay: (a) => (a.featureId === 'F1' ? 800 : 50) });
+  const build = slowBuild({ delay: (a) => (a.featureId === 'F1' ? 800 : 50), onCall: startTogether(['F1', 'F2']) });
   await run(dir, { build, log }, { parallel: 3 });
   assert.deepEqual(statuses(dir), { F1: 'passed', F2: 'passed', F3: 'passed', F4: 'passed' });
   const [f1, f2, f3, f4] = ['F1', 'F2', 'F3', 'F4'].map((id) => buildsOf(build, id)[0]);
@@ -186,7 +194,7 @@ test('F24 AC-3: merges are serial — no merge or post-merge verify overlaps ano
     Object.assign(x, { end: now(), headEnd: git(a.cwd, 'rev-parse', 'HEAD') });
     intervals.push(x);
   };
-  const build = slowBuild({ delay: () => 1500 });
+  const build = slowBuild({ delay: () => 1500, onCall: startTogether(['F1', 'F2']) });
   await run(dir, { build, verify: fakeVerify({ onIntegration }) }, { parallel: 2 });
   assert.deepEqual(statuses(dir), { F1: 'passed', F2: 'passed' });
   assert.ok(overlap(buildsOf(build, 'F1')[0], buildsOf(build, 'F2')[0]), 'the features themselves ran in parallel');
@@ -360,7 +368,10 @@ test('F24 SC-1: each parallel feature builds, verifies and evaluates only in its
   let seenByF3 = null;
   const build = slowBuild({
     delay: (a) => (a.featureId === 'F3' ? 0 : 300),
-    onCall: async (a) => { if (a.featureId === 'F3') seenByF3 = readJson(statePath(dir)); },
+    onCall: async (a, calls) => {
+      if (a.featureId === 'F3') seenByF3 = readJson(statePath(dir));
+      await startTogether(['F1', 'F2'])(a, calls);
+    },
   });
   const verify = fakeVerify();
   const evaluate = fakeEvaluate({}, { delay: () => 100 });
@@ -416,6 +427,7 @@ test('F24 ES-2: two parallel features changing the same line — the second merg
   const log = (m) => { if (m === 'F1: passed') afterF1 = git(dir, 'rev-parse', 'harness/integration'); };
   const build = slowBuild({
     delay: (a) => (a.featureId === 'F1' ? 1000 : 2000),
+    onCall: startTogether(['F1', 'F2']),
     // The one automatic resolution (F25) leaves the conflict markers: the feature stays blocked.
     files: (a) => (a.conflicts ? {} : { [`${a.featureId}.txt`]: 'x\n', 'shared.txt': `changed by ${a.featureId}\n` }),
   });

@@ -115,7 +115,14 @@ const builds = (build, id) => build.calls.filter((c) => c.featureId === id && !c
 for (const [name, runCfg] of [['unset', undefined], ["'auto'", { max_parallel: 'auto' }]]) {
   test(`F25 AC-1: run.max_parallel ${name} and no --parallel starts all four ready features at once`, async () => {
     const dir = fixture(IDS4);
-    const build = slowBuild({ delay: () => 1500 });
+    // Builds wait until all four have started (up to 30 s): an unlimited run fills the barrier,
+    // a capped one would not, and a slow machine cannot end the first build before the last starts.
+    const build = slowBuild({
+      delay: () => 1500,
+      onCall: async () => {
+        for (const t0 = Date.now(); build.calls.filter((c) => !c.conflicts).length < 4 && Date.now() - t0 < 30_000;) await sleep(20);
+      },
+    });
     const r = await run(dir, { build }, { run: runCfg });
     assert.deepEqual(statuses(dir), { F1: 'passed', F2: 'passed', F3: 'passed', F4: 'passed' });
     const first = IDS4.map((id) => builds(build, id)[0]);
