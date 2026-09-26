@@ -162,7 +162,15 @@ test('F25 AC-3: verify_parallel auto is max(1, floor(cpus / 8)); an integer is u
 for (const [cpus, pool] of [[8, 1], [16, 2], [4, 1]]) {
   test(`F25 AC-3: with ${cpus} CPUs (auto) at most ${pool} verify runs at a time; builds are not limited by the pool`, async () => {
     const dir = fixture(IDS4);
-    const build = slowBuild({ delay: () => 800 });
+    // Each build waits until all four have started (up to 30 s) instead of relying on timing:
+    // worktree adds are serialized and slow on Windows, so a fixed delay let the first build end
+    // before the fourth began. If builds were limited by the verify pool, the barrier never fills.
+    const build = slowBuild({
+      delay: () => 800,
+      onCall: async () => {
+        for (const t0 = Date.now(); build.calls.filter((c) => !c.conflicts).length < 4 && Date.now() - t0 < 30_000;) await sleep(20);
+      },
+    });
     // Verify outlasts the spread of build ends (worktree adds are serialized), so all four queue up.
     const verify = timedVerify({ delay: 1500 });
     await run(dir, { build, verify, cpus });
