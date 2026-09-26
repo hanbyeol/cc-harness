@@ -1,0 +1,82 @@
+{
+  "id": "F25",
+  "title": "run 자동 병렬 — 준비된 기능은 제한 없이 동시 진행, verify 는 CPU 기반 풀, git 변경 직렬화, 병합 충돌은 1회 자동 해결",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "run.max_parallel 이 없거나 'auto' 이고 --parallel 도 없으면, 의존성이 충족된 approved 기능을 개수 제한 없이 모두 동시에 시작한다 — 독립 기능 4개 fixture 에서 가짜 builder 4개의 build 구간이 모두 한 시점에 겹친다",
+      "check": "node test/t.mjs \"F25 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "run.max_parallel 이 양의 정수이거나 --parallel N 이면 지금처럼 그 수가 동시 기능 상한이다(1 이면 순차)",
+      "check": "node test/t.mjs \"F25 AC-2\"",
+      "new": false
+    },
+    {
+      "id": "AC-3",
+      "criterion": "verify·병합 후 verify 는 build·eval 과 별도인 verify 풀에서 실행되고 동시에 run.verify_parallel 개를 넘지 않는다. verify_parallel 이 없거나 'auto' 이면 max(1, floor(가용 CPU 수 / 8)) 이다 — CPU 수 주입(8→1, 16→2, 4→1)과 가짜 verify 구간으로 확인",
+      "check": "node test/t.mjs \"F25 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "git worktree add·remove 와 브랜치 생성·삭제·병합을 하는 모든 코어 git 호출은 하나의 잠금으로 직렬화된다 — 병렬 기능 4개 fixture 에서 주입한 git 기록기의 해당 호출 구간이 서로 겹치지 않는다",
+      "check": "node test/t.mjs \"F25 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "기능 병합이 충돌하면 즉시 blocked 하지 않고, 코어가 그 기능 worktree 에서 integration 을 병합해 충돌 상태를 만든 뒤 충돌 파일 목록을 담아 builder 를 1회 호출하고, 이어서 verify·eval 을 다시 거쳐 통과하면 병합해 passed 가 된다(가짜 builder 가 충돌을 해결하는 fixture)",
+      "check": "node test/t.mjs \"F25 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "충돌 해결 시도 뒤에도 병합이 충돌하거나, builder 가 실패하거나, 충돌 표시(<<<<<<<)가 남아 있으면 blocked(merge_conflict)이고 integration 은 그 기능 병합 전 커밋 그대로다. 충돌 해결은 기능당 1회이며 라운드를 소모하지 않는다",
+      "check": "node test/t.mjs \"F25 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "run 보고서가 실제 적용된 max_parallel(auto 포함)·verify_parallel 값과 충돌 해결 시도 여부를 기능별로 보여 주고, SPEC §8·README 가 auto 병렬·verify 풀·충돌 자동 해결 규칙을 설명한다(문서 check 포함)",
+      "check": "node test/t.mjs \"F25 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "충돌 해결 builder 는 그 기능의 worktree 에서만 실행되고, 해결이 통과하기 전까지 integration 브랜치의 커밋은 바뀌지 않는다(해결 전후 rev-parse 비교)",
+      "check": "node test/t.mjs \"F25 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "run.max_parallel 이 'auto' 가 아닌 문자열·0·소수이거나 run.verify_parallel 이 'auto' 또는 양의 정수가 아니면 작업 없이 exit 2(config_invalid), 메시지에 키 이름이 나온다(경우별 개별 테스트)",
+      "check": "node test/t.mjs \"F25 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "auto 병렬 중 한 기능의 git worktree add 가 실패하면 그 기능만 blocked(worktree)이고 다른 기능은 계속 진행해 passed 가 된다",
+      "check": "node test/t.mjs \"F25 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "API 요금 한도(429)에 따른 자동 감속",
+    "파일 겹침을 미리 예측해 시작 순서를 바꾸는 스케줄링",
+    "여러 run 프로세스의 동시 실행"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T04:23:38.315Z",
+    "hash": "4a5e0c4efa08dc3fef78c3fb852434c19f08148bd9edf0a201cb58083149d18d"
+  }
+}

@@ -219,6 +219,15 @@
         "F21"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F25",
+      "title": "run 자동 병렬 — 준비된 기능은 제한 없이 동시 진행, verify 는 CPU 기반 풀, git 변경 직렬화, 병합 충돌은 1회 자동 해결",
+      "security_tier": "critical",
+      "depends_on": [
+        "F24"
+      ],
+      "status": "approved"
     }
   ]
 }
