@@ -25,7 +25,7 @@ AI 코딩 CLI(Claude Code · Codex CLI · Gemini CLI, 그 외 AGENTS.md 호환 �
 ## 4. 상태 파일 (`.harness/`, git 추적)
 | 파일 | 내용 |
 |------|------|
-| `config.json` | profile, verify 명령, 임계값, 예산, max_rounds, 어댑터 역할 배정. 병합 순서 DEFAULTS ← profile ← config (config 우선). `init` 은 verify.commands 를 쓰지 않는다 — 사용자가 정하기 전까지 프로필 기본값이 적용된다. 최상위는 JSON 객체여야 하고, 기본값이 객체인 키(`budget`·`verify`·`limits`·`roles`·`rubric`)는 지정 시 객체여야 한다. `verify.commands`·`verify.skip_markers`·`verify.test_paths`·`env_allowlist`·`secret_globs`·`protected_branches` 는 지정 시 빈 문자열이 아닌 문자열의 배열이어야 하고(오류는 키 이름과 원소 번호 `key[i]`), `verify.test_count` 는 문자열 또는 null 이어야 한다. 형식 검사는 프로필과 병합하기 전 사용자 파일에 대해 한다 |
+| `config.json` | profile, verify 명령, 임계값, 예산, max_rounds, 어댑터 역할 배정. 병합 순서 DEFAULTS ← profile ← config (config 우선). `init` 은 verify.commands 를 쓰지 않는다 — 사용자가 정하기 전까지 프로필 기본값이 적용된다. `init` 이 config.json 을 새로 만들 때는 프로젝트의 테스트 러너를 감지해 `verify.test_count` 를 쓴다: `package.json` 의 `scripts.test` 에 `node --test` 가 있으면 `preset:node-test`, 아니고 `go.mod` 가 있으면 `preset:go`, 아니고 `pytest.ini`·`conftest.py` 가 있거나 `pyproject.toml` 에 `[tool.pytest.ini_options]` 절이 있으면 `preset:pytest`. 해당 없으면 키를 쓰지 않는다. 기존 config.json 은 바꾸지 않는다 — `doctor` 가 같은 규칙으로 제안만 한다(§10). 최상위는 JSON 객체여야 하고, 기본값이 객체인 키(`budget`·`verify`·`limits`·`roles`·`rubric`)는 지정 시 객체여야 한다. `verify.commands`·`verify.skip_markers`·`verify.test_paths`·`env_allowlist`·`secret_globs`·`protected_branches` 는 지정 시 빈 문자열이 아닌 문자열의 배열이어야 하고(오류는 키 이름과 원소 번호 `key[i]`), `verify.test_count` 는 문자열 또는 null 이어야 하고, `preset:` 으로 시작하면 `preset:node-test`·`preset:go`·`preset:pytest` 중 하나와 정확히 같아야 한다(아니면 `verify.test_count` 와 사용 가능한 프리셋 이름을 담은 `config_invalid`, §6.2-3). 형식 검사는 프로필과 병합하기 전 사용자 파일에 대해 한다 |
 | `features.json` | `[{id, title, security_tier, depends_on[], status}]` — status ∈ `todo·approved·in_progress·passed·blocked·skipped`. 각 항목의 `id`·`title`·`status` 는 필수 문자열. `eval_round`(선택)는 대화형 eval 이 상태를 기록한 마지막 라운드(§7.6) |
 | `contracts/F{n}.json` | 계약 (§5) |
 | `verdicts/F{n}-r{k}.json` | 라운드별 판정 (§7) |
@@ -74,6 +74,11 @@ worktree 안의 `.harness/` 는 코어가 쓰는 기록 경로 `verdicts/**`, `b
    마커는 **토큰 경계**로 매칭한다: 마커가 식별자 문자로 시작하면 바로 앞 문자가 식별자 문자가 아니어야 한다(`process.exit(` ≠ `xit(`, `list.Skip(` ≠ `t.Skip(`). 구두점으로 시작하는 마커는 부분문자열 매칭.
 2. `.harness/config.json`, `.harness/contracts/**`, `.harness/features.json` 변경 없음 (면제 경로와 함께 바뀌어도 fail, 보고 목록에는 보호 경로만).
 3. `verify.test_count` 명령이 설정된 경우 base 대비 테스트 수 비감소. 미설정 시 경고만.
+   값이 셸 명령이면 stdout 마지막 비어 있지 않은 줄의 정수가 테스트 수다(종료 코드 0 이어야 함). 값이 프리셋이면 코어가 **고정된 실행 파일 이름과 고정 인자 배열로 셸 없이** 실행하고(config 의 다른 값은 인자에 들어가지 않는다), 출력에서 수를 센다. 실패한 테스트도 수에 들어가므로 러너의 종료 코드는 보지 않는다(통과 여부는 §6.1 의 명령이 판정).
+   - `preset:node-test` — `node --test --test-reporter=tap`, 출력의 마지막 `# tests N` 줄의 N.
+   - `preset:go` — `go test -list . ./...`, `Test`·`Example`·`Fuzz` 로 시작하는 줄 수(`ok`·`?` 패키지 줄은 세지 않는다). 이름 줄도 패키지 줄도 없으면 수를 찾지 못한 것이다.
+   - `preset:pytest` — `python -m pytest --collect-only -q`, 출력의 마지막 `N tests collected`(단수 `1 test collected` 포함)의 N.
+   실행 파일이 PATH 에 없으면 test count 는 `error`, 메시지 `command not found: <이름>`. 출력에서 수를 찾지 못하면 `error`, 메시지 `no test count in output`. 시간 초과·시그널 종료도 `error`. `error` 는 verify fail 이다. 알 수 없는 프리셋은 config 검사에서 거부된다(§4).
 
 ### 6.3 기준 check
 계약의 모든 check 실행 → 기준별 pass/fail. check 가 하나도 없는 계약은 fail(공허한 통과 방지). `new: true` 기준은 **base에서 fail이어야 한다**(base에서 이미 통과하면 공허한 기준 → fail로 보고).
@@ -163,7 +168,7 @@ run 도중 evaluator(또는 security-reviewer) 어댑터가 `adapter_unavailable
 - `<deny>`(builder 쓰기 모드의 네이티브 deny 목록, SPEC D1의 "~5줄"): `Bash(git push:*)`, `Bash(git reset --hard:*)`, `Bash(rm -rf /:*)`, `Bash(rm -rf ~:*)`, `Bash(sudo:*)`. 지원하지 않는 CLI는 해당 CLI의 sandbox 플래그로 대체.
 - 어댑터 호출은 CLI 인증을 위해 **부모 env를 상속**한다(SR-2의 허용목록은 verify·check·repro 명령에만 적용).
 
-`doctor`: 설치된 CLI·버전 탐지, 각 어댑터가 쓰는 플래그가 `--help` 출력에 존재하는지 확인, 역할 배정 권장(builder ≠ evaluator 모델).
+`doctor`: 설치된 CLI·버전 탐지, 각 어댑터가 쓰는 플래그가 `--help` 출력에 존재하는지 확인, 역할 배정 권장(builder ≠ evaluator 모델). 끝에 `test count: <값>` 을, 미설정이면 `test count: not configured` 와 §4 의 `init` 감지 규칙으로 찾은 제안(`suggest: preset:<이름>`, 있을 때)을 출력한다 — config.json 은 쓰지 않는다.
 플래그 부재 시 해당 역할 배정 불가로 보고(추측 실행 금지).
 
 gemini 인증 판정(비용이 드는 호출 없이): 환경 변수 `GEMINI_API_KEY` · `GOOGLE_GENAI_USE_VERTEXAI` · `GOOGLE_GENAI_USE_GCA` 중 하나가 (비어 있지 않게) 있거나, 사용자 `~/.gemini/settings.json`(HOME 기준)에 `security.auth.selectedType` 이 있으면 인증됨. 모두 없으면 `not authenticated` — gemini 를 쓰는 역할은 usable 이 아니다(플래그 검사를 통과해도). `settings.json` 이 JSON 으로 읽히지 않으면 스택 트레이스 없이 `not authenticated (settings.json unreadable)`. 판정은 변수·키의 **존재만** 보고, 값은 doctor·run 출력과 보고서에 쓰지 않는다. doctor 는 설치된 gemini 의 CLI 줄에 인증 상태(`authenticated (<변수 이름 또는 settings.json>)` / 이유)를 표시한다 — 역할에 배정되지 않았으면 종료 코드에 영향이 없다. claude·codex 의 인증은 판정하지 않는다.
@@ -191,7 +196,7 @@ hooks/hooks.json             Claude SessionStart 1개: `harness status --brief` 
 | E3 | 병합 충돌 | 병합 중단(`git merge --abort`), 기능 blocked(`merge_conflict`) |
 | E4 | worktree 생성 실패 | 기능 blocked, 나머지 계속 |
 | E5 | 예산·timeout 초과 | 프로세스 종료(자식 포함), blocked(`budget`) |
-| E6 | 상태 파일 손상(JSON 파싱 불가, §4 형식 위반 — backlog 가 `{ items: [...] }` 아님·항목 id 중복, config 가 객체 아님·객체 키의 타입 오류·배열 키가 배열 아님 또는 빈/비문자열 원소·test_count 타입 오류, features 항목의 id·title·status 누락/비문자열) | 즉시 정지(exit 2), 파일 경로·필드 이름 또는 항목 번호(`features[i]`)를 포함한 수정 안내 — 추측 복구 금지 |
+| E6 | 상태 파일 손상(JSON 파싱 불가, §4 형식 위반 — backlog 가 `{ items: [...] }` 아님·항목 id 중복, config 가 객체 아님·객체 키의 타입 오류·배열 키가 배열 아님 또는 빈/비문자열 원소·test_count 타입 오류·알 수 없는 프리셋, features 항목의 id·title·status 누락/비문자열) | 즉시 정지(exit 2), 파일 경로·필드 이름 또는 항목 번호(`features[i]`)를 포함한 수정 안내 — 추측 복구 금지 |
 | E7 | 실행 중 인터럽트(SIGINT) | 현재 단계 종료, 상태 저장, `--resume` 안내 |
 
 ## 13. v1 마이그레이션 (`harness migrate-v1`)
