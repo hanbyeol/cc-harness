@@ -264,7 +264,8 @@
       "depends_on": [
         "F27"
       ],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 2
     }
   ]
 }

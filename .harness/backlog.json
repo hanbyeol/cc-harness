@@ -1470,7 +1470,11 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B191"
+      "id": "B191",
+      "seen": 2,
+      "sources": [
+        "F29-r2"
+      ]
     },
     {
       "feature": "F29",
@@ -1480,7 +1484,11 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B192"
+      "id": "B192",
+      "seen": 3,
+      "sources": [
+        "F29-r2"
+      ]
     },
     {
       "feature": "F29",
@@ -1520,7 +1528,11 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B196"
+      "id": "B196",
+      "seen": 2,
+      "sources": [
+        "F29-r2"
+      ]
     },
     {
       "feature": "F29",
@@ -1530,7 +1542,11 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B197"
+      "id": "B197",
+      "seen": 3,
+      "sources": [
+        "F29-r2"
+      ]
     },
     {
       "feature": "F29",
@@ -1565,6 +1581,56 @@
         }
       ],
       "id": "B199"
+    },
+    {
+      "feature": "F29",
+      "round": 2,
+      "at": "2026-09-26T08:30:39.219Z",
+      "summary": "The unit test for the CLI message in AC-1 only greps the source of lib/commands/run.mjs for strings. It does not run the CLI. ES-1 does run the CLI, so the message path is covered end to end, but the AC-1 test itself is weak.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B200"
+    },
+    {
+      "feature": "F29",
+      "round": 2,
+      "at": "2026-09-26T08:30:39.219Z",
+      "summary": "A --resume run that finds the program missing again at the post-merge verify stage repeats the merge and rollback each time. It is correct and consumes no round, but the merge work is redone on every resume.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B201"
+    },
+    {
+      "feature": "F29",
+      "round": 2,
+      "at": "2026-09-26T08:30:39.219Z",
+      "summary": "A parallel run stopped by an environment failure leaves other features paused via Paused. If one of them hits a different fatal error in its current step, that error replaces the environment stop as the run's failure, so the environment reason is not reported. This edge case is not tested.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B202"
+    },
+    {
+      "feature": "F29",
+      "round": 2,
+      "at": "2026-09-26T08:30:39.219Z",
+      "summary": "The redactor matches allowlist keys case-sensitively. On Windows, env keys are case-insensitive, so a differently-cased allowlisted name (e.g. 'path' vs 'PATH') would have its value redacted. This garbles the text but does not leak anything.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B203"
+    },
+    {
+      "feature": "F29",
+      "round": 2,
+      "at": "2026-09-26T08:30:39.219Z",
+      "summary": "The failed item (the verify command string) is written to the report without redaction. It comes from config, not from the env, so it only leaks if a user writes a secret literally into verify.commands.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B204"
     }
   ]
 }

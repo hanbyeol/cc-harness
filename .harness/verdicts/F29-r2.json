@@ -1,0 +1,119 @@
+{
+  "feature": "F29",
+  "round": 2,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The unit test for the CLI message in AC-1 only greps the source of lib/commands/run.mjs for strings. It does not run the CLI. ES-1 does run the CLI, so the message path is covered end to end, but the AC-1 test itself is weak.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "A --resume run that finds the program missing again at the post-merge verify stage repeats the merge and rollback each time. It is correct and consumes no round, but the merge work is redone on every resume.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "A parallel run stopped by an environment failure leaves other features paused via Paused. If one of them hits a different fatal error in its current step, that error replaces the environment stop as the run's failure, so the environment reason is not reported. This edge case is not tested.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Redaction only replaces env values of 8 or more characters and only covers report messages (already tracked as B191, B196, B197 and B198). The environment stop path writes lastVerify to state unredacted, as it did before.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B197"
+    },
+    {
+      "summary": "A program that itself exits 127 is treated as an environment stop (already tracked as B192).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B192"
+    },
+    {
+      "summary": "Redaction does not cover a secret cut by tail() before redaction, so a trailing fragment of the secret can reach the report.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B196"
+    },
+    {
+      "summary": "Only the report's failure messages are redacted. The blocked post_merge_verify detail (v.error) and e.lastVerify in runs/current.json keep the unredacted output.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B197"
+    },
+    {
+      "summary": "Values shorter than 8 characters, or transformed values (base64, URL-encoded, split), are not redacted.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B191"
+    },
+    {
+      "summary": "The redactor matches allowlist keys case-sensitively. On Windows, env keys are case-insensitive, so a differently-cased allowlisted name (e.g. 'path' vs 'PATH') would have its value redacted. This garbles the text but does not leak anything.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The failed item (the verify command string) is written to the report without redaction. It comes from config, not from the env, so it only leaks if a user writes a secret literally into verify.commands.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "A verify command that exits 127 for its own reasons is treated as an environment stop, not as a round failure.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B192"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.5618178,
+  "contract_hash": "6d0d13fd66bc97df90df4cd88f066e6dad8e76b521067a4a26039ad9ac132856",
+  "contract_round": 2,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 8,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 8,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false
+    }
+  },
+  "at": "2026-09-26T08:30:39.219Z",
+  "origin": "eval"
+}
