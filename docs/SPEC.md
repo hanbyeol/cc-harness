@@ -29,7 +29,7 @@ AI 코딩 CLI(Claude Code · Codex CLI · Gemini CLI, 그 외 AGENTS.md 호환 �
 | `features.json` | `[{id, title, security_tier, depends_on[], status}]` — status ∈ `todo·approved·in_progress·passed·blocked·skipped`. 각 항목의 `id`·`title`·`status` 는 필수 문자열. `eval_round`(선택)는 대화형 eval 이 상태를 기록한 마지막 라운드(§7.6) |
 | `contracts/F{n}.json` | 계약 (§5) |
 | `verdicts/F{n}-r{k}.json` | 라운드별 판정 (§7) |
-| `backlog.json` | 범위 밖 발견 · blocked 재범위 제안 |
+| `backlog.json` | `{ items: [...] }` — 범위 밖 발견 · blocked 재범위 제안. 항목 id(`B<n>`)·`priority`·`seen`·`sources`·`resolved_by` 규칙은 §7.7 |
 | `runs/{ts}.md` | 자율 실행 보고서 |
 
 `init` 은 없는 파일·디렉터리만 만든다. `.harness/` 가 일부만 있어도(예: `contracts/` 만) 빠진 것을 채우고 기존 파일은 건드리지 않는다. 상태 파일 쓰기는 원자적이다(같은 디렉터리의 임시 파일 → rename). 어느 단계에서 실패해도 임시 파일을 지우고 대상 파일은 이전 내용 그대로 남는다(`io` 에러).
@@ -45,10 +45,12 @@ AI 코딩 CLI(Claude Code · Codex CLI · Gemini CLI, 그 외 AGENTS.md 호환 �
   "error_scenarios":     [{"id": "ES-1", ...}],
   "out_of_scope": ["..."],
   "run_steps": ["build", "verify", "eval"],
+  "resolves": ["B12"],
   "approval": {"by": "...", "at": "ISO8601", "hash": "sha256"}
 }
 ```
 `security_tier` 는 `standard|critical` 외 값이면 error. `run_steps` 는 선택(생략 시 위 기본값).
+`resolves` 는 선택 — 이 기능이 해결하는 backlog 항목 id 배열(§7.7). 문자열 배열이 아니면 error, backlog 에 없거나 이미 해결된(`resolved_by` 있음) id 를 가리키면 warning.
 lint 규칙(전부 결정적, 위반 = error):
 1. 모든 기준에 비어 있지 않은 `check`.
 2. 기준 id 유일, 형식 `AC-n|SC-n|ES-n` (n ≥ 1), 접두사는 소속 배열과 일치. 계약 `id` 는 파일명과 일치.
@@ -82,9 +84,10 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
 2. 출력 JSON 스키마:
 ```json
 {"scores": {"functionality":0,"quality":0,"security":0,"errors":0,"tests":0},
- "findings": [{"criterion_id":"AC-1|REGRESSION","dimension":"...","summary":"...","repro":"<cmd>"}],
- "out_of_scope": [{"summary":"..."}]}
+ "findings": [{"criterion_id":"AC-1|REGRESSION","dimension":"...","summary":"...","repro":"<cmd>","severity":"high|medium|low","backlog_id":"B3"}],
+ "out_of_scope": [{"summary":"...","severity":"high|medium|low","backlog_id":"B3"}]}
 ```
+   `severity`·`backlog_id` 는 선택이며 backlog 로 가는 항목에만 쓰인다(§7.7). 스키마 밖 값은 스키마 오류가 아니라 무시된다.
 3. 코어 판정:
    - 스키마 불일치 → 1회 재요청, 재실패 시 라운드 무효(`eval_error`, 라운드 소모 없음, 2회 연속이면 blocked). eval_error 는 `verdicts/F{n}-r{k}.eval_error.json`(consecutive 카운터 포함)에 기록하며 라운드 파일로 세지 않는다. 어댑터 `timeout`·`exit_nonzero` 도 eval_error(재시도 없음).
    - finding이 **차단적**이려면: `criterion_id`가 계약에 존재(또는 `REGRESSION`) ∧ `repro` 존재 ∧ **코어가 worktree에서 repro를 실행해 비정상 종료 재현**. 그 외는 `backlog.json`으로. repro 가 명령 미발견(127/9009, Windows `cmd.exe` 의 exit 1 + stderr 첫 줄이 `'<프로그램>' is not recognized as an internal or external command` 로 시작 — 문구를 인용만 한 출력은 해당 없음)·실행 불가면 비차단(`repro_not_runnable`), 시그널 종료는 비정상 종료로 본다. 코어는 repro 가 git 내부 조작(update-index 플래그, filter clean/smudge, replace, hooksPath, git config, `.git/config`·`.git/info`)을 포함하면 실행하지 않고 `adversarial_scenario` 로 backlog 한다(D1 의 결정적 보조).
@@ -104,6 +107,14 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
    - `blocked` 이면 backlog.json 에 `source: F{n}-blocked`, `reason`, 재범위 선택지 `split`·`rewrite`·`accept` 항목을 추가한다(같은 라운드·reason 은 한 번만).
    - **라운드와 판정 파일 번호**: 판정 파일 번호는 기능별로 계속 증가한다 — `F{n}-r{k}.json` 의 k 는 계약 버전과 무관하게 기존 최대 번호 + 1 이고, 기존 판정 파일은 덮어쓰지 않는다(`run`·`eval` 모두). 라운드 상한(max_rounds)과 수렴 비교는 계약 해시 단위다 — 현재 승인 해시와 같은 `contract_hash` 의 판정만 세고, 수렴은 그 해시의 직전 판정하고만 비교한다. 그래서 blocked 후 새 버전으로 재승인하면 max_rounds 라운드를 새로 받는다. 판정 기록의 `contract_round` 가 현재 계약 해시 안에서의 라운드 번호이고, 출력에 `round <contract_round>/<max_rounds>` 가 나온다. `contract_hash` 가 없는 판정(F18 이전 기록)은 다른 계약의 라운드로 취급해 파일 번호 계산에만 넣는다. 판정 파일이 JSON 으로 읽히지 않으면(해시를 알 수 없음) 어댑터 호출 없이 `state_corrupt`(파일 경로 포함, E6).
    - features.json 쓰기가 실패하면 verdict 파일은 남기고 exit 2(`io`). features 항목의 `eval_round` 가 기록된 마지막 라운드이며, 최신 `origin: eval` verdict 의 라운드가 그와 다르면 다음 `harness eval F{n}` 은 새 평가 없이 그 라운드의 상태 기록을 재시도한다.
+7. **backlog 정리 루프** (`backlog.json`)
+   - **id**: 코어가 backlog 를 쓸 때(평가 결과 기록, blocked 재범위 제안, resolves 해결) `id` 가 없는 항목(기존 항목 포함)에 파일 순서대로 `B1`, `B2`, … 를 붙인다. 새 번호는 기존 `B<n>` 중 가장 큰 번호 다음이고, 이미 있는 id 는 바뀌지 않는다. id 가 중복된 backlog 는 E6(state_corrupt, 메시지에 중복 id) — 평가·status·lint-contract 가 파일을 고치지 않고 exit 2.
+   - **severity → priority**: findings·out_of_scope 항목의 `severity`(`high`·`medium`·`low`)는 backlog 항목의 `priority` 로 기록된다. 그 외 값은 무시되고 `priority` 를 쓰지 않는다. 기존 항목의 priority 는 소급 추정하지 않는다.
+   - **열린 항목**: `resolved_by` 가 없는 항목. 평가 프롬프트의 `## Open backlog` 절에 열린 항목의 `id`·`priority`·`summary` 를 priority `high`→`medium`→`low`→없음 순(같은 priority 안에서는 파일 순서)으로 최대 40개 넣는다.
+   - **반복 지적 합치기**: 평가자 출력 항목의 `backlog_id` 가 열린 항목 id 와 같으면 새 항목을 만들지 않고 그 항목의 `seen` 을 1 늘리고(없으면 1 로 보고 2) `sources` 에 `F{n}-r{k}`(이번 기능·판정 파일 번호)를 추가한다. `backlog_id` 가 없는 id 이거나 이미 해결된 항목을 가리키면 새 항목으로 추가된다. 요약 문장의 유사도로 자동 중복 판정은 하지 않는다.
+   - **resolves**: 계약의 `resolves`(§5)에 적힌 열린 항목은 그 기능이 `passed` 로 기록될 때(대화형 `harness eval` §7.6, `harness run` §8.5 각각) `resolved_by` 가 기능 id 가 된다. fail·blocked 이면 바뀌지 않는다. 이미 해결된 항목의 `resolved_by` 는 덮어쓰지 않는다.
+   - **status**: `harness status` 는 `backlog: N open (high a · medium b · low c · none d)` 줄과 열린 `high` 항목 최대 5개(id·summary 앞 100자)를 보여 준다. `--brief` 에는 열린 high 항목 수만 ` — backlog high: n` 으로 덧붙인다(0 이면 생략). backlog.json 이 `{ items: [...] }` 가 아니면 status 도 E6 로 exit 2.
+   - **새 계약을 쓸 때**(spec skill): 열린 `high` 항목을 검토해 이 기능이 해결하는 항목의 id 를 `resolves` 에 넣는다.
 
 ## 8. 자율 실행 (`harness run [F…] [--max-usd N]`)
 **사전 점검**: 새 run 은 integration 브랜치·첫 기능의 worktree·`harness/F{n}` 브랜치를 만들거나 builder 를 부르기 전에 `harness doctor`(§10)의 역할 판정을 확인한다. builder·evaluator 가, 범위(인자로 준 기능, 없으면 `approved`/`in_progress` 기능 전체)에 `critical` 기능이 있으면 security-reviewer 도 usable 이어야 한다 — 하나라도 usable 이 아니면 각 역할 이름과 이유(`not installed`, `--help lacks …`, `not authenticated …`)를 담은 메시지로 exit 2, 아무것도 만들지 않는다. critical 기능이 범위에 없으면 security-reviewer 는 보지 않는다. 범위에 실행할 기능이 없으면 점검하지 않는다. `--resume` 재개는 점검하지 않는다.
@@ -180,7 +191,7 @@ hooks/hooks.json             Claude SessionStart 1개: `harness status --brief` 
 | E3 | 병합 충돌 | 병합 중단(`git merge --abort`), 기능 blocked(`merge_conflict`) |
 | E4 | worktree 생성 실패 | 기능 blocked, 나머지 계속 |
 | E5 | 예산·timeout 초과 | 프로세스 종료(자식 포함), blocked(`budget`) |
-| E6 | 상태 파일 손상(JSON 파싱 불가, §4 형식 위반 — config 가 객체 아님·객체 키의 타입 오류·배열 키가 배열 아님 또는 빈/비문자열 원소·test_count 타입 오류, features 항목의 id·title·status 누락/비문자열) | 즉시 정지(exit 2), 파일 경로·필드 이름 또는 항목 번호(`features[i]`)를 포함한 수정 안내 — 추측 복구 금지 |
+| E6 | 상태 파일 손상(JSON 파싱 불가, §4 형식 위반 — backlog 가 `{ items: [...] }` 아님·항목 id 중복, config 가 객체 아님·객체 키의 타입 오류·배열 키가 배열 아님 또는 빈/비문자열 원소·test_count 타입 오류, features 항목의 id·title·status 누락/비문자열) | 즉시 정지(exit 2), 파일 경로·필드 이름 또는 항목 번호(`features[i]`)를 포함한 수정 안내 — 추측 복구 금지 |
 | E7 | 실행 중 인터럽트(SIGINT) | 현재 단계 종료, 상태 저장, `--resume` 안내 |
 
 ## 13. v1 마이그레이션 (`harness migrate-v1`)
