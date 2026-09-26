@@ -1,0 +1,93 @@
+{
+  "feature": "F30",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The base count cache is keyed by (merge-base sha, command string, rule) only. A command whose output depends on the environment (tool versions, env vars, config outside git) reuses a stale cached base count. Nothing invalidates the entry, and the file is a plain writable JSON, so a wrong value only goes away when the key changes or the entry is overwritten.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "For from:commands[i] the base run ignores the exit code, so a base run that crashes after printing a partial '# tests N' summary line is cached as the base count. That can under-state base and hide a later decrease.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Concurrent verifies re-read the cache file and then write it atomically, but there is no lock. Two verifies finishing at the same moment can drop each other's entry. The cost is only an extra base run later.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The F30 test file takes about 43 s because each case builds a git fixture and runs real subprocesses. Several tests assert exact run counts through log files, which is robust, but the file is slow on loaded CI.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The cache trusts any valid non-negative integer. SC-1 rejects only strings, negatives, fractions and null. If an entry for the current (merge-base, command, rule) key holds a smaller valid integer such as 0, it is used as the base count and a real test decrease is reported as ok. The cache lives at paths(root).runs, and when verify runs in a feature worktree that path is under the builder's worktree; runs/** is also exempt from the .harness integrity check. A cooperative builder is unlikely to write this file (threat model D1), but the cache has no provenance check such as core-only storage outside the worktree or a keyed checksum.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": ".harness/runs/test-count-cache.json is not gitignored (git check-ignore finds no rule for it). A core or builder `git add -A` in a feature worktree could commit the cache into the feature branch and then into integration. Entries are keyed by commit sha, so stale entries are harmless, but the file would grow in history and carry cache state between checkouts.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "storeCount rereads the file and then writes it atomically without a lock. When verifies of different features run in parallel against a shared root, one write can overwrite another's entry (last writer wins). The only effect is an extra base run later, not a wrong count.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.7996826,
+  "contract_hash": "3d367eb66a2ead56f4d88492414f135659b440e694a21a5c94837ac15efff604",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 8,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T10:12:02.073Z",
+  "origin": "run"
+}

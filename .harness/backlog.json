@@ -1400,7 +1400,11 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B184"
+      "id": "B184",
+      "seen": 2,
+      "sources": [
+        "F31-r1"
+      ]
     },
     {
       "feature": "F26",
@@ -1631,6 +1635,180 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B204"
+    },
+    {
+      "feature": "F30",
+      "round": 1,
+      "at": "2026-09-26T10:12:02.073Z",
+      "summary": "The base count cache is keyed by (merge-base sha, command string, rule) only. A command whose output depends on the environment (tool versions, env vars, config outside git) reuses a stale cached base count. Nothing invalidates the entry, and the file is a plain writable JSON, so a wrong value only goes away when the key changes or the entry is overwritten.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B205"
+    },
+    {
+      "feature": "F30",
+      "round": 1,
+      "at": "2026-09-26T10:12:02.073Z",
+      "summary": "For from:commands[i] the base run ignores the exit code, so a base run that crashes after printing a partial '# tests N' summary line is cached as the base count. That can under-state base and hide a later decrease.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B206"
+    },
+    {
+      "feature": "F30",
+      "round": 1,
+      "at": "2026-09-26T10:12:02.073Z",
+      "summary": "Concurrent verifies re-read the cache file and then write it atomically, but there is no lock. Two verifies finishing at the same moment can drop each other's entry. The cost is only an extra base run later.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B207"
+    },
+    {
+      "feature": "F30",
+      "round": 1,
+      "at": "2026-09-26T10:12:02.073Z",
+      "summary": "The F30 test file takes about 43 s because each case builds a git fixture and runs real subprocesses. Several tests assert exact run counts through log files, which is robust, but the file is slow on loaded CI.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B208"
+    },
+    {
+      "feature": "F30",
+      "round": 1,
+      "at": "2026-09-26T10:12:02.073Z",
+      "summary": "The cache trusts any valid non-negative integer. SC-1 rejects only strings, negatives, fractions and null. If an entry for the current (merge-base, command, rule) key holds a smaller valid integer such as 0, it is used as the base count and a real test decrease is reported as ok. The cache lives at paths(root).runs, and when verify runs in a feature worktree that path is under the builder's worktree; runs/** is also exempt from the .harness integrity check. A cooperative builder is unlikely to write this file (threat model D1), but the cache has no provenance check such as core-only storage outside the worktree or a keyed checksum.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B209"
+    },
+    {
+      "feature": "F30",
+      "round": 1,
+      "at": "2026-09-26T10:12:02.073Z",
+      "summary": ".harness/runs/test-count-cache.json is not gitignored (git check-ignore finds no rule for it). A core or builder `git add -A` in a feature worktree could commit the cache into the feature branch and then into integration. Entries are keyed by commit sha, so stale entries are harmless, but the file would grow in history and carry cache state between checkouts.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B210"
+    },
+    {
+      "feature": "F30",
+      "round": 1,
+      "at": "2026-09-26T10:12:02.073Z",
+      "summary": "storeCount rereads the file and then writes it atomically without a lock. When verifies of different features run in parallel against a shared root, one write can overwrite another's entry (last writer wins). The only effect is an extra base run later, not a wrong count.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B211"
+    },
+    {
+      "feature": "F31",
+      "round": 1,
+      "at": "2026-09-26T10:36:12.187Z",
+      "summary": "lib/commands/approve.mjs runs `git config user.email` with spawnSync and no timeout, so it is not bounded by budget.git_timeout_sec. It is not a verify/eval/run git call, so it is outside AC-1.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B212"
+    },
+    {
+      "feature": "F31",
+      "round": 1,
+      "at": "2026-09-26T10:36:12.187Z",
+      "summary": "In verify.mjs the cleanup `git worktree remove` and `git worktree prune` sit in a finally block. They now throw HarnessError(git) on timeout, and that error can replace the original error from the try body. The remove and prune calls are also not wrapped, unlike the earlier best-effort handling (see B184).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B213"
+    },
+    {
+      "feature": "F31",
+      "round": 1,
+      "at": "2026-09-26T10:36:12.187Z",
+      "summary": "runFeatures fills the shared `gitOpts` object with timeoutSec only after the config is validated. Any core git call made before that point would use the default 300s instead of the configured value. No such call exists today, but the ordering is implicit.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B214"
+    },
+    {
+      "feature": "F31",
+      "round": 1,
+      "at": "2026-09-26T10:36:12.187Z",
+      "summary": "The SC-1 and AC-3 tests use wall-clock budgets (5s and 15s) with a fake git that sleeps for 30s or more. They can be slow on a loaded machine. This is similar to B177 and B185.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B215"
+    },
+    {
+      "feature": "F31",
+      "round": 1,
+      "at": "2026-09-26T10:36:12.187Z",
+      "summary": "lib/run.mjs integration merge (around line 851): a `git merge` that times out now throws instead of returning a failed result. As a result, the `merge --abort` path is never reached. The integration worktree can be left mid-merge (MERGE_HEAD present) until the next run or a manual cleanup. This only happens when a merge takes longer than budget.git_timeout_sec (300s by default).",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B216"
+    },
+    {
+      "feature": "F31",
+      "round": 1,
+      "at": "2026-09-26T10:36:12.187Z",
+      "summary": "In lib/eval.mjs, git() reads `opts.timeoutSec` without optional chaining, while the line above uses `opts?.signal`. Every current caller passes opts, so nothing fails today. A future caller that omits opts and hits a timeout would get a TypeError instead of the git timeout error.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B217"
+    },
+    {
+      "feature": "F31",
+      "round": 1,
+      "at": "2026-09-26T10:36:12.187Z",
+      "summary": "The end-to-end tests for AC-1, AC-3 and SC-1 return early on Windows because the fake git is a shell script. Process-tree kill through taskkill /T is not exercised for core git timeouts on Windows.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B218"
+    },
+    {
+      "feature": "F31",
+      "round": 1,
+      "at": "2026-09-26T10:36:12.187Z",
+      "summary": "The `git config user.email` call in lib/commands/approve.mjs uses spawnSync with no timeout, so budget.git_timeout_sec does not cover it. The contract scopes the limit to verify, eval and run, so this is outside it.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B219"
+    },
+    {
+      "source": "run:F31",
+      "feature": "F31",
+      "kind": "rescope",
+      "reason": "merge_conflict",
+      "rounds": 1,
+      "blocking": [],
+      "summary": "F31 blocked (merge_conflict): the feature branch conflicts with the integration branch and one automatic resolution did not fix it — automatic conflict resolution failed: conflict markers left in docs/SPEC.md",
+      "options": [
+        {
+          "kind": "split",
+          "summary": "split F31 so the feature ship as a separate feature with its own contract"
+        },
+        {
+          "kind": "rewrite",
+          "summary": "rewrite the criteria for the feature (new contract version, re-approval)"
+        },
+        {
+          "kind": "accept-risk",
+          "summary": "accept the risk: drop or relax the feature with a recorded decision"
+        }
+      ],
+      "id": "B220"
     }
   ]
 }

@@ -1,0 +1,106 @@
+{
+  "feature": "F31",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "lib/commands/approve.mjs runs `git config user.email` with spawnSync and no timeout, so it is not bounded by budget.git_timeout_sec. It is not a verify/eval/run git call, so it is outside AC-1.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "In verify.mjs the cleanup `git worktree remove` and `git worktree prune` sit in a finally block. They now throw HarnessError(git) on timeout, and that error can replace the original error from the try body. The remove and prune calls are also not wrapped, unlike the earlier best-effort handling (see B184).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "runFeatures fills the shared `gitOpts` object with timeoutSec only after the config is validated. Any core git call made before that point would use the default 300s instead of the configured value. No such call exists today, but the ordering is implicit.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The SC-1 and AC-3 tests use wall-clock budgets (5s and 15s) with a fake git that sleeps for 30s or more. They can be slow on a loaded machine. This is similar to B177 and B185.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "lib/verify.mjs has a cleanup regression in its finally block (around line 432). The core git runner now throws when a command times out. If `git worktree remove --force <baseDir>` passes git_timeout_sec, the throw skips the `fs.rmSync(baseDir)` and `git worktree prune` that follow it. The temporary base checkout (harness-base-*) is then left in os.tmpdir() and stays registered as a worktree. The throw also replaces the original verify result or error. Before this change the timeout returned quietly and the cleanup still ran. Fix idea: wrap each finally-block git call in try/catch, or do the rmSync and prune whatever the remove does.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B184"
+    },
+    {
+      "summary": "lib/run.mjs integration merge (around line 851): a `git merge` that times out now throws instead of returning a failed result. As a result, the `merge --abort` path is never reached. The integration worktree can be left mid-merge (MERGE_HEAD present) until the next run or a manual cleanup. This only happens when a merge takes longer than budget.git_timeout_sec (300s by default).",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "In lib/eval.mjs, git() reads `opts.timeoutSec` without optional chaining, while the line above uses `opts?.signal`. Every current caller passes opts, so nothing fails today. A future caller that omits opts and hits a timeout would get a TypeError instead of the git timeout error.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The end-to-end tests for AC-1, AC-3 and SC-1 return early on Windows because the fake git is a shell script. Process-tree kill through taskkill /T is not exercised for core git timeouts on Windows.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The `git config user.email` call in lib/commands/approve.mjs uses spawnSync with no timeout, so budget.git_timeout_sec does not cover it. The contract scopes the limit to verify, eval and run, so this is outside it.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.7239187999999999,
+  "contract_hash": "761f32bba2bfc31e6173ae9b2ad86fb16ed69c5a500e2633cb60c66000c59450",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 8,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T10:36:12.187Z",
+  "origin": "run"
+}
