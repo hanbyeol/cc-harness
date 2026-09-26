@@ -97,6 +97,12 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
   양의 정수나 `--parallel N`이면 그 수가 상한입니다. verify(병합 후 verify 포함)는 build·eval과 별도인 풀에서
   최대 `run.verify_parallel`개만 동시에 돕니다(`'auto'`·미지정 = `max(1, floor(CPU 수 / 8))`). worktree·브랜치·병합
   git 호출은 하나의 잠금으로 직렬화되고 병합은 한 번에 하나입니다.
+- **verify 내부 동시 실행** — 한 verify 안에서 기준 check와 `new: true` 기준의 base vacuity 실행은 동시에 최대
+  `verify.check_parallel`개 돕니다(`'auto'`·미지정 = `max(1, floor(CPU 수 / 4))`). head·base 테스트 수는 동시에 세고,
+  base 테스트 수를 센 뒤 기능의 테스트 파일을 base에 얹고 나서야 base vacuity 실행이 시작됩니다. 동시 실행 중 실패한
+  check는 모두 끝난 뒤 혼자 한 번 더 돌려 통과하면 pass(`parallel_retry: true`와 경고)로 기록합니다. 시간 초과는
+  재확인 없이 fail입니다. check끼리 DB·포트 같은 자원을 공유하면 `verify.check_parallel`을 1로 두세요 — 전처럼
+  하나씩 순서대로 실행됩니다. `verify.commands`는 항상 순서대로 실행됩니다.
 - **병합 충돌** — 기능 병합이 충돌하면 코어가 그 기능 worktree에서 integration을 병합해 충돌 상태를 만들고,
   충돌 파일 목록과 함께 builder를 1회 부릅니다. 해결 결과는 verify·eval을 다시 거친 뒤 병합됩니다. 그래도 충돌하거나
   builder가 실패하거나 충돌 표시(`<<<<<<<`)가 남으면 `blocked`(`merge_conflict`)이고 integration은 그대로입니다.
