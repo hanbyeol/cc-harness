@@ -3,18 +3,25 @@
 // several harness features verify at the same time on one machine. Exit 0 when every run
 // passes; otherwise prints each failing test with the number of runs it failed in, exit 1.
 // `--root <dir>` runs the suite of another checkout (used by the tests of this script).
+// `--files <glob>` (relative to the root) runs only the matching test files — the load of the
+// whole suite is not needed to stress a few timing-sensitive files.
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { expandFileGlob } from '../lib/glob.mjs';
 
-const USAGE = 'usage: node test/stress.mjs <N> [--root <dir>]   (N: positive integer)';
+const USAGE = 'usage: node test/stress.mjs <N> [--root <dir>] [--files <glob>]   (N: positive integer)';
 
 const args = process.argv.slice(2);
 let root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+let filesGlob = null;
 const positional = [];
 for (let i = 0; i < args.length; i += 1) {
   if (args[i] === '--root' && args[i + 1] !== undefined) {
     root = path.resolve(args[i + 1]);
+    i += 1;
+  } else if (args[i] === '--files' && args[i + 1] !== undefined) {
+    filesGlob = args[i + 1];
     i += 1;
   } else {
     positional.push(args[i]);
@@ -25,6 +32,15 @@ if (positional.length !== 1 || !/^[1-9]\d*$/.test(positional[0])) {
   process.exit(2);
 }
 const n = Number(positional[0]);
+
+let testFiles = ['test/**/*.test.mjs'];
+if (filesGlob !== null) {
+  testFiles = expandFileGlob(filesGlob, root);
+  if (testFiles.length === 0) {
+    console.error(`stress: no test files match ${filesGlob} in ${root}`);
+    process.exit(2);
+  }
+}
 
 // Failing leaf tests of one TAP run. node prints a test's children before its own line,
 // so a failed parent (suite, file) that already has failed children is not reported itself.
@@ -44,7 +60,7 @@ function failedTests(tap) {
 function runSuite() {
   return new Promise((resolve) => {
     const child = spawn(process.execPath,
-      ['--test', '--test-reporter=tap', 'test/**/*.test.mjs'],
+      ['--test', '--test-reporter=tap', ...testFiles],
       // NODE_TEST_CONTEXT (set when this runs under node --test) switches the nested runner
       // to a child protocol with no TAP on stdout — drop it, as t.mjs does.
       { cwd: root, env: { ...process.env, NODE_TEST_CONTEXT: undefined }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -61,7 +77,10 @@ function runSuite() {
 }
 
 const started = Date.now();
-console.log(`stress: running ${n} concurrent test suite${n === 1 ? '' : 's'} in ${root}`);
+const what = filesGlob === null
+  ? `test suite${n === 1 ? '' : 's'}`
+  : `run${n === 1 ? '' : 's'} of ${testFiles.length} test file${testFiles.length === 1 ? '' : 's'}`;
+console.log(`stress: running ${n} concurrent ${what} in ${root}`);
 const runs = await Promise.all(Array.from({ length: n }, runSuite));
 
 const counts = new Map();

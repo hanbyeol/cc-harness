@@ -19,7 +19,8 @@ Correctness > Safety > Speed.
   minutes. A test that only passes on an idle machine is not done. Fix it by waiting on an
   explicit condition with a generous bound, not by asserting a tighter wall-clock time. It is not
   part of CI. `node test/stress.mjs 3` is the harder bar — three concurrent suites still fail
-  some timing tests; that is backlog.
+  some timing tests; that is backlog. `--files '<glob>'` (e.g. `node test/stress.mjs 3 --files
+  'test/f2[3568]-*.test.mjs'`) stresses only the matching test files.
 - Weakened tests: `node test/assert-count.mjs` compares each test file with its version at the
   merge base of the base branch and exits 1 when an assert was removed, a test name changed or
   a file was deleted. Run it after changing existing tests to make them stable.
