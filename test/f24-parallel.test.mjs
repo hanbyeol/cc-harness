@@ -121,47 +121,29 @@ const branchExists = (dir, b) => spawnSync('git', ['rev-parse', '--verify', '--q
 const buildsOf = (build, id) => build.calls.filter((c) => c.featureId === id);
 
 // ------------------------------------------------------------------ AC-1
-// The fixed cost of a run (worktrees, serial merges, git) varies a lot by machine — about 13 s
-// on windows-latest. Measure it with the same two features and no build delay, and apply the
-// 0.75 bound to the time the builds added, so the check measures parallelism, not git speed.
-async function fixedOverhead(runOpts) {
-  const dir = fixture([{ id: 'F1' }, { id: 'F2' }]);
-  const t0 = now();
-  await run(dir, { build: slowBuild({ delay: () => 0 }) }, runOpts);
-  return now() - t0;
+// The 0.75 bound applies to the build window (first build start → last build end): the part of
+// the run the builds occupy. The fixed git cost around it (worktrees, serial merges) varies a lot
+// by machine (~13 s on windows-latest) and measuring it separately left ~1% noise at the bound.
+// Serial builds span 2 × DELAY and fail the bound; parallel ones span about DELAY.
+const buildWindow = (build) => {
+  const firsts = ['F1', 'F2'].map((id) => buildsOf(build, id)[0]);
+  return Math.max(...firsts.map((c) => c.end)) - Math.min(...firsts.map((c) => c.start));
+};
+
+for (const [label, opts] of [['--parallel 2', { parallel: 2 }], ['config run.max_parallel 2', { config: { run: { max_parallel: 2 } } }]]) {
+  test(`F24 AC-1: ${label} builds two independent features at the same time`, async () => {
+    const dir = fixture([{ id: 'F1' }, { id: 'F2' }]);
+    const DELAY = 12000;
+    const build = slowBuild({ delay: () => DELAY });
+    const r = await run(dir, { build }, opts);
+    assert.deepEqual(statuses(dir), { F1: 'passed', F2: 'passed' });
+    const [a, b] = [buildsOf(build, 'F1')[0], buildsOf(build, 'F2')[0]];
+    assert.ok(overlap(a, b), `build intervals overlap: ${JSON.stringify([a, b].map((x) => [x.start, x.end]))}`);
+    const window = buildWindow(build);
+    assert.ok(window < 0.75 * 2 * DELAY, `builds spanned ${Math.round(window)}ms, expected < ${0.75 * 2 * DELAY}ms`);
+    assert.equal(r.results.length, 2);
+  });
 }
-
-test('F24 AC-1: --parallel 2 builds two independent features at the same time', async () => {
-  const dir = fixture([{ id: 'F1' }, { id: 'F2' }]);
-  // A run has a few seconds of fixed git overhead (worktrees, serial merges); the delay is
-  // large enough that the 0.75 bound measures the parallel builds, not git.
-  const DELAY = 12000;
-  const build = slowBuild({ delay: () => DELAY });
-  const overhead = await fixedOverhead({ parallel: 2 });
-  const t0 = now();
-  const r = await run(dir, { build }, { parallel: 2 });
-  const total = now() - t0 - overhead;
-  assert.deepEqual(statuses(dir), { F1: 'passed', F2: 'passed' });
-  const [a, b] = [buildsOf(build, 'F1')[0], buildsOf(build, 'F2')[0]];
-  assert.ok(overlap(a, b), `build intervals overlap: ${JSON.stringify([a, b].map((x) => [x.start, x.end]))}`);
-  assert.ok(total < 0.75 * 2 * DELAY, `builds added ${Math.round(total)}ms over the fixed overhead, expected < ${0.75 * 2 * DELAY}ms`);
-  assert.equal(r.results.length, 2);
-});
-
-test('F24 AC-1: config run.max_parallel 2 builds two independent features at the same time', async () => {
-  const dir = fixture([{ id: 'F1' }, { id: 'F2' }]);
-  // A run has a few seconds of fixed git overhead (worktrees, serial merges); the delay is
-  // large enough that the 0.75 bound measures the parallel builds, not git.
-  const DELAY = 12000;
-  const build = slowBuild({ delay: () => DELAY });
-  const overhead = await fixedOverhead({ config: { run: { max_parallel: 2 } } });
-  const t0 = now();
-  await run(dir, { build }, { config: { run: { max_parallel: 2 } } });
-  const total = now() - t0 - overhead;
-  assert.deepEqual(statuses(dir), { F1: 'passed', F2: 'passed' });
-  assert.ok(overlap(buildsOf(build, 'F1')[0], buildsOf(build, 'F2')[0]));
-  assert.ok(total < 0.75 * 2 * DELAY, `builds added ${Math.round(total)}ms over the fixed overhead, expected < ${0.75 * 2 * DELAY}ms`);
-});
 
 test('F24 AC-1: harness run --parallel 2 reaches the run (CLI)', () => {
   assert.equal(parseArgs(['--parallel', '2']).parallel, 2);

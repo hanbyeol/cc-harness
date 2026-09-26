@@ -15,9 +15,10 @@ const CHECK = path.join(REPO, 'test', 'fixtures', 'interval-check.mjs');
 
 // A check command running the interval recorder. On base it exits 1 unless baseExit says otherwise,
 // so new criteria are not vacuous.
-const cmd = (log, id, { ms = 0, exit = 0, baseExit = 1, failIfOverlap = false, probe, print } = {}) => [
+const cmd = (log, id, { ms = 0, exit = 0, baseExit = 1, failIfOverlap = false, probe, print, awaitOther = false } = {}) => [
   'node', JSON.stringify(CHECK), JSON.stringify(log), id, '--ms', ms, '--exit', exit, '--base-exit', baseExit,
   ...(failIfOverlap ? ['--fail-if-overlap'] : []), ...(probe ? ['--probe', probe] : []), ...(print !== undefined ? ['--print', print] : []),
+  ...(awaitOther ? ['--await-other-side'] : []),
 ].join(' ');
 
 const CONTRACT = (criteria) => ({
@@ -214,7 +215,7 @@ test('F26 AC-4: base vacuity runs start only after the base test count and the o
 test('F26 AC-5: test_count is computed on head and base at the same time', async () => {
   const log = logFile();
   const dir = fixture([{ id: 'AC-1', check: 'node -e "0"' }]);
-  const r = await run(dir, { config: cfg({ test_count: cmd(log, 'count', { ms: 600, baseExit: 0, print: 3 }) }) });
+  const r = await run(dir, { config: cfg({ test_count: cmd(log, 'count', { ms: 600, baseExit: 0, print: 3, awaitOther: true }) }) });
   assert.equal(r.integrity.testCount.status, 'ok', JSON.stringify(r.integrity.testCount));
   const runs = intervals(log);
   const head = runs.find((x) => x.side === 'head');
