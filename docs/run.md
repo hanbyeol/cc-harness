@@ -40,6 +40,24 @@ builder 가 실패하거나, 다시 거친 verify·eval·병합 후 verify 가 �
 줄 중간에 `` `<<<<<<<` `` 를 인용한 문서(SPEC, 이 문서)는 충돌 표시가 아니므로 그런 파일이 충돌 파일이어도 해결이
 받아들여진다.
 
+검사 대상은 git 이 충돌로 보고한 파일만이 아니라 해결 과정에서 바뀐 모든 파일이다 — 병합 직후 상태와 내용이 달라진
+추적 파일·새 파일(builder 가 커밋했으면 그 커밋의 파일 포함). integration 에서 병합된 뒤 builder 가 건드리지 않은
+파일(예: 단독 `=======` 밑줄이 있는 Markdown 제목)은 검사하지 않는다.
+
+### merge --abort 실패
+
+복구가 실패하면 코어는 기능 worktree 의 병합을 `git merge --abort` 로 되돌린다. `merge --abort` 가 실패하면
+그 worktree 를 `git reset --hard` 로 병합 전 커밋으로 정리한다 — MERGE_HEAD 가 남지 않고 integration 브랜치 커밋은
+바뀌지 않는다. blocked detail 에 `merge --abort failed`, 실패 메시지와 되돌린 커밋이 나온다. `reset --hard` 까지
+실패하면 그 기능은 `blocked(merge_conflict)` 이고 detail 에 worktree 경로와 두 실패 메시지가 나온다(손으로 정리한다).
+run 은 다른 기능을 계속 진행한다.
+
+### git 직렬화
+
+worktree·브랜치를 바꾸는 호출(`git worktree add`·`remove`, `git branch`, `git merge`)과 코어가 기능·integration
+worktree 에서 실행하는 `git add`·`git commit`·`git reset --hard` 는 하나의 잠금으로 직렬화된다 — 병렬 기능들의 이런
+호출은 서로 겹치지 않는다.
+
 ## 실패 기록
 
 ### 보고서 (`.harness/runs/{runId}.md`)
