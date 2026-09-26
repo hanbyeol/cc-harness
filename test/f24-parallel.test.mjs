@@ -113,19 +113,30 @@ const branchExists = (dir, b) => spawnSync('git', ['rev-parse', '--verify', '--q
 const buildsOf = (build, id) => build.calls.filter((c) => c.featureId === id);
 
 // ------------------------------------------------------------------ AC-1
+// The fixed cost of a run (worktrees, serial merges, git) varies a lot by machine — about 13 s
+// on windows-latest. Measure it with the same two features and no build delay, and apply the
+// 0.75 bound to the time the builds added, so the check measures parallelism, not git speed.
+async function fixedOverhead(runOpts) {
+  const dir = fixture([{ id: 'F1' }, { id: 'F2' }]);
+  const t0 = now();
+  await run(dir, { build: slowBuild({ delay: () => 0 }) }, runOpts);
+  return now() - t0;
+}
+
 test('F24 AC-1: --parallel 2 builds two independent features at the same time', async () => {
   const dir = fixture([{ id: 'F1' }, { id: 'F2' }]);
   // A run has a few seconds of fixed git overhead (worktrees, serial merges); the delay is
   // large enough that the 0.75 bound measures the parallel builds, not git.
   const DELAY = 12000;
   const build = slowBuild({ delay: () => DELAY });
+  const overhead = await fixedOverhead({ parallel: 2 });
   const t0 = now();
   const r = await run(dir, { build }, { parallel: 2 });
-  const total = now() - t0;
+  const total = now() - t0 - overhead;
   assert.deepEqual(statuses(dir), { F1: 'passed', F2: 'passed' });
   const [a, b] = [buildsOf(build, 'F1')[0], buildsOf(build, 'F2')[0]];
   assert.ok(overlap(a, b), `build intervals overlap: ${JSON.stringify([a, b].map((x) => [x.start, x.end]))}`);
-  assert.ok(total < 0.75 * 2 * DELAY, `run took ${Math.round(total)}ms, expected < ${0.75 * 2 * DELAY}ms`);
+  assert.ok(total < 0.75 * 2 * DELAY, `builds added ${Math.round(total)}ms over the fixed overhead, expected < ${0.75 * 2 * DELAY}ms`);
   assert.equal(r.results.length, 2);
 });
 
@@ -135,12 +146,13 @@ test('F24 AC-1: config run.max_parallel 2 builds two independent features at the
   // large enough that the 0.75 bound measures the parallel builds, not git.
   const DELAY = 12000;
   const build = slowBuild({ delay: () => DELAY });
+  const overhead = await fixedOverhead({ config: { run: { max_parallel: 2 } } });
   const t0 = now();
   await run(dir, { build }, { config: { run: { max_parallel: 2 } } });
-  const total = now() - t0;
+  const total = now() - t0 - overhead;
   assert.deepEqual(statuses(dir), { F1: 'passed', F2: 'passed' });
   assert.ok(overlap(buildsOf(build, 'F1')[0], buildsOf(build, 'F2')[0]));
-  assert.ok(total < 0.75 * 2 * DELAY, `run took ${Math.round(total)}ms, expected < ${0.75 * 2 * DELAY}ms`);
+  assert.ok(total < 0.75 * 2 * DELAY, `builds added ${Math.round(total)}ms over the fixed overhead, expected < ${0.75 * 2 * DELAY}ms`);
 });
 
 test('F24 AC-1: harness run --parallel 2 reaches the run (CLI)', () => {
