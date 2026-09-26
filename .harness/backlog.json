@@ -1132,10 +1132,12 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B160",
-      "seen": 2,
+      "seen": 3,
       "sources": [
-        "F25-r2"
-      ]
+        "F25-r2",
+        "F38-r1"
+      ],
+      "resolved_by": "F38"
     },
     {
       "feature": "F25",
@@ -1165,7 +1167,11 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B163"
+      "id": "B163",
+      "seen": 2,
+      "sources": [
+        "F38-r1"
+      ]
     },
     {
       "feature": "F25",
@@ -1176,10 +1182,12 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B164",
-      "seen": 2,
+      "seen": 3,
       "sources": [
-        "F25-r2"
-      ]
+        "F25-r2",
+        "F38-r1"
+      ],
+      "resolved_by": "F38"
     },
     {
       "feature": "F25",
@@ -1219,7 +1227,11 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B167"
+      "id": "B167",
+      "seen": 2,
+      "sources": [
+        "F38-r1"
+      ]
     },
     {
       "source": "run:F25",
@@ -1273,7 +1285,11 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B171"
+      "id": "B171",
+      "seen": 2,
+      "sources": [
+        "F38-r1"
+      ]
     },
     {
       "feature": "F25",
@@ -1284,10 +1300,12 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B172",
-      "seen": 2,
+      "seen": 3,
       "sources": [
-        "F32-r1"
-      ]
+        "F32-r1",
+        "F38-r1"
+      ],
+      "resolved_by": "F38"
     },
     {
       "feature": "F27",
@@ -1513,9 +1531,10 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B192",
-      "seen": 3,
+      "seen": 5,
       "sources": [
-        "F29-r2"
+        "F29-r2",
+        "F37-r1"
       ]
     },
     {
@@ -1526,7 +1545,11 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B193"
+      "id": "B193",
+      "seen": 2,
+      "sources": [
+        "F37-r1"
+      ]
     },
     {
       "feature": "F29",
@@ -1537,10 +1560,12 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B194",
-      "seen": 2,
+      "seen": 3,
       "sources": [
-        "F33-r1"
-      ]
+        "F33-r1",
+        "F37-r1"
+      ],
+      "resolved_by": "F37"
     },
     {
       "feature": "F29",
@@ -1566,7 +1591,8 @@
         "F29-r2",
         "F34-r1",
         "F34-r2"
-      ]
+      ],
+      "resolved_by": "F36"
     },
     {
       "feature": "F29",
@@ -2062,11 +2088,13 @@
       "source": "security-reviewer",
       "priority": "medium",
       "id": "B242",
-      "seen": 4,
+      "seen": 5,
       "sources": [
         "F33-r2",
-        "F35-r1"
-      ]
+        "F35-r1",
+        "F37-r1"
+      ],
+      "resolved_by": "F37"
     },
     {
       "feature": "F33",
@@ -2281,6 +2309,186 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B262"
+    },
+    {
+      "feature": "F36",
+      "round": 1,
+      "at": "2026-09-26T14:24:41.482Z",
+      "summary": "The fragment rule applies to every string in the recorded files, not only to cut command output. Any string of 8 or more characters that starts with a suffix of a non-allowlisted env value, or ends with a prefix of one, is replaced by '[redacted]'. Examples are a path fragment or a title-like string. This matches SPEC SR-9 but can garble unrelated short strings when env values are path-like.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B263"
+    },
+    {
+      "feature": "F36",
+      "round": 1,
+      "at": "2026-09-26T14:24:41.482Z",
+      "summary": "`harness verify` (lib/commands/verify.mjs) still calls verify() without a redactor. Its terminal output is not one of the five record paths, so it stays unredacted. It would matter if that output were ever piped into a record.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B264"
+    },
+    {
+      "feature": "F36",
+      "round": 1,
+      "at": "2026-09-26T14:24:41.482Z",
+      "summary": "exec.mjs caps the captured output to its tail before verify redacts it. A cut at that earlier cap is only handled by the leading-fragment rule, which needs 8 or more characters of the value. That is acceptable under SR-9 but is not tested.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B265"
+    },
+    {
+      "feature": "F36",
+      "round": 1,
+      "at": "2026-09-26T14:24:41.482Z",
+      "summary": "The metrics redaction keeps only feature, step, started_at and ended_at. The role, adapter, model and outcome strings are also passed through the redactor, which is harmless but slightly wider than needed.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B266"
+    },
+    {
+      "feature": "F36",
+      "round": 1,
+      "at": "2026-09-26T14:24:41.482Z",
+      "summary": "The redaction of adapter-error text ('crashed [redacted]') is tested only with a leading fragment of the secret that keeps its ending. The trailing-fragment path through metrics, backlog and verdict is covered only by redactor unit tests, not by end-to-end fixtures.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B267"
+    },
+    {
+      "feature": "F36",
+      "round": 1,
+      "at": "2026-09-26T14:24:41.482Z",
+      "summary": "Adapter error detail is cut by tail() in lib/adapters/common.mjs:175 and then placed in the middle of a string, e.g. run.mjs:1031 `builder ${error} (${detail})` or 966. A fragment of a secret at the cut ends up mid-string, so the edge-fragment rule never sees it and it can reach the state file, report or backlog. SPEC SR-9 explicitly puts mid-string fragments out of scope. Consider redacting `detail` before it is embedded, or redacting in the adapter before tail().",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B268"
+    },
+    {
+      "feature": "F36",
+      "round": 1,
+      "at": "2026-09-26T14:24:41.482Z",
+      "summary": "A string that is entirely an inner slice of a secret (both edges cut, e.g. S.slice(3,30)) is not redacted, because it is neither a prefix nor a suffix of the value. The current verify paths do not produce this, since they redact before cutting. SR-9 documents it as out of scope.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B269"
+    },
+    {
+      "feature": "F36",
+      "round": 1,
+      "at": "2026-09-26T14:24:41.482Z",
+      "summary": "trailingFragment only matches when the string ends exactly on the prefix. A prefix fragment followed by a trailing newline or whitespace ('head sk-abcdefgh\\n') is not redacted, while leadingFragment does handle 'fragment...\\r\\n' at the start. There is no current path that produces this, because start-cuts happen after redaction.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B270"
+    },
+    {
+      "feature": "F36",
+      "round": 1,
+      "at": "2026-09-26T14:24:41.482Z",
+      "summary": "evalAndRecord builds its metrics redactor from process.env, while evaluate() redacts the verdict with its own `env` parameter. The two coincide in production, but a caller that passes a custom env gets metrics redacted against a different value set.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B271"
+    },
+    {
+      "feature": "F37",
+      "round": 1,
+      "at": "2026-09-26T14:29:13.975Z",
+      "summary": "The F37 timing tests (head 5s, base 6s, several 20s bounded waits) rely on wall-clock time and process startup, so they may flake or run slowly on a loaded CI host. Similar to B177 and B185.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B272"
+    },
+    {
+      "feature": "F37",
+      "round": 1,
+      "at": "2026-09-26T14:29:13.975Z",
+      "summary": "In the base-retry path, the base solo re-run reuses the limit stored from the first base run (baseRetry map). This matches the SPEC, but no test covers the combination of overlapped-then-retried with a base timeout.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B273"
+    },
+    {
+      "feature": "F37",
+      "round": 1,
+      "at": "2026-09-26T14:29:13.975Z",
+      "summary": "The head duration used for the base limit is measured inside pool(), so time spent waiting in the queue is not counted. Contention from concurrent runs can still make the head run longer, which only makes the base limit more generous. It never makes it shorter, so vacuity detection is not weakened. Not documented in SPEC §6.3.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B274"
+    },
+    {
+      "feature": "F37",
+      "round": 1,
+      "at": "2026-09-26T14:29:13.975Z",
+      "summary": "The F37 tests depend on wall-clock timing (head runs of 2–5 s, base runs of 6–20 s, the 3× multiplier) and take about 85 s. Under heavy CI load, node startup time could push a 'fast' head run above 2 s, raising the limit past 6 s and flaking the exact base_timeout_sec === 6 assertions.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B275"
+    },
+    {
+      "feature": "F38",
+      "round": 1,
+      "at": "2026-09-26T14:29:18.631Z",
+      "summary": "leaveMerge does not clean untracked files. If merge --abort fails, a builder-created untracked file stays in the worktree after the reset. The blocked detail says the worktree was reset, which could suggest it is fully clean.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B276"
+    },
+    {
+      "feature": "F38",
+      "round": 1,
+      "at": "2026-09-26T14:29:18.631Z",
+      "summary": "A resolve run whose merge completed cleanly stores snapshot=null, so every path that differs from the pre-merge HEAD counts as changed. This is harmless today because no builder runs in that case (B161). Documenting it, or an explicit test, would make the invariant less implicit.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B277"
+    },
+    {
+      "feature": "F38",
+      "round": 1,
+      "at": "2026-09-26T14:29:18.631Z",
+      "summary": "The AC-3 test's no-overlap assertion depends on a 60 ms sleep. It works, but on a loaded host the timing could make it flaky (see B177/B185).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B278"
+    },
+    {
+      "feature": "F38",
+      "round": 1,
+      "at": "2026-09-26T14:29:18.631Z",
+      "summary": "leaveMerge acts only when MERGE_HEAD exists. If the conflict-resolution builder commits the merge itself and a marker check fails afterwards, fail() leaves the feature worktree on that merge commit, with the markers in it, and never resets to preMergeHead. The integration branch is unaffected. Consider resetting to e.conflict.preMergeHead when HEAD has moved.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B279"
+    },
+    {
+      "feature": "F38",
+      "round": 1,
+      "at": "2026-09-26T14:29:18.631Z",
+      "summary": "The comment above gitLock in lib/run.mjs (~line 596) still reads 'Worktree, branch and merge changes go through one lock'. It does not mention the add/commit/reset --hard calls that isSerializedGit now serializes.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B280"
     }
   ]
 }

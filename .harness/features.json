@@ -330,7 +330,7 @@
       "depends_on": [
         "F35"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F37",
@@ -339,7 +339,7 @@
       "depends_on": [
         "F35"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F38",
@@ -348,7 +348,7 @@
       "depends_on": [
         "F35"
       ],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }

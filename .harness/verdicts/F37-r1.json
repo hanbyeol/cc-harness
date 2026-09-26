@@ -1,0 +1,110 @@
+{
+  "feature": "F37",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The F37 timing tests (head 5s, base 6s, several 20s bounded waits) rely on wall-clock time and process startup, so they may flake or run slowly on a loaded CI host. Similar to B177 and B185.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "A base not-found run is detected by exit code alone (127, 9009, ENOENT or the 'not recognized' text). A new criterion check that itself exits 127 on base for its own reasons now fails the criterion and stops the run on the environment, rather than counting as non-vacuous. Same limitation as B192.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B192"
+    },
+    {
+      "summary": "B194 (environment stop from a missing program in the base vacuity run) is resolved by this diff through base_not_found and the notFound field that environmentFailure reads.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B194"
+    },
+    {
+      "summary": "B242 asked for a warning when base_timed_out is set. The diff adds one: '<id>: base vacuity run timed out after <N>s …'. The base_timed_out case is still judged as non-vacuous.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B242"
+    },
+    {
+      "summary": "In the base-retry path, the base solo re-run reuses the limit stored from the first base run (baseRetry map). This matches the SPEC, but no test covers the combination of overlapped-then-retried with a base timeout.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The head duration used for the base limit is measured inside pool(), so time spent waiting in the queue is not counted. Contention from concurrent runs can still make the head run longer, which only makes the base limit more generous. It never makes it shorter, so vacuity detection is not weakened. Not documented in SPEC §6.3.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "A check that exits 127 on base for its own reasons, such as a test script that deliberately returns 127, is now reported as base_not_found and stops the run as an environment failure on every --resume. The same ambiguity already exists for head-side checks.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B192"
+    },
+    {
+      "summary": "AC-3 is tested end to end only on POSIX (exit 127). The Windows base-side paths, exit 9009 and cmd.exe's 'not recognized' message, go through the shared isNotFound/missingProgram helpers but are not exercised by any F37 test.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B193"
+    },
+    {
+      "summary": "The F37 tests depend on wall-clock timing (head runs of 2–5 s, base runs of 6–20 s, the 3× multiplier) and take about 85 s. Under heavy CI load, node startup time could push a 'fast' head run above 2 s, raising the limit past 6 s and flaking the exact base_timeout_sec === 6 assertions.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.5488332,
+  "contract_hash": "4f2f66c63bc2fa434e64667b7d6eb9d615809ec72a843e61097ea5508c86b270",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T14:29:13.975Z",
+  "origin": "run"
+}

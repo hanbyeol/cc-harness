@@ -1,0 +1,105 @@
+{
+  "feature": "F36",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The fragment rule applies to every string in the recorded files, not only to cut command output. Any string of 8 or more characters that starts with a suffix of a non-allowlisted env value, or ends with a prefix of one, is replaced by '[redacted]'. Examples are a path fragment or a title-like string. This matches SPEC SR-9 but can garble unrelated short strings when env values are path-like.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "`harness verify` (lib/commands/verify.mjs) still calls verify() without a redactor. Its terminal output is not one of the five record paths, so it stays unredacted. It would matter if that output were ever piped into a record.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "exec.mjs caps the captured output to its tail before verify redacts it. A cut at that earlier cap is only handled by the leading-fragment rule, which needs 8 or more characters of the value. That is acceptable under SR-9 but is not tested.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The metrics redaction keeps only feature, step, started_at and ended_at. The role, adapter, model and outcome strings are also passed through the redactor, which is harmless but slightly wider than needed.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The redaction of adapter-error text ('crashed [redacted]') is tested only with a leading fragment of the secret that keeps its ending. The trailing-fragment path through metrics, backlog and verdict is covered only by redactor unit tests, not by end-to-end fixtures.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Adapter error detail is cut by tail() in lib/adapters/common.mjs:175 and then placed in the middle of a string, e.g. run.mjs:1031 `builder ${error} (${detail})` or 966. A fragment of a secret at the cut ends up mid-string, so the edge-fragment rule never sees it and it can reach the state file, report or backlog. SPEC SR-9 explicitly puts mid-string fragments out of scope. Consider redacting `detail` before it is embedded, or redacting in the adapter before tail().",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "A string that is entirely an inner slice of a secret (both edges cut, e.g. S.slice(3,30)) is not redacted, because it is neither a prefix nor a suffix of the value. The current verify paths do not produce this, since they redact before cutting. SR-9 documents it as out of scope.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "trailingFragment only matches when the string ends exactly on the prefix. A prefix fragment followed by a trailing newline or whitespace ('head sk-abcdefgh\\n') is not redacted, while leadingFragment does handle 'fragment...\\r\\n' at the start. There is no current path that produces this, because start-cuts happen after redaction.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "evalAndRecord builds its metrics redactor from process.env, while evaluate() redacts the verdict with its own `env` parameter. The two coincide in production, but a caller that passes a custom env gets metrics redacted against a different value set.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.7673235999999999,
+  "contract_hash": "1027d32f5432eb63443a3cbd3869eb835de289410c8ba27a01f627d368946bac",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 8,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T14:24:41.482Z",
+  "origin": "run"
+}

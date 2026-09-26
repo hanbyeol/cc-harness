@@ -1,0 +1,123 @@
+{
+  "feature": "F38",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "B160 is resolved by this diff: isSerializedGit now covers add, commit and reset --hard.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B160"
+    },
+    {
+      "summary": "B164 is resolved: the marker check now covers every file changed during resolution, including builder commits.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B164"
+    },
+    {
+      "summary": "B172 is resolved: leaveMerge checks the merge --abort result and resets the worktree.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B172"
+    },
+    {
+      "summary": "leaveMerge does not clean untracked files. If merge --abort fails, a builder-created untracked file stays in the worktree after the reset. The blocked detail says the worktree was reset, which could suggest it is fully clean.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "A resolve run whose merge completed cleanly stores snapshot=null, so every path that differs from the pre-merge HEAD counts as changed. This is harmless today because no builder runs in that case (B161). Documenting it, or an explicit test, would make the invariant less implicit.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The AC-3 test's no-overlap assertion depends on a 60 ms sleep. It works, but on a loaded host the timing could make it flaky (see B177/B185).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "B167 is partly outdated: git commit and reset --hard in the integration worktree now go through the git lock as well as the merge lock. B167 still applies to the two locks being easy to confuse.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B167"
+    },
+    {
+      "summary": "leaveMerge acts only when MERGE_HEAD exists. If the conflict-resolution builder commits the merge itself and a marker check fails afterwards, fail() leaves the feature worktree on that merge commit, with the markers in it, and never resets to preMergeHead. The integration branch is unaffected. Consider resetting to e.conflict.preMergeHead when HEAD has moved.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The comment above gitLock in lib/run.mjs (~line 596) still reads 'Worktree, branch and merge changes go through one lock'. It does not mention the add/commit/reset --hard calls that isSerializedGit now serializes.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "changedSince/contentHash use fs.statSync and readFileSync, which follow symlinks, so a symlinked changed path is hashed through its target. The same applies to the marker scan, which now covers more paths. It is read-only and only affects the marker verdict.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B171"
+    },
+    {
+      "summary": "The AC-3 overlap test records only calls its own changesState predicate selects, and that predicate mirrors isSerializedGit. A new mutating git call missed by both would go unnoticed.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B163"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.5591544,
+  "contract_hash": "b6ffcbd7f36e45286c79092ac1f286db8436a6d32a6b0f75ac65e1f20895861e",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 8,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T14:29:18.631Z",
+  "origin": "run"
+}
