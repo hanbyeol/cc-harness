@@ -2671,6 +2671,13 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B296"
+    },
+    {
+      "id": "B297",
+      "source": "lint",
+      "priority": "low",
+      "summary": "lint-contract rule 3 flags the technical term '절대 경로' (absolute path) as the universal '절대(로)'; contracts must rephrase it (seen in F42 SC-1).",
+      "at": "2026-09-26T17:57:49.260Z"
     }
   ]
 }

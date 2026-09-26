@@ -1,0 +1,61 @@
+{
+  "id": "F44",
+  "title": "명령 없음 판정 정밀화와 코어 명령 해석 — 스크립트 자체의 127 구분, harness 명령 내장 실행, 충돌 검사의 심볼릭 링크",
+  "security_tier": "critical",
+  "version": 1,
+  "resolves": [
+    "B192",
+    "B281",
+    "B171"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify 명령·기준 check·test_count 가 exit 127 로 끝나도 stderr 에 그 명령의 첫 프로그램 이름과 'not found'(또는 'No such file') 가 함께 없으면 명령 없음이 아니라 일반 실패다 — 'sh -c \"exit 127\"' check 는 일반 실패, 없는 프로그램 check 는 명령 없음(경우별 개별 테스트)",
+      "check": "node test/t.mjs \"F44 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "verify 명령·check 가 'harness ' 로 시작하면 코어가 PATH 대신 자기 자신의 bin/harness.mjs 를 현재 node 로 실행한다 — PATH 에 harness 가 없는 fixture 에서 'harness tf-check' verify 명령이 실행된다",
+      "check": "node test/t.mjs \"F44 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "충돌 해결 뒤 충돌 표시 검사는 심볼릭 링크를 따라가지 않는다(lstat) — 충돌 경로가 저장소 밖 파일을 가리키는 링크인 fixture 에서 그 파일을 읽지 않는다",
+      "check": "node test/t.mjs \"F44 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "SPEC §6·§8 이 세 규칙을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F44 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "AC-2 의 내장 실행은 명령 문자열이 정확히 'harness ' 로 시작할 때만이고 셸 해석 없이 인자 배열로 실행된다 — 'harness tf-check; echo pwned' 는 내장 실행되지 않고 셸 명령으로 처리된다",
+      "check": "node test/t.mjs \"F44 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "Windows 형식(exit 9009, 'is not recognized') 판정은 지금과 같다",
+      "check": "node test/t.mjs \"F44 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "환경 변수 밖 비밀 탐지(B191)"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T17:58:41.461Z",
+    "hash": "b290d6183121cbc4ee359ab6342aa366161d15f9ec1c62a51a0178a3df4dd19f"
+  }
+}

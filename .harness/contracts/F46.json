@@ -1,0 +1,36 @@
+{
+  "id": "F46",
+  "title": "부하 3배 안정성 (2) — F3·F21·F29·F31·F37 테스트",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "node test/stress.mjs 3 --files 'test/f{3-verify,21-sleep,29-environment,31-git-timeout,37-vacuity-environment}.test.mjs' 가 exit 0 이다",
+      "check": "node test/stress.mjs 3 --files 'test/f{3-verify,21-sleep,29-environment,31-git-timeout,37-vacuity-environment}.test.mjs'",
+      "new": false
+    },
+    {
+      "id": "AC-2",
+      "criterion": "node test/assert-count.mjs 가 exit 0 이다",
+      "check": "node test/assert-count.mjs",
+      "new": false
+    },
+    {
+      "id": "AC-3",
+      "criterion": "node test/stress.mjs 3 이 exit 0 이다(전체)",
+      "check": "node test/stress.mjs 3",
+      "new": false
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [],
+  "out_of_scope": [
+    "CI 에 스트레스 작업 추가"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T17:58:41.461Z",
+    "hash": "48c750d2f4d032930a45f6f196f982764bb5a55dc9ff65ee411eaa30c2eac8be"
+  }
+}

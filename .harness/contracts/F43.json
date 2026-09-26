@@ -1,0 +1,62 @@
+{
+  "id": "F43",
+  "title": "큰 기능의 build 이어가기 — 진척이 있는 build 시간 초과는 같은 라운드의 이어가기 시도로 처리",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "build 가 시간 초과로 끝났을 때 기능 worktree 에 base 대비 변경이 있으면 blocked(budget) 대신 같은 라운드의 다음 build 시도로 넘어가고, builder 프롬프트에 '이전 시도가 시간 초과로 끝났다·작업 트리의 변경을 이어서 끝내라' 는 안내와 변경 파일 목록이 들어간다(가짜 builder)",
+      "check": "node test/t.mjs \"F43 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "이어가기 시도도 build 시도 3회 한도에 포함되고, 3회째도 시간 초과면 blocked(budget) 이다",
+      "check": "node test/t.mjs \"F43 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "변경이 없는 시간 초과는 지금처럼 blocked(budget) 이다",
+      "check": "node test/t.mjs \"F43 AC-3\"",
+      "new": false
+    },
+    {
+      "id": "AC-4",
+      "criterion": "run 보고서와 metrics 의 build 단계 outcome 이 시간 초과 시도는 'timeout-continued' 로 기록된다",
+      "check": "node test/t.mjs \"F43 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "SPEC §8 과 docs/run.md 가 이어가기 규칙을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F43 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "이어가기 프롬프트에는 변경 파일 경로만 들어가고 파일 내용·환경 변수 값은 들어가지 않는다 — 비밀 값이 든 파일을 만든 fixture 에서 프롬프트에 그 값이 없다",
+      "check": "node test/t.mjs \"F43 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "시간 초과 뒤 변경 여부를 확인하는 git 명령이 실패하면 지금처럼 blocked(budget) 이고 detail 에 git 오류가 나온다",
+      "check": "node test/t.mjs \"F43 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "build 시간 제한 자체의 자동 조정"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T17:58:41.461Z",
+    "hash": "7adbcf860182659073ef62c9ac44bae20f4c44932b119324a3d704bd22f8858d"
+  }
+}

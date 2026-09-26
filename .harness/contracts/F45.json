@@ -1,0 +1,43 @@
+{
+  "id": "F45",
+  "title": "부하 3배 안정성 (1) — stress.mjs --files, F23·F25·F26·F28 테스트",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "test/stress.mjs N --files <glob> 은 glob 에 맞는 테스트 파일만 N 개 동시에 실행한다 — 파일 2개 fixture 에서 한 파일만 실행됨을 확인",
+      "check": "node test/t.mjs \"F45 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "node test/stress.mjs 3 --files 'test/f2[3568]-*.test.mjs' 가 exit 0 이다",
+      "check": "node test/stress.mjs 3 --files 'test/f2[3568]-*.test.mjs'",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "node test/assert-count.mjs 가 exit 0 이다(고친 테스트의 assert 수·이름 유지)",
+      "check": "node test/assert-count.mjs",
+      "new": false
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "--files 에 맞는 파일이 없으면 'no test files match' 를 출력하고 exit 2 이다",
+      "check": "node test/t.mjs \"F45 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "F29·F31·F37·F21·F3 테스트(F46)"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T17:58:41.461Z",
+    "hash": "735b44b62c26e1ab3d4e6a127300f6f790e07f670f02e312d7badc5b7e818536"
+  }
+}
