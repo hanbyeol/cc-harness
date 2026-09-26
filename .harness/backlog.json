@@ -1874,6 +1874,86 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B226"
+    },
+    {
+      "feature": "F31",
+      "round": 3,
+      "at": "2026-09-26T11:43:40.910Z",
+      "summary": "The F31 timeout tests that use a fake git shebang script return early on Windows (`if (!POSIX) return;`), so they pass without running there. The CI matrix includes windows, so kill-tree and timeout behaviour for git is unexercised on that platform. Consider `t.skip` or a .cmd fake so the skip is visible.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B227"
+    },
+    {
+      "feature": "F31",
+      "round": 3,
+      "at": "2026-09-26T11:43:40.910Z",
+      "summary": "The git runners in lib/verify.mjs, lib/eval.mjs and lib/run.mjs each have their own timeout handling, and each calls gitTimeoutError separately. This duplication existed before F31, and F31 adds one more copy of the `r.timedOut` check in each. A single shared core git runner would remove it.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B228"
+    },
+    {
+      "feature": "F31",
+      "round": 3,
+      "at": "2026-09-26T11:43:40.910Z",
+      "summary": "The `git config user.email` call in lib/commands/approve.mjs uses spawnSync without a timeout. It is a core git call outside the verify/eval/run paths that AC-1 names, so it is not covered by git_timeout_sec.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B229"
+    },
+    {
+      "feature": "F31",
+      "round": 3,
+      "at": "2026-09-26T11:43:40.910Z",
+      "summary": "The eval repro commands still use step_timeout_sec. The SPEC §6 text describes them as user commands, so this is consistent, but the eval-phase timeout split is easy to misread.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B230"
+    },
+    {
+      "feature": "F31",
+      "round": 3,
+      "at": "2026-09-26T11:43:40.910Z",
+      "summary": "validateUser accepts any finite positive budget.git_timeout_sec. Values above about 2147483.647 s (2^31-1 ms) overflow Node's setTimeout, which then fires after 1 ms, so every core git command would 'time out' at once. Consider an upper bound in validation. step_timeout_sec probably has the same issue.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B231"
+    },
+    {
+      "feature": "F31",
+      "round": 3,
+      "at": "2026-09-26T11:43:40.910Z",
+      "summary": "Core git helpers now throw on timeout. When a git call in a cleanup path (for example verify's finally that runs `worktree remove --force` for the base worktree) times out, the new HarnessError(git) may replace the original error or result that was being reported. Previously a timed-out cleanup returned a result that the caller ignored.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B232"
+    },
+    {
+      "feature": "F31",
+      "round": 3,
+      "at": "2026-09-26T11:43:40.910Z",
+      "summary": "Core git calls that run.mjs makes before the config is validated (before gitOpts.timeoutSec is set) use the default 300 s, not the configured budget.git_timeout_sec. This is harmless today because the ordering puts validation first, but gitOpts being mutated after the runners are created is an implicit invariant.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B233"
+    },
+    {
+      "feature": "F31",
+      "round": 3,
+      "at": "2026-09-26T11:43:40.910Z",
+      "summary": "The POSIX-only fake-git tests (AC-1, AC-3, SC-1) return early on Windows and pass vacuously there, so the Windows taskkill /T path for core git timeouts has no end-to-end coverage.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B234"
     }
   ]
 }
