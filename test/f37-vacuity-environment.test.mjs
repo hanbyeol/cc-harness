@@ -21,9 +21,9 @@ const CONTRACT = (id, criteria) => ({
 
 // `node scripts/check.mjs <headSec> <baseSec> [headExit]`: on HEAD (marker.txt exists) waits
 // headSec and exits headExit (default 0); on base waits baseSec and exits 0.
-// Every wait is bounded (at most 20 s here), so the pre-feature code ends too.
-// A "fast" head run still takes node startup time (up to ~1 s under load), so exact limit
-// assertions use a vacuity_timeout_sec of 6: 3 × startup stays below it.
+// Every wait is bounded (at most 45 s here), so the pre-feature code ends too.
+// A "fast" head run still takes node startup time (several seconds with three suites running
+// at once), so exact limit assertions use a vacuity_timeout_sec of 15: 3 × startup stays below it.
 const CHECK_SCRIPT = `const [headSec, baseSec, headExit = '0'] = process.argv.slice(2);
 const head = require('node:fs').existsSync('marker.txt');
 if (head) console.log('duration: 9999');
@@ -69,11 +69,11 @@ test('F37 AC-1: the base limit never exceeds budget.step_timeout_sec', async () 
 });
 
 test('F37 AC-1: a fast head check keeps vacuity_timeout_sec as the base limit', async () => {
-  const dir = fixture([{ id: 'AC-1', check: check(0, 20) }]);
-  const r = await runVerify(dir, cfg({ vacuity_timeout_sec: 6 }, { step_timeout_sec: 60 }));
+  const dir = fixture([{ id: 'AC-1', check: check(0, 45) }]);
+  const r = await runVerify(dir, cfg({ vacuity_timeout_sec: 15 }, { step_timeout_sec: 60 }));
   const c = r.criteria[0];
   assert.equal(c.base_timed_out, true, JSON.stringify(c));
-  assert.equal(c.base_timeout_sec, 6);
+  assert.equal(c.base_timeout_sec, 15);
 });
 
 // ---------- AC-2 ----------
@@ -94,33 +94,33 @@ test('F37 AC-2: a base run past its limit is base_timed_out and the limit appear
 
 test('F37 AC-2: only criteria whose base run timed out get base_timeout_sec and a warning', async () => {
   const dir = fixture([
-    { id: 'AC-1', check: check(0, 20) },
+    { id: 'AC-1', check: check(0, 45) },
     { id: 'AC-2', check: 'node -e "process.exit(require(\'fs\').existsSync(\'marker.txt\') ? 0 : 1)"' },
   ]);
-  const r = await runVerify(dir, cfg({ vacuity_timeout_sec: 6 }, { step_timeout_sec: 60 }));
-  assert.equal(r.criteria[0].base_timeout_sec, 6, JSON.stringify(r.criteria));
+  const r = await runVerify(dir, cfg({ vacuity_timeout_sec: 15 }, { step_timeout_sec: 60 }));
+  assert.equal(r.criteria[0].base_timeout_sec, 15, JSON.stringify(r.criteria));
   assert.equal(r.criteria[1].base_timeout_sec, undefined);
   assert.equal(r.criteria[1].base_timed_out, undefined);
-  assert.ok(r.warnings.some((x) => x.startsWith('AC-1:') && x.includes('6s')), JSON.stringify(r.warnings));
+  assert.ok(r.warnings.some((x) => x.startsWith('AC-1:') && x.includes('15s')), JSON.stringify(r.warnings));
   assert.ok(!r.warnings.some((x) => x.startsWith('AC-2:')), JSON.stringify(r.warnings));
 });
 
 // ---------- SC-1 ----------
 test('F37 SC-1: a check printing "duration: 9999" does not change the base limit', async () => {
-  const dir = fixture([{ id: 'AC-1', check: check(0, 20) }]);
-  const r = await runVerify(dir, cfg({ vacuity_timeout_sec: 6 }, { step_timeout_sec: 60 }));
+  const dir = fixture([{ id: 'AC-1', check: check(0, 45) }]);
+  const r = await runVerify(dir, cfg({ vacuity_timeout_sec: 15 }, { step_timeout_sec: 60 }));
   const c = r.criteria[0];
   assert.equal(c.base_timed_out, true, JSON.stringify(c));
-  assert.equal(c.base_timeout_sec, 6, 'the limit comes from the core-measured head time, not the output');
+  assert.equal(c.base_timeout_sec, 15, 'the limit comes from the core-measured head time, not the output');
 });
 
 // ---------- ES-1 ----------
 test('F37 ES-1: a failing head check runs no base run and gets no limit; another criterion still does', async () => {
   const dir = fixture([
     { id: 'AC-1', check: check(4, 0, 1) }, // fails on head after 4s, would pass on base at once
-    { id: 'AC-2', check: check(0, 20) },
+    { id: 'AC-2', check: check(0, 45) },
   ]);
-  const r = await runVerify(dir, cfg({ vacuity_timeout_sec: 6 }, { step_timeout_sec: 60 }));
+  const r = await runVerify(dir, cfg({ vacuity_timeout_sec: 15 }, { step_timeout_sec: 60 }));
   const [a, b] = r.criteria;
   assert.equal(a.pass, false, JSON.stringify(a));
   assert.equal(a.message, 'exit 1');
@@ -129,7 +129,7 @@ test('F37 ES-1: a failing head check runs no base run and gets no limit; another
   assert.equal(a.base_timeout_sec, undefined);
   assert.equal(a.notFound, undefined);
   // AC-1's 4s head run does not raise AC-2's limit.
-  assert.equal(b.base_timeout_sec, 6, JSON.stringify(b));
+  assert.equal(b.base_timeout_sec, 15, JSON.stringify(b));
   assert.ok(!r.warnings.some((x) => x.startsWith('AC-1:')), JSON.stringify(r.warnings));
 });
 

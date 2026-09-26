@@ -288,12 +288,13 @@ test('F3 SC-1: a command past the timeout is killed together with its grandchild
   const dir = fixture();
   const pids = path.join(dir, 'pids.txt');
   const t0 = Date.now();
-  const r = await run(dir, { budget: { step_timeout_sec: 1 }, verify: { commands: [`node scripts/slow.mjs ${JSON.stringify(pids)}`] } });
+  // The timeout must outlast node's start-up under load, or the script is killed before it records its grandchild.
+  const r = await run(dir, { budget: { step_timeout_sec: 5 }, verify: { commands: [`node scripts/slow.mjs ${JSON.stringify(pids)}`] } });
   const elapsed = Date.now() - t0;
   assert.equal(r.commands[0].pass, false);
   assert.equal(r.commands[0].timedOut, true);
   assert.match(r.commands[0].message, /timed out/);
-  assert.ok(elapsed < 15000, `took ${elapsed}ms`);
+  assert.ok(elapsed < 45000, `took ${elapsed}ms`); // two 5 s timeouts; the sleeps it must not wait for last 60 s
   const gcs = fs.readFileSync(pids, 'utf8').trim().split('\n').map(Number);
   assert.equal(gcs.length, 2); // original run + one re-run
   const deadline = Date.now() + 3000;
