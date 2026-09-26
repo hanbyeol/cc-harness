@@ -1,0 +1,83 @@
+{
+  "feature": "F33",
+  "round": 2,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "When base_timed_out is set the verify output gives no warning line, so a reviewer cannot notice that vacuity was not actually checked (same concern as open backlog B242).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "medium",
+      "backlog_id": "B242"
+    },
+    {
+      "summary": "The F33 AC-3 test takes about 24 s and the SC-1 test about 11 s because of real wall-clock sleeps. On a loaded CI host these could flake or slow the suite.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "A base check that really passes on base but runs longer than vacuity_timeout_sec is counted as non-vacuous, and verify prints no warning when base_timed_out is set. A reviewer can only see it by reading the criterion entry.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "medium",
+      "backlog_id": "B242"
+    },
+    {
+      "summary": "A base vacuity run that is aborted (run signal) rather than timed out is neither base_timed_out nor vacuous, so it silently counts as non-vacuous. This behaviour existed before F33, but it is the same 'did not pass on base' asymmetry and is not documented in SPEC §6.3.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The SC-1 test checks that the child process is gone and the worktree is removed only on POSIX (process group kill). The Windows taskkill /T path for a timed-out base run has no test.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.503617,
+  "contract_hash": "dd7a12895e458a0d1a39c3f8906eff8a52450527f29f14906e40e0c4bf06632d",
+  "contract_round": 2,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T13:00:30.924Z",
+  "origin": "eval"
+}

@@ -302,7 +302,8 @@
       "depends_on": [
         "F31"
       ],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 2
     }
   ]
 }

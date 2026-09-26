@@ -2051,7 +2051,11 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "medium",
-      "id": "B242"
+      "id": "B242",
+      "seen": 3,
+      "sources": [
+        "F33-r2"
+      ]
     },
     {
       "feature": "F33",
@@ -2086,6 +2090,36 @@
         }
       ],
       "id": "B244"
+    },
+    {
+      "feature": "F33",
+      "round": 2,
+      "at": "2026-09-26T13:00:30.924Z",
+      "summary": "The F33 AC-3 test takes about 24 s and the SC-1 test about 11 s because of real wall-clock sleeps. On a loaded CI host these could flake or slow the suite.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B245"
+    },
+    {
+      "feature": "F33",
+      "round": 2,
+      "at": "2026-09-26T13:00:30.924Z",
+      "summary": "A base vacuity run that is aborted (run signal) rather than timed out is neither base_timed_out nor vacuous, so it silently counts as non-vacuous. This behaviour existed before F33, but it is the same 'did not pass on base' asymmetry and is not documented in SPEC §6.3.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B246"
+    },
+    {
+      "feature": "F33",
+      "round": 2,
+      "at": "2026-09-26T13:00:30.924Z",
+      "summary": "The SC-1 test checks that the child process is gone and the worktree is removed only on POSIX (process group kill). The Windows taskkill /T path for a timed-out base run has no test.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B247"
     }
   ]
 }
