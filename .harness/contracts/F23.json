@@ -1,0 +1,88 @@
+{
+  "id": "F23",
+  "title": "test_count 프리셋과 자동 감지 — node-test·go·pytest, init·doctor 가 설정을 제안",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify.test_count 가 'preset:node-test' 이면 코어가 node --test --test-reporter=tap 을 프로젝트에서 실행하고 마지막 '# tests N' 을 테스트 수로 쓴다 — 테스트 3개(1개 실패) fixture 에서 3",
+      "check": "node test/t.mjs \"F23 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "'preset:go' 이면 go test -list . ./... 출력에서 Test·Example·Fuzz 로 시작하는 줄 수를 쓴다 — PATH 앞에 둔 가짜 go 의 출력(ok·? 줄 포함)으로 확인",
+      "check": "node test/t.mjs \"F23 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "'preset:pytest' 이면 python -m pytest --collect-only -q 출력의 'N tests collected'(단수 '1 test collected' 포함)에서 N 을 쓴다 — 가짜 python 출력으로 경우별 확인",
+      "check": "node test/t.mjs \"F23 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "프리셋으로 센 base·head 수에 대해 기존 감소 판정이 그대로 적용된다 — node-test fixture 에서 기능이 테스트 하나를 지우면 verify 의 test count 가 decreased 이고 verify 가 fail",
+      "check": "node test/t.mjs \"F23 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "harness init 은 config.json 을 새로 만들 때 package.json 의 scripts.test 에 'node --test' 가 있으면 preset:node-test, go.mod 가 있으면 preset:go, pytest.ini·conftest.py 또는 pyproject.toml 의 [tool.pytest.ini_options] 가 있으면 preset:pytest 를 verify.test_count 에 쓰고, 해당 없으면 키를 쓰지 않는다(경우별 개별 테스트)",
+      "check": "node test/t.mjs \"F23 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "harness doctor 는 test_count 가 설정돼 있으면 'test count: <값>' 을, 없으면 'test count: not configured' 와 AC-5 규칙으로 감지한 제안(있을 때 'suggest: preset:<이름>')을 출력한다",
+      "check": "node test/t.mjs \"F23 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "SPEC §4·§6.2 가 test_count 프리셋 3종의 명령과 수 산출 규칙, init 의 자동 감지를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F23 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "프리셋은 고정된 실행 파일 이름과 고정 인자 배열로 셸 없이 실행된다 — config 의 다른 값이 인자에 들어가지 않고, 'preset:node-test; echo pwned' 같은 값은 알 수 없는 프리셋으로 거부된다",
+      "check": "node test/t.mjs \"F23 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "알 수 없는 프리셋('preset:foo')은 config 검사에서 exit 2(config_invalid), 메시지에 verify.test_count 와 사용 가능한 프리셋 이름이 나온다",
+      "check": "node test/t.mjs \"F23 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "프리셋 실행 파일이 PATH 에 없으면 test count 가 error 이고 메시지에 'command not found: <이름>' 이 나오며 verify 는 fail 이다",
+      "check": "node test/t.mjs \"F23 ES-2\"",
+      "new": true
+    },
+    {
+      "id": "ES-3",
+      "criterion": "프리셋 출력에서 수를 찾지 못하면 test count 가 error 이고 메시지에 'no test count in output' 이 나온다",
+      "check": "node test/t.mjs \"F23 ES-3\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "jest·vitest·JUnit 등 다른 러너 프리셋",
+    "기존 config.json 에 test_count 를 자동으로 추가하기 (migrate·doctor 는 제안만)",
+    "이 저장소의 test/count.mjs 를 프리셋으로 바꾸기"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T01:53:27.025Z",
+    "hash": "4e32f118e9e9939e5f76e60da6b963494800f831f114646ed734d8de6f75bd80"
+  }
+}

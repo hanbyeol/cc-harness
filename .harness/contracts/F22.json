@@ -1,0 +1,81 @@
+{
+  "id": "F22",
+  "title": "backlog 정리 루프 — 항목 id·심각도, 반복 지적 합치기, 계약 resolves 로 자동 해결, status 요약",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "코어가 backlog 에 항목을 쓸 때 id 가 없는 항목(기존 항목 포함)에 파일 순서대로 B1, B2, … 를 붙이고, 새 항목은 가장 큰 번호 다음을 받는다. 이미 있는 id 는 바뀌지 않는다",
+      "check": "node test/t.mjs \"F22 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "평가자 출력 스키마의 out_of_scope 항목과 findings 항목은 선택 필드 severity(high·medium·low)를 받고, 코어는 그 값을 backlog 항목의 priority 로 기록한다. 스키마 밖 값은 무시되고 priority 가 기록되지 않는다",
+      "check": "node test/t.mjs \"F22 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "평가 프롬프트에 열린 backlog 항목(id·priority·summary, priority high→medium→low→없음 순으로 최대 40개)이 들어가고, 평가자 출력 항목의 선택 필드 backlog_id 가 열린 항목 id 와 같으면 새 항목을 만들지 않고 그 항목의 seen 을 1 늘리며 sources 에 이번 기능·라운드를 추가한다",
+      "check": "node test/t.mjs \"F22 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "backlog_id 가 없는 id 이거나 이미 해결된 항목을 가리키면 지금처럼 새 항목으로 추가된다",
+      "check": "node test/t.mjs \"F22 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "계약의 선택 필드 resolves(backlog id 배열)에 적힌 항목은 그 기능이 passed 로 기록될 때(harness eval 과 harness run 각각) resolved_by 가 기능 id 가 된다 — fail·blocked 면 바뀌지 않는다",
+      "check": "node test/t.mjs \"F22 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "lint-contract 는 resolves 가 문자열 배열이 아니면 error, backlog 에 없거나 이미 해결된 id 를 가리키면 warning 을 낸다",
+      "check": "node test/t.mjs \"F22 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "harness status 가 열린 backlog 수를 priority 별로 보여 주고 high 항목을 최대 5개(id·summary 앞 100자) 나열한다. --brief 출력에는 열린 high 항목 수만 덧붙는다(0 이면 생략)",
+      "check": "node test/t.mjs \"F22 AC-7\"",
+      "new": true
+    },
+    {
+      "id": "AC-8",
+      "criterion": "SPEC 과 skills/spec/SKILL.md 가 backlog id·severity·backlog_id·resolves 규칙과, 새 계약을 쓸 때 열린 high 항목을 검토해 resolves 에 넣는 절차를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F22 AC-8\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "backlog.json 이 { items: [...] } 형식이 아니면 평가·status 가 어댑터 호출이나 쓰기 없이 exit 2(state_corrupt)로 끝나고 메시지에 파일 경로가 있으며 스택 트레이스(\"    at \")가 없다",
+      "check": "node test/t.mjs \"F22 ES-1\"",
+      "new": false
+    },
+    {
+      "id": "ES-2",
+      "criterion": "backlog 항목의 id 가 중복되면 status 는 exit 2(state_corrupt)와 중복 id 를 포함한 메시지로 끝나고 파일을 고치지 않는다",
+      "check": "node test/t.mjs \"F22 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "요약 문장의 유사도로 자동 중복 판정",
+    "backlog 항목을 사람이 편집·삭제하는 명령",
+    "기존 항목의 priority 소급 추정"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-26T01:53:27.025Z",
+    "hash": "6783788e13b0c45ce290659e6923b1f4e28c47decdaf23d8236a96876d8660bf"
+  }
+}

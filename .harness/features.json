@@ -192,6 +192,24 @@
         "F20"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F22",
+      "title": "backlog 정리 루프 — 항목 id·심각도, 반복 지적 합치기, 계약 resolves 로 자동 해결, status 요약",
+      "security_tier": "standard",
+      "depends_on": [
+        "F21"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F23",
+      "title": "test_count 프리셋과 자동 감지 — node-test·go·pytest, init·doctor 가 설정을 제안",
+      "security_tier": "critical",
+      "depends_on": [
+        "F21"
+      ],
+      "status": "approved"
     }
   ]
 }
