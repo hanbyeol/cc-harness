@@ -92,14 +92,39 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 | `project` | 내보내는 저장소의 경로 해시(sha256 앞 16자) — 줄의 값이 무엇이든 이것으로 바꾼다 |
 | `round` | 정수일 때만 |
 | `data.rule` | lint 규칙 이름: `shape`·`contract_id`·`security_tier`·`id`·`check`·`criterion_text`·`universal`·`size`·`critical_sc`·`rollout`·`resolves`·`approval` |
-| `data.reason` | 이관 사유: `missing_criterion_id`·`criterion_not_in_contract`·`missing_repro`·`repro_denied`·`adversarial_scenario`·`repro_timeout`·`repro_not_runnable`·`repro_not_reproduced`·`out_of_scope` |
+| `data.reason` | 이관 사유: `missing_criterion_id`·`criterion_not_in_contract`·`missing_repro`·`repro_denied`·`adversarial_scenario`·`repro_timeout`·`repro_not_runnable`·`repro_not_reproduced`·`out_of_scope`, status 이벤트의 사유: `pass`·`fail`·`approve`·`run_start`·`rounds`·`max_rounds`·`divergence`·`stall`·`needs_human`·`needs-human`·`eval_error`·`budget`·`merge_conflict`·`post_merge_verify`·`worktree`·`adapter_unavailable`·`verify_error`·`run_stopped`·`dependency_blocked`·`critical_blocked` |
 | `data.outcome` | `blocking`·`backlogged` |
+| `data.from` | status 이벤트의 이전 상태: `todo`·`approved`·`in_progress`·`passed`·`blocked`·`skipped` |
+| `data.to` | status 이벤트의 새 상태: `todo`·`approved`·`in_progress`·`passed`·`blocked`·`skipped` |
 | `data.model` | 모델 이름: 영숫자로 시작하고 영숫자·`.`·`_`·`:`·`@`·`+`·`-` 만, 100자 이하 |
 | `data.role` | 역할: `builder`·`evaluator`·`security-reviewer` |
 | `data.dimension` | 차원: `functionality`·`quality`·`security`·`errors`·`tests` |
 | `data.kind` | 개입 종류: `manual-fix`·`manual-merge`·`environment`·`other` |
 | `data.test` | 테스트 이름의 sha256 앞 16자 |
 | `data.tests` | 테스트 이름마다 sha256 앞 16자 |
+
+**하네스 자기 개선** (설명: `docs/telemetry.md`) — `harness learn [--hub <dir>] [--since YYYY-MM-DD] [--json] [--propose | --compare <v1> <v2>]` 은 허브(위치는 export 와 같다)의
+모든 프로젝트 묶음(`<hub>/<project>/*.jsonl`, 프로젝트 = 디렉터리 이름)을 읽어 하네스 버전별 지표와 개선 과제 후보를 보여 준다. `.harness/` 가 없어도 동작한다(`--propose` 제외).
+상태를 바꾸지 않고(`--propose` 의 backlog 제외), 계약 초안을 만들거나 승인하지 않는다 — 개선은 항상 사람이 계약으로 만들고 승인한다.
+- 허브의 각 줄은 내보내기 허용 목록(위 표)으로 다시 거른다. 허용 목록 밖의 키(최상위 필드, 식별자 형태가 아닌 `data` 키, 허용 값이 아닌 문자열)는 무시하고 파일마다
+  `harness: warning: <파일>: ignored keys outside the allowlist: <키 경로>` 를 stderr 에 낸다. JSON 객체가 아니거나 `ts`·`stage` 가 올바르지 않은 줄은 세지 않고
+  `<n> lines skipped …` 경고를 낸다. `--since` 는 그날(UTC) 이후의 줄만 센다. `harness_version` 이 없으면 버전 `unknown`.
+- 허브가 없거나 셀 줄이 없으면 `no field data` 를 출력하고 exit 0(`--json` 이면 수가 0 이고 `message: "no field data"` 인 구조, `--propose` 는 backlog 를 쓰지 않는다).
+- 출력: 프로젝트 수·이벤트 수, 그리고 버전마다(버전 순, `unknown` 은 마지막) — 기능 = `to` 가 `passed`·`blocked` 인 status 이벤트.
+  `build`(기능당 build 시간·턴·비용 중앙값: status 이벤트의 `build_duration_ms`·`build_turns`·`build_cost_usd`), `first_round_pass_rate`(1라운드에 passed 된 기능 / 기능),
+  `blocked_rate`(blocked / 기능)와 `blocked_reasons`(사유 분포), `interventions`(사람 개입 `feedback/intervention` 수), `lint_rejections`(lint 거부 규칙 상위 3),
+  `reproduction_rate`(지적 재현율 = blocking / 전체 `finding`), `ci_repeated`(2개 이상의 CI 기록에서 실패한 테스트 해시 상위 3). 값이 없으면 null(텍스트는 `n/a`).
+- `harness run` 은 기능이 끝날 때(passed·blocked) status 이벤트 `data` 에 그 기능의 builder 호출 합계 `build_duration_ms`·`build_turns`·`build_cost_usd` 를 넣는다.
+- 개선 과제 후보 `{rule, subject, key, priority, title, evidence: {projects, events, versions}}` — 아래 규칙 순서(규칙 안에서는 근거 이벤트가 많은 순, 같으면 이름 순)이고,
+  근거가 **2개 이상 프로젝트**이거나 **이벤트 10건 이상**인 것만 낸다(`THRESHOLDS`). `priority` 는 근거 프로젝트 3개 이상 `high`, 2개 `medium`, 1개 `low`.
+  `lint_rule`(lint 규칙마다, 그 규칙의 오류가 있는 lint 이벤트), `backlog_reason`(이관 사유마다), `low_reproduction`(전체 지적 재현율 50% 미만이면 모든 지적),
+  `blocked_reason`(blocked 사유마다), `intervention`(개입 종류마다), `ci_repeated`(2개 이상의 CI 기록에서 실패한 테스트 해시마다). `key` 는 `<rule>:<subject>`.
+- `--propose` 는 후보를 현재 저장소의 backlog 에 `{source: "field-data", learn_rule: <key>, summary, priority, evidence, seen: 1, at}` 로 추가한다(id 는 §7.7).
+  같은 `learn_rule` 의 열린 field-data 항목이 있으면 새로 만들지 않고 그 항목의 `seen` 을 1 늘리고 `evidence` 를 새 값으로 바꾼다(priority·summary 는 그대로).
+  해결된 항목은 합치지 않는다. `.harness/` 가 없으면 not_initialized(exit 2), backlog 가 손상되면 E6(exit 2, 쓰지 않음).
+- `--compare <v1> <v2>` 는 두 버전의 `build_duration_ms`·`build_turns`·`build_cost_usd`·`first_round_pass_rate`·`blocked_rate`·`interventions`·`reproduction_rate` 를
+  나란히 보여 주고 변화량(v2 − v1)과 방향을 표시한다: 시간·턴·비용·blocked 비율·개입은 줄면, 통과율·재현율은 늘면 `improved`, 반대면 `worse`, 같으면 `same`,
+  한쪽 값이 없으면 `n/a`. 허브에 없는 버전은 `harness: warning: no field data for version <v>` 를 낸다.
 
 ## 3. 용어
 - **계약(contract)**: 기능 1개의 수락 기준. `.harness/contracts/F{n}.json`. 승인 시 해시로 동결.
