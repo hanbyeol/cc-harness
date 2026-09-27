@@ -1,0 +1,75 @@
+{
+  "feature": "F48",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "In runFeatures' skipped-dependent handling (lib/run.mjs:1508), the recorded `tier` for a skipped feature's result entry still comes straight from features.json (`f.security_tier`) rather than `effectiveTier(root, f).tier`. It's purely informational display for a feature that never started (not used for any preflight/critical-stop decision), so it doesn't affect AC-1..4/SC-1/ES-1, but it's an inconsistency with the rest of the diff's 'contract tier wins' rule.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "cleanIntegration() resets and cleans any dirt in the integration worktree (.harness/wt/_integration) before a merge, not only what a post-merge verify left. Before this change, a dirty integration worktree stopped the run with 'clean it before running'. Now, manual edits a user made there between runs (for example before --resume) are silently discarded by `git reset --hard` / `git clean -fd`. The SPEC wording names only verify leftovers. Consider logging the discarded paths, or cleaning only after a merge this run made.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "state.warnings accumulates the security_tier mismatch warning each time a feature starts. A resumed run (or a retried feature) can append the same warning again, so the report's '## Warnings' section may list duplicates. Consider de-duplicating.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "effectiveTier() lets loadContract errors other than unknown_contract propagate from inside the preflight's scoped.some(...), for example a contract that is not valid JSON. The run then stops with that error before anything is created, which is safe. The message comes from the contract loader, not from the preflight, and the SPEC does not state this case.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 1.0615354,
+  "contract_hash": "e29a949dcdfe5e9f15a81778c16b7927d971064628087612300cb555250408ca",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-27T09:52:37.383Z",
+  "origin": "run"
+}

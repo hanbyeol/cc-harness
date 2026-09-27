@@ -1,0 +1,58 @@
+{
+  "feature": "F51",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "`stats --json` with no metrics prints only {steps, suggestions}, but the normal --json output also has cost_by_role_model and features. JSON consumers still have to handle missing keys in the empty case. This matches AC-4 as written. Consider emitting the full shape with empty values.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B174"
+    },
+    {
+      "summary": "doctor's defaultProbe now runs `--help` a second time after `--version` fails or times out. For a hung CLI, doctor can take up to two probe timeouts per adapter. This is acceptable, but it is worth noting for doctor latency.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "status's approvalIssueOf re-loads each stale contract after executableFeatures has already loaded it, which duplicates contract I/O and classification logic next to isApprovalValid. A shared helper in contract.mjs that returns the reason would keep the two from drifting apart.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.3729732,
+  "contract_hash": "b4d12a6fbf145ee4a9a62609f7bafa7c21d0e3e616fabd0483fa97da7e2512b4",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-27T09:53:46.740Z",
+  "origin": "run"
+}

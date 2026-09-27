@@ -110,7 +110,8 @@
     {
       "source": "F4-r1",
       "summary": "Non-numeric timeoutSec becomes NaN (1 ms timeout); detail text 'killed after undefineds' when omitted.",
-      "id": "B16"
+      "id": "B16",
+      "resolved_by": "F51"
     },
     {
       "source": "F4-r1",
@@ -139,7 +140,8 @@
     {
       "source": "F4-r1",
       "summary": "doctor's defaultProbe requires --version; a generic CLI without it reads as not installed.",
-      "id": "B20"
+      "id": "B20",
+      "resolved_by": "F51"
     },
     {
       "source": "F4-r1",
@@ -208,7 +210,8 @@
     {
       "source": "F3-r1",
       "summary": "hooksPath points at a fixed <tmpdir>/harness-no-hooks-dir; on shared /tmp another local user could plant a hook that runs during git worktree add. Use a fresh mkdtemp dir or /dev/null.",
-      "id": "B29"
+      "id": "B29",
+      "resolved_by": "F50"
     },
     {
       "source": "F3-r1",
@@ -221,7 +224,8 @@
     {
       "source": "F3-r1",
       "summary": "Base-side vacuity runs in a clean worktree without installed dependencies, so a dependency-needing check fails on base for unrelated reasons (vacuous criterion scored non-vacuous).",
-      "id": "B31"
+      "id": "B31",
+      "resolved_by": "F50"
     },
     {
       "source": "F3-r1",
@@ -328,7 +332,8 @@
     {
       "source": "F2-r2",
       "summary": "status says 'changed after approval' for an approved feature whose contract is missing or has no hash; wording misleading.",
-      "id": "B45"
+      "id": "B45",
+      "resolved_by": "F51"
     },
     {
       "source": "F5-impl",
@@ -373,7 +378,8 @@
     {
       "source": "F5-r1",
       "summary": "Repro exit 126 (found but not executable) blocks; consider treating 126 as repro_not_runnable.",
-      "id": "B51"
+      "id": "B51",
+      "resolved_by": "F51"
     },
     {
       "source": "F5-r1",
@@ -418,12 +424,14 @@
     {
       "source": "F6-r1-sec",
       "summary": "SIGTERM/SIGHUP are not handled like SIGINT; detached step groups (incl. the builder) outlive the harness.",
-      "id": "B57"
+      "id": "B57",
+      "resolved_by": "F49"
     },
     {
       "source": "F6-r1-sec",
       "summary": "merge() commits untracked verify artifacts (git add -A); post-merge verify then dirties _integration and the next merge throws an uncaught HarnessError that --resume cannot pass.",
-      "id": "B58"
+      "id": "B58",
+      "resolved_by": "F48"
     },
     {
       "source": "F6-r1-sec",
@@ -460,7 +468,8 @@
     {
       "source": "F6-r1",
       "summary": "integration_branch 'refs/heads/main' / 'heads/main' refused only at merge time (run aborts after starting).",
-      "id": "B63"
+      "id": "B63",
+      "resolved_by": "F48"
     },
     {
       "source": "F6-r1",
@@ -473,7 +482,8 @@
     {
       "source": "F6-r1",
       "summary": "features.json security_tier drives the critical stop but is not cross-checked against the contract's tier.",
-      "id": "B65"
+      "id": "B65",
+      "resolved_by": "F48"
     },
     {
       "source": "F6-r2-sec",
@@ -1118,7 +1128,8 @@
       "summary": "authStatus trusts any non-empty GOOGLE_GENAI_USE_VERTEXAI / GOOGLE_GENAI_USE_GCA value, including 'false'. That can report 'authenticated' when gemini will actually fail with exit 41. The run then blocks with adapter_unavailable (AC-5), so it fails safe, but the preflight passes when it should not.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B125"
+      "id": "B125",
+      "resolved_by": "F51"
     },
     {
       "feature": "F20",
@@ -1151,7 +1162,8 @@
       "summary": "The AC-4 CLI test only greps lib/commands/run.mjs for the strings `r.sleep`, `system sleep` and `harness run --resume`. It never runs the CLI and never checks the exit code 1 or the stderr text. A regression that broke the printed message would go unnoticed.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B128"
+      "id": "B128",
+      "resolved_by": "F52"
     },
     {
       "feature": "F21",
@@ -1757,7 +1769,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B174"
+      "id": "B174",
+      "seen": 2,
+      "sources": [
+        "F51-r1"
+      ],
+      "resolved_by": "F51"
     },
     {
       "feature": "F27",
@@ -2565,7 +2582,8 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B231"
+      "id": "B231",
+      "resolved_by": "F51"
     },
     {
       "feature": "F31",
@@ -2614,7 +2632,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B235"
+      "id": "B235",
+      "resolved_by": "F52"
     },
     {
       "feature": "F32",
@@ -3058,7 +3077,8 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B268"
+      "id": "B268",
+      "resolved_by": "F49"
     },
     {
       "feature": "F36",
@@ -3198,7 +3218,8 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B279"
+      "id": "B279",
+      "resolved_by": "F48"
     },
     {
       "feature": "F38",
@@ -3434,14 +3455,16 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B296"
+      "id": "B296",
+      "resolved_by": "F52"
     },
     {
       "id": "B297",
       "source": "lint",
       "priority": "low",
       "summary": "lint-contract rule 3 flags the technical term '절대 경로' (absolute path) as the universal '절대(로)'; contracts must rephrase it (seen in F42 SC-1).",
-      "at": "2026-09-26T17:57:49.260Z"
+      "at": "2026-09-26T17:57:49.260Z",
+      "resolved_by": "F52"
     },
     {
       "feature": "F43",
@@ -3451,7 +3474,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B298"
+      "id": "B298",
+      "resolved_by": "F49"
     },
     {
       "feature": "F43",
@@ -3891,7 +3915,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B330"
+      "id": "B330",
+      "resolved_by": "F50"
     },
     {
       "feature": "F44",
@@ -4149,6 +4174,208 @@
       "resolved_by": "triage-2026-09-27",
       "resolution": "accept",
       "resolution_reason": "Behaviour matches user intent; SPEC wording nit"
+    },
+    {
+      "feature": "F50",
+      "round": 1,
+      "at": "2026-09-27T09:45:45.629Z",
+      "summary": "lib/run.mjs's hooksOff() still uses one core.hooksPath directory per process (created once via makeTempDir, reused across the run, removed at process exit) rather than per git call. It's a unique mkdtemp path (not the shared literal 'harness-no-hooks-dir' B29 described), so it isn't the same bug, and AC-2 explicitly scopes the per-call requirement to verify/eval only — but it's worth aligning with the same per-call pattern for consistency.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B350"
+    },
+    {
+      "feature": "F50",
+      "round": 1,
+      "at": "2026-09-27T09:45:45.629Z",
+      "summary": "The base vacuity check runs with a live symlink/junction to the working tree's node_modules, so a base-side check that writes under node_modules (e.g. node_modules/.cache from babel/jest/vite) modifies the working tree's node_modules. SC-1 only covers the harness's own link handling; consider documenting this or linking read-only where possible.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B351"
+    },
+    {
+      "feature": "F50",
+      "round": 1,
+      "at": "2026-09-27T09:45:45.629Z",
+      "summary": "In ensureOverlaidBase, newOnBase is computed with fs.lstatSync(path.join(dir, f)) after the node_modules link exists. For an overlay path under node_modules/ this resolves through the link into the working tree, so a feature-created file there is wrongly treated as present on base (affects only entry-script withholding for files under node_modules).",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B352"
+    },
+    {
+      "feature": "F50",
+      "round": 1,
+      "at": "2026-09-27T09:45:45.629Z",
+      "summary": "commandPrograms splits only on '&&', '||', ';', '|' (per contract). A newline-separated multi-line check (e.g. 'cd sub\\njest') still judges only the first program, so a missing later program remains a plain exit-127 failure.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B353"
+    },
+    {
+      "feature": "F50",
+      "round": 1,
+      "at": "2026-09-27T09:45:45.629Z",
+      "summary": "Windows junction cleanup relies on fs.lstatSync(link).isSymbolicLink() being true for junctions and on fs.rmSync/git worktree remove not descending into junctions; the SC-1/ES-1 behaviour is only exercised on POSIX in this review (tests use symlinks on macOS).",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B354"
+    },
+    {
+      "feature": "F49",
+      "round": 1,
+      "at": "2026-09-27T09:51:13.406Z",
+      "summary": "The AC-2 integration test (runFeatures with a custom `build` stub) bypasses defaultBuild's redact wiring and calls adapter.run() without the run's own SR-8 redact function, falling back to common.mjs's default `redactor(process.env)`. This still exercises the observable AC-2 behavior but doesn't directly verify that `redact` is correctly threaded from runFeatures into defaultBuild for the postMergeFailures build path.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B355"
+    },
+    {
+      "feature": "F49",
+      "round": 1,
+      "at": "2026-09-27T09:51:13.406Z",
+      "summary": "In `harness run`, a second SIGTERM/SIGHUP calls process.exit(130) at once. If it arrives before the abort from the first signal has finished killing the detached step group, builder descendants could outlive the harness. SC-1 only covers a single signal. Consider killing the active groups synchronously before process.exit.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B356"
+    },
+    {
+      "feature": "F49",
+      "round": 1,
+      "at": "2026-09-27T09:51:13.406Z",
+      "summary": "runAdapter redacts stderr/stdout only on the exit_nonzero path. The `parsed` fields spread into every result (the stdout text of the CLI) are not redacted in memory. They are redacted later on the SR-8 write paths, but any new consumer that embeds them mid-string before a cut would bring back the B268 pattern.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B357"
+    },
+    {
+      "feature": "F49",
+      "round": 1,
+      "at": "2026-09-27T09:51:13.406Z",
+      "summary": "Outside run and eval, the fallback redactor(process.env) has no env_allowlist. Allowlisted values of 8 or more characters (for example a project-specific variable the user allowlisted) get redacted in adapter error details there, which makes those diagnostics less useful. This matches the SPEC wording but differs from the run/eval redaction.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B358"
+    },
+    {
+      "feature": "F48",
+      "round": 1,
+      "at": "2026-09-27T09:52:37.383Z",
+      "summary": "In runFeatures' skipped-dependent handling (lib/run.mjs:1508), the recorded `tier` for a skipped feature's result entry still comes straight from features.json (`f.security_tier`) rather than `effectiveTier(root, f).tier`. It's purely informational display for a feature that never started (not used for any preflight/critical-stop decision), so it doesn't affect AC-1..4/SC-1/ES-1, but it's an inconsistency with the rest of the diff's 'contract tier wins' rule.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B359"
+    },
+    {
+      "feature": "F48",
+      "round": 1,
+      "at": "2026-09-27T09:52:37.383Z",
+      "summary": "cleanIntegration() resets and cleans any dirt in the integration worktree (.harness/wt/_integration) before a merge, not only what a post-merge verify left. Before this change, a dirty integration worktree stopped the run with 'clean it before running'. Now, manual edits a user made there between runs (for example before --resume) are silently discarded by `git reset --hard` / `git clean -fd`. The SPEC wording names only verify leftovers. Consider logging the discarded paths, or cleaning only after a merge this run made.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B360"
+    },
+    {
+      "feature": "F48",
+      "round": 1,
+      "at": "2026-09-27T09:52:37.383Z",
+      "summary": "state.warnings accumulates the security_tier mismatch warning each time a feature starts. A resumed run (or a retried feature) can append the same warning again, so the report's '## Warnings' section may list duplicates. Consider de-duplicating.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B361"
+    },
+    {
+      "feature": "F48",
+      "round": 1,
+      "at": "2026-09-27T09:52:37.383Z",
+      "summary": "effectiveTier() lets loadContract errors other than unknown_contract propagate from inside the preflight's scoped.some(...), for example a contract that is not valid JSON. The run then stops with that error before anything is created, which is safe. The message comes from the contract loader, not from the preflight, and the SPEC does not state this case.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B362"
+    },
+    {
+      "feature": "F51",
+      "round": 1,
+      "at": "2026-09-27T09:53:46.740Z",
+      "summary": "doctor's defaultProbe now runs `--help` a second time after `--version` fails or times out. For a hung CLI, doctor can take up to two probe timeouts per adapter. This is acceptable, but it is worth noting for doctor latency.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B363"
+    },
+    {
+      "feature": "F51",
+      "round": 1,
+      "at": "2026-09-27T09:53:46.740Z",
+      "summary": "status's approvalIssueOf re-loads each stale contract after executableFeatures has already loaded it, which duplicates contract I/O and classification logic next to isApprovalValid. A shared helper in contract.mjs that returns the reason would keep the two from drifting apart.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B364"
+    },
+    {
+      "feature": "F52",
+      "round": 1,
+      "at": "2026-09-27T10:14:43.725Z",
+      "summary": "lib/commands/run.mjs now reads HARNESS_TEST_SLEEP_OFFSET_FILE from the environment in production code to shift the sleep detector's wall clock. It is a no-op when unset, but a stray value in a user's environment would make the detector see fake system sleep. Consider a more clearly namespaced or guarded seam.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B365",
+      "seen": 2,
+      "sources": [
+        "F52-r2"
+      ]
+    },
+    {
+      "feature": "F52",
+      "round": 1,
+      "at": "2026-09-27T10:14:43.725Z",
+      "summary": "The F52 AC-1 test checks exit 1 and the stderr text, but nothing asserts the criterion's second clause (test/f21-sleep.test.mjs does not read lib/commands/run.mjs). That clause holds today because only a comment mentions the file; a grep assertion would stop it coming back.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B366",
+      "seen": 2,
+      "sources": [
+        "F52-r2"
+      ]
+    },
+    {
+      "feature": "F52",
+      "round": 1,
+      "at": "2026-09-27T10:14:43.725Z",
+      "summary": "lib/stress.mjs is a support module used only by test/stress.mjs (the stderr tail helper), yet it ships under lib/. A test-support location may fit better.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B367",
+      "seen": 2,
+      "sources": [
+        "F52-r2"
+      ]
+    },
+    {
+      "feature": "F52",
+      "round": 2,
+      "at": "2026-09-27T10:32:11.643Z",
+      "summary": "The new 절대 regex /절대(로)?(?=\\s|$)(?!\\s*경로)/ also exempts '절대로 경로…' (e.g. '절대로 경로를 바꾸지 않는다'), which is a real universal negation and not the technical term '절대 경로'. Consider exempting only '절대' + optional whitespace + '경로', not '절대로'.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B368"
     }
   ]
 }

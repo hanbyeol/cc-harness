@@ -1,0 +1,75 @@
+{
+  "feature": "F49",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The AC-2 integration test (runFeatures with a custom `build` stub) bypasses defaultBuild's redact wiring and calls adapter.run() without the run's own SR-8 redact function, falling back to common.mjs's default `redactor(process.env)`. This still exercises the observable AC-2 behavior but doesn't directly verify that `redact` is correctly threaded from runFeatures into defaultBuild for the postMergeFailures build path.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "In `harness run`, a second SIGTERM/SIGHUP calls process.exit(130) at once. If it arrives before the abort from the first signal has finished killing the detached step group, builder descendants could outlive the harness. SC-1 only covers a single signal. Consider killing the active groups synchronously before process.exit.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "runAdapter redacts stderr/stdout only on the exit_nonzero path. The `parsed` fields spread into every result (the stdout text of the CLI) are not redacted in memory. They are redacted later on the SR-8 write paths, but any new consumer that embeds them mid-string before a cut would bring back the B268 pattern.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "Outside run and eval, the fallback redactor(process.env) has no env_allowlist. Allowlisted values of 8 or more characters (for example a project-specific variable the user allowlisted) get redacted in adapter error details there, which makes those diagnostics less useful. This matches the SPEC wording but differs from the run/eval redaction.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 1.028491,
+  "contract_hash": "e72f08139bcb6c6a3f1b933c1428892199a53206d789cb2d897a1353e7461308",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-27T09:51:13.406Z",
+  "origin": "run"
+}

@@ -1,0 +1,81 @@
+{
+  "feature": "F50",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "lib/run.mjs's hooksOff() still uses one core.hooksPath directory per process (created once via makeTempDir, reused across the run, removed at process exit) rather than per git call. It's a unique mkdtemp path (not the shared literal 'harness-no-hooks-dir' B29 described), so it isn't the same bug, and AC-2 explicitly scopes the per-call requirement to verify/eval only — but it's worth aligning with the same per-call pattern for consistency.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The base vacuity check runs with a live symlink/junction to the working tree's node_modules, so a base-side check that writes under node_modules (e.g. node_modules/.cache from babel/jest/vite) modifies the working tree's node_modules. SC-1 only covers the harness's own link handling; consider documenting this or linking read-only where possible.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "In ensureOverlaidBase, newOnBase is computed with fs.lstatSync(path.join(dir, f)) after the node_modules link exists. For an overlay path under node_modules/ this resolves through the link into the working tree, so a feature-created file there is wrongly treated as present on base (affects only entry-script withholding for files under node_modules).",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "commandPrograms splits only on '&&', '||', ';', '|' (per contract). A newline-separated multi-line check (e.g. 'cd sub\\njest') still judges only the first program, so a missing later program remains a plain exit-127 failure.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "Windows junction cleanup relies on fs.lstatSync(link).isSymbolicLink() being true for junctions and on fs.rmSync/git worktree remove not descending into junctions; the SC-1/ES-1 behaviour is only exercised on POSIX in this review (tests use symlinks on macOS).",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 1.1236928000000002,
+  "contract_hash": "d271cb8a94196dec71276639c5aa37f4169be6e65174b1115d8f7649fed1977a",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-27T09:45:45.629Z",
+  "origin": "run"
+}

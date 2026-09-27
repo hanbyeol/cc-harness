@@ -1,0 +1,66 @@
+{
+  "feature": "F52",
+  "round": 2,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The new 절대 regex /절대(로)?(?=\\s|$)(?!\\s*경로)/ also exempts '절대로 경로…' (e.g. '절대로 경로를 바꾸지 않는다'), which is a real universal negation and not the technical term '절대 경로'. Consider exempting only '절대' + optional whitespace + '경로', not '절대로'.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "lib/commands/run.mjs production code reads HARNESS_TEST_SLEEP_OFFSET_FILE and test/stress.mjs reads STRESS_TEST_CHILD_NODE_OPTIONS as test-only seams; a stray env value would change behaviour.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B365"
+    },
+    {
+      "summary": "Nothing asserts that test/f21-sleep.test.mjs does not read lib/commands/run.mjs (AC-1 second clause holds today only because the file is mentioned only in a comment).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B366"
+    },
+    {
+      "summary": "lib/stress.mjs is test-support code shipped under lib/.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B367"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.2992604,
+  "contract_hash": "e4177f1e9e26a8fd9251a485637843ccc7eb1b6da4698ca901a43be759570b4e",
+  "contract_round": 2,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-27T10:32:11.643Z",
+  "origin": "run"
+}

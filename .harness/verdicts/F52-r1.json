@@ -1,0 +1,57 @@
+{
+  "feature": "F52",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "lib/commands/run.mjs now reads HARNESS_TEST_SLEEP_OFFSET_FILE from the environment in production code to shift the sleep detector's wall clock. It is a no-op when unset, but a stray value in a user's environment would make the detector see fake system sleep. Consider a more clearly namespaced or guarded seam.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The F52 AC-1 test checks exit 1 and the stderr text, but nothing asserts the criterion's second clause (test/f21-sleep.test.mjs does not read lib/commands/run.mjs). That clause holds today because only a comment mentions the file; a grep assertion would stop it coming back.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "lib/stress.mjs is a support module used only by test/stress.mjs (the stderr tail helper), yet it ships under lib/. A test-support location may fit better.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.2848644,
+  "contract_hash": "e4177f1e9e26a8fd9251a485637843ccc7eb1b6da4698ca901a43be759570b4e",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-27T10:14:43.725Z",
+  "origin": "run"
+}
