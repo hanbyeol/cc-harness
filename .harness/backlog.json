@@ -4183,7 +4183,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B350"
+      "id": "B350",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Consistency-only: hooksOff() uses a unique mkdtemp dir per process, never populated, removed at exit; no hook can run. AC scoped per-call to verify/eval only. (evidence: lib/run.mjs:120-131)"
     },
     {
       "feature": "F50",
@@ -4193,7 +4196,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B351"
+      "id": "B351",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Writes of tool caches (node_modules/.cache) through the base link are benign and cooperative-builder (D1); the link is documented as deliberate (§6.3). (evidence: lib/verify.mjs:436-452)"
     },
     {
       "feature": "F50",
@@ -4203,7 +4209,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B352"
+      "id": "B352",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Still true (link made in addBaseWorktree before the lstat in ensureOverlaidBase), but only affects feature-created entry scripts committed under node_modules/, which is practically never tracked. (evidence: lib/verify.mjs:465,484-487)"
     },
     {
       "feature": "F50",
@@ -4213,7 +4222,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B353"
+      "id": "B353",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Still true (no '\\n' split), but multi-line checks are rare and the consequence is only exit-127 reported as a plain failure instead of 'command not found'; the check still fails. (evidence: lib/exec.mjs:138-162)"
     },
     {
       "feature": "F50",
@@ -4223,7 +4235,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B354"
+      "id": "B354",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Windows-only coverage gap with no demonstrated user-facing defect. (evidence: lib/verify.mjs:446,642)"
     },
     {
       "feature": "F49",
@@ -4233,7 +4248,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B355"
+      "id": "B355",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Test-style preference; observable AC-2 behavior is exercised. (evidence: test/f48-merge-robustness.test.mjs)"
     },
     {
       "feature": "F49",
@@ -4243,7 +4261,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B356"
+      "id": "B356",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "Defect does not exist on POSIX: controller.abort() fires the 'abort' listener synchronously, and killTree SIGKILLs the process group synchronously, so the groups are dead before a second signal can be handled. Windows does not deliver SIGTERM (exec.mjs:25). (evidence: lib/commands/run.mjs:59-64; lib/exec.mjs:32-40,90-92)"
     },
     {
       "feature": "F49",
@@ -4253,7 +4274,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B357"
+      "id": "B357",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Hypothetical future consumer; all current write paths redact (SR-8). (evidence: lib/adapters/common.mjs:171-186)"
     },
     {
       "feature": "F49",
@@ -4263,7 +4287,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B358"
+      "id": "B358",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Matches SPEC by design; over-redaction in diagnostics is safe-side. (evidence: lib/adapters/common.mjs)"
     },
     {
       "feature": "F48",
@@ -4273,7 +4300,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B359"
+      "id": "B359",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Still true but informational only; the report table does not even print tier. (evidence: lib/run.mjs:1526,601)"
     },
     {
       "feature": "F48",
@@ -4293,7 +4323,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B361"
+      "id": "B361",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Still true (append without dedupe) but only cosmetic duplicate lines in the report's Warnings section on resume/retry. (evidence: lib/run.mjs:1588-1591)"
     },
     {
       "feature": "F48",
@@ -4303,7 +4336,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B362"
+      "id": "B362",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Safe failure before anything is created; loader's message is accurate. Wording/SPEC completeness nit. (evidence: lib/run.mjs:328-335,805)"
     },
     {
       "feature": "F51",
@@ -4313,7 +4349,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B363"
+      "id": "B363",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Evaluator itself calls it acceptable; bounded doctor latency for hung CLIs only."
     },
     {
       "feature": "F51",
@@ -4323,7 +4362,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B364"
+      "id": "B364",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Refactor suggestion (duplicate I/O), no wrong result."
     },
     {
       "feature": "F52",
@@ -4337,7 +4379,10 @@
       "seen": 2,
       "sources": [
         "F52-r2"
-      ]
+      ],
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Already namespaced HARNESS_TEST_*, no-op when unset; a stray value in a user env is not a realistic scenario. (evidence: lib/commands/run.mjs:10-19)"
     },
     {
       "feature": "F52",
@@ -4351,7 +4396,10 @@
       "seen": 2,
       "sources": [
         "F52-r2"
-      ]
+      ],
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Test-coverage preference; the clause holds today (only a comment mentions the file). (evidence: test/f21-sleep.test.mjs:229-263)"
     },
     {
       "feature": "F52",
@@ -4365,7 +4413,10 @@
       "seen": 2,
       "sources": [
         "F52-r2"
-      ]
+      ],
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "File-location preference; zero-runtime-deps unaffected. (evidence: lib/stress.mjs:1; test/stress.mjs:12)"
     },
     {
       "feature": "F52",
