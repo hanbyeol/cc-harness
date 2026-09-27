@@ -1,0 +1,76 @@
+{
+  "feature": "F60",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "lib/telemetry.mjs still exports `lastExport(root)`, but after this diff nothing in lib/, bin/, or test/ calls it — planExport now uses readExported directly. It was the primary function before this change (used internally by the old planExport) and is now orphaned dead code.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Adding USERNAME/USERDOMAIN/COMPUTERNAME/HOSTNAME/LOGONSERVER to BASE_ENV_ALLOWLIST also widens filteredEnv, so check/repro child processes now receive these user and host names. They are not secrets, and SR-2 now documents them, but this is a small increase in what untrusted repro commands can see.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "Because user and host names are no longer redacted, exported hub bundles can now contain the literal OS user name (for example in session_log.path) and host names wherever event data includes them. This is the identifying-data concern of B378, made more likely by this change.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B378"
+    },
+    {
+      "summary": "readNewEvents reads each event file fully into memory on every export (fs.readFileSync of the whole YYYY-MM.jsonl), even when only a small tail after the recorded position is new. This is fine at the current scale, but a positioned read from `start` would bound memory and I/O.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 1.1913106,
+  "contract_hash": "40083e3c3bd4f137770169d38f9b47dd2012f7160ad0e1ddb142545eb1943980",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-27T19:12:19.695Z",
+  "origin": "run"
+}
