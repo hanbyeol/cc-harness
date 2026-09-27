@@ -135,7 +135,7 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
   `harness stats [--since YYYY-MM-DD] [--json]`은 단계별 횟수·중앙값·p90 시간·비용, 역할·모델별 비용, 1라운드 통과율과
   평균 라운드 수를 보여주고, 규칙 기반 제안을 냅니다 — 최근 10단계 중 2개 이상이 `budget.step_timeout_sec`의 90% 이상이면
   step_timeout 상향, verify 시간이 30% 초과면 `verify.check_parallel` 상향, builder 비용이 70% 초과이고 standard 기능이
-  있으면 standard 기능 builder 모델 변경. 제안은 자동 적용되지 않습니다.
+  있으면 standard 기능 builder 모델 변경. 제안은 자동 적용되지 않습니다. **실행 단계 기록** — 어댑터 호출마다 `build/step`·`eval/step`·`security/step` 이벤트(metrics 줄에도)에 claude가 보고한 turns·토큰·세션 id와 세션 기록 파일 위치(`session_log`, SPEC §2)를, verify는 `verify/command`·`verify/check`(시간·결과·flaky·parallel_retry)를 남깁니다. 사용량이 없으면 null, 프롬프트·응답·diff는 기록하지 않습니다.
 - **역할 모델 정책** — `roles.<역할>`에 등급별 모델 `by_tier`, builder 승격 모델 `escalate`, 충돌 해결 모델 `conflict_model`:
   `{"adapter": "claude", "model": "sonnet", "by_tier": {"critical": "opus"}, "escalate": "opus", "conflict_model": "opus"}`.
   선택 순서: `conflict_model`(충돌 해결) → `escalate`(같은 계약 2라운드 이상, builder만) → `by_tier.<등급>` → `model` →
