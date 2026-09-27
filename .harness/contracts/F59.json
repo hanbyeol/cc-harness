@@ -1,0 +1,61 @@
+{
+  "id": "F59",
+  "title": "하네스 자기 개선 루프 — 허브 데이터 분석, 근거 있는 개선 과제를 backlog 로, 버전별 전후 비교",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness learn [--hub <dir>] [--since D] [--json] 은 허브의 모든 프로젝트 묶음을 읽어 프로젝트 수·이벤트 수와, 버전별 지표(기능당 build 시간·턴·비용 중앙값, 1라운드 통과율, blocked 비율과 사유 분포, 사람 개입 수, lint 거부 규칙 상위, 지적 재현율, CI 반복 실패 테스트 해시 상위)를 보여 준다 — 고정 허브 fixture 의 기대 출력과 비교",
+      "check": "node test/t.mjs \"F59 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "harness learn 은 규칙 기반 개선 과제 후보를 만들고 각 후보에 근거(관련 프로젝트 수·이벤트 수·버전)를 붙인다. 근거가 2개 이상 프로젝트이거나 이벤트 10건 이상인 후보만 낸다",
+      "check": "node test/t.mjs \"F59 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "harness learn --propose 는 후보를 현재 저장소의 backlog 에 source: field-data, priority, evidence 와 함께 추가하고, 같은 규칙의 열린 항목이 있으면 새로 만들지 않고 seen 과 evidence 를 갱신한다",
+      "check": "node test/t.mjs \"F59 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "harness learn --compare <v1> <v2> 는 두 하네스 버전의 같은 지표를 나란히 보여 주고 변화량과 방향(개선·악화)을 표시한다",
+      "check": "node test/t.mjs \"F59 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "SPEC 과 docs 가 learn 의 지표·후보 규칙·임계값·propose 동작을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F59 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "허브가 없거나 비어 있으면 'no field data' 를 출력하고 exit 0 이다",
+      "check": "node test/t.mjs \"F59 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "허브의 줄 중 허용 필드 밖의 키가 있으면 그 키는 무시하고 경고를 낸다(오염된 묶음 방어)",
+      "check": "node test/t.mjs \"F59 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "계약 초안 자동 생성과 자동 승인 — 개선은 항상 사람이 승인한다"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-27T13:55:35.732Z",
+    "hash": "829b748f229a01a3eaa2100c9118d6b59fd807c12a2aef379352220dd4c76745"
+  }
+}

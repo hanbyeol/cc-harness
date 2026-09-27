@@ -1,0 +1,62 @@
+{
+  "id": "F57",
+  "title": "피드백 단계 기록과 harness insights — 사람 결정·수동 개입·CI 결과 기록, 개선 과제 후보 도출",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness decide F<n> --accept-risk|--split|--rewrite \"<사유>\" 는 feedback/decision 이벤트를 남기고 backlog 에 kind: decision 항목을 추가한다(status 는 바꾸지 않는다)",
+      "check": "node test/t.mjs \"F57 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "harness note [F<n>] --kind manual-fix|manual-merge|environment|other \"<내용>\" 은 feedback/intervention 이벤트를 남긴다",
+      "check": "node test/t.mjs \"F57 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "harness ci-record --sha <sha> --result success|failure [--job <name>] [--test <name>]... 는 feedback/ci 이벤트를 남기고, 같은 테스트 이름이 여러 번 기록되면 insights 가 반복 실패로 센다",
+      "check": "node test/t.mjs \"F57 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "harness insights [--since D] [--json] 은 이벤트를 모아 lint 규칙별 거부 수, 단계별 소요·비용·턴 상위, 지적 재현율과 이관 사유 분포, 사람 개입 종류별 수, CI 반복 실패 테스트를 보여 주고, 규칙 기반 개선 과제 후보(근거 이벤트 수 포함)를 3개 이상 조건에서 출력한다 — 고정 이벤트 fixture 의 기대 출력과 비교",
+      "check": "node test/t.mjs \"F57 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "SPEC 과 docs 가 세 명령과 insights 규칙을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F57 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "이벤트가 없으면 insights 는 'no events yet' 을 출력하고 exit 0 이다(--json 이면 빈 구조)",
+      "check": "node test/t.mjs \"F57 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "decide·note 의 사유가 비어 있으면 exit 2(usage)이고 아무것도 기록하지 않는다",
+      "check": "node test/t.mjs \"F57 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "CI 결과 자동 수집(gh 연동)",
+    "insights 제안의 자동 적용"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-27T13:55:35.732Z",
+    "hash": "d4af47c97dd859eba933f92e34e6a937396b2a2ff3ec0e04beb48400fe2e1c09"
+  }
+}

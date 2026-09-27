@@ -485,6 +485,60 @@
         "F52"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F54",
+      "title": "이벤트 로그 기반 — .harness/events 공통 기록기(하네스 버전·프로젝트 해시 포함), harness events 조회, 계획 단계 이벤트",
+      "security_tier": "critical",
+      "depends_on": [
+        "F53"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F55",
+      "title": "실행 단계 기록 — 어댑터 사용량(턴·토큰·세션)과 세션 기록 위치, verify 명령·기준별 시간",
+      "security_tier": "critical",
+      "depends_on": [
+        "F54"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F56",
+      "title": "평가·보안 단계 기록 — 지적별 재현 결과와 이관 사유, 재요청, 역할별 점수",
+      "security_tier": "critical",
+      "depends_on": [
+        "F54"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F57",
+      "title": "피드백 단계 기록과 harness insights — 사람 결정·수동 개입·CI 결과 기록, 개선 과제 후보 도출",
+      "security_tier": "standard",
+      "depends_on": [
+        "F54"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F58",
+      "title": "현장 데이터 수집 — 프로젝트 이벤트를 익명화한 묶음으로 중앙 허브에 내보내기(opt-in)",
+      "security_tier": "critical",
+      "depends_on": [
+        "F57"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F59",
+      "title": "하네스 자기 개선 루프 — 허브 데이터 분석, 근거 있는 개선 과제를 backlog 로, 버전별 전후 비교",
+      "security_tier": "standard",
+      "depends_on": [
+        "F58"
+      ],
+      "status": "approved"
     }
   ]
 }

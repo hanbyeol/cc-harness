@@ -1,0 +1,56 @@
+{
+  "id": "F56",
+  "title": "평가·보안 단계 기록 — 지적별 재현 결과와 이관 사유, 재요청, 역할별 점수",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "eval 은 지적마다 eval/finding 또는 security/finding 이벤트를 남기고 data 에 criterion_id·dimension·출처 역할·결과(blocking·backlogged)·이관 사유(no_criterion·not_reproduced·repro_not_runnable·adversarial·out_of_scope 등)·repro 종료 코드·소요 시간을 넣는다",
+      "check": "node test/t.mjs \"F56 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "평가자 출력 스키마 불일치 재요청과 근거 없는 저점 재요청은 각각 eval/reask 이벤트(사유)로 남는다",
+      "check": "node test/t.mjs \"F56 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "판정마다 eval/verdict 이벤트에 역할별 점수·최종 점수·판정·independence 가, critical 이면 security/verdict 이벤트에 reviewer 점수와 보안 차원 판정이 남는다",
+      "check": "node test/t.mjs \"F56 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "SPEC §7 과 docs 가 평가·보안 이벤트를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F56 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "finding 이벤트의 summary 는 300자로 자르기 전에 가려지고, repro 명령 문자열은 이벤트에 그대로 남지 않고 첫 프로그램 이름만 남는다",
+      "check": "node test/t.mjs \"F56 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "repro 실행이 시간 초과여도 finding 이벤트가 남고 결과는 지금 규칙과 같다",
+      "check": "node test/t.mjs \"F56 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "평가자 프롬프트 기록"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-27T13:55:35.732Z",
+    "hash": "8f0d842f7eefa94abf22f6b1e166f150316144771517571a4aebd18653b28a3e"
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "id": "F58",
+  "title": "현장 데이터 수집 — 프로젝트 이벤트를 익명화한 묶음으로 중앙 허브에 내보내기(opt-in)",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "config.telemetry.share 가 true 일 때만 harness export 가 동작하고, false·미설정이면 'telemetry.share is off' 를 출력하고 아무것도 쓰지 않는다(exit 0)",
+      "check": "node test/t.mjs \"F58 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "harness export [--hub <dir>] 는 마지막 내보내기 뒤의 이벤트를 <hub>/<project>/<ISO 시각>.jsonl 로 쓴다 — 기본 hub 는 CC_HARNESS_HUB 환경 변수, 없으면 <사용자 홈>/.cc-harness/hub 이고, 마지막 내보내기 시각은 .harness/events/.exported 에 기록해 같은 이벤트를 두 번 내보내지 않는다",
+      "check": "node test/t.mjs \"F58 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "내보낸 줄은 허용 필드만 남긴다: ts·stage·type·harness_version·profile·project·round 와 data 중 수치·불리언·열거값(규칙 이름, 이관 사유, outcome, 모델 이름, 역할, 차원, 개입 종류, 테스트 이름의 sha256 앞 16자) — 허용 목록은 코드에 고정되고 SPEC 에 표로 적힌다",
+      "check": "node test/t.mjs \"F58 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "harness export --dry-run 은 쓰지 않고 내보낼 줄 수와 첫 3줄을 보여 준다",
+      "check": "node test/t.mjs \"F58 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "run 과 eval 이 끝날 때 telemetry.share 가 true 이고 telemetry.auto_export 가 true 면 export 를 자동 실행하고, 실패해도 run·eval 결과는 바뀌지 않는다",
+      "check": "node test/t.mjs \"F58 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "SPEC 과 docs 가 opt-in·허용 필드·허브 위치를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F58 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "내보낸 묶음에는 기능 제목·기준 문장·지적 요약·명령 문자열·파일 경로·세션 id·환경 변수 값이 없다 — 각 항목에 표식 문자열을 넣은 이벤트 fixture 를 내보내 묶음에 표식이 하나도 없음을 확인",
+      "check": "node test/t.mjs \"F58 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "프로젝트 식별자는 경로 해시뿐이고, 묶음에 저장소 경로·git remote·사용자 이름이 없다",
+      "check": "node test/t.mjs \"F58 SC-2\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "허브 디렉터리에 쓸 수 없으면 export 는 경로와 오류를 출력하고 exit 1 이며 .exported 시각은 바뀌지 않는다",
+      "check": "node test/t.mjs \"F58 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "원격 서버로의 전송",
+    "암호화"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-27T13:55:35.732Z",
+    "hash": "ecc4919746254473bd8f42616c62bda613234dae5100efd080441bdae27c7dae"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "id": "F55",
+  "title": "실행 단계 기록 — 어댑터 사용량(턴·토큰·세션)과 세션 기록 위치, verify 명령·기준별 시간",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "claude 어댑터 결과에서 num_turns·usage(input·output·cache 토큰)·session_id·duration_api_ms 를 읽어, build·eval·security 단계 metrics 줄과 build/step·eval/step 이벤트에 turns·tokens·session_id 로 기록한다(기록된 claude 출력 fixture)",
+      "check": "node test/t.mjs \"F55 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "claude 세션 id 가 있으면 이벤트 data 에 세션 기록 파일의 예상 경로(~/.claude/projects/<cwd 인코딩>/<session_id>.jsonl)를 넣고, 파일이 있으면 exists: true 다",
+      "check": "node test/t.mjs \"F55 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "verify 는 verify.commands 와 기준 check 마다 소요 시간·결과·재실행 여부(flaky·parallel_retry)를 verify/command·verify/check 이벤트로 남긴다",
+      "check": "node test/t.mjs \"F55 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "gemini·codex·generic 어댑터처럼 사용량을 주지 않는 경우 해당 필드는 null 이고 오류가 나지 않는다",
+      "check": "node test/t.mjs \"F55 AC-4\"",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "SPEC 과 docs 가 실행 단계 기록 필드를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F55 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "이벤트와 metrics 에 프롬프트·모델 응답 본문·diff 가 들어가지 않는다 — 표식 문자열을 넣은 프롬프트와 응답 fixture 로 확인",
+      "check": "node test/t.mjs \"F55 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "어댑터 출력이 JSON 이 아니거나 usage 가 없어도 단계 결과는 지금과 같고 사용량 필드만 null 이다",
+      "check": "node test/t.mjs \"F55 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "세션 기록 파일 내용 분석",
+    "비용 추정"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-27T13:55:35.732Z",
+    "hash": "14da542d41ad12a0c120d215e8b6536f6c7d54af205e62dd076306a853a2bc68"
+  }
+}

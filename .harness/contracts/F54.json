@@ -1,0 +1,68 @@
+{
+  "id": "F54",
+  "title": "이벤트 로그 기반 — .harness/events 공통 기록기(하네스 버전·프로젝트 해시 포함), harness events 조회, 계획 단계 이벤트",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "코어는 이벤트를 .harness/events/YYYY-MM.jsonl(UTC 월) 에 한 줄씩 추가하고, 각 줄은 {ts, stage, type, feature?, round?, harness_version, profile, project, data} 이며 stage 는 plan·build·verify·eval·security·feedback 중 하나, harness_version 은 package.json 버전, project 는 저장소 최상위 경로의 sha256 앞 16자다",
+      "check": "node test/t.mjs \"F54 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "계획 단계: lint-contract 는 검사한 계약마다 plan/lint 이벤트(오류·경고의 규칙 이름과 기준 id, 개수)를, approve 는 plan/approve 이벤트(계약 버전·해시, 이전 승인과 비교해 추가·삭제·문장 변경된 기준 id)를 남긴다",
+      "check": "node test/t.mjs \"F54 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "features.json 의 status 가 바뀔 때마다 코어는 feedback 이 아닌 해당 단계의 status 이벤트(from·to·사유)를 남긴다 — approve·eval·run 경로 각각",
+      "check": "node test/t.mjs \"F54 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "harness events [--stage S] [--feature F] [--since YYYY-MM-DD] [--json] 은 조건에 맞는 이벤트를 시간순으로 보여 준다",
+      "check": "node test/t.mjs \"F54 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": ".harness/events/** 는 verify 무결성 검사의 면제 경로이고(verdicts·backlog·runs 와 같음), SPEC §2·§6.2 와 docs 가 이벤트 형식과 면제를 설명한다(문서 check 포함)",
+      "check": "node test/t.mjs \"F54 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "이벤트 data 는 기록 전에 run 보고서와 같은 규칙으로 가려진다 — GEMINI_API_KEY=sk-test-secret 환경에서 비밀 값이 든 계약 문장을 lint 한 뒤 이벤트 파일에 그 값이 없다",
+      "check": "node test/t.mjs \"F54 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "이벤트 파일 쓰기가 실패해도 원래 명령(lint·approve·eval·run)은 결과가 바뀌지 않고, stderr 에 경고 한 줄만 남긴다",
+      "check": "node test/t.mjs \"F54 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "이벤트 파일에 JSON 이 아닌 줄이 있으면 harness events 는 그 줄을 건너뛰고 파일·줄 번호 경고를 낸다",
+      "check": "node test/t.mjs \"F54 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "과거 기록(verdict·metrics)을 이벤트로 역변환"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-27T13:55:35.732Z",
+    "hash": "81e3fcb42bf75d5216e0f4ad631f22fa0c0e0c9aff55433ff3874072e37df7cf"
+  }
+}
