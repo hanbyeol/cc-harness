@@ -54,8 +54,9 @@ harness export --hub /path/to/hub # 다른 허브에 쓴다
 | `project` | 저장소 경로의 해시 — 경로 자체는 없다 |
 | `round` | 라운드 번호 |
 | `data.rule` | lint 규칙 이름 |
-| `data.reason` | 지적의 이관 사유(`missing_repro`·`repro_not_reproduced` 등) |
+| `data.reason` | 지적의 이관 사유(`missing_repro`·`repro_not_reproduced` 등), 기능 상태가 바뀐 사유(`pass`·`stall`·`max_rounds` 등) |
 | `data.outcome` | `blocking`·`backlogged` |
+| `data.from`·`data.to` | status 이벤트의 이전·새 기능 상태(`todo`·`approved`·`in_progress`·`passed`·`blocked`·`skipped`) |
 | `data.model` | 모델 이름 |
 | `data.role` | 역할(`builder`·`evaluator`·`security-reviewer`) |
 | `data.dimension` | 평가 차원 |
@@ -66,3 +67,55 @@ harness export --hub /path/to/hub # 다른 허브에 쓴다
 
 남지 않는 것: 기능 id·제목, 기준 문장, 지적 요약, 명령 문자열(check·repro·verify 명령), 파일 경로, 세션 id,
 환경 변수 값, 사람이 쓴 사유·메모, 저장소 경로, git remote, 사용자 이름.
+
+## 허브 분석 — `harness learn`
+
+허브에 모인 묶음으로 하네스 자체를 개선할 과제를 찾는다. 규칙의 원문은 `docs/SPEC.md` §2 하네스 자기 개선이다.
+분석은 읽기만 하고, 개선 과제는 **후보**일 뿐이다 — 계약 초안을 만들거나 승인하지 않으며 사람이 계약으로 만들고 승인한다.
+
+```bash
+harness learn                              # 기본 허브(export 와 같은 위치)의 버전별 지표와 후보
+harness learn --hub /path/to/hub --json    # 같은 내용을 JSON 으로
+harness learn --since 2026-09-01           # 그날(UTC) 이후의 줄만
+harness learn --propose                    # 후보를 이 저장소의 backlog 에 추가(같은 규칙이면 갱신)
+harness learn --compare 2.0.0 2.1.0        # 두 버전의 지표를 나란히, 변화량과 방향
+```
+
+- 허브가 없거나 셀 줄이 없으면 `no field data` 를 출력하고 exit 0 이다.
+- 허브의 줄도 위 허용 목록으로 다시 거른다. 목록 밖의 키(누가 손으로 넣었거나 오염된 묶음)는 무시하고 파일마다
+  `ignored keys outside the allowlist: …` 경고를 낸다. 올바른 줄이 아니면 세지 않고 `lines skipped` 경고를 낸다.
+
+### 버전별 지표
+
+기능 하나 = `to` 가 `passed`·`blocked` 인 status 이벤트. `harness run` 은 그 이벤트에 기능의 builder 호출 합계
+(`build_duration_ms`·`build_turns`·`build_cost_usd`)를 넣는다.
+
+| 지표 | 뜻 |
+|------|----|
+| `build` | 기능당 build 시간·턴·비용의 중앙값(`build_duration_ms`·`build_turns`·`build_cost_usd`) |
+| `first_round_pass_rate` | 1라운드에 passed 된 기능 / 끝난 기능 |
+| `blocked_rate`·`blocked_reasons` | blocked 된 기능 / 끝난 기능, blocked 사유 분포 |
+| `interventions` | 사람 개입(`harness note`) 수 |
+| `lint_rejections` | lint 거부 규칙 상위 3 |
+| `reproduction_rate` | 지적 재현율 = blocking 지적 / 전체 지적 |
+| `ci_repeated` | 2개 이상의 CI 기록에서 실패한 테스트 해시 상위 3 |
+
+### 개선 과제 후보 규칙과 임계값
+
+규칙(이 순서로): `lint_rule`(lint 규칙마다), `backlog_reason`(지적 이관 사유마다), `low_reproduction`(전체 재현율 50% 미만),
+`blocked_reason`(blocked 사유마다), `intervention`(개입 종류마다), `ci_repeated`(2개 이상의 CI 기록에서 실패한 테스트마다).
+
+후보마다 근거 `evidence: {projects, events, versions}` 가 붙고, 근거가 **2개 이상 프로젝트**이거나 **이벤트 10건 이상**인 후보만 나온다.
+한 프로젝트의 우연한 일로 하네스를 바꾸지 않기 위해서다. `priority` 는 근거 프로젝트 3개 이상 `high`, 2개 `medium`, 1개 `low`.
+
+### `--propose`
+
+후보를 현재 저장소의 `.harness/backlog.json` 에 `source: "field-data"`, `learn_rule`(`<rule>:<subject>`), `summary`, `priority`,
+`evidence`, `seen: 1` 로 추가한다. 같은 `learn_rule` 의 열린(해결되지 않은) field-data 항목이 이미 있으면 새로 만들지 않고 그 항목의
+`seen` 을 1 늘리고 `evidence` 를 새 값으로 바꾼다. 해결된 항목은 다시 열지 않고 새 항목을 만든다.
+
+### `--compare <v1> <v2>`
+
+`build_duration_ms`·`build_turns`·`build_cost_usd`·`first_round_pass_rate`·`blocked_rate`·`interventions`·`reproduction_rate` 를
+두 버전에 대해 나란히 보여 주고 변화량(v2 − v1)과 방향을 붙인다. 시간·턴·비용·blocked 비율·개입은 줄면, 통과율·재현율은 늘면
+`improved`, 반대면 `worse`, 같으면 `same`, 한쪽에 값이 없으면 `n/a` 다.
