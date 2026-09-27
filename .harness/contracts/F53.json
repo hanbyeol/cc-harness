@@ -1,0 +1,47 @@
+{
+  "id": "F53",
+  "title": "integration 정리 내용 기록과 lint 전칭 표현 판정 복구",
+  "security_tier": "standard",
+  "version": 1,
+  "resolves": [
+    "B360",
+    "B368"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "병합 전 integration worktree 정리(reset --hard·clean)가 버리는 경로가 있으면 그 목록(최대 50개와 '… N more')을 run 출력과 run 보고서의 경고에 남긴다 — 추적 파일 수정과 추적되지 않은 파일을 남긴 fixture 에서 두 경로가 모두 보고된다",
+      "check": "node test/t.mjs \"F53 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "lint-contract 규칙 3 은 '절대로' 뒤에 무엇이 오든(경로 포함) 전칭 표현으로 보고, '절대'+'경로' 조합(사이 공백 유무 무관)과 '절대값'·'절대적' 같은 합성어는 보지 않는다 — 문장 6개(오류 3·통과 3)를 테스트에 고정해 경우별로 확인",
+      "check": "node test/t.mjs \"F53 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "SPEC §5 규칙 3 설명이 AC-2 의 판정을 예시와 함께 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F53 AC-3\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "integration worktree 가 깨끗하면 경고를 남기지 않는다",
+      "check": "node test/t.mjs \"F53 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "정리 전 사용자 변경을 백업하는 기능"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-27T12:47:09.317Z",
+    "hash": "d237be6586d3c3cbe1d428498874eb1c9232055bc3d064ff6e2a4fb51493bb61"
+  }
+}

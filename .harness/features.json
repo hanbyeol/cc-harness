@@ -476,6 +476,15 @@
         "F47"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F53",
+      "title": "integration 정리 내용 기록과 lint 전칭 표현 판정 복구",
+      "security_tier": "standard",
+      "depends_on": [
+        "F52"
+      ],
+      "status": "approved"
     }
   ]
 }
