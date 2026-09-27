@@ -34,12 +34,18 @@
     {
       "source": "F1-r1",
       "summary": "t.mjs ^<id>\\b also matches names like 'F1 AC-1-foo' or 'F1 AC-1.2' (harmless under current naming).",
-      "id": "B6"
+      "id": "B6",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "harmless under current AC-n naming (t.mjs ^id\\b)"
     },
     {
       "source": "F1-r1",
       "summary": "Harness root is process.cwd(); running from a subdirectory reports 'not initialized' (no upward search).",
-      "id": "B7"
+      "id": "B7",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "root = cwd by design (bin/harness.mjs:32); nested projects (sub/.harness) make upward search ambiguous"
     },
     {
       "source": "F2-impl",
@@ -50,7 +56,10 @@
     {
       "source": "F4-impl",
       "summary": "doctor checks flags only, not authentication — it reports gemini usable while gemini exits 41 (no auth). A run would fail at eval with exit_nonzero rather than adapter_unavailable. Consider a zero-cost auth probe per CLI or mapping known auth-error exits to adapter_unavailable.",
-      "id": "B9"
+      "id": "B9",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "gemini authStatus (env/settings.json) reported by doctor and exit 41 mapped to adapter_unavailable (evidence: lib/adapters/gemini.mjs authStatus/unavailableExit; lib/commands/doctor.mjs authOf)"
     },
     {
       "source": "F4-impl",
@@ -61,7 +70,10 @@
     {
       "source": "F7-impl",
       "summary": "hooks/hooks.json SessionStart uses ${CLAUDE_PLUGIN_ROOT}; under Gemini (which also loads hooks/hooks.json) it expands empty and fails non-fatally. Verify a host-neutral command form.",
-      "id": "B11"
+      "id": "B11",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "still ${CLAUDE_PLUGIN_ROOT} in hooks/hooks.json; failure under Gemini is non-fatal, low value"
     },
     {
       "source": "F7-impl",
@@ -82,12 +94,18 @@
     {
       "source": "F4-r1",
       "summary": "run() ignores role; force readOnly for READ_ONLY_ROLES as defence in depth.",
-      "id": "B14"
+      "id": "B14",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "all callers pass readOnly explicitly (eval.mjs:574 readOnly:true); defence-in-depth only"
     },
     {
       "source": "F4-r1",
       "summary": "Nonexistent cwd is reported as adapter_unavailable (misattributed cause).",
-      "id": "B15"
+      "id": "B15",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "feature cwd is always a core-created worktree; misattribution only for a nonexistent cwd (exec ENOENT -> isNotFound)"
     },
     {
       "source": "F4-r1",
@@ -97,17 +115,26 @@
     {
       "source": "F4-r1",
       "summary": "gemini error wrapper exiting 0 would be read as model JSON (theoretical today).",
-      "id": "B17"
+      "id": "B17",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "theoretical"
     },
     {
       "source": "F4-r1",
       "summary": "A model verdict with type:'result' and is_error is misread as a claude wrapper (contrived).",
-      "id": "B18"
+      "id": "B18",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "contrived"
     },
     {
       "source": "F4-r1",
       "summary": "independence() is optimistic when one side uses the CLI default model; consider fresh-context when either model is unknown.",
-      "id": "B19"
+      "id": "B19",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "labeling heuristic only (independenceOf), no effect on pass/fail"
     },
     {
       "source": "F4-r1",
@@ -117,42 +144,66 @@
     {
       "source": "F4-r1",
       "summary": "Process-group kill cannot reach setsid/daemonized grandchildren (and Windows orphans); exec now destroys the pipes so close still fires, but the orphan keeps running.",
-      "id": "B21"
+      "id": "B21",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "setsid/daemonized orphans are outside process-group control; pipes are destroyed so the harness does not hang"
     },
     {
       "source": "F3-impl",
       "summary": "Timed-out verify commands are rerun once (worst case 2x step_timeout_sec); consider not retrying timeouts.",
-      "id": "B22"
+      "id": "B22",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "a timed-out verify command is rerun once (verify.mjs runVerifyCommand); rare and bounded 2x"
     },
     {
       "source": "F3-impl",
       "summary": "Code that holds skip markers as data fails its own verify; F3 splits marker strings as a workaround. Consider a per-contract marker_exempt_paths frozen by the approval hash.",
-      "id": "B23"
+      "id": "B23",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "marker split workaround works; fixed marker list is by design (SPEC §6.2-1)"
     },
     {
       "source": "F3-impl",
       "summary": "verify with cwd=root reports uncommitted core writes to .harness/features.json as a .harness change (false positive if the core ever leaves them uncommitted).",
-      "id": "B24"
+      "id": "B24",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "core commits its own state; theoretical"
     },
     {
       "source": "F4-r2",
       "summary": "If timeoutSec < 2s exit grace and a background child holds the pipes after a clean exit, the result is reported as timeout.",
-      "id": "B25"
+      "id": "B25",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "sub-2s timeout edge, theoretical"
     },
     {
       "source": "F4-r2",
       "summary": "killTree signals the process group after the leader exited; pgid reuse is theoretically possible (only while a member still holds the pipes).",
-      "id": "B26"
+      "id": "B26",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "pgid reuse theoretical"
     },
     {
       "source": "F3-r1",
       "summary": "[D1-adversarial] skip-worktree/assume-unchanged index flags hide working-tree changes from verify's git diff. Structural option: verify the committed tree in a clean checkout.",
-      "id": "B27"
+      "id": "B27",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "D1 adversarial; update-index flags are classified as adversarial repro (eval.mjs ADVERSARIAL)"
     },
     {
       "source": "F3-r1",
       "summary": "[D1-adversarial] clean filters configured via .git/info/attributes alter what git diff sees.",
-      "id": "B28"
+      "id": "B28",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "D1 adversarial (filter config in .git/info)"
     },
     {
       "source": "F3-r1",
@@ -162,7 +213,10 @@
     {
       "source": "F3-r1",
       "summary": "Ignored untracked files (.gitignore, .git/info/exclude) are not scanned for markers or .harness paths.",
-      "id": "B30"
+      "id": "B30",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "ignored files never reach a merge/commit (git add respects .gitignore); by design"
     },
     {
       "source": "F3-r1",
@@ -172,32 +226,50 @@
     {
       "source": "F3-r1",
       "summary": "Marker list misses t.Skipf/t.SkipNow, fit(/fdescribe(, *.skip.each, pytestmark = pytest.mark.skipif (contract fixes 8 markers).",
-      "id": "B32"
+      "id": "B32",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "config verify.skip_markers can add markers; fit(/Skipf add false-positive risk"
     },
     {
       "source": "F3-r1",
       "summary": "Self-verify on the integration branch (base == HEAD) marks every criterion vacuous; needs --base <pre-feature ref>.",
-      "id": "B33"
+      "id": "B33",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "--base <ref> exists for this case (verify.mjs:370 message); by design"
     },
     {
       "source": "F2-r1",
       "summary": "'어떤 .*도' / '모든 .*에 대해' do not match across newlines (consider the s flag).",
-      "id": "B34"
+      "id": "B34",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "criterion text rarely multi-line; contracts are user-approved"
     },
     {
       "source": "F2-r1",
       "summary": "Non-string criterion skips rule 3 with only a warning.",
-      "id": "B35"
+      "id": "B35",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "warning is enough; criterion text is informational"
     },
     {
       "source": "F2-r1",
       "summary": "run_steps as a string or with different case/whitespace ('Rollout', ' rollout') is not rejected; non-array run_steps is not an error.",
-      "id": "B36"
+      "id": "B36",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "run_steps is not consumed by the core at all (only lint reads it), so no rollout can run"
     },
     {
       "source": "F2-r1",
       "summary": "approve pretty-prints the contract; a compact contract just under 20KB can exceed the byte limit after approval.",
-      "id": "B37"
+      "id": "B37",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "edge case near 20KB; only lint-contract would re-flag"
     },
     {
       "source": "F2-r1",
@@ -208,32 +280,50 @@
     {
       "source": "F2-r1",
       "summary": "approve writes contracts one by one then features.json; an I/O fault mid-way can leave partial state.",
-      "id": "B39"
+      "id": "B39",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "writeJsonAtomic per file; mid-way I/O fault is rare and approve can be rerun"
     },
     {
       "source": "F3-r2",
       "summary": "Base-side vacuity runs without installed dependencies (node_modules), so a dependency-needing vacuous check can be scored non-vacuous.",
-      "id": "B40"
+      "id": "B40",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "same as B31 (base vacuity without dependencies)"
     },
     {
       "source": "F3-r2",
       "summary": "Untracked symlinks and nested git repos are skipped by the untracked-content scan.",
-      "id": "B41"
+      "id": "B41",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "by design: symlinks/nested repos have no own lines (verify.mjs:192)"
     },
     {
       "source": "F3-r2-sec",
       "summary": "close-time process-group kill has a theoretical PID-reuse window after the group empties.",
-      "id": "B42"
+      "id": "B42",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "PID reuse theoretical"
     },
     {
       "source": "F3-r2-sec",
       "summary": "projectRel uses fs.realpathSync (no case normalization on macOS); a programmatic caller passing root with different case would miss sub/.harness. Use fs.realpathSync.native.",
-      "id": "B43"
+      "id": "B43",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "projectRel uses fs.realpathSync.native (evidence: lib/verify.mjs:396)"
     },
     {
       "source": "F2-r2",
       "summary": "jsonErrorOffset is recursive; ~20,000-level nesting with a positionless error escapes as RangeError (6,000 handled).",
-      "id": "B44"
+      "id": "B44",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "20,000-level nesting unrealistic"
     },
     {
       "source": "F2-r2",
@@ -243,27 +333,42 @@
     {
       "source": "F5-impl",
       "summary": "When cwd == root, earlier verdict/eval_error files under .harness/verdicts show up as untracked noise in later evaluation diffs.",
-      "id": "B46"
+      "id": "B46",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "only in manual eval with cwd==root and uncommitted verdicts; noise, not a wrong verdict"
     },
     {
       "source": "F6-impl",
       "summary": "F6 ES-3 SIGINT test returns early on Windows (signals cannot be sent to a child there), so it is vacuous on Windows.",
-      "id": "B47"
+      "id": "B47",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "platform limitation (no signals to children on Windows)"
     },
     {
       "source": "F5-r1-sec",
       "summary": "secret_globs matching is undefined in SPEC; a glob with '/' is anchored at the repo root (deep/secrets/ leaks with 'secrets/').",
-      "id": "B48"
+      "id": "B48",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "semantics now defined (glob.mjs matchesAnyGlob doc + SPEC §6.3 ref): '/' globs are root-anchored; use '**/secrets/'"
     },
     {
       "source": "F5-r1-sec",
       "summary": "Deny list misses source <(curl …), . <(curl …), and download-then-sh.",
-      "id": "B49"
+      "id": "B49",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "deny list is SPEC SR-3's enumerated five patterns; repro author is the evaluator, not an adversary"
     },
     {
       "source": "F5-r1-sec",
       "summary": "SR-4 is path-based; renaming .env to env.bak sends its contents. Read-only model sessions can still read .env through CLI read tools.",
-      "id": "B50"
+      "id": "B50",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "rename/copy of a secret is now excluded by F9 content-hash + -M rename detection (eval.mjs secretCopies); CLI read tools are outside SR-4's diff scope"
     },
     {
       "source": "F5-r1",
@@ -273,27 +378,42 @@
     {
       "source": "F5-r1",
       "summary": "Security-reviewer findings in non-security dimensions also block; SPEC 7.4 ambiguous.",
-      "id": "B52"
+      "id": "B52",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "any reproduced in-contract finding is legitimately blocking"
     },
     {
       "source": "F5-r1",
       "summary": "SR-3 deny false positives ('git stash push', 'echo sudo') — safe (backlogged).",
-      "id": "B53"
+      "id": "B53",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "over-deny direction is safe"
     },
     {
       "source": "F5-r1",
       "summary": "harness eval --round k silently overwrites an existing verdict file.",
-      "id": "B54"
+      "id": "B54",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "evaluate refuses an existing verdict file (round_exists) (evidence: lib/eval.mjs refuseExisting)"
     },
     {
       "source": "F5-r1",
       "summary": "Backlog entries classified before a later eval_error (re-ask or reviewer) are dropped.",
-      "id": "B55"
+      "id": "B55",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "eval_error does not consume the round; the re-run reproduces the findings"
     },
     {
       "source": "F5-r1",
       "summary": "validateOutput accepts non-integer scores and missing out_of_scope although OUTPUT_SCHEMA declares them.",
-      "id": "B56"
+      "id": "B56",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "fractional scores are harmless for min/threshold comparison; out_of_scope is optional"
     },
     {
       "source": "F6-r1-sec",
@@ -308,22 +428,34 @@
     {
       "source": "F6-r1-sec",
       "summary": "protected_branches has no glob support (release/*).",
-      "id": "B59"
+      "id": "B59",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "core only merges into integration_branch; exact-name protection suffices"
     },
     {
       "source": "F6-r1",
       "summary": "SPEC inconsistency: step timeout → blocked(budget) (§8) vs adapter timeout during eval → eval_error (§7.3).",
-      "id": "B60"
+      "id": "B60",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "different phases; both behaviours documented"
     },
     {
       "source": "F6-r1",
       "summary": "Hard crash between git worktree add -b and save() leaves stage=worktree; resume then blocks the feature (worktree).",
-      "id": "B61"
+      "id": "B61",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "a leftover worktree at stage=worktree is taken over (carry) instead of blocking (evidence: lib/run.mjs runOne: pathExists(wtOf) -> takeOver)"
     },
     {
       "source": "F6-r1",
       "summary": "Terminal Ctrl-C can kill a git merge child mid-merge; classified as merge_conflict before the interrupted exit.",
-      "id": "B62"
+      "id": "B62",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "git children are spawned detached (own process group) on POSIX, so terminal Ctrl-C does not reach them (evidence: lib/exec.mjs runCommand detached:true)"
     },
     {
       "source": "F6-r1",
@@ -333,7 +465,10 @@
     {
       "source": "F6-r1",
       "summary": "A dirty integration worktree or failing git add/commit in merge() escapes runFeatures without a report.",
-      "id": "B64"
+      "id": "B64",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "same as B58 (dirty integration worktree / git add failure escapes runFeatures without a report)"
     },
     {
       "source": "F6-r1",
@@ -343,17 +478,26 @@
     {
       "source": "F6-r2-sec",
       "summary": "Branch case folding uses toLowerCase only (no NFC/NFD normalization) — exotic names.",
-      "id": "B66"
+      "id": "B66",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "exotic Unicode branch names"
     },
     {
       "source": "F8-r1",
       "summary": "F8 AC-2 frozen criterion text lists fewer paths than SPEC 13 and the test (docs/DECISIONS, settings.json, profiles/*.md, v1 agents/skills); tighten wording on the next contract version.",
-      "id": "B67"
+      "id": "B67",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "wording nit in a frozen contract"
     },
     {
       "source": "F8-r1",
       "summary": "F8 AC-2 test checks absence via fs.existsSync, not git ls-files (equivalent in a clean checkout).",
-      "id": "B68"
+      "id": "B68",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "test-style preference; equivalent in a clean checkout"
     },
     {
       "source": "F5-2nd",
@@ -365,42 +509,66 @@
     {
       "source": "F5-2nd",
       "summary": "validateOutput accepts non-integer scores (6.5) although OUTPUT_SCHEMA declares integer.",
-      "id": "B70"
+      "id": "B70",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "same as B56 (validateOutput non-integer scores)"
     },
     {
       "source": "F5-r3",
       "summary": "Continuation stripping ignores backslash escape parity ('a\\\\\\\\<newline>git push'); over-deny direction, not a bypass.",
-      "id": "B71"
+      "id": "B71",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "over-deny direction, not a bypass"
     },
     {
       "source": "F5-r3",
       "summary": "Deny patterns match token co-occurrence, so 'echo git push …' is denied (over-deny, pre-existing).",
-      "id": "B72"
+      "id": "B72",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "same class as B53 (token co-occurrence over-deny)"
     },
     {
       "source": "F6-2nd",
       "summary": "run.mjs's own git() plumbing (merge --no-ff, worktree remove, branch -D, reset --hard) does not receive the AbortSignal; SIGINT waits for it (possibly intentional: killing mid-merge could corrupt the integration worktree).",
-      "id": "B73"
+      "id": "B73",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "intentional: killing git mid-merge could corrupt the integration worktree"
     },
     {
       "source": "F6-2nd",
       "summary": "eval.mjs HarnessError('interrupted') (bd484d0) is effectively unreachable under run.mjs step()'s abort race, isFatal() would not classify it as an interrupt, and the abandoned evaluate() keeps running ~1s after state is saved.",
-      "id": "B74"
+      "id": "B74",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "step() abort race throws Interrupted first; residual ~1s background work is harmless"
     },
     {
       "source": "F6-2nd",
       "summary": "AC-8 stops the run only when a critical feature is literally blocked, not when it is transitively skipped by a blocked dependency.",
-      "id": "B75"
+      "id": "B75",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "a skipped critical feature never ran, nothing unsafe was merged"
     },
     {
       "source": "F10-r1",
       "summary": "harness/F{n} feature branches get no explicit case-collision check against local branches (e.g. Harness/F1). Safe today only because git's core.ignorecase guard refuses the branch and run maps it to blocked(worktree); add an explicit check with an SR-5 message.",
-      "id": "B76"
+      "id": "B76",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "safe today: git refuses the case-colliding branch and run maps it to blocked(worktree)"
     },
     {
       "source": "F10-r1",
       "summary": "foldBranch uses JS toLowerCase, which only approximates filesystem case folding for non-ASCII names (adjacent to the NFC/NFD item).",
-      "id": "B77"
+      "id": "B77",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "same as B66 (non-ASCII case folding)"
     },
     {
       "source": "F10-impl",
@@ -412,22 +580,34 @@
     {
       "source": "F12-r1",
       "summary": "validateUser rejects any object-default config key (budget, verify, limits, roles, rubric) set to a non-object — broader than ES-2's literal scope; documented in SPEC §4.",
-      "id": "B79"
+      "id": "B79",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "documented in SPEC §4 (object-default keys must be objects)"
     },
     {
       "source": "F9-r1",
       "summary": "A lightly edited copy of a secret that keeps the original (cp .env backup.txt, then tweak) is neither a hash match nor a -M rename pair; content reaches the eval diff. Contract out_of_scope (partial content); consider -C copy detection with a secret source.",
-      "id": "B80"
+      "id": "B80",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "partial content is out_of_scope by contract/SPEC SR-4"
     },
     {
       "source": "F9-r1",
       "summary": "Content-hash exclusion also drops a legitimate file that is byte-identical to a secret by coincidence.",
-      "id": "B81"
+      "id": "B81",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "coincidental byte-identical file is negligible and the safe direction"
     },
     {
       "source": "F9-r2",
       "summary": "Exhaustive rename detection (renameLimit=0) is worst-case quadratic; ~5s at 3000 renamed paths, watch for diffs with tens of thousands of paths.",
-      "id": "B82"
+      "id": "B82",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "performance watch item only"
     },
     {
       "source": "F3-r3",
@@ -439,17 +619,26 @@
     {
       "source": "F13-r2",
       "summary": "runFeatures({config}) (programmatic callers) gets shape checks but not the DEFAULTS/profile merge that loadConfig applies; the two paths differ.",
-      "id": "B84"
+      "id": "B84",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "programmatic API used by tests; CLI path always goes through loadConfig"
     },
     {
       "source": "F14-r2",
       "summary": "win32 not-found anchoring rejects a program name containing an apostrophe ('d'oh.exe') - safe direction (treated as a real failure).",
-      "id": "B85"
+      "id": "B85",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "safe direction"
     },
     {
       "source": "F14-r1",
       "summary": "Windows not-found detection only knows the English cmd.exe wording; other locales are reported as plain failures.",
-      "id": "B86"
+      "id": "B86",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "documented limitation (exec.mjs WIN_NOT_FOUND comment)"
     },
     {
       "feature": "F16",
@@ -458,7 +647,10 @@
       "summary": "featureTestFiles checks lstat only on the leaf path. This is safe because git tracks a symlinked directory as a single symlink entry, so no file path is listed beneath it. If the file list ever came from a source that expands directories, a symlinked parent directory in the working tree would need its own check.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B87"
+      "id": "B87",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "safe given git's file list; D1 cooperative builder"
     },
     {
       "feature": "F16",
@@ -467,7 +659,10 @@
       "summary": "overlayFiles runs fs.statSync(src) after the exclusive write, and does so once per file. The mode could be read once alongside the content, and a file that disappears between the lstat filter and the copy would surface as an io error. This is only a minor race and not a real problem for a cooperative builder.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B88"
+      "id": "B88",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "minor race, cooperative builder"
     },
     {
       "feature": "F16",
@@ -476,7 +671,10 @@
       "summary": "The vacuity failure message differs depending on whether an overlay was applied ('with the feature's test files' or not). Both variants contain 'already passes on base', so AC-1 holds. Consumers that match the full message text would need to know about both variants.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B89"
+      "id": "B89",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "both messages contain the stable substring"
     },
     {
       "feature": "F16",
@@ -485,7 +683,10 @@
       "summary": "verify.test_count is unset in this repository, so the verify run warns that a test-count decrease is not checked. Setting it in .harness/config.json would give the project this protection.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B90"
+      "id": "B90",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "verify.test_count is set to from:commands[0] (evidence: .harness/config.json)"
     },
     {
       "feature": "F16",
@@ -494,7 +695,10 @@
       "summary": "The isTestPath alias in lib/glob.mjs is a thin wrapper over matchesAnyGlob. It adds a second name for the same function without adding behaviour, and could be dropped or documented as intentional.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B91"
+      "id": "B91",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "naming nit"
     },
     {
       "feature": "F16",
@@ -503,7 +707,10 @@
       "summary": "featureTestFiles checks lstat only on the final path, not its parents. Scenario: base tracks test/a.test.mjs, and the feature replaces the test/ directory with a symlink to an outside directory that also contains a.test.mjs. `git diff --name-only` still lists test/a.test.mjs (as deleted), and lstat(top/test/a.test.mjs) follows the parent symlink and reports a regular file. The outside file's content is then copied into the temporary base worktree. SC-2 covers only a test path that is itself a symlink, so this is not a blocking defect, and the impact is low: the head-side run already executes through the link and the base worktree is removed afterwards. Hardening: skip a path when any parent segment under `top` is a symlink, or when realpath(src) is outside `top`.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B92"
+      "id": "B92",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "same as B87 (featureTestFiles parent-symlink lstat); D1"
     },
     {
       "feature": "F16",
@@ -512,7 +719,10 @@
       "summary": "overlayFiles copies file mode bits with `statSync(src).mode & 0o777`, which can include group/other write bits from the working tree. This is harmless in a temporary worktree; masking with 0o755 would be tidier.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B93"
+      "id": "B93",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "harmless in a temporary worktree"
     },
     {
       "feature": "F16",
@@ -521,7 +731,10 @@
       "summary": "The overlay is unbounded: a very large or very numerous set of changed test files is read fully into memory and copied. This is not a trust-boundary issue under threat model D1.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B94"
+      "id": "B94",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Unbounded overlay memory; reporter itself says not a trust-boundary issue under D1; low value"
     },
     {
       "feature": "F17",
@@ -530,7 +743,10 @@
       "summary": "When features.json cannot be written while recording a blocked(eval_error) decision, the io error message tells the user to rerun `harness eval F{n}` to record the status. eval_error verdicts are stored as F{n}-r{k}.eval_error.json and are not picked up by the ES-2 retry path. A rerun therefore evaluates again instead of recording the earlier decision, and that guidance is misleading for this case.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B95"
+      "id": "B95",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Still true (eval_error has no eval_round retry key, eval-status.mjs:86) but only on a features.json write failure; rerun yields the same blocked outcome at the cost of one adapter call (evidence: lib/eval-status.mjs:86-93)"
     },
     {
       "feature": "F17",
@@ -539,7 +755,10 @@
       "summary": "Round numbering continues across contract versions (nextRound is one past the highest existing verdict file), and the previous verdict used for the convergence check may belong to an older contract. After a re-approved contract version, the first interactive eval can already be at k >= max_rounds and go straight to blocked(rounds). SPEC does not say whether rounds reset on a new contract version; this may be worth clarifying.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B96"
+      "id": "B96",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "Rounds are now counted per contract hash (contract_round), so a re-approved contract starts at round 1 (evidence: lib/eval-status.mjs:38-47,120-126 (decideStatus uses contract_round; contractVerdicts filters by hash))"
     },
     {
       "feature": "F17",
@@ -548,7 +767,10 @@
       "summary": "decideStatus and record share the eval_error/status-null case only implicitly: `record` returns early for a null status, and `eval_round` is deliberately not set for eval_error. A short comment or a dedicated test for the eval_error blocked → features write failure path would make the ES-2 boundary clearer.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B97"
+      "id": "B97",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Comment/test-clarity nit"
     },
     {
       "feature": "F17",
@@ -557,7 +779,10 @@
       "summary": "The `deps` parameter of evalCommand is split into `{runAdapter, verifyResult}` plus `rest` and then re-wrapped as `deps` for evalAndRecord. This is slightly convoluted; passing a single deps object through would read simpler.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B98"
+      "id": "B98",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Code-style nit"
     },
     {
       "feature": "F17",
@@ -566,7 +791,10 @@
       "summary": "The ES-2 retry path in evalAndRecord runs before the status gate (feature_closed / EVALUABLE check). If an interactive verdict's status was never recorded and a human then set the feature to `skipped` or `todo` (without a new contract version), the next `harness eval` still records that old verdict and overwrites the human-chosen status (e.g. sets `passed`). No adapter is called. Consider allowing the retry only when the status is approved/in_progress, or only when it is still the status from before that round.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B99"
+      "id": "B99",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Retry path still precedes the status gate (eval-status.mjs:128-135), but needs an unrecorded verdict plus a manual status edit in between; rare, human-induced (evidence: lib/eval-status.mjs:128-146)"
     },
     {
       "feature": "F17",
@@ -575,7 +803,10 @@
       "summary": "`--round k` with a gap (e.g. r1 and r3 exist, `--round 2`) is accepted: SC-3 only covers existing rounds. Afterwards the latest eval verdict (r3) differs from eval_round (2), so the next `harness eval` re-records r3's status through the retry path. A cooperative builder is unlikely to hit this, but `--round` could be limited to nextRound() or lower.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B100"
+      "id": "B100",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "--round with a gap is a cooperative-builder non-issue; reporter agrees unlikely"
     },
     {
       "feature": "F17",
@@ -584,7 +815,10 @@
       "summary": "decideStatus uses the previous verdict for convergence only when that verdict was `fail`. Run's convergence() compares against the previous failing round's blocking set. After a needs-human or pass verdict with no blocking ids, the comparison resets to the round-1 rule. This cannot happen in practice because those verdicts close the feature, but the two paths are not literally identical.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B101"
+      "id": "B101",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Theoretical divergence that cannot occur because pass/needs-human close the feature"
     },
     {
       "feature": "F17",
@@ -593,7 +827,10 @@
       "summary": "A features.json io failure on a second consecutive eval_error has no retry key: eval_round is not set for eval_error, and no F{n}-r{k}.json exists. A rerun calls the evaluator again (3rd consecutive) instead of re-recording. The outcome (blocked) is the same, but it costs one more adapter call.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B102"
+      "id": "B102",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Same root cause as B95: eval_error sets no retry key, so a features.json write failure leads to one more evaluator call (same as B95)"
     },
     {
       "feature": "F18",
@@ -602,7 +839,10 @@
       "summary": "`evaluate()` and `evalAndRecord` both check for an existing verdict file (`round_exists`). The check in `evalAndRecord` is now redundant with the one in `evaluate`. It could be dropped or shared, but it is not a defect.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B103"
+      "id": "B103",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Redundant existence check, not a defect"
     },
     {
       "feature": "F18",
@@ -611,7 +851,10 @@
       "summary": "`contractVerdicts` reads and parses every verdict file for the feature on each call. In `evalAndRecord`, `evaluate` then calls `contractRound`, which reads them all a second time. This is harmless at small round counts, but `evaluate` could take the already-read list.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B104"
+      "id": "B104",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Double read of verdict files; harmless at small round counts"
     },
     {
       "feature": "F18",
@@ -620,7 +863,10 @@
       "summary": "A verdict file that parses as JSON but has no string `verdict` field is now `state_corrupt` in the run path. Previously `run` never read old verdicts. This is consistent with SPEC E6 and ES-2, but it is new strictness for `run` on hand-edited or legacy files.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B105"
+      "id": "B105",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Intended strictness per SPEC E6/ES-2"
     },
     {
       "feature": "F18",
@@ -629,7 +875,10 @@
       "summary": "`contract_round` is derived from the verdict files and `round` from the run's in-memory counter, so the two can differ in run reports. A short note in the run report may help if the distinction confuses users.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B106"
+      "id": "B106",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Report wording nit; eval summary already disambiguates contract round vs verdict r<n>"
     },
     {
       "feature": "F18",
@@ -638,7 +887,10 @@
       "summary": "`verify.test_count` is unset, so a decrease in the number of tests is not checked (verify warns about this).",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B107"
+      "id": "B107",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "verify.test_count is now configured for this repo (evidence: .harness/config.json verify.test_count = \"from:commands[0]\")"
     },
     {
       "feature": "F18",
@@ -647,7 +899,10 @@
       "summary": "evaluate() checks that the verdict file does not exist (refuseExisting) and then writes it with writeJsonAtomic, which renames over any existing file. Two concurrent evals of the same feature could both pass the check, and the second rename would overwrite the first verdict. Creating the file exclusively (open with 'wx', or link/rename-noreplace) would make the no-overwrite rule atomic.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B108"
+      "id": "B108",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Non-exclusive write, but refuseExisting is re-checked right before writing (eval.mjs:700); remaining window is a sub-second race between two concurrent evals of one feature (evidence: lib/eval.mjs:700,719)"
     },
     {
       "feature": "F18",
@@ -656,7 +911,10 @@
       "summary": "harness run keeps its own round counter (e.round starts at 1 per run entry) for max_rounds and the report. The verdict's contract_round is counted from the files on disk. If same-hash verdicts already exist from an earlier eval or run of the same contract, the run gets max_rounds fresh rounds while the verdicts record contract_round > e.round, so the run can exceed max_rounds per contract hash. SPEC §8.8 only covers the re-approval case.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B109"
+      "id": "B109",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "run now carries same-hash verdicts into its round counter (F19) (evidence: lib/run.mjs:1495-1501 (carried = contractVerdicts count), 1236-1238, 1268)"
     },
     {
       "feature": "F18",
@@ -665,7 +923,10 @@
       "summary": "contractVerdicts reads every verdict file of the feature, including those of old contracts, so a corrupt verdict from an old contract (or a pre-F18 one) also stops eval and run with state_corrupt. This is stricter than ES-2 (the previous verdict of the current hash) and matches SPEC §7.6 ('hash unknown'), but it cannot be recovered without touching old records.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B110"
+      "id": "B110",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Documented behavior (SPEC §7.6 hash unknown => state_corrupt); by design"
     },
     {
       "feature": "F18",
@@ -674,7 +935,10 @@
       "summary": "In the eval summary, 'round <n>' in the first line is the verdict file number, while the new line shows 'contract round <n>/<max>'. Seeing two different 'round' numbers may confuse users. Consider renaming the first one to 'verdict r<n>'.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B111"
+      "id": "B111",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "Eval summary now labels the file number as verdict r<n> next to contract round (evidence: lib/commands/eval.mjs:34)"
     },
     {
       "feature": "F19",
@@ -683,7 +947,10 @@
       "summary": "`node --test` over the full suite showed one transient git 'add failed' error in f9-secret-rename.test.mjs during my first run. The file passes 13/13 when run alone, so it looks like a load or environment flake, not F19.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B112"
+      "id": "B112",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Single unreproduced transient git failure under load; file passes alone"
     },
     {
       "feature": "F19",
@@ -692,7 +959,10 @@
       "summary": "`endRound` decides whether a failing round is the run's first with `e.history.length > carried`, which relies on `history` and `carried` staying in sync. A short comment or a dedicated `firstRunRound` flag would make that clearer.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B113"
+      "id": "B113",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Comment/readability nit"
     },
     {
       "feature": "F19",
@@ -701,7 +971,10 @@
       "summary": "When run blocks with `max_rounds` before any round (SC-1), it sets `e.round = e.carried` and reports 'N of M rounds ... already evaluated'. That is correct, but the state is set inside `runOne` as a side effect. Consider moving the check next to the carry-over setup.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B114"
+      "id": "B114",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Code-placement nit"
     },
     {
       "feature": "F19",
@@ -710,7 +983,10 @@
       "summary": "`verify.test_count` is unset, so the harness does not check whether the test count decreases. Consider setting it.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B115"
+      "id": "B115",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "verify.test_count now configured; see B107 (same as B107)"
     },
     {
       "feature": "F19",
@@ -719,7 +995,10 @@
       "summary": "The SC-1 early block in runOne only fires when e.stage === 'worktree'. A resumed run keeps its saved e.carried/e.round, so this is consistent today. But if a future change resets the stage on resume, the carried-rounds guard could be skipped. Consider asserting the round limit wherever e.round is incremented.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B116"
+      "id": "B116",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Hypothetical future-change guard; consistent today"
     },
     {
       "feature": "F19",
@@ -728,7 +1007,10 @@
       "summary": "Carried eval_error verdicts count toward `carried` (the round limit) but add an empty blocking set to history and set carriedPrev to null. The run's evalErrors counter still starts at 0, so consecutive eval_error verdicts from interactive eval are not carried into MAX_EVAL_ERRORS. The contract does not cover this.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B117"
+      "id": "B117",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Carried eval_error not counted toward MAX_EVAL_ERRORS; outside contract, low impact"
     },
     {
       "feature": "F19",
@@ -737,7 +1019,10 @@
       "summary": "Before starting a feature, the run re-reads every verdict file of that feature, including files from other contract hashes. A corrupt verdict from an old contract therefore stops the run with state_corrupt, even though it is outside the current hash. This matches the existing E6 behavior of contractVerdicts, but it is stricter than ES-1 requires.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B118"
+      "id": "B118",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Same documented E6 strictness as B110 (contractVerdicts reads every verdict); by design (evidence: lib/run.mjs:1495, lib/eval.mjs:403-411)"
     },
     {
       "source": "run:F20",
@@ -761,7 +1046,10 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ],
-      "id": "B119"
+      "id": "B119",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "rescope for F20; feature passed (evidence: features.json F20 status passed)"
     },
     {
       "feature": "F20",
@@ -770,7 +1058,10 @@
       "summary": "AC-5 handling covers only the evaluator path. A security-reviewer adapter returning adapter_unavailable mid-run is described in SPEC §8 as stopping the run, but no test covers it separately.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B120"
+      "id": "B120",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Missing test for security-reviewer adapter_unavailable mid-run; test-coverage nit"
     },
     {
       "feature": "F20",
@@ -779,7 +1070,10 @@
       "summary": "In the preflight, `callsCli` skips the check when build and evaluate/runAdapter are injected. That is test-only plumbing, and it adds a condition to the run entry point.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B121"
+      "id": "B121",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Test-only plumbing in preflight condition"
     },
     {
       "feature": "F20",
@@ -788,7 +1082,10 @@
       "summary": "authStatus treats a settings.json that parses to a non-object, such as `null` or `[]`, as 'not authenticated' with the generic reason. That is acceptable, but it is not distinguished from an absent file.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B122"
+      "id": "B122",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Non-object settings.json treated as not authenticated; acceptable, reporter agrees"
     },
     {
       "feature": "F20",
@@ -797,7 +1094,10 @@
       "summary": "verify.test_count is not configured, so a decrease in test count is not checked.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B123"
+      "id": "B123",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "verify.test_count now configured; see B107 (same as B107)"
     },
     {
       "feature": "F20",
@@ -806,7 +1106,10 @@
       "summary": "For gemini exit codes other than 41 (and for other adapters), runAdapter still puts tail(stderr) into detail as exit_nonzero. If a CLI echoes a credential on some other failure, that text can end up in the run report or verdict. This behaviour existed before F20 and SC-1 only covers the auth decision, so it is not blocking; redacting known auth-variable values from the detail would be a hardening follow-up.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B124"
+      "id": "B124",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "Adapter error detail is redacted by env-value redactor before reaching verdict/state/backlog (evidence: lib/failures.mjs:37-53 redactor; lib/run.mjs:16,466 redactDeep)"
     },
     {
       "feature": "F20",
@@ -824,7 +1127,10 @@
       "summary": "Preflight is skipped when both build and evaluate/runAdapter are injected without diagnose. This only affects tests, but a future caller that injects only one of them without diagnose would silently skip the preflight.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B126"
+      "id": "B126",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Same test-only preflight-skip concern as B121 (same as B121)"
     },
     {
       "feature": "F21",
@@ -833,7 +1139,10 @@
       "summary": "In runFeatures, the inhibitor is started before `meter = sleepMeter(...)` and `save()`. If either throws (for example a state-file write error), the try/finally that calls inhibitor.stop() and meter.stop() has not been entered yet. The detached inhibitor then stays alive until the process exits. The process-exit hook covers a normal exit, so the impact is small. Moving the `try` up to cover those two lines would close the gap.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B127"
+      "id": "B127",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Inhibitor started before try (run.mjs:1454-1459); process-exit hook and caffeinate -w/pid watcher still end it (evidence: lib/run.mjs:1454-1463)"
     },
     {
       "feature": "F21",
@@ -851,7 +1160,10 @@
       "summary": "There is no test for the post-merge verify path. A sleep during that step throws SystemSleep, and on resume the merge is recognised as done and verified again. That path is implemented, but no test covers it.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B129"
+      "id": "B129",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Test-coverage gap for post-merge verify sleep path; implemented"
     },
     {
       "feature": "F21",
@@ -860,7 +1172,10 @@
       "summary": "There are no unit tests for the ticker-gap signal in sleepMeter (the `gapMs` accumulation). All AC-4 tests use the wall-minus-monotonic signal.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B130"
+      "id": "B130",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Test-coverage gap for ticker-gap signal"
     },
     {
       "feature": "F21",
@@ -869,7 +1184,10 @@
       "summary": "On win32 the sleep-related tests (AC-1, AC-2, AC-3 exit-case, SC-1, SC-2) return early, so they pass without checking anything.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B131"
+      "id": "B131",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Platform skip of POSIX-only fake inhibitors; win32 covered by ES-1 test"
     },
     {
       "feature": "F21",
@@ -878,7 +1196,10 @@
       "summary": "The `verify.test_count` warning still shows in verify output; it comes from project config, not from this change.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B132"
+      "id": "B132",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "verify.test_count warning gone now that it is configured; see B107 (same as B107)"
     },
     {
       "feature": "F21",
@@ -887,7 +1208,10 @@
       "summary": "The CLI test for AC-4 ('the CLI prints \"system sleep\" and the --resume hint') only greps lib/commands/run.mjs for the strings. It never runs the command, so it would still pass if the r.sleep branch printed the wrong thing or returned the wrong exit code. The exit 1 that SPEC §8 requires is not asserted anywhere.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B133"
+      "id": "B133",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Same grep-only AC-4 CLI test (same as B128)"
     },
     {
       "feature": "F21",
@@ -896,7 +1220,10 @@
       "summary": "The inhibitor is stopped only by the finally block around loop(). It starts before the try, so if save() or sleepMeter() throws in between, the finally never runs. The process.once('exit') handler and caffeinate -w / the linux pid watcher still end it, so no process is left behind. Moving the start inside the try would be cleaner.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B134"
+      "id": "B134",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Same inhibitor-before-try ordering (same as B127)"
     },
     {
       "feature": "F21",
@@ -905,7 +1232,10 @@
       "summary": "The inhibitor gets the full process.env (d.env) rather than the adapter env allowlist. It is a fixed system binary, so this is harmless. Noted only for least privilege.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B135"
+      "id": "B135",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Least-privilege nit for a fixed system binary"
     },
     {
       "feature": "F21",
@@ -914,7 +1244,10 @@
       "summary": "The linux watcher checks the run pid with kill(pid, 0). If the OS reuses that pid after the run is SIGKILLed, the inhibitor could be kept alive. This needs pid reuse within 1s of death, is not reachable under the cooperative-builder model, and SC-1 only covers SIGINT, where stop() kills the process group explicitly.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B136"
+      "id": "B136",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "PID-reuse race; out of scope (theoretical)"
     },
     {
       "feature": "F21",
@@ -923,7 +1256,10 @@
       "summary": "No test covers an inhibitor that dies in the middle of a run, the onLost path that SPEC §8 names ('또는 run 도중'). AC-3 only tests the not-on-PATH case and exiting right after start.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B137"
+      "id": "B137",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Test-coverage gap for onLost mid-run"
     },
     {
       "feature": "F22",
@@ -932,7 +1268,10 @@
       "summary": "In lib/run.mjs `finish`, resolveItems runs before setStatus. If the features.json write then fails, the backlog items are already marked resolved_by while the feature is not passed. Ordering it after the status write, or making it retryable, would remove the window.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B138"
+      "id": "B138",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "resolveItems before setStatus (run.mjs:1410-1411) is intentional per SPEC §7.7; window only on a features.json write failure (evidence: lib/run.mjs:1408-1411)"
     },
     {
       "feature": "F22",
@@ -941,7 +1280,10 @@
       "summary": "recordEntries bumps `seen` once per entry. Two entries in the same round that carry the same backlog_id raise seen by 2 but add only one `sources` tag, so seen and sources.length can drift apart.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B139"
+      "id": "B139",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "seen vs sources.length drift on duplicate entries in one round; cosmetic counter"
     },
     {
       "feature": "F22",
@@ -950,7 +1292,10 @@
       "summary": "An existing item that a later entry hits does not get its priority updated or raised, even when the new entry carries a higher severity. This follows the contract (no retroactive priority), but the evaluator's higher severity is silently lost.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B140"
+      "id": "B140",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "By contract (no retroactive priority)"
     },
     {
       "feature": "F22",
@@ -959,7 +1304,10 @@
       "summary": "Items without an id get B<n> only in memory when status or the prompt reads them, and are persisted on the next core write. This is consistent and tested. Until that write happens, the id shown in status is not stored anywhere.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B141"
+      "id": "B141",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Consistent and tested; id persisted on next write"
     },
     {
       "feature": "F22",
@@ -968,7 +1316,10 @@
       "summary": "lint-contract now reads backlog.json for every run. A corrupt or duplicate-id backlog therefore makes lint-contract exit 2 for contracts that do not use resolves. SPEC §7.7 documents this, but it is broader than the AC-6 wording.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B142"
+      "id": "B142",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Documented in SPEC §7.7"
     },
     {
       "feature": "F23",
@@ -977,7 +1328,10 @@
       "summary": "lib/verify.mjs now imports resolveInvocation from lib/adapters/common.mjs, coupling the verify core to the adapter layer. The helper could move to a shared module such as exec.mjs.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B143"
+      "id": "B143",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Module-coupling refactor preference"
     },
     {
       "feature": "F23",
@@ -986,7 +1340,10 @@
       "summary": "On Windows the preset executable is resolved with whichWin32 against the parent process.env, while runCommand runs with an allowlisted env. If the allowlist ever drops PATH, the two lookups could disagree.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B144"
+      "id": "B144",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Hypothetical (allowlist dropping PATH)"
     },
     {
       "feature": "F23",
@@ -995,7 +1352,10 @@
       "summary": "The pytest parser only matches 'N tests collected'. Output such as '3/5 tests collected (2 deselected)' or a run with plugins that change the summary line gives 'no test count in output'. It fails closed, so this is acceptable, but the SPEC could mention it.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B145"
+      "id": "B145",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "pytest parser fails closed on unusual summary lines; low value"
     },
     {
       "feature": "F23",
@@ -1004,7 +1364,10 @@
       "summary": "preset:node-test runs the project's whole test suite (node --test) just to count tests, once for base and once for head. This is slow for large suites and would recurse if a test itself invoked verify. Consider documenting it, or a --test-only-list approach.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B146"
+      "id": "B146",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Preset runs suite for count; from:commands[i] (testcount.mjs:54) now avoids the extra run and this repo uses it (evidence: lib/testcount.mjs:54-60)"
     },
     {
       "feature": "F23",
@@ -1013,7 +1376,10 @@
       "summary": "detectPreset matches scripts.test with a substring 'node --test'. It would also match a script like 'echo node --test' or 'node --test-only', which gives a suggestion only and is harmless.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B147"
+      "id": "B147",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Substring match only affects a suggestion"
     },
     {
       "feature": "F23",
@@ -1022,7 +1388,10 @@
       "summary": "Presets look up bare names (node, go, python) on PATH, the same trust model as a shell test_count. preset:node-test runs whatever `node` is first on PATH rather than process.execPath. That is within the contract, but pinning node to the running interpreter would be a small hardening step.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B148"
+      "id": "B148",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Hardening nit within contract"
     },
     {
       "feature": "F23",
@@ -1031,7 +1400,10 @@
       "summary": "On Windows, resolveInvocation turns a .cmd/.bat shim (for example python.cmd) into a cmd.exe command string. The arguments are fixed and escaped, so nothing from config reaches the shell. Even so, SC-1's 'without a shell' holds strictly only when the runner is a .exe; the SPEC could mention this.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B149"
+      "id": "B149",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "SPEC wording nit for .cmd shims"
     },
     {
       "feature": "F23",
@@ -1040,7 +1412,10 @@
       "summary": "A value with leading whitespace, such as ' preset:go', is not treated as a preset and runs as a shell command. This matches the existing shell test_count behavior, but a leading-whitespace value that contains 'preset:' could be rejected or warned about to avoid confusion.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B150"
+      "id": "B150",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Leading-whitespace preset value; matches existing behavior, low value"
     },
     {
       "feature": "F23",
@@ -1049,7 +1424,10 @@
       "summary": "The preset error message includes up to 80 characters of the runner's last stdout/stderr line. That output comes from the project's own runner and env is filtered, so the risk is low. Truncation already limits exposure.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B151"
+      "id": "B151",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Truncated project-owned output; low risk"
     },
     {
       "feature": "F24",
@@ -1058,7 +1436,10 @@
       "summary": "The F24 tests rely on wall-clock timing: AC-1 uses 12s builder delays and a 0.75× bound, and AC-2, AC-6, AC-7 and ES-2 use hundreds of ms of sleep to order events. They add about 25s or more to the suite and may be flaky on a loaded CI machine. Consider making the ordering deterministic with latches or gates instead of sleeps.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B152"
+      "id": "B152",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Some ordering now uses latches (startTogether); remaining wall-clock bounds are inherent to the parallelism criterion"
     },
     {
       "feature": "F24",
@@ -1067,7 +1448,10 @@
       "summary": "The `--parallel` value is validated in two places: `parseArgs` in lib/commands/run.mjs and `runFeatures` in lib/run.mjs. The rules could drift apart. Sharing one validator, like `isMaxParallel` in config.mjs, would help.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B153"
+      "id": "B153",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Duplicate validation; both accept positive integers, no drift today"
     },
     {
       "feature": "F24",
@@ -1076,7 +1460,10 @@
       "summary": "`signal` is either the run's own AbortController signal or the caller's. That choice depends on `maxParallel`, `state.active.length` and whether `outer` exists, which is subtle. Always using `ac.signal` and forwarding `outer` would be simpler.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B154"
+      "id": "B154",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Readability nit"
     },
     {
       "feature": "F24",
@@ -1085,7 +1472,10 @@
       "summary": "An unused security-reviewer result still costs money. If `unused` reviewer costs are counted in the run total, that is right, but the SPEC does not say so explicitly.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B155"
+      "id": "B155",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "SPEC wording on unused reviewer cost"
     },
     {
       "feature": "F24",
@@ -1094,7 +1484,10 @@
       "summary": "worktreeLock only serializes `git worktree add`; the `git worktree remove --force` and `git branch -D` calls in merge() run under mergeLock instead. With --parallel ≥ 3, a new feature's worktree add can therefore run at the same time as another feature's worktree remove or branch deletion in the shared .git. Git's per-ref locks make an actual collision unlikely, but a transient lock error would show up as blocked('worktree'). One option is to run the post-merge cleanup under worktreeLock too.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B156"
+      "id": "B156",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "worktree remove/prune and branch -D now go through the shared git lock (evidence: lib/run.mjs:149-153 isSerializedGit, 647 gitLock wrapper)"
     },
     {
       "feature": "F24",
@@ -1103,7 +1496,10 @@
       "summary": "In merge(), the builder-changes commit (git add -A / commit in the feature worktree) runs inside mergeLock, so it is serialized behind other features' post-merge verifies even though it only touches that feature's own worktree. This costs throughput, not correctness.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B157"
+      "id": "B157",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Throughput only, not correctness"
     },
     {
       "feature": "F24",
@@ -1112,7 +1508,10 @@
       "summary": "When the evaluator has a blocking finding, the security-reviewer still runs to completion concurrently and its cost is spent even though the result is recorded as 'unused'. The contract accepts this trade-off, but the spend could be surfaced in the verdict or report.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B158"
+      "id": "B158",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Unused reviewer cost not surfaced (same as B155)"
     },
     {
       "feature": "F24",
@@ -1121,7 +1520,10 @@
       "summary": "If the evaluator returns ev.error for a critical feature, any error from the concurrently running security-reviewer is silently dropped because only the evaluator error is reported. That matches sequential behaviour (the reviewer would not have run at all), but the reviewer's cost and error are not recorded anywhere.",
       "reason": "out_of_scope",
       "source": "security-reviewer",
-      "id": "B159"
+      "id": "B159",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Matches sequential behavior; low value"
     },
     {
       "feature": "F25",
@@ -1147,7 +1549,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B161"
+      "id": "B161",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Reasonable behavior; SPEC nit"
     },
     {
       "feature": "F25",
@@ -1157,7 +1562,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B162"
+      "id": "B162",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Report label nuance (failed vs blocked for other reason); low value"
     },
     {
       "feature": "F25",
@@ -1171,7 +1579,10 @@
       "seen": 2,
       "sources": [
         "F38-r1"
-      ]
+      ],
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Test depends on predicate completeness; test-style"
     },
     {
       "feature": "F25",
@@ -1217,7 +1628,10 @@
       "seen": 2,
       "sources": [
         "F25-r2"
-      ]
+      ],
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Outside threat model D1 (reporter states)"
     },
     {
       "feature": "F25",
@@ -1231,7 +1645,10 @@
       "seen": 2,
       "sources": [
         "F38-r1"
-      ]
+      ],
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "reset --hard and commit are now serialized by the git lock (evidence: lib/run.mjs:150-153)"
     },
     {
       "source": "run:F25",
@@ -1255,7 +1672,10 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ],
-      "id": "B168"
+      "id": "B168",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "rescope for F25; feature passed (evidence: features.json F25 status passed)"
     },
     {
       "feature": "F25",
@@ -1265,7 +1685,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B169"
+      "id": "B169",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Reasonable behavior; SPEC nit"
     },
     {
       "feature": "F25",
@@ -1275,7 +1698,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B170"
+      "id": "B170",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Legacy state file edge; low value"
     },
     {
       "feature": "F25",
@@ -1318,7 +1744,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B173"
+      "id": "B173",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Hand-edited metrics lines; low value"
     },
     {
       "feature": "F27",
@@ -1338,7 +1767,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B175"
+      "id": "B175",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Unbounded metrics growth; small files in practice"
     },
     {
       "feature": "F27",
@@ -1348,7 +1780,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B176"
+      "id": "B176",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Heuristic suggestion imprecision"
     },
     {
       "feature": "F26",
@@ -1374,7 +1809,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B178"
+      "id": "B178",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Consistent with SPEC; worst-case latency note"
     },
     {
       "feature": "F26",
@@ -1384,7 +1822,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B179"
+      "id": "B179",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Latency-only scheduling note"
     },
     {
       "feature": "F26",
@@ -1394,7 +1835,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B180"
+      "id": "B180",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Implicit but correct ordering via lazy ensureOverlaidBase; refactor-only (evidence: lib/verify.mjs:464)"
     },
     {
       "feature": "F26",
@@ -1404,7 +1848,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B181"
+      "id": "B181",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Test fixture assumption; gitRepo() layout is fixed in tests (evidence: test/fixtures/interval-check.mjs:20)"
     },
     {
       "feature": "F26",
@@ -1429,7 +1876,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B183"
+      "id": "B183",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Combined concurrency is bounded by CPU-based auto limits; documentation nit"
     },
     {
       "feature": "F26",
@@ -1471,7 +1921,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B186"
+      "id": "B186",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Interactive eval cannot know whether a conflict model was used; low-impact independence label (evidence: lib/adapters/index.mjs:79 builderModels conflict=false default)"
     },
     {
       "feature": "F28",
@@ -1481,7 +1934,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B187"
+      "id": "B187",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Redundant fallback, harmless (evidence: lib/eval.mjs:487-495)"
     },
     {
       "feature": "F28",
@@ -1491,7 +1947,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B188"
+      "id": "B188",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Test-style brittleness only"
     },
     {
       "feature": "F28",
@@ -1501,7 +1960,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B189"
+      "id": "B189",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Defence-in-depth only; all paths validated today (evidence: lib/adapters/index.mjs:69)"
     },
     {
       "feature": "F28",
@@ -1511,7 +1973,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B190"
+      "id": "B190",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Safe after validation; code-path consistency nit (evidence: lib/commands/doctor.mjs:19-26)"
     },
     {
       "feature": "F29",
@@ -1526,7 +1991,10 @@
       "sources": [
         "F29-r2",
         "F34-r1"
-      ]
+      ],
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Documented design limit of env-value redaction (SPEC §8, MIN_SECRET) (evidence: lib/failures.mjs:8)"
     },
     {
       "feature": "F29",
@@ -1560,7 +2028,10 @@
       "sources": [
         "F37-r1",
         "F44-r2"
-      ]
+      ],
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Windows e2e coverage gap; unit test covers detection"
     },
     {
       "feature": "F29",
@@ -1586,7 +2057,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B195"
+      "id": "B195",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Matches SPEC wording; possible noise only"
     },
     {
       "feature": "F29",
@@ -1630,7 +2104,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B198"
+      "id": "B198",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Same 8-char redaction cutoff limitation (same as B191) (evidence: B191)"
     },
     {
       "source": "run:F29",
@@ -1654,7 +2131,10 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ],
-      "id": "B199"
+      "id": "B199",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "rescope for F29; feature passed (evidence: .harness/features.json F29 passed)"
     },
     {
       "feature": "F29",
@@ -1664,7 +2144,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B200"
+      "id": "B200",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Weak unit test but ES-1 covers path end to end"
     },
     {
       "feature": "F29",
@@ -1674,7 +2157,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B201"
+      "id": "B201",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Correct, only redundant work on resume"
     },
     {
       "feature": "F29",
@@ -1684,7 +2170,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B202"
+      "id": "B202",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Rare untested edge in error reporting precedence"
     },
     {
       "feature": "F29",
@@ -1694,7 +2183,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B203"
+      "id": "B203",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Windows case variants of common keys are in the allowlist; remaining mismatch only garbles text, no leak (evidence: lib/exec.mjs:8-13)"
     },
     {
       "feature": "F29",
@@ -1704,7 +2196,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B204"
+      "id": "B204",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "Report and verdict are rendered from redacted data; the item field is not in the keep-list (evidence: lib/run.mjs:1562 renderReport(redactDeep(state,...)); lib/eval.mjs:714)"
     },
     {
       "feature": "F30",
@@ -1714,7 +2209,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B205"
+      "id": "B205",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Cache keyed by merge-base/command/rule by design; env-dependent counts are out of scope"
     },
     {
       "feature": "F30",
@@ -1724,7 +2222,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B206"
+      "id": "B206",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Theoretical: a crash after printing a summary line; summary lines are printed at the end (evidence: lib/verify.mjs:142-151)"
     },
     {
       "feature": "F30",
@@ -1734,7 +2235,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B207"
+      "id": "B207",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Lost cache entry only costs an extra base run"
     },
     {
       "feature": "F30",
@@ -1744,7 +2248,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B208"
+      "id": "B208",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Test speed preference"
     },
     {
       "feature": "F30",
@@ -1754,7 +2261,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B209"
+      "id": "B209",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "Run verifies with root = main checkout, so the cache lives outside the builder worktree; tampering would also be D1 (evidence: lib/run.mjs:948 root, lib/verify.mjs:498)"
     },
     {
       "feature": "F30",
@@ -1764,7 +2274,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B210"
+      "id": "B210",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "init gitignores the cache and builder commit excludes it (evidence: lib/commands/init.mjs:30; lib/run.mjs:978)"
     },
     {
       "feature": "F30",
@@ -1774,7 +2287,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B211"
+      "id": "B211",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Same unlocked cache write race (same as B207) (evidence: B207)"
     },
     {
       "feature": "F31",
@@ -1784,7 +2300,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B212"
+      "id": "B212",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "git config user.email reads local config, practically never hangs; outside AC scope (evidence: lib/commands/approve.mjs:31)"
     },
     {
       "feature": "F31",
@@ -1798,7 +2317,10 @@
       "seen": 2,
       "sources": [
         "F47-r1"
-      ]
+      ],
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "Cleanup worktree remove/prune are wrapped in try/catch (evidence: lib/verify.mjs:617-626)"
     },
     {
       "feature": "F31",
@@ -1808,7 +2330,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B214"
+      "id": "B214",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Implicit ordering; no git call precedes validation (evidence: lib/run.mjs:689-690)"
     },
     {
       "feature": "F31",
@@ -1818,7 +2343,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B215"
+      "id": "B215",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Wall-clock test timing; F31 test stability is the scope of F46, which was accepted as a risk"
     },
     {
       "feature": "F31",
@@ -1828,7 +2356,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B216"
+      "id": "B216",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Rare (merge > git_timeout_sec); next run refuses the dirty integration worktree with a clear message (evidence: lib/run.mjs:990-991)"
     },
     {
       "feature": "F31",
@@ -1838,7 +2369,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B217"
+      "id": "B217",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Every caller passes opts; hypothetical future caller (evidence: lib/eval.mjs:208)"
     },
     {
       "feature": "F31",
@@ -1848,7 +2382,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B218"
+      "id": "B218",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Windows e2e coverage gap for fake-git tests; taskkill path unit-covered"
     },
     {
       "feature": "F31",
@@ -1858,7 +2395,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B219"
+      "id": "B219",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "approve git config without timeout (same as B212) (evidence: B212)"
     },
     {
       "source": "run:F31",
@@ -1882,7 +2422,10 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ],
-      "id": "B220"
+      "id": "B220",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "rescope for F31; feature passed (evidence: .harness/features.json F31 passed)"
     },
     {
       "feature": "F31",
@@ -1892,7 +2435,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B221"
+      "id": "B221",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Cleanup timeout replacing error (now caught) (same as B213) (evidence: B213)"
     },
     {
       "feature": "F31",
@@ -1902,7 +2448,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B222"
+      "id": "B222",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "approve git config without timeout (same as B212) (evidence: B212)"
     },
     {
       "feature": "F31",
@@ -1912,7 +2461,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B223"
+      "id": "B223",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Observed load flake of F31 tests; covered by F46 (load stability for F31 tests), accepted as a risk"
     },
     {
       "feature": "F31",
@@ -1922,7 +2474,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B224"
+      "id": "B224",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Windows fake-git coverage gap (same as B218) (evidence: B218)"
     },
     {
       "feature": "F31",
@@ -1932,7 +2487,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B225"
+      "id": "B225",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "gitOpts timeout set after validation (same as B214) (evidence: B214)"
     },
     {
       "feature": "F31",
@@ -1942,7 +2500,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B226"
+      "id": "B226",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Windows fake-git coverage gap (same as B218) (evidence: B218)"
     },
     {
       "feature": "F31",
@@ -1952,7 +2513,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B227"
+      "id": "B227",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Windows fake-git coverage gap (t.skip visibility) (same as B218) (evidence: B218)"
     },
     {
       "feature": "F31",
@@ -1962,7 +2526,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B228"
+      "id": "B228",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Refactor-only duplication"
     },
     {
       "feature": "F31",
@@ -1972,7 +2539,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B229"
+      "id": "B229",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "approve git config without timeout (same as B212) (evidence: B212)"
     },
     {
       "feature": "F31",
@@ -1982,7 +2552,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B230"
+      "id": "B230",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Wording; consistent with SPEC"
     },
     {
       "feature": "F31",
@@ -2002,7 +2575,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B232"
+      "id": "B232",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Cleanup git timeout replacing original error (now caught) (same as B213) (evidence: B213)"
     },
     {
       "feature": "F31",
@@ -2012,7 +2588,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B233"
+      "id": "B233",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "gitOpts timeout set after validation (same as B214) (evidence: B214)"
     },
     {
       "feature": "F31",
@@ -2022,7 +2601,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B234"
+      "id": "B234",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Windows fake-git coverage gap (same as B218) (evidence: B218)"
     },
     {
       "feature": "F32",
@@ -2042,7 +2624,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B236"
+      "id": "B236",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Field kept only for pre-F32 state migration (evidence: lib/run.mjs:1235)"
     },
     {
       "feature": "F32",
@@ -2052,7 +2637,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B237"
+      "id": "B237",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Deliberate documented extension (SPEC §6.1)"
     },
     {
       "feature": "F32",
@@ -2062,7 +2650,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B238"
+      "id": "B238",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "Verdict record including flaky_tests goes through redactDeep; run state and report are redacted too (evidence: lib/eval.mjs:713-714; lib/run.mjs:710,1562)"
     },
     {
       "feature": "F32",
@@ -2072,7 +2663,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B239"
+      "id": "B239",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "flaky_tests redaction (now redacted) (same as B238) (evidence: B238)"
     },
     {
       "feature": "F33",
@@ -2082,7 +2676,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B240"
+      "id": "B240",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Resume fallback to DEFAULTS is correct; test gap only"
     },
     {
       "feature": "F33",
@@ -2092,7 +2689,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B241"
+      "id": "B241",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "A base timeout now adds a warning to verify output (evidence: lib/verify.mjs:563-566)"
     },
     {
       "feature": "F33",
@@ -2119,7 +2719,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B243"
+      "id": "B243",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "User-chosen value; base limit is max(vacuity_timeout_sec, 3x head time) so tiny values no longer disable vacuity for real checks (evidence: docs/SPEC.md:103)"
     },
     {
       "source": "run:F33",
@@ -2143,7 +2746,10 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ],
-      "id": "B244"
+      "id": "B244",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "rescope for F33; feature passed (evidence: .harness/features.json F33 passed)"
     },
     {
       "feature": "F33",
@@ -2153,7 +2759,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B245"
+      "id": "B245",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Test duration; suite passed stress runs (F41)"
     },
     {
       "feature": "F33",
@@ -2163,7 +2772,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B246"
+      "id": "B246",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "An aborted run stops the whole run; the verdict of that verify is not used"
     },
     {
       "feature": "F33",
@@ -2173,7 +2785,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B247"
+      "id": "B247",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Windows e2e coverage gap"
     },
     {
       "feature": "F34",
@@ -2183,7 +2798,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B248"
+      "id": "B248",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Key-name keep-list is hypothetical risk for future fields; eval keep-list already narrowed to feature/contract_hash (evidence: lib/run.mjs:79; lib/eval.mjs:721)"
     },
     {
       "feature": "F34",
@@ -2193,7 +2811,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B249"
+      "id": "B249",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Cosmetic garbling of paths in saved state; not read back"
     },
     {
       "feature": "F34",
@@ -2203,7 +2824,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B250"
+      "id": "B250",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "One-line default parameter; low risk"
     },
     {
       "feature": "F34",
@@ -2213,7 +2837,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B251"
+      "id": "B251",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Key-name KEEP_UNREDACTED (same as B248) (evidence: B248)"
     },
     {
       "feature": "F34",
@@ -2223,7 +2850,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B252"
+      "id": "B252",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Key-name KEEP_UNREDACTED (eval part already narrowed) (same as B248) (evidence: B248)"
     },
     {
       "feature": "F34",
@@ -2233,7 +2863,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B253"
+      "id": "B253",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Non-secret env values (PWD) redacted in records (same as B249) (evidence: B249)"
     },
     {
       "feature": "F34",
@@ -2243,7 +2876,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B254"
+      "id": "B254",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "Metrics lines are redacted except grouping keys (evidence: lib/metrics.mjs:39-42; lib/run.mjs:719)"
     },
     {
       "feature": "F34",
@@ -2253,7 +2889,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B255"
+      "id": "B255",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Return value differs but nothing leaks (file written redacted) (evidence: lib/eval.mjs:736-737)"
     },
     {
       "feature": "F34",
@@ -2263,7 +2902,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B256"
+      "id": "B256",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Key-name KEEP_UNREDACTED (same as B248) (evidence: B248)"
     },
     {
       "feature": "F35",
@@ -2273,7 +2915,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B257"
+      "id": "B257",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "Run keeps the cache under the main checkout (root), never in the feature worktree, so a tracked cache is not modified there; commit also excludes it (evidence: lib/run.mjs:948,978; lib/verify.mjs:498)"
     },
     {
       "feature": "F35",
@@ -2283,7 +2928,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B258"
+      "id": "B258",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Solo re-run loops do not check abort signal (same as B261) (evidence: B261)"
     },
     {
       "feature": "F35",
@@ -2293,7 +2941,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B259"
+      "id": "B259",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Wall-clock test timing; no observed flake"
     },
     {
       "feature": "F35",
@@ -2303,7 +2954,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B260"
+      "id": "B260",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "Tracked cache leaving worktree dirty (same as B257) (evidence: B257)"
     },
     {
       "feature": "F35",
@@ -2313,7 +2967,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B261"
+      "id": "B261",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Aborted signal kills each started command immediately (pre-aborted signal handled); only a few extra instant spawns (evidence: lib/exec.mjs:87)"
     },
     {
       "feature": "F35",
@@ -2323,7 +2980,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B262"
+      "id": "B262",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Windows e2e coverage gap"
     },
     {
       "feature": "F36",
@@ -2333,7 +2993,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B263"
+      "id": "B263",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Matches SPEC SR-9 by design"
     },
     {
       "feature": "F36",
@@ -2343,7 +3006,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B264"
+      "id": "B264",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Terminal output of harness verify is not a record"
     },
     {
       "feature": "F36",
@@ -2353,7 +3019,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B265"
+      "id": "B265",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Accepted under SR-9; test gap only"
     },
     {
       "feature": "F36",
@@ -2363,7 +3032,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B266"
+      "id": "B266",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Harmless over-redaction"
     },
     {
       "feature": "F36",
@@ -2373,7 +3045,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B267"
+      "id": "B267",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Test coverage gap; unit tests cover the path"
     },
     {
       "feature": "F36",
@@ -2393,7 +3068,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B269"
+      "id": "B269",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Documented out of scope in SR-9; no current path produces an inner slice"
     },
     {
       "feature": "F36",
@@ -2403,7 +3081,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B270"
+      "id": "B270",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "No current path produces it (cuts happen after redaction); theoretical"
     },
     {
       "feature": "F36",
@@ -2413,7 +3094,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B271"
+      "id": "B271",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "evalAndRecord takes no env param and evaluate() is called without env, so both use process.env; theoretical (evidence: lib/eval-status.mjs:162-166)"
     },
     {
       "feature": "F37",
@@ -2423,7 +3107,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B272"
+      "id": "B272",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Wall-clock test flakiness under load; F46 (load stability) was accepted as a risk"
     },
     {
       "feature": "F37",
@@ -2433,7 +3120,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B273"
+      "id": "B273",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Test-coverage gap for an edge combination; behaviour matches SPEC"
     },
     {
       "feature": "F37",
@@ -2443,7 +3133,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B274"
+      "id": "B274",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Only makes the base limit more generous; no weakening of vacuity detection"
     },
     {
       "feature": "F37",
@@ -2453,7 +3146,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B275"
+      "id": "B275",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Wall-clock flakiness of F37 tests; F46 load stability accepted as risk"
     },
     {
       "feature": "F38",
@@ -2463,7 +3159,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B276"
+      "id": "B276",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Only after merge --abort fails (rare); untracked leftover is harmless and reset is reported"
     },
     {
       "feature": "F38",
@@ -2473,7 +3172,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B277"
+      "id": "B277",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Harmless invariant (no builder runs when merge was clean); documentation nit"
     },
     {
       "feature": "F38",
@@ -2483,7 +3185,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B278"
+      "id": "B278",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "60 ms sleep timing test; load flakiness accepted with F46"
     },
     {
       "feature": "F38",
@@ -2503,7 +3208,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B280"
+      "id": "B280",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Comment wording nit; isSerializedGit docstring already lists add/commit/reset --hard (evidence: lib/run.mjs:143-147)"
     },
     {
       "feature": "F40",
@@ -2530,7 +3238,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B282"
+      "id": "B282",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Outer verify step timeout still bounds the whole command; per-call default is a doc nit"
     },
     {
       "feature": "F40",
@@ -2540,7 +3251,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B283"
+      "id": "B283",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Asymmetric truncation, consistent with contract; low value"
     },
     {
       "feature": "F40",
@@ -2550,7 +3264,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B284"
+      "id": "B284",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Documented behaviour"
     },
     {
       "feature": "F39",
@@ -2560,7 +3277,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B285"
+      "id": "B285",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Contract wording vs output word order; wording nit"
     },
     {
       "feature": "F39",
@@ -2570,7 +3290,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B286"
+      "id": "B286",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Follows contract; design preference"
     },
     {
       "feature": "F39",
@@ -2580,7 +3303,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B287"
+      "id": "B287",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Test-coverage gap for one group ordering; low value"
     },
     {
       "feature": "F39",
@@ -2590,7 +3316,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B288"
+      "id": "B288",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Top-level help lists commands only (no per-command flags for any command); documented in README/SPEC (evidence: bin/harness.mjs:19)"
     },
     {
       "feature": "F40",
@@ -2600,7 +3329,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B289"
+      "id": "B289",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "terraform fmt -recursive skips dot-prefixed names (configs.IsIgnoredFile), so .terraform/ and .harness/wt are not descended"
     },
     {
       "feature": "F40",
@@ -2610,7 +3342,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B290"
+      "id": "B290",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Harmless; docs nit"
     },
     {
       "feature": "F40",
@@ -2620,7 +3355,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B291"
+      "id": "B291",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "No real-terraform integration test by design (zero-dep, CI portability)"
     },
     {
       "source": "run:F41",
@@ -2644,7 +3382,10 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ],
-      "id": "B292"
+      "id": "B292",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "F41 rescope; feature passed (evidence: features.json: F41 status passed)"
     },
     {
       "feature": "F41",
@@ -2654,7 +3395,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B293"
+      "id": "B293",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Known limitation of the review helper assert-count; test tooling"
     },
     {
       "feature": "F41",
@@ -2664,7 +3408,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B294"
+      "id": "B294",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Contract explicitly keeps the stress check out of the suite"
     },
     {
       "feature": "F41",
@@ -2674,7 +3421,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B295"
+      "id": "B295",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Suite duration concern; load-stability widening intentional"
     },
     {
       "feature": "F41",
@@ -2711,7 +3461,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B299"
+      "id": "B299",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Consistent with SPEC \"any change against base\"; attempt cap bounds it"
     },
     {
       "feature": "F43",
@@ -2721,7 +3474,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B300"
+      "id": "B300",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Prompt header already gives the attempt number; max-attempt hint is a nice-to-have (evidence: lib/run.mjs:317)"
     },
     {
       "feature": "F43",
@@ -2731,7 +3487,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B301"
+      "id": "B301",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Builder-created path only reaches its own session (threat model D1); quoting is folded into the B298 fix"
     },
     {
       "feature": "F43",
@@ -2741,7 +3500,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B302"
+      "id": "B302",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "duplicate of B298: unbounded continuation file list"
     },
     {
       "feature": "F43",
@@ -2751,7 +3513,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B303"
+      "id": "B303",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "File names are not command output; secret-in-filename is out of SC-1 scope and negligible"
     },
     {
       "feature": "F43",
@@ -2761,7 +3526,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B304"
+      "id": "B304",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Test gap only; code review shows renames handled"
     },
     {
       "feature": "F42",
@@ -2771,7 +3539,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B305"
+      "id": "B305",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Intentional fixture change; direct-entry shape covered by F42 tests"
     },
     {
       "feature": "F42",
@@ -2781,7 +3552,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B306"
+      "id": "B306",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "A missing interpreter on base would also be missing on head (same env), so the lost signal is theoretical"
     },
     {
       "feature": "F42",
@@ -2791,7 +3565,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B307"
+      "id": "B307",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Documented scope of checkEntry; fails safe (old overlay behaviour)"
     },
     {
       "feature": "F42",
@@ -2801,7 +3578,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B308"
+      "id": "B308",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "duplicate of B311: unbounded per-entry base worktrees"
     },
     {
       "feature": "F42",
@@ -2811,7 +3591,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B309"
+      "id": "B309",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Monorepo-subdirectory case fails safe to the old overlay behaviour; predates F42"
     },
     {
       "feature": "F42",
@@ -2821,7 +3604,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B310"
+      "id": "B310",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Case-mismatched path errs conservative; rare"
     },
     {
       "feature": "F42",
@@ -2831,7 +3617,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B311"
+      "id": "B311",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "One base worktree per distinct new entry script is bounded by contract size and cleaned in finally; cost only"
     },
     {
       "feature": "F42",
@@ -2841,7 +3630,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B312"
+      "id": "B312",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "duplicate of B305: F16 fixtures rewritten to run.mjs"
     },
     {
       "feature": "F42",
@@ -2851,7 +3643,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B313"
+      "id": "B313",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "duplicate of B307: checkEntry ignores env-prefix / cd shapes"
     },
     {
       "feature": "F42",
@@ -2861,7 +3656,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B314"
+      "id": "B314",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "duplicate of B311: per-entry base worktree cost"
     },
     {
       "feature": "F42",
@@ -2871,7 +3669,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B315"
+      "id": "B315",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "duplicate of B305: F16 fixtures rewritten to run.mjs"
     },
     {
       "feature": "F42",
@@ -2881,7 +3682,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B316"
+      "id": "B316",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "duplicate of B309: monorepo subdirectory entry rule"
     },
     {
       "feature": "F42",
@@ -2891,7 +3695,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B317"
+      "id": "B317",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Harmless: a directory result never matches an overlaid file"
     },
     {
       "feature": "F42",
@@ -2901,7 +3708,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B318"
+      "id": "B318",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "duplicate of B311: per-entry base worktree cost"
     },
     {
       "feature": "F45",
@@ -2911,7 +3721,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B319"
+      "id": "B319",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Only on Node 22/23 and only in the stress test tool; harmless warning"
     },
     {
       "feature": "F45",
@@ -2921,7 +3734,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B320"
+      "id": "B320",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Observation; tests already stable at 3x load"
     },
     {
       "feature": "F45",
@@ -2931,7 +3747,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B321"
+      "id": "B321",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Dev-only stress script usage message nit"
     },
     {
       "feature": "F45",
@@ -2941,7 +3760,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B322"
+      "id": "B322",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Code placement/naming nit"
     },
     {
       "feature": "F44",
@@ -2951,7 +3773,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B323"
+      "id": "B323",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "firstProgram now handles a quoted VAR value with a space (evidence: lib/exec.mjs:122-127 (firstProgram(`FOO=\"a b\" jest`) === \"jest\"))"
     },
     {
       "feature": "F44",
@@ -2960,7 +3785,10 @@
       "summary": "builtinInvocation runs the core's bin/harness.mjs, so any `harness <args>` command bypasses a user-installed harness of a different version. The behaviour is intentional, but a project pinning another harness version via PATH gets the core's version in verify. Consider documenting this.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B324"
+      "id": "B324",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Intentional (SPEC §6.1); docs nit"
     },
     {
       "feature": "F44",
@@ -2970,7 +3798,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B325"
+      "id": "B325",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "builtinInvocation no longer accepts % in plain words; such commands go to the shell (evidence: lib/exec.mjs:148 PLAIN_WORD excludes %)"
     },
     {
       "feature": "F44",
@@ -2980,7 +3811,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B326"
+      "id": "B326",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "duplicate of B324: built-in harness path ignores the PATH version"
     },
     {
       "feature": "F44",
@@ -2990,7 +3824,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B327"
+      "id": "B327",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Works as designed; preset bins are fixed identifiers"
     },
     {
       "source": "run:F44",
@@ -3014,7 +3851,10 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ],
-      "id": "B328"
+      "id": "B328",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "resolved",
+      "resolution_reason": "F44 rescope; feature passed (evidence: features.json: F44 status passed)"
     },
     {
       "source": "run:F46",
@@ -3038,7 +3878,10 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ],
-      "id": "B329"
+      "id": "B329",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "F46 is blocked and was accepted as a risk by the user (commit cf96a71)"
     },
     {
       "feature": "F44",
@@ -3058,7 +3901,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B331"
+      "id": "B331",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Consistent with SPEC; docs nit"
     },
     {
       "feature": "F44",
@@ -3068,7 +3914,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B332"
+      "id": "B332",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Same trust as running the core (threat model D1)"
     },
     {
       "feature": "F44",
@@ -3078,7 +3927,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B333"
+      "id": "B333",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "duplicate of B330: compound-command 127 rule"
     },
     {
       "feature": "F44",
@@ -3088,7 +3940,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B334"
+      "id": "B334",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Windows-without-symlink-privilege skip is a platform limitation"
     },
     {
       "feature": "F44",
@@ -3098,7 +3953,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B335"
+      "id": "B335",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "duplicate of B330: compound-command 127 rule"
     },
     {
       "feature": "F44",
@@ -3108,7 +3966,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B336"
+      "id": "B336",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Coupling guarded by SPEC line and test; low value"
     },
     {
       "feature": "F44",
@@ -3118,7 +3979,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B337"
+      "id": "B337",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Test fixture shape preference"
     },
     {
       "feature": "F44",
@@ -3128,7 +3992,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B338"
+      "id": "B338",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Load-stability test edits; observation"
     },
     {
       "feature": "F44",
@@ -3138,7 +4005,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B339"
+      "id": "B339",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Per SPEC §6.1; intentional"
     },
     {
       "feature": "F44",
@@ -3148,7 +4018,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B340"
+      "id": "B340",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Not reachable in normal git operation"
     },
     {
       "feature": "F44",
@@ -3158,7 +4031,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B341"
+      "id": "B341",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Not a regression; same capability as PATH harness"
     },
     {
       "source": "run:F46",
@@ -3182,7 +4058,10 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ],
-      "id": "B342"
+      "id": "B342",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "duplicate",
+      "resolution_reason": "duplicate of B329: F46 blocked on build timeout (accepted as risk)"
     },
     {
       "id": "B343",
@@ -3201,7 +4080,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B344"
+      "id": "B344",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Minor code duplication, not a defect"
     },
     {
       "feature": "F47",
@@ -3211,7 +4093,10 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B345"
+      "id": "B345",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Only after crash/second SIGINT; stale .git/worktrees entry is pruned by git worktree prune"
     },
     {
       "feature": "F47",
@@ -3221,7 +4106,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B346"
+      "id": "B346",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Consistent with how the core commits all builder changes; builder cooperative"
     },
     {
       "feature": "F47",
@@ -3231,7 +4119,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B347"
+      "id": "B347",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Rebase/cherry-pick states in a harness worktree need non-cooperative builder actions (D1); rare"
     },
     {
       "feature": "F47",
@@ -3241,7 +4132,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B348"
+      "id": "B348",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Needs deliberate filesystem manipulation (D1)"
     },
     {
       "feature": "F47",
@@ -3251,7 +4145,10 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B349"
+      "id": "B349",
+      "resolved_by": "triage-2026-09-27",
+      "resolution": "accept",
+      "resolution_reason": "Behaviour matches user intent; SPEC wording nit"
     }
   ]
 }
