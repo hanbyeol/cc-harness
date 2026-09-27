@@ -136,7 +136,14 @@ for (const [name, runCfg] of [['unset', undefined], ["'auto'", { max_parallel: '
 // ------------------------------------------------------------------ AC-2
 test('F25 AC-2: run.max_parallel 2 caps concurrent features at 2', async () => {
   const dir = fixture(IDS4);
-  const build = slowBuild({ delay: () => 600 });
+  // The first two builds wait for each other (up to 30 s) instead of relying on a 600 ms overlap;
+  // a higher cap would let a third start and the maximum would exceed 2.
+  const build = slowBuild({
+    delay: () => 600,
+    onCall: async () => {
+      for (const t0 = Date.now(); build.calls.length < 2 && Date.now() - t0 < 30_000;) await sleep(20);
+    },
+  });
   await run(dir, { build }, { run: { max_parallel: 2 } });
   assert.deepEqual(statuses(dir), { F1: 'passed', F2: 'passed', F3: 'passed', F4: 'passed' });
   assert.equal(maxConcurrent(build.calls), 2);
