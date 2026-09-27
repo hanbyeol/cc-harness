@@ -226,10 +226,52 @@ test('F21 AC-4 eval timeout after system sleep: run stops for --resume, no eval_
   assert.equal(saved.current.evalErrors, 0);
 });
 
+// F52 AC-1: a fake sleep step (the builder writes a large wall-clock offset for the run's
+// own sleep detector to read, then hangs) drives a real `harness run` child process to the
+// same exit and stderr a system sleep produces — no reading of lib/commands/run.mjs's source.
+let cliSleepResult = null;
+async function realCliSleepRun() {
+  if (cliSleepResult) return cliSleepResult;
+  const dir = fixture();
+  const offsetFile = path.join(tmpdir('harness-sleep-offset-'), 'offset');
+  writeFiles(dir, {
+    '.harness/config.json': {
+      profile: 'sdlc', base_branch: 'main', verify: { commands: [] },
+      budget: { step_timeout_sec: 2 },
+      roles: { builder: 'generic', evaluator: 'generic', 'security-reviewer': 'generic' },
+      adapters: {
+        generic: {
+          command: [process.execPath, FAKE_CLI, 'sleep-offset', offsetFile, '90000'],
+          read_only_command: [process.execPath, FAKE_CLI, 'echo-args'],
+        },
+      },
+    },
+  });
+  commitAll(dir, 'CLI sleep-detection fixture');
+  const child = spawn(process.execPath, [BIN, 'run'], {
+    cwd: dir, env: { ...process.env, HARNESS_TEST_SLEEP_OFFSET_FILE: offsetFile }, stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let out = '';
+  let err = '';
+  child.stdout.on('data', (b) => { out += b; });
+  child.stderr.on('data', (b) => { err += b; });
+  const code = await new Promise((resolve) => child.on('exit', resolve));
+  cliSleepResult = { code, out, err };
+  return cliSleepResult;
+}
+
+test('F52 AC-1: harness run really run with a fake sleep step exits 1 and stderr says "system sleep" and "harness run --resume"', { timeout: 60000 }, async () => {
+  const { code, out, err } = await realCliSleepRun();
+  assert.equal(code, 1, out + err);
+  assert.match(err, /system sleep/);
+  assert.match(err, /harness run --resume/);
+});
+
 test('F21 AC-4 the CLI prints "system sleep" and the --resume hint', { timeout: 60000 }, async () => {
-  const { default: runCmd } = await import('../lib/commands/run.mjs');
-  const src = fs.readFileSync(path.join(REPO, 'lib', 'commands', 'run.mjs'), 'utf8');
-  assert.ok(runCmd && /r\.sleep/.test(src) && /system sleep/.test(src) && /harness run --resume/.test(src));
+  const { code, out, err } = await realCliSleepRun();
+  assert.equal(code, 1, out + err);
+  assert.match(err, /system sleep/);
+  assert.match(err, /harness run --resume/);
 });
 
 // ------------------------------------------------------------------ AC-5
