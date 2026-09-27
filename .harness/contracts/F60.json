@@ -1,0 +1,62 @@
+{
+  "id": "F60",
+  "title": "현장 데이터 정확성 — Windows 사용자·호스트 변수 과잉 가림 해소, export 를 파일 위치 기준으로(누락 방지), 시간 초과 repro 기록의 플랫폼 차이",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "기본 환경 변수 허용 목록에 USERNAME·USERDOMAIN·COMPUTERNAME·HOSTNAME·LOGONSERVER 가 들어가 가림 대상이 아니다 — USERNAME=runneradmin 인 환경에서 build/step 이벤트의 세션 기록 경로에 runneradmin 이 그대로 남는다",
+      "check": "node test/t.mjs \"F60 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "harness export 는 이벤트 파일별로 마지막으로 내보낸 바이트 위치를 .harness/events/.exported 에 기록하고 그 뒤의 줄만 내보낸다 — 이전 export 와 같은 밀리초 ts 를 가진 새 이벤트도 다음 export 에 포함된다(시각 주입 fixture)",
+      "check": "node test/t.mjs \"F60 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "이전 형식(시각만 든) .exported 가 있으면 그 시각 이후 이벤트를 한 번 내보낸 뒤 새 형식으로 바꿔 쓴다",
+      "check": "node test/t.mjs \"F60 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "시간 초과된 repro 의 finding 이벤트는 timed_out: true 를 갖고, exit 필드는 플랫폼에 따라 null 또는 수이며 판정 규칙은 지금과 같다 — F56 ES-1 테스트가 exit 값 대신 timed_out 을 확인한다",
+      "check": "node test/t.mjs \"F60 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "SPEC 의 가림 규칙과 export 절이 바뀐 허용 목록과 바이트 위치 기준을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F60 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "허용 목록 확장 뒤에도 GEMINI_API_KEY·AWS_SECRET_ACCESS_KEY·GITHUB_TOKEN 값(각 8자 이상)은 이벤트·보고서·상태 파일에서 가려진다(변수별 개별 테스트)",
+      "check": "node test/t.mjs \"F60 SC-1\"",
+      "new": false
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "이벤트 파일이 .exported 에 기록된 위치보다 짧아지면(잘리거나 교체) 그 파일을 처음부터 내보내고 경고를 낸다",
+      "check": "node test/t.mjs \"F60 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "이미 허브에 쌓인 묶음의 재수집"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-27T18:48:19.407Z",
+    "hash": "40083e3c3bd4f137770169d38f9b47dd2012f7160ad0e1ddb142545eb1943980"
+  }
+}

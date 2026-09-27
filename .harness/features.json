@@ -540,6 +540,15 @@
         "F58"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F60",
+      "title": "현장 데이터 정확성 — Windows 사용자·호스트 변수 과잉 가림 해소, export 를 파일 위치 기준으로(누락 방지), 시간 초과 repro 기록의 플랫폼 차이",
+      "security_tier": "critical",
+      "depends_on": [
+        "F59"
+      ],
+      "status": "approved"
     }
   ]
 }

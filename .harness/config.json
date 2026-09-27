@@ -31,5 +31,9 @@
       "adapter": "claude",
       "model": "claude-opus-5-5"
     }
+  },
+  "telemetry": {
+    "share": true,
+    "auto_export": true
   }
 }
