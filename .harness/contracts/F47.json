@@ -1,0 +1,62 @@
+{
+  "id": "F47",
+  "title": "blocked 기능 재시도 시 작업 이어받기와 코어 임시 경로 정리",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "재승인된 기능의 harness/F{n} 브랜치와 .harness/wt/F{n} worktree 가 남아 있으면 run 은 blocked(worktree) 대신 그 worktree 를 이어받아 build 를 시작하고, builder 프롬프트에 '이전 시도의 작업이 worktree 에 있다'는 안내와 base 대비 변경 파일 목록이 들어간다(가짜 builder)",
+      "check": "node test/t.mjs \"F47 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "harness run --fresh F{n} 은 남은 worktree 와 브랜치를 지우고 base 에서 새로 시작한다",
+      "check": "node test/t.mjs \"F47 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "남은 worktree 에 커밋되지 않은 변경이 있으면 이어받기 전에 'harness: F{n} carried work' 커밋으로 보존하고 run 보고서에 carried: true 가 나온다",
+      "check": "node test/t.mjs \"F47 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "verify·run 이 만드는 임시 경로(harness-base-*, harness-no-hooks-*)는 verify·run 이 정상 종료·오류·SIGINT 로 끝난 뒤 남지 않는다(경우별 개별 테스트, 임시 디렉터리 주입)",
+      "check": "node test/t.mjs \"F47 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "SPEC §8 과 docs/run.md 가 이어받기·--fresh·임시 경로 정리를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F47 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "이어받는 worktree 가 다른 브랜치를 가리키거나(harness/F{n} 아님) 저장소의 등록된 worktree 가 아니면 이어받지 않고 blocked(worktree) 이며 detail 에 경로와 브랜치가 나온다",
+      "check": "node test/t.mjs \"F47 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "--fresh 가 worktree 를 지우지 못하면 그 기능은 blocked(worktree) 이고 detail 에 git 오류가 나오며 다른 기능은 계속 진행한다",
+      "check": "node test/t.mjs \"F47 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "사용자가 수동으로 만든 worktree 의 이어받기"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-27T08:21:28.202Z",
+    "hash": "55eacea131effa09e243f678744b777312cffc0bd12e80886864e306888669c7"
+  }
+}

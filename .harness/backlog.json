@@ -3179,6 +3179,15 @@
         }
       ],
       "id": "B342"
+    },
+    {
+      "id": "B343",
+      "source": "F46-decision",
+      "feature": "F46",
+      "kind": "decision",
+      "priority": "low",
+      "summary": "F46 (all suites pass under 3 concurrent runs) accepted as a risk by the user on 2026-09-27: three 45-minute builds with continuation did not finish; 2-concurrent stability (F41) and the F23-F28 group (F45) hold. F46 stays blocked; revisit only if parallel runs start losing rounds to flaky tests.",
+      "at": "2026-09-27T08:21:27.875Z"
     }
   ]
 }

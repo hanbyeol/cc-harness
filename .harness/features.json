@@ -422,6 +422,15 @@
         "F45"
       ],
       "status": "blocked"
+    },
+    {
+      "id": "F47",
+      "title": "blocked 기능 재시도 시 작업 이어받기와 코어 임시 경로 정리",
+      "security_tier": "critical",
+      "depends_on": [
+        "F44"
+      ],
+      "status": "approved"
     }
   ]
 }
