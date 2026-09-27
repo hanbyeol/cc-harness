@@ -1,0 +1,5 @@
+{"feature":"F53","round":1,"step":"build","started_at":"2026-09-27T12:47:21.036Z","ended_at":"2026-09-27T12:53:09.407Z","duration_ms":348371,"cost_usd":0.7395976,"role":"builder","adapter":"claude","model":"claude-opus-5-5","outcome":"ok"}
+{"feature":"F53","round":1,"step":"verify","started_at":"2026-09-27T12:53:09.410Z","ended_at":"2026-09-27T12:59:23.946Z","duration_ms":374536,"cost_usd":null,"role":"core","adapter":null,"model":null,"outcome":"pass"}
+{"feature":"F53","round":1,"step":"eval","started_at":"2026-09-27T12:59:23.949Z","ended_at":"2026-09-27T13:03:33.924Z","duration_ms":249975,"cost_usd":0.5073935999999999,"role":"evaluator","adapter":"claude","model":"claude-sonnet-5","outcome":"pass"}
+{"feature":"F53","round":1,"step":"merge","started_at":"2026-09-27T13:03:34.212Z","ended_at":"2026-09-27T13:03:34.287Z","duration_ms":75,"cost_usd":null,"role":"core","adapter":null,"model":null,"outcome":"merged"}
+{"feature":"F53","round":1,"step":"post_merge_verify","started_at":"2026-09-27T13:03:34.287Z","ended_at":"2026-09-27T13:06:49.394Z","duration_ms":195107,"cost_usd":null,"role":"core","adapter":null,"model":null,"outcome":"pass"}

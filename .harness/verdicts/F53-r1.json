@@ -1,0 +1,38 @@
+{
+  "feature": "F53",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 0.5073935999999999,
+  "contract_hash": "d237be6586d3c3cbe1d428498874eb1c9232055bc3d064ff6e2a4fb51493bb61",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    }
+  },
+  "at": "2026-09-27T13:03:33.922Z",
+  "origin": "run"
+}

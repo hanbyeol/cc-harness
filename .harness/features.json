@@ -484,7 +484,7 @@
       "depends_on": [
         "F52"
       ],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }

@@ -4313,7 +4313,8 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B360"
+      "id": "B360",
+      "resolved_by": "F53"
     },
     {
       "feature": "F48",
@@ -4426,7 +4427,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B368"
+      "id": "B368",
+      "resolved_by": "F53"
     }
   ]
 }
