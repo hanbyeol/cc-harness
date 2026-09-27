@@ -126,7 +126,8 @@ worktree 에 base 대비 변경(base 이후 커밋·staged·unstaged·untracked 
 | 변경 확인 git 명령 실패 | blocked(`budget`), detail 에 git 오류 | `timeout` |
 
 이어가기 시도의 builder 프롬프트에는 이전 시도가 시간 초과로 끝났으니 작업 트리의 변경을 이어서 끝내라는 안내와
-변경 파일 목록이 들어간다. 목록은 경로만이다 — 파일 내용과 환경 변수 값은 프롬프트에 들어가지 않는다. outcome 은 run
+변경 파일 목록이 들어간다. 목록은 경로만이다 — 파일 내용과 환경 변수 값은 프롬프트에 들어가지 않는다. 목록은 최대
+100개이고 넘으면 `… N more` 줄이 붙으며, 제어 문자가 든 경로는 JSON 문자열로 따옴표 처리된다(이어받기 목록도 같다). outcome 은 run
 보고서의 단계 표와 `runs/{runId}.metrics.jsonl` 에 같은 값으로 남는다. `--resume` 은 이어가기 시도부터 다시 시작한다.
 
 ## blocked 기능 이어받기와 `--fresh`
@@ -150,9 +151,10 @@ blocked(`worktree`)이고 detail 에 git 오류가 나오며, 다른 기능은 �
 ## 임시 경로 정리
 
 verify·run 은 `os.tmpdir()` 에 base 임시 worktree(`harness-base-*`)와 코어 git 호출용 빈 hooks 디렉터리
-(`harness-no-hooks-*`)를 만든다. 둘 다 verify·run 이 정상 종료·오류·SIGINT 로 끝난 뒤 남지 않는다 — verify 는 끝날 때
+(`harness-no-hooks-*`)를 만든다. 둘 다 verify·run 이 정상 종료·오류·SIGINT(SIGTERM·SIGHUP) 로 끝난 뒤 남지 않는다 — verify 는 끝날 때
 (중단돼도) base worktree 를 git 에서 해제하고 지우며, 그래도 남은 경로는 프로세스가 끝날 때 지운다. `harness verify` 는
-SIGINT 에 실행 중인 명령을 멈추고 임시 worktree 를 지운 뒤 exit 130 으로 끝난다.
+SIGINT·SIGTERM·SIGHUP 에 실행 중인 명령을 멈추고 임시 worktree 를 지운 뒤 exit 130 으로 끝난다. `harness run` 도 세 신호에
+진행 중 단계를 멈추고 상태를 저장한 뒤 exit 130 으로 끝나며 `harness run --resume` 으로 이어간다.
 
 ## 범위 밖
 
