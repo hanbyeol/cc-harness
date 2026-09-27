@@ -69,8 +69,12 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 - config `telemetry.share` 가 `true`(불리언)일 때만 동작한다. 아니면(없음·`false`·그 밖의 값) `telemetry.share is off …` 를 출력하고 아무것도 쓰지 않는다(exit 0, `--dry-run` 도 같다).
 - 허브는 `--hub <dir>`(현재 디렉터리 기준), 없으면 환경 변수 `CC_HARNESS_HUB`, 없으면 `<사용자 홈>/.cc-harness/hub` 다. 묶음 파일은 `<hub>/<project>/<시각>.jsonl` —
   `project` 는 이벤트의 `project` 와 같은 경로 해시, 시각은 내보낸 시각의 ISO 8601 기본 형식(`20260928T123456.789Z`, Windows 파일 이름에 `:` 를 쓸 수 없어서)이다.
-- 마지막 내보내기 시각은 `.harness/events/.exported` 에 ISO 시각 한 줄로 기록한다. 내보내는 이벤트는 `.exported` 시각 ≤ `ts` < 이번 시각인 것(`.exported` 가 없으면 처음부터)이고
-  `ts` 순이다 — 이번 시각과 같은 `ts` 는 다음 내보내기에 들어가므로 같은 이벤트를 두 번 내보내지 않는다. 내보낼 것이 없으면 `nothing to export …` 를 출력하고 아무것도 쓰지 않는다.
+- 내보내기 위치는 `.harness/events/.exported` 에 JSON 한 줄 `{"at": <내보낸 ISO 시각>, "files": {"YYYY-MM.jsonl": <바이트 위치>, …}}` 로 기록한다 — 이벤트 파일별로 마지막으로 내보낸
+  바이트 위치다. 내보내는 이벤트는 각 파일에서 그 위치 뒤의 줄(파일이 `files` 에 없으면 처음부터, 개행으로 끝나지 않은 마지막 줄은 아직 쓰는 중이므로 다음 내보내기)이고 `ts` 순이다.
+  시각이 아니라 위치로 고르므로 이미 내보낸 이벤트와 같은 밀리초 `ts` 를 가진 새 이벤트도 다음 내보내기에 들어가고, 같은 줄을 두 번 내보내지 않는다.
+  이전 형식(ISO 시각 한 줄)의 `.exported` 가 있으면 그 시각 ≤ `ts` 인 이벤트를 한 번 내보내고 새 형식으로 바꿔 쓴다.
+  이벤트 파일이 기록된 위치보다 짧아지거나 위치가 줄의 시작이 아니면(잘리거나 교체됨) 그 파일을 처음부터 내보내고 `harness: warning: events/<파일> is shorter than or does not match its export position …` 경고를 stderr 에 낸다.
+  내보낼 줄이 없으면 `nothing to export …` 를 출력하고 묶음을 쓰지 않는다(위치가 바뀌었으면 — 건너뛴 줄·이전 형식·잘린 파일 — `.exported` 만 고쳐 쓴다).
   `ts` 가 시각이 아니거나 `stage` 가 §2 의 단계가 아닌 줄은 내보내지 않는다.
 - `--dry-run` 은 쓰지 않고(묶음·`.exported` 모두) `dry run: <n> lines would be exported to <파일>` 과 내보낼 첫 3줄을 출력한다.
 - 허브에 쓸 수 없으면(디렉터리를 만들 수 없음·권한 등) `harness: export failed: cannot write <경로>: <오류 코드>` 를 stderr 에 내고 exit 1 이며 `.exported` 는 바뀌지 않는다.
@@ -143,7 +147,7 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 | `backlog.json` | `{ items: [...] }` — 범위 밖 발견 · blocked 재범위 제안 · `harness decide` 의 결정(`kind: decision`, §2). 항목 id(`B<n>`)·`priority`·`seen`·`sources`·`resolved_by` 규칙은 §7.7 |
 | `runs/{ts}.md` | 자율 실행 보고서 |
 | `runs/{ts}.metrics.jsonl`, `runs/eval.metrics.jsonl` | 단계별 실행 지표(한 줄 = 끝난 단계 하나, §8 실행 지표). `harness stats` 가 집계한다 |
-| `events/YYYY-MM.jsonl` | 이벤트 기록(한 줄 = 사건 하나, §2 이벤트 기록). `harness events` 가 보여 준다. `events/.exported` 는 마지막 `harness export` 시각(§2 현장 데이터 내보내기) |
+| `events/YYYY-MM.jsonl` | 이벤트 기록(한 줄 = 사건 하나, §2 이벤트 기록). `harness events` 가 보여 준다. `events/.exported` 는 마지막 `harness export` 의 시각과 이벤트 파일별 바이트 위치(§2 현장 데이터 내보내기) |
 
 `init` 은 없는 파일·디렉터리만 만든다. `.harness/` 가 일부만 있어도(예: `contracts/` 만) 빠진 것을 채우고 기존 파일은 건드리지 않는다. 상태 파일 쓰기는 원자적이다(같은 디렉터리의 임시 파일 → rename). 어느 단계에서 실패해도 임시 파일을 지우고 대상 파일은 이전 내용 그대로 남는다(`io` 에러).
 
@@ -266,10 +270,10 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
    - **status**: `harness status` 는 `backlog: N open (high a · medium b · low c · none d)` 줄과 열린 `high` 항목 최대 5개(id·summary 앞 100자)를 보여 준다. `--brief` 에는 열린 high 항목 수만 ` — backlog high: n` 으로 덧붙인다(0 이면 생략). backlog.json 이 `{ items: [...] }` 가 아니면 status 도 E6 로 exit 2.
    - **새 계약을 쓸 때**(spec skill): 열린 `high` 항목을 검토해 이 기능이 해결하는 항목의 id 를 `resolves` 에 넣는다.
 8. **평가·보안 이벤트** (§2 이벤트 기록). 평가(대화형 `eval`·`run` 모두)가 판정 또는 eval_error 로 끝날 때 코어는 그 평가의 이벤트를 `feature`·`round`(판정 파일 번호)와 함께 남긴다. 중단된 평가는 판정 파일처럼 이벤트도 남기지 않는다.
-   - **지적**: findings·out_of_scope 항목마다 evaluator 는 `eval/finding`, security-reviewer 는 `security/finding` — `data` 는 `criterion_id`·`dimension`·`source`·`result`·`reason`·`repro_program`·`repro_exit`·`repro_ms`·`summary` 다.
+   - **지적**: findings·out_of_scope 항목마다 evaluator 는 `eval/finding`, security-reviewer 는 `security/finding` — `data` 는 `criterion_id`·`dimension`·`source`·`result`·`reason`·`repro_program`·`repro_exit`·`timed_out`·`repro_ms`·`summary` 다.
      `criterion_id` 는 정규화한 id(없으면 null, 계약 밖 id 는 그대로 앞 100자), `source` 는 역할, `result` 는 `blocking` 또는 `backlogged`, `reason` 은 차단이면 null, 아니면 이관 사유 —
      `no_criterion`(id 없음)·`not_in_contract`·`no_repro`·`repro_denied`(SR-3)·`adversarial`(D1)·`repro_timeout`·`repro_not_runnable`·`not_reproduced`(exit 0)·`out_of_scope`.
-     `repro_exit`·`repro_ms` 는 코어가 repro 를 실행했을 때의 종료 코드(시간 초과·시그널이면 null)와 소요 밀리초, 실행하지 않았으면 null 이다(같은 명령은 한 번만 실행해 같은 값).
+     `repro_exit`·`repro_ms` 는 코어가 repro 를 실행했을 때의 종료 코드(시그널이면 null, 시간 초과면 플랫폼에 따라 null 또는 수)와 소요 밀리초, 실행하지 않았으면 null 이다(같은 명령은 한 번만 실행해 같은 값). `timed_out` 은 repro 가 시간 초과로 끝났으면 `true`, 아니면 `false` 다 — 시간 초과 판정은 종료 코드가 아니라 이 값으로 한다.
      repro 명령 문자열은 남기지 않고 첫 명령의 프로그램 이름(앞의 `VAR=값` 제외, 경로·`.exe` 제거, 소문자)만 `repro_program` 에 남긴다. `summary` 는 가린 뒤 앞 300자로 자른다 — 자르고 가리면 잘린 비밀 조각이 남기 때문이다.
      evaluator 에 차단 finding 이 있어 reviewer 결과를 쓰지 않은 판정(§7.4)의 `security/finding` 에는 `unused: true` 가 붙는다.
    - **재요청**: 스키마 불일치 재요청은 `eval/reask` `{role, reason: "schema_mismatch", problems}`(문제 최대 5개, 각 200자), 근거 없는 저점 재요청은 `eval/reask` `{role, reason: "unsupported_low_score", scores, unsupported}`(비차단이 된 finding 수).
@@ -340,7 +344,7 @@ blocked 기능의 worktree·브랜치는 점검용으로 남기고, passed 기�
 
 ## 9. 보안 요구사항
 - SR-1 verify·check·repro 명령은 **worktree를 cwd로**, timeout과 함께 실행된다.
-- SR-2 repro/check 실행 환경은 env 허용목록(PATH, HOME, LANG, TMP 계열, config에서 추가한 이름)만 전달 — API 키·토큰 미전달.
+- SR-2 repro/check 실행 환경은 env 허용목록(PATH, HOME, LANG, TMP 계열, Windows 사용자·호스트 이름 `USERNAME`·`USERDOMAIN`·`COMPUTERNAME`·`HOSTNAME`·`LOGONSERVER`, config에서 추가한 이름 — 전체 목록은 `lib/exec.mjs` 의 `BASE_ENV_ALLOWLIST`)만 전달 — API 키·토큰 미전달. 가림(SR-8·§8·이벤트)도 같은 허용 목록을 쓰므로 사용자·호스트 이름은 가리지 않는다: 홈 경로가 든 기록(예: build/step 이벤트의 세션 기록 경로 `C:\Users\runneradmin\…`)이 그대로 남고, 허용 목록 밖의 비밀(`GEMINI_API_KEY`·`AWS_SECRET_ACCESS_KEY`·`GITHUB_TOKEN` 등)은 계속 가린다.
 - SR-3 repro는 deny 패턴(`git push`, `rm -rf /`, `rm -rf ~`, `curl … | sh`, `sudo`)에 걸리면 실행하지 않고 finding을 비차단 처리. 판정은 셸이 실제로 실행할 명령 기준 — 줄 이음(백슬래시+개행)을 제거한 뒤 검사한다.
 - SR-4 headless 프롬프트에 들어가는 diff에서 `.env*`, `*.pem`, `*.key`, `id_*`, `*.p12`, config의 `secret_globs` 경로 제외. 시크릿 파일의 내용이 다른 경로로 옮겨진 경우도 제외한다: merge-base·HEAD·index·작업 트리에서 시크릿 경로가 가진 blob 과 내용(작업 트리 파일, 또는 추적 파일의 merge-base 버전)이 같은 경로(이름 변경·git 밖 이동·복사), 그리고 git 이름 변경 탐지(`-M`, 유사도 50% 이상, `diff.renameLimit` 제한 없음)가 시크릿 경로를 원본으로 짝지은 대상 경로. 빈 blob 은 내용 일치에 쓰지 않는다. 제외된 경로는 모두 excluded 에 집계된다. 부분 인용·과거 이력의 시크릿은 범위 밖.
 - SR-5 코어는 `main`(및 config의 protected 브랜치)에 병합·push하지 않는다. 브랜치 이름은 대소문자를 무시하고 비교한다(대소문자 비구분 파일시스템에서는 같은 loose ref). run 시작 전 로컬 브랜치 목록(`git for-each-ref refs/heads/`)을 확인해, `integration_branch` 와 대소문자만 다른 기존 브랜치(예: `Work` vs `work`)가 있으면 브랜치 생성·worktree 추가·병합 전에 두 이름을 모두 담은 메시지로 exit 2. 철자가 정확히 같은 브랜치는 그대로 쓰고, 없으면 base 에서 만든다. 브랜치 목록을 얻지 못하면 run 을 시작하지 않고 exit 2. `integration_branch` 가 `refs/` 또는 `heads/` 로 시작하면(ref 경로이지 브랜치 이름이 아니다) 사전 점검·브랜치 생성·build 전에 `integration_branch` 를 담은 `config_invalid` 로 exit 2.

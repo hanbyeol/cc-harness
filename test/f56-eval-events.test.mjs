@@ -298,6 +298,8 @@ test('F56 ES-1: a repro that times out is still recorded, backlogged as repro_ti
   assert.equal(r.blocking.length, 0);
   assert.equal(r.backlogged[0].reason, 'repro_timeout');
   const [e] = of(dir, 'eval', 'finding');
-  assert.deepEqual([e.data.result, e.data.reason, e.data.criterion_id, e.data.repro_exit, e.data.repro_program], ['backlogged', 'repro_timeout', 'AC-1', null, 'node']);
+  // the exit of a killed repro is null on POSIX and may be a number on Windows (F60 AC-4)
+  assert.deepEqual([e.data.result, e.data.reason, e.data.criterion_id, e.data.timed_out, e.data.repro_program], ['backlogged', 'repro_timeout', 'AC-1', true, 'node']);
+  assert.ok(e.data.repro_exit === null || Number.isInteger(e.data.repro_exit), String(e.data.repro_exit));
   assert.ok(Number.isInteger(e.data.repro_ms) && e.data.repro_ms >= 0);
 });
