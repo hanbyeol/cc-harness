@@ -280,7 +280,8 @@ require('f50pkg');
   assert.equal(afterSt.mtimeMs, beforeSt.mtimeMs);
   assert.deepEqual(snapshot(nm), before);
   assert.equal(Object.keys(before).length, 4); // f50pkg, f50pkg/index.js, other, other/a.txt
-  assert.equal(git(dir, 'status', '--porcelain'), '');
+  // the only new path is the verify events directory (F55)
+  assert.equal(git(dir, 'status', '--porcelain').split('\n').filter((l) => l !== '?? .harness/events/').join('\n'), '');
 });
 
 test('F50 ES-1: when the node_modules link cannot be made, verify warns and continues without it', async () => {

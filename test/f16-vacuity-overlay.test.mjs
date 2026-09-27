@@ -244,7 +244,9 @@ test('F16 SC-3: the working tree is unchanged and the base worktree is removed a
   const before = status();
   const r = await run(dir);
   assert.equal(byId(r)['AC-1'].vacuous, true, 'the overlay ran');
-  assert.equal(status(), before);
+  // verify records its verify/check events in .harness/events/ (F55); nothing else is new
+  const withoutEvents = (s) => s.split('\n').filter((l) => !/^\?\? \.harness\/events\/\d{4}-\d{2}\.jsonl$/.test(l)).join('\n');
+  assert.equal(withoutEvents(status()), before);
   const worktrees = git(dir, 'worktree', 'list', '--porcelain').split('\n').filter((l) => l.startsWith('worktree '));
   assert.equal(worktrees.length, 1, worktrees.join('\n'));
 });

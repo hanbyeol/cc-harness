@@ -276,7 +276,8 @@ test('F30 SC-1: the cache is written only to .harness/runs/test-count-cache.json
   await run(dir, { test_count: 'preset:node-test' });
   const after = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: dir, encoding: 'utf8' }).stdout;
   const added = after.split('\n').filter((l) => l && !cwdBefore.split('\n').includes(l));
-  assert.deepEqual(added, ['?? .harness/runs/test-count-cache.json']);
+  // besides the verify events in .harness/events/ (F55)
+  assert.deepEqual(added.filter((l) => !/^\?\? \.harness\/events\/\d{4}-\d{2}\.jsonl$/.test(l)), ['?? .harness/runs/test-count-cache.json']);
   assert.deepEqual(fs.readdirSync(path.join(dir, '.harness', 'runs')), ['test-count-cache.json']);
 });
 
