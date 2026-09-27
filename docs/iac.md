@@ -1,6 +1,7 @@
 # iac 프로필 — `harness tf-check` 와 provider 캐시
 
-iac 프로필(`"profile": "iac"`)의 verify 는 `harness tf-check` 한 명령이다. 규칙의 원문은 `docs/SPEC.md` §4 의
+iac 프로필(`"profile": "iac"`)의 verify 는 `harness tf-check` 한 명령이다. verify 는 이 명령을 PATH 의 `harness` 가
+아니라 코어 자신의 `bin/harness.mjs` 로 실행하므로 `harness` 가 PATH 에 없어도 된다(`docs/SPEC.md` §6.1). 규칙의 원문은 `docs/SPEC.md` §4 의
 프로필 절이다. `terraform plan`·`apply` 는 verify 가 실행하지 않는다(클라우드 자격 증명이 SR-2 로 전달되지 않는다) —
 plan 은 `plan-review` skill 로 검토한다.
 
@@ -21,7 +22,7 @@ harness tf-check [--dir <path>]
 
 - **init 실패**: 그 디렉터리의 경로와 init 오류 앞 300자를 출력하고 validate 는 건너뛴다. 나머지 디렉터리 검사는
   계속하고 마지막에 exit 1 로 끝난다.
-- **terraform 없음**: `command not found: terraform` 을 stderr 에 출력하고 exit 127 로 끝난다. `harness run` 은 이것을
+- **terraform 없음**: `harness tf-check: command not found: terraform` 을 stderr 에 출력하고 exit 127 로 끝난다. `harness run` 은 이것을
   기능의 실패가 아니라 환경 문제로 보고 실행을 중단한다(`docs/SPEC.md` §8, F29). terraform 을 설치하거나 PATH 를
   고친 뒤 `harness run --resume` 으로 이어간다.
 - **`--dir <path>`**: 그 디렉터리 아래만 검사한다. 상대 경로는 현재 디렉터리 기준이다. 없는 디렉터리는 exit 2.

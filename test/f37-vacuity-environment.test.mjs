@@ -135,13 +135,22 @@ test('F37 ES-1: a failing head check runs no base run and gets no limit; another
 
 // ---------- AC-3 ----------
 const TOOL = 'harness-f37-tool';
-// On the feature worktree (F1.txt written by the build) exits 0; on base runs TOOL, which is not
-// installed, and exits with the shell's status (127, or 1 with cmd.exe's message on Windows).
-const PROBE = `const fs = require('node:fs');
-if (fs.existsSync('F1.txt')) process.exit(0);
-const r = require('node:child_process').spawnSync('${TOOL}', { shell: true, stdio: 'inherit' });
-process.exit(r.status ?? 1);
-`;
+// The check is TOOL itself, so the shell's not-found message names the check's first program
+// (F44: a 127 from inside a script is a plain failure). The build writes TOOL into the feature
+// worktree, where it is found (cmd.exe looks in the current directory; POSIX gets '.' on PATH
+// while the test runs); base has no TOOL and ends with the shell's status (127, or 1 with
+// cmd.exe's message on Windows).
+function writeTool(cwd) {
+  fs.writeFileSync(path.join(cwd, TOOL), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  fs.writeFileSync(path.join(cwd, `${TOOL}.cmd`), '@exit /b 0\r\n');
+}
+const pathKey = () => Object.keys(process.env).find((k) => k.toUpperCase() === 'PATH') || 'PATH';
+async function withDotOnPath(fn) {
+  const key = pathKey();
+  const saved = process.env[key];
+  process.env[key] = `.${path.delimiter}${saved}`;
+  try { return await fn(); } finally { process.env[key] = saved; }
+}
 
 function runFixture(check) {
   const c = {
@@ -156,7 +165,6 @@ function runFixture(check) {
     '.harness/.gitignore': 'wt/\n*.tmp-*\n',
     '.harness/features.json': { features: [{ id: 'F1', title: 'feature F1', security_tier: 'standard', depends_on: [], status: 'approved' }] },
     '.harness/contracts/F1.json': c,
-    'scripts/probe.cjs': PROBE,
     'scripts/fail.cjs': "process.exit(require('node:fs').existsSync('F1.txt') ? 0 : 1);\n",
   }, { branch: null });
 }
@@ -170,6 +178,7 @@ async function runF1(dir) {
   const build = async (a) => {
     builds.push(a.round);
     writeFiles(a.cwd, { 'F1.txt': 'built\n' });
+    writeTool(a.cwd);
     return { ok: true, costUsd: 0 };
   };
   const r = await runFeatures({
@@ -181,8 +190,8 @@ async function runF1(dir) {
 }
 
 test('F37 AC-3: a base vacuity run whose program is not found stops the run on the environment; the feature is not blocked', async () => {
-  const dir = runFixture('node scripts/probe.cjs');
-  const r = await runF1(dir);
+  const dir = runFixture(TOOL);
+  const r = await withDotOnPath(() => runF1(dir));
   assert.equal(r.interrupted, true, `${r.out}\n${JSON.stringify(r.results)}`);
   assert.deepEqual(r.environment, { feature: 'F1', stage: 'verify', item: 'AC-1', program: TOOL });
   assert.deepEqual(r.results, [], 'nothing was blocked');
@@ -205,10 +214,10 @@ test('F37 AC-3: an ordinary base failure (exit 1) is not an environment stop —
 });
 
 test('F37 AC-3: verify reports a base not-found run as a failed criterion naming the program', async () => {
-  const dir = runFixture('node scripts/probe.cjs');
-  writeFiles(dir, { 'F1.txt': 'built\n' });
-  const r = await verify({ root: dir, featureId: 'F1', base: 'main', config: cfg(), cpus: 1 });
-  // F1.txt is untracked, so base (main) has no F1.txt and runs the missing tool.
+  const dir = runFixture(TOOL);
+  writeTool(dir);
+  const r = await withDotOnPath(() => verify({ root: dir, featureId: 'F1', base: 'main', config: cfg(), cpus: 1 }));
+  // TOOL is untracked, so base (main) has no TOOL and its shell cannot find the program.
   const c = r.criteria[0];
   assert.equal(c.pass, false, JSON.stringify(c));
   assert.equal(c.base_not_found, true);
