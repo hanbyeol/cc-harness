@@ -129,7 +129,33 @@ worktree 에 base 대비 변경(base 이후 커밋·staged·unstaged·untracked 
 변경 파일 목록이 들어간다. 목록은 경로만이다 — 파일 내용과 환경 변수 값은 프롬프트에 들어가지 않는다. outcome 은 run
 보고서의 단계 표와 `runs/{runId}.metrics.jsonl` 에 같은 값으로 남는다. `--resume` 은 이어가기 시도부터 다시 시작한다.
 
+## blocked 기능 이어받기와 `--fresh`
+
+blocked 된 기능의 worktree(`.harness/wt/F{n}`)와 `harness/F{n}` 브랜치는 점검용으로 남는다. 사용자가 계약을 고쳐
+재승인하고 다시 `harness run` 하면 코어는 그 worktree 를 **이어받는다** — blocked(`worktree`)로 멈추지 않고, 남은 작업
+위에서 build 를 시작한다.
+
+1. 경로가 git 이 등록한 이 저장소의 worktree 이고 `harness/F{n}` 브랜치를 가리키는지 확인한다. 아니면(등록되지 않은
+   디렉터리, 다른 브랜치, detached HEAD) 또는 병합이 진행 중이면 이어받지 않고 아무것도 커밋하지 않으며 그 기능은
+   blocked(`worktree`) — detail 에 경로와 브랜치가 나온다.
+2. 커밋되지 않은 변경이 있으면 `harness: F<n> carried work` 커밋으로 보존한다(test-count 캐시는 제외).
+3. 첫 build 의 builder 프롬프트에 이전 시도의 작업이 이 worktree 에 있으니 이어서 계약대로 끝내라는 안내와 base 대비
+   변경 파일 목록(경로만)이 들어간다.
+4. 결과 항목에 `carried: true` 가, run 보고서의 `## Carried work` 절에 `- F<n>: carried: true …` 줄이 나온다.
+
+처음부터 다시 하려면 `harness run --fresh F<n>` — 그 기능의 남은 worktree 와 브랜치를 지우고 integration 브랜치에서
+새로 시작한다. 기능 id 가 필요하고 `--resume` 과 함께 쓸 수 없다. 잠긴 worktree 처럼 지우지 못하면 그 기능은
+blocked(`worktree`)이고 detail 에 git 오류가 나오며, 다른 기능은 계속 진행한다.
+
+## 임시 경로 정리
+
+verify·run 은 `os.tmpdir()` 에 base 임시 worktree(`harness-base-*`)와 코어 git 호출용 빈 hooks 디렉터리
+(`harness-no-hooks-*`)를 만든다. 둘 다 verify·run 이 정상 종료·오류·SIGINT 로 끝난 뒤 남지 않는다 — verify 는 끝날 때
+(중단돼도) base worktree 를 git 에서 해제하고 지우며, 그래도 남은 경로는 프로세스가 끝날 때 지운다. `harness verify` 는
+SIGINT 에 실행 중인 명령을 멈추고 임시 worktree 를 지운 뒤 exit 130 으로 끝난다.
+
 ## 범위 밖
 
 - 복구 시도 횟수를 설정으로 늘리기 — 항상 기능당 1회다.
+- 사용자가 손으로 만든 worktree 의 이어받기.
 - build 시간 제한 자체의 자동 조정 — 이어가기는 시간 제한을 바꾸지 않는다.
