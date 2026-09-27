@@ -1,0 +1,72 @@
+{
+  "feature": "F56",
+  "round": 4,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "reproProgram keeps a quoted first word whole. For example, the repro `\"node --token=ABCSECRET\" x` records repro_program as `node --token=abcsecret`: argument text from the repro, lowercased so that exact-value redaction no longer matches it. Under shell semantics this is the literal program name, so SC-1 is met as written. Capping repro_program at the first whitespace, or redacting it and cutting it with clip(), would close the gap.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B389"
+    },
+    {
+      "summary": "repro_program has no length cap. A long first word with no path separator lands in the event unbounded, unlike the other free-text event fields.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B373"
+    },
+    {
+      "summary": "On a critical feature where the evaluator hits an eval_error, the reviewer's security/finding events are still written without `unused: true`.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B381"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.7280548,
+  "contract_hash": "8f0d842f7eefa94abf22f6b1e166f150316144771517571a4aebd18653b28a3e",
+  "contract_round": 4,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 8,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-27T16:59:37.607Z",
+  "origin": "eval"
+}

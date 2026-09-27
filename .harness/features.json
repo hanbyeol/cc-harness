@@ -511,7 +511,8 @@
       "depends_on": [
         "F54"
       ],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 4
     },
     {
       "id": "F57",
