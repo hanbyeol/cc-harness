@@ -403,7 +403,7 @@
       "depends_on": [
         "F41"
       ],
-      "status": "blocked"
+      "status": "approved"
     },
     {
       "id": "F45",
@@ -421,7 +421,7 @@
       "depends_on": [
         "F45"
       ],
-      "status": "blocked"
+      "status": "approved"
     }
   ]
 }
