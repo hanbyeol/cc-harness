@@ -8,7 +8,8 @@
   ],
   "verify": {
     "commands": [
-      "node --test \"test/**/*.test.mjs\""
+      "node --test \"test/**/*.test.mjs\"",
+      "node bin/harness.mjs lint-contract"
     ],
     "test_count": "from:commands[0]"
   },
