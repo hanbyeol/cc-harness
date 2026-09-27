@@ -1,0 +1,51 @@
+{
+  "feature": "F57",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 10
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "harness decide's backlog item (kind: decision) is added without a `summary` field and never gets `resolved_by` set (resolveItems only resolves ids listed in a later contract's `resolves` array). Since openItems/backlogSection (lib/eval.mjs:437-447) render `i.summary ?? ''`, every future eval prompt's '## Open backlog' section — and `harness status`'s open-item count — will permanently show a blank '- Bn [-] ' line for each decision, for the life of the project. Confirmed via `openItems({items:[{id:'B1',kind:'decision',...}]})` returning the item with no summary and no way to close it.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "medium"
+    },
+    {
+      "summary": "harness note [F<n>] does not validate that F<n> exists in features.json (unlike harness decide, which does), so a typo'd feature id is recorded silently. The contract only says the feature is optional, not that it must be known, so this is a minor asymmetry rather than a spec violation.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.8049274000000002,
+  "contract_hash": "d4af47c97dd859eba933f92e34e6a937396b2a2ff3ec0e04beb48400fe2e1c09",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 10
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    }
+  },
+  "at": "2026-09-27T15:24:37.932Z",
+  "origin": "run"
+}

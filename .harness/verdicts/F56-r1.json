@@ -1,0 +1,54 @@
+{
+  "feature": "F56",
+  "round": 1,
+  "verdict": "fail",
+  "score": 6,
+  "scores": {
+    "functionality": 6,
+    "quality": 8,
+    "security": 8,
+    "errors": 8,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [
+    {
+      "criterion_id": "AC-1",
+      "dimension": "functionality",
+      "summary": "eval/finding events leave criterion_id unclipped for out-of-contract ids: normalizeCriterionId's non-empty result is used verbatim in noteFinding, skipping the documented 100-char clip that only applies on the empty-id fallback branch.",
+      "repro": "node -e '\nimport(\"./lib/eval.mjs\").then(async ({evaluate}) => {\n  const gf = await import(\"./test/gitfixture.mjs\");\n  const cfgmod = await import(\"./lib/config.mjs\");\n  const fs = await import(\"node:fs\");\n  const path = await import(\"node:path\");\n  const contract = { id: \"F9\", title: \"t\", security_tier: \"standard\", version: 1,\n    acceptance_criteria: [{ id: \"AC-1\", criterion: \"one\", check: \"node scripts/ok.mjs\", new: false }],\n    security_criteria: [], error_scenarios: [], out_of_scope: [] };\n  const dir = gf.gitRepo({\n    \".harness/config.json\": { profile: \"sdlc\", base_branch: \"main\", verify: { commands: [] } },\n    \".harness/features.json\": { features: [{ id: \"F9\", title: \"t\", status: \"approved\", depends_on: [] }] },\n    \".harness/contracts/F9.json\": contract,\n    \".harness/backlog.json\": { items: [] },\n    \"scripts/ok.mjs\": \"process.exit(0);\\n\",\n  });\n  gf.writeFiles(dir, { \"src/app.mjs\": \"export const v=1;\\n\" });\n  gf.commitAll(dir, \"c\");\n  const cfg = cfgmod.resolveConfig({ base_branch: \"main\", roles: { builder: \"claude\", evaluator: \"claude\", \"security-reviewer\": \"claude\" }, verify: { commands: [] }, budget: { step_timeout_sec: 30 } });\n  const longId = \"X\".repeat(5000);\n  const scores = { functionality: 9, quality: 9, security: 9, errors: 9, tests: 9 };\n  const json = { scores, findings: [{ criterion_id: longId, dimension: \"functionality\", summary: \"s\", repro: \"node scripts/ok.mjs\" }], out_of_scope: [] };\n  const reply = { ok: true, error: null, text: JSON.stringify(json), json, costUsd: 0.01, exitCode: 0 };\n  const PASS_VERIFY = { pass: true, commands: [], warnings: [], integrity: { markers: [], harnessPaths: [], testCount: { status: \"unset\" } }, criteria: [{ id: \"AC-1\", pass: true }] };\n  await evaluate({ root: dir, featureId: \"F9\", base: \"main\", config: cfg, verifyResult: PASS_VERIFY, runAdapter: async () => reply });\n  const evDir = path.join(dir, \".harness\", \"events\");\n  const files = fs.readdirSync(evDir);\n  const text = files.map((n) => fs.readFileSync(path.join(evDir, n), \"utf8\")).join(\"\");\n  const lines = text.split(\"\\n\").filter(Boolean).map((l) => JSON.parse(l));\n  const finding = lines.find((e) => e.stage === \"eval\" && e.type === \"finding\");\n  process.exit(finding.data.criterion_id.length <= 100 ? 0 : 1);\n});\n'",
+      "source": "evaluator",
+      "exit": 1
+    }
+  ],
+  "backlogged": [
+    {
+      "summary": "repro_program has no documented or enforced length cap: cmdName() returns the raw last path segment of the first token verbatim, so a repro whose first word is a very long string with no path separator lands in the event unbounded, unlike criterion_id/dimension/summary/problems which all have a stated cut length.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 1.1112648,
+  "contract_hash": "8f0d842f7eefa94abf22f6b1e166f150316144771517571a4aebd18653b28a3e",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 6,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": "unused"
+  },
+  "at": "2026-09-27T15:22:17.344Z",
+  "origin": "run"
+}

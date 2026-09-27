@@ -1,0 +1,51 @@
+{
+  "feature": "F59",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "`harness learn --hub <empty> --json --compare <v1> <v2>` prints the plain-text \"no field data\" line instead of the JSON structure (`{since, projects: 0, events: 0, versions: [], candidates: [], message: \"no field data\"}`) that docs/SPEC.md's general prose says --json produces for the no-data case; lib/commands/learn.mjs's `opts.json && !opts.compare` guard special-cases --compare out of the JSON branch. Not covered by any frozen criterion's check (ES-1's loop never combines --json with --compare) and ES-1's literal text ('출력하고 exit 0') is still satisfied, so this doesn't block, but it's a real doc/behavior gap worth a backlog note.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "F59's own test suite (test/f59-learn.test.mjs) is thorough, but resume-safety of the new per-feature build-total aggregation (lib/run.mjs addBuildTotals, e.build) across a process restart (`harness run --resume`) isn't directly exercised — only a single in-process two-round run is tested. Reading the surrounding code, e.build is mutated on the same object held in state.active and persisted by save() after each step, so it appears resume-safe by inspection, but no test pins this.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.7327256000000001,
+  "contract_hash": "829b748f229a01a3eaa2100c9118d6b59fd807c12a2aef379352220dd4c76745",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 8,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    }
+  },
+  "at": "2026-09-27T16:39:06.872Z",
+  "origin": "run"
+}

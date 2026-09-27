@@ -1,0 +1,77 @@
+{
+  "feature": "F56",
+  "round": 2,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "No test covers the critical + security_tier path where the evaluator's own reply fails schema validation twice (eval_error via evalErr(ev)) while the security-reviewer's reply succeeds normally. In that branch, security/finding events from the successful reviewer run are flushed without an `unused: true` marker, and security/verdict.reviewer reads 'unused' rather than reflecting that the whole evaluation ended in eval_error — consistent with the literal SPEC §7.8 text (which scopes the `unused: true` rule to the §7.4 'evaluator has a blocking finding' case only) but unverified by any AC-1/AC-3 test.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "reproProgram keeps a quoted first word verbatim, spaces included: `\"my secret phrase\" x` gives repro_program 'my secret phrase'. The event is still redacted through redactDeep, but free text that is not in an env variable can end up in the event this way. This is the same class of issue as the missing length cap. Consider dropping any program name that contains whitespace or is not a plain identifier.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B373"
+    },
+    {
+      "summary": "When the evaluator returns eval_error on a critical feature, the security-reviewer's security/finding events are still flushed, but they do not get `unused: true`. SPEC §7.8 only calls for that flag on the §7.4 unused path. The error path still leaves them looking like findings that counted toward a verdict.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "Redaction of the eval_error verdict event's `error` field and of reviewer_scores depends on recordEvent's redactDeep. Today these are constant codes and numbers. If a future change passes `detail` here, it would be redacted only by the env-based SR-8 rule (see B372).",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B372"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 1.0081052,
+  "contract_hash": "8f0d842f7eefa94abf22f6b1e166f150316144771517571a4aebd18653b28a3e",
+  "contract_round": 2,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-27T15:48:31.462Z",
+  "origin": "run"
+}

@@ -1,0 +1,77 @@
+{
+  "feature": "F56",
+  "round": 3,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "reproProgram lowercases the program name before the event is redacted at write time. If a repro's first word is itself a secret environment value that contains uppercase letters (for example `$ABC_TOKEN_VALUE arg` written out as a literal), the lowercased form no longer matches the redactor's exact value. The lowercased secret is then stored in repro_program. To reproduce, the evaluator has to put a literal secret in the program position. A fix would be to redact before cmdName lowercases, or to apply clip() to repro_program.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "repro_program has no length cap and does not go through clip(). The other free-text event fields (criterion_id, dimension, summary, problems) are redacted and then cut. Applying clip(reproProgram(...), EVENT_ID_CHARS) would cover both issues.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B373"
+    },
+    {
+      "summary": "In the critical eval_error path, where the evaluator's reply fails the schema twice while the reviewer succeeds, the reviewer's security/finding events are flushed without `unused: true`. No test covers this.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B381"
+    },
+    {
+      "summary": "evalErr flushes eval/verdict and security/verdict events after finishError has written the eval_error file. A concurrent evaluation of the same round writes these events twice. Nothing deduplicates by round the way refuseExisting does for pass/fail verdicts.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.895637,
+  "contract_hash": "8f0d842f7eefa94abf22f6b1e166f150316144771517571a4aebd18653b28a3e",
+  "contract_round": 3,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-27T16:07:46.438Z",
+  "origin": "run"
+}

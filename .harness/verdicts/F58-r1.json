@@ -1,0 +1,100 @@
+{
+  "feature": "F58",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 10,
+    "quality": 9,
+    "security": 8,
+    "errors": 9,
+    "tests": 10
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "lib/telemetry.mjs defines its own sha16 helper identical to the one already in lib/events.mjs, instead of importing it — minor duplication introduced by this diff.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "writeExport uses fs.writeFileSync(plan.file, text, {flag:'wx'}) keyed by a millisecond-resolution timestamp; two exports for the same project completing within the same millisecond (e.g. concurrent `harness eval` invocations with auto_export on) would collide and the second would fail with EEXIST, surfaced as an export failure rather than a merged/renamed bundle. Not covered by any ES criterion and outside the single-process test scenarios exercised.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The allowlist filters by key shape, not by where a key came from. Any data key matching ^[a-z][a-z0-9_]{0,63}$ is exported together with its number or boolean value, and a nested key named `model` keeps any identifier-like string. Probe: exportLine({..., data:{nested:{model:'hanbyeol_secret_user'}, hanbyeol:1}}) keeps both the key and the value. No current event writer (note, decide, ci-record, approve, lint, status) builds such keys or nested model fields, so nothing leaks today. A future event keyed by lowercase user content (file names, env names, user names) would be exported. Consider keeping only an explicit set of data keys per stage/type, as ENUM_FIELDS already does for strings.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B369"
+    },
+    {
+      "summary": "The project id is an unsalted sha256 prefix of the absolute repository path. Paths are low-entropy (for example /Users/<name>/Project/<repo>), so anyone who holds the hub bundle and guesses candidate paths can recover the user name and repository name by dictionary search. The contract accepts a path hash, but a per-install salt or a random project id stored in .harness would make it non-reversible.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "Test names are exported as unsalted sha256 prefixes. Well-known or guessable test names (for example from a public repository) can be confirmed by hashing candidates. This is within the contract, but a salted hash would remove the linkage.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "Status-event reasons that are not backlog reasons are dropped from the export because data.reason only accepts backlog-reason values. Examples are 'approve', 'run_start', 'dependency_blocked', and eval verdicts such as 'pass'/'fail'. Aggregating status transitions across projects loses this signal. It is not a security issue.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "Events can be lost in two cases. First, runExport fixes `now` before readEvents runs, and the next export starts at that `now`. An event another process (for example a parallel run) appends with ts < now after the read is never exported. Second, if .harness/events/.exported holds a time in the future (clock skew), every later export reports nothing until the clock passes it.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The hub directory and bundle files are created with the default umask (usually world-readable 0644/0755) under ~/.cc-harness/hub. The data is anonymized, but restricting the hub to 0700/0600 would be a safer default for a directory meant to collect data from many projects.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 1.2979966000000003,
+  "contract_hash": "ecc4919746254473bd8f42616c62bda613234dae5100efd080441bdae27c7dae",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 10,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 10
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-27T15:54:26.209Z",
+  "origin": "run"
+}

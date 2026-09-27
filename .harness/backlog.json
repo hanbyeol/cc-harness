@@ -4429,6 +4429,295 @@
       "priority": "low",
       "id": "B368",
       "resolved_by": "F53"
+    },
+    {
+      "feature": "F54",
+      "round": 1,
+      "at": "2026-09-27T14:27:31.496Z",
+      "summary": "redactDeep keeps object keys unredacted, so event data only stays clean while its keys come from trusted identifiers. Today plan/approve `criteria` is keyed by criterion ids, and approve refuses contracts whose ids fail the AC-n/SC-n/ES-n lint, so no secret gets through. A future event that uses free text or environment-derived strings as keys would bypass redaction.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B369",
+      "seen": 3,
+      "sources": [
+        "F54-r2",
+        "F58-r1"
+      ]
+    },
+    {
+      "feature": "F54",
+      "round": 1,
+      "at": "2026-09-27T14:27:31.496Z",
+      "summary": "Only `data` is redacted. The top-level `feature` and `type` fields are written as given. Current callers pass validated F<n> ids and constant type names, but recordEvent does not enforce this, so a later F55+ caller could leak free text there.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B370",
+      "seen": 2,
+      "sources": [
+        "F54-r2"
+      ]
+    },
+    {
+      "feature": "F54",
+      "round": 1,
+      "at": "2026-09-27T14:27:31.496Z",
+      "summary": "`harness events` prints stored lines exactly as they are in the file. It does not redact again on read, so a line written by another tool, or before env_allowlist or secrets changed, is shown unmodified.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B371",
+      "seen": 2,
+      "sources": [
+        "F54-r2"
+      ]
+    },
+    {
+      "feature": "F54",
+      "round": 2,
+      "at": "2026-09-27T14:43:54.673Z",
+      "summary": "Event redaction relies on process.env at write time, like the run report. A secret that is not an environment variable of the process (for example, one typed directly into a contract) is written in plain text. This is the same rule as SR-8, so the contract accepts it.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B372",
+      "seen": 2,
+      "sources": [
+        "F56-r2"
+      ]
+    },
+    {
+      "feature": "F56",
+      "round": 1,
+      "at": "2026-09-27T15:22:17.344Z",
+      "summary": "repro_program has no documented or enforced length cap: cmdName() returns the raw last path segment of the first token verbatim, so a repro whose first word is a very long string with no path separator lands in the event unbounded, unlike criterion_id/dimension/summary/problems which all have a stated cut length.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "id": "B373",
+      "seen": 3,
+      "sources": [
+        "F56-r2",
+        "F56-r3"
+      ]
+    },
+    {
+      "feature": "F57",
+      "round": 1,
+      "at": "2026-09-27T15:24:37.932Z",
+      "summary": "harness decide's backlog item (kind: decision) is added without a `summary` field and never gets `resolved_by` set (resolveItems only resolves ids listed in a later contract's `resolves` array). Since openItems/backlogSection (lib/eval.mjs:437-447) render `i.summary ?? ''`, every future eval prompt's '## Open backlog' section — and `harness status`'s open-item count — will permanently show a blank '- Bn [-] ' line for each decision, for the life of the project. Confirmed via `openItems({items:[{id:'B1',kind:'decision',...}]})` returning the item with no summary and no way to close it.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "medium",
+      "id": "B374"
+    },
+    {
+      "feature": "F57",
+      "round": 1,
+      "at": "2026-09-27T15:24:37.932Z",
+      "summary": "harness note [F<n>] does not validate that F<n> exists in features.json (unlike harness decide, which does), so a typo'd feature id is recorded silently. The contract only says the feature is optional, not that it must be known, so this is a minor asymmetry rather than a spec violation.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B375"
+    },
+    {
+      "feature": "F55",
+      "round": 1,
+      "at": "2026-09-27T15:33:35.119Z",
+      "summary": "lib/metrics.mjs and lib/usage.mjs each define an identical local `finite` helper (`(v) => typeof v === 'number' && Number.isFinite(v) ? v : null`); minor duplication introduced by this diff, though sharing it would create a circular import (metrics.mjs already imports usage.mjs).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B376"
+    },
+    {
+      "feature": "F55",
+      "round": 1,
+      "at": "2026-09-27T15:33:35.119Z",
+      "summary": "verify/command `program` is path.basename(firstProgram(cmd)). firstProgram only skips leading NAME=value words while at least one more word follows, so a verify command made of a single assignment (e.g. `TOKEN=abc123`) records `TOKEN=abc123` as the program. That value is a literal in config.json, not an environment variable, so the SR-8 redactor does not mask it. This is an unusual config and the same config file already holds the value, but the event file may later be exported (F57). Consider recording null when the first word is an assignment.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B377"
+    },
+    {
+      "feature": "F55",
+      "round": 1,
+      "at": "2026-09-27T15:33:35.119Z",
+      "summary": "`session_log.path` records the absolute home directory and the real working-directory path (which contains the username) in events. SPEC §2 documents this and it is not a secret, but it is identifying information once events are exported to a hub (F57). Worth considering hashing or making it relative to home at export time.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B378"
+    },
+    {
+      "feature": "F55",
+      "round": 1,
+      "at": "2026-09-27T15:33:35.119Z",
+      "summary": "The eval/security step event also passes the evaluator's cRound field through the `...c` spread into stepEventData. stepEventData drops unknown keys, so nothing leaks today. The allow-list depends on stepEventData's destructuring staying exhaustive, and no test pins its exact key set the way METRIC_FIELDS pins the metrics line.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B379"
+    },
+    {
+      "feature": "F56",
+      "round": 2,
+      "at": "2026-09-27T15:48:31.462Z",
+      "summary": "No test covers the critical + security_tier path where the evaluator's own reply fails schema validation twice (eval_error via evalErr(ev)) while the security-reviewer's reply succeeds normally. In that branch, security/finding events from the successful reviewer run are flushed without an `unused: true` marker, and security/verdict.reviewer reads 'unused' rather than reflecting that the whole evaluation ended in eval_error — consistent with the literal SPEC §7.8 text (which scopes the `unused: true` rule to the §7.4 'evaluator has a blocking finding' case only) but unverified by any AC-1/AC-3 test.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B380"
+    },
+    {
+      "feature": "F56",
+      "round": 2,
+      "at": "2026-09-27T15:48:31.462Z",
+      "summary": "When the evaluator returns eval_error on a critical feature, the security-reviewer's security/finding events are still flushed, but they do not get `unused: true`. SPEC §7.8 only calls for that flag on the §7.4 unused path. The error path still leaves them looking like findings that counted toward a verdict.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B381",
+      "seen": 2,
+      "sources": [
+        "F56-r3"
+      ]
+    },
+    {
+      "feature": "F58",
+      "round": 1,
+      "at": "2026-09-27T15:54:26.209Z",
+      "summary": "lib/telemetry.mjs defines its own sha16 helper identical to the one already in lib/events.mjs, instead of importing it — minor duplication introduced by this diff.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B382"
+    },
+    {
+      "feature": "F58",
+      "round": 1,
+      "at": "2026-09-27T15:54:26.209Z",
+      "summary": "writeExport uses fs.writeFileSync(plan.file, text, {flag:'wx'}) keyed by a millisecond-resolution timestamp; two exports for the same project completing within the same millisecond (e.g. concurrent `harness eval` invocations with auto_export on) would collide and the second would fail with EEXIST, surfaced as an export failure rather than a merged/renamed bundle. Not covered by any ES criterion and outside the single-process test scenarios exercised.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B383"
+    },
+    {
+      "feature": "F58",
+      "round": 1,
+      "at": "2026-09-27T15:54:26.209Z",
+      "summary": "The project id is an unsalted sha256 prefix of the absolute repository path. Paths are low-entropy (for example /Users/<name>/Project/<repo>), so anyone who holds the hub bundle and guesses candidate paths can recover the user name and repository name by dictionary search. The contract accepts a path hash, but a per-install salt or a random project id stored in .harness would make it non-reversible.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B384"
+    },
+    {
+      "feature": "F58",
+      "round": 1,
+      "at": "2026-09-27T15:54:26.209Z",
+      "summary": "Test names are exported as unsalted sha256 prefixes. Well-known or guessable test names (for example from a public repository) can be confirmed by hashing candidates. This is within the contract, but a salted hash would remove the linkage.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B385"
+    },
+    {
+      "feature": "F58",
+      "round": 1,
+      "at": "2026-09-27T15:54:26.209Z",
+      "summary": "Status-event reasons that are not backlog reasons are dropped from the export because data.reason only accepts backlog-reason values. Examples are 'approve', 'run_start', 'dependency_blocked', and eval verdicts such as 'pass'/'fail'. Aggregating status transitions across projects loses this signal. It is not a security issue.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B386"
+    },
+    {
+      "feature": "F58",
+      "round": 1,
+      "at": "2026-09-27T15:54:26.209Z",
+      "summary": "Events can be lost in two cases. First, runExport fixes `now` before readEvents runs, and the next export starts at that `now`. An event another process (for example a parallel run) appends with ts < now after the read is never exported. Second, if .harness/events/.exported holds a time in the future (clock skew), every later export reports nothing until the clock passes it.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B387"
+    },
+    {
+      "feature": "F58",
+      "round": 1,
+      "at": "2026-09-27T15:54:26.209Z",
+      "summary": "The hub directory and bundle files are created with the default umask (usually world-readable 0644/0755) under ~/.cc-harness/hub. The data is anonymized, but restricting the hub to 0700/0600 would be a safer default for a directory meant to collect data from many projects.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B388"
+    },
+    {
+      "feature": "F56",
+      "round": 3,
+      "at": "2026-09-27T16:07:46.438Z",
+      "summary": "reproProgram lowercases the program name before the event is redacted at write time. If a repro's first word is itself a secret environment value that contains uppercase letters (for example `$ABC_TOKEN_VALUE arg` written out as a literal), the lowercased form no longer matches the redactor's exact value. The lowercased secret is then stored in repro_program. To reproduce, the evaluator has to put a literal secret in the program position. A fix would be to redact before cmdName lowercases, or to apply clip() to repro_program.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B389"
+    },
+    {
+      "feature": "F56",
+      "round": 3,
+      "at": "2026-09-27T16:07:46.438Z",
+      "summary": "evalErr flushes eval/verdict and security/verdict events after finishError has written the eval_error file. A concurrent evaluation of the same round writes these events twice. Nothing deduplicates by round the way refuseExisting does for pass/fail verdicts.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B390"
+    },
+    {
+      "source": "run:F56",
+      "feature": "F56",
+      "kind": "rescope",
+      "reason": "merge_conflict",
+      "rounds": 2,
+      "blocking": [],
+      "summary": "F56 blocked (merge_conflict): the feature branch conflicts with the integration branch and one automatic resolution did not fix it — conflicts in README.md after the automatic conflict resolution",
+      "options": [
+        {
+          "kind": "split",
+          "summary": "split F56 so the feature ship as a separate feature with its own contract"
+        },
+        {
+          "kind": "rewrite",
+          "summary": "rewrite the criteria for the feature (new contract version, re-approval)"
+        },
+        {
+          "kind": "accept-risk",
+          "summary": "accept the risk: drop or relax the feature with a recorded decision"
+        }
+      ],
+      "id": "B391"
+    },
+    {
+      "feature": "F59",
+      "round": 1,
+      "at": "2026-09-27T16:39:06.872Z",
+      "summary": "`harness learn --hub <empty> --json --compare <v1> <v2>` prints the plain-text \"no field data\" line instead of the JSON structure (`{since, projects: 0, events: 0, versions: [], candidates: [], message: \"no field data\"}`) that docs/SPEC.md's general prose says --json produces for the no-data case; lib/commands/learn.mjs's `opts.json && !opts.compare` guard special-cases --compare out of the JSON branch. Not covered by any frozen criterion's check (ES-1's loop never combines --json with --compare) and ES-1's literal text ('출력하고 exit 0') is still satisfied, so this doesn't block, but it's a real doc/behavior gap worth a backlog note.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B392"
+    },
+    {
+      "feature": "F59",
+      "round": 1,
+      "at": "2026-09-27T16:39:06.872Z",
+      "summary": "F59's own test suite (test/f59-learn.test.mjs) is thorough, but resume-safety of the new per-feature build-total aggregation (lib/run.mjs addBuildTotals, e.build) across a process restart (`harness run --resume`) isn't directly exercised — only a single in-process two-round run is tested. Reading the surrounding code, e.build is mutated on the same object held in state.active and persisted by save() after each step, so it appears resume-safe by inspection, but no test pins this.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B393"
     }
   ]
 }
