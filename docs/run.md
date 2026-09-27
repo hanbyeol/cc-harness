@@ -98,6 +98,11 @@ worktree 에 설치되지 않은 도구 — vacuity 를 판정할 수 없다. �
 run 의 verify 에서는 기능을 blocked 하지 않고 다른 명령 없음과 똑같이 environment 사유로 멈춘다(`command not found`,
 `harness run --resume`).
 
+exit 127 은 stderr 한 줄에 명령의 첫 프로그램 이름과 `not found`(또는 `No such file`)가 함께 있을 때만 명령 없음이다 —
+`npm test` 안에서 `jest` 가 없을 때처럼 스크립트 자체가 127 로 끝나면 일반 실패다(`docs/SPEC.md` §6.1). `harness ` 로 시작하는
+verify 명령·기준 check 는 PATH 의 `harness` 대신 코어 자신의 `bin/harness.mjs` 를 현재 node 로 셸 없이 실행한다
+(`;`·`|`·`$`·따옴표 등이 있으면 지금처럼 셸로 실행).
+
 ## base vacuity 실행의 진입 스크립트
 
 `new: true` 기준의 check 가 `node <경로>`·`bash <경로>`·`sh <경로>`·`python3 <경로>`·`./<경로>` 로 저장소 안 파일을

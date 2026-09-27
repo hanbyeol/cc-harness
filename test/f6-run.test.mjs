@@ -481,7 +481,7 @@ test('F6 ES-2: exceeding the run budget (--max-usd) stops the whole run', async 
 });
 
 // ------------------------------------------------------------------ ES-3
-test('F6 ES-3: SIGINT during a slow build saves state, prints the --resume hint and exits 130', { timeout: 60000 }, async () => {
+test('F6 ES-3: SIGINT during a slow build saves state, prints the --resume hint and exits 130', { timeout: 150000 }, async () => {
   if (process.platform === 'win32') return; // no POSIX signal delivery to a child on Windows
   const dir = fixture([{ id: 'F1' }]);
   const pidFile = path.join(tmpdir('harness-pid-'), 'builder.pid');
@@ -502,7 +502,8 @@ test('F6 ES-3: SIGINT during a slow build saves state, prints the --resume hint 
   const exited = new Promise((resolve) => child.on('exit', (code, signal) => resolve({ code, signal })));
   let builderPid = null;
   try {
-    for (let i = 0; i < 300 && !builderPid; i += 1) {
+    // Up to 90 s: under a parallel run's load the preflight alone can take ~20 s.
+    for (let i = 0; i < 900 && !builderPid; i += 1) {
       await new Promise((r) => setTimeout(r, 100));
       if (fs.existsSync(pidFile)) builderPid = Number(fs.readFileSync(pidFile, 'utf8')) || null;
     }

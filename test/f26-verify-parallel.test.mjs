@@ -304,11 +304,13 @@ test("F26 ES-1: verify.check_parallel 'auto' and positive integers are accepted"
 test('F26 ES-2: a check that times out while others run is fail(timedOut) without a solo retry; the others are recorded', async () => {
   const log = logFile();
   const dir = fixture([
-    { id: 'AC-1', check: cmd(log, 'AC-1', { ms: 20000 }) },
+    { id: 'AC-1', check: cmd(log, 'AC-1', { ms: 40000 }) },
     { id: 'AC-2', check: cmd(log, 'AC-2', { ms: 200 }) },
     { id: 'AC-3', check: cmd(log, 'AC-3', { ms: 200, exit: 1 }) },
   ]);
-  const r = await run(dir, { config: cfg({}, 2) });
+  // A timeout of a few seconds is shorter than a node start on a loaded machine: the hanging
+  // check was killed before it logged its start (0 runs) and the quick ones timed out too.
+  const r = await run(dir, { config: cfg({}, 20) });
   const c = byId(r);
   assert.equal(c['AC-1'].pass, false);
   assert.equal(c['AC-1'].timedOut, true);
