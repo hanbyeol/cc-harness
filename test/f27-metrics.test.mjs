@@ -437,11 +437,13 @@ test('F27 ES-1: a non-JSON line is skipped with a warning naming the file and li
 
 test('F27 ES-2: no metrics file → "no metrics yet", exit 0', () => {
   const dir = statsProject({});
-  for (const args of [['stats'], ['stats', '--json']]) {
-    const r = harness(args, { cwd: dir });
-    assert.equal(r.code, 0, r.stderr);
-    assert.match(r.stdout, /no metrics yet/);
-  }
+  const text = harness(['stats'], { cwd: dir });
+  assert.equal(text.code, 0, text.stderr);
+  assert.match(text.stdout, /no metrics yet/);
+  // --json still exits 0, but as JSON, not the plain-text message (F51 AC-4).
+  const json = harness(['stats', '--json'], { cwd: dir });
+  assert.equal(json.code, 0, json.stderr);
+  assert.deepEqual(JSON.parse(json.stdout), { steps: [], suggestions: [] });
   fs.rmSync(runsDir(dir), { recursive: true });
   const r = harness(['stats'], { cwd: dir });
   assert.equal(r.code, 0, r.stderr);
