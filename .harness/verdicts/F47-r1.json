@@ -1,0 +1,94 @@
+{
+  "feature": "F47",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "worktreeAt/describeWorktree in the new takeOver/removeLeftover code duplicates the existing registeredWorktree() helper (same listWorktrees+canonical matching logic), just returning the object instead of a boolean. Minor duplication, not a defect.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "If the process dies before verify's/run's normal cleanup runs (e.g. the documented second-SIGINT immediate exit, or an uncaught crash), tmp.mjs's exit handler removes the harness-base-* directory from disk via fs.rmSync but does not run `git worktree remove`, so the repository's .git/worktrees/<name> registration can be left pointing at a now-missing directory. AC-4's checks only look for leftover directories under os.tmpdir(), which are indeed gone, so this doesn't fail any criterion, and the SPEC text for the second-SIGINT case only promises the temporary path is removed, not worktree deregistration.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "takeOver's carried-work commit runs `git add -A` over everything the earlier builder left untracked, including files such as .env or local credentials. That work is then merged into integration. This matches how the core already commits builder changes, but a secret_globs exclusion on the carried-work commit would make it harder to commit a secret by accident.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "Takeover refuses a worktree only when MERGE_HEAD is present. A leftover worktree in the middle of a rebase, cherry-pick or revert (REBASE_HEAD, CHERRY_PICK_HEAD, detached rebase state) is either taken over and committed as carried work, or blocked only indirectly through the detached-HEAD check. The contract does not name these states.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "worktreeAt compares paths after realpath. If .harness/wt/F{n} is a symlink to another registered worktree that is on harness/F{n}, the symlink passes the SC-1 check. This needs deliberate filesystem manipulation, so it is outside threat model D1.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "state.fresh is saved in the run state, so a --resume of a run that stopped at stage 'worktree' still removes the leftover worktree and branch for those features. This is consistent with the user's original --fresh intent, but SPEC §8 does not say so.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The verify cleanup now wraps the finally block's `git worktree remove` and `git worktree prune` calls in best-effort try/catch, so a cleanup timeout no longer replaces the original error. This appears to resolve B213.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B213"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 1.2321968,
+  "contract_hash": "55eacea131effa09e243f678744b777312cffc0bd12e80886864e306888669c7",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 8,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 8,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-27T08:43:41.070Z",
+  "origin": "run"
+}

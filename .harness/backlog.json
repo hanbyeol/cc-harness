@@ -1794,7 +1794,11 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B213"
+      "id": "B213",
+      "seen": 2,
+      "sources": [
+        "F47-r1"
+      ]
     },
     {
       "feature": "F31",
@@ -3188,6 +3192,66 @@
       "priority": "low",
       "summary": "F46 (all suites pass under 3 concurrent runs) accepted as a risk by the user on 2026-09-27: three 45-minute builds with continuation did not finish; 2-concurrent stability (F41) and the F23-F28 group (F45) hold. F46 stays blocked; revisit only if parallel runs start losing rounds to flaky tests.",
       "at": "2026-09-27T08:21:27.875Z"
+    },
+    {
+      "feature": "F47",
+      "round": 1,
+      "at": "2026-09-27T08:43:41.070Z",
+      "summary": "worktreeAt/describeWorktree in the new takeOver/removeLeftover code duplicates the existing registeredWorktree() helper (same listWorktrees+canonical matching logic), just returning the object instead of a boolean. Minor duplication, not a defect.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B344"
+    },
+    {
+      "feature": "F47",
+      "round": 1,
+      "at": "2026-09-27T08:43:41.070Z",
+      "summary": "If the process dies before verify's/run's normal cleanup runs (e.g. the documented second-SIGINT immediate exit, or an uncaught crash), tmp.mjs's exit handler removes the harness-base-* directory from disk via fs.rmSync but does not run `git worktree remove`, so the repository's .git/worktrees/<name> registration can be left pointing at a now-missing directory. AC-4's checks only look for leftover directories under os.tmpdir(), which are indeed gone, so this doesn't fail any criterion, and the SPEC text for the second-SIGINT case only promises the temporary path is removed, not worktree deregistration.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B345"
+    },
+    {
+      "feature": "F47",
+      "round": 1,
+      "at": "2026-09-27T08:43:41.070Z",
+      "summary": "takeOver's carried-work commit runs `git add -A` over everything the earlier builder left untracked, including files such as .env or local credentials. That work is then merged into integration. This matches how the core already commits builder changes, but a secret_globs exclusion on the carried-work commit would make it harder to commit a secret by accident.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B346"
+    },
+    {
+      "feature": "F47",
+      "round": 1,
+      "at": "2026-09-27T08:43:41.070Z",
+      "summary": "Takeover refuses a worktree only when MERGE_HEAD is present. A leftover worktree in the middle of a rebase, cherry-pick or revert (REBASE_HEAD, CHERRY_PICK_HEAD, detached rebase state) is either taken over and committed as carried work, or blocked only indirectly through the detached-HEAD check. The contract does not name these states.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B347"
+    },
+    {
+      "feature": "F47",
+      "round": 1,
+      "at": "2026-09-27T08:43:41.070Z",
+      "summary": "worktreeAt compares paths after realpath. If .harness/wt/F{n} is a symlink to another registered worktree that is on harness/F{n}, the symlink passes the SC-1 check. This needs deliberate filesystem manipulation, so it is outside threat model D1.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B348"
+    },
+    {
+      "feature": "F47",
+      "round": 1,
+      "at": "2026-09-27T08:43:41.070Z",
+      "summary": "state.fresh is saved in the run state, so a --resume of a run that stopped at stage 'worktree' still removes the leftover worktree and branch for those features. This is consistent with the user's original --fresh intent, but SPEC §8 does not say so.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B349"
     }
   ]
 }
