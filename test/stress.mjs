@@ -9,6 +9,7 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expandFileGlob } from '../lib/glob.mjs';
+import { STDERR_TAIL_CHARS, appendTail } from '../lib/stress.mjs';
 
 const USAGE = 'usage: node test/stress.mjs <N> [--root <dir>] [--files <glob>]   (N: positive integer)';
 
@@ -59,19 +60,26 @@ function failedTests(tap) {
 
 function runSuite() {
   return new Promise((resolve) => {
+    const childEnv = { ...process.env, NODE_TEST_CONTEXT: undefined };
+    // Test-only seam: lets a test of this script make the test-runner child itself crash
+    // (STRESS_TEST_CHILD_NODE_OPTIONS becomes that child's own NODE_OPTIONS) without also
+    // crashing this process, which inherits the same environment from its own parent.
+    if (process.env.STRESS_TEST_CHILD_NODE_OPTIONS) childEnv.NODE_OPTIONS = process.env.STRESS_TEST_CHILD_NODE_OPTIONS;
     const child = spawn(process.execPath,
       ['--test', '--test-reporter=tap', ...testFiles],
       // NODE_TEST_CONTEXT (set when this runs under node --test) switches the nested runner
       // to a child protocol with no TAP on stdout — drop it, as t.mjs does.
-      { cwd: root, env: { ...process.env, NODE_TEST_CONTEXT: undefined }, stdio: ['ignore', 'pipe', 'pipe'] });
+      { cwd: root, env: childEnv, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
+    let stderr = '';
     child.stdout.on('data', (d) => { stdout += d; });
-    child.stderr.resume();
-    child.on('error', (e) => resolve({ code: null, failed: [`<cannot start the test runner: ${e.message}>`] }));
+    child.stderr.on('data', (d) => { stderr = appendTail(stderr, d); });
+    child.on('error', (e) => resolve({ code: null, failed: [`<cannot start the test runner: ${e.message}>`], stderrTail: '' }));
     child.on('close', (code) => {
       const failed = failedTests(stdout);
-      if (code !== 0 && failed.length === 0) failed.push(`<test runner exited ${code} without a failing test>`);
-      resolve({ code, failed });
+      const abnormal = code !== 0 && failed.length === 0;
+      if (abnormal) failed.push(`<test runner exited ${code} without a failing test>`);
+      resolve({ code, failed, stderrTail: abnormal ? stderr : '' });
     });
   });
 }
@@ -84,11 +92,13 @@ console.log(`stress: running ${n} concurrent ${what} in ${root}`);
 const runs = await Promise.all(Array.from({ length: n }, runSuite));
 
 const counts = new Map();
+const stderrTails = [];
 let failedRuns = 0;
 for (const run of runs) {
   if (run.code === 0) continue;
   failedRuns += 1;
   for (const name of new Set(run.failed)) counts.set(name, (counts.get(name) || 0) + 1);
+  if (run.stderrTail) stderrTails.push(run.stderrTail);
 }
 const seconds = Math.round((Date.now() - started) / 1000);
 if (failedRuns === 0) {
@@ -98,5 +108,9 @@ if (failedRuns === 0) {
 console.log(`stress: ${failedRuns} of ${n} runs failed (${seconds}s)`);
 for (const [name, count] of [...counts].sort((a, b) => b[1] - a[1])) {
   console.log(`  FAILED ${name} — failed in ${count}/${n} runs`);
+}
+for (const tail of stderrTails) {
+  console.log(`  --- stderr (last ${STDERR_TAIL_CHARS} chars) ---`);
+  console.log(tail);
 }
 process.exit(1);
