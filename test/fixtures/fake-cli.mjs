@@ -6,6 +6,9 @@
 //   exit <code>    write to stderr and exit with <code>
 //   exit-unread <code>  exit with <code> immediately, never reading stdin
 //   sleep <pidfile> write own pid to <pidfile> and sleep 60s
+//   build-once <pidfile> <file>  first call (no <pidfile> yet): write own pid there and sleep
+//                  30s; any later call writes <file> in the cwd and exits 0
+//   stderr <file> <code>  write the file's contents to stderr and exit with <code>
 import fs from 'node:fs';
 
 const [mode, arg, ...rest] = process.argv.slice(2);
@@ -39,4 +42,16 @@ if (mode === 'echo-args') {
 } else if (mode === 'sleep') {
   fs.writeFileSync(arg, String(process.pid));
   setTimeout(() => {}, 60_000);
+} else if (mode === 'build-once') {
+  if (!fs.existsSync(arg)) {
+    fs.writeFileSync(arg, String(process.pid));
+    setTimeout(() => {}, 30_000);
+  } else {
+    await readStdin();
+    fs.writeFileSync(rest[0], 'built\n');
+  }
+} else if (mode === 'stderr') {
+  await readStdin();
+  process.stderr.write(fs.readFileSync(arg, 'utf8'));
+  process.exit(Number(rest[0]));
 }
