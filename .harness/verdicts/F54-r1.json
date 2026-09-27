@@ -1,0 +1,69 @@
+{
+  "feature": "F54",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "redactDeep keeps object keys unredacted, so event data only stays clean while its keys come from trusted identifiers. Today plan/approve `criteria` is keyed by criterion ids, and approve refuses contracts whose ids fail the AC-n/SC-n/ES-n lint, so no secret gets through. A future event that uses free text or environment-derived strings as keys would bypass redaction.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "Only `data` is redacted. The top-level `feature` and `type` fields are written as given. Current callers pass validated F<n> ids and constant type names, but recordEvent does not enforce this, so a later F55+ caller could leak free text there.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "`harness events` prints stored lines exactly as they are in the file. It does not redact again on read, so a line written by another tool, or before env_allowlist or secrets changed, is shown unmodified.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 1.3636974,
+  "contract_hash": "81e3fcb42bf75d5216e0f4ad631f22fa0c0e0c9aff55433ff3874072e37df7cf",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-27T14:27:31.496Z",
+  "origin": "run"
+}

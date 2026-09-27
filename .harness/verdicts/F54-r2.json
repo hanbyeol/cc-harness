@@ -1,0 +1,78 @@
+{
+  "feature": "F54",
+  "round": 2,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "redactDeep keeps object keys as they are. plan/approve `criteria` is keyed by criterion ids, which approve only accepts after lint validates them, so nothing leaks today. A later event keyed by free text would skip redaction.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B369"
+    },
+    {
+      "summary": "Only `data` is redacted. recordEvent writes the top-level `feature` and `type` fields unchanged. Current callers pass F<n> ids (lint-contract records only contracts that loaded) and constant type names.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B370"
+    },
+    {
+      "summary": "`harness events` prints stored lines without redacting them again. A line written before env_allowlist or the secrets changed, or written by another tool, is shown unchanged.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B371"
+    },
+    {
+      "summary": "Event redaction relies on process.env at write time, like the run report. A secret that is not an environment variable of the process (for example, one typed directly into a contract) is written in plain text. This is the same rule as SR-8, so the contract accepts it.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.928385,
+  "contract_hash": "81e3fcb42bf75d5216e0f4ad631f22fa0c0e0c9aff55433ff3874072e37df7cf",
+  "contract_round": 2,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 8,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 8,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-27T14:43:54.673Z",
+  "origin": "run"
+}

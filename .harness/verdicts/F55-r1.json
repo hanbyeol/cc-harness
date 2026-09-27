@@ -1,0 +1,75 @@
+{
+  "feature": "F55",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "lib/metrics.mjs and lib/usage.mjs each define an identical local `finite` helper (`(v) => typeof v === 'number' && Number.isFinite(v) ? v : null`); minor duplication introduced by this diff, though sharing it would create a circular import (metrics.mjs already imports usage.mjs).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "verify/command `program` is path.basename(firstProgram(cmd)). firstProgram only skips leading NAME=value words while at least one more word follows, so a verify command made of a single assignment (e.g. `TOKEN=abc123`) records `TOKEN=abc123` as the program. That value is a literal in config.json, not an environment variable, so the SR-8 redactor does not mask it. This is an unusual config and the same config file already holds the value, but the event file may later be exported (F57). Consider recording null when the first word is an assignment.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "`session_log.path` records the absolute home directory and the real working-directory path (which contains the username) in events. SPEC §2 documents this and it is not a secret, but it is identifying information once events are exported to a hub (F57). Worth considering hashing or making it relative to home at export time.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The eval/security step event also passes the evaluator's cRound field through the `...c` spread into stepEventData. stepEventData drops unknown keys, so nothing leaks today. The allow-list depends on stepEventData's destructuring staying exhaustive, and no test pins its exact key set the way METRIC_FIELDS pins the metrics line.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.9861154,
+  "contract_hash": "14da542d41ad12a0c120d215e8b6536f6c7d54af205e62dd076306a853a2bc68",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-27T15:33:35.119Z",
+  "origin": "run"
+}

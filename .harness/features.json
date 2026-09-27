@@ -493,7 +493,7 @@
       "depends_on": [
         "F53"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F55",
@@ -502,7 +502,7 @@
       "depends_on": [
         "F54"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F56",
@@ -511,7 +511,7 @@
       "depends_on": [
         "F54"
       ],
-      "status": "approved"
+      "status": "blocked"
     },
     {
       "id": "F57",
@@ -520,7 +520,7 @@
       "depends_on": [
         "F54"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F58",
@@ -529,7 +529,7 @@
       "depends_on": [
         "F57"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F59",
@@ -538,7 +538,7 @@
       "depends_on": [
         "F58"
       ],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }

@@ -23,6 +23,8 @@ const COMMANDS = {
   note: ['record a manual intervention (--kind manual-fix|manual-merge|environment|other)', true],
   'ci-record': ['record a CI result (--sha, --result, --job, --test)', true],
   insights: ['aggregate events into improvement candidates', true],
+  export: ['export anonymized events to the local hub (opt-in: telemetry.share)', true],
+  learn: ['analyze the hub: metrics per version, evidenced candidates (--propose, --compare)', false],
   doctor: ['detect installed CLIs and check adapter flags', false],
   'tf-check': ['terraform init/validate per module directory and fmt (iac profile verify)', false],
   'migrate-v1': ['convert cc-harness v1 progress/ state into .harness/', false],
