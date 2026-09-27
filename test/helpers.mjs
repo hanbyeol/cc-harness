@@ -7,8 +7,21 @@ import { fileURLToPath } from 'node:url';
 export const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const BIN = path.join(REPO, 'bin', 'harness.mjs');
 
+// Temp dirs are removed when the test process exits (node --test runs one process per file):
+// left behind, ~240k of them filled $TMPDIR until git could no longer create temp files.
+// HARNESS_KEEP_TMP=1 keeps them for debugging.
+const created = [];
+process.on('exit', () => {
+  if (process.env.HARNESS_KEEP_TMP === '1') return;
+  for (const d of created) {
+    try { fs.rmSync(d, { recursive: true, force: true }); } catch { /* best effort */ }
+  }
+});
+
 export function tmpdir(prefix = 'harness-test-') {
-  return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  created.push(d);
+  return d;
 }
 
 // Runs the real CLI as a child process.
