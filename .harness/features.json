@@ -431,6 +431,51 @@
         "F44"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F48",
+      "title": "run 병합·상태 견고성 — integration 정리, 충돌 해결 실패 복원, 브랜치 이름 조기 거부, 보안 등급 일치",
+      "security_tier": "critical",
+      "depends_on": [
+        "F47"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F49",
+      "title": "run 신호·프롬프트·가림 — SIGTERM/SIGHUP 처리, 어댑터 오류 가림 순서, 파일 목록 상한",
+      "security_tier": "critical",
+      "depends_on": [
+        "F47"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F50",
+      "title": "verify 실행 환경 — 복합 명령의 명령 없음 판정, hooksPath 임시 디렉터리, base 의존성 디렉터리",
+      "security_tier": "critical",
+      "depends_on": [
+        "F47"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F51",
+      "title": "설정·진단·출력 정확성 — 시간 제한 값 검증, doctor 탐지, status 문구, stats JSON, repro 126, gemini 인증 값",
+      "security_tier": "standard",
+      "depends_on": [
+        "F47"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F52",
+      "title": "테스트·문서·lint 정리 — F21 CLI 테스트 실행형으로, stress stderr 보존, lint 절대 경로 오탐, SPEC 복구 충돌 설명",
+      "security_tier": "standard",
+      "depends_on": [
+        "F47"
+      ],
+      "status": "approved"
     }
   ]
 }

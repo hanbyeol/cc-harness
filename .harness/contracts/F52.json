@@ -1,0 +1,55 @@
+{
+  "id": "F52",
+  "title": "테스트·문서·lint 정리 — F21 CLI 테스트 실행형으로, stress stderr 보존, lint 절대 경로 오탐, SPEC 복구 충돌 설명",
+  "security_tier": "standard",
+  "version": 1,
+  "resolves": [
+    "B128",
+    "B296",
+    "B297",
+    "B235"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "F21 AC-4 의 CLI 확인은 소스 문자열 검색 대신 가짜 잠자기 단계로 harness run 을 실제 실행해 exit 1 과 stderr 의 'system sleep'·'harness run --resume' 을 확인한다 — test/f21-sleep.test.mjs 에 lib/commands/run.mjs 를 읽는 코드가 없다",
+      "check": "node test/t.mjs \"F52 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "test/stress.mjs 는 실패한 테스트 없이 비정상 종료한 실행의 stderr 끝 2000자를 출력한다",
+      "check": "node test/t.mjs \"F52 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "lint-contract 규칙 3 은 '절대'+'경로' 조합(사이 공백 유무 무관)을 전칭 표현으로 보지 않고, 지금 오류로 판정하는 전칭 부정 예시 문장 5개(테스트에 고정)는 계속 오류로 본다(경우별 개별 테스트)",
+      "check": "node test/t.mjs \"F52 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "SPEC §8 병합 후 verify 복구 절이 복구 중 integration 병합이 충돌하면 blocked(post_merge_verify)이고 detail 에 'cannot merge' 가 나온다는 것을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F52 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "node test/assert-count.mjs 가 exit 0 이다(고친 테스트의 assert 수 유지)",
+      "check": "node test/assert-count.mjs",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "다른 테스트 파일의 문자열 검색형 확인 전면 교체"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-27T09:15:32.623Z",
+    "hash": "e4177f1e9e26a8fd9251a485637843ccc7eb1b6da4698ca901a43be759570b4e"
+  }
+}

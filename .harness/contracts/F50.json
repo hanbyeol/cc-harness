@@ -1,0 +1,61 @@
+{
+  "id": "F50",
+  "title": "verify 실행 환경 — 복합 명령의 명령 없음 판정, hooksPath 임시 디렉터리, base 의존성 디렉터리",
+  "security_tier": "critical",
+  "version": 1,
+  "resolves": [
+    "B330",
+    "B29",
+    "B31"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify 명령·check·test_count 가 '&&'·'||'·';'·'|' 로 이어진 명령이면 각 부분의 첫 프로그램에 대해 명령 없음을 판정한다 — 'cd sub && no-such-prog' 는 명령 없음, 'cd sub && sh -c \"exit 127\"' 은 일반 실패(경우별 개별 테스트)",
+      "check": "node test/t.mjs \"F50 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "verify·eval 이 git 에 주는 core.hooksPath 는 호출마다 mkdtemp 로 만든 빈 디렉터리이고 끝나면 지워진다 — 고정 경로 <tmpdir>/harness-no-hooks-dir 를 쓰지 않는다",
+      "check": "node test/t.mjs \"F50 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "base vacuity worktree 에 작업 트리의 node_modules 가 있으면 심볼릭 링크(Windows 는 junction)로 연결해, 의존성 누락으로 base 실행이 실패해 non-vacuous 로 잘못 판정되지 않는다 — node_modules 의 패키지를 import 하는 check fixture 에서 vacuous 로 판정",
+      "check": "node test/t.mjs \"F50 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "SPEC §6 이 세 규칙을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F50 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "AC-3 의 링크는 base 임시 worktree 안에만 만들어지고 verify 뒤 작업 트리의 node_modules 는 바뀌지 않는다(파일 수·mtime 비교)",
+      "check": "node test/t.mjs \"F50 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "node_modules 링크를 만들지 못하면 verify 는 경고를 남기고 링크 없이 계속한다",
+      "check": "node test/t.mjs \"F50 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "node_modules 외 의존성 디렉터리(vendor, .venv)"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-27T09:15:32.623Z",
+    "hash": "d271cb8a94196dec71276639c5aa37f4169be6e65174b1115d8f7649fed1977a"
+  }
+}

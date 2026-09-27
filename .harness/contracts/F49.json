@@ -1,0 +1,55 @@
+{
+  "id": "F49",
+  "title": "run 신호·프롬프트·가림 — SIGTERM/SIGHUP 처리, 어댑터 오류 가림 순서, 파일 목록 상한",
+  "security_tier": "critical",
+  "version": 1,
+  "resolves": [
+    "B57",
+    "B268",
+    "B298"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness run 과 harness verify 는 SIGTERM·SIGHUP 을 SIGINT 와 같이 처리한다 — 진행 중 단계의 프로세스 트리를 종료하고 run 은 상태를 저장한 뒤 exit 130 이다(신호별 개별 테스트)",
+      "check": "node test/t.mjs \"F49 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "어댑터 오류 detail 은 자르기 전에 가려져 blocked detail·보고서·상태 파일에 비밀 값의 8자 이상 조각이 남지 않는다 — 비밀 값이 2000자 경계에 걸친 어댑터 오류 fixture",
+      "check": "node test/t.mjs \"F49 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "이어가기·이어받기 builder 프롬프트의 변경 파일 목록은 최대 100개이고 넘으면 '… N more' 줄이 붙으며, 제어 문자가 든 경로는 JSON 문자열로 따옴표 처리된다",
+      "check": "node test/t.mjs \"F49 AC-3\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "SIGTERM 으로 끝난 run 뒤에 잠자기 방지 프로세스와 builder 프로세스가 남지 않는다(가짜 프로세스 pid 확인)",
+      "check": "node test/t.mjs \"F49 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "--resume 은 SIGTERM·SIGHUP 으로 저장된 상태에서도 이어서 진행해 passed 가 된다(가짜 어댑터)",
+      "check": "node test/t.mjs \"F49 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "Windows 의 SIGHUP 처리"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-27T09:15:32.623Z",
+    "hash": "e72f08139bcb6c6a3f1b933c1428892199a53206d789cb2d897a1353e7461308"
+  }
+}

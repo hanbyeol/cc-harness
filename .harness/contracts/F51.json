@@ -1,0 +1,70 @@
+{
+  "id": "F51",
+  "title": "설정·진단·출력 정확성 — 시간 제한 값 검증, doctor 탐지, status 문구, stats JSON, repro 126, gemini 인증 값",
+  "security_tier": "standard",
+  "version": 1,
+  "resolves": [
+    "B16",
+    "B231",
+    "B20",
+    "B45",
+    "B174",
+    "B51",
+    "B125"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "budget.step_timeout_sec·budget.git_timeout_sec·verify.vacuity_timeout_sec 은 1 이상 2147483 이하의 수여야 하고 아니면 exit 2(config_invalid), 메시지에 키 이름이 나온다(값별 개별 테스트: 문자열·0·2147484)",
+      "check": "node test/t.mjs \"F51 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "doctor 는 --version 이 실패한 CLI 를 --help 로 다시 확인하고, --help 가 성공하면 installed 로 본다",
+      "check": "node test/t.mjs \"F51 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "status 는 승인 기록 문제를 'contract missing'·'no approval hash'·'changed after approval' 셋으로 구분해 보여 준다(경우별 개별 테스트)",
+      "check": "node test/t.mjs \"F51 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "harness stats --json 은 지표 파일이 없을 때 {\"steps\":[],\"suggestions\":[]} 형태의 JSON 을 출력하고 exit 0 이다",
+      "check": "node test/t.mjs \"F51 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "repro 가 exit 126 으로 끝나면 차단 finding 이 아니라 repro_not_runnable 로 backlog 에 기록된다",
+      "check": "node test/t.mjs \"F51 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "gemini 인증 판정은 GOOGLE_GENAI_USE_VERTEXAI·GOOGLE_GENAI_USE_GCA 값이 비어 있거나 'false'·'0'(대소문자 무시)이면 인증되지 않은 것으로 본다(값별 개별 테스트)",
+      "check": "node test/t.mjs \"F51 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "SPEC §4·§7·§10 이 바뀐 규칙을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F51 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "codex 인증 판정"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-27T09:15:32.623Z",
+    "hash": "b4d12a6fbf145ee4a9a62609f7bafa7c21d0e3e616fabd0483fa97da7e2512b4"
+  }
+}

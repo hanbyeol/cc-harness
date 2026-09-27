@@ -1,0 +1,62 @@
+{
+  "id": "F48",
+  "title": "run 병합·상태 견고성 — integration 정리, 충돌 해결 실패 복원, 브랜치 이름 조기 거부, 보안 등급 일치",
+  "security_tier": "critical",
+  "version": 1,
+  "resolves": [
+    "B58",
+    "B279",
+    "B63",
+    "B65"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "병합 후 verify 가 integration worktree 에 추적되지 않은 파일이나 변경을 남기면 다음 병합 전에 reset --hard 와 clean 으로 정리되고, 정리 뒤에도 dirty 이면 그 기능은 blocked(merge_conflict)이고 run 보고서가 쓰인다(예외로 run 이 끝나지 않는다)",
+      "check": "node test/t.mjs \"F48 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "충돌 해결에 실패했을 때 기능 worktree 의 HEAD 가 충돌 해결 전 커밋과 다르고 MERGE_HEAD 가 없으면(builder 가 직접 커밋) 충돌 해결 전 커밋으로 reset --hard 한다 — 충돌 표시를 남긴 채 커밋한 fixture 에서 blocked 뒤 브랜치 HEAD 가 해결 전 커밋이다",
+      "check": "node test/t.mjs \"F48 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "integration_branch 가 'refs/' 또는 'heads/' 로 시작하면 run 이 build 전에 exit 2(config_invalid 또는 usage)로 멈추고 메시지에 integration_branch 가 나온다",
+      "check": "node test/t.mjs \"F48 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "사전 점검(security-reviewer 필요 여부)과 critical 정지 판단은 승인된 계약의 security_tier 를 쓰고, features.json 과 다르면 run 보고서와 출력에 경고가 나온다",
+      "check": "node test/t.mjs \"F48 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "AC-2 의 reset 은 그 기능의 worktree 에서만 실행되고 integration 브랜치 커밋은 바뀌지 않는다",
+      "check": "node test/t.mjs \"F48 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "AC-1 의 정리 명령이 실패하면 그 기능은 blocked 이고 detail 에 git 오류가 나오며 다른 기능은 계속 진행한다",
+      "check": "node test/t.mjs \"F48 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "integration 브랜치의 자동 재생성"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-27T09:15:32.623Z",
+    "hash": "e29a949dcdfe5e9f15a81778c16b7927d971064628087612300cb555250408ca"
+  }
+}
