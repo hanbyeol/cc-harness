@@ -1,0 +1,94 @@
+{
+  "feature": "F44",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 8,
+    "quality": 8,
+    "security": 8,
+    "errors": 8,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "firstProgram splits words with a regex that does not handle a quoted VAR assignment value containing a space. For `FOO=\"a b\" jest` it picks `b\"` as the program, so a genuine 127 from jest is judged a plain failure. This is a rare edge case.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Compound commands such as `cd sub && jest` or `npm test` now treat a real missing-program 127 as a plain failure, because the first program (`cd`, `npm`) is not on the stderr line. This follows the contract's rule, but a genuinely missing tool inside a wrapper no longer stops the run as an environment problem. It becomes a round failure. It is worth documenting for users (B192 follow-up).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B192"
+    },
+    {
+      "summary": "builtinInvocation runs the core's bin/harness.mjs, so any `harness <args>` command bypasses a user-installed harness of a different version. The behaviour is intentional, but a project pinning another harness version via PATH gets the core's version in verify. Consider documenting this.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "The iac docs now say verify runs `harness ` commands through the core's own bin, which resolves the PATH problem in B281. B281 and B171 look addressed by this diff and could be closed.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B281"
+    },
+    {
+      "summary": "builtinInvocation allows '%' in plain words. Because the built-in path spawns node without a shell, a word such as '%PATH%' is passed literally. The shell path would expand it on Windows, so the same command string can mean different things depending on which path runs it. This is not a security issue, since running without a shell is the safer side, but SPEC §6.1 could say that no variable expansion happens in built-in mode.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The built-in 'harness ' execution also applies to commands other than tf-check (for example 'harness verify F1' or 'harness run' as a check). A check can therefore re-enter the core recursively with this checkout's version, not the version on PATH. The contract permits this, but the SPEC does not say that the PATH version is ignored for every subcommand.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "presetCount passes preset.bin, a bare program name rather than a command line, to isCommandNotFound. This works because firstProgram returns the name itself, but it relies on preset names never containing spaces or '=' prefixes.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.6540002,
+  "contract_hash": "b290d6183121cbc4ee359ab6342aa366161d15f9ec1c62a51a0178a3df4dd19f",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 8,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T18:37:47.118Z",
+  "origin": "run"
+}

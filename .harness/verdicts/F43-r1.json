@@ -1,0 +1,93 @@
+{
+  "feature": "F43",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The continuation prompt lists every changed path with no cap on count or length. A timed-out build that left many untracked files (for example an installed node_modules or build output that is not gitignored) would make the list large. Paths are also inserted verbatim, so a path with a newline could alter the prompt layout. Consider capping the list and escaping unusual characters.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "changedFromBase counts any file under .harness/ or generated artifacts as 'changes'. A timed-out build that only produced such files would still be continued instead of blocked(budget). The SPEC says 'any change against base', so this is consistent, but it may continue on non-progress.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The continuation note does not tell the builder which attempt number it is or that the next timeout can block. The builder cannot budget its remaining time or attempts.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Continuation prompt lists changed file paths verbatim, one per '- ' line. A path created by the builder that contains newlines or markdown/prompt-like text (git -z output keeps it unquoted) is injected into the next builder prompt as-is. The builder only reaches its own session, so under threat model D1 this is not a trust-boundary crossing, but escaping or JSON-quoting the paths would make the list unambiguous.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The continuation file list is unbounded. A timed-out build that generated thousands of files (e.g. an untracked node_modules or build output that isn't gitignored) puts every path in the next prompt, which can blow the prompt size or cost. Consider capping the list and adding a '… N more' line.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "e.continuation.files is saved unredacted in run state because 'files' is in KEEP_UNREDACTED. Paths are not command output, so this matches the intent, but a secret in a file name would persist to the state file and the prompt. That is outside SC-1, which covers file contents and env values only.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The SC-1 test checks only a file whose content is a secret and the env var API_TOKEN. It does not cover a continuation across a committed file together with staged edits, or a rename entry. Code review shows dirtyPaths handles R/C source tokens correctly, but no test exercises a rename in the continuation list.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.5593332000000001,
+  "contract_hash": "7adbcf860182659073ef62c9ac44bae20f4c44932b119324a3d704bd22f8858d",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T18:15:53.925Z",
+  "origin": "run"
+}

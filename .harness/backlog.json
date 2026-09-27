@@ -1534,11 +1534,12 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B192",
-      "seen": 6,
+      "seen": 7,
       "sources": [
         "F29-r2",
         "F37-r1",
-        "F40-r1"
+        "F40-r1",
+        "F44-r1"
       ]
     },
     {
@@ -2503,9 +2504,10 @@
       "source": "evaluator",
       "priority": "medium",
       "id": "B281",
-      "seen": 2,
+      "seen": 3,
       "sources": [
-        "F40-r2"
+        "F40-r2",
+        "F44-r1"
       ]
     },
     {
@@ -2678,6 +2680,353 @@
       "priority": "low",
       "summary": "lint-contract rule 3 flags the technical term '절대 경로' (absolute path) as the universal '절대(로)'; contracts must rephrase it (seen in F42 SC-1).",
       "at": "2026-09-26T17:57:49.260Z"
+    },
+    {
+      "feature": "F43",
+      "round": 1,
+      "at": "2026-09-26T18:15:53.925Z",
+      "summary": "The continuation prompt lists every changed path with no cap on count or length. A timed-out build that left many untracked files (for example an installed node_modules or build output that is not gitignored) would make the list large. Paths are also inserted verbatim, so a path with a newline could alter the prompt layout. Consider capping the list and escaping unusual characters.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B298"
+    },
+    {
+      "feature": "F43",
+      "round": 1,
+      "at": "2026-09-26T18:15:53.925Z",
+      "summary": "changedFromBase counts any file under .harness/ or generated artifacts as 'changes'. A timed-out build that only produced such files would still be continued instead of blocked(budget). The SPEC says 'any change against base', so this is consistent, but it may continue on non-progress.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B299"
+    },
+    {
+      "feature": "F43",
+      "round": 1,
+      "at": "2026-09-26T18:15:53.925Z",
+      "summary": "The continuation note does not tell the builder which attempt number it is or that the next timeout can block. The builder cannot budget its remaining time or attempts.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B300"
+    },
+    {
+      "feature": "F43",
+      "round": 1,
+      "at": "2026-09-26T18:15:53.925Z",
+      "summary": "Continuation prompt lists changed file paths verbatim, one per '- ' line. A path created by the builder that contains newlines or markdown/prompt-like text (git -z output keeps it unquoted) is injected into the next builder prompt as-is. The builder only reaches its own session, so under threat model D1 this is not a trust-boundary crossing, but escaping or JSON-quoting the paths would make the list unambiguous.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B301"
+    },
+    {
+      "feature": "F43",
+      "round": 1,
+      "at": "2026-09-26T18:15:53.925Z",
+      "summary": "The continuation file list is unbounded. A timed-out build that generated thousands of files (e.g. an untracked node_modules or build output that isn't gitignored) puts every path in the next prompt, which can blow the prompt size or cost. Consider capping the list and adding a '… N more' line.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B302"
+    },
+    {
+      "feature": "F43",
+      "round": 1,
+      "at": "2026-09-26T18:15:53.925Z",
+      "summary": "e.continuation.files is saved unredacted in run state because 'files' is in KEEP_UNREDACTED. Paths are not command output, so this matches the intent, but a secret in a file name would persist to the state file and the prompt. That is outside SC-1, which covers file contents and env values only.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B303"
+    },
+    {
+      "feature": "F43",
+      "round": 1,
+      "at": "2026-09-26T18:15:53.925Z",
+      "summary": "The SC-1 test checks only a file whose content is a secret and the env var API_TOKEN. It does not cover a continuation across a committed file together with staged edits, or a rename entry. Code review shows dirtyPaths handles R/C source tokens correctly, but no test exercises a rename in the continuation list.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B304"
+    },
+    {
+      "feature": "F42",
+      "round": 1,
+      "at": "2026-09-26T18:20:37.493Z",
+      "summary": "The F16 vacuity-overlay tests now run their new test files through a `run.mjs` runner, because the F42 rule stops a `node test/x.test.mjs` check from getting its new entry file on base. Assertions are unchanged, but the fixtures no longer exercise the direct-entry shape for F16. F42 AC-1 and AC-2 cover that shape, so this is only worth a look for `assert-count` review.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B305"
+    },
+    {
+      "feature": "F42",
+      "round": 1,
+      "at": "2026-09-26T18:20:37.493Z",
+      "summary": "`isNotFound` is skipped for every criterion that has `base_entry`, not only for the withheld file's own 127 exit. A missing interpreter such as `python3` absent on base, or a command-not-found from inside the entry, is therefore treated as an ordinary base failure and not as a `base_not_found` environment stop. The check still ends up non-vacuous, but the environment signal is lost.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B306"
+    },
+    {
+      "feature": "F42",
+      "round": 1,
+      "at": "2026-09-26T18:20:37.493Z",
+      "summary": "`checkEntry` returns null for a check that starts with an env assignment (`FOO=1 node test/x.mjs`), `cd sub && node …` or `node -- path`. Such checks keep the old overlay behaviour, so they stay vacuous. This matches the documented scope, but the docs could list these shapes.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B307"
+    },
+    {
+      "feature": "F42",
+      "round": 1,
+      "at": "2026-09-26T18:20:37.493Z",
+      "summary": "Each distinct withheld entry creates one more base worktree (a `git worktree add` plus an overlay copy). A contract with many new-entry criteria multiplies that cost, and worktrees are only created serially inside the criterion runs.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B308"
+    },
+    {
+      "feature": "F42",
+      "round": 1,
+      "at": "2026-09-26T18:20:37.493Z",
+      "summary": "The base vacuity runs execute with cwd set to the base worktree top level, while head checks run in the project directory (root). In a monorepo subdirectory project, checkEntry's path is normalized relative to the base top, but the overlay paths carry the projectRel prefix. As a result, a relative entry such as 'node test/tool.mjs' never matches 'pkg/app/test/tool.mjs', and the rule silently doesn't apply. This is conservative (the entry is overlaid as before), and the head/base cwd mismatch predates F42, but the SPEC wording ('base worktree 최상위 기준') leaves monorepo projects without the new rule.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B309"
+    },
+    {
+      "feature": "F42",
+      "round": 1,
+      "at": "2026-09-26T18:20:37.493Z",
+      "summary": "On case-insensitive filesystems (macOS/Windows), a check such as 'node Test/tool.mjs' runs the new test/tool.mjs on head, but checkEntry returns 'Test/tool.mjs', which does not match the overlay set. The file is then overlaid, and the criterion may be judged vacuous as before. This errs on the conservative side, and no test covers it.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B310"
+    },
+    {
+      "feature": "F42",
+      "round": 1,
+      "at": "2026-09-26T18:20:37.493Z",
+      "summary": "Each distinct withheld entry creates an additional base git worktree, and there is no upper bound. A contract with many new criteria that each use a different new entry script creates that many worktrees (disk/time cost). They are cleaned up in finally.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B311"
+    },
+    {
+      "feature": "F42",
+      "round": 1,
+      "at": "2026-09-26T18:20:37.493Z",
+      "summary": "The F16 overlay tests were changed from 'node test/math.test.mjs' to 'node run.mjs test/math.test.mjs' so they keep exercising the overlay under the new entry rule. The assertions are unchanged, but the original direct-entry shape is no longer covered by F16. That shape is now covered by F42 AC-1 with the opposite expected outcome, which is intended by the contract.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B312"
+    },
+    {
+      "feature": "F42",
+      "round": 2,
+      "at": "2026-09-26T18:31:20.603Z",
+      "summary": "checkEntry only recognises a check whose first word is the runner. Leading env assignments (`FOO=1 node test/tool.mjs`) and `cd x && node ...` get no entry rule, so a new entry script run this way is still overlaid on base and can be judged vacuous. The contract excludes second commands, but the env-prefix form is not documented as unsupported.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B313"
+    },
+    {
+      "feature": "F42",
+      "round": 2,
+      "at": "2026-09-26T18:31:20.603Z",
+      "summary": "Each distinct withheld entry creates one more base git worktree (addBaseWorktree plus a full overlay). A contract with many new-tool criteria adds worktree setup cost, and the worktrees are created lazily and cleaned up only at the end of verify.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B314"
+    },
+    {
+      "feature": "F42",
+      "round": 2,
+      "at": "2026-09-26T18:31:20.603Z",
+      "summary": "F16 vacuity tests were rewritten to route through a base-side runner (`run.mjs`) so the new-test-file overlay still applies. This is necessary under the new rule, but it changes the shape of the existing F16 fixtures. The original direct `node test/math.test.mjs` shape is now covered only by the F42 tests.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B315"
+    },
+    {
+      "feature": "F42",
+      "round": 2,
+      "at": "2026-09-26T18:31:20.603Z",
+      "summary": "checkEntry resolves the entry path relative to where the check runs, but overlay/newOnBase paths are relative to the git top. When the project (.harness dir) is a subdirectory of the repository, the two can differ and the entry rule silently does not apply (fails safe: the old behaviour). This is not described or tested.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B316"
+    },
+    {
+      "feature": "F42",
+      "round": 2,
+      "at": "2026-09-26T18:31:20.603Z",
+      "summary": "checkEntry normalizes 'node test/x/..' to 'test', a directory. It is harmless because it never matches an overlaid file, but the parser could reject paths that normalize to a directory-like result.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B317"
+    },
+    {
+      "feature": "F42",
+      "round": 2,
+      "at": "2026-09-26T18:31:20.603Z",
+      "summary": "A separate base worktree is created for each distinct withheld entry. A contract with many new-entry criteria multiplies worktree creation and disk use, and nothing bounds it.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B318"
+    },
+    {
+      "feature": "F45",
+      "round": 1,
+      "at": "2026-09-26T18:32:01.033Z",
+      "summary": "expandFileGlob uses fs.globSync. It exists from Node 22.0 but is experimental there, so on Node 22/23 every --files run prints an ExperimentalWarning to stderr. It is harmless, but it is noise in stress output.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B319"
+    },
+    {
+      "feature": "F45",
+      "round": 1,
+      "at": "2026-09-26T18:32:01.033Z",
+      "summary": "AC-2 passes without any change to the F23/F25/F26/F28 test files. The diff only adds the --files option, so the contract's title ('F23·F25·F26·F28 테스트' stability) is met only because those tests are already stable at 3x load on this machine. Nothing hardens them against slower machines.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B320"
+    },
+    {
+      "feature": "F45",
+      "round": 1,
+      "at": "2026-09-26T18:32:01.033Z",
+      "summary": "A trailing `--files` with no value is pushed into the positional list and produces the generic usage error rather than a message saying --files needs a glob. The same is true of `--root`.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B321"
+    },
+    {
+      "feature": "F45",
+      "round": 1,
+      "at": "2026-09-26T18:32:01.033Z",
+      "summary": "expandFileGlob is placed in lib/glob.mjs, a runtime module, even though only the test script test/stress.mjs uses it. Its semantics (character classes, case-sensitive file-system matching) also differ from globToRegExp in the same file, which could confuse future callers.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B322"
+    },
+    {
+      "feature": "F44",
+      "round": 1,
+      "at": "2026-09-26T18:37:47.118Z",
+      "summary": "firstProgram splits words with a regex that does not handle a quoted VAR assignment value containing a space. For `FOO=\"a b\" jest` it picks `b\"` as the program, so a genuine 127 from jest is judged a plain failure. This is a rare edge case.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B323"
+    },
+    {
+      "feature": "F44",
+      "round": 1,
+      "at": "2026-09-26T18:37:47.118Z",
+      "summary": "builtinInvocation runs the core's bin/harness.mjs, so any `harness <args>` command bypasses a user-installed harness of a different version. The behaviour is intentional, but a project pinning another harness version via PATH gets the core's version in verify. Consider documenting this.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "id": "B324"
+    },
+    {
+      "feature": "F44",
+      "round": 1,
+      "at": "2026-09-26T18:37:47.118Z",
+      "summary": "builtinInvocation allows '%' in plain words. Because the built-in path spawns node without a shell, a word such as '%PATH%' is passed literally. The shell path would expand it on Windows, so the same command string can mean different things depending on which path runs it. This is not a security issue, since running without a shell is the safer side, but SPEC §6.1 could say that no variable expansion happens in built-in mode.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B325"
+    },
+    {
+      "feature": "F44",
+      "round": 1,
+      "at": "2026-09-26T18:37:47.118Z",
+      "summary": "The built-in 'harness ' execution also applies to commands other than tf-check (for example 'harness verify F1' or 'harness run' as a check). A check can therefore re-enter the core recursively with this checkout's version, not the version on PATH. The contract permits this, but the SPEC does not say that the PATH version is ignored for every subcommand.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B326"
+    },
+    {
+      "feature": "F44",
+      "round": 1,
+      "at": "2026-09-26T18:37:47.118Z",
+      "summary": "presetCount passes preset.bin, a bare program name rather than a command line, to isCommandNotFound. This works because firstProgram returns the name itself, but it relies on preset names never containing spaces or '=' prefixes.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B327"
+    },
+    {
+      "source": "run:F44",
+      "feature": "F44",
+      "kind": "rescope",
+      "reason": "merge_conflict",
+      "rounds": 1,
+      "blocking": [],
+      "summary": "F44 blocked (merge_conflict): the feature branch conflicts with the integration branch and one automatic resolution did not fix it — verify failed after the automatic conflict resolution: VERIFY:commands",
+      "options": [
+        {
+          "kind": "split",
+          "summary": "split F44 so the feature ship as a separate feature with its own contract"
+        },
+        {
+          "kind": "rewrite",
+          "summary": "rewrite the criteria for the feature (new contract version, re-approval)"
+        },
+        {
+          "kind": "accept-risk",
+          "summary": "accept the risk: drop or relax the feature with a recorded decision"
+        }
+      ],
+      "id": "B328"
+    },
+    {
+      "source": "run:F46",
+      "feature": "F46",
+      "kind": "rescope",
+      "reason": "budget",
+      "rounds": 1,
+      "blocking": [],
+      "summary": "F46 blocked (budget): a step timed out or the budget was exhausted — build timed out after 2700s",
+      "options": [
+        {
+          "kind": "split",
+          "summary": "split F46 so the feature ship as a separate feature with its own contract"
+        },
+        {
+          "kind": "rewrite",
+          "summary": "rewrite the criteria for the feature (new contract version, re-approval)"
+        },
+        {
+          "kind": "accept-risk",
+          "summary": "accept the risk: drop or relax the feature with a recorded decision"
+        }
+      ],
+      "id": "B329"
     }
   ]
 }

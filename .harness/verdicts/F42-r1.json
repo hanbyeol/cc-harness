@@ -1,0 +1,99 @@
+{
+  "feature": "F42",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The F16 vacuity-overlay tests now run their new test files through a `run.mjs` runner, because the F42 rule stops a `node test/x.test.mjs` check from getting its new entry file on base. Assertions are unchanged, but the fixtures no longer exercise the direct-entry shape for F16. F42 AC-1 and AC-2 cover that shape, so this is only worth a look for `assert-count` review.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "`isNotFound` is skipped for every criterion that has `base_entry`, not only for the withheld file's own 127 exit. A missing interpreter such as `python3` absent on base, or a command-not-found from inside the entry, is therefore treated as an ordinary base failure and not as a `base_not_found` environment stop. The check still ends up non-vacuous, but the environment signal is lost.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "`checkEntry` returns null for a check that starts with an env assignment (`FOO=1 node test/x.mjs`), `cd sub && node …` or `node -- path`. Such checks keep the old overlay behaviour, so they stay vacuous. This matches the documented scope, but the docs could list these shapes.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Each distinct withheld entry creates one more base worktree (a `git worktree add` plus an overlay copy). A contract with many new-entry criteria multiplies that cost, and worktrees are only created serially inside the criterion runs.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The base vacuity runs execute with cwd set to the base worktree top level, while head checks run in the project directory (root). In a monorepo subdirectory project, checkEntry's path is normalized relative to the base top, but the overlay paths carry the projectRel prefix. As a result, a relative entry such as 'node test/tool.mjs' never matches 'pkg/app/test/tool.mjs', and the rule silently doesn't apply. This is conservative (the entry is overlaid as before), and the head/base cwd mismatch predates F42, but the SPEC wording ('base worktree 최상위 기준') leaves monorepo projects without the new rule.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "On case-insensitive filesystems (macOS/Windows), a check such as 'node Test/tool.mjs' runs the new test/tool.mjs on head, but checkEntry returns 'Test/tool.mjs', which does not match the overlay set. The file is then overlaid, and the criterion may be judged vacuous as before. This errs on the conservative side, and no test covers it.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "Each distinct withheld entry creates an additional base git worktree, and there is no upper bound. A contract with many new criteria that each use a different new entry script creates that many worktrees (disk/time cost). They are cleaned up in finally.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The F16 overlay tests were changed from 'node test/math.test.mjs' to 'node run.mjs test/math.test.mjs' so they keep exercising the overlay under the new entry rule. The assertions are unchanged, but the original direct-entry shape is no longer covered by F16. That shape is now covered by F42 AC-1 with the opposite expected outcome, which is intended by the contract.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.5450024,
+  "contract_hash": "b8831a15681d97490c518bdd58154624ba8ce46a3872183fe62273efffe0b606",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T18:20:37.493Z",
+  "origin": "run"
+}

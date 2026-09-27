@@ -1,0 +1,87 @@
+{
+  "feature": "F42",
+  "round": 2,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "checkEntry only recognises a check whose first word is the runner. Leading env assignments (`FOO=1 node test/tool.mjs`) and `cd x && node ...` get no entry rule, so a new entry script run this way is still overlaid on base and can be judged vacuous. The contract excludes second commands, but the env-prefix form is not documented as unsupported.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Each distinct withheld entry creates one more base git worktree (addBaseWorktree plus a full overlay). A contract with many new-tool criteria adds worktree setup cost, and the worktrees are created lazily and cleaned up only at the end of verify.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "F16 vacuity tests were rewritten to route through a base-side runner (`run.mjs`) so the new-test-file overlay still applies. This is necessary under the new rule, but it changes the shape of the existing F16 fixtures. The original direct `node test/math.test.mjs` shape is now covered only by the F42 tests.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "checkEntry resolves the entry path relative to where the check runs, but overlay/newOnBase paths are relative to the git top. When the project (.harness dir) is a subdirectory of the repository, the two can differ and the entry rule silently does not apply (fails safe: the old behaviour). This is not described or tested.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "checkEntry normalizes 'node test/x/..' to 'test', a directory. It is harmless because it never matches an overlaid file, but the parser could reject paths that normalize to a directory-like result.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "A separate base worktree is created for each distinct withheld entry. A contract with many new-entry criteria multiplies worktree creation and disk use, and nothing bounds it.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.47643420000000003,
+  "contract_hash": "b8831a15681d97490c518bdd58154624ba8ce46a3872183fe62273efffe0b606",
+  "contract_round": 2,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 8,
+        "quality": 8,
+        "security": 9,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-26T18:31:20.603Z",
+  "origin": "run"
+}
