@@ -106,7 +106,7 @@ test('F58 AC-2: export writes <hub>/<project>/<ISO time>.jsonl and records the e
   const [file] = bundles(hub, dir);
   assert.equal(path.basename(file), '20260910T010203.456Z.jsonl');
   assert.deepEqual(readLines(file).map((l) => l.ts), ['2026-09-01T00:00:00.000Z', '2026-09-02T00:00:00.000Z']);
-  assert.equal(fs.readFileSync(exportedPath(dir), 'utf8').trim(), now.toISOString());
+  assert.equal(JSON.parse(fs.readFileSync(exportedPath(dir), 'utf8')).at, now.toISOString()); // F60: with the byte positions
   assert.match(c.out.join('\n'), /exported 2 lines to /);
 });
 
@@ -120,16 +120,16 @@ test('F58 AC-2: a second export writes only the events after the last export, ne
   assert.equal(runExport({ root: dir, hub, out: c.o, err: c.e, now: new Date('2026-09-06T00:00:00Z') }), 0);
   assert.equal(bundles(hub, dir).length, 1);
   assert.match(c.out.at(-1), /nothing to export/);
-  assert.equal(fs.readFileSync(exportedPath(dir), 'utf8').trim(), '2026-09-05T00:00:00.000Z');
+  assert.equal(JSON.parse(fs.readFileSync(exportedPath(dir), 'utf8')).at, '2026-09-05T00:00:00.000Z');
   // an event at the export time itself belongs to the next export
   note(dir, 'b', '2026-09-05T00:00:00Z');
   note(dir, 'c', '2026-09-07T00:00:00Z');
-  note(dir, 'late', '2026-09-09T00:00:00Z'); // after `now` of the next export
+  note(dir, 'late', '2026-09-09T00:00:00Z'); // after `now` of the next export: recorded, so exported (F60 byte positions)
   assert.equal(runExport({ root: dir, hub, out: c.o, err: c.e, now: new Date('2026-09-08T00:00:00Z') }), 0);
   const files = bundles(hub, dir);
   assert.equal(files.length, 2);
   assert.deepEqual(readLines(files[0]).map((l) => l.ts), ['2026-09-01T00:00:00.000Z']);
-  assert.deepEqual(readLines(files[1]).map((l) => l.ts), ['2026-09-05T00:00:00.000Z', '2026-09-07T00:00:00.000Z']);
+  assert.deepEqual(readLines(files[1]).map((l) => l.ts), ['2026-09-05T00:00:00.000Z', '2026-09-07T00:00:00.000Z', '2026-09-09T00:00:00.000Z']);
   assert.equal(runExport({ root: dir, hub, out: c.o, err: c.e, now: new Date('2026-09-10T00:00:00Z') }), 0);
   const all = bundles(hub, dir).flatMap((f) => readLines(f).map((l) => l.ts));
   assert.equal(new Set(all).size, all.length);
