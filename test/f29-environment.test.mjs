@@ -209,6 +209,11 @@ test('F29 AC-3 parallel: an environment stop starts no new feature, lets the run
   const verified = [];
   const verify = async (a) => {
     verified.push(a.featureId);
+    // F1's verify waits until F2's build has started: on a slow runner F1 could otherwise build,
+    // verify and stop the run before F2's worktree even existed (F2 never built).
+    if (a.featureId === 'F1') {
+      for (let t = 0; t < 60000 && !build.calls.some((c) => c.featureId === 'F2'); t += 50) await sleep(50);
+    }
     const v = await realVerify(a);
     if (a.featureId === 'F1') f1Verified = true;
     return v;
