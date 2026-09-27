@@ -53,23 +53,22 @@ for (const [key, make, get] of TIMEOUT_KEYS) {
 
 // ---------- AC-2 ----------
 
-// A fake CLI (no node dependency) whose --version/--help outcomes are configurable.
+// A fake CLI whose --version/--help outcomes are configurable.
 function fakeVersionHelpCli({ versionOk, helpOk, helpText = 'usage: fakecli [options]' }) {
   const dir = tmpdir('harness-f51-cli-');
   if (process.platform === 'win32') {
-    // %~1 strips the quotes the core puts around each argument when it runs a .cmd shim.
-    const file = path.join(dir, 'fakecli.cmd');
-    const body = [
-      '@echo off',
-      'if "%~1"=="--version" (',
-      versionOk ? '  echo fakecli 1.0.0' : '  exit /b 127',
-      ')',
-      'if "%~1"=="--help" (',
-      helpOk ? `  echo ${helpText}` : '  exit /b 127',
-      ')',
+    // Shaped like the npm shims of real CLIs (claude.cmd, gemini.cmd): the .cmd only forwards
+    // %* to node and the script decides. The core escapes .cmd arguments for exactly this
+    // forwarding, so a batch file that compares %1 itself would see ^"--help^" and fail to parse.
+    const js = path.join(dir, 'fakecli.js');
+    fs.writeFileSync(js, [
+      "const a = process.argv[2];",
+      `if (a === '--version') { ${versionOk ? "console.log('fakecli 1.0.0');" : 'process.exit(127);'} }`,
+      `else if (a === '--help') { ${helpOk ? `console.log(${JSON.stringify(helpText)});` : 'process.exit(127);'} }`,
       '',
-    ].join('\r\n');
-    fs.writeFileSync(file, body);
+    ].join('\n'));
+    const file = path.join(dir, 'fakecli.cmd');
+    fs.writeFileSync(file, `@echo off\r\n"${process.execPath}" "%~dp0fakecli.js" %*\r\n`);
     return file;
   }
   const file = path.join(dir, 'fakecli');
