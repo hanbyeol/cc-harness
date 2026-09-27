@@ -203,7 +203,9 @@ test('F29 AC-3 parallel: an environment stop starts no new feature, lets the run
     if (a.featureId !== 'F2') return;
     for (let t = 0; t < 60000 && !f1Verified; t += 50) await sleep(50);
   };
-  const build = fakeBuild({ wait, delay: (a) => (a.featureId === 'F2' ? 500 : 0) });
+  // F2 ends 3 s after F1's verify returned: the run records the environment stop well before
+  // that even on a slow windows-latest runner (500 ms was not always enough there).
+  const build = fakeBuild({ wait, delay: (a) => (a.featureId === 'F2' ? 3000 : 0) });
   const verified = [];
   const verify = async (a) => {
     verified.push(a.featureId);
