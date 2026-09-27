@@ -57,13 +57,14 @@ for (const [key, make, get] of TIMEOUT_KEYS) {
 function fakeVersionHelpCli({ versionOk, helpOk, helpText = 'usage: fakecli [options]' }) {
   const dir = tmpdir('harness-f51-cli-');
   if (process.platform === 'win32') {
+    // %~1 strips the quotes the core puts around each argument when it runs a .cmd shim.
     const file = path.join(dir, 'fakecli.cmd');
     const body = [
       '@echo off',
-      'if "%1"=="--version" (',
+      'if "%~1"=="--version" (',
       versionOk ? '  echo fakecli 1.0.0' : '  exit /b 127',
       ')',
-      'if "%1"=="--help" (',
+      'if "%~1"=="--help" (',
       helpOk ? `  echo ${helpText}` : '  exit /b 127',
       ')',
       '',
