@@ -27,6 +27,20 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 - 상태 변경: features.json 의 status 가 바뀔 때마다 그 단계의 `status` 이벤트 `{from, to, reason}` 를 남긴다(값이 같으면 남기지 않는다) — `approve` 는 `plan/status`(reason `approve`),
   `harness eval` 은 `eval/status`(round = 판정 라운드, reason = 판정 규칙의 사유 또는 판정), `harness run` 은 시작 시 `build/status`(reason `run_start`),
   끝날 때 통과 또는 평가 단계에서 끝나면 `eval/status`, 그 전 단계에서 끝나면 `build/status`, 의존 기능이 blocked 라 건너뛴 기능은 `build/status`(reason `dependency_blocked`, `blocked_by`).
+- 실행 단계: 어댑터 호출마다 `step` 이벤트 — `harness run` 의 builder 호출(`build`·`conflict_resolve`·`post_merge_recovery`)은 `build/step`, evaluator 호출은 `eval/step`,
+  security-reviewer 호출은 `security/step`(run 과 대화형 `harness eval` 모두, 재요청 포함 호출마다; round 는 run 이면 계약 라운드, `harness eval` 이면 판정 라운드).
+  `data` 는 `{step, role, adapter, model, outcome, attempt?(build), duration_ms, cost_usd, turns, tokens, session_id, duration_api_ms, session_log}` 다.
+  사용량은 claude `--output-format json` 결과의 `num_turns` → `turns`, `usage` 의 `input_tokens`·`output_tokens`·`cache_read_input_tokens`·`cache_creation_input_tokens` →
+  `tokens` `{input, output, cache_read, cache_creation}`, `session_id`, `duration_api_ms` 에서 읽는다. 사용량을 주지 않는 어댑터(gemini·codex·generic), JSON 이 아닌 출력,
+  `usage` 가 없거나 값이 음이 아닌 정수가 아니면 그 필드는 `null` 이고 단계 결과는 바뀌지 않는다. `session_id` 는 영문·숫자·`-`·`_` 128자 이하만 받는다(아니면 `null`).
+  `session_log` 는 세션 id 가 있으면 `{path, exists}` — `path` 는 claude 세션 기록 파일의 예상 위치 `~/.claude/projects/<cwd 인코딩>/<session_id>.jsonl`
+  (cwd 인코딩 = 호출한 작업 디렉터리의 실제 경로에서 영문·숫자 외 문자를 모두 `-` 로), `exists` 는 기록 시점에 그 파일이 있는지다. 없으면 `null`. 파일 내용은 읽지 않는다.
+- verify: `harness verify`·run 의 verify(`step` = `verify`·`post_merge_verify`, round 포함)는 끝날 때 `verify.commands` 마다 `verify/command`
+  `{step?, index, program, duration_ms, pass, exit_code, attempts, flaky, timed_out}`(program = 명령의 첫 프로그램 이름, `duration_ms` = 재실행 포함 시간),
+  기준 check 마다 `verify/check` `{step?, id, duration_ms, pass, exit_code, vacuous, parallel_retry, base_retry, timed_out}`(`duration_ms` = head 실행 시간, 단독 재실행 포함)를 남긴다.
+  재실행 여부: `attempts` 2 는 실패한 명령을 한 번 더 돌린 것이고 `flaky` 는 그 재실행에서 결과가 바뀐 것(§6.1), `parallel_retry` 는 동시 실행 중 실패해
+  단독으로 다시 돈 기준, `base_retry` 는 base 쪽 vacuity 실행을 단독으로 다시 돈 기준이다(§6.3). verify 가 끝나지 못하면(오류·중단) 이 이벤트는 남지 않는다.
+- 실행 단계 이벤트와 metrics(§8.11)에는 프롬프트·모델 응답 본문·diff·명령 출력이 들어가지 않는다 — 수치·이름·id·경로만 남는다.
 - 기록 실패(디스크·권한·`events` 가 파일 등)는 명령의 결과·출력·종료 코드를 바꾸지 않고 stderr 에 경고 한 줄(`harness: warning: could not record event …`, 프로세스당 한 번)만 남긴다.
 - `harness run` 이 기능 worktree 의 변경을 커밋할 때 `.harness/events/` 는 뺀다(test-count 캐시와 같음) — 기능 브랜치마다 같은 월 파일에 줄을 더하면 병합이 충돌하기 때문이다. worktree 안에서 남은 이벤트는 커밋되지 않는다.
 - `harness events [--stage S] [--feature F] [--since YYYY-MM-DD] [--json]` 은 모든 월 파일의 이벤트를 `ts` 순(같으면 파일 순)으로 보여 준다. 조건은 함께 쓰면 모두 만족해야 하고,
@@ -214,7 +228,7 @@ run 도중 evaluator(또는 security-reviewer) 어댑터가 `adapter_unavailable
 - 범위 밖: verify 명령의 병렬화(기준 check·base 실행·test_count 의 동시 실행은 §6.3), 여러 run 프로세스의 동시 실행, 진행 중 기능의 우선순위 조정, API 요금 한도(429)에 따른 자동 감속, 파일 겹침을 미리 예측하는 스케줄링.
 
 **실행 지표와 `harness stats`** (§8.11):
-- `harness run` 은 단계가 끝날 때마다 `runs/{runId}.metrics.jsonl` 에 JSON 한 줄을 추가한다. 단계는 `build`(build 시도마다)·`verify`(기능 worktree 의 verify 마다)·`eval`·`merge`(integration 병합 시도, outcome `merged`·`conflict`)·`post_merge_verify`, 충돌 해결이 있으면 `conflict_resolve`, 병합 후 verify 복구가 있으면 `post_merge_recovery` 다. 필드는 정확히 `feature`·`round`(이번 계약의 라운드)·`step`·`started_at`·`ended_at`(ISO 8601)·`duration_ms`·`cost_usd`(어댑터가 보고하지 않거나 코어 단계면 null)·`role`(`builder`·`evaluator`, verify·merge 같은 코어 단계는 `core`)·`adapter`·`model`(그 단계에서 실제로 호출한 값 — §10 역할 모델 정책으로 고른 등급별·승격·충돌 모델, 코어 단계는 null)·`outcome`(build·conflict_resolve·post_merge_recovery 는 `ok` 또는 어댑터 오류 — 이어간 build 시간 초과는 `timeout-continued`(§8 3.), verify 는 `pass`·`fail`·`error`, eval 은 판정) 이다. run 의 eval 단계는 한 줄이고 비용은 evaluator 와 security-reviewer 의 합이다.
+- `harness run` 은 단계가 끝날 때마다 `runs/{runId}.metrics.jsonl` 에 JSON 한 줄을 추가한다. 단계는 `build`(build 시도마다)·`verify`(기능 worktree 의 verify 마다)·`eval`·`merge`(integration 병합 시도, outcome `merged`·`conflict`)·`post_merge_verify`, 충돌 해결이 있으면 `conflict_resolve`, 병합 후 verify 복구가 있으면 `post_merge_recovery` 다. 필드는 정확히 `feature`·`round`(이번 계약의 라운드)·`step`·`started_at`·`ended_at`(ISO 8601)·`duration_ms`·`cost_usd`(어댑터가 보고하지 않거나 코어 단계면 null)·`role`(`builder`·`evaluator`, verify·merge 같은 코어 단계는 `core`)·`adapter`·`model`(그 단계에서 실제로 호출한 값 — §10 역할 모델 정책으로 고른 등급별·승격·충돌 모델, 코어 단계는 null)·`outcome`(build·conflict_resolve·post_merge_recovery 는 `ok` 또는 어댑터 오류 — 이어간 build 시간 초과는 `timeout-continued`(§8 3.), verify 는 `pass`·`fail`·`error`, eval 은 판정)·`turns`·`tokens`·`session_id`(어댑터가 보고한 턴 수, 토큰 `{input, output, cache_read, cache_creation}`, 세션 id — §2 실행 단계, 보고하지 않거나 코어 단계면 null) 이다. run 의 eval 단계는 한 줄이고 비용·`turns`·`tokens` 는 evaluator 와 security-reviewer 호출의 합, `session_id` 는 세션 id 가 있는 마지막 호출의 것이다.
 - 대화형 `harness eval` 은 evaluator·security-reviewer 어댑터 호출(재요청 포함)마다 `runs/eval.metrics.jsonl` 에 같은 형식의 한 줄을 추가한다(`step` = `eval`, `role` = 호출한 역할, `outcome` = `ok` 또는 어댑터 오류).
 - 지표 줄에는 위 필드만 있다 — 프롬프트·diff·어댑터 출력 본문·환경 변수 값은 들어가지 않는다.
 - run 보고서에 기능별 단계 표(`## Steps`, 라운드·단계·시간·비용·모델·outcome)가 들어간다.
