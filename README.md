@@ -22,7 +22,7 @@ v2는 v1을 처음부터 다시 쓴 버전입니다. 설계 근거는 `docs/brai
 | 상태 | 대상 프로젝트의 `.harness/` (git 추적) — config · features · contracts · verdicts · backlog · runs · events |
 
 코어 명령: `harness init`, `harness lint-contract`, `harness approve`, `harness verify`, `harness eval`,
-`harness run`, `harness status`, `harness stats`, `harness events`(`.harness/events/` 기록 조회, `--stage`·`--feature`·`--since`, SPEC §2), `harness decide`·`harness note`·`harness ci-record`(사람 결정·수동 개입·CI 결과 기록), `harness insights`(이벤트 집계와 개선 과제 후보, SPEC §2), `harness export`(opt-in 으로 익명화한 이벤트를 로컬 허브에 내보내기, [docs/telemetry.md](docs/telemetry.md)), `harness learn`(허브 분석: 버전별 지표, 근거 있는 개선 과제 후보를 backlog 로 `--propose`, 버전 비교 `--compare`), `harness doctor`, `harness migrate-v1`. 옵션은 `harness --help`.
+`harness run`, `harness status`, `harness stats`, `harness events`(`.harness/events/` 기록 조회, `--stage`·`--feature`·`--since`, SPEC §2 — 평가 단계의 `eval/finding`·`eval/reask`·`eval/verdict`·`security/verdict` 는 SPEC §7.8), `harness decide`·`harness note`·`harness ci-record`(사람 결정·수동 개입·CI 결과 기록), `harness insights`(이벤트 집계와 개선 과제 후보, SPEC §2), `harness export`(opt-in 으로 익명화한 이벤트를 로컬 허브에 내보내기, [docs/telemetry.md](docs/telemetry.md)), `harness learn`(허브 분석: 버전별 지표, 근거 있는 개선 과제 후보를 backlog 로 `--propose`, 버전 비교 `--compare`), `harness doctor`, `harness migrate-v1`. 옵션은 `harness --help`.
 
 ## 설치
 

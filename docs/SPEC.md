@@ -265,6 +265,17 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
    - **resolves**: 계약의 `resolves`(§5)에 적힌 열린 항목은 그 기능이 `passed` 로 기록될 때(대화형 `harness eval` §7.6, `harness run` §8.5 각각) `resolved_by` 가 기능 id 가 된다. fail·blocked 이면 바뀌지 않는다. 이미 해결된 항목의 `resolved_by` 는 덮어쓰지 않는다.
    - **status**: `harness status` 는 `backlog: N open (high a · medium b · low c · none d)` 줄과 열린 `high` 항목 최대 5개(id·summary 앞 100자)를 보여 준다. `--brief` 에는 열린 high 항목 수만 ` — backlog high: n` 으로 덧붙인다(0 이면 생략). backlog.json 이 `{ items: [...] }` 가 아니면 status 도 E6 로 exit 2.
    - **새 계약을 쓸 때**(spec skill): 열린 `high` 항목을 검토해 이 기능이 해결하는 항목의 id 를 `resolves` 에 넣는다.
+8. **평가·보안 이벤트** (§2 이벤트 기록). 평가(대화형 `eval`·`run` 모두)가 판정 또는 eval_error 로 끝날 때 코어는 그 평가의 이벤트를 `feature`·`round`(판정 파일 번호)와 함께 남긴다. 중단된 평가는 판정 파일처럼 이벤트도 남기지 않는다.
+   - **지적**: findings·out_of_scope 항목마다 evaluator 는 `eval/finding`, security-reviewer 는 `security/finding` — `data` 는 `criterion_id`·`dimension`·`source`·`result`·`reason`·`repro_program`·`repro_exit`·`repro_ms`·`summary` 다.
+     `criterion_id` 는 정규화한 id(없으면 null, 계약 밖 id 는 그대로 앞 100자), `source` 는 역할, `result` 는 `blocking` 또는 `backlogged`, `reason` 은 차단이면 null, 아니면 이관 사유 —
+     `no_criterion`(id 없음)·`not_in_contract`·`no_repro`·`repro_denied`(SR-3)·`adversarial`(D1)·`repro_timeout`·`repro_not_runnable`·`not_reproduced`(exit 0)·`out_of_scope`.
+     `repro_exit`·`repro_ms` 는 코어가 repro 를 실행했을 때의 종료 코드(시간 초과·시그널이면 null)와 소요 밀리초, 실행하지 않았으면 null 이다(같은 명령은 한 번만 실행해 같은 값).
+     repro 명령 문자열은 남기지 않고 첫 명령의 프로그램 이름(앞의 `VAR=값` 제외, 경로·`.exe` 제거, 소문자)만 `repro_program` 에 남긴다. `summary` 는 가린 뒤 앞 300자로 자른다 — 자르고 가리면 잘린 비밀 조각이 남기 때문이다.
+     evaluator 에 차단 finding 이 있어 reviewer 결과를 쓰지 않은 판정(§7.4)의 `security/finding` 에는 `unused: true` 가 붙는다.
+   - **재요청**: 스키마 불일치 재요청은 `eval/reask` `{role, reason: "schema_mismatch", problems}`(문제 최대 5개, 각 200자), 근거 없는 저점 재요청은 `eval/reask` `{role, reason: "unsupported_low_score", scores, unsupported}`(비차단이 된 finding 수).
+   - **판정**: 판정마다 `eval/verdict` — `verdict`·`score`·`scores`·`roles`·`threshold`·`independence`·`verify_pass`·`blocking`·`backlogged`·`contract_round`·`origin`. `roles` 는 역할별 점수(`evaluator`, critical 이면 `security-reviewer` — 쓰지 않았으면 `"unused"`), `scores`·`score` 는 최종 점수와 그 최솟값.
+     eval_error 면 `{verdict: "eval_error", error, score: null, scores: null, roles, …}`. critical 이면 `security/verdict` 도 남는다 — `{reviewer, reviewer_scores, security, security_min, blocking, security_verdict}`:
+     `reviewer` 는 `used`·`unused`(eval_error 면 `error`), `security` 는 최종 security 점수, `security_min` 은 max(threshold, 7), `security_verdict` 는 `security ≥ security_min` 이고 reviewer 나 security 차원의 차단 finding 이 없으면 `pass`, 아니면 `fail`(eval_error 면 null).
 
 ## 8. 자율 실행 (`harness run [F…] [--fresh] [--max-usd N] [--parallel N]`)
 **사전 점검**: 새 run 은 integration 브랜치·첫 기능의 worktree·`harness/F{n}` 브랜치를 만들거나 builder 를 부르기 전에 `harness doctor`(§10)의 역할 판정을 확인한다. builder·evaluator 가, 범위(인자로 준 기능, 없으면 `approved`/`in_progress` 기능 전체)에 `critical` 기능이 있으면 security-reviewer 도 usable 이어야 한다 — 하나라도 usable 이 아니면 각 역할 이름과 이유(`not installed`, `--help lacks …`, `not authenticated …`)를 담은 메시지로 exit 2, 아무것도 만들지 않는다. critical 여부는 승인된 계약의 `security_tier` 로 판단한다(계약이 없는 기능은 features.json 값). critical 기능이 범위에 없으면 security-reviewer 는 보지 않는다. 범위에 실행할 기능이 없으면 점검하지 않는다. `--resume` 재개는 점검하지 않는다.
