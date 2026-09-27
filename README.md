@@ -19,10 +19,10 @@ v2는 v1을 처음부터 다시 쓴 버전입니다. 설계 근거는 `docs/brai
 | Skills | `spec` · `plan` · `build` · `fix` · `status` · `plan-review`(iac) · `rollout`(ops) |
 | 역할 | `agents/` — builder · evaluator · security-reviewer (Claude subagent 겸 headless 프롬프트) |
 | 프로필 | `profiles/` — `sdlc`(기본) · `iac`(`harness tf-check`, [docs/iac.md](docs/iac.md)) · `ops` |
-| 상태 | 대상 프로젝트의 `.harness/` (git 추적) — config · features · contracts · verdicts · backlog · runs |
+| 상태 | 대상 프로젝트의 `.harness/` (git 추적) — config · features · contracts · verdicts · backlog · runs · events |
 
 코어 명령: `harness init`, `harness lint-contract`, `harness approve`, `harness verify`, `harness eval`,
-`harness run`, `harness status`, `harness stats`, `harness doctor`, `harness migrate-v1`. 옵션은 `harness --help`.
+`harness run`, `harness status`, `harness stats`, `harness events`(`.harness/events/` 기록 조회, `--stage`·`--feature`·`--since`, SPEC §2), `harness doctor`, `harness migrate-v1`. 옵션은 `harness --help`.
 
 ## 설치
 

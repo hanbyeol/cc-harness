@@ -15,6 +15,25 @@ AI 코딩 CLI(Claude Code · Codex CLI · Gemini CLI, 그 외 AGENTS.md 호환 �
 | 대화형 | 사용자가 CLI 안에서 skill 호출(`spec` → `plan` → `build`) — skill이 코어 명령을 호출 |
 | 자율 | 사람이 계약을 일괄 승인한 뒤 `harness run` — 코어가 기능별로 headless 세션을 띄워 끝까지 진행, 종료 시 보고서 + PR |
 
+**이벤트 기록** — 두 모드 모두 코어는 단계별 사건을 `.harness/events/YYYY-MM.jsonl`(`ts` 의 UTC 월)에 한 줄씩 추가한다. 한 줄은
+`{ts, stage, type, feature?, round?, harness_version, profile, project, data}` 이다: `ts` 는 ISO 시각, `stage` 는 plan·build·verify·eval·security·feedback 중 하나,
+`type` 은 단계 안의 사건 이름, `feature`·`round` 는 해당될 때만, `harness_version` 은 코어 `package.json` 의 버전, `profile` 은 config 의 profile,
+`project` 는 저장소 최상위 경로(`git rev-parse --show-toplevel`, git 밖이면 프로젝트 경로)의 sha256 앞 16자다. `data` 는 기록 전에
+run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값과 잘린 조각을 `[redacted]` 로)으로 가린다.
+- 계획 단계: `lint-contract` 는 검사한 계약마다(읽지 못한 계약 제외) `plan/lint` — `data` 는 `{version, errors, warnings, error_count, warning_count}`,
+  `errors`·`warnings` 는 `[{rule, id}]`(규칙 이름 — `shape`·`contract_id`·`security_tier`·`id`·`check`·`criterion_text`·`universal`·`size`·`critical_sc`·`rollout`·`resolves`·`approval` — 과 기준 id, 계약 전체 문제면 id 는 null).
+  `approve` 는 계약마다 `plan/approve` — `{version, hash, previous_hash, added, removed, changed, criteria}`. `criteria` 는 기준 id → 기준 문장의 sha256 앞 16자이고,
+  이전 승인(그 기능의 마지막 `plan/approve` 이벤트, 없으면 HEAD 에 커밋된 계약의 유효한 승인)과 비교해 추가·삭제·문장 변경된 기준 id 를 적는다. 이전 승인이 없으면 모든 기준이 `added` 다.
+- 상태 변경: features.json 의 status 가 바뀔 때마다 그 단계의 `status` 이벤트 `{from, to, reason}` 를 남긴다(값이 같으면 남기지 않는다) — `approve` 는 `plan/status`(reason `approve`),
+  `harness eval` 은 `eval/status`(round = 판정 라운드, reason = 판정 규칙의 사유 또는 판정), `harness run` 은 시작 시 `build/status`(reason `run_start`),
+  끝날 때 통과 또는 평가 단계에서 끝나면 `eval/status`, 그 전 단계에서 끝나면 `build/status`, 의존 기능이 blocked 라 건너뛴 기능은 `build/status`(reason `dependency_blocked`, `blocked_by`).
+- 기록 실패(디스크·권한·`events` 가 파일 등)는 명령의 결과·출력·종료 코드를 바꾸지 않고 stderr 에 경고 한 줄(`harness: warning: could not record event …`, 프로세스당 한 번)만 남긴다.
+- `harness run` 이 기능 worktree 의 변경을 커밋할 때 `.harness/events/` 는 뺀다(test-count 캐시와 같음) — 기능 브랜치마다 같은 월 파일에 줄을 더하면 병합이 충돌하기 때문이다. worktree 안에서 남은 이벤트는 커밋되지 않는다.
+- `harness events [--stage S] [--feature F] [--since YYYY-MM-DD] [--json]` 은 모든 월 파일의 이벤트를 `ts` 순(같으면 파일 순)으로 보여 준다. 조건은 함께 쓰면 모두 만족해야 하고,
+  `--since` 는 그날 0시(UTC) 이후다. 텍스트 출력은 한 줄에 `<ts> <stage>/<type> [<feature>] [r<round>] <data JSON>`, `--json` 은 이벤트 배열이다. 이벤트가 없으면 `no events yet`,
+  조건에 맞는 것이 없으면 `no matching events`. JSON 객체가 아닌 줄은 건너뛰고 stderr 에 `harness: warning: events/<파일>:<줄 번호>: not a JSON object — line skipped` 경고를 낸다.
+  잘못된 옵션(없는 stage, `F<n>` 이 아닌 feature, 날짜가 아닌 since)은 `usage`(exit 2).
+
 ## 3. 용어
 - **계약(contract)**: 기능 1개의 수락 기준. `.harness/contracts/F{n}.json`. 승인 시 해시로 동결.
 - **check**: 기준 하나를 판정하는 셸 명령. exit 0 = 충족.
@@ -32,6 +51,7 @@ AI 코딩 CLI(Claude Code · Codex CLI · Gemini CLI, 그 외 AGENTS.md 호환 �
 | `backlog.json` | `{ items: [...] }` — 범위 밖 발견 · blocked 재범위 제안. 항목 id(`B<n>`)·`priority`·`seen`·`sources`·`resolved_by` 규칙은 §7.7 |
 | `runs/{ts}.md` | 자율 실행 보고서 |
 | `runs/{ts}.metrics.jsonl`, `runs/eval.metrics.jsonl` | 단계별 실행 지표(한 줄 = 끝난 단계 하나, §8 실행 지표). `harness stats` 가 집계한다 |
+| `events/YYYY-MM.jsonl` | 이벤트 기록(한 줄 = 사건 하나, §2 이벤트 기록). `harness events` 가 보여 준다 |
 
 `init` 은 없는 파일·디렉터리만 만든다. `.harness/` 가 일부만 있어도(예: `contracts/` 만) 빠진 것을 채우고 기존 파일은 건드리지 않는다. 상태 파일 쓰기는 원자적이다(같은 디렉터리의 임시 파일 → rename). 어느 단계에서 실패해도 임시 파일을 지우고 대상 파일은 이전 내용 그대로 남는다(`io` 에러).
 
@@ -84,7 +104,7 @@ config의 `verify.commands`(예: test·lint·build)를 순서대로 실행. 하�
 
 ### 6.2 무결성 검사 (base 대비 diff)
 diff = `merge-base(base, HEAD)` ↔ **작업 트리**(커밋 안 된 변경 + untracked 파일 포함). base 측 실행(test_count·vacuous 검사)은 merge-base 를 임시 detached worktree 로 꺼내 수행하고 끝나면 제거한다. 그 `git worktree add` 가 실패하면 worktree 가 아닌 경로에 `git worktree remove` 를 호출하지 않고 임시 디렉터리만 지우며, verify 는 원래 git 오류 메시지를 담은 `git` 오류로 끝난다.
-worktree 안의 `.harness/` 는 코어가 쓰는 기록 경로 `verdicts/**`, `backlog.json`, `runs/**` 만 면제하고, **그 외 어떤 경로든** 변경되면 fail (아래 2는 그 부분집합). 면제는 git 이 보고하는 `/` 경로의 정확한 세그먼트 기준이다(`verdicts-x/…`, `backlog.json.bak`, `runs` 라는 파일은 보호). 모노레포 하위 프로젝트는 그 프로젝트의 `<sub>/.harness` 기준으로 같다.
+worktree 안의 `.harness/` 는 코어가 쓰는 기록 경로 `verdicts/**`, `backlog.json`, `runs/**`, `events/**` 만 면제하고, **그 외 어떤 경로든** 변경되면 fail (아래 2는 그 부분집합). 면제는 git 이 보고하는 `/` 경로의 정확한 세그먼트 기준이다(`verdicts-x/…`, `backlog.json.bak`, `runs`·`events` 라는 파일, `events-x/…` 는 보호). 모노레포 하위 프로젝트는 그 프로젝트의 `<sub>/.harness` 기준으로 같다.
 1. 추가된 줄에 skip/focus 마커 없음: `.skip(`, `.only(`, `xit(`, `xdescribe(`, `@pytest.mark.skip`, `@Disabled`, `t.Skip(`, `@Ignore` (목록은 config로 추가 가능, 제거 불가 — 기본 목록은 코드에 고정).
    마커는 **토큰 경계**로 매칭한다: 마커가 식별자 문자로 시작하면 바로 앞 문자가 식별자 문자가 아니어야 한다(`process.exit(` ≠ `xit(`, `list.Skip(` ≠ `t.Skip(`). 구두점으로 시작하는 마커는 부분문자열 매칭.
 2. `.harness/config.json`, `.harness/contracts/**`, `.harness/features.json` 변경 없음 (면제 경로와 함께 바뀌어도 fail, 보고 목록에는 보호 경로만).

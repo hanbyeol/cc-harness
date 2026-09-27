@@ -18,6 +18,7 @@ const COMMANDS = {
   run: ['autonomously build, verify and evaluate approved features', true],
   status: ['show feature status and what can run next', false],
   stats: ['aggregate step metrics and suggest config changes', true],
+  events: ['show the event log (.harness/events) oldest first', true],
   doctor: ['detect installed CLIs and check adapter flags', false],
   'tf-check': ['terraform init/validate per module directory and fmt (iac profile verify)', false],
   'migrate-v1': ['convert cc-harness v1 progress/ state into .harness/', false],
