@@ -309,3 +309,13 @@ test('F2 ES-2 positionless errors: bare values, BOM and bad literals still get l
     assert.throws(() => parseContract(text, 'F3.json'), /F3\.json: invalid JSON at line \d+ column \d+/, JSON.stringify(text));
   }
 });
+
+// Quoted text is a mention, not a use (fix: F53 AC-2 quotes the forbidden words it describes).
+test('F2 AC-3 quoted forbidden words are a mention, not a universal claim', async () => {
+  const { matchedForbidden } = await import('../lib/contract.mjs');
+  assert.deepEqual(matchedForbidden("규칙 3 은 '절대로' 뒤에 무엇이 오든 전칭 표현으로 본다"), []);
+  assert.deepEqual(matchedForbidden('예시 "절대로 경로를 바꾸지 않는다" 는 오류다'), []);
+  assert.deepEqual(matchedForbidden('`never` 는 단어 경계로 본다'), []);
+  assert.deepEqual(matchedForbidden('설정은 절대로 경로를 바꾸지 않는다'), ['절대']);
+  assert.deepEqual(matchedForbidden("이 값은 '고정' 이고 절대 변경되지 않는다"), ['절대']);
+});
