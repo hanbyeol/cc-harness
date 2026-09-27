@@ -1286,10 +1286,13 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B171",
-      "seen": 2,
+      "seen": 5,
       "sources": [
-        "F38-r1"
-      ]
+        "F38-r1",
+        "F44-r2",
+        "F44-r3"
+      ],
+      "resolved_by": "F44"
     },
     {
       "feature": "F25",
@@ -1534,13 +1537,15 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B192",
-      "seen": 7,
+      "seen": 9,
       "sources": [
         "F29-r2",
         "F37-r1",
         "F40-r1",
-        "F44-r1"
-      ]
+        "F44-r1",
+        "F44-r3"
+      ],
+      "resolved_by": "F44"
     },
     {
       "feature": "F29",
@@ -1551,9 +1556,10 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B193",
-      "seen": 2,
+      "seen": 3,
       "sources": [
-        "F37-r1"
+        "F37-r1",
+        "F44-r2"
       ]
     },
     {
@@ -2504,11 +2510,13 @@
       "source": "evaluator",
       "priority": "medium",
       "id": "B281",
-      "seen": 3,
+      "seen": 4,
       "sources": [
         "F40-r2",
-        "F44-r1"
-      ]
+        "F44-r1",
+        "F44-r3"
+      ],
+      "resolved_by": "F44"
     },
     {
       "feature": "F40",
@@ -3027,6 +3035,150 @@
         }
       ],
       "id": "B329"
+    },
+    {
+      "feature": "F44",
+      "round": 2,
+      "at": "2026-09-27T03:29:29.162Z",
+      "summary": "The new 127 rule looks only at the command's first program. A compound command such as `cd sub && jest` or `FOO=1 make && jest` whose later program is missing prints `jest: not found`, which does not name `cd`, so it is now a plain exit-127 failure rather than an environment stop. This follows the SPEC wording, but users of chained commands lose the environment-stop behaviour.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B330"
+    },
+    {
+      "feature": "F44",
+      "round": 2,
+      "at": "2026-09-27T03:29:29.162Z",
+      "summary": "The built-in `harness ` execution is not used for repro commands or adapter CLIs, and `npx harness …` still goes through the shell. That is consistent with the SPEC, but the docs could say that only verify commands, checks and test_count are covered.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B331"
+    },
+    {
+      "feature": "F44",
+      "round": 2,
+      "at": "2026-09-27T03:29:29.162Z",
+      "summary": "The built-in 'harness …' path runs this checkout's bin/harness.mjs. When verify runs from a feature worktree's own core, that means builder-modified core code runs as the verify command. This is the same trust as running the core itself (threat model D1), but a pinned core path for `harness run` would be worth documenting.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B332"
+    },
+    {
+      "feature": "F44",
+      "round": 2,
+      "at": "2026-09-27T03:29:29.162Z",
+      "summary": "The new first-program 127 rule classifies compound commands such as 'cd sub && make' (with make missing) as a plain failure, because the first program is 'cd'. This matches SPEC §6.1 as written, but it changes environment-stop behaviour for such commands, and the change is not called out in docs/run.md.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B333"
+    },
+    {
+      "feature": "F44",
+      "round": 2,
+      "at": "2026-09-27T03:29:29.162Z",
+      "summary": "The AC-3 test is skipped silently on Windows without symlink privilege (EPERM return), so Windows has no coverage of the lstat path.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B334"
+    },
+    {
+      "feature": "F44",
+      "round": 3,
+      "at": "2026-09-27T04:31:07.249Z",
+      "summary": "commandNotFound matches only the command line's first word. A compound command such as `cd sub && jest` or `FOO=1 npm test` that hits exit 127 because an inner tool is missing counts as a plain failure, which matches SPEC §6.1. A missing tool behind a `cd`/`&&` prefix is therefore no longer reported as an environment stop.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B335"
+    },
+    {
+      "feature": "F44",
+      "round": 3,
+      "at": "2026-09-27T04:31:07.249Z",
+      "summary": "The `harness tf-check` not-found message now begins with `harness tf-check:` so it passes the first-program rule. That couples the message text in lib/commands/tf-check.mjs to the rule in exec.mjs. Only the SPEC line and a test guard the coupling, and only when the profile's verify command is exactly `harness tf-check`.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B336"
+    },
+    {
+      "feature": "F44",
+      "round": 3,
+      "at": "2026-09-27T04:31:07.249Z",
+      "summary": "The F37 tests were rewritten to use a TOOL file placed in the worktree and `.` on PATH, instead of the old probe script that exited 127 from inside a script. The change is needed by the new rule and assert-count reports nothing weakened. The tests now depend on `.` being on PATH for POSIX sh, which is a little fragile.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B337"
+    },
+    {
+      "feature": "F44",
+      "round": 3,
+      "at": "2026-09-27T04:31:07.249Z",
+      "summary": "Timing changes in the F26 ES-2 test (check_parallel timeout 2→20, check sleep 20s→40s) and the F6 ES-3 test (timeout 60s→150s) are unrelated to F44's contract. They are load-stability edits.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B338"
+    },
+    {
+      "feature": "F44",
+      "round": 3,
+      "at": "2026-09-27T04:31:07.249Z",
+      "summary": "The base vacuity run goes through runUserCommand, so a new check of the form `harness …` runs the core's bin/harness.mjs from the head checkout, not the base worktree's copy. This is what SPEC §6.1 specifies, but it means base vacuity for checks that exercise the harness bin itself is judged against the head core.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B339"
+    },
+    {
+      "feature": "F44",
+      "round": 3,
+      "at": "2026-09-27T04:31:07.249Z",
+      "summary": "conflictMarkedFiles only lstats the last path component. A changed path under a symlinked parent directory (dir -> /outside, path dir/file) would still be resolved through the link. git does not normally report paths beyond a tracked symlink, so this is not reachable in normal operation.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B340"
+    },
+    {
+      "feature": "F44",
+      "round": 3,
+      "at": "2026-09-27T04:31:07.249Z",
+      "summary": "builtinInvocation runs any harness subcommand with plain-word arguments (e.g. 'harness approve F1' as a check) through this checkout's bin/harness.mjs. This is the same capability the PATH harness already had, so it is not a regression. Restricting the built-in path to read-only subcommands such as tf-check would narrow it.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B341"
+    },
+    {
+      "source": "run:F46",
+      "feature": "F46",
+      "kind": "rescope",
+      "reason": "budget",
+      "rounds": 1,
+      "blocking": [],
+      "summary": "F46 blocked (budget): a step timed out or the budget was exhausted — build timed out after 2700s",
+      "options": [
+        {
+          "kind": "split",
+          "summary": "split F46 so the feature ship as a separate feature with its own contract"
+        },
+        {
+          "kind": "rewrite",
+          "summary": "rewrite the criteria for the feature (new contract version, re-approval)"
+        },
+        {
+          "kind": "accept-risk",
+          "summary": "accept the risk: drop or relax the feature with a recorded decision"
+        }
+      ],
+      "id": "B342"
     }
   ]
 }

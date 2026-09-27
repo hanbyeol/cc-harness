@@ -1,0 +1,128 @@
+{
+  "feature": "F44",
+  "round": 3,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "commandNotFound matches only the command line's first word. A compound command such as `cd sub && jest` or `FOO=1 npm test` that hits exit 127 because an inner tool is missing counts as a plain failure, which matches SPEC §6.1. A missing tool behind a `cd`/`&&` prefix is therefore no longer reported as an environment stop.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The `harness tf-check` not-found message now begins with `harness tf-check:` so it passes the first-program rule. That couples the message text in lib/commands/tf-check.mjs to the rule in exec.mjs. Only the SPEC line and a test guard the coupling, and only when the profile's verify command is exactly `harness tf-check`.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The F37 tests were rewritten to use a TOOL file placed in the worktree and `.` on PATH, instead of the old probe script that exited 127 from inside a script. The change is needed by the new rule and assert-count reports nothing weakened. The tests now depend on `.` being on PATH for POSIX sh, which is a little fragile.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "Timing changes in the F26 ES-2 test (check_parallel timeout 2→20, check sleep 20s→40s) and the F6 ES-3 test (timeout 60s→150s) are unrelated to F44's contract. They are load-stability edits.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The base vacuity run goes through runUserCommand, so a new check of the form `harness …` runs the core's bin/harness.mjs from the head checkout, not the base worktree's copy. This is what SPEC §6.1 specifies, but it means base vacuity for checks that exercise the harness bin itself is judged against the head core.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "B281: the iac profile's `harness tf-check` verify command now runs without `harness` on PATH, and docs/iac.md was updated. The remaining part of the backlog item, how to override the command, is not addressed.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B281"
+    },
+    {
+      "summary": "B192 is resolved by the first-program rule for verify commands, checks and test_count. Commands whose first program is a wrapper such as `npx`, `env` or `time` still classify a 127 from the wrapped tool as a plain failure. That is consistent with the contract.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B192"
+    },
+    {
+      "summary": "B171 is resolved by conflictMarkedFiles using lstat.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B171"
+    },
+    {
+      "summary": "changedSince()'s contentHash() (lib/run.mjs:192) still uses fs.statSync/readFileSync, which follow symlinks. When it builds the snapshot and compares against it during a conflict resolution, it reads the content of a file outside the repository that a conflicted symlink path points to, but only to hash it. The marker scan itself (conflictMarkedFiles) now uses lstat, so no marker verdict or content leaks. Making contentHash use lstat as well would make 'never reads the link target' hold for the whole resolution path.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B171"
+    },
+    {
+      "summary": "conflictMarkedFiles only lstats the last path component. A changed path under a symlinked parent directory (dir -> /outside, path dir/file) would still be resolved through the link. git does not normally report paths beyond a tracked symlink, so this is not reachable in normal operation.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "builtinInvocation runs any harness subcommand with plain-word arguments (e.g. 'harness approve F1' as a check) through this checkout's bin/harness.mjs. This is the same capability the PATH harness already had, so it is not a regression. Restricting the built-in path to read-only subcommands such as tf-check would narrow it.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The 127 rule matches the first program's name anywhere on one stderr line next to 'not found'. A script whose first program is itself named in an unrelated 'not found' message (e.g. 'node x.js' printing 'node: module foo not found' and exiting 127) is still judged as command not found. This is a narrow false positive in the old direction (an environment stop).",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B192"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.8986808,
+  "contract_hash": "b290d6183121cbc4ee359ab6342aa366161d15f9ec1c62a51a0178a3df4dd19f",
+  "contract_round": 3,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 8,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-27T04:31:07.249Z",
+  "origin": "run"
+}

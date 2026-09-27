@@ -1,0 +1,95 @@
+{
+  "feature": "F44",
+  "round": 2,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The new 127 rule looks only at the command's first program. A compound command such as `cd sub && jest` or `FOO=1 make && jest` whose later program is missing prints `jest: not found`, which does not name `cd`, so it is now a plain exit-127 failure rather than an environment stop. This follows the SPEC wording, but users of chained commands lose the environment-stop behaviour.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The built-in `harness ` execution is not used for repro commands or adapter CLIs, and `npx harness …` still goes through the shell. That is consistent with the SPEC, but the docs could say that only verify commands, checks and test_count are covered.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The firstProgram/commandNotFound tests run only with `platform: linux` or `win32` passed in. No end-to-end test exercises a real chained command, and the Windows cmd.exe path is still unit-only (related to B193).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B193"
+    },
+    {
+      "summary": "conflictMarkedFiles uses lstat only on the final path component. A changed path whose parent directory is a symbolic link (e.g. 'dir/file' with 'dir' -> outside) would still be followed. git does not normally report paths beyond a symlink, so this is not reachable today; a realpath-inside-wt check would close it for good.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "backlog_id": "B171"
+    },
+    {
+      "summary": "The built-in 'harness …' path runs this checkout's bin/harness.mjs. When verify runs from a feature worktree's own core, that means builder-modified core code runs as the verify command. This is the same trust as running the core itself (threat model D1), but a pinned core path for `harness run` would be worth documenting.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The new first-program 127 rule classifies compound commands such as 'cd sub && make' (with make missing) as a plain failure, because the first program is 'cd'. This matches SPEC §6.1 as written, but it changes environment-stop behaviour for such commands, and the change is not called out in docs/run.md.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    },
+    {
+      "summary": "The AC-3 test is skipped silently on Windows without symlink privilege (EPERM return), so Windows has no coverage of the lstat path.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.879934,
+  "contract_hash": "b290d6183121cbc4ee359ab6342aa366161d15f9ec1c62a51a0178a3df4dd19f",
+  "contract_round": 2,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-09-27T03:29:29.162Z",
+  "origin": "run"
+}
