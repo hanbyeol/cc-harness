@@ -140,17 +140,17 @@ test('F62 AC-4 claude-md --check exits 1 with the reason when CLAUDE.md has no b
 test('F62 AC-4 claude-md --check exits 1 naming both versions when the block is older', () => {
   const r = checkCase(`# p\n\n<!-- cc-harness:begin v2.0.1 -->\nold\n${END}\n`);
   assert.equal(r.code, 1, r.stdout + r.stderr);
-  assert.ok(r.stdout.includes(`v2.0.1, harness is v${VERSION}`), r.stdout);
+  assert.ok(r.stdout.includes(`block v2.0.1, harness v${VERSION}`), r.stdout);
   const v1 = checkCase(`# p\n\n${V1_BLOCK}\n`);
   assert.equal(v1.code, 1, v1.stdout + v1.stderr);
   assert.match(v1.stdout, /unversioned/);
 });
 
 test('F62 AC-4 claude-md --check exits 0 and changes nothing when the block is current', () => {
-  // Current = the version; the check does not rewrite a hand-edited current block.
-  const r = checkCase(`# p\n\n${BEGIN}\nedited by hand\n${END}\n`);
+  // Since F69 current = the content the config renders now (F69 tests the version-independent cases).
+  const r = checkCase(`# p\n\n${renderBlock()}\n`);
   assert.equal(r.code, 0, r.stdout + r.stderr);
-  assert.ok(r.stdout.includes(`current (v${VERSION})`), r.stdout);
+  assert.ok(r.stdout.includes(`current (content unchanged since v${VERSION})`), r.stdout);
 });
 
 // ---------- AC-5 ----------
