@@ -1,0 +1,45 @@
+{
+  "feature": "F65",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "runVerifyCommand의 entry.code는 3차 실행이 실패로 끝나도 갱신되지 않고 1차 실행의 exit code로 남는다(3차 통과 시에만 third.code로 갱신). 2차까지만 있던 기존 동작과 동일한 패턴이라 이번 diff가 만든 회귀는 아니지만, verify/command 이벤트의 exit_code가 실제 마지막 시도의 종료 코드를 반영하지 않는 점은 참고할 만하다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.856183,
+  "contract_hash": "20e55da1029bf4e83eb007dd4fac513976c0f465d2bff3181571fc6e745f8898",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    }
+  },
+  "at": "2026-09-28T06:05:10.918Z",
+  "origin": "run"
+}

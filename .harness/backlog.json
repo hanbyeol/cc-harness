@@ -4510,7 +4510,11 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "medium",
-      "id": "B374"
+      "id": "B374",
+      "seen": 2,
+      "sources": [
+        "F67-r1"
+      ]
     },
     {
       "feature": "F57",
@@ -4908,6 +4912,36 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B410"
+    },
+    {
+      "feature": "F66",
+      "round": 1,
+      "at": "2026-09-28T05:59:24.297Z",
+      "summary": "approve.mjs's roundsExhausted() decides the 'blocked after max_rounds' refusal purely from verdict count (contractVerdicts(...).length >= maxRounds + extra) without checking the actual block reason stored nowhere on the feature. If a feature is blocked for reason 'needs_human' (or 2 consecutive eval_errors) and that happens to land on/after the round-count threshold, a plain `harness approve F<n>` wrongly reports 'F<n> is blocked after max_rounds with this contract — change the contract, or pass --extra-round...' even though the block had nothing to do with running out of rounds — AC-1's own text scopes the refusal to '(reason rounds)'. Verified with a scripted repro (3 verdicts: fail, fail, needs-human, all sharing one contract hash) where a plain re-approve throws the max_rounds message instead of succeeding. Workaround (--extra-round) still unblocks the feature, and SPEC §7.6 already generalizes the count-based rule to stall/divergence explicitly, so this may be accepted design rather than an oversight for needs_human specifically — flagging for a human decision rather than blocking.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "medium",
+      "id": "B411"
+    },
+    {
+      "feature": "F66",
+      "round": 1,
+      "at": "2026-09-28T05:59:24.297Z",
+      "summary": "The max-rounds-exceeded check ('k > maxRounds && k >= allowed') is duplicated verbatim in lib/eval-status.mjs (decideStatus) and lib/run.mjs (endRound's `limit()`), and the default max_rounds fallback ('Number.isInteger(config.max_rounds) && config.max_rounds > 0 ? config.max_rounds : 3') is repeated a third time in lib/commands/approve.mjs. A future change to the round-limit rule would need to be kept in sync by hand across three files.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B412"
+    },
+    {
+      "feature": "F65",
+      "round": 1,
+      "at": "2026-09-28T06:05:10.918Z",
+      "summary": "runVerifyCommand의 entry.code는 3차 실행이 실패로 끝나도 갱신되지 않고 1차 실행의 exit code로 남는다(3차 통과 시에만 third.code로 갱신). 2차까지만 있던 기존 동작과 동일한 패턴이라 이번 diff가 만든 회귀는 아니지만, verify/command 이벤트의 exit_code가 실제 마지막 시도의 종료 코드를 반영하지 않는 점은 참고할 만하다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B413"
     }
   ]
 }

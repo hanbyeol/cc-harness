@@ -1,0 +1,51 @@
+{
+  "feature": "F66",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "approve.mjs's roundsExhausted() decides the 'blocked after max_rounds' refusal purely from verdict count (contractVerdicts(...).length >= maxRounds + extra) without checking the actual block reason stored nowhere on the feature. If a feature is blocked for reason 'needs_human' (or 2 consecutive eval_errors) and that happens to land on/after the round-count threshold, a plain `harness approve F<n>` wrongly reports 'F<n> is blocked after max_rounds with this contract — change the contract, or pass --extra-round...' even though the block had nothing to do with running out of rounds — AC-1's own text scopes the refusal to '(reason rounds)'. Verified with a scripted repro (3 verdicts: fail, fail, needs-human, all sharing one contract hash) where a plain re-approve throws the max_rounds message instead of succeeding. Workaround (--extra-round) still unblocks the feature, and SPEC §7.6 already generalizes the count-based rule to stall/divergence explicitly, so this may be accepted design rather than an oversight for needs_human specifically — flagging for a human decision rather than blocking.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "medium"
+    },
+    {
+      "summary": "The max-rounds-exceeded check ('k > maxRounds && k >= allowed') is duplicated verbatim in lib/eval-status.mjs (decideStatus) and lib/run.mjs (endRound's `limit()`), and the default max_rounds fallback ('Number.isInteger(config.max_rounds) && config.max_rounds > 0 ? config.max_rounds : 3') is repeated a third time in lib/commands/approve.mjs. A future change to the round-limit rule would need to be kept in sync by hand across three files.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.728297,
+  "contract_hash": "b568b4223a0eb572f1235919d5dfeb3353b09684f21f6600f2743779ddc61070",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    }
+  },
+  "at": "2026-09-28T05:59:24.297Z",
+  "origin": "run"
+}
