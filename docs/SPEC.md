@@ -42,7 +42,7 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
   단독으로 다시 돈 기준, `base_retry` 는 base 쪽 vacuity 실행을 단독으로 다시 돈 기준이다(§6.3). verify 가 끝나지 못하면(오류·중단) 이 이벤트는 남지 않는다.
 - 실행 단계 이벤트와 metrics(§8.11)에는 프롬프트·모델 응답 본문·diff·명령 출력이 들어가지 않는다 — 수치·이름·id·경로만 남는다.
 - 기록 실패(디스크·권한·`events` 가 파일 등)는 명령의 결과·출력·종료 코드를 바꾸지 않고 stderr 에 경고 한 줄(`harness: warning: could not record event …`, 프로세스당 한 번)만 남긴다.
-- `harness run` 이 기능 worktree 의 변경을 커밋할 때 `.harness/events/` 는 뺀다(test-count 캐시와 같음) — 기능 브랜치마다 같은 월 파일에 줄을 더하면 병합이 충돌하기 때문이다. worktree 안에서 남은 이벤트는 커밋되지 않는다. 이벤트 로그는 프로젝트의 로컬 기록이다 — 대상 프로젝트는 `.harness/events/` 를 `.gitignore` 에 두기를 권하고(이 저장소도 그렇다), 여러 프로젝트에 걸친 축적은 git 이 아니라 `harness export`(허브, opt-in)로 한다. 이미 무시되는 경로는 run 의 `git add` 제외 지정에서 빠진다(git 이 무시된 경로를 가리키는 pathspec 을 거부하므로).
+- `harness run` 이 기능 worktree 의 변경을 커밋할 때 `.harness/events/` 는 뺀다(test-count 캐시와 같음) — 기능 브랜치마다 같은 월 파일에 줄을 더하면 병합이 충돌하기 때문이다. worktree 안에서 남은 이벤트는 커밋되지 않는다. 이벤트 로그는 프로젝트의 로컬 기록이다 — 대상 프로젝트는 `.harness/events/` 를 `.gitignore` 에 두기를 권하고(이 저장소도 그렇다), 여러 프로젝트에 걸친 축적은 git 이 아니라 `harness export`(허브, 기본으로 켜짐)로 한다. 이미 무시되는 경로는 run 의 `git add` 제외 지정에서 빠진다(git 이 무시된 경로를 가리키는 pathspec 을 거부하므로).
 - `harness events [--stage S] [--feature F] [--since YYYY-MM-DD] [--json]` 은 모든 월 파일의 이벤트를 `ts` 순(같으면 파일 순)으로 보여 준다. 조건은 함께 쓰면 모두 만족해야 하고,
   `--since` 는 그날 0시(UTC) 이후다. 텍스트 출력은 한 줄에 `<ts> <stage>/<type> [<feature>] [r<round>] <data JSON>`, `--json` 은 이벤트 배열이다. 이벤트가 없으면 `no events yet`,
   조건에 맞는 것이 없으면 `no matching events`. JSON 객체가 아닌 줄은 건너뛰고 stderr 에 `harness: warning: events/<파일>:<줄 번호>: not a JSON object — line skipped` 경고를 낸다.
@@ -65,8 +65,17 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
     `lint_rule`(한 lint 규칙의 오류 3개 이상), `backlog_reason`(한 이관 사유의 지적 3개 이상), `low_reproduction`(지적 5개 이상이고 재현율 50% 미만),
     `reask`(재요청 3회 이상), `intervention`(한 종류의 개입 2회 이상), `rescope`(`split`+`rewrite` 결정 2회 이상), `ci_repeated`(반복 실패 테스트마다). 해당이 없으면 `suggestions: none`.
 
-**현장 데이터 내보내기** (opt-in, 설명: `docs/telemetry.md`) — `harness export [--hub <dir>] [--dry-run]` 은 이벤트를 익명화한 묶음으로 로컬 허브 디렉터리에 쓴다. 원격 전송·암호화는 하지 않는다.
-- config `telemetry.share` 가 `true`(불리언)일 때만 동작한다. 아니면(없음·`false`·그 밖의 값) `telemetry.share is off …` 를 출력하고 아무것도 쓰지 않는다(exit 0, `--dry-run` 도 같다).
+**현장 데이터 내보내기** (기본으로 켜짐, 설명: `docs/telemetry.md`) — `harness export [--hub <dir>] [--dry-run]` 은 이벤트를 익명화한 묶음으로 로컬 허브 디렉터리에 쓴다. 원격 전송·암호화는 하지 않는다.
+- 기본으로 켜져 있다: config 에 `telemetry` 가 없거나 `telemetry.share` 가 없으면 동작한다. `telemetry.share` 가 `false` 거나 불리언이 아닌 값(`"true"`·`1`·`null` 등)이면,
+  또는 `telemetry` 가 객체가 아니면 꺼진 것이다 — `telemetry.share is off …` 를 출력하고 아무것도 쓰지 않는다(exit 0, `--dry-run` 도 같다). 끄려면 `.harness/config.json` 에
+  `"telemetry": {"share": false}` 를 둔다.
+- 환경 변수 `CC_HARNESS_TELEMETRY` 가 `0` 또는 `off` 면 config 와 상관없이 export 와 자동 export 가 모두 꺼진다(`telemetry.share is off (CC_HARNESS_TELEMETRY) …`, exit 0).
+  그 밖의 값이거나 없으면 config 를 따른다. 예: `CC_HARNESS_TELEMETRY=0 harness run`.
+- 첫 안내 — 기본값으로 켜진 상태(`telemetry.share` 없음)에서 프로젝트의 첫 export(`.harness/events/.exported` 가 없을 때)가 성공하면 stderr 에 한 줄
+  `harness: telemetry is on by default — anonymized events go to <hub> (local only); set "telemetry": {"share": false} in .harness/config.json or CC_HARNESS_TELEMETRY=0 to turn it off`
+  를 낸다. `telemetry.share` 를 명시적으로 `true` 로 둔 경우와 그 뒤의 export 에서는 내지 않는다.
+- `harness doctor` 는 `telemetry: on (default) | on (config) | off (config) | off (CC_HARNESS_TELEMETRY) — hub <허브 경로>` 한 줄로 상태를 보여 준다.
+- 허브에 새로 만드는 디렉터리(허브와 `<hub>/<project>`)는 모드 0700, 묶음 파일은 0600 이다(POSIX, umask 와 무관). 이미 있는 디렉터리는 바꾸지 않는다.
 - 허브는 `--hub <dir>`(현재 디렉터리 기준), 없으면 환경 변수 `CC_HARNESS_HUB`, 없으면 `<사용자 홈>/.cc-harness/hub` 다. 묶음 파일은 `<hub>/<project>/<시각>.jsonl` —
   `project` 는 이벤트의 `project` 와 같은 경로 해시, 시각은 내보낸 시각의 ISO 8601 기본 형식(`20260928T123456.789Z`, Windows 파일 이름에 `:` 를 쓸 수 없어서)이다.
 - 내보내기 위치는 `.harness/events/.exported` 에 JSON 한 줄 `{"at": <내보낸 ISO 시각>, "files": {"YYYY-MM.jsonl": <바이트 위치>, …}}` 로 기록한다 — 이벤트 파일별로 마지막으로 내보낸
@@ -79,7 +88,8 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 - `--dry-run` 은 쓰지 않고(묶음·`.exported` 모두) `dry run: <n> lines would be exported to <파일>` 과 내보낼 첫 3줄을 출력한다.
 - 허브에 쓸 수 없으면(디렉터리를 만들 수 없음·권한 등) `harness: export failed: cannot write <경로>: <오류 코드>` 를 stderr 에 내고 exit 1 이며 `.exported` 는 바뀌지 않는다.
   묶음을 쓴 뒤 `.exported` 를 쓰지 못하면 묶음을 지우고 같은 방식으로 exit 1 이다.
-- `harness run`(중단된 경우 제외)과 `harness eval` 이 끝날 때 `telemetry.share` 와 `telemetry.auto_export` 가 모두 `true` 면 export 를 한 번 실행한다. 그 출력·오류는 stderr 로만 가고
+- `harness run`(중단된 경우 제외)과 `harness eval` 이 끝날 때 `telemetry.share` 가 켜져 있고 `telemetry.auto_export` 가 없거나 `true` 면(기본) export 를 한 번 실행한다
+  (`auto_export` 가 `false` 거나 그 밖의 값이면 하지 않는다). 그 출력·오류는 stderr 로만 가고
   (`eval --json` 의 stdout 은 JSON 그대로), 실패해도 run·eval 의 결과·종료 코드는 바뀌지 않는다.
 - 내보낸 줄은 아래 허용 목록만 남긴다(코드: `lib/telemetry.mjs` 의 `LINE_FIELDS`·`ENUM_FIELDS`). `feature` 와 그 밖의 최상위 필드는 버린다. `data` 에서는 수치·불리언(유한한 수)을
   코드 식별자 형태의 키(`^[a-z][a-z0-9_]{0,63}$`)에서만 남기고, 문자열은 아래 `data.*` 키의 허용 값만 남긴다. 배열·객체는 같은 규칙으로 안쪽을 거르고, 비어 있지 않던 것이 비면 버린다.

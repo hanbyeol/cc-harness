@@ -12,7 +12,7 @@ import { LINE_FIELDS, ENUM_FIELDS } from '../lib/telemetry.mjs';
 import { runExport } from '../lib/commands/export.mjs';
 import evalCommand from '../lib/commands/eval.mjs';
 
-// F58: `harness export` — opt-in export of anonymized events to a local hub directory.
+// F58: `harness export` — export of anonymized events to a local hub directory (on by default since F63).
 
 const sha16 = (t) => crypto.createHash('sha256').update(String(t)).digest('hex').slice(0, 16);
 
@@ -69,7 +69,8 @@ const collect = () => {
 
 // ---------- AC-1 ----------
 test('F58 AC-1: export with telemetry.share unset or false says it is off and writes nothing', () => {
-  for (const telemetry of [undefined, { share: false }, { share: 'true', auto_export: true }, {}]) {
+  // F63: an unset telemetry.share is on by default (F63 AC-1); off is false or a non-boolean.
+  for (const telemetry of [{ share: null }, { share: false }, { share: 'true', auto_export: true }, { share: 1 }]) {
     const dir = fixture({ telemetry });
     note(dir, 'x', '2026-09-01T00:00:00Z');
     const hub = path.join(tmpdir(), 'hub');
@@ -291,7 +292,8 @@ test('F58 AC-5: eval exports automatically when telemetry.share and telemetry.au
 });
 
 test('F58 AC-5: eval does not export when auto_export or share is not true', async () => {
-  for (const telemetry of [{ share: true }, { share: true, auto_export: false }, { share: false, auto_export: true }]) {
+  // F63: an unset auto_export is on by default; off is false or a non-boolean.
+  for (const telemetry of [{ share: true, auto_export: 'true' }, { share: true, auto_export: false }, { share: false, auto_export: true }]) {
     const dir = fixture({ telemetry, config: EVAL_CONFIG });
     const hub = path.join(tmpdir(), 'hub');
     const r = await evalWithHub(dir, hub);
@@ -353,7 +355,7 @@ test('F58 AC-6: SPEC and docs describe the opt-in, the allowed fields and the hu
   const doc = fs.readFileSync(path.join(REPO, 'docs', 'telemetry.md'), 'utf8');
   const readme = fs.readFileSync(path.join(REPO, 'README.md'), 'utf8');
   for (const text of [spec, doc]) {
-    for (const s of ['harness export', 'telemetry.share', 'telemetry.auto_export', 'opt-in', '--dry-run', '--hub', 'CC_HARNESS_HUB', '.cc-harness/hub', 'events/.exported']) {
+    for (const s of ['harness export', 'telemetry.share', 'telemetry.auto_export', 'CC_HARNESS_TELEMETRY', '--dry-run', '--hub', 'CC_HARNESS_HUB', '.cc-harness/hub', 'events/.exported']) {
       assert.ok(text.includes(s), `mentions ${s}`);
     }
   }
