@@ -1,0 +1,59 @@
+{
+  "id": "F68",
+  "title": "blocked 사유 기록 — 같은 계약 재승인 거부는 수렴 실패(rounds·stall·divergence)로 막힌 경우에만",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "기능이 blocked 로 바뀔 때마다(eval·run 모두) features.json 의 그 항목에 blocked_reason(상태 이벤트의 reason 과 같은 값: rounds·stall·divergence·needs_human·eval_error·budget·merge_conflict 등)이 기록되고, blocked 가 아닌 상태로 바뀌면 blocked_reason 이 지워진다 — eval 로 needs_human·rounds, run 으로 budget 을 만든 fixture 에서 확인",
+      "check": "node test/t.mjs \"F68 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "blocked_reason 이 needs_human·eval_error 이거나 run 단계 사유(budget·merge_conflict·post_merge_verify·worktree·adapter_unavailable·verify_error·run_stopped·dependency_blocked)면, 같은 해시 계약의 라운드 수가 max_rounds 이상이어도 harness approve F<n> 이 승인한다(exit 0) — B411 재현(fail, fail, needs-human 판정 3개, 같은 해시)을 포함해 사유별 테스트",
+      "check": "node test/t.mjs \"F68 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "blocked_reason 이 rounds·stall·divergence 면 F66 대로 같은 해시 재승인을 거부하고(exit 2, rounds_exhausted) --extra-round 로만 한 라운드를 더한다",
+      "check": "node test/t.mjs \"F68 AC-3\"",
+      "new": false
+    },
+    {
+      "id": "AC-4",
+      "criterion": "blocked_reason 이 없는(이 기능 이전에 막힌) blocked 항목은 지금의 판정 수 기준 규칙을 그대로 따른다",
+      "check": "node test/t.mjs \"F68 AC-4\"",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "harness status 의 blocked 줄에 사유가 괄호로 나온다(예: 'F7 blocked (needs_human)'), docs/SPEC.md §7.6 이 사유별 재승인 규칙을 설명한다(문서 check 포함)",
+      "check": "node test/t.mjs \"F68 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "features.json 의 blocked_reason 이 문자열이 아니면 state_corrupt 로 exit 2 이고 approve 는 아무것도 쓰지 않는다",
+      "check": "node test/t.mjs \"F68 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "blocked 사유 종류 추가",
+    "needs_human 해소 절차 변경"
+  ],
+  "resolves": [
+    "B411"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-28T07:47:06.887Z",
+    "hash": "3b6279c86765f78c37bbc2f7fc8526345039aa338e736d061491397c7a277957"
+  }
+}

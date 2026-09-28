@@ -606,6 +606,24 @@
       "security_tier": "standard",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F68",
+      "title": "blocked 사유 기록 — 같은 계약 재승인 거부는 수렴 실패(rounds·stall·divergence)로 막힌 경우에만",
+      "security_tier": "standard",
+      "depends_on": [
+        "F66"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F69",
+      "title": "CLAUDE.md 블록 최신 판정을 버전이 아닌 내용으로 — 릴리스마다 outdated 가 되지 않게",
+      "security_tier": "standard",
+      "depends_on": [
+        "F64"
+      ],
+      "status": "approved"
     }
   ]
 }

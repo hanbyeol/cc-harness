@@ -1,0 +1,56 @@
+{
+  "id": "F69",
+  "title": "CLAUDE.md 블록 최신 판정을 버전이 아닌 내용으로 — 릴리스마다 outdated 가 되지 않게",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "블록의 버전 표시가 현재 하네스와 달라도, 블록 내용(시작·끝 표시 줄 제외, 줄 끝 \\r\\n 은 \\n 으로 보고 비교)이 지금 config(language·profile)로 만든 블록과 같고 표시의 profile 이 config 의 profile 과 같으면 --check 는 'CLAUDE.md block is current (content unchanged since v<블록 버전>)' 로 exit 0, status --brief 는 알림을 내지 않는다",
+      "check": "node test/t.mjs \"F69 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "내용이 다르면 --check 는 'CLAUDE.md block is outdated (content differs; block v<블록 버전>, harness v<현재>)' 로 exit 1 이고 status --brief 는 알림 줄을 낸다. config.language 만 바꿔도(버전·프로필 같음) outdated 이다 — 경우별 테스트",
+      "check": "node test/t.mjs \"F69 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "harness claude-md 는 내용이 같으면 파일을 쓰지 않고(바이트와 수정 시각 그대로) 'CLAUDE.md block already current' 를 출력하며 exit 0 이다. 내용이 다를 때만 블록을 새 버전 표시와 함께 다시 쓴다",
+      "check": "node test/t.mjs \"F69 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "버전 표시가 없는(v1) 블록과 블록이 없는 경우는 지금처럼 outdated·missing 이다",
+      "check": "node test/t.mjs \"F69 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md 의 CLAUDE.md 블록 절과 README 가 내용 기준 판정을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F69 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "템플릿 파일을 읽을 수 없으면 --check 는 exit 2 이고 파일을 바꾸지 않는다",
+      "check": "node test/t.mjs \"F69 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "블록 템플릿 내용 변경",
+    "자동 갱신"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-28T07:47:06.887Z",
+    "hash": "33e3a68817853f1ebb881d5c1c73f65cb076cfb1e83f46fd4c2da3c59b4731e2"
+  }
+}
