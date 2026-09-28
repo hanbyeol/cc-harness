@@ -13,7 +13,8 @@ import claudeMd from '../lib/commands/claude-md.mjs';
 import doctor from '../lib/commands/doctor.mjs';
 
 const VERSION = harnessVersion();
-const BEGIN = `<!-- cc-harness:begin v${VERSION} -->`;
+// Since F64 the begin marker also names the profile; a project without one is sdlc.
+const BEGIN = `<!-- cc-harness:begin v${VERSION} profile=sdlc -->`;
 const END = '<!-- cc-harness:end -->';
 const file = (dir) => path.join(dir, 'CLAUDE.md');
 const bytes = (dir) => fs.readFileSync(file(dir));
