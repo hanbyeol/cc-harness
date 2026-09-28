@@ -163,6 +163,16 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 
 `init` 은 없는 파일·디렉터리만 만든다. `.harness/` 가 일부만 있어도(예: `contracts/` 만) 빠진 것을 채우고 기존 파일은 건드리지 않는다. 상태 파일 쓰기는 원자적이다(같은 디렉터리의 임시 파일 → rename). 어느 단계에서 실패해도 임시 파일을 지우고 대상 파일은 이전 내용 그대로 남는다(`io` 에러).
 
+### 4.1 프로젝트 CLAUDE.md 관리 블록 (`harness claude-md`)
+대상 프로젝트의 `CLAUDE.md` 에는 하네스가 관리하는 블록이 하나 있다 — `<!-- cc-harness:begin v<버전> -->` 줄과 `<!-- cc-harness:end -->` 줄 사이다(`<버전>` 은 코어 `package.json` 의 버전).
+- 블록 내용은 하네스 설치 위치(`bin/harness.mjs` 기준 패키지 루트)의 `templates/claude-block.md` 에서만 읽는다 — 대상 프로젝트에 같은 경로의 파일이 있어도 쓰지 않는다. 내용은 `## Language`(config.language 가 있으면 그 언어로 대화, 없으면 사용자가 쓰는 언어로. 코드·주석·커밋·계약 id·`check` 는 영어), v2 워크플로(spec·plan·build·verify·eval·fix·status), 수렴 규칙, 금지 사항이다.
+- `harness claude-md` 는 블록을 새로 쓴다. 블록 밖의 줄은 바이트 단위로 그대로 둔다(인코딩·BOM·줄 끝 포함; 블록은 begin 줄의 줄 끝(CRLF/LF)을 따른다). `CLAUDE.md` 가 없으면 `# <디렉터리 이름>` 제목과 블록만으로 만들고, 있지만 블록이 없으면 첫 제목 줄(`#`~`######`) 다음에 빈 줄·블록을 넣는다(제목이 없으면 파일 맨 앞). 버전 표시가 없는 이전 형식 `<!-- cc-harness:begin -->` 블록(v1 포함)도 블록으로 인식해 바꾼다. 내용이 같으면 파일을 쓰지 않는다. 쓰기는 원자적이다(같은 디렉터리 임시 파일 → rename, 실패 시 원래 내용 그대로, `io` exit 2).
+- `harness claude-md --check` 는 파일을 바꾸지 않는다. 블록이 없거나(파일 없음 포함) begin 표시의 버전이 현재 하네스와 다르면 이유를 출력하고 exit 1, 같으면 exit 0 이다(블록 본문은 비교하지 않는다).
+- 오류(exit 2, 파일은 그대로): begin 표시만 있고 end 가 없음, begin 또는 end 가 둘 이상, begin 없이 end — 메시지에 줄 번호가 나온다(`claude_md_invalid`). `CLAUDE.md` 가 심볼릭 링크면 링크도 대상도 바꾸지 않고 `CLAUDE.md is a symbolic link` 를 담은 메시지로 exit 2 이다(`--check` 도 같다).
+- 알림: `harness status --brief`(SessionStart 훅)는 블록이 없거나 오래됐으면 요약 줄 뒤(`reply in:` 줄 앞)에 `CLAUDE.md block missing — run harness claude-md` 또는 `CLAUDE.md block outdated (v<버전>) — run harness claude-md`(버전 표시 없는 블록은 `outdated (v1, unversioned)`)를 덧붙인다. 최신이거나 블록을 읽을 수 없으면(심볼릭 링크·표시 오류) 덧붙이지 않는다. `harness doctor` 는 `CLAUDE.md block: current (v…)`·`missing — …`·`outdated (v…) — …` 또는 오류 메시지 한 줄을 보여 준다. 둘 다 파일을 바꾸지 않는다 — SessionStart 에서 자동으로 고치지 않는다.
+- `harness init` 은 위 규칙으로 블록을 만들거나 갱신한다(새 config 의 `language` 반영). 블록을 쓸 수 없으면(심볼릭 링크·표시 오류) 경고하고 나머지 init 은 그대로 끝난다.
+- AGENTS.md 등 다른 CLI 용 파일은 갱신하지 않는다.
+
 **프로필(`profiles/*.json`)** 은 verify 명령·`env_allowlist`·루브릭의 기본값이다(병합 순서는 위 `config.json` 행). iac 프로필의 기본값은 다음과 같다(설명: `docs/iac.md`).
 - `verify.commands` 는 `harness tf-check` 한 명령이다. `tf-check [--dir <path>]` 는 `*.tf` 파일이 있는 디렉터리마다(`.terraform`·`.harness`·`.git` 아래와 심볼릭 링크 디렉터리는 제외) `terraform init -backend=false -input=false` 와 `terraform validate` 를 그 디렉터리에서 실행하고, `terraform fmt -check -recursive` 를 한 번 실행한다. `--dir` 을 주면 그 디렉터리 아래만 검사한다(없는 디렉터리는 `usage`, exit 2). 하나라도 실패하면 exit 1 이고 실패한 디렉터리 경로(프로젝트 기준, `/` 구분)와 오류를 stderr 에 출력한다. init 이 실패한 디렉터리는 경로와 init 오류 앞 300자를 출력하고 validate 는 건너뛰되 나머지 디렉터리 검사는 계속한다. `terraform` 이 PATH 에 없으면 `harness tf-check: command not found: terraform` 을 stderr 에 출력하고 exit 127 로 끝나며(명령의 첫 프로그램 `harness` 와 `not found` 가 한 줄에 있으므로 §6.1 의 명령 없음이다), run 은 이를 환경 문제로 보고 중단한다(§8, F29).
 - provider 캐시: `tf-check` 는 `TF_PLUGIN_CACHE_DIR` 이 없으면 `<사용자 캐시 디렉터리>/cc-harness/terraform-plugins`(Windows `%LOCALAPPDATA%`, macOS `~/Library/Caches`, 그 외 `$XDG_CACHE_HOME` 또는 `~/.cache`)를 만들어 terraform 에 설정한다. 이미 설정돼 있으면 그 값을 그대로 쓴다. 모듈 디렉터리와 실행 사이에 provider 를 다시 받지 않는다. 캐시를 만들 수 없으면 경고하고 캐시 없이 계속한다.
@@ -402,6 +412,7 @@ skills/                      spec · plan · build · fix · status · plan-revi
 agents/                      builder · evaluator · security-reviewer (Claude subagent 겸 headless 역할 프롬프트)
 profiles/                    sdlc · iac · ops (.json: verify 명령·루브릭)
 rules/                       언어별 규칙 (v1 유지)
+templates/claude-block.md    프로젝트 CLAUDE.md 관리 블록의 내용 (§4.1)
 bin/harness.mjs, lib/*.mjs   코어 (Node ≥ 22 — Node 20 은 2026-04 EOL 이고 `node --test` glob 이 21+ 부터; 런타임 의존성 0)
 hooks/hooks.json             Claude SessionStart 1개: `harness status --brief` — Claude 전용(`${CLAUDE_PLUGIN_ROOT}`). Gemini 도 이 파일을 로드하지만 변수가 비어 실패(비치명). Gemini 는 `${extensionPath}` 변형을 쓰는 방법이 확인될 때까지 hook 없음으로 간주
 ```
