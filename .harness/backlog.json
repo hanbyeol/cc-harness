@@ -4514,7 +4514,8 @@
       "seen": 2,
       "sources": [
         "F67-r1"
-      ]
+      ],
+      "resolved_by": "F67"
     },
     {
       "feature": "F57",
@@ -4743,7 +4744,8 @@
       "feature": "F56",
       "priority": "medium",
       "summary": "A re-approval with an unchanged contract keeps the hash, so the round count continues past max_rounds: interactive eval ran and passed 'contract round 4/3' without any notice. Decide whether a same-hash re-approval resets rounds (human override) or eval refuses past max_rounds, and show the override explicitly.",
-      "at": "2026-09-27T17:03:09.662Z"
+      "at": "2026-09-27T17:03:09.662Z",
+      "resolved_by": "F66"
     },
     {
       "feature": "F60",
@@ -4881,7 +4883,8 @@
       "reason": "out_of_scope",
       "source": "user",
       "priority": "medium",
-      "id": "B407"
+      "id": "B407",
+      "resolved_by": "F65"
     },
     {
       "feature": null,
