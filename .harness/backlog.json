@@ -4924,7 +4924,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "medium",
-      "id": "B411"
+      "id": "B411",
+      "resolved_by": "F68"
     },
     {
       "feature": "F66",
@@ -4945,6 +4946,26 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B413"
+    },
+    {
+      "feature": "F68",
+      "round": 1,
+      "at": "2026-09-28T08:18:45.250Z",
+      "summary": "'dependency_blocked' is documented in SPEC §7.6/AC-2 as a possible blocked_reason value, but in the actual code (lib/run.mjs:1602) a dependency-blocked feature always transitions to status 'skipped', never 'blocked' — setFeatureStatus only records blocked_reason when status === 'blocked'. So no real run can ever produce a feature with status blocked and blocked_reason 'dependency_blocked'; AC-2's test for that value only exercises a synthetic fixture. Not a contract violation (AC-2's check only requires approve to accept that reason string when present) but worth a note for a future SPEC/code alignment.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B414"
+    },
+    {
+      "feature": "F69",
+      "round": 1,
+      "at": "2026-09-28T08:21:32.435Z",
+      "summary": "blockStatus now re-reads templates/claude-block.md and re-renders the block on every --check/status/doctor call, whereas the old version comparison was a cheap string check. This is fine at current scale but is a behavior change worth noting for very frequent SessionStart hook invocations.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B415"
     }
   ]
 }

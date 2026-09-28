@@ -1,0 +1,45 @@
+{
+  "feature": "F69",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 10,
+    "quality": 9,
+    "security": 10,
+    "errors": 10,
+    "tests": 10
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "blockStatus now re-reads templates/claude-block.md and re-renders the block on every --check/status/doctor call, whereas the old version comparison was a cheap string check. This is fine at current scale but is a behavior change worth noting for very frequent SessionStart hook invocations.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.3702804,
+  "contract_hash": "33e3a68817853f1ebb881d5c1c73f65cb076cfb1e83f46fd4c2da3c59b4731e2",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 10,
+        "quality": 9,
+        "security": 10,
+        "errors": 10,
+        "tests": 10
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    }
+  },
+  "at": "2026-09-28T08:21:32.435Z",
+  "origin": "run"
+}

@@ -614,7 +614,7 @@
       "depends_on": [
         "F66"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F69",
@@ -623,7 +623,7 @@
       "depends_on": [
         "F64"
       ],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }

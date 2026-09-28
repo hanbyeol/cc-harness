@@ -1,0 +1,45 @@
+{
+  "feature": "F68",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "'dependency_blocked' is documented in SPEC §7.6/AC-2 as a possible blocked_reason value, but in the actual code (lib/run.mjs:1602) a dependency-blocked feature always transitions to status 'skipped', never 'blocked' — setFeatureStatus only records blocked_reason when status === 'blocked'. So no real run can ever produce a feature with status blocked and blocked_reason 'dependency_blocked'; AC-2's test for that value only exercises a synthetic fixture. Not a contract violation (AC-2's check only requires approve to accept that reason string when present) but worth a note for a future SPEC/code alignment.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.563022,
+  "contract_hash": "3b6279c86765f78c37bbc2f7fc8526345039aa338e736d061491397c7a277957",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    }
+  },
+  "at": "2026-09-28T08:18:45.250Z",
+  "origin": "run"
+}
