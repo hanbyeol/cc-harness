@@ -468,6 +468,10 @@ test('F54 ES-1: lint-contract and approve give the same result when the event fi
 
 test('F54 ES-1: eval records its status and exit code when the event file cannot be written', async () => {
   const dir = evalFixture();
+  // The automatic export (on by default since F63) would report on stderr too: this test is
+  // about the event warning alone.
+  const configFile = path.join(dir, '.harness', 'config.json');
+  writeFiles(dir, { '.harness/config.json': { ...readJson(configFile), telemetry: { auto_export: false } } });
   blockEvents(dir);
   const r = await evalCmd(dir, [PASS_REPLY()]);
   assert.equal(r.code, 0, r.out);
