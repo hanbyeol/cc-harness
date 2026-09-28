@@ -1,0 +1,51 @@
+{
+  "feature": "F62",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "init.mjs's action→word map conflates 'inserted' and 'updated' into the same displayed text ('updated'), so the CLI message can't distinguish 'block added after the first heading' from 'existing block rewritten'; no criterion checks this distinction so it's harmless but slightly confusing.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "blockStatus/harness claude-md --check compares the block's version marker to package.json's version with exact string equality, so every core patch release marks every project's block 'outdated' even when templates/claude-block.md content is unchanged, prompting a rewrite nag on each release. This matches the literal SPEC text (version compared, not content) so it's not a defect, just a design note for future consideration.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.5960986,
+  "contract_hash": "adb01adbf4a24366486456d540e350f089954866969d9a6e132c1fb8e0e8090a",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    }
+  },
+  "at": "2026-09-28T03:22:11.139Z",
+  "origin": "run"
+}

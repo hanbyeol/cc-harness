@@ -1,0 +1,65 @@
+{
+  "feature": "F62",
+  "round": 2,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "blockStatus compares the block's version marker to package.json's version with exact string equality (lib/claudemd.mjs:94), so every core patch release will mark every project's block 'outdated' even when templates/claude-block.md content is unchanged, prompting a rewrite nag each release. Matches literal SPEC text (version compared, not content) so not a defect.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B404"
+    },
+    {
+      "summary": "init.mjs's action→word map conflates 'inserted' and 'updated' into the same displayed text ('updated'), so the CLI message can't distinguish 'block added after first heading' from 'existing block rewritten'. No criterion checks this distinction so it's harmless.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B403"
+    },
+    {
+      "summary": "applyBlock's fallback title for a brand-new CLAUDE.md is `path.basename(path.resolve(root))` inserted verbatim as a Markdown heading (lib/claudemd.mjs:110/152). A project directory literally named with '#', backslashes, or other Markdown-significant characters would produce a slightly malformed heading. No criterion covers directory-name content, so this is a minor edge case rather than a defect.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "SPEC §4.1 says `harness init` warns and continues when the block can't be written (a symbolic-link CLAUDE.md or malformed markers), and init.mjs implements this (lib/commands/init.mjs catches HarnessError and calls err(...)), but no F62 test exercises `harness init` against a symlinked or malformed CLAUDE.md to confirm the rest of init still completes and the warning is printed.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.4892348,
+  "contract_hash": "adb01adbf4a24366486456d540e350f089954866969d9a6e132c1fb8e0e8090a",
+  "contract_round": 2,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    }
+  },
+  "at": "2026-09-28T03:43:51.793Z",
+  "origin": "run"
+}

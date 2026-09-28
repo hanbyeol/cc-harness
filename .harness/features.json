@@ -566,7 +566,7 @@
       "depends_on": [
         "F61"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F63",
@@ -575,7 +575,7 @@
       "depends_on": [
         "F58"
       ],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }

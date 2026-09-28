@@ -4659,7 +4659,11 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B388"
+      "id": "B388",
+      "seen": 2,
+      "sources": [
+        "F63-r1"
+      ]
     },
     {
       "feature": "F56",
@@ -4796,6 +4800,74 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B400"
+    },
+    {
+      "feature": "F63",
+      "round": 1,
+      "at": "2026-09-28T03:17:39.527Z",
+      "summary": "CC_HARNESS_TELEMETRY 는 정확히 '0' 또는 'off' 일 때만 끈다. 'OFF'·'false'·'no'·' 0' 은 config 를 따르므로, 끄려던 사용자가 이 값을 쓰면 텔레메트리가 켜진 채로 남는다. 계약대로의 동작이지만, 기본값이 켜짐으로 바뀐 만큼 대소문자를 가리지 않고 받거나 알 수 없는 값에 경고를 내면 더 안전하다.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B401"
+    },
+    {
+      "feature": "F63",
+      "round": 1,
+      "at": "2026-09-28T03:17:39.527Z",
+      "summary": "run 과 eval 은 autoExport 를 호출할 때 env 를 넘기지 않아 process.env 를 쓴다. 두 명령이 in-process 로 다른 env 를 받는 경우(테스트나 앞으로의 호출자)에 CC_HARNESS_TELEMETRY 판단과 허브 경로가 그 env 가 아니라 프로세스의 env 를 따른다. 지금 CLI 경로에서는 결과가 같다.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "priority": "low",
+      "id": "B402"
+    },
+    {
+      "feature": "F62",
+      "round": 1,
+      "at": "2026-09-28T03:22:11.139Z",
+      "summary": "init.mjs's action→word map conflates 'inserted' and 'updated' into the same displayed text ('updated'), so the CLI message can't distinguish 'block added after the first heading' from 'existing block rewritten'; no criterion checks this distinction so it's harmless but slightly confusing.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B403",
+      "seen": 2,
+      "sources": [
+        "F62-r2"
+      ]
+    },
+    {
+      "feature": "F62",
+      "round": 1,
+      "at": "2026-09-28T03:22:11.139Z",
+      "summary": "blockStatus/harness claude-md --check compares the block's version marker to package.json's version with exact string equality, so every core patch release marks every project's block 'outdated' even when templates/claude-block.md content is unchanged, prompting a rewrite nag on each release. This matches the literal SPEC text (version compared, not content) so it's not a defect, just a design note for future consideration.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B404",
+      "seen": 2,
+      "sources": [
+        "F62-r2"
+      ]
+    },
+    {
+      "feature": "F62",
+      "round": 2,
+      "at": "2026-09-28T03:43:51.793Z",
+      "summary": "applyBlock's fallback title for a brand-new CLAUDE.md is `path.basename(path.resolve(root))` inserted verbatim as a Markdown heading (lib/claudemd.mjs:110/152). A project directory literally named with '#', backslashes, or other Markdown-significant characters would produce a slightly malformed heading. No criterion covers directory-name content, so this is a minor edge case rather than a defect.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B405"
+    },
+    {
+      "feature": "F62",
+      "round": 2,
+      "at": "2026-09-28T03:43:51.793Z",
+      "summary": "SPEC §4.1 says `harness init` warns and continues when the block can't be written (a symbolic-link CLAUDE.md or malformed markers), and init.mjs implements this (lib/commands/init.mjs catches HarnessError and calls err(...)), but no F62 test exercises `harness init` against a symlinked or malformed CLAUDE.md to confirm the rest of init still completes and the warning is printed.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B406"
     }
   ]
 }
