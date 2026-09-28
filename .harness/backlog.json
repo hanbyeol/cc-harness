@@ -4868,6 +4868,26 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B406"
+    },
+    {
+      "feature": "F61",
+      "round": 1,
+      "at": "2026-09-28T03:55:21.084Z",
+      "summary": "Environment-caused verify failures consume feature rounds: F61 r1 failed twice on tests unrelated to the feature (F9 AC-3 git \"unable to create temporary file: Invalid argument\"; F60 AC-4 1 s repro timeout under full-suite load). The builder spent two build attempts ($0.51) diagnosing without code changes. Consider re-running only the failing test files once before failing verify, or classifying a failure in tests the feature did not touch that pass on base as environmental.",
+      "reason": "out_of_scope",
+      "source": "user",
+      "priority": "medium",
+      "id": "B407"
+    },
+    {
+      "feature": null,
+      "round": null,
+      "at": "2026-09-28T03:55:21.084Z",
+      "summary": "harness-no-hooks-* temp dirs from lib/tmp.mjs / lib/run.mjs are left in os.tmpdir() (1.7k found, some a day old), alongside harness-git-* from test/gitfixture.mjs (1.6k). Find the paths that skip removal (interrupted runs, withNoHooksDir callers) and remove them on exit.",
+      "reason": "out_of_scope",
+      "source": "user",
+      "priority": "low",
+      "id": "B409"
     }
   ]
 }
