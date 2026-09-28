@@ -102,7 +102,7 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
   base 테스트 수를 센 뒤 기능의 테스트 파일을 base에 얹고 나서야 base vacuity 실행이 시작됩니다. 동시 실행 중 실패한
   check는 모두 끝난 뒤 혼자 한 번 더 돌려 통과하면 pass(`parallel_retry: true`와 경고)로 기록합니다. 시간 초과는
   재확인 없이 fail입니다. check끼리 DB·포트 같은 자원을 공유하면 `verify.check_parallel`을 1로 두세요 — 전처럼
-  하나씩 순서대로 실행됩니다. `verify.commands`는 항상 순서대로 실행됩니다.
+  하나씩 순서대로 실행됩니다. `verify.commands`는 항상 순서대로 실행됩니다. **불안정 테스트** — `verify.flaky`가 `'retry'`(기본)이면 1차 실패·2차 통과한 `verify.commands` 명령을 3차로 한 번 더 실행해 통과하면 라운드를 쓰지 않고 통과로 봅니다(`flaky: passed on retry` 경고, `flaky_tests`, 테스트 이름마다 low `flaky_test` backlog 항목 — 열린 같은 이름은 `seen` 증가). 3차 실패·시간 초과는 실패, 1·2차 모두 실패면 3차 없음. 기능 자신의 테스트(`F{n} `로 시작하는 실패 이름)가 흔들렸거나 이름을 뽑지 못하면 3차 없이 실패, `'fail'`이면 flaky는 늘 실패입니다(SPEC §6.1).
 - **테스트 수** — `verify.test_count`를 `from:commands[i]`로 두면 `verify.commands[i]` 출력의 마지막 `# tests N`(TAP)
   또는 `ℹ tests N`(node spec) 줄에서 수를 읽어 따로 실행하지 않습니다(base에서는 같은 명령을 한 번 실행). base 쪽 수는
   모든 방식에서 (base 커밋, 명령)별로 `.harness/runs/test-count-cache.json`에 캐시되어 다음 verify는 base에서 다시 세지 않습니다.
