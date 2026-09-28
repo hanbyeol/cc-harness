@@ -9,6 +9,11 @@ In the iac profile the plan diff is the real specification of what will change. 
 deterministic checks (fmt, validate, policy scans) run in `harness verify`; this skill covers
 the part that needs cloud credentials and a human decision: the plan and the apply.
 
+## Language
+Talk with the user in the language set in `config.language` (`.harness/config.json`); when
+it is not set, in the language the user writes in. Keep code, code comments, commit
+messages and a contract's ids and `check` commands in English.
+
 ## 1. Produce the plan
 ```
 terraform plan -input=false -out=tfplan

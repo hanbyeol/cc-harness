@@ -20,3 +20,8 @@ description: Show where every cc-harness feature stands and suggest the next ste
 
 Keep the answer short: the counts, anything blocked with its reason, and one recommended
 next action. Status is read-only; do not change any file.
+
+## Language
+Talk with the user in the language set in `config.language` (`.harness/config.json`); when
+it is not set, in the language the user writes in. Keep code, code comments, commit
+messages and a contract's ids and `check` commands in English.

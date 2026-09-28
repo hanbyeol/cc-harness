@@ -8,6 +8,11 @@ description: Lint one or more cc-harness contracts, present them as a plan, and 
 Approval freezes a contract: from then on it is the fixed target for building and
 evaluation. That is why only the user can give it, and why it comes after the linter.
 
+## Language
+Talk with the user in the language set in `config.language` (`.harness/config.json`); when
+it is not set, in the language the user writes in. Keep code, code comments, commit
+messages and a contract's ids and `check` commands in English.
+
 ## 1. Lint
 Run `harness lint-contract F{n}` for each contract in the plan. Fix every error in the
 contract file and run it again until it is clean. Common fixes:

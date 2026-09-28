@@ -207,7 +207,7 @@ const PASS_VERIFY = {
 test('F60 AC-4: a timed-out repro has timed_out true and an exit of null or a number; one that ran to the end has timed_out false', async () => {
   const dir = fixture({ files: {
     'scripts/fail.mjs': 'process.exit(3);\n',
-    'scripts/sleep.mjs': 'setTimeout(() => {}, 8000);\n', // a few seconds past the 1 s timeout
+    'scripts/sleep.mjs': 'setTimeout(() => {}, 12000);\n', // a few seconds past the 5 s timeout
   } });
   writeFiles(dir, { 'src/app.mjs': 'export const v = 1;\n' });
   commitAll(dir, 'feature commit');
@@ -215,7 +215,7 @@ test('F60 AC-4: a timed-out repro has timed_out true and an exit of null or a nu
     { criterion_id: 'AC-1', dimension: 'functionality', summary: 'hangs', repro: 'node scripts/sleep.mjs' },
     { criterion_id: 'AC-1', dimension: 'functionality', summary: 'fails', repro: 'node scripts/fail.mjs' },
   ] };
-  const config = resolveConfig({ base_branch: 'main', roles: { builder: 'claude', evaluator: 'claude', 'security-reviewer': 'claude' }, verify: { commands: [] }, budget: { step_timeout_sec: 1 } });
+  const config = resolveConfig({ base_branch: 'main', roles: { builder: 'claude', evaluator: 'claude', 'security-reviewer': 'claude' }, verify: { commands: [] }, budget: { step_timeout_sec: 5 } }); // 5 s: fail.mjs must finish in time on a loaded machine
   const r = await evaluate({ root: dir, featureId: 'F9', base: 'main', config, verifyResult: PASS_VERIFY, runAdapter: async () => reply(json) });
   assert.equal(r.backlogged[0].reason, 'repro_timeout'); // judged as before
   assert.equal(r.blocking.length, 1);

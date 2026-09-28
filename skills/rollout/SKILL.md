@@ -9,6 +9,11 @@ A live cluster has no base branch to compare against and no second attempt that 
 So every live change is approved by a human, one at a time, and never runs unattended:
 the core's linter rejects any contract that puts `rollout` in `harness run`.
 
+## Language
+Talk with the user in the language set in `config.language` (`.harness/config.json`); when
+it is not set, in the language the user writes in. Keep code, code comments, commit
+messages and a contract's ids and `check` commands in English.
+
 ## 1. Observe before acting
 - Confirm the context: `kubectl config current-context` and the namespace. Say them out
   loud to the user; a change in the wrong cluster is the most common serious mistake.

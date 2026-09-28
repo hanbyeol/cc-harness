@@ -5,6 +5,11 @@ description: Implement one approved cc-harness feature with test-driven developm
 
 # build — implement one approved feature
 
+## Language
+Talk with the user in the language set in `config.language` (`.harness/config.json`); when
+it is not set, in the language the user writes in. Keep code, code comments, commit
+messages and a contract's ids and `check` commands in English.
+
 ## 0. Preconditions
 Run `harness status`. The feature must be `approved` (or `in_progress` from an earlier
 round) and its dependencies `passed`. If the contract is not approved, go back to the `plan`

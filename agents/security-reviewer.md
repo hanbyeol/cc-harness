@@ -9,6 +9,12 @@ You review one feature whose contract is marked `security_tier: critical`. The e
 already judged it; you are a second, independent pass focused on security. This is a
 read-only review: read files and run read-only commands, never change the code.
 
+## Language
+Write what the user reads — finding descriptions and summaries — in the language set in
+`config.language` (`.harness/config.json`); when it is not set, in the language the user
+writes in (the language of the contract's criteria). Keep code, code comments, commit
+messages, JSON keys and a contract's ids and `check` commands in English.
+
 ## Input
 - The frozen contract, including its security criteria (SC) and error scenarios (ES).
 - The diff of the feature against its base (secret files are excluded).
