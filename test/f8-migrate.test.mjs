@@ -169,8 +169,9 @@ test('F8 AC-2: v1-only files are gone from the v2 tree', () => {
   const gone = ['scripts', 'docs/INVARIANTS.md', 'tests', 'init.sh', 'evals', 'config', 'progress',
     'docs/DECISIONS', 'settings.json', 'profiles/iac.md', 'profiles/ops.md'];
   for (const p of gone) assert.equal(fs.existsSync(path.join(REPO, p)), false, p);
-  // v1's templates/ (CLAUDE.md.tmpl, Makefiles, docs, progress) is gone; v2 keeps only the CLAUDE.md block (F62).
-  assert.deepEqual(fs.readdirSync(path.join(REPO, 'templates')), ['claude-block.md']);
+  // v1's templates/ (CLAUDE.md.tmpl, Makefiles, docs, progress) is gone; v2 keeps only the CLAUDE.md
+  // block (F62) and its profile sections (F64).
+  assert.deepEqual(fs.readdirSync(path.join(REPO, 'templates')).sort(), ['claude-block.md', 'profile-iac.md', 'profile-ops.md']);
   const hookScripts = fs.readdirSync(path.join(REPO, 'hooks')).filter((f) => f.endsWith('.sh'));
   assert.deepEqual(hookScripts, []);
   assert.deepEqual(fs.readdirSync(path.join(REPO, 'agents')).sort(), ['builder.md', 'evaluator.md', 'security-reviewer.md']);
