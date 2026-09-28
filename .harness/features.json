@@ -557,7 +557,7 @@
       "depends_on": [
         "F60"
       ],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }

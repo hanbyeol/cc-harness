@@ -4766,6 +4766,36 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B397"
+    },
+    {
+      "feature": "F61",
+      "round": 1,
+      "at": "2026-09-28T02:18:36.823Z",
+      "summary": "The '## Language' section is duplicated near-verbatim across 11 files (AGENTS.md, 7 skills, 3 agents). This is required by AC-1's per-file test, but it means any future wording tweak has to be repeated 11 times by hand with no shared source.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B398"
+    },
+    {
+      "feature": "F61",
+      "round": 1,
+      "at": "2026-09-28T02:18:36.823Z",
+      "summary": "test/f60-field-accuracy.test.mjs's timeout values (8000ms/1s -> 12000ms/5s) were changed in this diff for load stability, unrelated to F61's language feature; a reasonable bundled fix but outside this contract's scope.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B399"
+    },
+    {
+      "feature": "F61",
+      "round": 1,
+      "at": "2026-09-28T02:18:36.823Z",
+      "summary": "init.mjs's --language validation uses HarnessError code 'usage' for a missing value versus 'config_invalid' for a malformed one; consistent with existing CLI conventions but worth confirming both map to exit 2 as tested.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B400"
     }
   ]
 }
