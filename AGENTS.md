@@ -11,6 +11,13 @@ The commands are: `harness init`, `harness lint-contract`, `harness approve`,
 `harness verify`, `harness eval`, `harness run`, `harness status`, `harness doctor`,
 `harness migrate-v1`. Run `harness --help` for options.
 
+## Language
+Talk with the user — explanations, questions, reports — in the language set in
+`config.language` (`.harness/config.json`, e.g. `ko`, `pt-BR`); when it is not set, in the
+language the user writes in. `harness status --brief` (the session-start hook) prints
+`reply in: <language>` when it is set. Keep code, code comments, commit messages and a
+contract's ids and `check` commands in English.
+
 ## State
 All workflow state lives in `.harness/` and is tracked in git:
 - `config.json` — profile, verify commands, thresholds, budgets, which CLI plays which role.

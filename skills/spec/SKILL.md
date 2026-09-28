@@ -8,6 +8,11 @@ description: Turn a feature request, change or removal into a decidable cc-harne
 The contract is the only target the builder and evaluator will aim at, and it is frozen
 once approved. Time spent making it precise here saves whole rounds later.
 
+## Language
+Talk with the user in the language set in `config.language` (`.harness/config.json`); when
+it is not set, in the language the user writes in. Keep code, code comments, commit
+messages and a contract's ids and `check` commands in English.
+
 ## 1. Understand the request
 If you can talk to the user, interview them before writing anything. Ask only what you
 cannot find in the code, a few questions at a time:
