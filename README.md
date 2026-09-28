@@ -22,7 +22,7 @@ v2는 v1을 처음부터 다시 쓴 버전입니다. 설계 근거는 `docs/brai
 | 상태 | 대상 프로젝트의 `.harness/` (git 추적) — config · features · contracts · verdicts · backlog · runs · events |
 
 코어 명령: `harness init`, `harness lint-contract`, `harness approve`, `harness verify`, `harness eval`,
-`harness run`, `harness status`, `harness stats`, `harness events`(`.harness/events/` 기록 조회, `--stage`·`--feature`·`--since`, SPEC §2 — 평가 단계의 `eval/finding`·`eval/reask`·`eval/verdict`·`security/verdict` 는 SPEC §7.8), `harness decide`·`harness note`·`harness ci-record`(사람 결정·수동 개입·CI 결과 기록), `harness insights`(이벤트 집계와 개선 과제 후보, SPEC §2), `harness export`(opt-in 으로 익명화한 이벤트를 로컬 허브에 내보내기, [docs/telemetry.md](docs/telemetry.md)), `harness learn`(허브 분석: 버전별 지표, 근거 있는 개선 과제 후보를 backlog 로 `--propose`, 버전 비교 `--compare`), `harness doctor`, `harness migrate-v1`. 옵션은 `harness --help`.
+`harness run`, `harness status`, `harness stats`, `harness events`(`.harness/events/` 기록 조회, `--stage`·`--feature`·`--since`, SPEC §2 — 평가 단계의 `eval/finding`·`eval/reask`·`eval/verdict`·`security/verdict` 는 SPEC §7.8), `harness decide`·`harness note`·`harness ci-record`(사람 결정·수동 개입·CI 결과 기록), `harness insights`(이벤트 집계와 개선 과제 후보, SPEC §2), `harness export`(익명화한 이벤트를 로컬 허브에 내보내기 — 기본으로 켜져 있고 run·eval 이 끝날 때 자동으로 실행된다. 끄려면 `.harness/config.json` 에 `"telemetry": {"share": false}` 또는 환경 변수 `CC_HARNESS_TELEMETRY=0`(`off`). 첫 export 때 stderr 에 `harness: telemetry is on by default …` 안내가 한 번 나오고, 상태는 `harness doctor` 로 본다. [docs/telemetry.md](docs/telemetry.md)), `harness learn`(허브 분석: 버전별 지표, 근거 있는 개선 과제 후보를 backlog 로 `--propose`, 버전 비교 `--compare`), `harness doctor`, `harness migrate-v1`. 옵션은 `harness --help`.
 
 ## 설치
 
@@ -38,6 +38,8 @@ npx github:hanbyeol/cc-harness doctor    # 설치된 CLI·버전, 역할별 플�
 
 **대화 언어** — config.json의 `language`(선택, `ko`·`en`처럼 소문자 두 글자 또는 `pt-BR`처럼 두 글자-대문자 두 글자, 틀리면 `config_invalid`)를 두면 skill·역할은 사용자와 그 언어로, 없으면 사용자가 쓰는 언어로 대화합니다. 코드·주석·커밋·계약의 id와 `check`는 영어입니다(`AGENTS.md`·skill·agent의 `## Language` 절). `init --language ko`가 새 config.json에 쓰고, `harness status --brief`(SessionStart 훅)는 마지막 줄 `reply in: ko`로 세션에 알리며, `harness doctor`는 `language: ko`를 보여 줍니다. CLI 메시지는 번역하지 않습니다.
 
+**프로젝트 CLAUDE.md 블록** — `harness claude-md`는 프로젝트 `CLAUDE.md`의 `<!-- cc-harness:begin v<버전> -->`와 `<!-- cc-harness:end -->` 사이를 하네스에 포함된 `templates/claude-block.md`(v2 워크플로·수렴 규칙·금지 사항, `language`가 있으면 그 언어로 대화하라는 `## Language` 절)로 새로 쓰고, 블록 밖의 내용은 바이트 단위로 그대로 둡니다. 파일이 없으면 `# <디렉터리 이름>` 제목과 블록으로 만들고, 블록이 없으면 첫 제목 줄 다음에 넣으며, 버전 표시 없는 v1 블록도 바꿉니다. `harness init`도 같은 규칙으로 블록을 만듭니다. `harness claude-md --check`는 파일을 바꾸지 않고 블록이 없거나 버전이 다르면 exit 1입니다. 블록이 없거나 오래되면 `harness status --brief`(SessionStart 훅)가 `CLAUDE.md block missing|outdated (v…) — run harness claude-md` 줄로 알리고, `harness doctor`는 `CLAUDE.md block: …` 한 줄로 상태를 보여 줍니다 — 자동으로 고치지는 않습니다. `CLAUDE.md`가 symbolic link이거나 begin/end 표시가 깨져 있으면(줄 번호 표시) 파일을 바꾸지 않고 exit 2입니다.
+
 ### Claude Code 플러그인
 
 ```bash
@@ -45,8 +47,7 @@ npx github:hanbyeol/cc-harness doctor    # 설치된 CLI·버전, 역할별 플�
 /plugin install cc-harness
 ```
 
-skills·agents가 네이티브로 로딩되고, SessionStart 훅 하나(`harness status --brief`)가 세션 시작 시
-현재 상태를 보여 줍니다.
+skills·agents가 네이티브로 로딩되고, SessionStart 훅 하나(`harness status --brief`)가 세션 시작 시 현재 상태를 보여 줍니다.
 
 ### Gemini CLI 확장
 
@@ -58,8 +59,7 @@ gemini extensions install https://github.com/hanbyeol/cc-harness
 
 ### Codex CLI 및 기타 도구 (AGENTS.md + skills)
 
-Codex·Cursor·opencode 등 AGENTS.md를 읽는 도구는 이 저장소의 `AGENTS.md`를 프로젝트 루트에 두고
-`skills/`를 도구가 읽는 위치에 복사하면 됩니다. 코어 명령은 `npx github:hanbyeol/cc-harness <command>`로 호출합니다.
+Codex·Cursor·opencode 등 AGENTS.md를 읽는 도구는 이 저장소의 `AGENTS.md`를 프로젝트 루트에 두고 `skills/`를 도구가 읽는 위치에 복사하면 됩니다. 코어 명령은 `npx github:hanbyeol/cc-harness <command>`로 호출합니다.
 Codex 어댑터는 experimental입니다(`harness doctor`로 플래그 확인).
 
 ## 사용법

@@ -7,6 +7,7 @@ import { gitRepo, writeFiles } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { hashContract, lintContract } from '../lib/contract.mjs';
 import { HarnessError } from '../lib/errors.mjs';
+import { updateClaudeMd } from '../lib/claudemd.mjs';
 import { runFeatures } from '../lib/run.mjs';
 import { OUTPUT_SCHEMA, validateOutput } from '../lib/eval.mjs';
 import evalCommand from '../lib/commands/eval.mjs';
@@ -376,6 +377,7 @@ test('F22 AC-7 status shows open counts by priority and at most 5 high items (id
 
 test('F22 AC-7 status --brief appends only the open high count, omitted when 0', async () => {
   const dir = fixture({ items: STATUS_ITEMS });
+  updateClaudeMd(dir); // a current CLAUDE.md block adds no line of its own (F62 AC-5)
   const r = await statusCmd(dir, ['--brief']);
   assert.equal(r.code, 0);
   assert.match(r.out, / — backlog high: 6$/);

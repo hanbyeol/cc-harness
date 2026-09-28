@@ -42,7 +42,7 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
   단독으로 다시 돈 기준, `base_retry` 는 base 쪽 vacuity 실행을 단독으로 다시 돈 기준이다(§6.3). verify 가 끝나지 못하면(오류·중단) 이 이벤트는 남지 않는다.
 - 실행 단계 이벤트와 metrics(§8.11)에는 프롬프트·모델 응답 본문·diff·명령 출력이 들어가지 않는다 — 수치·이름·id·경로만 남는다.
 - 기록 실패(디스크·권한·`events` 가 파일 등)는 명령의 결과·출력·종료 코드를 바꾸지 않고 stderr 에 경고 한 줄(`harness: warning: could not record event …`, 프로세스당 한 번)만 남긴다.
-- `harness run` 이 기능 worktree 의 변경을 커밋할 때 `.harness/events/` 는 뺀다(test-count 캐시와 같음) — 기능 브랜치마다 같은 월 파일에 줄을 더하면 병합이 충돌하기 때문이다. worktree 안에서 남은 이벤트는 커밋되지 않는다. 이벤트 로그는 프로젝트의 로컬 기록이다 — 대상 프로젝트는 `.harness/events/` 를 `.gitignore` 에 두기를 권하고(이 저장소도 그렇다), 여러 프로젝트에 걸친 축적은 git 이 아니라 `harness export`(허브, opt-in)로 한다. 이미 무시되는 경로는 run 의 `git add` 제외 지정에서 빠진다(git 이 무시된 경로를 가리키는 pathspec 을 거부하므로).
+- `harness run` 이 기능 worktree 의 변경을 커밋할 때 `.harness/events/` 는 뺀다(test-count 캐시와 같음) — 기능 브랜치마다 같은 월 파일에 줄을 더하면 병합이 충돌하기 때문이다. worktree 안에서 남은 이벤트는 커밋되지 않는다. 이벤트 로그는 프로젝트의 로컬 기록이다 — 대상 프로젝트는 `.harness/events/` 를 `.gitignore` 에 두기를 권하고(이 저장소도 그렇다), 여러 프로젝트에 걸친 축적은 git 이 아니라 `harness export`(허브, 기본으로 켜짐)로 한다. 이미 무시되는 경로는 run 의 `git add` 제외 지정에서 빠진다(git 이 무시된 경로를 가리키는 pathspec 을 거부하므로).
 - `harness events [--stage S] [--feature F] [--since YYYY-MM-DD] [--json]` 은 모든 월 파일의 이벤트를 `ts` 순(같으면 파일 순)으로 보여 준다. 조건은 함께 쓰면 모두 만족해야 하고,
   `--since` 는 그날 0시(UTC) 이후다. 텍스트 출력은 한 줄에 `<ts> <stage>/<type> [<feature>] [r<round>] <data JSON>`, `--json` 은 이벤트 배열이다. 이벤트가 없으면 `no events yet`,
   조건에 맞는 것이 없으면 `no matching events`. JSON 객체가 아닌 줄은 건너뛰고 stderr 에 `harness: warning: events/<파일>:<줄 번호>: not a JSON object — line skipped` 경고를 낸다.
@@ -65,8 +65,17 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
     `lint_rule`(한 lint 규칙의 오류 3개 이상), `backlog_reason`(한 이관 사유의 지적 3개 이상), `low_reproduction`(지적 5개 이상이고 재현율 50% 미만),
     `reask`(재요청 3회 이상), `intervention`(한 종류의 개입 2회 이상), `rescope`(`split`+`rewrite` 결정 2회 이상), `ci_repeated`(반복 실패 테스트마다). 해당이 없으면 `suggestions: none`.
 
-**현장 데이터 내보내기** (opt-in, 설명: `docs/telemetry.md`) — `harness export [--hub <dir>] [--dry-run]` 은 이벤트를 익명화한 묶음으로 로컬 허브 디렉터리에 쓴다. 원격 전송·암호화는 하지 않는다.
-- config `telemetry.share` 가 `true`(불리언)일 때만 동작한다. 아니면(없음·`false`·그 밖의 값) `telemetry.share is off …` 를 출력하고 아무것도 쓰지 않는다(exit 0, `--dry-run` 도 같다).
+**현장 데이터 내보내기** (기본으로 켜짐, 설명: `docs/telemetry.md`) — `harness export [--hub <dir>] [--dry-run]` 은 이벤트를 익명화한 묶음으로 로컬 허브 디렉터리에 쓴다. 원격 전송·암호화는 하지 않는다.
+- 기본으로 켜져 있다: config 에 `telemetry` 가 없거나 `telemetry.share` 가 없으면 동작한다. `telemetry.share` 가 `false` 거나 불리언이 아닌 값(`"true"`·`1`·`null` 등)이면,
+  또는 `telemetry` 가 객체가 아니면 꺼진 것이다 — `telemetry.share is off …` 를 출력하고 아무것도 쓰지 않는다(exit 0, `--dry-run` 도 같다). 끄려면 `.harness/config.json` 에
+  `"telemetry": {"share": false}` 를 둔다.
+- 환경 변수 `CC_HARNESS_TELEMETRY` 가 `0` 또는 `off` 면 config 와 상관없이 export 와 자동 export 가 모두 꺼진다(`telemetry.share is off (CC_HARNESS_TELEMETRY) …`, exit 0).
+  그 밖의 값이거나 없으면 config 를 따른다. 예: `CC_HARNESS_TELEMETRY=0 harness run`.
+- 첫 안내 — 기본값으로 켜진 상태(`telemetry.share` 없음)에서 프로젝트의 첫 export(`.harness/events/.exported` 가 없을 때)가 성공하면 stderr 에 한 줄
+  `harness: telemetry is on by default — anonymized events go to <hub> (local only); set "telemetry": {"share": false} in .harness/config.json or CC_HARNESS_TELEMETRY=0 to turn it off`
+  를 낸다. `telemetry.share` 를 명시적으로 `true` 로 둔 경우와 그 뒤의 export 에서는 내지 않는다.
+- `harness doctor` 는 `telemetry: on (default) | on (config) | off (config) | off (CC_HARNESS_TELEMETRY) — hub <허브 경로>` 한 줄로 상태를 보여 준다.
+- 허브에 새로 만드는 디렉터리(허브와 `<hub>/<project>`)는 모드 0700, 묶음 파일은 0600 이다(POSIX, umask 와 무관). 이미 있는 디렉터리는 바꾸지 않는다.
 - 허브는 `--hub <dir>`(현재 디렉터리 기준), 없으면 환경 변수 `CC_HARNESS_HUB`, 없으면 `<사용자 홈>/.cc-harness/hub` 다. 묶음 파일은 `<hub>/<project>/<시각>.jsonl` —
   `project` 는 이벤트의 `project` 와 같은 경로 해시, 시각은 내보낸 시각의 ISO 8601 기본 형식(`20260928T123456.789Z`, Windows 파일 이름에 `:` 를 쓸 수 없어서)이다.
 - 내보내기 위치는 `.harness/events/.exported` 에 JSON 한 줄 `{"at": <내보낸 ISO 시각>, "files": {"YYYY-MM.jsonl": <바이트 위치>, …}}` 로 기록한다 — 이벤트 파일별로 마지막으로 내보낸
@@ -79,7 +88,8 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 - `--dry-run` 은 쓰지 않고(묶음·`.exported` 모두) `dry run: <n> lines would be exported to <파일>` 과 내보낼 첫 3줄을 출력한다.
 - 허브에 쓸 수 없으면(디렉터리를 만들 수 없음·권한 등) `harness: export failed: cannot write <경로>: <오류 코드>` 를 stderr 에 내고 exit 1 이며 `.exported` 는 바뀌지 않는다.
   묶음을 쓴 뒤 `.exported` 를 쓰지 못하면 묶음을 지우고 같은 방식으로 exit 1 이다.
-- `harness run`(중단된 경우 제외)과 `harness eval` 이 끝날 때 `telemetry.share` 와 `telemetry.auto_export` 가 모두 `true` 면 export 를 한 번 실행한다. 그 출력·오류는 stderr 로만 가고
+- `harness run`(중단된 경우 제외)과 `harness eval` 이 끝날 때 `telemetry.share` 가 켜져 있고 `telemetry.auto_export` 가 없거나 `true` 면(기본) export 를 한 번 실행한다
+  (`auto_export` 가 `false` 거나 그 밖의 값이면 하지 않는다). 그 출력·오류는 stderr 로만 가고
   (`eval --json` 의 stdout 은 JSON 그대로), 실패해도 run·eval 의 결과·종료 코드는 바뀌지 않는다.
 - 내보낸 줄은 아래 허용 목록만 남긴다(코드: `lib/telemetry.mjs` 의 `LINE_FIELDS`·`ENUM_FIELDS`). `feature` 와 그 밖의 최상위 필드는 버린다. `data` 에서는 수치·불리언(유한한 수)을
   코드 식별자 형태의 키(`^[a-z][a-z0-9_]{0,63}$`)에서만 남기고, 문자열은 아래 `data.*` 키의 허용 값만 남긴다. 배열·객체는 같은 규칙으로 안쪽을 거르고, 비어 있지 않던 것이 비면 버린다.
@@ -152,6 +162,16 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 **대화 언어(`language`)**: config.json 의 `language` 는 선택 문자열이고 기본값이 없다. `ko`·`en`·`ja` 처럼 소문자 두 글자이거나 `pt-BR` 처럼 소문자 두 글자-대문자 두 글자여야 한다(아니면 `language` 를 담은 `config_invalid`, exit 2 — `null`·숫자·`KO`·`pt-br`·`pt_BR` 포함). `AGENTS.md` 와 모든 skill·agent 파일은 `## Language` 절에서 같은 규칙을 준다: 사용자와의 대화(설명·질문·보고, 역할은 사용자가 읽는 요약·finding)는 `config.language` 가 있으면 그 언어로, 없으면 사용자가 쓰는 언어로 하고, 코드·코드 주석·커밋 메시지·계약의 id 와 `check` 는 영어로 둔다. `status --brief` 는 `language` 가 있으면 요약 줄 뒤 마지막 줄로 `reply in: <language>` 를 출력한다 — SessionStart 훅이 이 출력을 세션에 전하므로 세션이 처음부터 그 언어로 답한다. 없으면 출력은 요약 한 줄 그대로다. `init --language <code>` 는 새로 만드는 config.json 에 `language` 를 쓴다(값은 쓰기 전에 같은 형식 검사, 틀리면 `config_invalid`·값이 없으면 `usage`, 둘 다 exit 2 이고 아무 파일도 만들지 않는다. 기존 config.json 은 바꾸지 않는다). `doctor` 는 `language: <code>`(미설정이면 `language: not set (reply in the user's language)`) 한 줄을 출력한다. CLI 메시지와 skill·agent 본문은 번역하지 않는다.
 
 `init` 은 없는 파일·디렉터리만 만든다. `.harness/` 가 일부만 있어도(예: `contracts/` 만) 빠진 것을 채우고 기존 파일은 건드리지 않는다. 상태 파일 쓰기는 원자적이다(같은 디렉터리의 임시 파일 → rename). 어느 단계에서 실패해도 임시 파일을 지우고 대상 파일은 이전 내용 그대로 남는다(`io` 에러).
+
+### 4.1 프로젝트 CLAUDE.md 관리 블록 (`harness claude-md`)
+대상 프로젝트의 `CLAUDE.md` 에는 하네스가 관리하는 블록이 하나 있다 — `<!-- cc-harness:begin v<버전> -->` 줄과 `<!-- cc-harness:end -->` 줄 사이다(`<버전>` 은 코어 `package.json` 의 버전).
+- 블록 내용은 하네스 설치 위치(`bin/harness.mjs` 기준 패키지 루트)의 `templates/claude-block.md` 에서만 읽는다 — 대상 프로젝트에 같은 경로의 파일이 있어도 쓰지 않는다. 내용은 `## Language`(config.language 가 있으면 그 언어로 대화, 없으면 사용자가 쓰는 언어로. 코드·주석·커밋·계약 id·`check` 는 영어), v2 워크플로(spec·plan·build·verify·eval·fix·status), 수렴 규칙, 금지 사항이다.
+- `harness claude-md` 는 블록을 새로 쓴다. 블록 밖의 줄은 바이트 단위로 그대로 둔다(인코딩·BOM·줄 끝 포함; 블록은 begin 줄의 줄 끝(CRLF/LF)을 따른다). `CLAUDE.md` 가 없으면 `# <디렉터리 이름>` 제목과 블록만으로 만들고, 있지만 블록이 없으면 첫 제목 줄(`#`~`######`) 다음에 빈 줄·블록을 넣는다(제목이 없으면 파일 맨 앞). 버전 표시가 없는 이전 형식 `<!-- cc-harness:begin -->` 블록(v1 포함)도 블록으로 인식해 바꾼다. 내용이 같으면 파일을 쓰지 않는다. 쓰기는 원자적이다(같은 디렉터리 임시 파일 → rename, 실패 시 원래 내용 그대로, `io` exit 2).
+- `harness claude-md --check` 는 파일을 바꾸지 않는다. 블록이 없거나(파일 없음 포함) begin 표시의 버전이 현재 하네스와 다르면 이유를 출력하고 exit 1, 같으면 exit 0 이다(블록 본문은 비교하지 않는다).
+- 오류(exit 2, 파일은 그대로): begin 표시만 있고 end 가 없음, begin 또는 end 가 둘 이상, begin 없이 end — 메시지에 줄 번호가 나온다(`claude_md_invalid`). `CLAUDE.md` 가 심볼릭 링크면 링크도 대상도 바꾸지 않고 `CLAUDE.md is a symbolic link` 를 담은 메시지로 exit 2 이다(`--check` 도 같다).
+- 알림: `harness status --brief`(SessionStart 훅)는 블록이 없거나 오래됐으면 요약 줄 뒤(`reply in:` 줄 앞)에 `CLAUDE.md block missing — run harness claude-md` 또는 `CLAUDE.md block outdated (v<버전>) — run harness claude-md`(버전 표시 없는 블록은 `outdated (v1, unversioned)`)를 덧붙인다. 최신이거나 블록을 읽을 수 없으면(심볼릭 링크·표시 오류) 덧붙이지 않는다. `harness doctor` 는 `CLAUDE.md block: current (v…)`·`missing — …`·`outdated (v…) — …` 또는 오류 메시지 한 줄을 보여 준다. 둘 다 파일을 바꾸지 않는다 — SessionStart 에서 자동으로 고치지 않는다.
+- `harness init` 은 위 규칙으로 블록을 만들거나 갱신한다(새 config 의 `language` 반영). 블록을 쓸 수 없으면(심볼릭 링크·표시 오류) 경고하고 나머지 init 은 그대로 끝난다.
+- AGENTS.md 등 다른 CLI 용 파일은 갱신하지 않는다.
 
 **프로필(`profiles/*.json`)** 은 verify 명령·`env_allowlist`·루브릭의 기본값이다(병합 순서는 위 `config.json` 행). iac 프로필의 기본값은 다음과 같다(설명: `docs/iac.md`).
 - `verify.commands` 는 `harness tf-check` 한 명령이다. `tf-check [--dir <path>]` 는 `*.tf` 파일이 있는 디렉터리마다(`.terraform`·`.harness`·`.git` 아래와 심볼릭 링크 디렉터리는 제외) `terraform init -backend=false -input=false` 와 `terraform validate` 를 그 디렉터리에서 실행하고, `terraform fmt -check -recursive` 를 한 번 실행한다. `--dir` 을 주면 그 디렉터리 아래만 검사한다(없는 디렉터리는 `usage`, exit 2). 하나라도 실패하면 exit 1 이고 실패한 디렉터리 경로(프로젝트 기준, `/` 구분)와 오류를 stderr 에 출력한다. init 이 실패한 디렉터리는 경로와 init 오류 앞 300자를 출력하고 validate 는 건너뛰되 나머지 디렉터리 검사는 계속한다. `terraform` 이 PATH 에 없으면 `harness tf-check: command not found: terraform` 을 stderr 에 출력하고 exit 127 로 끝나며(명령의 첫 프로그램 `harness` 와 `not found` 가 한 줄에 있으므로 §6.1 의 명령 없음이다), run 은 이를 환경 문제로 보고 중단한다(§8, F29).
@@ -392,6 +412,7 @@ skills/                      spec · plan · build · fix · status · plan-revi
 agents/                      builder · evaluator · security-reviewer (Claude subagent 겸 headless 역할 프롬프트)
 profiles/                    sdlc · iac · ops (.json: verify 명령·루브릭)
 rules/                       언어별 규칙 (v1 유지)
+templates/claude-block.md    프로젝트 CLAUDE.md 관리 블록의 내용 (§4.1)
 bin/harness.mjs, lib/*.mjs   코어 (Node ≥ 22 — Node 20 은 2026-04 EOL 이고 `node --test` glob 이 21+ 부터; 런타임 의존성 0)
 hooks/hooks.json             Claude SessionStart 1개: `harness status --brief` — Claude 전용(`${CLAUDE_PLUGIN_ROOT}`). Gemini 도 이 파일을 로드하지만 변수가 비어 실패(비치명). Gemini 는 `${extensionPath}` 변형을 쓰는 방법이 확인될 때까지 hook 없음으로 간주
 ```
