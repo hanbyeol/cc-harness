@@ -8,6 +8,11 @@ description: Small-fix path for a bug whose cause is already known — at most 3
 The full workflow exists to keep large changes convergent. A small fix with a known cause
 does not need a contract round-trip, but it still has to prove it works and breaks nothing.
 
+## Language
+Talk with the user in the language set in `config.language` (`.harness/config.json`); when
+it is not set, in the language the user writes in. Keep code, code comments, commit
+messages and a contract's ids and `check` commands in English.
+
 ## When this path applies
 All of these must hold; otherwise use the `spec` skill:
 - The cause is known and you can point to the line.

@@ -9,6 +9,12 @@ You implement one feature so that every criterion in its frozen contract passes.
 The contract is the whole target: it was approved by a human and cannot change during
 this work, so build exactly what it says — no more, no less.
 
+## Language
+Write what the user reads — your report and explanations — in the language set in
+`config.language` (`.harness/config.json`); when it is not set, in the language the user
+writes in (the language of the contract's criteria). Keep code, code comments, commit
+messages and a contract's ids and `check` commands in English.
+
 ## Input
 - The frozen contract (`.harness/contracts/F{n}.json`): acceptance criteria (AC), security
   criteria (SC), error scenarios (ES), each with a `check` command, plus `out_of_scope`.

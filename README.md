@@ -33,9 +33,10 @@ npx github:hanbyeol/cc-harness init      # .harness/ 생성 (기존 파일은 �
 npx github:hanbyeol/cc-harness doctor    # 설치된 CLI·버전, 역할별 플래그 지원 여부 확인
 ```
 
-`harness`가 PATH에 없으면 이후 모든 명령을 `npx github:hanbyeol/cc-harness <command>`로 실행하면 됩니다
-(`npm i -g github:hanbyeol/cc-harness`로 설치하면 `harness`가 PATH에 생깁니다).
+`harness`가 PATH에 없으면 이후 모든 명령을 `npx github:hanbyeol/cc-harness <command>`로 실행하면 됩니다 (`npm i -g github:hanbyeol/cc-harness`로 설치하면 `harness`가 PATH에 생깁니다).
 **주의:** npm 레지스트리의 `cc-harness` 패키지는 이 프로젝트와 무관한 다른 도구입니다 — 항상 위의 `github:hanbyeol/cc-harness` 지정자로 실행하세요.
+
+**대화 언어** — config.json의 `language`(선택, `ko`·`en`처럼 소문자 두 글자 또는 `pt-BR`처럼 두 글자-대문자 두 글자, 틀리면 `config_invalid`)를 두면 skill·역할은 사용자와 그 언어로, 없으면 사용자가 쓰는 언어로 대화합니다. 코드·주석·커밋·계약의 id와 `check`는 영어입니다(`AGENTS.md`·skill·agent의 `## Language` 절). `init --language ko`가 새 config.json에 쓰고, `harness status --brief`(SessionStart 훅)는 마지막 줄 `reply in: ko`로 세션에 알리며, `harness doctor`는 `language: ko`를 보여 줍니다. CLI 메시지는 번역하지 않습니다.
 
 ### Claude Code 플러그인
 
@@ -73,8 +74,7 @@ CLI 안에서 skill을 순서대로 부릅니다. skill이 필요한 코어 명�
    승인을 받으면 `harness approve F{n}`으로 해시 동결한다.
 3. **build** — TDD로 구현한 뒤 `harness verify F{n}`(결정적 검증)과 `harness eval F{n}`(독립 평가)을 실행한다.
 
-`harness eval`은 판정 뒤 기능 상태를 코어가 직접 기록하고, run과 같은 수렴 규칙을 적용합니다.
-pass는 `passed`, 라운드가 남은 fail은 `in_progress`(남은 라운드 수 출력), 라운드 소진·발산·정체·eval_error 2회 연속·
+`harness eval`은 판정 뒤 기능 상태를 코어가 직접 기록하고, run과 같은 수렴 규칙을 적용합니다. pass는 `passed`, 라운드가 남은 fail은 `in_progress`(남은 라운드 수 출력), 라운드 소진·발산·정체·eval_error 2회 연속·
 근거 없는 저점은 `blocked`(사유와 재범위 제안을 backlog에 기록)입니다. 이미 `passed`·`blocked`인 기능, 승인되지 않았거나
 해시가 바뀐 계약, 이미 있는 라운드 번호는 어댑터 호출 없이 거부합니다(exit 2).
 
