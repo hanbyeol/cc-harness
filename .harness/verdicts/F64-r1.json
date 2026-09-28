@@ -1,0 +1,51 @@
+{
+  "feature": "F64",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "renderBlock inserts the '## Profile:' section by finding the last '\\n\\n' in the rendered template body and splicing before it — correct today because templates/claude-block.md's final paragraph ('This block is managed by...') is the last blank-line-separated block, but it is an implicit structural assumption rather than an explicit anchor, so a future edit to claude-block.md that adds trailing content after that paragraph would silently misplace the profile section.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "profileSection() calls loadProfile(profile) unconditionally, including for the sdlc default, which only works because profiles/sdlc.json happens to exist; the sdlc short-circuit (return '' ) is after the validation call rather than before, so the sdlc fast path still depends on a profiles/sdlc.json file being present.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.43057219999999996,
+  "contract_hash": "e6ae399ee0f0a4cb85340649b269931913daf8c58f14206a094e4ef365349c70",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5"
+    }
+  },
+  "at": "2026-09-28T04:29:56.686Z",
+  "origin": "run"
+}

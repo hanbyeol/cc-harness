@@ -584,7 +584,7 @@
       "depends_on": [
         "F62"
       ],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }
