@@ -78,6 +78,8 @@ test('F61 AC-3 status --brief ends with a reply-in line when config.language is 
   for (const language of ['ko', 'pt-BR']) {
     const dir = project([{ id: 'F1', title: 'one', security_tier: 'standard', depends_on: [], status: 'todo' }]);
     setLanguage(dir, language);
+    // Since F69 a language change makes the block outdated; rewrite it so only reply-in follows.
+    assert.equal(harness(['claude-md'], { cwd: dir }).code, 0);
     const r = harness(['status', '--brief'], { cwd: dir });
     assert.equal(r.code, 0, r.stderr);
     const lines = r.stdout.replace(/\n$/, '').split('\n');

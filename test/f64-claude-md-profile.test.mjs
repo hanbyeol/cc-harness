@@ -137,7 +137,7 @@ test('F64 AC-4 the begin marker names the profile, sdlc included', () => {
 
 test('F64 AC-4 a v2.0.30-style marker without profile= reads as sdlc', () => {
   const dir = project();
-  fs.writeFileSync(file(dir), `# p\n\n<!-- cc-harness:begin v${VERSION} -->\nold\n${END}\n`);
+  fs.writeFileSync(file(dir), `# p\n\n<!-- cc-harness:begin v${VERSION} -->\n${blockBody(renderBlock())}\n${END}\n`);
   const r = harness(['claude-md', '--check'], { cwd: dir });
   assert.equal(r.code, 0, r.stdout + r.stderr);
   setProfile(dir, 'iac');
