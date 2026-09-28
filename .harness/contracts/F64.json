@@ -1,0 +1,70 @@
+{
+  "id": "F64",
+  "title": "프로필별 CLAUDE.md 블록 — iac·ops 프로필 절, 블록에 프로필 표시, 프로필이 바뀌면 outdated",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "config 의 profile 이 iac 면 harness claude-md 가 쓴 블록에 '## Profile: iac' 절이 있고, 그 절의 본문은 templates/profile-iac.md 의 내용과 같다. 그 파일은 다음을 담는다: plan diff 가 명세이고 verify 는 harness tf-check 라는 것, terraform plan·apply 는 plan-review skill 로 하고 apply 는 항상 사용자의 명시적 승인 뒤에만 한다는 것, prod 나 상태 저장 리소스(DB·state backend·DNS)의 replace·destroy 는 무엇이 사라지는지 다시 말한 뒤 묻는다는 것, terraform apply -auto-approve·destroy·state rm 을 사용자 승인 없이 실행하지 않는다는 것 — 각 항목을 문자열로 확인하는 테스트",
+      "check": "node test/t.mjs \"F64 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "config 의 profile 이 ops 면 블록에 '## Profile: ops' 절이 있고 본문은 templates/profile-ops.md 와 같다. 그 파일은 다음을 담는다: 매니페스트는 오프라인으로(verify 의 kubeconform) 검증한다는 것, 라이브 클러스터 변경은 rollout skill 로 한 건씩 사용자 승인 뒤에만 하고 harness run 에 넣지 않는다는 것, 변경 전에 kubectl 컨텍스트와 namespace 를 사용자에게 말한다는 것, 롤백 명령을 미리 제시한다는 것 — 각 항목을 문자열로 확인하는 테스트",
+      "check": "node test/t.mjs \"F64 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "profile 이 sdlc 이거나 config 에 없으면 블록에 '## Profile:' 절이 없고, 블록 본문(표시 줄 제외)은 F62 의 블록과 바이트 단위로 같다",
+      "check": "node test/t.mjs \"F64 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "블록의 시작 표시는 '<!-- cc-harness:begin v<버전> profile=<이름> -->' 이다(sdlc 포함). profile= 가 없는 v2.0.30 형식의 표시는 sdlc 로 읽는다. 버전이 같아도 블록의 프로필이 config 의 프로필과 다르면 --check 는 'CLAUDE.md block is for profile <블록>, config profile is <config>' 를 출력하고 exit 1, status --brief 는 outdated 알림 줄을 낸다. harness claude-md 를 다시 실행하면 --check 가 exit 0 이 된다",
+      "check": "node test/t.mjs \"F64 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "templates/profile-iac.md 와 templates/profile-ops.md 는 각각 30줄 이하이고, 그 안에서 백틱으로 적은 skill 이름(plan-review, rollout 등)은 모두 skills/ 아래에 디렉터리가 있다 — 두 파일을 읽어 확인하는 테스트",
+      "check": "node test/t.mjs \"F64 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "docs/SPEC.md 의 CLAUDE.md 블록 절, docs/iac.md, README 가 프로필 절과 profile= 표시를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F64 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "config 의 profile 이 경로 구분자나 '..' 를 담은 값('../x', 'a/b', 'a\\\\b', '..')이면 harness claude-md 는 profiles/·templates/ 밖의 파일을 읽지 않고 unknown_profile 로 exit 2 이며 CLAUDE.md 를 바꾸지 않는다 — 대상 경로에 파일을 만들어 둔 fixture 로 값별 테스트",
+      "check": "node test/t.mjs \"F64 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "profiles/ 에는 있지만 templates/profile-<이름>.md 가 없는 프로필(테스트용 임시 패키지 루트로 재현)은 프로필 절 없이 블록을 쓰고 stderr 에 'no CLAUDE.md section for profile <이름>' 경고 한 줄을 내며 exit 0 이다",
+      "check": "node test/t.mjs \"F64 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "프로필별 skill 내용 변경",
+    "sdlc 프로필 절 추가",
+    "사용자 정의 프로필 템플릿"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-28T04:00:50.117Z",
+    "hash": "e6ae399ee0f0a4cb85340649b269931913daf8c58f14206a094e4ef365349c70"
+  }
+}

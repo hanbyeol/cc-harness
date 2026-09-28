@@ -576,6 +576,15 @@
         "F58"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F64",
+      "title": "프로필별 CLAUDE.md 블록 — iac·ops 프로필 절, 블록에 프로필 표시, 프로필이 바뀌면 outdated",
+      "security_tier": "standard",
+      "depends_on": [
+        "F62"
+      ],
+      "status": "approved"
     }
   ]
 }
