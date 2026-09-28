@@ -36,9 +36,9 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
   `session_log` 는 세션 id 가 있으면 `{path, exists}` — `path` 는 claude 세션 기록 파일의 예상 위치 `~/.claude/projects/<cwd 인코딩>/<session_id>.jsonl`
   (cwd 인코딩 = 호출한 작업 디렉터리의 실제 경로에서 영문·숫자 외 문자를 모두 `-` 로), `exists` 는 기록 시점에 그 파일이 있는지다. 없으면 `null`. 파일 내용은 읽지 않는다.
 - verify: `harness verify`·run 의 verify(`step` = `verify`·`post_merge_verify`, round 포함)는 끝날 때 `verify.commands` 마다 `verify/command`
-  `{step?, index, program, duration_ms, pass, exit_code, attempts, flaky, timed_out}`(program = 명령의 첫 프로그램 이름, `duration_ms` = 재실행 포함 시간),
+  `{step?, index, program, duration_ms, pass, exit_code, attempts, flaky, timed_out, flaky_passed?}`(program = 명령의 첫 프로그램 이름, `duration_ms` = 재실행 포함 시간),
   기준 check 마다 `verify/check` `{step?, id, duration_ms, pass, exit_code, vacuous, parallel_retry, base_retry, timed_out}`(`duration_ms` = head 실행 시간, 단독 재실행 포함)를 남긴다.
-  재실행 여부: `attempts` 2 는 실패한 명령을 한 번 더 돌린 것이고 `flaky` 는 그 재실행에서 결과가 바뀐 것(§6.1), `parallel_retry` 는 동시 실행 중 실패해
+  재실행 여부: `attempts` 2 는 실패한 명령을 한 번 더 돌린 것이고 `flaky` 는 그 재실행에서 결과가 바뀐 것, `attempts` 3 은 `verify.flaky` 'retry' 의 3차 실행이고 `flaky_passed` true 는 그 3차로 통과한 것(§6.1), `parallel_retry` 는 동시 실행 중 실패해
   단독으로 다시 돈 기준, `base_retry` 는 base 쪽 vacuity 실행을 단독으로 다시 돈 기준이다(§6.3). verify 가 끝나지 못하면(오류·중단) 이 이벤트는 남지 않는다.
 - 실행 단계 이벤트와 metrics(§8.11)에는 프롬프트·모델 응답 본문·diff·명령 출력이 들어가지 않는다 — 수치·이름·id·경로만 남는다.
 - 기록 실패(디스크·권한·`events` 가 파일 등)는 명령의 결과·출력·종료 코드를 바꾸지 않고 stderr 에 경고 한 줄(`harness: warning: could not record event …`, 프로세스당 한 번)만 남긴다.
@@ -50,7 +50,10 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 - 피드백 단계: 사람이 명령으로 남기는 기록이다. 세 명령 모두 사유·내용이 비어 있거나(공백만 포함) 옵션이 잘못되면 `usage`(exit 2)이고 아무것도 기록하지 않는다.
   이벤트를 쓰지 못하면(위 기록 실패) 경고 후 exit 1 이다 — 기록이 이 명령들의 목적이기 때문이다.
   - `harness decide F<n> --accept-risk|--split|--rewrite "<사유>"` — 셋 중 정확히 하나, features.json 에 있는 기능만. backlog 에 `kind: decision` 항목
-    `{kind, feature, decision, reason, at}`(id `B<n>` 은 §7.7 규칙)을 추가하고 `feedback/decision` 이벤트 `{decision, reason, backlog_id}` 를 남긴다. 기능의 status 는 바꾸지 않는다.
+    `{kind, feature, decision, reason, summary, at}`(id `B<n>` 은 §7.7 규칙)을 추가하고 `feedback/decision` 이벤트 `{decision, reason, backlog_id}` 를 남긴다. 기능의 status 는 바꾸지 않는다.
+    `summary` 는 `decision <decision> for F<n>: <사유>` 이다(사유는 `reason` 과 같이 가린 값). `kind: decision` 항목(summary 가 없는 이전 항목 포함)은 기록이지
+    열린 항목이 아니다 — backlog.json 에 그대로 남지만 `harness status` 의 `backlog: N open` 수, 평가 프롬프트의 `## Open backlog` 절,
+    `harness learn --propose` 의 열린 항목 합치기(§7.7)에 들어가지 않는다(`harness insights` 는 backlog 가 아니라 이벤트로 결정을 센다).
   - `harness note [F<n>] --kind manual-fix|manual-merge|environment|other "<내용>"` — 수동 수정·수동 병합·환경 문제 등 사람의 개입을 `feedback/intervention` 이벤트 `{kind, text}` 로 남긴다(기능은 선택).
   - `harness ci-record --sha <sha> --result success|failure [--job <name>] [--test <name>]...` — CI 결과 한 건을 `feedback/ci` 이벤트 `{sha, result, job, tests}` 로 남긴다.
     `--sha` 는 16진 커밋 해시, `--test` 는 실패한 테스트 이름이고 여러 번 줄 수 있다. CI 결과 자동 수집은 하지 않는다.
@@ -151,7 +154,7 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 | 파일 | 내용 |
 |------|------|
 | `config.json` | profile, verify 명령, 임계값, 예산, max_rounds, 어댑터 역할 배정. 병합 순서 DEFAULTS ← profile ← config (config 우선). `init` 은 verify.commands 를 쓰지 않는다 — 사용자가 정하기 전까지 프로필 기본값이 적용된다. `init` 이 config.json 을 새로 만들 때는 프로젝트의 테스트 러너를 감지해 `verify.test_count` 를 쓴다: `package.json` 의 `scripts.test` 에 `node --test` 가 있으면 `preset:node-test`, 아니고 `go.mod` 가 있으면 `preset:go`, 아니고 `pytest.ini`·`conftest.py` 가 있거나 `pyproject.toml` 에 `[tool.pytest.ini_options]` 절이 있으면 `preset:pytest`. 해당 없으면 키를 쓰지 않는다. 기존 config.json 은 바꾸지 않는다 — `doctor` 가 같은 규칙으로 제안만 한다(§10). 최상위는 JSON 객체여야 하고, 기본값이 객체인 키(`budget`·`run`·`verify`·`limits`·`roles`·`rubric`)는 지정 시 객체여야 한다. `verify.commands`·`verify.skip_markers`·`verify.test_paths`·`env_allowlist`·`secret_globs`·`protected_branches` 는 지정 시 빈 문자열이 아닌 문자열의 배열이어야 하고(오류는 키 이름과 원소 번호 `key[i]`), `verify.test_count` 는 문자열 또는 null 이어야 하고, `run.max_parallel`·`run.verify_parallel`·`verify.check_parallel` 은 `'auto'` 또는 1 이상의 정수여야 하고(§6.3 동시 실행·§8 병렬 실행, 오류는 키 이름을 담은 `config_invalid`), `preset:` 으로 시작하면 `preset:node-test`·`preset:go`·`preset:pytest` 중 하나와 정확히 같아야 한다(아니면 `verify.test_count` 와 사용 가능한 프리셋 이름을 담은 `config_invalid`, §6.2-3), `from:` 으로 시작하면 `from:commands[i]` 형식이고 i 가 병합된 `verify.commands` 범위 안이어야 한다(아니면 `verify.test_count` 를 담은 `config_invalid`, §6.2-3). 역할 모델 정책(§10)의 값 — `roles.<역할>.model`·`roles.<역할>.by_tier.<tier>`·`roles.<역할>.escalate`·`roles.<역할>.conflict_model`·`adapters.<name>.model` — 은 `-` 로 시작하거나 공백·제어 문자를 포함하면 거부되고(SR-1, 어댑터 인자에 들어가지 않는다), `by_tier` 는 키가 `critical`·`standard` 뿐인 객체이고 값은 빈 문자열이 아닌 문자열, `escalate`·`conflict_model` 은 빈 문자열이 아닌 문자열이어야 한다(오류는 키 경로, 예: `roles.builder.by_tier.low` 를 담은 `config_invalid`, exit 2). `budget.step_timeout_sec`(기본 1800)·`budget.git_timeout_sec`(기본 300)·`verify.vacuity_timeout_sec`(기본 120) 은 1 이상 2147483 이하의 수여야 한다(0·음수·2147483 초과·문자열·null 은 각각의 키 이름 — `budget.step_timeout_sec`·`budget.git_timeout_sec`·`verify.vacuity_timeout_sec` — 을 담은 `config_invalid`, exit 2). 상한은 `setTimeout` 의 지연 인자가 32비트 부호 있는 정수(2147483647ms)를 넘으면 안 되는 데서 온다. `budget.git_timeout_sec` 은 코어 git 명령의 시간 제한이고 `budget.step_timeout_sec` 과 독립이다(§6). `verify.vacuity_timeout_sec` 은 `new: true` 기준의 base vacuity 실행 시간 제한이다(§6.3). 형식 검사는 프로필과 병합하기 전 사용자 파일에 대해 한다(`run --resume` 은 저장된 config 스냅샷에도 같은 검사를 한다) |
-| `features.json` | `[{id, title, security_tier, depends_on[], status}]` — status ∈ `todo·approved·in_progress·passed·blocked·skipped`. 각 항목의 `id`·`title`·`status` 는 필수 문자열. `eval_round`(선택)는 대화형 eval 이 상태를 기록한 마지막 라운드(§7.6) |
+| `features.json` | `[{id, title, security_tier, depends_on[], status}]` — status ∈ `todo·approved·in_progress·passed·blocked·skipped`. 각 항목의 `id`·`title`·`status` 는 필수 문자열. `eval_round`(선택)는 대화형 eval 이 상태를 기록한 마지막 라운드(§7.6), `extra_rounds`(선택)는 `{hash, count}` — 사람이 `approve --extra-round` 로 그 계약 해시에 더한 라운드 수(§7.6) |
 | `contracts/F{n}.json` | 계약 (§5) |
 | `verdicts/F{n}-r{k}.json` | 라운드별 판정 (§7) |
 | `backlog.json` | `{ items: [...] }` — 범위 밖 발견 · blocked 재범위 제안 · `harness decide` 의 결정(`kind: decision`, §2). 항목 id(`B<n>`)·`priority`·`seen`·`sources`·`resolved_by` 규칙은 §7.7 |
@@ -206,7 +209,7 @@ lint 규칙(전부 결정적, 위반 = error):
 5. `security_tier: critical` ⇒ SC ≥ 1.
 6. `approval.hash` = `sha256(JSON.stringify(계약에서 approval 키를 제거한 객체))` (키 순서는 파일에 저장된 순서). hash 가 있으면 현재 내용(approval 제외)의 해시와 일치해야 함 — 불일치 = 승인 후 변경 → 재승인 필요.
 
-`harness approve F3 [F4 ...]`: 규칙 1–5·7 을 통과한 계약에 approval 을 (재)기록, features.status → `approved`. 기존 approval 의 hash 불일치(규칙 6)는 재승인을 막지 않는다 — 재승인이 곧 해소 수단이다. hash 없는 approval 은 lint error 는 아니지만 실행 대상이 아니다.
+`harness approve F3 [F4 ...]`: 규칙 1–5·7 을 통과한 계약에 approval 을 (재)기록, features.status → `approved`. 기존 approval 의 hash 불일치(규칙 6)는 재승인을 막지 않는다 — 재승인이 곧 해소 수단이다. 허용 라운드를 다 써서 blocked 된 기능의 같은 해시 재승인은 거부되고, `--extra-round` 로만 한 라운드를 더한다(§7.6). hash 없는 approval 은 lint error 는 아니지만 실행 대상이 아니다.
 
 `harness status`(non-brief)는 `approved` 이지만 실행 대상이 아닌 기능을 사유별로 나눠 보여 준다: 계약 파일이 없으면 `contract missing`, `approval` 이 없거나 `approval.hash` 가 없으면 `no approval hash`, hash 가 있지만 내용과 맞지 않으면(규칙 6) `changed after approval` — 각 줄은 `<사유> (run \`harness approve\` again): F{n}, ...` 형식이다. `--brief` 는 이 셋을 구분하지 않고 `re-approve: F{n}, ...` 로 합쳐 보여 준다.
 
@@ -219,7 +222,16 @@ lint 규칙(전부 결정적, 위반 = error):
 config의 `verify.commands`(예: test·lint·build)를 순서대로 실행. 하나라도 비정상 종료 = fail. 실행 파일이 없으면 `command not found: <이름>` 으로 보고한다(판정 규칙은 §7.3 의 명령 미발견과 같다).
 **명령 없음 판정(verify 명령·기준 check·`test_count`)**: exit 127 은 stderr 의 한 줄에 그 명령의 첫 프로그램 이름(앞의 `NAME=value` 대입을 건너뛴 첫 단어, 따옴표 제거)과 `not found`(대소문자 무시) 또는 `No such file` 이 함께 있을 때만 명령 없음이다 — 그 밖의 exit 127(예: `sh -c "exit 127"`, `npm test` 안에서 `jest` 가 없는 경우처럼 스크립트 자체가 127 로 끝남)은 일반 실패(`exit 127`)다. 명령이 `&&`·`||`·`;`·`|` 로 이어져 있으면(따옴표 안의 기호는 제외) 각 부분의 첫 프로그램 중 하나가 그렇게 이름 불릴 때 명령 없음이다 — `cd sub && no-such-prog` 는 명령 없음, `cd sub && sh -c "exit 127"` 은 일반 실패다. Windows 형식(exit 9009, cmd.exe 의 exit 1 + `'<프로그램>' is not recognized …`)과 spawn ENOENT 판정은 그대로다. repro·어댑터 CLI 의 판정(§7.3, §10)은 바뀌지 않는다.
 **코어 명령 내장 실행**: verify 명령·기준 check(base vacuity 실행 포함)·`test_count` 명령 문자열이 정확히 `harness ` 로 시작하고 나머지가 공백으로 나뉜 평범한 단어(영숫자와 `_-./:=@+,` 만)로만 이뤄지면, 코어는 PATH 의 `harness` 대신 자기 자신의 `bin/harness.mjs` 를 현재 node 로 셸 없이 인자 배열로 실행한다(PATH 에 다른 버전의 harness 가 있어도 이 checkout 의 코어가 실행되고, 변수 확장은 없다). `;`·`|`·`&`·`$`·따옴표·리다이렉션·`%`·`~`·역슬래시 등이 한 글자라도 있거나 앞에 공백이 있으면 내장 실행하지 않고 지금처럼 셸 명령으로 실행한다(예: `harness tf-check; echo pwned` 는 셸이 처리한다).
-실패 시 **1회 재실행**, 결과가 다르면 `flaky`로 기록하고 fail로 취급. 첫 실행에 실패하고 재실행에 통과한 명령은 첫 실행 출력(stdout·stderr)에서 `✖ ` 또는 `not ok ` 로 시작하는 줄(앞 공백 무시)의 테스트 이름(끝의 `(12ms)` 시간·TAP `# …` 지시어 제외, 중복 제거, 최대 20개)을 그 명령의 `flaky_tests` 로, 모든 명령의 합(최대 20개)을 verify 결과의 `flaky_tests` 로 기록한다. 이 기록은 판정을 바꾸지 않는다(여전히 fail).
+실패 시 **1회 재실행**, 결과가 다르면 `flaky`로 기록하고 fail로 취급. 첫 실행에 실패하고 재실행에 통과한 명령은 첫 실행 출력(stdout·stderr)에서 `✖ ` 또는 `not ok ` 로 시작하는 줄(앞 공백 무시)의 테스트 이름(끝의 `(12ms)` 시간·TAP `# …` 지시어 제외, 중복 제거, 최대 20개)을 그 명령의 `flaky_tests` 로, 모든 명령의 합(최대 20개)을 verify 결과의 `flaky_tests` 로 기록한다.
+**불안정 테스트 판정(`verify.flaky`)**: `'retry'`(기본값) 또는 `'fail'`, 그 밖의 값은 `verify.flaky` 를 담은 `config_invalid`(exit 2).
+`'fail'` 이면 flaky 명령은 fail 이고 3차 실행은 없다. `'retry'` 이면 1차 실패·2차 통과한 명령을 코어가 같은 조건으로 **3차로 한 번 더** 실행한다.
+3차가 통과하면 그 명령은 통과로 판정되고(`attempts` 3, `flaky` true, 명령 결과에 `flaky_passed` true), verify 결과의 `warnings` 에
+`flaky: passed on retry — <명령> (<테스트 이름>)` 이 남는다. 3차가 실패하거나 step 시간 제한에 걸리면(`timed_out`) 명령 실패(`attempts` 3)다.
+1차·2차 모두 실패하면 3차는 실행하지 않는다(`attempts` 2). 예외 — 1차 출력에서 뽑은 실패 테스트 이름(개수 제한 없이 모두) 중 하나라도
+`<기능 id> ` 로 시작하면(예: `F65 AC-1 …`, 기능 자신의 테스트는 안정적이어야 한다) 또는 이름을 하나도 뽑지 못하면, 3차 없이 지금처럼 fail 이다(`attempts` 2).
+3차로 통과한 명령은 `verify/command` 이벤트에 `attempts` 3 과 `data.flaky_passed` true 로 기록되고, `harness run` 은 그 명령의 `flaky_tests`
+이름마다 backlog 항목(`reason`·`kind` `flaky_test`, `priority` low, `test` = 이름)을 남긴다 — 같은 이름의 열린 `flaky_test` 항목이 있으면 새로 만들지 않고
+그 항목의 `seen` 을 1 늘리고 `sources` 에 `<기능>-r<라운드>` 를 더한다. 기준 check 의 재시도 규칙과 base vacuity 실행은 이 설정과 무관하다.
 
 ### 6.2 무결성 검사 (base 대비 diff)
 diff = `merge-base(base, HEAD)` ↔ **작업 트리**(커밋 안 된 변경 + untracked 파일 포함). base 측 실행(test_count·vacuous 검사)은 merge-base 를 임시 detached worktree 로 꺼내 수행하고 끝나면 제거한다. 그 `git worktree add` 가 실패하면 worktree 가 아닌 경로에 `git worktree remove` 를 호출하지 않고 임시 디렉터리만 지우며, verify 는 원래 git 오류 메시지를 담은 `git` 오류로 끝난다.
@@ -283,11 +295,12 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
    - needs-human → `blocked`(reason `needs_human`). eval_error 1회 → status 변화 없음(exit 2), 2회 연속 → `blocked`(reason `eval_error`).
    - `blocked` 이면 backlog.json 에 `source: F{n}-blocked`, `reason`, 재범위 선택지 `split`·`rewrite`·`accept` 항목을 추가한다(같은 라운드·reason 은 한 번만).
    - **라운드와 판정 파일 번호**: 판정 파일 번호는 기능별로 계속 증가한다 — `F{n}-r{k}.json` 의 k 는 계약 버전과 무관하게 기존 최대 번호 + 1 이고, 기존 판정 파일은 덮어쓰지 않는다(`run`·`eval` 모두). 라운드 상한(max_rounds)과 수렴 비교는 계약 해시 단위다 — 현재 승인 해시와 같은 `contract_hash` 의 판정만 세고, 수렴은 그 해시의 직전 판정하고만 비교한다. 그래서 blocked 후 새 버전으로 재승인하면 max_rounds 라운드를 새로 받는다. 판정 기록의 `contract_round` 가 현재 계약 해시 안에서의 라운드 번호이고, 출력에 `round <contract_round>/<max_rounds>` 가 나온다. `contract_hash` 가 없는 판정(F18 이전 기록)은 다른 계약의 라운드로 취급해 파일 번호 계산에만 넣는다. 판정 파일이 JSON 으로 읽히지 않으면(해시를 알 수 없음) 어댑터 호출 없이 `state_corrupt`(파일 경로 포함, E6).
+   - **같은 해시 재승인과 추가 라운드**: 같은 해시의 재승인은 라운드를 늘리지 않는다. 기능이 `blocked` 이고 현재 계약 내용 해시의 판정 수가 허용 라운드(max_rounds + 그 해시의 추가 라운드 수) 이상이면(max_rounds 로 blocked — 마지막 라운드가 `stall`·`divergence` 로 끝났어도 같다) `harness approve F{n}` 은 `F{n} is blocked after max_rounds with this contract — change the contract, or pass --extra-round to allow one more round` 로 exit 2 이고 features.json·계약을 쓰지 않는다. 계약을 바꿔 해시가 달라지면 새 해시 기준 라운드 1 부터이고 추가 라운드는 이어지지 않는다. 사람이 `harness approve F{n} --extra-round` 를 주면 기능이 `approved` 가 되고 features 항목의 `extra_rounds: {hash, count}` 가 이 해시에 한 라운드를 더한다(다른 해시면 count 1 로 새로 쓴다). 계약 파일은 그대로 둔다(승인이 유효하지 않을 때만 같은 해시로 approval 을 다시 쓴다). `plan/decision` 이벤트 `{decision: "extra_round", contract_round, extra_rounds, hash}`(contract_round = 허용된 새 라운드 번호)와 `plan/status`(reason `approve`)를 남긴다. `--extra-round` 를 max_rounds 로 blocked 되지 않은 기능(다른 status, 허용 라운드를 다 쓰기 전의 blocked, 계약이 바뀐 기능)에 쓰면 `F{n} is not blocked after max_rounds` 로 exit 2, features.json 쓰기가 실패하면 exit 2 이고 status 는 `blocked` 그대로다(이벤트도 없음). 추가 라운드의 eval 출력은 `contract round 4/3 (+1 extra round approved by a human)` 형식이고, 추가 라운드 중 마지막 허용 라운드가 fail 이면 수렴 비교와 무관하게 `blocked`(reason `rounds`)다. 허용 라운드를 넘는 라운드의 `harness eval` 은 사전 거부 — 어댑터 호출 없이 `round <k> exceeds the rounds allowed for this contract`(k 는 계약 라운드, code `rounds_exceeded`)로 exit 2, 판정 파일을 쓰지 않는다. `harness run` 도 같은 허용 라운드를 상한으로 쓴다(추가 라운드의 마지막 fail 은 `max_rounds`).
    - features.json 쓰기가 실패하면 verdict 파일은 남기고 exit 2(`io`). features 항목의 `eval_round` 가 기록된 마지막 라운드이며, 최신 `origin: eval` verdict 의 라운드가 그와 다르면 다음 `harness eval F{n}` 은 새 평가 없이 그 라운드의 상태 기록을 재시도한다.
 7. **backlog 정리 루프** (`backlog.json`)
    - **id**: 코어가 backlog 를 쓸 때(평가 결과 기록, blocked 재범위 제안, resolves 해결) `id` 가 없는 항목(기존 항목 포함)에 파일 순서대로 `B1`, `B2`, … 를 붙인다. 새 번호는 기존 `B<n>` 중 가장 큰 번호 다음이고, 이미 있는 id 는 바뀌지 않는다. id 가 중복된 backlog 는 E6(state_corrupt, 메시지에 중복 id) — 평가·status·lint-contract 가 파일을 고치지 않고 exit 2.
    - **severity → priority**: findings·out_of_scope 항목의 `severity`(`high`·`medium`·`low`)는 backlog 항목의 `priority` 로 기록된다. 그 외 값은 무시되고 `priority` 를 쓰지 않는다. 기존 항목의 priority 는 소급 추정하지 않는다.
-   - **열린 항목**: `resolved_by` 가 없는 항목. 평가 프롬프트의 `## Open backlog` 절에 열린 항목의 `id`·`priority`·`summary` 를 priority `high`→`medium`→`low`→없음 순(같은 priority 안에서는 파일 순서)으로 최대 40개 넣는다.
+   - **열린 항목**: `resolved_by` 가 없고 `kind: decision`(§2 `harness decide`)이 아닌 항목. 평가 프롬프트의 `## Open backlog` 절에 열린 항목의 `id`·`priority`·`summary` 를 priority `high`→`medium`→`low`→없음 순(같은 priority 안에서는 파일 순서)으로 최대 40개 넣는다.
    - **반복 지적 합치기**: 평가자 출력 항목의 `backlog_id` 가 열린 항목 id 와 같으면 새 항목을 만들지 않고 그 항목의 `seen` 을 1 늘리고(없으면 1 로 보고 2) `sources` 에 `F{n}-r{k}`(이번 기능·판정 파일 번호)를 추가한다. `backlog_id` 가 없는 id 이거나 이미 해결된 항목을 가리키면 새 항목으로 추가된다. 요약 문장의 유사도로 자동 중복 판정은 하지 않는다.
    - **resolves**: 계약의 `resolves`(§5)에 적힌 열린 항목은 그 기능이 `passed` 로 기록될 때(대화형 `harness eval` §7.6, `harness run` §8.5 각각) `resolved_by` 가 기능 id 가 된다. fail·blocked 이면 바뀌지 않는다. 이미 해결된 항목의 `resolved_by` 는 덮어쓰지 않는다.
    - **status**: `harness status` 는 `backlog: N open (high a · medium b · low c · none d)` 줄과 열린 `high` 항목 최대 5개(id·summary 앞 100자)를 보여 준다. `--brief` 에는 열린 high 항목 수만 ` — backlog high: n` 으로 덧붙인다(0 이면 생략). backlog.json 이 `{ items: [...] }` 가 아니면 status 도 E6 로 exit 2.
