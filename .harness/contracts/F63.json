@@ -1,0 +1,69 @@
+{
+  "id": "F63",
+  "title": "텔레메트리 기본 활성화 — telemetry.share·auto_export 기본값 true, 명시적 false·환경 변수로 끄기, 첫 내보내기 안내",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "config 에 telemetry 가 없거나 telemetry.share 가 없으면 export 가 동작한다(허브에 묶음을 쓴다). telemetry.share 가 false 면 지금처럼 'telemetry.share is off …' 를 출력하고 아무것도 쓰지 않는다(exit 0). telemetry.share 가 불리언이 아닌 값(문자열 \"true\", 1, null)이면 꺼진 것으로 본다 — 경우별 테스트",
+      "check": "node test/t.mjs \"F63 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "telemetry.auto_export 가 없으면 share 가 켜져 있을 때 harness run(중단 제외)과 harness eval 이 끝날 때 export 를 한 번 실행한다. auto_export 가 false 면 실행하지 않는다 — config 에 telemetry 가 전혀 없는 fixture 에서 run 뒤 허브에 묶음이 생기는 것과, auto_export false 에서 생기지 않는 것을 각각 테스트",
+      "check": "node test/t.mjs \"F63 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "환경 변수 CC_HARNESS_TELEMETRY 가 '0' 또는 'off' 면 config 와 상관없이 export 와 자동 export 가 모두 꺼진다(share true fixture 에서 확인). 그 밖의 값이나 없으면 config 를 따른다",
+      "check": "node test/t.mjs \"F63 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "한 프로젝트에서 처음 export 할 때(.harness/events/.exported 가 없을 때) share 가 기본값으로 켜진 상태면 stderr 에 한 줄 안내 'harness: telemetry is on by default — anonymized events go to <hub> (local only); set \"telemetry\": {\"share\": false} in .harness/config.json or CC_HARNESS_TELEMETRY=0 to turn it off' 를 낸다. share 를 명시적으로 true 로 둔 경우와 두 번째 export 에서는 내지 않는다",
+      "check": "node test/t.mjs \"F63 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "harness doctor 는 'telemetry: on (default) | on (config) | off (config) | off (CC_HARNESS_TELEMETRY)' 중 하나와 허브 경로를 한 줄로 보여 준다(네 경우별 테스트)",
+      "check": "node test/t.mjs \"F63 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "이 저장소의 테스트는 사용자의 실제 허브에 쓰지 않는다: test/helpers.mjs 가 CC_HARNESS_HUB 를 테스트 전용 임시 디렉터리로 설정하고, helpers 의 harness() 로 telemetry 설정이 없는 fixture 에서 run 을 실행해도 HOME(Windows 는 USERPROFILE)을 임시 디렉터리로 둔 상태에서 <HOME>/.cc-harness/hub 가 생기지 않는다",
+      "check": "node test/t.mjs \"F63 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "docs/SPEC.md 의 현장 데이터 내보내기 절, docs/telemetry.md, README 가 기본 활성화·끄는 방법(config false, CC_HARNESS_TELEMETRY)·첫 안내를 설명하고 'opt-in' 표현이 남지 않는다(문서 check)",
+      "check": "node test/t.mjs \"F63 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "기본값으로 켜진 자동 export 가 허브에 쓰지 못하면(허브 경로가 파일) run·eval 의 결과와 종료 코드는 바뀌지 않고 stderr 에 'export failed' 한 줄만 남는다",
+      "check": "node test/t.mjs \"F63 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "원격 전송",
+    "허용 목록(익명화 규칙) 변경",
+    "기존 프로젝트 config 의 telemetry 값 자동 수정"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-28T02:27:32.568Z",
+    "hash": "76689fc4b77cc41685ce24ce4c3252f343669ce9147f4a765be4e8ad7d39ed8c"
+  }
+}

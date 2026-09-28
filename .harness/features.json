@@ -558,6 +558,24 @@
         "F60"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F62",
+      "title": "프로젝트 CLAUDE.md 관리 블록 — harness claude-md 로 생성·갱신, 버전 표시, 오래된 블록 알림",
+      "security_tier": "standard",
+      "depends_on": [
+        "F61"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F63",
+      "title": "텔레메트리 기본 활성화 — telemetry.share·auto_export 기본값 true, 명시적 false·환경 변수로 끄기, 첫 내보내기 안내",
+      "security_tier": "standard",
+      "depends_on": [
+        "F58"
+      ],
+      "status": "approved"
     }
   ]
 }

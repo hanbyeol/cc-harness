@@ -1,0 +1,80 @@
+{
+  "id": "F62",
+  "title": "프로젝트 CLAUDE.md 관리 블록 — harness claude-md 로 생성·갱신, 버전 표시, 오래된 블록 알림",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness claude-md 는 플러그인에 포함된 템플릿(templates/claude-block.md)으로 프로젝트 CLAUDE.md 의 '<!-- cc-harness:begin v<버전> -->' 와 '<!-- cc-harness:end -->' 사이를 새로 쓰고, 블록 밖의 줄은 바이트 단위로 그대로 둔다 — 블록 앞뒤에 사용자 내용이 있는 fixture 로 확인",
+      "check": "node test/t.mjs \"F62 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "CLAUDE.md 가 없으면 '# <디렉터리 이름>' 제목과 블록만으로 파일을 만들고, 있지만 블록이 없으면 첫 제목 줄 다음에 블록을 넣는다(경우별 개별 테스트)",
+      "check": "node test/t.mjs \"F62 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "버전 표시가 없는 이전 형식의 '<!-- cc-harness:begin -->' 블록(v1 포함)도 인식해 새 블록으로 바꾼다 — v1 블록 fixture 에서 '/change-request' 가 사라지고 버전 표시가 생긴다",
+      "check": "node test/t.mjs \"F62 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "harness claude-md --check 는 블록이 없거나 버전이 현재 하네스와 다르면 이유를 출력하고 exit 1, 최신이면 exit 0 이며 파일을 바꾸지 않는다",
+      "check": "node test/t.mjs \"F62 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "harness status --brief 는 CLAUDE.md 블록이 없거나 오래됐으면 'CLAUDE.md block <missing|outdated (v…)> — run harness claude-md' 줄을 덧붙이고 파일은 바꾸지 않는다. harness doctor 는 블록 상태를 한 줄로 보여 준다",
+      "check": "node test/t.mjs \"F62 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "템플릿 블록은 v2 워크플로(spec·plan·build·verify·eval·fix·status), 수렴 규칙, 금지 사항을 담고, config.language 가 있으면 '## Language' 절에 그 언어로 대화한다는 규칙을 넣는다",
+      "check": "node test/t.mjs \"F62 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "harness init 은 새 프로젝트의 CLAUDE.md 에 블록을 만든다(기존 CLAUDE.md 가 있으면 AC-1·AC-2 규칙)",
+      "check": "node test/t.mjs \"F62 AC-7\"",
+      "new": true
+    },
+    {
+      "id": "AC-8",
+      "criterion": "README 와 SPEC 이 claude-md 명령, 블록 규칙, 알림을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F62 AC-8\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "CLAUDE.md 에 begin 표시만 있고 end 가 없거나 begin 이 둘 이상이면 파일을 바꾸지 않고 exit 2, 메시지에 줄 번호가 나온다",
+      "check": "node test/t.mjs \"F62 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "CLAUDE.md 쓰기가 실패하면 원래 파일 내용이 그대로이고(원자적 쓰기) exit 2 이다",
+      "check": "node test/t.mjs \"F62 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "SessionStart 에서 CLAUDE.md 자동 수정",
+    "AGENTS.md 등 다른 CLI 용 파일 갱신"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-28T02:27:32.330Z",
+    "hash": "eb25f94b7a288b8898fe4a2adf642d4aac4cfac9a942b63eb494b924bb148dc0"
+  }
+}
