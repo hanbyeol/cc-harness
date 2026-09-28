@@ -571,7 +571,7 @@
     {
       "id": "F63",
       "title": "텔레메트리 기본 활성화 — telemetry.share·auto_export 기본값 true, 명시적 false·환경 변수로 끄기, 첫 내보내기 안내",
-      "security_tier": "standard",
+      "security_tier": "critical",
       "depends_on": [
         "F58"
       ],

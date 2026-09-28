@@ -1,8 +1,8 @@
 {
   "id": "F63",
   "title": "텔레메트리 기본 활성화 — telemetry.share·auto_export 기본값 true, 명시적 false·환경 변수로 끄기, 첫 내보내기 안내",
-  "security_tier": "standard",
-  "version": 1,
+  "security_tier": "critical",
+  "version": 2,
   "acceptance_criteria": [
     {
       "id": "AC-1",
@@ -47,7 +47,26 @@
       "new": true
     }
   ],
-  "security_criteria": [],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "config 에 telemetry 가 없어 기본값으로 켜진 상태에서, 환경 변수 값(가짜 AWS_SECRET_ACCESS_KEY·GITHUB_TOKEN), 저장소 절대 경로, git remote URL, OS 사용자 이름, 기능 제목·기준 문장을 담은 이벤트를 export 하면 허브 묶음 파일의 바이트에 그 문자열이 하나도 나오지 않는다(값별 테스트)",
+      "check": "node test/t.mjs \"F63 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "POSIX 에서 export 가 새로 만드는 허브 디렉터리와 <hub>/<project> 디렉터리는 모드 0700, 묶음 파일은 0600 이다(umask 022 로 실행해 확인). Windows 에서는 이 테스트를 건너뛴다",
+      "check": "node test/t.mjs \"F63 SC-2\"",
+      "new": true
+    },
+    {
+      "id": "SC-3",
+      "criterion": "lib/telemetry.mjs 와 lib/commands/export.mjs 는 네트워크 모듈(node:net·node:http·node:https·node:dgram·node:tls·node:http2 및 접두사 없는 같은 이름)을 import 하지 않고 fetch( 를 호출하지 않는다 — 두 파일의 소스를 읽어 import·호출 목록을 검사하는 테스트",
+      "check": "node test/t.mjs \"F63 SC-3\"",
+      "new": true
+    }
+  ],
   "error_scenarios": [
     {
       "id": "ES-1",
@@ -63,7 +82,7 @@
   ],
   "approval": {
     "by": "hanbyeol@gmail.com",
-    "at": "2026-09-28T02:27:32.568Z",
-    "hash": "76689fc4b77cc41685ce24ce4c3252f343669ce9147f4a765be4e8ad7d39ed8c"
+    "at": "2026-09-28T02:32:51.831Z",
+    "hash": "0ad297a4a478c5600df262e10cd2563bbe0202a7b48b96bbeec8878f83a9b4d9"
   }
 }
