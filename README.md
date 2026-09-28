@@ -76,7 +76,7 @@ CLI 안에서 skill을 순서대로 부릅니다. skill이 필요한 코어 명�
 
 `harness eval`은 판정 뒤 기능 상태를 코어가 직접 기록하고, run과 같은 수렴 규칙을 적용합니다. pass는 `passed`, 라운드가 남은 fail은 `in_progress`(남은 라운드 수 출력), 라운드 소진·발산·정체·eval_error 2회 연속·
 근거 없는 저점은 `blocked`(사유와 재범위 제안을 backlog에 기록)입니다. 이미 `passed`·`blocked`인 기능, 승인되지 않았거나
-해시가 바뀐 계약, 이미 있는 라운드 번호는 어댑터 호출 없이 거부합니다(exit 2).
+해시가 바뀐 계약, 이미 있는 라운드 번호는 어댑터 호출 없이 거부합니다(exit 2). 라운드는 계약 해시 단위라 max_rounds로 `blocked`된 기능을 같은 계약으로 재승인하면 거부되고(exit 2), 계약을 고치면 새 해시의 라운드 1부터 시작합니다. 같은 계약에 한 라운드만 더 주려면 사람이 `harness approve F3 --extra-round`로 결정합니다(`plan/decision` 이벤트로 기록, eval 출력 `contract round 4/3 (+1 extra round approved by a human)`, 다시 fail이면 `blocked`, 허용 라운드를 넘는 eval은 모델 호출 없이 exit 2).
 
 작고 원인이 명확한 수정(3파일 이하, 비보안)은 `fix` skill, 현황은 `status` skill(`harness status`)을 씁니다.
 
