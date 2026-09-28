@@ -24,6 +24,12 @@ export function tmpdir(prefix = 'harness-test-') {
   return d;
 }
 
+// Telemetry is on by default (F63): every run and eval exports to the hub. Tests export to a hub
+// of their own, never to the user's (<home>/.cc-harness/hub or a CC_HARNESS_HUB they set).
+// Child processes inherit it; a test that needs another hub passes CC_HARNESS_HUB itself.
+export const TEST_HUB = path.join(tmpdir('harness-test-hub-'), 'hub');
+process.env.CC_HARNESS_HUB = TEST_HUB;
+
 // Runs the real CLI as a child process.
 export function harness(args, { cwd, env } = {}) {
   const r = spawnSync(process.execPath, [BIN, ...args], {

@@ -1,4 +1,4 @@
-# harness export — 현장 데이터 내보내기 (opt-in)
+# harness export — 현장 데이터 내보내기 (기본으로 켜짐)
 
 여러 프로젝트에서 하네스가 어떻게 쓰이는지(어느 lint 규칙이 자주 걸리는지, 지적이 왜 이관되는지, 단계별 시간·비용)를
 한곳에 모으기 위한 기능이다. 각 프로젝트의 이벤트 기록(`.harness/events/*.jsonl`)을 **익명화한 묶음**으로 로컬
@@ -7,17 +7,35 @@
 - 원격 서버로 보내지 않는다. 허브는 이 컴퓨터의 디렉터리이고, 그것을 어디로 옮길지는 사람이 정한다.
 - 암호화하지 않는다. 대신 묶음에는 아래 허용 목록의 값만 남는다.
 
-## 켜기 (opt-in)
+## 기본으로 켜짐, 끄는 방법
 
-기본은 꺼져 있다. `.harness/config.json` 에 다음을 넣어야 동작한다.
+기본으로 켜져 있다. `.harness/config.json` 에 `telemetry` 가 없거나 `telemetry.share` 가 없으면 `harness export` 가
+동작하고, `harness run`(중단된 경우 제외)과 `harness eval` 이 끝날 때 export 를 한 번 실행한다(`telemetry.auto_export` 도
+기본값이 `true`). 자동 export 의 출력은 stderr 로만 가고, 실패해도 run·eval 의 결과와 종료 코드는 바뀌지 않는다.
 
-```json
-{ "telemetry": { "share": true, "auto_export": false } }
+끄는 방법은 둘이다.
+
+1. 프로젝트에서 끄기 — `.harness/config.json` 에 다음을 둔다. `telemetry.share` 가 `false` 거나 불리언이 아닌 값
+   (`"true"`·`1`·`null` 등)이면 `harness export` 는 `telemetry.share is off` 를 출력하고 아무것도 쓰지 않는다(exit 0).
+
+   ```json
+   { "telemetry": { "share": false } }
+   ```
+
+   자동 export 만 끄려면 `{ "telemetry": { "auto_export": false } }` — `harness export` 는 그대로 쓸 수 있다.
+2. 환경에서 끄기 — 환경 변수 `CC_HARNESS_TELEMETRY` 가 `0` 또는 `off` 면 config 와 상관없이 export 와 자동 export 가
+   모두 꺼진다(예: `CC_HARNESS_TELEMETRY=0 harness run`, 셸 프로필에 `export CC_HARNESS_TELEMETRY=off`). 그 밖의 값이거나
+   없으면 config 를 따른다.
+
+기본값으로 켜진 상태에서 프로젝트의 첫 export(`.harness/events/.exported` 가 아직 없을 때)가 성공하면 stderr 에 한 줄
+안내가 나온다. `share` 를 명시적으로 `true` 로 둔 경우와 두 번째 export 부터는 나오지 않는다.
+
+```
+harness: telemetry is on by default — anonymized events go to <hub> (local only); set "telemetry": {"share": false} in .harness/config.json or CC_HARNESS_TELEMETRY=0 to turn it off
 ```
 
-- `telemetry.share` 가 `true` 가 아니면 `harness export` 는 `telemetry.share is off` 를 출력하고 아무것도 쓰지 않는다(exit 0).
-- `telemetry.auto_export` 도 `true` 면 `harness run`(중단된 경우 제외)과 `harness eval` 이 끝날 때 export 를 한 번 실행한다.
-  그 출력은 stderr 로만 가고, 실패해도 run·eval 의 결과와 종료 코드는 바뀌지 않는다.
+지금 상태는 `harness doctor` 의 한 줄로 확인한다: `telemetry: on (default)`·`on (config)`·`off (config)`·
+`off (CC_HARNESS_TELEMETRY)` 중 하나와 허브 경로.
 
 ## 사용
 
@@ -35,7 +53,8 @@ harness export --hub /path/to/hub # 다른 허브에 쓴다
 
 묶음 파일은 `<hub>/<project>/<시각>.jsonl` 이다. `<project>` 는 저장소 최상위 경로의 sha256 앞 16자(이벤트의
 `project` 와 같다), `<시각>` 은 내보낸 시각의 ISO 8601 기본 형식(예: `20260928T123456.789Z` — Windows 에서도 쓸 수
-있게 `:` 가 없다)이다.
+있게 `:` 가 없다)이다. POSIX 에서 export 가 새로 만드는 허브·프로젝트 디렉터리는 모드 0700, 묶음 파일은 0600 이다
+(소유자만 읽을 수 있다).
 
 마지막 내보내기의 시각과 이벤트 파일별 바이트 위치는 프로젝트의 `.harness/events/.exported` 에 기록된다. 다음 export 는 각 파일에서 그 위치 뒤에 추가된 줄만 내보내므로 같은 이벤트를 두 번 내보내지 않고, 같은 밀리초에 기록된 이벤트도 빠뜨리지 않는다. 이벤트 파일이 잘리거나 교체되면 그 파일을 처음부터 내보내고 경고한다. 허브에
 쓸 수 없으면 경로와 오류를 출력하고 exit 1 이며 `.exported` 는 바뀌지 않는다 — 고친 뒤 다시 실행하면 같은 이벤트가 나간다.
