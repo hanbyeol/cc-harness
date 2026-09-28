@@ -1,0 +1,63 @@
+{
+  "id": "F65",
+  "title": "불안정 테스트 판정 — 실패 후 통과한 verify 명령을 한 번 더 실행해 라운드를 쓰지 않기, 기능 자신의 테스트는 계속 실패",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "config verify.flaky 가 'retry'(기본값)일 때, verify 명령이 1차 실패·2차 통과(flaky)하면 코어가 같은 명령을 3차로 한 번 더 실행한다. 3차가 통과하고 AC-3 의 예외에 해당하지 않으면 그 명령은 통과로 판정되고 verify 결과에 flaky_tests 와 'flaky: passed on retry' 경고가 남는다 — 1차만 실패하는 fixture 명령으로 확인",
+      "check": "node test/t.mjs \"F65 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "3차가 실패하면 지금처럼 명령 실패이고(attempts 3, flaky true), 1차·2차 모두 실패하면 3차는 실행하지 않는다(attempts 2) — 경우별 테스트",
+      "check": "node test/t.mjs \"F65 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "1차 출력에서 뽑은 실패 테스트 이름 중 하나라도 '<기능 id> ' 로 시작하면(예: 'F65 AC-1 …') 3차 결과와 상관없이 지금처럼 실패이다 — 기능 자신의 테스트는 안정적이어야 하기 때문. 실패 테스트 이름을 뽑지 못한 경우(이름 없음)도 실패이다",
+      "check": "node test/t.mjs \"F65 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "verify.flaky 가 'fail' 이면 지금 동작 그대로(flaky 는 실패, 3차 없음)이다. 'retry'·'fail' 이 아닌 값은 verify.flaky 를 담은 config_invalid(exit 2)",
+      "check": "node test/t.mjs \"F65 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "AC-1 로 통과한 명령마다 verify/command 이벤트에 attempts 3 과 data.flaky_passed true 가 기록되고, harness run 은 그 테스트 이름마다 backlog 항목(priority low, reason flaky_test, 같은 이름이 이미 열려 있으면 seen 증가)을 남긴다",
+      "check": "node test/t.mjs \"F65 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "docs/SPEC.md §6.1 과 README 가 verify.flaky 와 3차 실행 규칙, 기능 자신의 테스트 예외를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F65 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "3차 실행이 step 시간 제한에 걸리면(timed out) 명령 실패이고 결과에 timed_out 이 남는다",
+      "check": "node test/t.mjs \"F65 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "기준 check 의 재시도 규칙 변경",
+    "base vacuity 재시도",
+    "테스트 파일 단위 재실행"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-28T05:10:13.268Z",
+    "hash": "20e55da1029bf4e83eb007dd4fac513976c0f465d2bff3181571fc6e745f8898"
+  }
+}

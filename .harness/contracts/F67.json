@@ -1,0 +1,50 @@
+{
+  "id": "F67",
+  "title": "결정 기록의 backlog 항목 — 요약을 채우고 열린 과제에서 빼기",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness decide F<n> --accept-risk \"<사유>\" 가 만드는 backlog 항목에 summary 'decision accept-risk for F<n>: <사유>'(사유는 기존과 같이 가림 적용)가 있다 — --split·--rewrite 도 같은 형식(경우별 테스트)",
+      "check": "node test/t.mjs \"F67 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "kind 가 decision 인 항목(summary 가 없는 이전 항목 포함)은 열린 과제가 아니다: harness status 의 'backlog: N open' 수, eval 프롬프트의 '## Open backlog' 절, harness learn·insights 의 열린 과제 수에 들어가지 않는다 — 결정 항목 1개와 일반 항목 1개가 있는 fixture 에서 각각 1 로 세어지는지 확인",
+      "check": "node test/t.mjs \"F67 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "결정 항목은 backlog.json 에 그대로 남고 harness events 의 feedback/decision 이벤트도 바뀌지 않는다",
+      "check": "node test/t.mjs \"F67 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "docs/SPEC.md 의 decide 절이 결정 항목의 summary 형식과 열린 과제 제외를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F67 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "summary 에 들어갈 사유가 비어 있으면 지금처럼 usage 오류(exit 2)이고 backlog 는 바뀌지 않는다",
+      "check": "node test/t.mjs \"F67 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "결정 항목 삭제·정리 명령",
+    "기존 backlog 파일 일괄 변환"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-28T05:10:13.268Z",
+    "hash": "9b18d60f7f38fc9635bffe15e366d88397ff6e3df6fffe6f3326a22319c50198"
+  }
+}

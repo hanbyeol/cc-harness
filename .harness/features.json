@@ -585,6 +585,27 @@
         "F62"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F65",
+      "title": "불안정 테스트 판정 — 실패 후 통과한 verify 명령을 한 번 더 실행해 라운드를 쓰지 않기, 기능 자신의 테스트는 계속 실패",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F66",
+      "title": "max_rounds 초과 — 같은 계약의 재승인은 라운드를 늘리지 않고, 사람의 명시적 --extra-round 로만 한 라운드 추가",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F67",
+      "title": "결정 기록의 backlog 항목 — 요약을 채우고 열린 과제에서 빼기",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }
