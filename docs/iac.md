@@ -5,6 +5,13 @@ iac 프로필(`"profile": "iac"`)의 verify 는 `harness tf-check` 한 명령이
 프로필 절이다. `terraform plan`·`apply` 는 verify 가 실행하지 않는다(클라우드 자격 증명이 SR-2 로 전달되지 않는다) —
 plan 은 `plan-review` skill 로 검토한다.
 
+`harness claude-md` 는 iac 프로필 프로젝트의 CLAUDE.md 블록에 `## Profile: iac` 절을 넣는다(begin 표시는
+`<!-- cc-harness:begin v<버전> profile=iac -->`). 내용은 `templates/profile-iac.md` 다 — plan diff 가 명세이고 verify 는
+`harness tf-check`, plan·apply 는 `plan-review` skill 로 하고 apply 는 사용자의 명시적 승인 뒤에만, prod 나 상태 저장
+리소스의 replace·destroy 는 사라질 것을 다시 말한 뒤 묻고, `terraform apply -auto-approve`·`destroy`·`state rm` 은
+승인 없이 실행하지 않는다. config 의 profile 을 바꾸면 블록이 outdated 가 되므로 `harness claude-md` 를 다시 실행한다
+(`docs/SPEC.md` §4.1).
+
 ## tf-check 가 하는 일
 
 ```
