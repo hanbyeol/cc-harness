@@ -1,0 +1,56 @@
+{
+  "id": "F61",
+  "title": "대화 언어 — skills·agents·AGENTS.md 의 언어 규칙, config.language, 세션 시작 안내",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "AGENTS.md 와 skills/*/SKILL.md 7개, agents/*.md 3개가 각각 '## Language' 절을 갖고, 그 절은 사용자와의 대화는 config.language 가 있으면 그 언어로, 없으면 사용자가 쓰는 언어로 하고 코드·주석·커밋·계약의 id·check 는 영어로 둔다는 규칙을 담는다(파일별 개별 테스트)",
+      "check": "node test/t.mjs \"F61 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "config.language 는 선택 문자열로 'ko'·'en'·'ja' 처럼 소문자 두 글자이거나 'pt-BR' 처럼 소문자 두 글자-대문자 두 글자여야 하고, 아니면 exit 2(config_invalid) 이며 메시지에 language 가 나온다(값별 개별 테스트)",
+      "check": "node test/t.mjs \"F61 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "config.language 가 있으면 harness status --brief 출력 끝에 'reply in: <language>' 줄이 붙고(SessionStart 훅이 세션에 전하는 문장), 없으면 붙지 않는다",
+      "check": "node test/t.mjs \"F61 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "harness init --language <code> 는 새 config.json 에 language 를 쓰고, harness doctor 는 설정된 language 를 한 줄로 보여 준다",
+      "check": "node test/t.mjs \"F61 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "README 와 SPEC §4 가 language 설정과 대화 언어 규칙을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F61 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "language 가 없는 기존 config 는 지금처럼 로드되고 status --brief 출력은 바뀌지 않는다",
+      "check": "node test/t.mjs \"F61 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "CLI 메시지의 번역",
+    "skill·agent 본문의 번역본"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-09-28T01:11:16.470Z",
+    "hash": "e2af66d4a515b5b0fa5da4b52596363ddf34f7b7e8b55a401fa7e9a8238efe56"
+  }
+}

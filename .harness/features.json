@@ -549,6 +549,15 @@
         "F59"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F61",
+      "title": "대화 언어 — skills·agents·AGENTS.md 의 언어 규칙, config.language, 세션 시작 안내",
+      "security_tier": "standard",
+      "depends_on": [
+        "F60"
+      ],
+      "status": "approved"
     }
   ]
 }
