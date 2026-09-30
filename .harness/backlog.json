@@ -4966,6 +4966,22 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B415"
+    },
+    {
+      "source": "human",
+      "reason": "out_of_scope",
+      "priority": "medium",
+      "at": "2026-09-30T01:18:35.391Z",
+      "id": "B416",
+      "summary": "harness stats builder_model suggestion looks only at the builder cost share (>70%) and recommends a cheaper builder for standard-tier features. Field data contradicts it: claude-sonnet-5 builds timed out in 6 of 14 steps (median 1394s) while claude-opus-5-5 builds were ok in 46 of 46 (median 962s). The rule should also weigh per-model build timeout rate (outcome timeout / timeout-continued) and not suggest a model whose timeout rate is higher."
+    },
+    {
+      "source": "human",
+      "reason": "out_of_scope",
+      "priority": "low",
+      "at": "2026-09-30T01:18:35.391Z",
+      "id": "B417",
+      "summary": "Adapter results do not distinguish a model refusal (stop_reason refusal; Sonnet 5.5 categories cyber, bio, frontier_llm, reasoning_extraction, general_harms; Opus 5.5 adds bio and reasoning_extraction) from other failures; it likely surfaces as no_json or exit_nonzero. Needs a recorded claude -p refusal fixture first, then decide whether a refusal is an environment stop (resumable) rather than a spent round, and record the category in metrics."
     }
   ]
 }

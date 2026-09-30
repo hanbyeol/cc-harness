@@ -624,6 +624,16 @@
         "F64"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F70",
+      "title": "역할별 effort — roles.<역할>.effort 를 claude --effort 로 넘기고 metrics·stats·doctor 에 기록",
+      "security_tier": "standard",
+      "depends_on": [
+        "F27",
+        "F28"
+      ],
+      "status": "approved"
     }
   ]
 }
