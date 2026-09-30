@@ -245,10 +245,10 @@ const EXPECTED = {
     { step: 'post_merge_verify', count: 1, median_ms: 3_000, p90_ms: 3_000, cost_total_usd: 0, cost_avg_usd: 0 },
   ],
   cost_by_role_model: [
-    { role: 'builder', model: 'opus', count: 3, cost_usd: 6 },
-    { role: 'evaluator', model: 'pro', count: 3, cost_usd: 2 },
-    { role: 'security-reviewer', model: 'o', count: 1, cost_usd: 1 },
-    { role: 'core', model: null, count: 5, cost_usd: 0 },
+    { role: 'builder', model: 'opus', effort: null, count: 3, cost_usd: 6 },
+    { role: 'evaluator', model: 'pro', effort: null, count: 3, cost_usd: 2 },
+    { role: 'security-reviewer', model: 'o', effort: null, count: 1, cost_usd: 1 },
+    { role: 'core', model: null, effort: null, count: 5, cost_usd: 0 },
   ],
   features: {
     count: 2, first_round_pass_rate: 0.5, avg_rounds: 1.5,
@@ -278,8 +278,8 @@ test('F27 AC-4: harness stats text output shows the same numbers', () => {
   assert.match(r.stdout, /build\s+3\s+20\.0s\s+30\.0s\s+\$6\.00\s+\$2\.00/);
   assert.match(r.stdout, /eval\s+4\s+5\.5s\s+8\.0s\s+\$3\.00\s+\$0\.75/);
   assert.match(r.stdout, /post_merge_verify\s+1\s+3\.0s\s+3\.0s/);
-  assert.match(r.stdout, /builder\s+opus\s+\$6\.00 \(3 steps\)/);
-  assert.match(r.stdout, /security-reviewer\s+o\s+\$1\.00 \(1 steps\)/);
+  assert.match(r.stdout, /builder\s+opus\s+-\s+\$6\.00 \(3 steps\)/);
+  assert.match(r.stdout, /security-reviewer\s+o\s+-\s+\$1\.00 \(1 steps\)/);
   assert.match(r.stdout, /features: 2 evaluated, first-round pass rate 50%, average rounds 1\.5/);
 });
 
