@@ -4569,7 +4569,11 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B379"
+      "id": "B379",
+      "seen": 2,
+      "sources": [
+        "F70-r1"
+      ]
     },
     {
       "feature": "F56",
@@ -4982,6 +4986,26 @@
       "at": "2026-09-30T01:18:35.391Z",
       "id": "B417",
       "summary": "Adapter results do not distinguish a model refusal (stop_reason refusal; Sonnet 5.5 categories cyber, bio, frontier_llm, reasoning_extraction, general_harms; Opus 5.5 adds bio and reasoning_extraction) from other failures; it likely surfaces as no_json or exit_nonzero. Needs a recorded claude -p refusal fixture first, then decide whether a refusal is an environment stop (resumable) rather than a spent round, and record the category in metrics."
+    },
+    {
+      "feature": "F70",
+      "round": 1,
+      "at": "2026-09-30T01:54:15.483Z",
+      "summary": "validateEfforts 는 사용자 파일의 role.adapter 가 문자열 'claude' 일 때만 effort 를 허용한다. 프로필이나 기본값이 claude 를 정해 주는데 role 에 adapter 를 쓰지 않고 effort 만 쓰면, 실제로는 claude 로 호출될 역할인데도 'only supported by the claude adapter, got adapter null' 로 exit 2 가 된다. ES-2 는 adapter 가 claude 가 아닌 역할만 명시하므로 계약 위반은 아니다. 다만 사용자에게는 뜻밖일 수 있고, SPEC §4 에 'adapter 를 명시해야 한다'는 문구도 없다. 병합 후 기본 adapter 를 기준으로 검사하거나 SPEC 에 명시하는 것이 좋다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B418"
+    },
+    {
+      "feature": "F70",
+      "round": 1,
+      "at": "2026-09-30T01:54:15.483Z",
+      "summary": "eval 의 modelOf 는 { adapter, model } 만 골라 verdict reviews 에 넣는다. 이 정책은 SPEC §10 에 적혀 있고 코드 주석에도 있지만, 'effort 가 reviews 에 들어가지 않는다'는 것을 확인하는 테스트는 없다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B419"
     }
   ]
 }

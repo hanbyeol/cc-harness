@@ -1,0 +1,58 @@
+{
+  "feature": "F70",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 8,
+    "quality": 8,
+    "security": 9,
+    "errors": 8,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "validateEfforts 는 사용자 파일의 role.adapter 가 문자열 'claude' 일 때만 effort 를 허용한다. 프로필이나 기본값이 claude 를 정해 주는데 role 에 adapter 를 쓰지 않고 effort 만 쓰면, 실제로는 claude 로 호출될 역할인데도 'only supported by the claude adapter, got adapter null' 로 exit 2 가 된다. ES-2 는 adapter 가 claude 가 아닌 역할만 명시하므로 계약 위반은 아니다. 다만 사용자에게는 뜻밖일 수 있고, SPEC §4 에 'adapter 를 명시해야 한다'는 문구도 없다. 병합 후 기본 adapter 를 기준으로 검사하거나 SPEC 에 명시하는 것이 좋다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "eval 의 modelOf 는 { adapter, model } 만 골라 verdict reviews 에 넣는다. 이 정책은 SPEC §10 에 적혀 있고 코드 주석에도 있지만, 'effort 가 reviews 에 들어가지 않는다'는 것을 확인하는 테스트는 없다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "lib/usage.mjs 의 stepEventData 는 effort 를 destructuring 목록에 추가하는 방식으로 받는다. 허용 키 목록이 destructuring 에 의존한다는 점은 기존 backlog B379 와 같은 문제다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B379"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.3088358,
+  "contract_hash": "07a1a7f9ce035b75510a4a37142a8ddfd03ae7b64b2142f1f1cc5e6393e493cf",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 8,
+        "quality": 8,
+        "security": 9,
+        "errors": 8,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-09-30T01:54:15.483Z",
+  "origin": "run"
+}
