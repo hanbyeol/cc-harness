@@ -25,7 +25,7 @@
     },
     "evaluator": {
       "adapter": "claude",
-      "model": "claude-sonnet-5"
+      "model": "claude-sonnet-5-5"
     },
     "security-reviewer": {
       "adapter": "claude",
