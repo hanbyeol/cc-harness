@@ -89,12 +89,14 @@ function fakeEvaluate() {
   return fn;
 }
 
-// Fake verify: every call is an interval of `delay` ms (feature and post-merge verifies alike).
-function timedVerify({ delay = 0 } = {}) {
+// Fake verify: every call is an interval of `delay` ms (feature and post-merge verifies alike),
+// after `onCall` (if given) has resolved.
+function timedVerify({ delay = 0, onCall } = {}) {
   const calls = [];
   const fn = async (a) => {
     const c = { featureId: a.featureId, cwd: a.cwd, integration: isIntegration(a.cwd), start: now(), end: null };
     calls.push(c);
+    if (onCall) await onCall(a, c);
     await sleep(delay);
     c.end = now();
     return PASSING;
@@ -204,8 +206,25 @@ for (const [cpus, pool] of [[8, 1], [16, 2], [4, 1]]) {
 
 test('F25 AC-3: run.verify_parallel 3 caps verify at 3 regardless of the CPU count', async () => {
   const dir = fixture(IDS4);
-  const verify = timedVerify({ delay: 2000 });
-  await run(dir, { build: slowBuild({ delay: () => 300 }), verify, cpus: 64 }, { run: { verify_parallel: 3 } });
+  // Barriers instead of fixed delays (up to 30 s each): under load the serialized worktree adds
+  // and commits spread the builds and verifies so far apart that a fixed delay let the first
+  // verify end before the third began. Each build waits until all four have started; each
+  // feature verify waits until three have started. A cap below 3 never fills the verify barrier
+  // (the bound ends the wait and the assertion fails); a cap above 3 lets the fourth in.
+  const build = slowBuild({
+    delay: () => 300,
+    onCall: async () => {
+      for (const t0 = Date.now(); build.calls.filter((c) => !c.conflicts).length < 4 && Date.now() - t0 < 30_000;) await sleep(20);
+    },
+  });
+  const verify = timedVerify({
+    delay: 2000,
+    onCall: async (a, c) => {
+      if (c.integration) return;
+      for (const t0 = Date.now(); verify.calls.filter((x) => !x.integration).length < 3 && Date.now() - t0 < 30_000;) await sleep(20);
+    },
+  });
+  await run(dir, { build, verify, cpus: 64 }, { run: { verify_parallel: 3 } });
   assert.equal(maxConcurrent(verify.calls), 3);
 });
 
@@ -414,8 +433,14 @@ for (const [key, name, value] of INVALID) {
 test('F25 ES-2: in an auto parallel run a failing git worktree add blocks only that feature (worktree)', async () => {
   const dir = fixture(['F1', 'F2', 'F3']);
   writeFiles(dir, { '.harness/wt/F2/occupied.txt': 'in the way\n' }); // gitignored: worktree add fails
-  // Long enough to outlast the serialized worktree adds of the other features.
-  const build = slowBuild({ delay: () => 1500 });
+  // Each build waits until both F1 and F3 have started (up to 30 s) instead of relying on a fixed
+  // delay outlasting the serialized worktree adds, which under load it did not.
+  const build = slowBuild({
+    delay: () => 300,
+    onCall: async () => {
+      for (const t0 = Date.now(); build.calls.filter((c) => !c.conflicts).length < 2 && Date.now() - t0 < 30_000;) await sleep(20);
+    },
+  });
   const r = await run(dir, { build });
   assert.deepEqual(statuses(dir), { F1: 'passed', F2: 'blocked', F3: 'passed' });
   assert.equal(r.results.find((x) => x.feature === 'F2').reason, 'worktree');
