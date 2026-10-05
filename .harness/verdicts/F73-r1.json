@@ -1,0 +1,51 @@
+{
+  "feature": "F73",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The section-extraction helper in test/f73-claude-md-keep-going.test.mjs relies on the section ending at the first blank line. If a blank line is later added inside the section, the AC-4 deepEqual would fail, which is arguably intended strictness.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "The managed block in this repository's CLAUDE.md is marked v2.0.28, while the harness version may differ. AC-6 passes because freshness is judged by content, not version, so this is only a cosmetic marker mismatch.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.21535340000000003,
+  "contract_hash": "f7f580439732fc051e65e6855285e8f0905b445f8c0c737ae0b8d1bac3f30253",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-05T13:26:29.776Z",
+  "origin": "run"
+}

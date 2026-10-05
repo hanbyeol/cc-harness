@@ -1,0 +1,57 @@
+{
+  "feature": "F74",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "criteriaStatus 가 abort 되면 부분 결과를 그대로 반환하고, 호출부는 run 의 step() 래퍼가 abort 를 던지는 것에 기대어 builder 호출을 막는다. 이 암묵적 결합을 직접 확인하는 단위 테스트는 없다(ES-2 통합 테스트가 간접적으로만 덮는다).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "criteria_status 의 outcome 'error' 는 non-fatal 예외에서만 쓰이고 SPEC §8.11 에 발생 조건이 설명되어 있지 않다. 이 경우 builder 는 섹션 없이 호출되는데, 그 동작도 명시되어 있지 않다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "기준 check 를 순차 실행하므로 check 가 많고 느린 계약에서는 이어하기 시도 시작이 최대 개수×step_timeout_sec 만큼 지연될 수 있다. 계약이 순차 실행을 명시하므로 결함은 아니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.19550119999999999,
+  "contract_hash": "79dd43f4b757b7d28a7c1c6a1bb69a90a0ddacc11b2e6d20a2b12bd9e7ab43be",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-05T13:38:12.447Z",
+  "origin": "run"
+}

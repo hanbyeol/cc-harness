@@ -1,0 +1,57 @@
+{
+  "feature": "F75",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "locationOf 는 'C:x' 같은 드라이브 상대 경로와 선행 '/'·'\\' 는 거르지만, 'lib//a.mjs' 나 './lib/a.mjs' 처럼 정규화되지 않은 경로는 그대로 남긴다. 계약은 이를 요구하지 않으므로 차단하지 않는다. 소비자가 경로를 비교하게 되면 정규화를 고려할 만하다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "isSecretPath 는 파일명 패턴만 보므로 'secrets/' 같은 비밀 디렉터리 안의 일반 이름 파일은 config 의 secret_globs 에 등록해야만 걸러진다. SC-1 이 명시한 범위 안의 동작이며, 위치 필드로 인한 새로운 노출은 아니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "test/f75-finding-location.test.mjs 의 AC-5 테스트는 evaluator.md 의 정규식 매칭에 의존한다. 문구를 바꾸면 의미가 같아도 깨질 수 있다. 문서 check 의 한계이므로 backlog 참고용이다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.17057879999999997,
+  "contract_hash": "35c162982ffbea119630e2fe69c32365c5f993eb5751970b2ff0ea0cdaa9a981",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-05T13:34:35.661Z",
+  "origin": "run"
+}
