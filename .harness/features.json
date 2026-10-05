@@ -643,14 +643,14 @@
         "F27",
         "F70"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F72",
       "title": "run 보고서 맨 앞 '## Needs you' — 사람이 결정할 일을 먼저 보여 준다",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }

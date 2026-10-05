@@ -1,0 +1,57 @@
+{
+  "feature": "F71",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "evaluator 재요청(attempt 2)이 같은 불일치를 다시 보고하면 같은 round·step 경고가 두 번 쌓여 '## Warnings' 에 중복이 생길 수 있다. 계약은 호출 단위 경고로 읽혀 결함은 아니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "run 보고서의 Model 칸 불일치 표시는 단계별이 아니라 (요청, 실제) 쌍 전체 기준(state.servedMismatches)이다. 지금은 동작이 같지만 단계별 판정과 따로 유지되는 이중 구조다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "mismatchWarning 은 'warning: ' 접두어를 포함해 반환하고 호출자가 그대로 쓴다. 나중에 호출자가 접두어를 한 번 더 붙이면 중복되므로 접두어 책임을 한 곳에 두는 것이 안전하다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.22961600000000001,
+  "contract_hash": "601c185525a8ba2978dfda5c8cbde060e4ba33d9ae5bacc520ab146d787f10e1",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-05T11:16:02.559Z",
+  "origin": "run"
+}

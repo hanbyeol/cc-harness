@@ -1,0 +1,45 @@
+{
+  "feature": "F72",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The run stopped detail is rendered with oneLine, which turns '|' into '\\|' (a table-cell convention) in a plain list item. The text still stays on one line, as SPEC and ES-1 require, so this does not block.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.19985060000000002,
+  "contract_hash": "36837ea36d99113684a6dd1073bfe3cadf455a98e68b09e28279ada0c9fd62ac",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-05T10:55:05.369Z",
+  "origin": "run"
+}
