@@ -1,0 +1,77 @@
+{
+  "id": "F75",
+  "title": "finding 위치 — evaluator 의 finding·out_of_scope 에 선택 필드 file·line 을 받아 verdict·backlog·builder 프롬프트에 남긴다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "evaluator 출력 스키마(OUTPUT_SCHEMA)의 findings 와 out_of_scope 항목에 선택 속성 file(string) 과 line(1 이상 정수) 이 있고, 둘 다 required 가 아니다",
+      "check": "node test/t.mjs \"F75 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "유효한 file·line 이 있는 blocking finding 은 verdict 의 blocking 항목에 file·line 으로 남고, 다음 라운드 builder 프롬프트의 'Blocking findings' JSON 에도 들어간다",
+      "check": "node test/t.mjs \"F75 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "유효한 file·line 이 있는 backlog 행 finding(repro 실패·out_of_scope 등)은 backlog.json 항목에 file·line 으로 남는다. 같은 backlog_id 로 다시 보고되면 기존 항목의 file·line 은 바뀌지 않는다",
+      "check": "node test/t.mjs \"F75 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "file 만 있고 line 이 없으면 file 만 남고, file 없이 line 만 있으면 line 은 버려진다",
+      "check": "node test/t.mjs \"F75 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "evaluator 프롬프트(agents/evaluator.md)의 Output 설명이 file·line 을 선택 필드로 설명한다 — 'file' 은 프로젝트 기준 상대 경로, 'line' 은 그 파일의 1부터 세는 줄 번호",
+      "check": "node test/t.mjs \"F75 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "docs/SPEC.md §7 이 finding 의 file·line 선택 필드, 유효 조건과 기록 위치(verdict·backlog·builder 프롬프트)를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F75 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "file 이 비밀 경로(isSecretPath — .env*, *.pem, *.key, id_*, *.p12, config 의 secret_globs)이면 file·line 을 버리고 finding 자체는 file 이 없을 때와 같이 처리한다 — 경우별 테스트",
+      "check": "node test/t.mjs \"F75 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "file 이 유효하지 않으면 file·line 을 버리고 finding 은 버리지 않는다 — 빈 문자열, 절대 경로('/etc/passwd', 'C:\\\\x'), '..' 세그먼트, 제어 문자 포함, 512자 초과 경우별 테스트",
+      "check": "node test/t.mjs \"F75 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "line 이 1 이상 정수가 아니면(0, -1, 1.5, '12') line 만 버리고 file 과 finding 은 남는다",
+      "check": "node test/t.mjs \"F75 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "file 이 실제로 존재하는지·line 이 파일 길이 안인지 확인",
+    "run 보고서·harness status 에 file·line 표시",
+    "file·line 으로 backlog 중복 판정",
+    "텔레메트리 내보내기에 file·line 포함"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-05T12:56:03.960Z",
+    "hash": "35c162982ffbea119630e2fe69c32365c5f993eb5751970b2ff0ea0cdaa9a981"
+  }
+}

@@ -651,6 +651,29 @@
       "security_tier": "standard",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F73",
+      "title": "CLAUDE.md 블록에 계속 진행·멈춤 규칙 — 결정이 필요 없는 단계는 묻지 않고 진행한다",
+      "security_tier": "standard",
+      "depends_on": [
+        "F69"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F74",
+      "title": "이어서 빌드할 때 기준별 상태 전달 — 타임아웃·이어받은 작업의 builder 프롬프트에 각 기준 check 의 현재 결과를 넣는다",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F75",
+      "title": "finding 위치 — evaluator 의 finding·out_of_scope 에 선택 필드 file·line 을 받아 verdict·backlog·builder 프롬프트에 남긴다",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }

@@ -1,0 +1,69 @@
+{
+  "id": "F73",
+  "title": "CLAUDE.md 블록에 계속 진행·멈춤 규칙 — 결정이 필요 없는 단계는 묻지 않고 진행한다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness claude-md 가 쓰는 블록(renderBlock, sdlc 프로필)에 '## When to keep going and when to stop' 섹션이 '## Convergence rules' 앞에 있다",
+      "check": "node test/t.mjs \"F73 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "그 섹션의 계속 진행 줄은 '- Keep going without asking when the next step needs no decision from the user: fixing a failed verify, the next round while rounds are left, running checks and tests. Put progress notes in the same message as the next action.' 이다",
+      "check": "node test/t.mjs \"F73 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "그 섹션의 멈춤 줄은 '- Stop and ask only when you cannot continue without the user: approving a contract (`harness approve`), a feature that is `blocked`, a criterion that is ambiguous or contradictory, merging or pushing to a protected branch, and anything destructive (deleting data, force-pushing, changing anything outside this repository).' 이다",
+      "check": "node test/t.mjs \"F73 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "그 섹션의 보고 줄은 '- End a long piece of work with what needs the user first, then what changed, then what was found.' 이다",
+      "check": "node test/t.mjs \"F73 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "iac·ops 프로필 블록에도 같은 섹션이 같은 위치에 있고, 프로필 섹션은 이 기능 전처럼 블록의 마지막 문단 앞에 있다",
+      "check": "node test/t.mjs \"F73 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "이 저장소의 CLAUDE.md 관리 블록이 새 템플릿과 같다 — harness claude-md --check(또는 같은 판정)가 최신으로 본다",
+      "check": "node test/t.mjs \"F73 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "docs/SPEC.md §4.1 이 관리 블록의 계속 진행·멈춤 섹션과 그 세 줄의 목적을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F73 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "이 기능 전 템플릿으로 쓴 블록이 있는 CLAUDE.md 에 harness claude-md 를 실행하면 블록이 새 내용으로 바뀌고 블록 밖의 바이트는 그대로다",
+      "check": "node test/t.mjs \"F73 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "AGENTS.md·agents/*.md·skills/*/SKILL.md 의 문구 변경",
+    "Claude Code 권한 설정(settings.json) 변경",
+    "규칙을 코드로 강제하기 — 블록은 안내 문서다"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-05T12:56:03.320Z",
+    "hash": "f7f580439732fc051e65e6855285e8f0905b445f8c0c737ae0b8d1bac3f30253"
+  }
+}
