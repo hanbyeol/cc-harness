@@ -8,6 +8,8 @@
 //               plan mode (evaluator roles) → a claude wrapper with a passing evaluation;
 //               write mode (builder) → writes <feature>.txt and shared.txt ("<feature>\n")
 //               in cwd, or on a merge conflict resolution "resolved\n" to each listed file.
+//               $FAKE_MODEL_USAGE (JSON object): the wrapper's modelUsage, looked up by the
+//               --model value the call got ("*" for any other call); no key = no modelUsage.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,9 +17,14 @@ import { fileURLToPath } from 'node:url';
 const args = process.argv.slice(2);
 const HELP = path.join(path.dirname(fileURLToPath(import.meta.url)), 'help', 'claude-2.1.280.txt');
 
+const usageByModel = process.env.FAKE_MODEL_USAGE ? JSON.parse(process.env.FAKE_MODEL_USAGE) : {};
+const modelArg = args.includes('--model') ? args[args.indexOf('--model') + 1] : null;
+const usageKey = modelArg !== null && Object.hasOwn(usageByModel, modelArg) ? modelArg : '*';
+
 const wrapper = (result, structured) => JSON.stringify({
   type: 'result', subtype: 'success', is_error: false, total_cost_usd: 0.01, result,
   ...(structured ? { structured_output: structured } : {}),
+  ...(Object.hasOwn(usageByModel, usageKey) ? { modelUsage: usageByModel[usageKey] } : {}),
 });
 
 if (args[0] === '--version') {
