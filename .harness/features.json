@@ -634,6 +634,23 @@
         "F28"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F71",
+      "title": "실제 응답 모델 기록 — claude 출력의 modelUsage 로 served_model 을 남기고 요청 모델과 다르면 경고",
+      "security_tier": "standard",
+      "depends_on": [
+        "F27",
+        "F70"
+      ],
+      "status": "approved"
+    },
+    {
+      "id": "F72",
+      "title": "run 보고서 맨 앞 '## Needs you' — 사람이 결정할 일을 먼저 보여 준다",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }

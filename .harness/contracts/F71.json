@@ -1,0 +1,78 @@
+{
+  "id": "F71",
+  "title": "실제 응답 모델 기록 — claude 출력의 modelUsage 로 served_model 을 남기고 요청 모델과 다르면 경고",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "claude 어댑터 결과에 실제 응답 모델(served model)이 있다 — `--output-format json` wrapper 의 modelUsage 항목 중 outputTokens 가 가장 큰 모델의 키(같으면 키의 사전순 첫째). 모델 하나, 모델 여럿(예: opus 출력 5000 + haiku 출력 300 → opus), 동률 경우별 테스트",
+      "check": "node test/t.mjs \"F71 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "run 의 metrics 줄(runs/*.metrics.jsonl)과 harness eval 의 eval.metrics.jsonl 줄에 served_model 필드가 있다 — claude 어댑터 단계(build·eval·security)는 AC-1 의 값, 코어 단계(verify·merge 등)는 null. build·eval·security 단계 이벤트의 data 에도 같은 served_model 이 있다. 기존 model 필드는 이 기능 전처럼 요청한 모델이다",
+      "check": "node test/t.mjs \"F71 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "요청 모델이 설정된 claude 단계에서 served model 이 요청 모델과 다르면(일치 = 요청 모델이 served model 의 키 또는 그 항목의 canonicalModel 과 같음) 불일치다. 불일치이면 harness run 은 '<feature> round <n> <step>: requested <요청>, served <실제>' 경고를 stderr 와 run 보고서의 '## Warnings' 에 남긴다. 판정(verdict·status)은 경고가 없을 때와 같다",
+      "check": "node test/t.mjs \"F71 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "run 보고서 '## Steps' 표의 Model 칸은 일치하거나 served model 이 없으면 이 기능 전처럼 요청 모델이고, 불일치이면 '<요청> → <실제>' 이다",
+      "check": "node test/t.mjs \"F71 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "harness eval F{n} 에서 evaluator·security-reviewer 호출이 불일치이면 stderr 에 AC-3 과 같은 형식의 경고가 나오고 exit code 와 verdict 는 경고가 없을 때와 같다",
+      "check": "node test/t.mjs \"F71 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "요청 모델이 설정되지 않은 단계(CLI 기본값)는 served_model 을 기록하고 불일치 경고를 내지 않는다",
+      "check": "node test/t.mjs \"F71 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "docs/SPEC.md 가 served model 을 정하는 규칙과 불일치 판정(§10), metrics 줄·step 이벤트의 served_model 필드와 보고서의 Model 칸·경고(§8.11)를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F71 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "modelUsage 가 없거나 쓸 수 없으면 served_model 은 null 이고 경고·예외 없이 단계가 이 기능 전처럼 끝난다 — modelUsage 없음, 객체가 아님(배열·문자열·null), 빈 객체, 모든 항목의 outputTokens 가 정수가 아님 경우별 테스트",
+      "check": "node test/t.mjs \"F71 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "claude 가 아닌 어댑터(codex·gemini·generic) 단계의 served_model 은 null 이고 불일치 경고가 없다",
+      "check": "node test/t.mjs \"F71 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "불일치일 때 판정을 바꾸기 (critical 기능 eval_error 처리 등) — 경고만 한다",
+    "independence 를 served model 로 다시 정하기",
+    "verdict reviews 에 served model 기록",
+    "harness stats 를 served model 로 나누어 집계",
+    "텔레메트리 내보내기에 served_model 포함",
+    "codex·gemini 출력에서 실제 모델 읽기"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-05T10:02:52.441Z",
+    "hash": "601c185525a8ba2978dfda5c8cbde060e4ba33d9ae5bacc520ab146d787f10e1"
+  }
+}
