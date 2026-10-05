@@ -1,0 +1,64 @@
+{
+  "feature": "F76",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "syncBase treats any non-zero exit of `git merge-base --is-ancestor` as 'not an ancestor'. Exit 1 (not an ancestor) and exit 128 (a git error) are not told apart. A git error would then show up later as a failed count or merge rather than at the ancestor check.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "A sync merge that fails for a reason other than a conflict, such as a hook rejection or an identity error, is reported as an integration_sync error with the 'merge by hand' hint. The conflict file list is empty in that case, so the message falls back to gitCause. This matches the spec's wording but could be clearer.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "Verify reported flaky tests that passed on retry (F52 AC-1, F21 AC-4, F25 AC-3). These are timing-dependent tests unrelated to F76. They are worth a look with test/stress.mjs.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.2375278,
+  "contract_hash": "e6e7a3e4a8702d9b684ed6ecaeb13882b9da8e50ff255001d3eadb47fb8c00fb",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-05T15:41:25.316Z",
+  "origin": "run",
+  "flaky_tests": [
+    "F52 AC-1: harness run really run with a fake sleep step exits 1 and stderr says \"system sleep\" and \"harness run --resume\"",
+    "F21 AC-4 the CLI prints \"system sleep\" and the --resume hint",
+    "F25 AC-3: run.verify_parallel 3 caps verify at 3 regardless of the CPU count"
+  ]
+}

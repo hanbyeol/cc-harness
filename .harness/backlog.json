@@ -5126,6 +5126,102 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B431"
+    },
+    {
+      "source": "run:F76",
+      "feature": "F76",
+      "round": 1,
+      "at": "2026-10-05T15:41:10.447Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F52 AC-1: harness run really run with a fake sleep step exits 1 and stderr says \"system sleep\" and \"harness run --resume\"",
+      "summary": "flaky test 'F52 AC-1: harness run really run with a fake sleep step exits 1 and stderr says \"system sleep\" and \"harness run --resume\"' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F76-r1"
+      ],
+      "id": "B432"
+    },
+    {
+      "source": "run:F76",
+      "feature": "F76",
+      "round": 1,
+      "at": "2026-10-05T15:41:10.447Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F21 AC-4 the CLI prints \"system sleep\" and the --resume hint",
+      "summary": "flaky test 'F21 AC-4 the CLI prints \"system sleep\" and the --resume hint' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F76-r1"
+      ],
+      "id": "B433"
+    },
+    {
+      "source": "run:F76",
+      "feature": "F76",
+      "round": 1,
+      "at": "2026-10-05T15:41:10.447Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F25 AC-3: run.verify_parallel 3 caps verify at 3 regardless of the CPU count",
+      "summary": "flaky test 'F25 AC-3: run.verify_parallel 3 caps verify at 3 regardless of the CPU count' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F76-r1"
+      ],
+      "id": "B434"
+    },
+    {
+      "feature": "F76",
+      "round": 1,
+      "at": "2026-10-05T15:41:25.316Z",
+      "summary": "syncBase treats any non-zero exit of `git merge-base --is-ancestor` as 'not an ancestor'. Exit 1 (not an ancestor) and exit 128 (a git error) are not told apart. A git error would then show up later as a failed count or merge rather than at the ancestor check.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "priority": "low",
+      "id": "B435"
+    },
+    {
+      "feature": "F76",
+      "round": 1,
+      "at": "2026-10-05T15:41:25.316Z",
+      "summary": "A sync merge that fails for a reason other than a conflict, such as a hook rejection or an identity error, is reported as an integration_sync error with the 'merge by hand' hint. The conflict file list is empty in that case, so the message falls back to gitCause. This matches the spec's wording but could be clearer.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "priority": "low",
+      "id": "B436"
+    },
+    {
+      "feature": "F76",
+      "round": 1,
+      "at": "2026-10-05T15:41:25.316Z",
+      "summary": "Verify reported flaky tests that passed on retry (F52 AC-1, F21 AC-4, F25 AC-3). These are timing-dependent tests unrelated to F76. They are worth a look with test/stress.mjs.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B437"
+    },
+    {
+      "source": "run:F76",
+      "feature": "F76",
+      "round": 1,
+      "at": "2026-10-05T16:17:14.053Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F25 ES-2: in an auto parallel run a failing git worktree add blocks only that feature (worktree)",
+      "summary": "flaky test 'F25 ES-2: in an auto parallel run a failing git worktree add blocks only that feature (worktree)' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F76-r1"
+      ],
+      "id": "B438"
     }
   ]
 }
