@@ -67,6 +67,10 @@ Reply with a single JSON object and nothing else:
 - Optional on findings and `out_of_scope` entries: `severity` (`high`, `medium` or `low`),
   recorded as the backlog item's priority, and `backlog_id` — when the prompt lists an open
   backlog item that is the same issue, give its id (e.g. `"B3"`) instead of a new entry.
+- Optional on findings and `out_of_scope` entries: `file` — the file the defect is in, a path
+  relative to the project root (e.g. `"lib/eval.mjs"`) — and `line`, the 1-based line number
+  in that file. They are kept in the verdict, the backlog and the builder's next prompt; an
+  absolute path, a `..` segment or a secret file is dropped, and `line` needs a `file`.
 
 If you find no reproducible defect, score honestly high. A low score with no finding cannot
 be acted on: the harness will ask you once to supply a repro or correct the score, and then

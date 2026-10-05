@@ -273,10 +273,11 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
 2. 출력 JSON 스키마:
 ```json
 {"scores": {"functionality":0,"quality":0,"security":0,"errors":0,"tests":0},
- "findings": [{"criterion_id":"AC-1|REGRESSION","dimension":"...","summary":"...","repro":"<cmd>","severity":"high|medium|low","backlog_id":"B3"}],
- "out_of_scope": [{"summary":"...","severity":"high|medium|low","backlog_id":"B3"}]}
+ "findings": [{"criterion_id":"AC-1|REGRESSION","dimension":"...","summary":"...","repro":"<cmd>","severity":"high|medium|low","backlog_id":"B3","file":"lib/x.mjs","line":12}],
+ "out_of_scope": [{"summary":"...","severity":"high|medium|low","backlog_id":"B3","file":"lib/x.mjs","line":12}]}
 ```
    `severity`·`backlog_id` 는 선택이며 backlog 로 가는 항목에만 쓰인다(§7.7). 스키마 밖 값은 스키마 오류가 아니라 무시된다.
+   `file`·`line` 은 선택이며 지적 위치다 — `file` 은 프로젝트 기준 상대 경로, `line` 은 그 파일의 1부터 세는 줄 번호. 유효한 `file` 은 비어 있지 않은 512자 이하 문자열로 절대 경로(`/x`, `\x`, `C:x`)·`..` 세그먼트·제어 문자가 없고 비밀 경로(§9 `isSecretPath` — `.env*`·`*.pem`·`*.key`·`id_*`·`*.p12`·`secret_globs`)가 아니다. `line` 은 유효한 `file` 이 있고 1 이상 정수일 때만 남는다. 유효하지 않으면 그 값(`file` 이 무효면 `file`·`line` 둘 다)만 버리고 finding 은 버리지 않는다(분류는 위치가 없을 때와 같다). 남은 `file`·`line` 은 차단 finding 이면 verdict 의 `blocking` 항목과 다음 라운드 builder 프롬프트의 `Blocking findings` JSON 에, backlog 로 가는 항목이면 backlog.json 항목에 기록된다. 같은 `backlog_id` 로 합쳐지는 보고(§7.7)는 기존 항목의 `file`·`line` 을 바꾸지 않는다. 파일 존재·줄 범위는 확인하지 않고 중복 판정에도 쓰지 않는다.
 3. 코어 판정:
    - 스키마 불일치 → 1회 재요청, 재실패 시 라운드 무효(`eval_error`, 라운드 소모 없음, 2회 연속이면 blocked). eval_error 는 `verdicts/F{n}-r{k}.eval_error.json`(consecutive 카운터 포함)에 기록하며 라운드 파일로 세지 않는다. 어댑터 `timeout`·`exit_nonzero` 도 eval_error(재시도 없음).
    - finding이 **차단적**이려면: `criterion_id`가 계약에 존재(또는 `REGRESSION`) ∧ `repro` 존재 ∧ **코어가 worktree에서 repro를 실행해 비정상 종료 재현**. 그 외는 `backlog.json`으로. repro 가 명령 미발견(127/9009, Windows `cmd.exe` 의 exit 1 + stderr 첫 줄이 `'<프로그램>' is not recognized as an internal or external command` 로 시작 — 문구를 인용만 한 출력은 해당 없음)·exit 126(POSIX, 실행 권한 없음 등 찾았지만 실행 불가)이면 비차단(`repro_not_runnable`), 시그널 종료는 비정상 종료로 본다. 코어는 repro 가 git 내부 조작(update-index 플래그, filter clean/smudge, replace, hooksPath, git config, `.git/config`·`.git/info`)을 포함하면 실행하지 않고 `adversarial_scenario` 로 backlog 한다(D1 의 결정적 보조).
