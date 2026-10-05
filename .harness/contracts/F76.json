@@ -1,0 +1,83 @@
+{
+  "id": "F76",
+  "title": "run 시작 시 integration 브랜치를 base 와 맞추기 — base 에만 있는 커밋을 먼저 integration 에 병합한다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "새 run(--resume 아님)에서 integration 브랜치가 이미 있고 base_branch 커밋이 integration 의 조상이 아니며 integration 에 base 에 없는 커밋이 있으면, 코어는 기능 worktree 를 만들기 전에 integration worktree 에서 base 를 --no-ff 로 병합한다. 병합 커밋 메시지는 'harness: sync <integration_branch> with <base_branch>' 이고, 그 뒤 만든 기능 worktree 의 HEAD 에 base 의 커밋이 포함된다",
+      "check": "node test/t.mjs \"F76 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "integration 이 base 의 조상이면(integration 에만 있는 커밋 없음) 병합 커밋 없이 integration 을 base 커밋으로 fast-forward 한다",
+      "check": "node test/t.mjs \"F76 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "base 가 이미 integration 의 조상이면 integration 커밋은 바뀌지 않고 git merge 를 호출하지 않는다",
+      "check": "node test/t.mjs \"F76 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "run 출력에 'synced <integration_branch> with <base_branch>: merged <n> commits' · 'synced <integration_branch> with <base_branch>: fast-forwarded <n> commits' · '<integration_branch> is up to date with <base_branch>' 중 하나가 나오고(n = 동기화 전 integration 에 없던 base 커밋 수), run 보고서 머리말 목록에 같은 문장의 '- base sync: …' 줄이 있다",
+      "check": "node test/t.mjs \"F76 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "harness run --resume 은 동기화하지 않는다 — base 에 새 커밋이 있어도 integration 커밋이 바뀌지 않고 보고서의 base sync 줄은 '- base sync: skipped (resume)' 이다",
+      "check": "node test/t.mjs \"F76 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "integration 브랜치를 새로 만드는 run 은 이 기능 전처럼 base 에서 만들고 base sync 줄은 '<integration_branch> is up to date with <base_branch>' 이다",
+      "check": "node test/t.mjs \"F76 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "동기화 병합 전에 코어는 integration worktree 를 기능 병합 전과 같은 방법(§8.10 integration worktree 정리)으로 정리한다 — 추적되지 않은 파일이 남아 있던 integration worktree 에서도 동기화가 성공한다",
+      "check": "node test/t.mjs \"F76 AC-7\"",
+      "new": true
+    },
+    {
+      "id": "AC-8",
+      "criterion": "docs/SPEC.md §8 이 run 시작 시 base 동기화(조건·병합/fast-forward·resume 제외·출력·보고서 줄·충돌 시 동작)를 설명하고, §8 의 '(base = integration 브랜치)' 설명이 동기화 뒤의 integration 임을 밝힌다(문서 check)",
+      "check": "node test/t.mjs \"F76 AC-8\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "동기화 병합이 충돌하면 코어는 integration worktree 에서 git merge --abort 로 되돌리고(integration 커밋은 동기화 전 그대로, MERGE_HEAD 없음) 기능 worktree·브랜치를 만들지 않고 builder 를 부르지 않으며, 충돌 파일 목록과 'merge <base_branch> into <integration_branch> by hand' 를 담은 integration_sync 오류로 exit 2 이다. 기능 status 는 바뀌지 않는다",
+      "check": "node test/t.mjs \"F76 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "integration 브랜치가 있는데 base_branch 가 커밋으로 해석되지 않으면 기능 worktree 를 만들기 전에 base 이름을 담은 base_missing 오류로 exit 2 이다",
+      "check": "node test/t.mjs \"F76 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "동기화 병합 뒤 verify 실행 — 기능 verify 가 동기화된 integration 을 base 로 다시 확인한다",
+    "이어받는 기능 worktree(carried work)·이미 있는 harness/F{n} 브랜치를 base 에 맞추기",
+    "충돌 자동 해결(builder 호출)",
+    "run 도중 base 에 들어온 커밋 반영",
+    "integration 을 base 로 reset 하는 등 integration 커밋을 버리는 동작"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-05T14:47:46.852Z",
+    "hash": "e6e7a3e4a8702d9b684ed6ecaeb13882b9da8e50ff255001d3eadb47fb8c00fb"
+  }
+}

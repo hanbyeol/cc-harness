@@ -674,6 +674,13 @@
       "security_tier": "standard",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F76",
+      "title": "run 시작 시 integration 브랜치를 base 와 맞추기 — base 에만 있는 커밋을 먼저 integration 에 병합한다",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }
