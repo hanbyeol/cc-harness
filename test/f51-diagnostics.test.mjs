@@ -6,6 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import {
   harness, project, writeJson, readJson, tmpdir, REPO,
 } from './helpers.mjs';
@@ -81,6 +82,11 @@ fi
 `;
   fs.writeFileSync(file, body);
   fs.chmodSync(file, 0o755);
+  // macOS checks a new executable on its first run. Under load that check took up to 33 s
+  // (measured; a second run took 15 ms), longer than doctor's 30 s probe bound, so --version
+  // looked failed. Run the script once here, with a generous bound, so the probe under test
+  // starts an executable that has been checked already — as an installed CLI has.
+  spawnSync(file, ['--warm-up'], { stdio: 'ignore', timeout: 120_000 });
   return file;
 }
 

@@ -237,7 +237,10 @@ async function realCliSleepRun() {
   writeFiles(dir, {
     '.harness/config.json': {
       profile: 'sdlc', base_branch: 'main', verify: { commands: [] },
-      budget: { step_timeout_sec: 2 },
+      // The fake builder must start and write the offset before the step times out. Under load
+      // a node process took longer than 2 s to start, the step ended as a plain timeout and the
+      // run reported blocked(budget) instead of a system sleep — so the bound is generous.
+      budget: { step_timeout_sec: 20 },
       roles: { builder: 'generic', evaluator: 'generic', 'security-reviewer': 'generic' },
       adapters: {
         generic: {
@@ -260,14 +263,14 @@ async function realCliSleepRun() {
   return cliSleepResult;
 }
 
-test('F52 AC-1: harness run really run with a fake sleep step exits 1 and stderr says "system sleep" and "harness run --resume"', { timeout: 60000 }, async () => {
+test('F52 AC-1: harness run really run with a fake sleep step exits 1 and stderr says "system sleep" and "harness run --resume"', { timeout: 180000 }, async () => {
   const { code, out, err } = await realCliSleepRun();
   assert.equal(code, 1, out + err);
   assert.match(err, /system sleep/);
   assert.match(err, /harness run --resume/);
 });
 
-test('F21 AC-4 the CLI prints "system sleep" and the --resume hint', { timeout: 60000 }, async () => {
+test('F21 AC-4 the CLI prints "system sleep" and the --resume hint', { timeout: 180000 }, async () => {
   const { code, out, err } = await realCliSleepRun();
   assert.equal(code, 1, out + err);
   assert.match(err, /system sleep/);
