@@ -25,8 +25,12 @@ function fakeInhibitors() {
   fs.mkdirSync(logs);
   for (const name of ['caffeinate', 'systemd-inhibit']) {
     const file = path.join(dir, name);
-    fs.writeFileSync(file, `#!/bin/sh\nprintf '%s\\n' "${name}" "$$" > "${logs}/$$.tmp" && mv "${logs}/$$.tmp" "${logs}/$$.txt"\nexec sleep 1000\n`);
+    fs.writeFileSync(file, `#!/bin/sh\n[ "$1" = "--warm-up" ] && exit 0\nprintf '%s\\n' "${name}" "$$" > "${logs}/$$.tmp" && mv "${logs}/$$.tmp" "${logs}/$$.txt"\nexec sleep 1000\n`);
     fs.chmodSync(file, 0o755);
+    // macOS checks a new executable on its first run, which under load took up to 33 s. Run each
+    // fake once here (bounded generously) so a started fake logs within moments — otherwise the
+    // fixed wait in AC-1 could end before a fake that did start had logged, and pass vacuously.
+    if (POSIX) spawnSync(file, ['--warm-up'], { stdio: 'ignore', timeout: 120_000 });
   }
   const entries = () => fs.readdirSync(logs).filter((n) => n.endsWith('.txt')).map((n) => {
     const [name, pid] = fs.readFileSync(path.join(logs, n), 'utf8').trim().split('\n');
