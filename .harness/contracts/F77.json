@@ -1,0 +1,63 @@
+{
+  "id": "F77",
+  "title": "테스트에서 실제 잠자기 방지 끄기 — HARNESS_TEST_NO_SLEEP_INHIBITOR 로 테스트가 caffeinate 를 수백 번 띄우지 않게",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "startSleepInhibitor 에 넘긴 env 의 HARNESS_TEST_NO_SLEEP_INHIBITOR 가 '1' 이면 inhibitor 명령(darwin caffeinate, linux systemd-inhibit)을 실행하지 않고 {ok: false, label: 'disabled by HARNESS_TEST_NO_SLEEP_INHIBITOR'} 를 돌려준다 — 가짜 caffeinate 를 PATH 에 두고 그 실행 기록이 비어 있음을 확인한다",
+      "check": "node test/t.mjs \"F77 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "HARNESS_TEST_NO_SLEEP_INHIBITOR 가 없거나 '1' 이 아니면('0', '', 'true') 이 기능 전처럼 inhibitor 를 시작한다 — 경우별 테스트",
+      "check": "node test/t.mjs \"F77 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "test/helpers.mjs 를 불러온 테스트 프로세스의 process.env.HARNESS_TEST_NO_SLEEP_INHIBITOR 는 '1' 이고, 그 프로세스가 띄운 harness run 자식 프로세스도 이를 물려받아 보고서에 'sleep inhibitor unavailable: disabled by HARNESS_TEST_NO_SLEEP_INHIBITOR' 가 나온다",
+      "check": "node test/t.mjs \"F77 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "잠자기 방지를 검사하는 기존 테스트(F21 AC-2·AC-3 의 inhibitor 경우, F49 SC-1)는 HARNESS_TEST_NO_SLEEP_INHIBITOR 없이 inhibitor 를 시작해 이 기능 전과 같은 assert 로 통과한다",
+      "check": "node --test test/f21-sleep.test.mjs test/f49-signals.test.mjs",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md §8 잠자기 방지 설명이 HARNESS_TEST_NO_SLEEP_INHIBITOR 가 테스트 전용이며 '1' 일 때만 inhibitor 를 끄고 그때의 label 을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F77 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "node test/assert-count.mjs 가 exit 0 이다",
+      "check": "node test/assert-count.mjs",
+      "new": false
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "HARNESS_TEST_NO_SLEEP_INHIBITOR=1 로 끈 run 도 이 기능 전의 inhibitor 없음과 같이 계속 진행한다 — run 출력에 'sleep inhibitor unavailable: disabled by HARNESS_TEST_NO_SLEEP_INHIBITOR' 가 나오고 기능은 passed 가 된다",
+      "check": "node test/t.mjs \"F77 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "사용자용 설정(config)으로 잠자기 방지 끄기",
+    "가짜 inhibitor 스크립트 자체의 첫 실행 검사 지연",
+    "linux systemd-inhibit 동작 변경(같은 변수로 꺼지는 것 외)"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-06T05:04:55.067Z",
+    "hash": "a003948a0421c2cf4276da40d0849108cdc0268f254c809f53cc497821363842"
+  }
+}
