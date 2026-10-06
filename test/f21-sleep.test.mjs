@@ -11,6 +11,8 @@ import { runFeatures } from '../lib/run.mjs';
 
 const FAKE_CLI = path.join(REPO, 'test', 'fixtures', 'fake-cli.mjs');
 const POSIX = process.platform !== 'win32'; // the fake inhibitors are shebang scripts
+// The env these tests run with: the real inhibitor path, not the one test/helpers.mjs turns off (F77).
+const { HARNESS_TEST_NO_SLEEP_INHIBITOR: _off, ...INHIBITOR_ENV } = process.env;
 
 // ------------------------------------------------------------------ fixtures
 
@@ -90,7 +92,7 @@ ${mode === 'exit' ? 'exit 1' : 'exec sleep 1000'}
     const [name, pid, ppid, ...argv] = fs.readFileSync(path.join(logs, n), 'utf8').replace(/\n$/, '').split('\n');
     return { name, pid: Number(pid), ppid: Number(ppid), argv };
   });
-  return { dir, entries, env: { ...process.env, PATH: `${dir}${path.delimiter}${process.env.PATH}` } };
+  return { dir, entries, env: { ...INHIBITOR_ENV, PATH: `${dir}${path.delimiter}${process.env.PATH}` } };
 }
 
 const until = async (fn, ms = 60000) => {
@@ -160,7 +162,7 @@ test('F21 AC-3 inhibitor not on PATH: the run goes on and says "sleep inhibitor 
   const dir = fixture();
   const empty = tmpdir('harness-empty-path-');
   const build = fakeBuild();
-  const r = await run(dir, { build, platform: 'darwin', env: { ...process.env, PATH: empty } });
+  const r = await run(dir, { build, platform: 'darwin', env: { ...INHIBITOR_ENV, PATH: empty } });
   assert.equal(r.results[0].status, 'passed', r.out);
   assert.equal(build.calls.length, 1);
   assert.match(r.out, /sleep inhibitor unavailable/);

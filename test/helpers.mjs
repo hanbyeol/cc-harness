@@ -30,6 +30,10 @@ export function tmpdir(prefix = 'harness-test-') {
 export const TEST_HUB = path.join(tmpdir('harness-test-hub-'), 'hub');
 process.env.CC_HARNESS_HUB = TEST_HUB;
 
+// Every `harness run` in the tests would otherwise start a real caffeinate (F77). Tests that
+// check the inhibitor itself remove this from the env they pass.
+process.env.HARNESS_TEST_NO_SLEEP_INHIBITOR = '1';
+
 // Runs the real CLI as a child process.
 export function harness(args, { cwd, env } = {}) {
   const r = spawnSync(process.execPath, [BIN, ...args], {
