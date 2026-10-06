@@ -13,6 +13,8 @@ import { createGenericAdapter } from '../lib/adapters/generic.mjs';
 const FAKE_CLI = path.join(REPO, 'test', 'fixtures', 'fake-cli.mjs');
 const REPLY_PASS = path.join(REPO, 'test', 'fixtures', 'eval', 'pass.json');
 const POSIX = process.platform !== 'win32'; // no POSIX signal delivery to a child on Windows
+// The env for the inhibitor test: the real inhibitor path, not the one test/helpers.mjs turns off (F77).
+const { HARNESS_TEST_NO_SLEEP_INHIBITOR: _off, ...INHIBITOR_ENV } = process.env;
 
 // ------------------------------------------------------------------ fixtures
 
@@ -92,7 +94,7 @@ function fakeInhibitors() {
     fs.chmodSync(file, 0o755);
   }
   const pids = () => fs.readdirSync(logs).filter((n) => n.endsWith('.txt')).map((n) => Number(fs.readFileSync(path.join(logs, n), 'utf8').trim()));
-  return { pids, env: { ...process.env, PATH: `${dir}${path.delimiter}${process.env.PATH}` } };
+  return { pids, env: { ...INHIBITOR_ENV, PATH: `${dir}${path.delimiter}${process.env.PATH}` } };
 }
 
 /** Starts `harness run` and waits for the slow builder; `stop()` sends `sig` and waits for the exit. */
