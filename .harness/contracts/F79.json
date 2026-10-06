@@ -1,0 +1,69 @@
+{
+  "id": "F79",
+  "title": "병합 후 verify 의 base vacuity 재사용 — base 가 기능 verify 와 같으면 새 기준을 base 에서 다시 돌리지 않는다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness run 의 병합 후 verify 에서 병합 전 integration 커밋(preMergeSha)이 그 기능 verify 의 base(baseSha)와 같으면, new 기준의 base vacuity 실행을 하지 않는다 — 가짜 check 가 base worktree 에서 실행된 기록이 병합 후 verify 동안 없고, 그 기준 결과 항목에 vacuity_reused: true 가 있다",
+      "check": "node test/t.mjs \"F79 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "AC-1 의 경우에도 head 쪽 기준 check·verify 명령·무결성 검사(.harness 변경·skip 표시·테스트 수)는 이 기능 전처럼 병합된 integration worktree 에서 모두 실행된다",
+      "check": "node test/t.mjs \"F79 AC-2\"",
+      "new": false
+    },
+    {
+      "id": "AC-3",
+      "criterion": "병렬 run 에서 다른 기능이 먼저 병합되어 preMergeSha 가 baseSha 와 다르면 병합 후 verify 는 이 기능 전처럼 base vacuity 를 실행하고 vacuity_reused 가 없다",
+      "check": "node test/t.mjs \"F79 AC-3\"",
+      "new": false
+    },
+    {
+      "id": "AC-4",
+      "criterion": "기능 verify(step 'verify')와 harness verify F{n} 은 이 기능 전처럼 언제나 base vacuity 를 실행한다",
+      "check": "node test/t.mjs \"F79 AC-4\"",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "병합 후 verify 의 check 이벤트 data 에 vacuity_reused(true 또는 false)가 있고, 재사용한 기준은 base_retry 가 false 이다",
+      "check": "node test/t.mjs \"F79 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "docs/SPEC.md §6.3 또는 §8 이 병합 후 verify 의 base vacuity 재사용 조건(preMergeSha = 기능 verify base), 결과 항목·이벤트의 vacuity_reused 를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F79 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "기능의 baseSha 가 없거나(이 기능 전 run 상태에서 --resume) 커밋으로 해석되지 않으면 병합 후 verify 는 이 기능 전처럼 base vacuity 를 실행한다",
+      "check": "node test/t.mjs \"F79 ES-1\"",
+      "new": false
+    },
+    {
+      "id": "ES-2",
+      "criterion": "병합 충돌 해결·병합 후 verify 복구 뒤의 다시 거친 병합 후 verify 는 갱신된 baseSha 와 그때의 preMergeSha 를 비교한다 — 둘이 다르면 base vacuity 를 실행한다",
+      "check": "node test/t.mjs \"F79 ES-2\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "병합 후 verify 전체 생략(D1 구조적 안전장치는 유지)",
+    "기능 verify 의 vacuity 규칙 변경",
+    "겹쳐 실패한 base 실행의 단독 재실행 규칙 변경"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-06T09:20:24.471Z",
+    "hash": "982f5ea8cb7727ec1aa2c13e2b28e071e812a6a8aaa33b71240c1439a9eb660f"
+  }
+}

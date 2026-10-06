@@ -688,6 +688,20 @@
       "security_tier": "standard",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F78",
+      "title": "기준 check 러너 범위 줄이기 — test/t.mjs 가 id 문자열이 든 테스트 파일만 실행한다",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F79",
+      "title": "병합 후 verify 의 base vacuity 재사용 — base 가 기능 verify 와 같으면 새 기준을 base 에서 다시 돌리지 않는다",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }
