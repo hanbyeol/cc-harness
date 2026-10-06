@@ -1,0 +1,50 @@
+{
+  "feature": "F46",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 8,
+    "quality": 8,
+    "security": 8,
+    "errors": 8,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The diff against the base is empty, because the approval commit says the criteria already pass on v2. The verdict rests on the deterministic verify results: AC-1, AC-2 and AC-3 all passed. I did not re-run the checks myself, since this session is in plan mode.",
+      "reason": "out_of_scope",
+      "source": "evaluator"
+    },
+    {
+      "summary": "For AC-1 and AC-3, verify warned that the check failed while running concurrently and passed when re-run alone. These checks run `node test/stress.mjs 3`, which already starts three concurrent suites, so they put heavy load on a machine that is also running other checks at the same time. Setting verify.check_parallel to 1 for this feature would avoid false failures.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.16851480000000002,
+  "contract_hash": "48c750d2f4d032930a45f6f196f982764bb5a55dc9ff65ee411eaa30c2eac8be",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 8,
+        "quality": 8,
+        "security": 8,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-06T05:15:33.358Z",
+  "origin": "run"
+}

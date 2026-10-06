@@ -5222,6 +5222,48 @@
         "F76-r1"
       ],
       "id": "B438"
+    },
+    {
+      "feature": "F46",
+      "round": 1,
+      "at": "2026-10-06T05:15:33.358Z",
+      "summary": "The diff against the base is empty, because the approval commit says the criteria already pass on v2. The verdict rests on the deterministic verify results: AC-1, AC-2 and AC-3 all passed. I did not re-run the checks myself, since this session is in plan mode.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "id": "B439"
+    },
+    {
+      "feature": "F46",
+      "round": 1,
+      "at": "2026-10-06T05:15:33.358Z",
+      "summary": "For AC-1 and AC-3, verify warned that the check failed while running concurrently and passed when re-run alone. These checks run `node test/stress.mjs 3`, which already starts three concurrent suites, so they put heavy load on a machine that is also running other checks at the same time. Setting verify.check_parallel to 1 for this feature would avoid false failures.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B440"
+    },
+    {
+      "feature": "F77",
+      "round": 1,
+      "at": "2026-10-06T06:01:20.271Z",
+      "summary": "The disable check in lib/sleep.mjs runs after the platform check. On win32 or other unsupported platforms the label is 'not supported on <platform>', not 'disabled by HARNESS_TEST_NO_SLEEP_INHIBITOR', even when the variable is '1'. This matches the contract, which only names darwin and linux, but the label differs by platform.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/sleep.mjs",
+      "line": 38,
+      "priority": "low",
+      "id": "B441"
+    },
+    {
+      "feature": "F77",
+      "round": 1,
+      "at": "2026-10-06T06:01:20.271Z",
+      "summary": "The F77 AC-1 and AC-2 tests wait a fixed 1 s before asserting that the fake inhibitor never ran. AC-2 also builds up to 9 fixtures. Under load the 1 s may be too short to prove the negative, and test/stress.mjs does not cover it.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f77-no-sleep-inhibitor.test.mjs",
+      "priority": "low",
+      "id": "B442"
     }
   ]
 }

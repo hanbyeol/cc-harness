@@ -1,0 +1,54 @@
+{
+  "feature": "F77",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The disable check in lib/sleep.mjs runs after the platform check. On win32 or other unsupported platforms the label is 'not supported on <platform>', not 'disabled by HARNESS_TEST_NO_SLEEP_INHIBITOR', even when the variable is '1'. This matches the contract, which only names darwin and linux, but the label differs by platform.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/sleep.mjs",
+      "line": 38,
+      "priority": "low"
+    },
+    {
+      "summary": "The F77 AC-1 and AC-2 tests wait a fixed 1 s before asserting that the fake inhibitor never ran. AC-2 also builds up to 9 fixtures. Under load the 1 s may be too short to prove the negative, and test/stress.mjs does not cover it.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f77-no-sleep-inhibitor.test.mjs",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.1630956,
+  "contract_hash": "a003948a0421c2cf4276da40d0849108cdc0268f254c809f53cc497821363842",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-06T06:01:20.271Z",
+  "origin": "run"
+}

@@ -421,7 +421,7 @@
       "depends_on": [
         "F45"
       ],
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "id": "F47",
@@ -687,7 +687,7 @@
       "title": "테스트에서 실제 잠자기 방지 끄기 — HARNESS_TEST_NO_SLEEP_INHIBITOR 로 테스트가 caffeinate 를 수백 번 띄우지 않게",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }
