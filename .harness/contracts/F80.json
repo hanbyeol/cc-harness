@@ -2,19 +2,19 @@
   "id": "F80",
   "title": "test/t.mjs 를 다시 단일 파일로 — 파일 선택 로직을 lib/criterion-files.mjs 에서 t.mjs 안으로 옮긴다",
   "security_tier": "standard",
-  "version": 1,
+  "version": 2,
   "acceptance_criteria": [
     {
       "id": "AC-1",
       "criterion": "test/t.mjs 의 import 는 모두 'node:' 내장 모듈이다 — 상대 경로·패키지 import 가 없다",
       "check": "node test/t.mjs \"F80 AC-1\"",
-      "new": true
+      "new": false
     },
     {
       "id": "AC-2",
       "criterion": "test/t.mjs 하나만 복사한 임시 프로젝트(lib/ 없음)에서 node test/t.mjs \"X AC-1\" 이 exit 0 이고, id 를 담은 파일만 불러온다 — 세 테스트 파일 중 id 를 담은 파일의 표시 파일만 생긴다",
       "check": "node test/t.mjs \"F80 AC-2\"",
-      "new": true
+      "new": false
     },
     {
       "id": "AC-3",
@@ -41,16 +41,17 @@
       "id": "ES-1",
       "criterion": "t.mjs 를 다른 모듈이 import 해도(테스트가 파일 선택 함수를 쓸 때) 명령 실행 부분은 돌지 않는다 — import 한 프로세스가 exit 하지 않고 usage 를 출력하지 않는다",
       "check": "node test/t.mjs \"F80 ES-1\"",
-      "new": true
+      "new": false
     }
   ],
   "out_of_scope": [
     "파일 선택 규칙 변경(F78 규칙 그대로)",
-    "t.mjs 의 판정 규칙 변경"
+    "t.mjs 의 판정 규칙 변경",
+    "t.mjs 자체에 대한 기준의 base vacuity — test/ 아래 파일은 base 실행에 얹히므로 AC-1·AC-2·ES-1 은 head 결과로만 판정한다"
   ],
   "approval": {
     "by": "hanbyeol@gmail.com",
-    "at": "2026-10-07T03:02:41.799Z",
-    "hash": "99cce9d2153cebed5e8bfe86bdaba489803e4434eaf6bad41ea7b88a4f179d80"
+    "at": "2026-10-07T03:46:08.325Z",
+    "hash": "6f22047e11ea4af61fcecac476e5055571c62408069c654754159be578013d96"
   }
 }
