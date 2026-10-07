@@ -711,6 +711,15 @@
         "F78"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F81",
+      "title": "verify 단계별 시간 기록 — 무결성·명령·테스트 수·기준 check·정리 구간과 verify 대기 시간을 이벤트와 metrics 에 남긴다",
+      "security_tier": "standard",
+      "depends_on": [
+        "F79"
+      ],
+      "status": "approved"
     }
   ]
 }

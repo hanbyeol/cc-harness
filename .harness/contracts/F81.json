@@ -1,0 +1,76 @@
+{
+  "id": "F81",
+  "title": "verify 단계별 시간 기록 — 무결성·명령·테스트 수·기준 check·정리 구간과 verify 대기 시간을 이벤트와 metrics 에 남긴다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify 가 끝나면(통과·실패 모두) stage 'verify', type 'phases' 이벤트가 하나 남는다. data 에 step(run 이면 'verify' 또는 'post_merge_verify'), total_ms 와 phases_ms 가 있고 phases_ms 의 키는 정확히 integrity·commands·test_count·checks·cleanup 이며 값은 0 이상의 정수다",
+      "check": "node test/t.mjs \"F81 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "각 구간 값은 그 구간이 실제로 걸린 시간을 반영한다 — 가짜 verify 명령이 1.5초 이상 걸리면 phases_ms.commands 가 1500 이상, 가짜 기준 check 가 1.5초 이상 걸리면 phases_ms.checks 가 1500 이상이고, 다섯 구간의 합은 total_ms 이하이다(시간 하한만 assert 한다)",
+      "check": "node test/t.mjs \"F81 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "test_count 가 base 를 실제로 실행하면(캐시 없음) phases_ms.test_count 는 그 실행 시간을 포함하고(가짜 명령 1.5초 이상 → 1500 이상), 캐시 적중이면 data.test_count_source 가 {head, base} 출처('parsed'·'ran'·'cache')를 담는다",
+      "check": "node test/t.mjs \"F81 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "verify 결과 객체(harness verify --json 출력과 run 의 verify 결과)에 같은 phases_ms 와 total_ms 가 있다",
+      "check": "node test/t.mjs \"F81 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "run 의 metrics 줄 중 step 'verify'·'post_merge_verify' 에 queue_ms(verify 풀 슬롯을 기다린 시간, 0 이상 정수)가 있다 — verify_parallel 1 에서 두 기능이 동시에 verify 를 요청하면 나중 기능의 queue_ms 가 먼저 기능의 verify 시간 이상이다(가짜 verify 1.5초 → 1500 이상). 다른 step 의 metrics 줄에는 queue_ms 가 null 이다",
+      "check": "node test/t.mjs \"F81 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "harness stats 텍스트 출력과 --json 에 step 별 queue_ms 합계가 나온다(없으면 0). queue_ms 필드가 없는 기존 metrics 줄은 0 으로 집계된다",
+      "check": "node test/t.mjs \"F81 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "docs/SPEC.md 가 phases 이벤트(구간 정의·키·test_count_source)와 metrics 의 queue_ms, stats 의 queue_ms 합계를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F81 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "phases 이벤트 data 에는 수치·step 이름·출처 문자열만 있다 — 명령 문자열·경로·출력·환경 값이 없다(이벤트 키 목록을 고정해 확인)",
+      "check": "node test/t.mjs \"F81 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "verify 가 도중에 오류(base 없음 등 HarnessError)로 끝나면 phases 이벤트는 남지 않고, 오류는 이 기능 전과 같은 코드·메시지다",
+      "check": "node test/t.mjs \"F81 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "verify 를 빠르게 만드는 변경 — 이 기능은 측정만 한다",
+    "run 보고서에 구간 표 추가",
+    "텔레메트리 내보내기 허용 목록에 phases 추가"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-07T04:51:16.343Z",
+    "hash": "fcdeb6e2d08a86c38a901a67238b1f39a117ae381b024e2778056be912793219"
+  }
+}
