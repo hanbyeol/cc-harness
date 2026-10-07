@@ -67,6 +67,8 @@ test('F1 AC-6: t.mjs fails when no test matches the id', () => {
   const dir = tmpdir();
   fs.mkdirSync(path.join(dir, 'test'));
   fs.copyFileSync(path.join(REPO, 'test', 't.mjs'), path.join(dir, 'test', 't.mjs'));
+  fs.mkdirSync(path.join(dir, 'lib'));
+  fs.copyFileSync(path.join(REPO, 'lib', 'criterion-files.mjs'), path.join(dir, 'lib', 'criterion-files.mjs')); // imported by t.mjs (F78)
   fs.writeFileSync(path.join(dir, 'test', 'x.test.mjs'),
     "import test from 'node:test';\ntest('X AC-1: ok', () => {});\ntest('X AC-10: ok', () => {});\n");
   const run = (id) => spawnSync(process.execPath, ['test/t.mjs', id], { cwd: dir, encoding: 'utf8' });

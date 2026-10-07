@@ -54,6 +54,8 @@ Correctness > Safety > Speed.
 - `node bin/harness.mjs <command>` (there is no global install here).
 - Tests: `node --test "test/**/*.test.mjs"`. One criterion: `node test/t.mjs "F3 AC-2"` —
   it fails when no test name starts with the id, so a mistyped check can never pass vacuously.
+  It loads only the test files whose source contains the id; when no file contains it (a test
+  name built from a template), it runs every test file.
 - Load stress: `node test/stress.mjs 2` runs two complete test suites concurrently — the load
   a parallel `harness run` puts on one machine (verify pool plus builders) — and exits 0
   only if every run passes; otherwise it prints each failing test with the number of runs it

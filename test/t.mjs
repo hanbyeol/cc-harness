@@ -2,9 +2,12 @@
 // Criterion check runner: `node test/t.mjs "F3 AC-1"`.
 // Runs only tests whose name starts with the given id and FAILS when none match.
 // (node --test with a non-matching --test-name-pattern still exits 0 — a vacuous pass.)
+// Only the test files whose source contains the id are loaded; when no file does (a name
+// built from a template), every test file is, as before.
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { selectTestFiles } from '../lib/criterion-files.mjs';
 
 const id = process.argv[2];
 if (!id) {
@@ -15,9 +18,11 @@ const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const pattern = `^${escaped}\\b`;
 const re = new RegExp(pattern);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const files = selectTestFiles(root, id);
 
 const res = spawnSync(process.execPath,
-  ['--test', '--test-reporter=tap', `--test-name-pattern=${pattern}`, 'test/**/*.test.mjs'],
+  ['--test', '--test-reporter=tap', `--test-name-pattern=${pattern}`,
+    ...(files.length > 0 ? files : ['test/**/*.test.mjs'])],
   // NODE_TEST_CONTEXT (set when t.mjs itself runs under node --test) switches the
   // nested runner to a child protocol with no TAP on stdout — drop it.
   { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
