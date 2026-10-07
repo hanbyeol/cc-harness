@@ -1,0 +1,55 @@
+{
+  "feature": "F80",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The AC-1 test finds imports with regexes over the source text, so it would miss unusual import forms such as a multi-line `import(...)` with a computed specifier. It is enough for the current t.mjs.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f80-single-file-runner.test.mjs",
+      "line": 16,
+      "priority": "low"
+    },
+    {
+      "summary": "The AC-3 test reads tracked files from the working tree and skips unreadable ones. A tracked file that is deleted in the worktree is not checked for the string. The contract's check is satisfied as written.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f80-single-file-runner.test.mjs",
+      "line": 55,
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.20227060000000002,
+  "contract_hash": "6f22047e11ea4af61fcecac476e5055571c62408069c654754159be578013d96",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-07T04:12:38.363Z",
+  "origin": "run"
+}

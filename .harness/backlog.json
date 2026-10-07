@@ -5322,6 +5322,30 @@
       "line": 13,
       "priority": "low",
       "id": "B447"
+    },
+    {
+      "feature": "F80",
+      "round": 1,
+      "at": "2026-10-07T04:12:38.363Z",
+      "summary": "The AC-1 test finds imports with regexes over the source text, so it would miss unusual import forms such as a multi-line `import(...)` with a computed specifier. It is enough for the current t.mjs.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f80-single-file-runner.test.mjs",
+      "line": 16,
+      "priority": "low",
+      "id": "B448"
+    },
+    {
+      "feature": "F80",
+      "round": 1,
+      "at": "2026-10-07T04:12:38.363Z",
+      "summary": "The AC-3 test reads tracked files from the working tree and skips unreadable ones. A tracked file that is deleted in the worktree is not checked for the string. The contract's check is satisfied as written.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f80-single-file-runner.test.mjs",
+      "line": 55,
+      "priority": "low",
+      "id": "B449"
     }
   ]
 }
