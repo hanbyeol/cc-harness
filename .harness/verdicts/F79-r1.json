@@ -1,0 +1,53 @@
+{
+  "feature": "F79",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The reuse in lib/verify.mjs trusts that the feature verify's base vacuity run happened on that same base commit. The code reads vacuityBase (e.baseSha) and compares it with the resolved base, but it never checks that the feature verify actually ran a vacuity check for each new criterion. If a criterion's vacuity run was skipped or timed out in the feature verify, post-merge verify now skips it too. The contract accepts this, but it is worth a note.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "line": 660,
+      "priority": "low"
+    },
+    {
+      "summary": "The vacuity_reused key appears on verify/check events only for post_merge_verify, and on result entries only when it is true. A consumer therefore sees the field as false in events but absent in results. This is consistent with the SPEC text, but the asymmetry may confuse readers.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.2407562,
+  "contract_hash": "982f5ea8cb7727ec1aa2c13e2b28e071e812a6a8aaa33b71240c1439a9eb660f",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-07T00:22:42.992Z",
+  "origin": "run"
+}

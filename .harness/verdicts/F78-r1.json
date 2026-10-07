@@ -1,0 +1,63 @@
+{
+  "feature": "F78",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "test/t.mjs now imports ../lib/criterion-files.mjs. Any project or sandbox that copies only t.mjs, as the old F1 test did, breaks with a module-not-found error. The tests were updated to copy the helper, but a future copy of t.mjs has to remember it too. Keeping the helper inside t.mjs would make it self-contained.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/t.mjs",
+      "line": 10,
+      "priority": "low"
+    },
+    {
+      "summary": "If a criterion id also appears in a comment or string of an unrelated test file, only that file runs. A test whose name is built from a template and lives elsewhere is then not run, so the check ends with 'no test matched'. This follows the frozen AC-2 fallback rule, which only applies when no file contains the id. It is a limit to be aware of, not a defect.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/criterion-files.mjs",
+      "line": 19,
+      "priority": "low"
+    },
+    {
+      "summary": "selectTestFiles skips dot-directories and node_modules, and a failure to read a directory is silently ignored. The old glob 'test/**/*.test.mjs' may behave differently for such directories. No test covers this difference.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/criterion-files.mjs",
+      "line": 13,
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.2174162,
+  "contract_hash": "ca74d84fe7947b1f3882396b931c841385d3f31c93dc8c0637607a71a905ccc6",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-07T02:05:12.689Z",
+  "origin": "run"
+}
