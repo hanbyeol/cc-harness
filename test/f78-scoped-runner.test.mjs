@@ -7,18 +7,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { REPO, tmpdir, readJson } from './helpers.mjs';
-import { selectTestFiles as selectFiles } from '../lib/criterion-files.mjs';
+import { selectTestFiles as selectFiles } from './t.mjs';
 
 const T_MJS = path.join(REPO, 'test', 't.mjs');
-const SELECT_MJS = path.join(REPO, 'lib', 'criterion-files.mjs');
 
-// A project with test/t.mjs, the module it imports and the given test files (name → source) under test/.
+// A project with test/t.mjs and the given test files (name → source) under test/.
 function sandbox(files) {
   const dir = tmpdir('harness-f78-');
   fs.mkdirSync(path.join(dir, 'test'), { recursive: true });
   fs.copyFileSync(T_MJS, path.join(dir, 'test', 't.mjs'));
-  fs.mkdirSync(path.join(dir, 'lib'));
-  fs.copyFileSync(SELECT_MJS, path.join(dir, 'lib', 'criterion-files.mjs'));
   for (const [name, src] of Object.entries(files)) {
     fs.mkdirSync(path.dirname(path.join(dir, 'test', name)), { recursive: true });
     fs.writeFileSync(path.join(dir, 'test', name), src);
