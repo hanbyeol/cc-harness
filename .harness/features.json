@@ -702,6 +702,15 @@
       "security_tier": "standard",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F80",
+      "title": "test/t.mjs 를 다시 단일 파일로 — 파일 선택 로직을 lib/criterion-files.mjs 에서 t.mjs 안으로 옮긴다",
+      "security_tier": "standard",
+      "depends_on": [
+        "F78"
+      ],
+      "status": "approved"
     }
   ]
 }

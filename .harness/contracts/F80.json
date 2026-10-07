@@ -1,0 +1,56 @@
+{
+  "id": "F80",
+  "title": "test/t.mjs 를 다시 단일 파일로 — 파일 선택 로직을 lib/criterion-files.mjs 에서 t.mjs 안으로 옮긴다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "test/t.mjs 의 import 는 모두 'node:' 내장 모듈이다 — 상대 경로·패키지 import 가 없다",
+      "check": "node test/t.mjs \"F80 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "test/t.mjs 하나만 복사한 임시 프로젝트(lib/ 없음)에서 node test/t.mjs \"X AC-1\" 이 exit 0 이고, id 를 담은 파일만 불러온다 — 세 테스트 파일 중 id 를 담은 파일의 표시 파일만 생긴다",
+      "check": "node test/t.mjs \"F80 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "lib/criterion-files.mjs 가 없고, 저장소의 추적 파일(.harness/ 제외) 어디에도 'criterion-files' 문자열이 없다",
+      "check": "node test/t.mjs \"F80 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "F78 의 기준 check(AC-1…AC-6, ES-1, ES-2)와 F1 AC-6 이 이 기능 뒤에도 모두 exit 0 이다 — F78 테스트는 파일 선택 함수를 t.mjs 에서 불러온다",
+      "check": "node test/t.mjs \"F78 AC-1\" && node test/t.mjs \"F78 AC-2\" && node test/t.mjs \"F78 AC-3\" && node test/t.mjs \"F78 AC-4\" && node test/t.mjs \"F78 AC-6\" && node test/t.mjs \"F78 ES-1\" && node test/t.mjs \"F78 ES-2\" && node test/t.mjs \"F1 AC-6\"",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "node test/assert-count.mjs 가 exit 0 이다",
+      "check": "node test/assert-count.mjs",
+      "new": false
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "t.mjs 를 다른 모듈이 import 해도(테스트가 파일 선택 함수를 쓸 때) 명령 실행 부분은 돌지 않는다 — import 한 프로세스가 exit 하지 않고 usage 를 출력하지 않는다",
+      "check": "node test/t.mjs \"F80 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "파일 선택 규칙 변경(F78 규칙 그대로)",
+    "t.mjs 의 판정 규칙 변경"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-07T03:02:41.799Z",
+    "hash": "99cce9d2153cebed5e8bfe86bdaba489803e4434eaf6bad41ea7b88a4f179d80"
+  }
+}
