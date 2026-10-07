@@ -37,9 +37,10 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
   (cwd 인코딩 = 호출한 작업 디렉터리의 실제 경로에서 영문·숫자 외 문자를 모두 `-` 로), `exists` 는 기록 시점에 그 파일이 있는지다. 없으면 `null`. 파일 내용은 읽지 않는다.
 - verify: `harness verify`·run 의 verify(`step` = `verify`·`post_merge_verify`, round 포함)는 끝날 때 `verify.commands` 마다 `verify/command`
   `{step?, index, program, duration_ms, pass, exit_code, attempts, flaky, timed_out, flaky_passed?}`(program = 명령의 첫 프로그램 이름, `duration_ms` = 재실행 포함 시간),
-  기준 check 마다 `verify/check` `{step?, id, duration_ms, pass, exit_code, vacuous, parallel_retry, base_retry, timed_out}`(`duration_ms` = head 실행 시간, 단독 재실행 포함)를 남긴다.
+  기준 check 마다 `verify/check` `{step?, id, duration_ms, pass, exit_code, vacuous, parallel_retry, base_retry, timed_out, vacuity_reused?}`(`duration_ms` = head 실행 시간, 단독 재실행 포함)를 남긴다.
   재실행 여부: `attempts` 2 는 실패한 명령을 한 번 더 돌린 것이고 `flaky` 는 그 재실행에서 결과가 바뀐 것, `attempts` 3 은 `verify.flaky` 'retry' 의 3차 실행이고 `flaky_passed` true 는 그 3차로 통과한 것(§6.1), `parallel_retry` 는 동시 실행 중 실패해
-  단독으로 다시 돈 기준, `base_retry` 는 base 쪽 vacuity 실행을 단독으로 다시 돈 기준이다(§6.3). verify 가 끝나지 못하면(오류·중단) 이 이벤트는 남지 않는다.
+  단독으로 다시 돈 기준, `base_retry` 는 base 쪽 vacuity 실행을 단독으로 다시 돈 기준이다(§6.3). `post_merge_verify` 의 `verify/check` 에는
+  `vacuity_reused`(true 또는 false)도 있다 — true 는 기능 verify 의 base vacuity 실행을 재사용해 base 에서 다시 돌리지 않은 기준이다(§6.3). verify 가 끝나지 못하면(오류·중단) 이 이벤트는 남지 않는다.
 - 실행 단계 이벤트와 metrics(§8.11)에는 프롬프트·모델 응답 본문·diff·명령 출력이 들어가지 않는다 — 수치·이름·id·경로만 남는다.
 - 기록 실패(디스크·권한·`events` 가 파일 등)는 명령의 결과·출력·종료 코드를 바꾸지 않고 stderr 에 경고 한 줄(`harness: warning: could not record event …`, 프로세스당 한 번)만 남긴다.
 - `harness run` 이 기능 worktree 의 변경을 커밋할 때 `.harness/events/` 는 뺀다(test-count 캐시와 같음) — 기능 브랜치마다 같은 월 파일에 줄을 더하면 병합이 충돌하기 때문이다. worktree 안에서 남은 이벤트는 커밋되지 않는다. 이벤트 로그는 프로젝트의 로컬 기록이다 — 대상 프로젝트는 `.harness/events/` 를 `.gitignore` 에 두기를 권하고(이 저장소도 그렇다), 여러 프로젝트에 걸친 축적은 git 이 아니라 `harness export`(허브, 기본으로 켜짐)로 한다. 이미 무시되는 경로는 run 의 `git add` 제외 지정에서 빠진다(git 이 무시된 경로를 가리키는 pathspec 을 거부하므로).
@@ -265,6 +266,7 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
 - 결과의 `criteria` 는 check 가 끝난 순서와 무관하게 계약 순서다.
 - 다른 실행과 동시에 돌다가 실패한 check 는 모든 동시 실행이 끝난 뒤 혼자 한 번 더 실행한다(하나씩, 계약 순서). 그때 통과하면 pass 로 기록하고 결과에 `parallel_retry: true`, `warnings` 에 기준 id 를 남긴다(공유 자원 의존 가능성 — 필요하면 `check_parallel` 1). 다시 실패하면 fail(`parallel_retry: true`)이다. 단독 재확인에서 통과한 `new: true` 기준은 그 뒤 base vacuity 실행도 혼자 한다. 시간 초과된 check 는 단독 재확인 없이 fail(`timedOut`)이고, 다른 check 의 결과는 그대로 기록된다.
 - **base 단독 재확인**: `new: true` 기준의 base vacuity 실행이 다른 실행과 동시에 돌다가 통과하지 못하면(실패·시간 초과 모두) 경합 때문에 실패했을 수 있고, 그러면 vacuous 기준이 통과할 수 있다. 그래서 그 결과로 판정하지 않고, 모든 동시 실행(head 단독 재확인 포함)이 끝난 뒤 그 base 실행을 혼자 한 번 더 한다(하나씩, 계약 순서, 같은 base 시간 제한). vacuous 판정은 이 단독 실행 결과로 한다 — 통과하면 vacuous, 실패면 head 결과대로, 시간 초과면 vacuous 가 아니고 `base_timed_out: true`. 재확인한 기준의 결과에는 `base_retry: true` 가 남는다. `verify.check_parallel` 이 1 이면 동시 실행이 없으므로 base 단독 재확인도 없다.
+- **병합 후 verify 의 base vacuity 재사용**: `harness run` 의 병합 후 verify(§8 5.)에서 병합 전 integration 커밋(`preMergeSha`, 이 verify 의 base)이 그 기능 verify 의 base(`baseSha` — 기능 worktree 를 만든 integration 커밋, 충돌 해결·병합 후 verify 복구 뒤에는 그때 병합한 integration 커밋)와 같은 커밋이면, `new: true` 기준의 base vacuity 실행을 다시 하지 않는다 — 같은 base 에서 기능 verify 가 이미 그 실행을 했다. head 쪽 check 가 통과한 `new: true` 기준의 결과 항목에 `vacuity_reused: true` 가 남고 `base_retry` 는 false 다. head 쪽 기준 check·`verify.commands`·무결성 검사(§6.2: `.harness` 변경·skip 표시·테스트 수)는 그대로 병합된 integration worktree 에서 모두 실행된다. 둘이 다르면(병렬 run 에서 다른 기능이 먼저 병합됨), 기능의 `baseSha` 가 없거나(이 규칙 이전 run 상태에서 `--resume`) 커밋으로 해석되지 않으면 지금처럼 base vacuity 를 실행하고 `vacuity_reused` 는 없다. 기능 verify(`step` = `verify`)와 `harness verify F{n}` 은 언제나 base vacuity 를 실행한다. 병합 후 verify 의 `verify/check` 이벤트(§2)에는 `vacuity_reused`(true 또는 false)가 있다.
 - `verify.check_parallel` 이 1 이면 지금처럼 모두 하나씩 순서대로 실행된다: head 테스트 수 → base 테스트 수, 그다음 기준마다 check → (필요하면) base vacuity. 동시 실행이 없으므로 단독 재확인도 없다.
 - 범위 밖: `verify.commands` 끼리의 병렬 실행(§6.1 은 항상 순서대로), check 별 자원 충돌(DB·포트) 자동 감지 — 필요한 프로젝트는 `check_parallel` 1 로 설정한다.
 
