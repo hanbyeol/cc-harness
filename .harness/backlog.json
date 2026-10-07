@@ -5346,6 +5346,28 @@
       "line": 55,
       "priority": "low",
       "id": "B449"
+    },
+    {
+      "feature": "F81",
+      "round": 1,
+      "at": "2026-10-07T05:45:22.430Z",
+      "summary": "run.mjs keys verifyQueueMs by feature id only. If one feature ever had two verifies waiting at once, the later one would overwrite the earlier wait time. Today each feature's verifies run one after another, so this does not happen.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "priority": "low",
+      "id": "B450"
+    },
+    {
+      "feature": "F81",
+      "round": 1,
+      "at": "2026-10-07T05:45:22.430Z",
+      "summary": "recordVerifyEvents now takes a `phases` argument and verify() builds a phases object and a separate phases_ms copy. The two copies of the same data could be reduced to one.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low",
+      "id": "B451"
     }
   ]
 }

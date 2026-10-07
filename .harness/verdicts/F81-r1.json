@@ -1,0 +1,53 @@
+{
+  "feature": "F81",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "run.mjs keys verifyQueueMs by feature id only. If one feature ever had two verifies waiting at once, the later one would overwrite the earlier wait time. Today each feature's verifies run one after another, so this does not happen.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "recordVerifyEvents now takes a `phases` argument and verify() builds a phases object and a separate phases_ms copy. The two copies of the same data could be reduced to one.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.252392,
+  "contract_hash": "fcdeb6e2d08a86c38a901a67238b1f39a117ae381b024e2778056be912793219",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-07T05:45:22.430Z",
+  "origin": "run"
+}

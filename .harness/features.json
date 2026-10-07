@@ -719,7 +719,7 @@
       "depends_on": [
         "F79"
       ],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }
