@@ -720,6 +720,13 @@
         "F79"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F82",
+      "title": "lint-contract 경고 — new 기준이 base 실행에 얹히는 테스트 보조 파일(test/t.mjs 같은)을 다루면 vacuous 위험을 알린다",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }

@@ -1,0 +1,57 @@
+{
+  "id": "F82",
+  "title": "lint-contract 경고 — new 기준이 base 실행에 얹히는 테스트 보조 파일(test/t.mjs 같은)을 다루면 vacuous 위험을 알린다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "new: true 기준의 criterion 문장에 verify.test_paths 에 걸리면서 테스트 파일 이름 모양(*.test.*·*.spec.*·*_test.*·test_*.py)이 아닌 저장소 상대 경로(예: test/t.mjs, test/helpers.mjs)가 있으면 lint-contract 가 그 기준 id 와 경로, 'overlaid on base' 와 'new: false' 를 담은 경고(rule 'overlaid_helper')를 낸다 — test/t.mjs·tests/util.js·__tests__/setup.ts 경우별 테스트",
+      "check": "node test/t.mjs \"F82 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "다음 경우에는 그 경고가 없다 — 기준이 new: false 이거나, 경로가 테스트 파일 이름 모양(test/f1.test.mjs 등)이거나, test_paths 밖(lib/x.mjs)이거나, 경로가 check 명령에만 있고 criterion 문장에는 없을 때 — 경우별 테스트",
+      "check": "node test/t.mjs \"F82 AC-2\"",
+      "new": false
+    },
+    {
+      "id": "AC-3",
+      "criterion": "경고는 오류가 아니다 — 그 경고만 있는 계약의 lint-contract 는 exit 0 이고 harness approve 를 막지 않는다. plan/lint 이벤트의 warnings 에 rule 'overlaid_helper' 와 기준 id 가 남는다",
+      "check": "node test/t.mjs \"F82 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "test_paths 는 프로젝트 config(profile 병합 결과)의 verify.test_paths 를 쓴다 — config 에 test_paths 가 ['spec/**'] 이면 spec/support.rb 를 담은 new 기준에 경고가 나고 test/t.mjs 에는 나지 않는다. test_paths 가 비어 있으면 이 경고는 없다",
+      "check": "node test/t.mjs \"F82 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md §5(lint)가 overlaid_helper 경고의 조건·이유(§6.3 base 실행에 test_paths 파일이 얹힘)·권장 조치(new: false)를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F82 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "criterion 문장이 없거나 문자열이 아니면 이 규칙은 그 기준을 건너뛰고 예외 없이 기존 criterion_text 경고만 남는다",
+      "check": "node test/t.mjs \"F82 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "base vacuity 실행 규칙 자체 변경(얹지 않기 등)",
+    "check 명령을 분석해 경고하기",
+    "기존 계약을 고치기 — 경고는 새 lint 실행에서만 나온다"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-07T07:26:23.428Z",
+    "hash": "dbbab9149db581d1a0ca25f0908547cd86b1c04136eb375fce941939746b3a1a"
+  }
+}
