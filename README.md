@@ -105,7 +105,7 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
   하나씩 순서대로 실행됩니다. `verify.commands`는 항상 순서대로 실행됩니다. **불안정 테스트** — `verify.flaky`가 `'retry'`(기본)이면 1차 실패·2차 통과한 `verify.commands` 명령을 3차로 한 번 더 실행해 통과하면 라운드를 쓰지 않고 통과로 봅니다(`flaky: passed on retry` 경고, `flaky_tests`, 테스트 이름마다 low `flaky_test` backlog 항목 — 열린 같은 이름은 `seen` 증가). 3차 실패·시간 초과는 실패, 1·2차 모두 실패면 3차 없음. 기능 자신의 테스트(`F{n} `로 시작하는 실패 이름)가 흔들렸거나 이름을 뽑지 못하면 3차 없이 실패, `'fail'`이면 flaky는 늘 실패입니다(SPEC §6.1).
 - **테스트 수** — `verify.test_count`를 `from:commands[i]`로 두면 `verify.commands[i]` 출력의 마지막 `# tests N`(TAP)
   또는 `ℹ tests N`(node spec) 줄에서 수를 읽어 따로 실행하지 않습니다(base에서는 같은 명령을 한 번 실행). base 쪽 수는
-  모든 방식에서 (base 커밋, 명령)별로 `.harness/runs/test-count-cache.json`에 캐시되어 다음 verify는 base에서 다시 세지 않습니다.
+  모든 방식에서 (base 커밋, 명령)별로 `.harness/runs/test-count-cache.json`에 캐시되어 다음 verify는 base에서 다시 세지 않습니다. `.harness/`만 바꾼 base, 그리고 `verify.test_paths`가 비어 있지 않으면 테스트 파일이 같은 base(버전·lib만 바꾼 릴리스 커밋)도 캐시를 씁니다 — 테스트 개수가 `test_paths` 밖 파일로 정해지는 프로젝트는 `verify.test_paths`를 비우세요(SPEC §6.2).
 - **병합 충돌** — 기능 병합이 충돌하면 코어가 그 기능 worktree에서 integration을 병합해 충돌 상태를 만들고,
   충돌 파일 목록과 함께 builder를 1회 부릅니다. 해결 결과는 verify·eval을 다시 거친 뒤 병합됩니다. 그래도 충돌하거나
   builder가 실패하거나 줄 시작 충돌 표시가 남으면 `blocked`(`merge_conflict`)이고 integration은 그대로입니다. 병합 후
