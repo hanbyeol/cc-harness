@@ -726,6 +726,15 @@
       "title": "lint-contract 경고 — new 기준이 base 실행에 얹히는 테스트 보조 파일(test/t.mjs 같은)을 다루면 vacuous 위험을 알린다",
       "security_tier": "standard",
       "depends_on": [],
+      "status": "passed"
+    },
+    {
+      "id": "F83",
+      "title": "테스트 수 캐시를 .harness/ 밖 트리 기준으로 — 계약 승인 커밋처럼 .harness/ 만 바뀐 base 에서 base 테스트를 다시 돌리지 않는다",
+      "security_tier": "standard",
+      "depends_on": [
+        "F81"
+      ],
       "status": "approved"
     }
   ]

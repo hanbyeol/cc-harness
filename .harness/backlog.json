@@ -5368,6 +5368,38 @@
       "file": "lib/verify.mjs",
       "priority": "low",
       "id": "B451"
+    },
+    {
+      "feature": "F82",
+      "round": 1,
+      "at": "2026-10-07T07:55:06.940Z",
+      "summary": "PATH_IN_TEXT (lib/contract.mjs) only recognizes paths that contain a '/' and have an extension. A bare file name in prose, such as `t.mjs`, or a path with no extension is not detected, so a criterion can name an overlaid helper without a warning. This fits the contract's wording, so it is only a coverage note.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/contract.mjs",
+      "priority": "low",
+      "id": "B452"
+    },
+    {
+      "feature": "F82",
+      "round": 1,
+      "at": "2026-10-07T07:55:06.940Z",
+      "summary": "F82's own AC-1 sentence names test/t.mjs and test/helpers.mjs as examples while it is `new: true`, so the new rule warns about the contract that introduces it. This is harmless because the warning does not block anything, but it shows how a prose example can trigger the rule.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B453"
+    },
+    {
+      "feature": "F82",
+      "round": 1,
+      "at": "2026-10-07T07:55:06.940Z",
+      "summary": "approve.mjs and lint-contract.mjs each read `config.verify?.test_paths` and pass it to lintContract separately. A third caller could forget to pass it, and the warning would silently turn off (the default is `[]`). A shared helper would remove that risk.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/commands/approve.mjs",
+      "priority": "low",
+      "id": "B454"
     }
   ]
 }

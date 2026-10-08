@@ -1,0 +1,69 @@
+{
+  "id": "F83",
+  "title": "테스트 수 캐시를 .harness/ 밖 트리 기준으로 — 계약 승인 커밋처럼 .harness/ 만 바뀐 base 에서 base 테스트를 다시 돌리지 않는다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify 의 base 테스트 수 캐시 조회는 base 커밋의 .harness/ 밖 트리가 같은 항목을 적중으로 본다 — base B1 에서 센 수가 캐시에 있고 B2 가 B1 에서 .harness/ 아래 파일만 바꾼 커밋이면, base B2 의 verify 는 base 쪽 test_count 명령을 실행하지 않고(가짜 명령의 실행 기록 없음) test_count_source.base 가 'cache' 이며 testCount.base 가 B1 의 수다",
+      "check": "node test/t.mjs \"F83 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "B2 가 B1 에서 .harness/ 밖 파일(테스트 파일 또는 lib 파일)을 하나라도 바꾸면 적중하지 않고 이 기능 전처럼 base 에서 실행한다 — 테스트 파일 변경, lib 파일 변경 경우별 테스트",
+      "check": "node test/t.mjs \"F83 AC-2\"",
+      "new": false
+    },
+    {
+      "id": "AC-3",
+      "criterion": "harness run 의 병합 후 verify 가 통과하면 병합된 integration 커밋에서 센 head 테스트 수를 그 커밋 키로 캐시에 저장한다 — 다음 기능의 verify(base = 그 커밋에 .harness/ 변경만 더한 커밋)가 base 를 실행하지 않고 'cache' 로 적중한다",
+      "check": "node test/t.mjs \"F83 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "이 기능 전에 커밋 키로만 저장된 캐시 항목도 base 커밋이 정확히 같으면 이 기능 전처럼 적중한다",
+      "check": "node test/t.mjs \"F83 AC-4\"",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "캐시 키는 같은 명령·규칙(summary·preset·stdout-integer)일 때만 적중한다 — 다른 test_count 명령은 같은 트리라도 적중하지 않는다",
+      "check": "node test/t.mjs \"F83 AC-5\"",
+      "new": false
+    },
+    {
+      "id": "AC-6",
+      "criterion": "docs/SPEC.md §6.2 가 테스트 수 캐시 키(.harness/ 밖 트리·명령·규칙), 병합 후 verify 의 head 수 저장, 커밋 키 항목의 하위 호환을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F83 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "트리 키를 계산하는 git 호출이 실패하면 경고 하나를 남기고 이 기능 전처럼 커밋 키로만 조회한 뒤, 없으면 base 를 실행한다 — verify 는 오류로 끝나지 않는다",
+      "check": "node test/t.mjs \"F83 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "병합 후 verify 가 실패하거나 head 수를 얻지 못하면(출력에서 수를 읽지 못함) 캐시에 아무것도 저장하지 않는다",
+      "check": "node test/t.mjs \"F83 ES-2\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    ".harness/ 안의 파일(계약 등)을 읽어 테스트 개수가 달라지는 테스트 — 그런 테스트는 캐시된 base 수가 실제와 다를 수 있다",
+    "head 와 base 테스트 수 세기를 동시에 실행하기",
+    "캐시 파일 크기 제한·정리"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-08T00:05:15.489Z",
+    "hash": "ed8d81169ba380737d5a861d840b203854571f5cb53fe39b96ba9ffa01702902"
+  }
+}
