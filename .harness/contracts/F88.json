@@ -1,0 +1,76 @@
+{
+  "id": "F88",
+  "title": "사용량 제한은 환경 중단으로 — claude 의 usage_limit_reached 응답이면 기능을 blocked 하지 않고 run 을 멈춰 --resume 으로 이어간다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "claude 어댑터는 --output-format json wrapper 가 is_error 이고 api_error 가 'usage_limit_reached' 이거나 api_error_status 가 429 이면 결과 error 를 'usage_limit' 로 돌려주고, detail 에 wrapper 의 result 문장(예: \"You've hit your session limit · resets 3:10am (Asia/Seoul)\")을 300자 이하로 담는다 — 0 아닌 종료 코드와 0 종료 코드 경우별 테스트",
+      "check": "node test/t.mjs \"F88 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "harness run 에서 build 단계 어댑터 결과가 'usage_limit' 이면 run 은 상태를 저장하고 멈춘다 — exit 1, stderr 에 'usage limit'·그 detail·'harness run --resume' 이 나오고, 기능 status 는 in_progress 로 남고(blocked 아님) build 시도 횟수와 라운드는 소모되지 않으며 verify 를 실행하지 않는다",
+      "check": "node test/t.mjs \"F88 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "harness run 에서 eval 또는 security-reviewer 호출이 'usage_limit' 이면 run 은 AC-2 처럼 멈춘다 — eval_error 로 세지 않고(연속 eval_error 수 그대로) eval_error verdict 파일을 쓰지 않으며 기능은 blocked 가 아니다",
+      "check": "node test/t.mjs \"F88 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "AC-2·AC-3 로 멈춘 run 을 harness run --resume 하면 멈춘 단계부터 같은 라운드·같은 시도로 다시 한다(build 면 builder 를 다시 부르고, eval 이면 verify 결과를 다시 쓰고 eval 을 다시 부른다). 정상 어댑터로 이어가면 기능이 passed 가 된다",
+      "check": "node test/t.mjs \"F88 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "병렬 run 에서 한 기능이 usage_limit 로 멈추면 새 기능을 시작하지 않고, 진행 중인 다른 기능은 현재 단계를 끝낸 뒤 다음 단계 전에 멈추며, 진행 중이던 기능 전부가 상태 파일의 active 에 남는다(환경 실패 중단과 같은 방식)",
+      "check": "node test/t.mjs \"F88 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "harness eval F{n} 에서 evaluator 호출이 'usage_limit' 이면 exit 1 이고 stderr 에 'usage limit' 과 detail 이 나오며, 기능 status 와 연속 eval_error 수는 바뀌지 않고 verdict 파일을 쓰지 않는다",
+      "check": "node test/t.mjs \"F88 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "docs/SPEC.md §8 이 usage_limit 판정 조건(api_error·api_error_status), run 중단과 --resume 동작, eval CLI 동작을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F88 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "is_error 지만 api_error 가 usage_limit_reached 가 아니고 api_error_status 도 429 가 아니면(예: 529 overloaded, 500) 이 기능 전처럼 exit_nonzero 로 처리된다 — build 는 시도 실패, eval 은 eval_error",
+      "check": "node test/t.mjs \"F88 ES-1\"",
+      "new": false
+    },
+    {
+      "id": "ES-2",
+      "criterion": "wrapper 가 JSON 이 아니거나 api_error 필드가 없으면 usage_limit 로 보지 않는다",
+      "check": "node test/t.mjs \"F88 ES-2\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "제한이 풀릴 때까지 기다렸다가 자동으로 다시 시작하기",
+    "codex·gemini·generic 어댑터의 사용량 제한 감지",
+    "429 외 일시적 오류(529 등)의 재시도 정책 변경",
+    "run 보고서 형식 변경 — 멈춘 run 은 지금처럼 보고서 없이 --resume 안내로 끝난다"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-08T23:31:09.153Z",
+    "hash": "e43639e0b966c98102ed730d12abd96cd05dd1081675766a2b56d73b10823321"
+  }
+}

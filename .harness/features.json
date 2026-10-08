@@ -770,6 +770,13 @@
         "F81"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F88",
+      "title": "사용량 제한은 환경 중단으로 — claude 의 usage_limit_reached 응답이면 기능을 blocked 하지 않고 run 을 멈춰 --resume 으로 이어간다",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }
