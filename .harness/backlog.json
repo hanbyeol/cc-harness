@@ -5498,6 +5498,28 @@
       "source": "evaluator",
       "priority": "low",
       "id": "B463"
+    },
+    {
+      "feature": "F86",
+      "round": 1,
+      "at": "2026-10-08T14:28:34.844Z",
+      "summary": "relatedFirst in lib/eval.mjs matches a summary only by the changed file's basename, so a summary naming a short or common basename (e.g. index.mjs) marks the item related even when the path differs. This follows the SPEC text (path or file name) and only affects ordering, so it is harmless, but unrelated items can be promoted.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/eval.mjs",
+      "priority": "low",
+      "id": "B464"
+    },
+    {
+      "feature": "F86",
+      "round": 1,
+      "at": "2026-10-08T14:28:34.844Z",
+      "summary": "The test name 'F22 AC-3 at most 40 open items reach the prompt…' still says 40 while it now asserts 15. The name is kept only because test/assert-count.mjs forbids renaming. A comment explains it, but the name misleads.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f22-backlog.test.mjs",
+      "priority": "low",
+      "id": "B465"
     }
   ]
 }

@@ -1,0 +1,103 @@
+{
+  "id": "F87",
+  "title": "verify 결과 캐시 — 같은 내용의 트리·명령·환경으로 이미 통과한 verify 는 다시 돌리지 않는다(병합 후 verify·verify 뒤 eval·resume)",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify 는 시작할 때 캐시 키를 계산한다: 작업 트리 내용(추적 파일과 추적되지 않은 무시 안 된 파일을 임시 index 로 git write-tree 한 트리, .harness/runs·.harness/events 제외)·base 의 merge-base 커밋·계약 해시·verify 설정(commands·test_count·test_paths·skip_markers·flaky·check_parallel·vacuity_timeout_sec)·node 버전·플랫폼·harness 버전·verify 명령 환경 변수(BASE_ENV_ALLOWLIST 와 env_allowlist)의 값. 이 키의 통과 결과가 .harness/runs/verify-cache.json 에 있으면 verify 명령·기준 check·base 실행을 하나도 실행하지 않고(가짜 명령·check 의 실행 기록 없음) 저장된 결과를 pass 로 돌려준다. 결과 객체의 cache.status 는 'hit' 이다",
+      "check": "node test/t.mjs \"F87 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "단일 기능 harness run 에서 병합 후 verify 는 기능 verify 와 트리·base 가 같으므로 'hit' 이다 — 병합 후 verify 동안 verify 명령이 실행되지 않고, run 보고서 Steps 표의 그 단계 Outcome 이 'pass (cached)' 이며 metrics 줄에 cached: true 가 있다(다른 단계와 캐시를 쓰지 않은 verify 는 cached: false 또는 null)",
+      "check": "node test/t.mjs \"F87 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "harness verify F{n} 이 통과한 뒤 같은 작업 트리에서 harness eval F{n} 을 실행하면 eval 의 verify 는 'hit' 이고 verify 명령을 다시 실행하지 않는다",
+      "check": "node test/t.mjs \"F87 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "키의 한 부분이라도 다르면 적중하지 않고 이 기능 전처럼 모두 실행한다 — 추적 파일 수정, 추적되지 않은 새 파일, base 커밋, 계약 기준 변경, verify.commands 변경, 허용 환경 변수 값 변경 경우별 테스트",
+      "check": "node test/t.mjs \"F87 AC-4\"",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "통과한 결과만 저장한다 — 실패한 verify, 명령이 flaky 재시도로 통과한 verify(flaky_passed), 시간 초과가 있는 verify 는 저장하지 않고, 같은 트리의 다음 verify 는 모두 다시 실행한다",
+      "check": "node test/t.mjs \"F87 AC-5\"",
+      "new": false
+    },
+    {
+      "id": "AC-6",
+      "criterion": "작업 트리에 git 이 무시하는 파일이 .harness/runs·.harness/events·node_modules 밖에 하나라도 있으면 그 verify 는 결과를 저장하지도 캐시를 읽지도 않는다 — 결과의 cache.status 가 'skipped' 이고 cache.reason 에 'ignored files' 와 그런 경로 하나가 들어간다(무시 파일 덕분에 통과한 결과를 병합된 트리에 재사용하지 않기 위해, D1)",
+      "check": "node test/t.mjs \"F87 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "config verify.cache 가 'off' 이면 캐시를 읽지도 쓰지도 않고(cache.status 'off'), 기본값은 'on' 이다. 'on'·'off' 외의 값은 키 경로 verify.cache 와 허용 값을 담은 config_invalid 로 exit 2 이다",
+      "check": "node test/t.mjs \"F87 AC-7\"",
+      "new": true
+    },
+    {
+      "id": "AC-8",
+      "criterion": "verify 마다 stage 'verify', type 'cache' 이벤트가 하나 남는다 — data 는 step·status('hit'·'miss'·'off'·'skipped')·reason(skipped 일 때만) 뿐이다. 캐시 파일은 최근 50개 항목만 남긴다",
+      "check": "node test/t.mjs \"F87 AC-8\"",
+      "new": true
+    },
+    {
+      "id": "AC-9",
+      "criterion": "docs/SPEC.md §6 이 verify 결과 캐시의 키 구성·통과만 저장·무시 파일 조건(D1)·verify.cache 설정·cache 이벤트·보고서 표시와, 캐시 키 밖의 입력(네트워크·시각·node_modules 내용)에 따라 결과가 달라지는 테스트는 캐시가 그 변화를 놓칠 수 있다는 주의를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F87 AC-9\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "verify-cache.json 에는 환경 변수 값이 평문으로 들어가지 않는다 — 허용 환경 변수에 'sekret-value-12345' 를 넣고 verify 한 뒤 캐시 파일 바이트에 그 문자열이 없다. 저장된 결과의 명령 출력은 verify 결과와 같은 가림(redact)을 거친다",
+      "check": "node test/t.mjs \"F87 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "캐시 항목이 이상하면 통과로 쓰지 않는다 — 저장된 결과의 pass 가 true 가 아니거나, 결과가 객체가 아니거나, 항목이 JSON 객체가 아니면 그 항목은 무시하고 모두 실행한다 — 경우별 테스트",
+      "check": "node test/t.mjs \"F87 SC-2\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "캐시 파일을 읽을 수 없거나 JSON 이 아니면 경고 하나를 남기고 빈 캐시로 보아 모두 실행하며, 통과하면 파일을 새로 쓴다",
+      "check": "node test/t.mjs \"F87 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "트리 키를 만드는 git 호출(임시 index·write-tree)이 실패하면 경고 하나를 남기고 캐시 없이(cache.status 'skipped') 모두 실행하며 verify 는 그 이유로 실패하지 않는다. 임시 index 파일은 남지 않는다",
+      "check": "node test/t.mjs \"F87 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "테스트 파일 단위 캐시(영향받는 테스트만 실행)",
+    "evaluator 판정 캐시",
+    "base vacuity 실행 결과를 따로 캐시하기",
+    "캐시를 여러 머신이 공유하기",
+    "node_modules 내용·네트워크·시각에 따라 달라지는 테스트의 감지",
+    "캐시 파일을 일부러 고친 경우 막기 — 같은 머신에서 쓰는 로컬 기록이고 builder 는 협조적이라고 본다(D1)"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-08T14:36:07.121Z",
+    "hash": "f35f5fff31b15f5099c8baea3ef2124a91fac73a862670280785fb4df9d7d28c"
+  }
+}
