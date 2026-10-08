@@ -1,0 +1,60 @@
+{
+  "feature": "F83",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "In lib/verify.mjs the new line `const flaky =[...new Set(...)]` lost the space after `=`. This is a stray formatting change on an existing line and should be restored.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "A cache hit found by commit does not compute or store the `tree` key, so an old commit-only entry is never upgraded with a tree. Reuse then only works through the post-merge head entries or through fresh runs. This is harmless, but the tree key could be backfilled on a commit hit.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "The post-merge head count store runs `git rev-parse` and `ls-tree` once more after verification. When `ls-tree` fails, a second `tree key` warning is added on top of the one from the base lookup. ES-1 only specifies one warning for the lookup path, so this is not a violation.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.24688400000000002,
+  "contract_hash": "ed8d81169ba380737d5a861d840b203854571f5cb53fe39b96ba9ffa01702902",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-08T00:35:06.897Z",
+  "origin": "run"
+}

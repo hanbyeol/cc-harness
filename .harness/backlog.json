@@ -5400,6 +5400,39 @@
       "file": "lib/commands/approve.mjs",
       "priority": "low",
       "id": "B454"
+    },
+    {
+      "feature": "F83",
+      "round": 1,
+      "at": "2026-10-08T00:35:06.897Z",
+      "summary": "In lib/verify.mjs the new line `const flaky =[...new Set(...)]` lost the space after `=`. This is a stray formatting change on an existing line and should be restored.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low",
+      "id": "B455"
+    },
+    {
+      "feature": "F83",
+      "round": 1,
+      "at": "2026-10-08T00:35:06.897Z",
+      "summary": "A cache hit found by commit does not compute or store the `tree` key, so an old commit-only entry is never upgraded with a tree. Reuse then only works through the post-merge head entries or through fresh runs. This is harmless, but the tree key could be backfilled on a commit hit.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low",
+      "id": "B456"
+    },
+    {
+      "feature": "F83",
+      "round": 1,
+      "at": "2026-10-08T00:35:06.897Z",
+      "summary": "The post-merge head count store runs `git rev-parse` and `ls-tree` once more after verification. When `ls-tree` fails, a second `tree key` warning is added on top of the one from the base lookup. ES-1 only specifies one warning for the lookup path, so this is not a violation.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low",
+      "id": "B457"
     }
   ]
 }
