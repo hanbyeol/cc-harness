@@ -165,7 +165,9 @@ test('F30 AC-3: the same (base commit, command) is not run on base again — the
 test('F30 AC-3: a different base commit runs the command on base again', async () => {
   const dir = fixture(5);
   const log = newLog();
-  const vc = { commands: [testsCmd(log)], test_count: 'from:commands[0]' };
+  // The count comes from count.txt, outside verify.test_paths: emptied, so a base with the
+  // same test files is not found by them (F85, test_tree) and the commit decides.
+  const vc = { commands: [testsCmd(log)], test_count: 'from:commands[0]', test_paths: [] };
   await run(dir, vc);
   const first = mergeBaseOf(dir);
   git(dir, 'checkout', '-q', 'main');

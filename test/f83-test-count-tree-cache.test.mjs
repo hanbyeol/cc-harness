@@ -130,16 +130,19 @@ test('F83 AC-1: a .harness/ change in a project below the repository top is left
 });
 
 // ---------- AC-2 ----------
-for (const [label, files] of [
-  ['a test file', { 'test/app.test.mjs': '// app tests, changed\n' }],
-  ['a lib file', { 'lib/app.mjs': 'export const x = 2;\n' }],
+// With verify.test_paths set, a base that changed no test file is found by its test files
+// (F85, test_tree); the lib case empties test_paths so the tree key alone decides, as here
+// the count comes from tests.txt, a file outside test_paths.
+for (const [label, files, extra] of [
+  ['a test file', { 'test/app.test.mjs': '// app tests, changed\n' }, {}],
+  ['a lib file', { 'lib/app.mjs': 'export const x = 2;\n' }, { test_paths: [] }],
 ]) {
   test(`F83 AC-2: a base that also changed ${label} outside .harness/ runs the base count again`, async () => {
     const dir = fixture();
     const log = newLog();
-    await run(dir, { test_count: countCmd(log) });
+    await run(dir, { test_count: countCmd(log), ...extra });
     advanceMain(dir, { ...HARNESS_ONLY, ...files });
-    const r = await run(dir, { test_count: countCmd(log) });
+    const r = await run(dir, { test_count: countCmd(log), ...extra });
     assert.equal(baseRuns(log, dir), 2, 'the base count ran for B2');
     assert.equal(r.integrity.testCount.source.base, 'ran');
     assert.equal(r.integrity.testCount.base, 5);
