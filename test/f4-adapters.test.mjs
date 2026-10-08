@@ -96,22 +96,26 @@ test('F4 AC-1 generic refuses a read-only call when no read_only_command is conf
 // ---------------------------------------------------------------- AC-2 (SPEC §10 arg arrays)
 
 const DENY_ARGS = ['Bash(git push:*)', 'Bash(git reset --hard:*)', 'Bash(rm -rf /:*)', 'Bash(rm -rf ~:*)', 'Bash(sudo:*)'];
+// No MCP servers or skills in a role session, and the tools the role never uses denied (F86).
+const LEAN = ['-p', '--strict-mcp-config', '--disable-slash-commands'];
+const BUILDER_OFF = ['Workflow', 'Skill', 'ReportFindings', 'ListAgents', 'Agent'];
+const READ_ONLY_OFF = ['Workflow', 'ScheduleWakeup', 'Skill', 'ReportFindings', 'ListAgents', 'Agent'];
 
 test('F4 AC-2 claude builder: -p, auto mode, native deny list, json output, schema, budget, model', () => {
   const a = adapters().claude;
   assert.deepEqual(DENY, DENY_ARGS);
   assert.deepEqual(a.buildArgs({ readOnly: false }),
-    ['-p', '--permission-mode', 'auto', '--disallowedTools', ...DENY_ARGS, '--output-format', 'json']);
+    [...LEAN, '--permission-mode', 'auto', '--disallowedTools', ...DENY_ARGS, ...BUILDER_OFF, '--output-format', 'json']);
   assert.deepEqual(a.buildArgs({ readOnly: false, schema: SCHEMA, budgetUsd: 2.5, model: 'opus' }),
-    ['-p', '--permission-mode', 'auto', '--disallowedTools', ...DENY_ARGS, '--output-format', 'json',
+    [...LEAN, '--permission-mode', 'auto', '--disallowedTools', ...DENY_ARGS, ...BUILDER_OFF, '--output-format', 'json',
       '--json-schema', JSON.stringify(SCHEMA), '--max-budget-usd', '2.5', '--model', 'opus']);
 });
 
 test('F4 AC-2 claude readOnly: -p, plan mode, json output', () => {
   const a = adapters().claude;
-  assert.deepEqual(a.buildArgs({ readOnly: true }), ['-p', '--permission-mode', 'plan', '--output-format', 'json']);
+  assert.deepEqual(a.buildArgs({ readOnly: true }), [...LEAN, '--permission-mode', 'plan', '--disallowedTools', ...READ_ONLY_OFF, '--output-format', 'json']);
   assert.deepEqual(a.buildArgs({ readOnly: true, schema: SCHEMA, budgetUsd: 1, model: 'sonnet' }),
-    ['-p', '--permission-mode', 'plan', '--output-format', 'json', '--json-schema', JSON.stringify(SCHEMA),
+    [...LEAN, '--permission-mode', 'plan', '--disallowedTools', ...READ_ONLY_OFF, '--output-format', 'json', '--json-schema', JSON.stringify(SCHEMA),
       '--max-budget-usd', '1', '--model', 'sonnet']);
 });
 
@@ -295,11 +299,14 @@ const WRITE_FLAGS = ['auto', 'yolo', 'workspace-write', 'bypassPermissions', 'ac
   'danger-full-access', '--dangerously-skip-permissions', '--yolo', '-y', '--disallowedTools', '-s'];
 
 test('F4 SC-1 claude: readOnly uses --permission-mode plan and no write-mode flag', () => {
+  // A read-only claude call denies the tools it never uses (F86): --disallowedTools only takes
+  // tools away there, so it is not a write-mode flag for claude.
+  const writeFlags = WRITE_FLAGS.filter((w) => w !== '--disallowedTools');
   for (const opts of [{}, { schema: SCHEMA, budgetUsd: 1, model: 'opus' }]) {
     const args = getAdapter('claude').buildArgs({ readOnly: true, ...opts });
     assert.equal(args[args.indexOf('--permission-mode') + 1], 'plan');
     assert.equal(args.filter((a) => a === '--permission-mode').length, 1);
-    for (const w of WRITE_FLAGS) assert.ok(!args.includes(w), w);
+    for (const w of writeFlags) assert.ok(!args.includes(w), w);
   }
 });
 

@@ -282,6 +282,7 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
 
 ## 7. 독립 평가 (`harness eval F{n}`)
 1. evaluator 역할 어댑터로 headless **읽기 전용** 세션 실행. 입력: 동결 계약 + diff(시크릿 제외 §9) + verify 결과.
+   출력 지시: 출력 스키마를 CLI 에 넘기는 어댑터(claude `--json-schema`, §10)로 부르면 프롬프트의 `## Output` 절은 결과 객체를 `StructuredOutput` 도구 호출 한 번으로 내고 본문에 따로 쓰지 말라고 한다 — 같은 객체를 텍스트로 한 번, 도구 호출로 또 한 번 출력하지 않게 하려는 것이다. 스키마를 넘기지 않는 어댑터(codex·gemini·generic)는 `Reply with one JSON object matching this schema and nothing else` 로 JSON 객체 하나만 답하게 하고 그 텍스트에서 JSON 을 뽑는다. 스키마 불일치·근거 없는 저점 재요청 문구도 같은 방식을 따른다. 역할 프롬프트(`agents/evaluator.md`·`agents/security-reviewer.md`)의 Output 절은 `StructuredOutput` 도구가 있으면 그것으로, 없으면 JSON 객체 하나로 답하라고 한다.
 2. 출력 JSON 스키마:
 ```json
 {"scores": {"functionality":0,"quality":0,"security":0,"errors":0,"tests":0},
@@ -314,7 +315,7 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
 7. **backlog 정리 루프** (`backlog.json`)
    - **id**: 코어가 backlog 를 쓸 때(평가 결과 기록, blocked 재범위 제안, resolves 해결) `id` 가 없는 항목(기존 항목 포함)에 파일 순서대로 `B1`, `B2`, … 를 붙인다. 새 번호는 기존 `B<n>` 중 가장 큰 번호 다음이고, 이미 있는 id 는 바뀌지 않는다. id 가 중복된 backlog 는 E6(state_corrupt, 메시지에 중복 id) — 평가·status·lint-contract 가 파일을 고치지 않고 exit 2.
    - **severity → priority**: findings·out_of_scope 항목의 `severity`(`high`·`medium`·`low`)는 backlog 항목의 `priority` 로 기록된다. 그 외 값은 무시되고 `priority` 를 쓰지 않는다. 기존 항목의 priority 는 소급 추정하지 않는다.
-   - **열린 항목**: `resolved_by` 가 없고 `kind: decision`(§2 `harness decide`)이 아닌 항목. 평가 프롬프트의 `## Open backlog` 절에 열린 항목의 `id`·`priority`·`summary` 를 priority `high`→`medium`→`low`→없음 순(같은 priority 안에서는 파일 순서)으로 최대 40개 넣는다.
+   - **열린 항목**: `resolved_by` 가 없고 `kind: decision`(§2 `harness decide`)이 아닌 항목. 평가 프롬프트의 `## Open backlog` 절에 열린 항목의 `id`·`priority`·`summary` 를 최대 15개 넣는다. 순서는 diff 가 바꾼 파일(시크릿 제외 뒤 diff 에 남은 추적·미추적 경로)과 관련된 항목 — 항목의 `file` 이 바뀐 경로와 같거나, `summary` 에 바뀐 경로 또는 그 파일 이름(마지막 `/` 뒤)이 들어 있음 — 이 먼저, 그다음 나머지다. 두 묶음 안에서는 priority `high`→`medium`→`low`→없음 순(같은 priority 안에서는 파일 순서)이다. 바뀐 파일이 없거나 관련 항목이 없으면 그 순서 그대로다. 각 `summary` 는 공백(줄바꿈 포함)을 하나로 줄인 뒤 160자(코드 포인트)를 넘으면 160자까지 자르고 `…` 를 붙인다. 문자열이 아닌·없는 `summary` 는 빈 요약이다. 보이지 않은 열린 항목이 있으면 `- … N more open item(s) not shown` 줄이 남는다.
    - **반복 지적 합치기**: 평가자 출력 항목의 `backlog_id` 가 열린 항목 id 와 같으면 새 항목을 만들지 않고 그 항목의 `seen` 을 1 늘리고(없으면 1 로 보고 2) `sources` 에 `F{n}-r{k}`(이번 기능·판정 파일 번호)를 추가한다. `backlog_id` 가 없는 id 이거나 이미 해결된 항목을 가리키면 새 항목으로 추가된다. 요약 문장의 유사도로 자동 중복 판정은 하지 않는다.
    - **resolves**: 계약의 `resolves`(§5)에 적힌 열린 항목은 그 기능이 `passed` 로 기록될 때(대화형 `harness eval` §7.6, `harness run` §8.5 각각) `resolved_by` 가 기능 id 가 된다. fail·blocked 이면 바뀌지 않는다. 이미 해결된 항목의 `resolved_by` 는 덮어쓰지 않는다.
    - **status**: `harness status` 는 `backlog: N open (high a · medium b · low c · none d)` 줄과 열린 `high` 항목 최대 5개(id·summary 앞 100자)를 보여 준다. `--brief` 에는 열린 high 항목 수만 ` — backlog high: n` 으로 덧붙인다(0 이면 생략). backlog.json 이 `{ items: [...] }` 가 아니면 status 도 E6 로 exit 2.
@@ -411,7 +412,7 @@ blocked 기능의 worktree·브랜치는 점검용으로 남기고, passed 기�
 ## 10. 어댑터 (`harness doctor`)
 | 어댑터 | 쓰기(builder) | 읽기전용(evaluator) | 구조화 출력 | 예산 | 모델 |
 |--------|--------------|--------------------|------------|------|------|
-| claude | `claude -p --permission-mode auto --disallowedTools <deny>` | `--permission-mode plan` | `--output-format json` (+ schema 가 있으면 `--json-schema`) — 비용은 래퍼의 `total_cost_usd`(예산 소진 exit 1 에도 존재) | `--max-budget-usd` | `--model` (effort: `--effort`) |
+| claude | `claude -p --strict-mcp-config --disable-slash-commands --permission-mode auto --disallowedTools <deny> <builder 제외 도구>` | `--permission-mode plan --disallowedTools <읽기 전용 제외 도구>` (`-p --strict-mcp-config --disable-slash-commands` 는 같음) | `--output-format json` (+ schema 가 있으면 `--json-schema` — 결과는 `StructuredOutput` 도구 호출로 온다, §7 1.) — 비용은 래퍼의 `total_cost_usd`(예산 소진 exit 1 에도 존재) | `--max-budget-usd` | `--model` (effort: `--effort`) |
 | gemini | `gemini -p "" --approval-mode yolo -s` (`-p ""` 는 headless 선택, 프롬프트는 stdin) | `--approval-mode plan` | `-o json` | timeout만 | `-m` |
 | codex (experimental, 플래그 미실측) | `codex exec --sandbox workspace-write -` | `--sandbox read-only` | 프롬프트 + JSON 추출 | timeout만 | `--model` |
 | generic | config `adapters.generic.command` | config `adapters.generic.read_only_command` — **없으면 읽기전용 역할 배정 불가**(쓰기 모드로 폴백 금지, SR-6) | JSON 추출 | timeout만 | — |
@@ -432,6 +433,7 @@ blocked 기능의 worktree·브랜치는 점검용으로 남기고, passed 기�
 
 - 프롬프트는 **stdin**으로 전달한다(Windows 명령줄 길이 한계 회피).
 - `<deny>`(builder 쓰기 모드의 네이티브 deny 목록, SPEC D1의 "~5줄"): `Bash(git push:*)`, `Bash(git reset --hard:*)`, `Bash(rm -rf /:*)`, `Bash(rm -rf ~:*)`, `Bash(sudo:*)`. 지원하지 않는 CLI는 해당 CLI의 sandbox 플래그로 대체.
+- **claude 역할 세션 줄이기.** 모든 claude 역할 호출(builder·evaluator·security-reviewer)은 `--strict-mcp-config`(`--mcp-config` 가 없으니 MCP 서버 없음)와 `--disable-slash-commands`(스킬 목록 없음)를 넘기고, 역할이 쓰지 않는 도구를 `--disallowedTools` 로 빼서 그 정의가 세션 문맥에 들어가지 않게 한다. `<builder 제외 도구>`: `Workflow`·`Skill`·`ReportFindings`·`ListAgents`·`Agent`(`<deny>` 뒤에 붙는다) — 오래 걸리는 명령을 기다리는 `ScheduleWakeup`·`Monitor`·`ToolSearch` 는 builder 에 남는다. `<읽기 전용 제외 도구>`(evaluator·security-reviewer): `Workflow`·`ScheduleWakeup`·`Skill`·`ReportFindings`·`ListAgents`·`Agent`. 목록은 코드에 고정되어 있고 config 로 바꾸지 않는다. codex·gemini·generic 의 인자는 바뀌지 않는다. `doctor` 는 claude 역할마다(쓰기·읽기 전용 모두) `--strict-mcp-config`·`--disable-slash-commands`·`--disallowedTools` 를 필수 플래그로 검사한다 — 예를 들어 `--help` 에 `--strict-mcp-config` 가 없으면 `--help lacks --strict-mcp-config` 로 usable 이 아니다(측정된 2.1.280 의 `--help` 에는 셋 다 있다).
 - 어댑터 호출은 CLI 인증을 위해 **부모 env를 상속**한다(SR-2의 허용목록은 verify·check·repro 명령에만 적용).
 
 `doctor`: 설치된 CLI·버전 탐지 — `<bin> --version` 이 실패(명령 없음·오류·시간 초과)해도 곧바로 미설치로 보지 않고 `<bin> --help`(또는 어댑터의 `helpArgs`)를 다시 실행해, 그것이 성공하면 installed 로 본다(버전은 `unknown`) — `--version` 만 네트워크 확인 등으로 실패할 수 있는 CLI를 오탐하지 않기 위해서다. 둘 다 실패하면 미설치. 각 어댑터가 쓰는 플래그가 `--help` 출력에 존재하는지 확인(정책의 어느 값이든 모델이 있으면 모델 플래그 포함), 역할 배정 권장(builder ≠ evaluator 모델). 역할 줄에는 기본 모델을, 그 아래 한 줄씩 등급별 모델(`critical`·`standard`)과 builder 의 `escalate (r≥2)`·`conflict` 모델(미설정이면 `not set`)을 보여 준다. 등급마다 builder 가 그 등급에서 쓸 수 있는 모델(1라운드·승격·충돌) 중 하나가 evaluator 의 그 등급 모델과 같으면 `fresh-context for <tier>` 경고를 낸다. 끝에 `test count: <값>` 을, 미설정이면 `test count: not configured` 와 §4 의 `init` 감지 규칙으로 찾은 제안(`suggest: preset:<이름>`, 있을 때)을 출력한다 — config.json 은 쓰지 않는다. `independence` 줄 뒤에 대화 언어 한 줄(`language: <code>` 또는 `language: not set …`, §4)을 출력한다.
