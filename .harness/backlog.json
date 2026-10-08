@@ -5466,6 +5466,38 @@
       "file": "lib/verify.mjs",
       "priority": "low",
       "id": "B460"
+    },
+    {
+      "feature": "F85",
+      "round": 1,
+      "at": "2026-10-08T07:23:32.102Z",
+      "summary": "The diff edits two older tests (F30 AC-3 and the 'lib file' case of F83 AC-2) to set `test_paths: []`. Without that, the new `test_tree` lookup would hit the cache and those tests would no longer exercise the commit-only and tree-only paths. Their asserts are intact and the SPEC says an empty `test_paths` turns the key off, so this is a reasonable adaptation, not weakening. A reviewer may still want to check it against `node test/assert-count.mjs`.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f83-test-count-tree-cache.test.mjs",
+      "priority": "low",
+      "id": "B461"
+    },
+    {
+      "feature": "F85",
+      "round": 1,
+      "at": "2026-10-08T07:23:32.102Z",
+      "summary": "`cacheTrees` runs `git ls-tree -r` over the whole tree up to three times per verify (base lookup, filling an old entry, post-merge head store). Memoizing per sha would cut the cost on large repositories.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low",
+      "id": "B462"
+    },
+    {
+      "feature": "F85",
+      "round": 1,
+      "at": "2026-10-08T07:23:32.102Z",
+      "summary": "`test_tree` is only as accurate as `test_paths`. A project whose test count comes from files outside `test_paths` gets stale cache hits by default, because the sdlc profile's default `test_paths` is non-empty. SPEC §6.2 and the README document this, but nothing warns at runtime.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B463"
     }
   ]
 }

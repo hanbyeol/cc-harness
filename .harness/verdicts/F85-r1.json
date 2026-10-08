@@ -1,0 +1,59 @@
+{
+  "feature": "F85",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The diff edits two older tests (F30 AC-3 and the 'lib file' case of F83 AC-2) to set `test_paths: []`. Without that, the new `test_tree` lookup would hit the cache and those tests would no longer exercise the commit-only and tree-only paths. Their asserts are intact and the SPEC says an empty `test_paths` turns the key off, so this is a reasonable adaptation, not weakening. A reviewer may still want to check it against `node test/assert-count.mjs`.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f83-test-count-tree-cache.test.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "`cacheTrees` runs `git ls-tree -r` over the whole tree up to three times per verify (base lookup, filling an old entry, post-merge head store). Memoizing per sha would cut the cost on large repositories.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "`test_tree` is only as accurate as `test_paths`. A project whose test count comes from files outside `test_paths` gets stale cache hits by default, because the sdlc profile's default `test_paths` is non-empty. SPEC §6.2 and the README document this, but nothing warns at runtime.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.2683548,
+  "contract_hash": "29269a5395db72d48ee949d931ac0fc11d1a161bc4f2f1de962f950fc2e8b0e9",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-08T07:23:32.102Z",
+  "origin": "run"
+}
