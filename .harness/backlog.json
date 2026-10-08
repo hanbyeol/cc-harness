@@ -5520,6 +5520,30 @@
       "file": "test/f22-backlog.test.mjs",
       "priority": "low",
       "id": "B465"
+    },
+    {
+      "source": "run:F87",
+      "feature": "F87",
+      "kind": "rescope",
+      "reason": "eval_error",
+      "rounds": 1,
+      "blocking": [],
+      "summary": "F87 blocked (eval_error): the evaluator failed twice in a row — exit_nonzero",
+      "options": [
+        {
+          "kind": "split",
+          "summary": "split F87 so the feature ship as a separate feature with its own contract"
+        },
+        {
+          "kind": "rewrite",
+          "summary": "rewrite the criteria for the feature (new contract version, re-approval)"
+        },
+        {
+          "kind": "accept-risk",
+          "summary": "accept the risk: drop or relax the feature with a recorded decision"
+        }
+      ],
+      "id": "B466"
     }
   ]
 }
