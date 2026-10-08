@@ -1,0 +1,53 @@
+{
+  "feature": "F87",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "In lib/verify.mjs the new outer `const cacheFile` (verify result cache) is shadowed by the existing inner `const cacheFile` (test-count cache) inside the test_count block. It works because the scopes differ, but the two cache files with one name are easy to confuse. Rename one of them.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "A cache hit returns `[...stored.warnings, ...warnings]`. Warnings that are stored with a pass (e.g. 'verify.test_paths is empty') are repeated on every hit, so a hit result may show warnings that describe a past run rather than this one.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.286316,
+  "contract_hash": "f35f5fff31b15f5099c8baea3ef2124a91fac73a862670280785fb4df9d7d28c",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-08T23:13:47.032Z",
+  "origin": "run"
+}

@@ -5544,6 +5544,28 @@
         }
       ],
       "id": "B466"
+    },
+    {
+      "feature": "F87",
+      "round": 1,
+      "at": "2026-10-08T23:13:47.032Z",
+      "summary": "In lib/verify.mjs the new outer `const cacheFile` (verify result cache) is shadowed by the existing inner `const cacheFile` (test-count cache) inside the test_count block. It works because the scopes differ, but the two cache files with one name are easy to confuse. Rename one of them.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low",
+      "id": "B467"
+    },
+    {
+      "feature": "F87",
+      "round": 1,
+      "at": "2026-10-08T23:13:47.032Z",
+      "summary": "A cache hit returns `[...stored.warnings, ...warnings]`. Warnings that are stored with a pass (e.g. 'verify.test_paths is empty') are repeated on every hit, so a hit result may show warnings that describe a past run rather than this one.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low",
+      "id": "B468"
     }
   ]
 }
