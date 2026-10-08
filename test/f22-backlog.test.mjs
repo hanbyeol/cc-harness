@@ -194,6 +194,8 @@ test('F22 AC-3 the prompt lists open items by priority high→medium→low→non
   assert.ok(!prompt.includes('resolved high'));
 });
 
+// The limit was 40 until F86 made it 15; the name is kept because test names must not change
+// (test/assert-count.mjs).
 test('F22 AC-3 at most 40 open items reach the prompt, the high ones first', async () => {
   const items = [];
   for (let n = 1; n <= 45; n += 1) items.push({ id: `B${n}`, summary: `plain item ${n}.` });
@@ -202,9 +204,9 @@ test('F22 AC-3 at most 40 open items reach the prompt, the high ones first', asy
   const a = adapter(passWith());
   assert.equal((await evalCmd(dir, a)).code, 0);
   const listed = [...a.prompts[0].matchAll(/^- (B\d+) \[/gm)].map((m) => m[1]);
-  assert.equal(listed.length, 40);
+  assert.equal(listed.length, 15);
   assert.equal(listed[0], 'B46');
-  assert.ok(!listed.includes('B40') && listed.includes('B39'));
+  assert.ok(!listed.includes('B15') && listed.includes('B14'));
 });
 
 test('F22 AC-3 a backlog_id naming an open item bumps seen and adds the feature-round to sources', async () => {
@@ -392,7 +394,7 @@ test('F22 AC-7 status --brief appends only the open high count, omitted when 0',
 test('F22 AC-8 SPEC describes backlog ids, severity, backlog_id, resolves and the spec-time review', () => {
   const spec = fs.readFileSync(path.join(REPO, 'docs', 'SPEC.md'), 'utf8');
   const s7 = spec.slice(spec.indexOf('## 7.'), spec.indexOf('## 8.'));
-  for (const w of ['`B1`', '`severity`', '`priority`', '`backlog_id`', '`seen`', '`sources`', '`resolves`', '`resolved_by`', '40']) {
+  for (const w of ['`B1`', '`severity`', '`priority`', '`backlog_id`', '`seen`', '`sources`', '`resolves`', '`resolved_by`', '15']) {
     assert.ok(s7.includes(w), `SPEC §7 mentions ${w}`);
   }
   assert.match(s7, /spec skill/);
