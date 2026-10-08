@@ -1,0 +1,57 @@
+{
+  "id": "F84",
+  "title": "테스트 수 캐시 다듬기 — 커밋 키로만 적중한 예전 항목에 트리 키를 채우고, 트리 키 경고는 verify 당 한 번만",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify 의 base 테스트 수가 tree 필드가 없는 예전 항목에 커밋 키로 적중하면, verify 는 그 커밋의 트리 키를 계산해 같은 항목에 tree 를 채워 저장한다 — 뒤이어 그 커밋에서 .harness/ 만 바꾼 base 의 verify 가 base 명령을 실행하지 않고 'cache' 로 적중한다",
+      "check": "node test/t.mjs \"F84 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "AC-1 로 tree 를 채운 항목은 tree 가 있고 count·command·rule·base 는 채우기 전과 같다. 이미 tree 가 있는 항목에 커밋 키로 적중하면 그 항목을 다시 쓰지 않는다(캐시 파일 내용이 그대로다)",
+      "check": "node test/t.mjs \"F84 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "트리 키 계산이 한 verify 안에서 여러 번 실패해도(base 조회와 병합 후 head 저장 모두) 'test count cache: cannot compute the tree key' 경고는 그 verify 결과에 한 번만 있다",
+      "check": "node test/t.mjs \"F84 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "docs/SPEC.md §6.2 가 예전 항목의 트리 키 채우기와 트리 키 경고가 verify 당 한 번임을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F84 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "AC-1 에서 트리 키 계산이 실패하면 항목을 바꾸지 않고(캐시 파일 수정 시각 그대로) 적중한 수를 그대로 쓰며 verify 는 오류로 끝나지 않는다",
+      "check": "node test/t.mjs \"F84 ES-1\"",
+      "new": false
+    },
+    {
+      "id": "ES-2",
+      "criterion": "캐시 파일을 쓸 수 없으면(읽기 전용) 이 기능 전처럼 'cannot write test count cache' 경고를 남기고 적중한 수로 verify 를 계속한다",
+      "check": "node test/t.mjs \"F84 ES-2\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "캐시 키 규칙 자체 변경(.harness/ 밖 트리·명령·규칙)",
+    "트리 적중 시 이 커밋의 항목을 따로 저장하기",
+    "캐시 크기 제한 변경"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-08T02:16:41.453Z",
+    "hash": "e3c83061e8d814d16d22cbb103ede8d88acff6b0204bbc079bae5c2881066376"
+  }
+}

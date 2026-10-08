@@ -736,6 +736,15 @@
         "F81"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F84",
+      "title": "테스트 수 캐시 다듬기 — 커밋 키로만 적중한 예전 항목에 트리 키를 채우고, 트리 키 경고는 verify 당 한 번만",
+      "security_tier": "standard",
+      "depends_on": [
+        "F83"
+      ],
+      "status": "approved"
     }
   ]
 }
