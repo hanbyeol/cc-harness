@@ -744,6 +744,15 @@
       "depends_on": [
         "F83"
       ],
+      "status": "passed"
+    },
+    {
+      "id": "F85",
+      "title": "테스트 수 캐시를 테스트 파일 트리 기준으로 — 버전 파일·lib 변경이 있어도 테스트 파일이 같으면 base 테스트를 다시 돌리지 않는다",
+      "security_tier": "standard",
+      "depends_on": [
+        "F84"
+      ],
       "status": "approved"
     }
   ]

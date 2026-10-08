@@ -1,0 +1,60 @@
+{
+  "feature": "F84",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "fillTree finds the entry to update by base, command and rule, so it can update a different entry than the one cachedEntry returned if the file has duplicate keys. Duplicates are not expected, so this is harmless today.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/testcount.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "The AC-3 and ES-1 tests inject the git failure with a POSIX shell script and return early on Windows, so those criteria are not exercised on Windows CI.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f84-count-cache-tree-fill.test.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "A failed tree key computation is retried for every cacheTree call within a verify. Only the warning is deduplicated, so a persistent git failure repeats the git call.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.2283508,
+  "contract_hash": "e3c83061e8d814d16d22cbb103ede8d88acff6b0204bbc079bae5c2881066376",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-08T02:38:12.435Z",
+  "origin": "run"
+}

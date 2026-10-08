@@ -1,0 +1,57 @@
+{
+  "id": "F85",
+  "title": "테스트 수 캐시를 테스트 파일 트리 기준으로 — 버전 파일·lib 변경이 있어도 테스트 파일이 같으면 base 테스트를 다시 돌리지 않는다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify.test_paths 가 비어 있지 않으면 base 테스트 수 캐시는 base 커밋에서 test_paths 에 걸리는 파일(프로젝트 기준 경로, .harness/ 제외)만의 트리 다이제스트(test_tree)로도 조회한다 — B2 가 B1 에서 package.json 과 lib/a.mjs 만 바꾼 커밋이면 base B2 의 verify 는 base 쪽 명령을 실행하지 않고(가짜 명령 실행 기록 없음) test_count_source.base 가 'cache' 이며 testCount.base 가 B1 의 수다",
+      "check": "node test/t.mjs \"F85 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "B2 가 B1 에서 test_paths 에 걸리는 파일을 하나라도 추가·수정·삭제하면 test_tree 로 적중하지 않고 이 기능 전처럼 base 에서 실행한다 — 추가, 수정, 삭제 경우별 테스트",
+      "check": "node test/t.mjs \"F85 AC-2\"",
+      "new": false
+    },
+    {
+      "id": "AC-3",
+      "criterion": "새로 저장하는 캐시 항목(base 실행 결과와 병합 후 verify 의 head 수)에 test_tree 가 들어가고, 병합 후 verify 가 저장한 head 수는 다음 기능의 verify 에서 base 가 버전 파일만 바뀐 릴리스 커밋이어도 'cache' 로 적중한다",
+      "check": "node test/t.mjs \"F85 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "조회 순서는 커밋 → F83 트리(tree) → test_tree 이고, test_paths 가 비어 있으면 test_tree 를 계산·조회·저장하지 않아 이 기능 전과 같다",
+      "check": "node test/t.mjs \"F85 AC-4\"",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md §6.2 가 test_tree 키(test_paths 파일만의 트리), 조회 순서, 그리고 test_paths 밖 파일에서 테스트 개수가 정해지는 프로젝트는 캐시 값이 실제와 다를 수 있다는 주의(test_paths 를 비우면 쓰지 않음)를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F85 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "test_tree 계산이 실패하면 경고(F84 처럼 verify 당 한 번)를 남기고 test_tree 없이 이 기능 전처럼 조회한 뒤, 없으면 base 를 실행한다 — verify 는 오류로 끝나지 않는다",
+      "check": "node test/t.mjs \"F85 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "head 와 base 테스트 수 세기를 동시에 실행하기",
+    "test_paths 밖 파일에서 테스트를 만들어 내는 경우를 감지하기",
+    "기존 tree 키(F83) 제거"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-08T06:51:54.475Z",
+    "hash": "29269a5395db72d48ee949d931ac0fc11d1a161bc4f2f1de962f950fc2e8b0e9"
+  }
+}
