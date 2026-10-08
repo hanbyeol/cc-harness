@@ -53,7 +53,8 @@ smudge filters, replace refs, hooks, `.git/config`, `.git/info/*`) or shell/runt
 is out of scope, even with a working repro. The core verifies the merged commit afterwards.
 
 ## Output
-Reply with a single JSON object and nothing else:
+When a `StructuredOutput` tool is available, return the object below by calling it once, and do
+not also write it as text. Otherwise, reply with a single JSON object and no other text:
 
 ```json
 {"scores": {"functionality": 0, "quality": 0, "security": 0, "errors": 0, "tests": 0},
