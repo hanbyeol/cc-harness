@@ -280,7 +280,8 @@ test('F55 AC-3: verify records a verify/command event per command and a verify/c
 
 test('F55 AC-3: run passes its round to the verify events', async () => {
   const dir = project();
-  await runFeatures({ root: dir, config: runCfg(), deps: {
+  // The verify result cache (F87) is off, so the post-merge verify runs its checks too.
+  await runFeatures({ root: dir, config: runCfg({ verify: { commands: [], cache: 'off' } }), deps: {
     build: async (a) => { writeFiles(a.cwd, { 'F1.txt': 'x\n' }); return { ok: true, costUsd: 0 }; },
     evaluate: async (a) => ({ feature: a.featureId, round: a.round, score: 9, scores, backlogged: [], blocking: [], independence: 'cross-model', costUsd: 0, file: null, verdict: 'pass' }),
   } });

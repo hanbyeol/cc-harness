@@ -60,12 +60,14 @@ function fixture(ids, { branch = null } = {}) {
   return { dir: gitRepo(state, { branch }), logs };
 }
 
+// The verify result cache (F87) is off: a single-feature run's post-merge verify would return
+// the feature verify's result without running, and these tests look at what that verify runs.
 const cfg = (log, over = {}) => resolveConfig({
   base_branch: 'main',
   run: { max_parallel: 1, ...(over.run || {}) },
   verify: {
     commands: [`node scripts/cmd.mjs ${quoted(log)}`], test_count: `node scripts/count.mjs ${quoted(log)}`,
-    check_parallel: 'auto', ...(over.verify || {}),
+    check_parallel: 'auto', cache: 'off', ...(over.verify || {}),
   },
   budget: { step_timeout_sec: 60 },
 });

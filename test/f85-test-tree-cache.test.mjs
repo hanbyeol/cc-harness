@@ -57,7 +57,9 @@ const newLog = () => path.join(tmpdir('harness-f85-log-'), 'runs.log');
 const countCmd = (log) => `node scripts/count.mjs "${log}"`;
 const slash = (p) => p.split(path.sep).join('/');
 const quoted = (p) => JSON.stringify(slash(p));
-const cfg = (verifyCfg) => resolveConfig({ base_branch: 'main', verify: { commands: [], ...verifyCfg }, budget: { step_timeout_sec: 60 } });
+// The verify result cache (F87) is off: these tests verify one tree more than once to see what
+// the test count cache does on the second run.
+const cfg = (verifyCfg) => resolveConfig({ base_branch: 'main', verify: { commands: [], cache: 'off', ...verifyCfg }, budget: { step_timeout_sec: 60 } });
 const run = (dir, verifyCfg, extra = {}) => verify({ root: dir, featureId: 'F9', base: 'main', config: cfg(verifyCfg), ...extra });
 
 const real = (p) => { try { return fs.realpathSync.native(p); } catch { return null; } };
