@@ -50,7 +50,9 @@ function fixture(criteria = [{ id: 'AC-1', criterion: 'ok', check: 'node scripts
   });
 }
 
-const cfg = (verifyCfg = {}) => resolveConfig({ base_branch: 'main', verify: { commands: [], ...verifyCfg }, budget: { step_timeout_sec: 60 } });
+// The verify result cache (F87) is off: these tests verify one tree more than once and time
+// what runs on the second verify.
+const cfg = (verifyCfg = {}) => resolveConfig({ base_branch: 'main', verify: { commands: [], cache: 'off', ...verifyCfg }, budget: { step_timeout_sec: 60 } });
 
 const eventsOf = (dir) => {
   const d = path.join(dir, '.harness', 'events');

@@ -58,7 +58,9 @@ function fixture(baseCount = 5, files = {}, config = { verify: { commands: [] } 
 
 const newLog = () => path.join(tmpdir('harness-f30-log-'), 'runs.log');
 const testsCmd = (log, format = 'tap') => `node scripts/tests.mjs "${log}" ${format}`;
-const cfg = (verifyCfg) => resolveConfig({ base_branch: 'main', verify: { commands: [], ...verifyCfg }, budget: { step_timeout_sec: 60 } });
+// The verify result cache (F87) is off: these tests verify one tree more than once to see what
+// the test count does on the second run.
+const cfg = (verifyCfg) => resolveConfig({ base_branch: 'main', verify: { commands: [], cache: 'off', ...verifyCfg }, budget: { step_timeout_sec: 60 } });
 const run = (dir, verifyCfg) => verify({ root: dir, featureId: 'F9', base: 'main', config: cfg(verifyCfg) });
 
 // The base worktree is removed after verify, so a directory that no longer exists is not the repo.
@@ -231,7 +233,7 @@ test('F30 AC-5: testCount records the source of head and base (parsed/ran/cache)
 });
 
 test('F30 AC-5: harness verify prints the sources next to the counts', () => {
-  const dir = fixture(5, {}, { verify: { commands: [testsCmd(newLog())], test_count: 'from:commands[0]' } });
+  const dir = fixture(5, {}, { verify: { commands: [testsCmd(newLog())], test_count: 'from:commands[0]', cache: 'off' } });
   const first = harness(['verify', 'F9'], { cwd: dir });
   assert.match(first.stdout, /test count: ok \(base 5 \[ran\], head 5 \[parsed\]\)/, first.stdout + first.stderr);
   const second = harness(['verify', 'F9'], { cwd: dir });

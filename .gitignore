@@ -7,6 +7,7 @@ node_modules/
 # Claude Code runtime state (project-local, not plugin source)
 .claude/
 .harness/runs/test-count-cache.json
+.harness/runs/verify-cache.json
 # Event log written by this checkout's own commands (verify runs lint-contract); a core older
 # than F54 has no events/** exemption and would count the file as a .harness change.
 .harness/events/
