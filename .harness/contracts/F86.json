@@ -1,0 +1,71 @@
+{
+  "id": "F86",
+  "title": "역할 세션 토큰 줄이기 — claude 역할 호출에서 MCP·스킬 목록·쓰지 않는 도구를 빼고, evaluator 의 구조화 출력 재호출을 없애고, backlog 절을 관련 항목 위주로 줄인다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "claude 어댑터의 builder(쓰기) 호출 인자에 '--strict-mcp-config' 와 '--disable-slash-commands' 가 있고, '--disallowedTools' 목록이 기존 DENY 항목 전부와 'Workflow'·'Skill'·'ReportFindings'·'ListAgents'·'Agent' 를 담는다. 'ScheduleWakeup'·'Monitor'·'ToolSearch' 는 그 목록에 없다 — 가짜 claude 가 받은 인자로 확인한다",
+      "check": "node test/t.mjs \"F86 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "claude 어댑터의 읽기 전용 호출(evaluator·security-reviewer) 인자에 '--strict-mcp-config' 와 '--disable-slash-commands' 가 있고 '--disallowedTools' 목록이 'Workflow'·'ScheduleWakeup'·'Skill'·'ReportFindings'·'ListAgents'·'Agent' 를 담는다. '--permission-mode plan'·'--json-schema' 등 기존 인자는 그대로다",
+      "check": "node test/t.mjs \"F86 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "harness doctor 는 claude 역할의 필수 플래그로 '--strict-mcp-config'·'--disable-slash-commands'·'--disallowedTools' 를 검사한다 — --help 에 '--strict-mcp-config' 가 없는 claude 는 '--help lacks --strict-mcp-config' 로 usable 이 아니고, 측정된 claude 2.1.280 의 --help fixture 를 쓰는 claude 는 usable 이다",
+      "check": "node test/t.mjs \"F86 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "출력 스키마를 넘기는 어댑터(claude, --json-schema)로 evaluator·security-reviewer 를 부를 때 프롬프트의 '## Output' 절은 결과 객체를 StructuredOutput 도구 호출로 내라고 말하고 'nothing else' 문구가 없다. 스키마를 넘기지 않는 어댑터(codex·gemini·generic)의 프롬프트는 이 기능 전처럼 'Reply with one JSON object matching this schema and nothing else' 를 담는다. agents/evaluator.md 와 agents/security-reviewer.md 의 Output 절은 'StructuredOutput' 도구가 있으면 그것으로, 없으면 JSON 객체 하나로 답하라고 말한다",
+      "check": "node test/t.mjs \"F86 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "평가 프롬프트의 '## Open backlog' 절은 열린 항목을 최대 15개 보여 준다. 순서는 diff 가 바꾼 파일과 관련된 항목(항목의 file 이 바뀐 경로와 같거나, 요약에 바뀐 경로 또는 그 파일 이름이 들어 있음)이 먼저, 그다음은 이 기능 전의 순서(우선순위 → 파일 순)다. 각 요약은 공백을 하나로 줄인 뒤 160자를 넘으면 160자까지 자르고 '…' 를 붙인다. 보이지 않은 항목 수는 '- … N more open item(s) not shown' 줄로 남는다 — 관련 항목이 목록 뒤쪽에 있는 경우, 16개 이상, 긴 요약 경우별 테스트",
+      "check": "node test/t.mjs \"F86 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "docs/SPEC.md 가 claude 역할 호출의 추가 플래그와 역할별 제외 도구(§10), 스키마 어댑터의 StructuredOutput 출력 지시, backlog 절의 15개·관련 우선·160자 규칙(§7)을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F86 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "요약이 없거나 문자열이 아닌 backlog 항목은 빈 요약으로 보이고 예외가 없다",
+      "check": "node test/t.mjs \"F86 ES-1\"",
+      "new": false
+    },
+    {
+      "id": "ES-2",
+      "criterion": "diff 에 바뀐 파일이 없거나 관련 항목이 하나도 없으면 backlog 절은 이 기능 전의 순서를 따른다(개수·자르기 규칙은 AC-5 그대로)",
+      "check": "node test/t.mjs \"F86 ES-2\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "diff 문맥 줄 수·diff 크기 제한 변경",
+    "계약 JSON 을 압축하거나 approval 을 빼기",
+    "역할 프롬프트(agents/*.md)의 Output 절 외 문구 정리",
+    "codex·gemini·generic 어댑터의 인자 변경",
+    "제외 도구 목록을 config 로 바꾸게 하기"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-08T13:43:14.974Z",
+    "hash": "850192d17a3db918d708a84e8ef3fe3e66d7159a5aa81c2a27677bb9de29829f"
+  }
+}
