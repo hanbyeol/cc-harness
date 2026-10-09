@@ -809,6 +809,20 @@
         "F87"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F93",
+      "title": "정돈 — blocked 사유 철자를 하나로(rounds·needs_human), 중복 helper(isObj·sha16·median·escapeRe)를 lib/util.mjs 한 곳으로",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F94",
+      "title": "head 기준 check 를 verify 명령과 함께 시작 — 기준 check 의 head 실행은 verify 명령·테스트 수 단계를 기다리지 않는다",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }

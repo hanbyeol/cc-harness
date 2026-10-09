@@ -1,0 +1,57 @@
+{
+  "id": "F94",
+  "title": "head 기준 check 를 verify 명령과 함께 시작 — 기준 check 의 head 실행은 verify 명령·테스트 수 단계를 기다리지 않는다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify.check_parallel 이 1 보다 크면 기준 check 의 head 실행은 verify 명령 실행과 동시에 시작할 수 있다 — 가짜 verify 명령(다른 쪽이 시작할 때까지 상한 30초로 기다림)과 가짜 기준 check 의 실행 구간이 겹친다",
+      "check": "node test/t.mjs \"F94 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "check_parallel 이 1 이면 이 기능 전처럼 verify 명령 → 테스트 수 → 기준 check 순서로 하나씩 실행한다(구간이 겹치지 않는다)",
+      "check": "node test/t.mjs \"F94 AC-2\"",
+      "new": false
+    },
+    {
+      "id": "AC-3",
+      "criterion": "base vacuity 실행은 이 기능 전처럼 base worktree 준비 뒤에 실행되고, verify 결과(criteria·commands·integrity)의 내용과 판정은 같은 입력에서 이 기능 전과 같다 — 통과·실패·vacuous 기준이 섞인 고정 입력으로 확인한다",
+      "check": "node test/t.mjs \"F94 AC-3\"",
+      "new": false
+    },
+    {
+      "id": "AC-4",
+      "criterion": "verify 명령과 겹쳐 실행되다 실패한 head 기준 check 는 이 기능 전의 겹침 실패 규칙대로 모든 동시 실행이 끝난 뒤 단독으로 다시 실행된다(parallel_retry)",
+      "check": "node test/t.mjs \"F94 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "phases 이벤트의 구간 키·의미는 F81 그대로이고, 겹친 시간은 checks 구간에 들어간다. docs/SPEC.md §6 이 head 기준 check 의 시작 시점과 check_parallel 1 의 순차 실행을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F94 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "verify 명령이 명령 없음(환경 실패)으로 끝나면 이 기능 전처럼 환경 실패로 판정되고, 동시에 돌던 기준 check 는 끝까지 기다린 뒤 결과에 남는다",
+      "check": "node test/t.mjs \"F94 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "base 테스트 수 실행을 verify 명령과 동시에 시작하기",
+    "check_parallel 기본값 변경",
+    "여러 기능을 묶어 병합하기"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-09T04:24:35.449Z",
+    "hash": "4c0b47c7c5d36554d7b76d66d3b12e1fbb7b1ecea535ebae792c64fe6c88ed02"
+  }
+}

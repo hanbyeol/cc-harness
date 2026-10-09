@@ -1,0 +1,63 @@
+{
+  "id": "F93",
+  "title": "정돈 — blocked 사유 철자를 하나로(rounds·needs_human), 중복 helper(isObj·sha16·median·escapeRe)를 lib/util.mjs 한 곳으로",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness run 이 라운드 한도로 막을 때 기록하는 blocked 사유는 'rounds'(harness eval 과 같음)이고, 평가가 needs-human 일 때 기록하는 사유는 'needs_human' 이다 — features.json 의 blocked_reason·status 이벤트·run 보고서의 Blocked reason 에 'max_rounds'·'needs-human' 이 나오지 않는다",
+      "check": "node test/t.mjs \"F93 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "이 기능 전에 'max_rounds'·'needs-human' 으로 기록된 기능도 이 기능 전처럼 읽힌다 — harness approve 의 같은 해시 재승인 판정(수렴 실패로 보는 사유)과 harness status 의 blocked 표시가 두 철자 모두에서 같다",
+      "check": "node test/t.mjs \"F93 AC-2\"",
+      "new": false
+    },
+    {
+      "id": "AC-3",
+      "criterion": "lib/util.mjs 가 isObj·sha16·median·escapeRe 를 export 하고, lib/ 아래 다른 파일에는 같은 이름(또는 isObject·isPlainObject)의 지역 정의가 없다 — lib/**/*.mjs 소스에서 'const isObj ='·'const isObject ='·'const isPlainObject ='·'const sha16 ='·'function median'·'const escapeRe =' 가 lib/util.mjs 에만 있다",
+      "check": "node test/t.mjs \"F93 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "lib/util.mjs 의 각 helper 는 옮기기 전 정의와 같은 결과를 낸다 — isObj(null·[]·{}·'x'), sha16('abc')(16자 hex), median([]·[1]·[1,2]·[3,1,2]), escapeRe('a.b*c') 경우별 테스트",
+      "check": "node test/t.mjs \"F93 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "node test/assert-count.mjs 가 exit 0 이다",
+      "check": "node test/assert-count.mjs",
+      "new": false
+    },
+    {
+      "id": "AC-6",
+      "criterion": "docs/SPEC.md 의 blocked 사유 목록이 run·eval 모두 'rounds'·'needs_human' 으로 쓰고, 이전 철자는 읽기만 한다고 밝힌다(문서 check)",
+      "check": "node test/t.mjs \"F93 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "텔레메트리 내보내기 허용 값은 이전 철자도 계속 받는다 — 'max_rounds'·'needs-human' 이 든 이전 이벤트를 내보내도 그 값이 버려지지 않는다",
+      "check": "node test/t.mjs \"F93 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "verdict 의 verdict 값('needs-human') 변경 — blocked 사유만 바꾼다",
+    "다른 중복 helper(num·str·round2 등) 통합",
+    "명령 제거"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-09T04:24:35.125Z",
+    "hash": "927afba66c8f0b55e863df2c653f6e0f20deb9e3b7dda8c3ef649845824b7468"
+  }
+}
