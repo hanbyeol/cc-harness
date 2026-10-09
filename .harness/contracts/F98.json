@@ -1,0 +1,66 @@
+{
+  "id": "F98",
+  "title": "정돈·문서 backlog 수정 묶음 — 중복 helper(finite·max_rounds 기본값) 한 곳으로, 남은 재수출·빈 줄 제거, SPEC 의 blocked 사유·criteria_status error·pre_merge_verify 문장 정리",
+  "security_tier": "standard",
+  "version": 1,
+  "resolves": [
+    "B376",
+    "B412",
+    "B414",
+    "B430",
+    "B477",
+    "B480",
+    "B481"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "lib/util.mjs 가 finite(유한한 number 면 그 값, 아니면 null)를 export 하고, lib/metrics.mjs 와 lib/usage.mjs 는 자체 finite 를 정의하지 않고 그것을 import 한다(소스 check + finite 단위 테스트: 1·0·-2.5 는 그대로, NaN·Infinity·'1'·null·undefined 는 null)",
+      "check": "node test/t.mjs \"F98 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "lib/config.mjs 가 maxRoundsOf(config)(config.max_rounds 가 양의 정수면 그 값, 아니면 3)를 export 하고, lib/eval-status.mjs·lib/commands/approve.mjs·lib/run.mjs 는 그것으로 라운드 한도를 얻는다 — lib/ 아래 어느 파일에도 'max_rounds > 0 ?' 식이 남지 않는다(소스 check + maxRoundsOf 단위 테스트: 5→5, 0·-1·2.5·'4'·undefined→3)",
+      "check": "node test/t.mjs \"F98 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "lib/metrics.mjs 의 export 에 median 이 없다 — median 을 쓰는 lib 파일(metrics.mjs·learn.mjs 등)은 lib/util.mjs 에서 import 한다(소스 check: lib/ 의 .mjs 중 metrics.mjs 에서 median 을 import 하는 파일 수가 0)",
+      "check": "node test/t.mjs \"F98 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "lib/ 아래 .mjs 파일 어디에도 빈 줄이 두 줄 이상 연속하지 않는다(소스 check)",
+      "check": "node test/t.mjs \"F98 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md §7.6 의 blocked_reason 값 목록과 '그 밖의 사유' 목록에 dependency_blocked 가 없고, 의존 기능이 blocked 라 건너뛴 기능은 status skipped 로 끝난다고 적는다. §8.11(또는 §8 3.)은 criteria_status 의 outcome error 가 언제 나오는지(치명적이지 않은 예외)와 그때 builder 가 기준 상태 절 없이 호출된다는 것을 적는다. §8.11 의 queue_ms 와 cached 문장은 verify·post_merge_verify 와 함께 pre_merge_verify 를 든다(문서 check)",
+      "check": "node test/t.mjs \"F98 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "config.max_rounds 가 없거나 잘못된 값일 때 harness approve·eval·run 의 라운드 한도 동작은 이 기능 전과 같다(3) — 기존 F66·F6 테스트가 그대로 통과하고, max_rounds 2 인 fixture 에서 run 이 2라운드 뒤 blocked(rounds)다",
+      "check": "node test/t.mjs \"F98 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "approve 가 받는 blocked_reason 값(dependency_blocked 포함) 변경 — 문서만 고친다",
+    "learn.mjs 의 median2(소수 둘째 자리 반올림) 정리",
+    "lib/ 밖(test/·bin/) 파일의 빈 줄 정리"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-09T07:20:42.414Z",
+    "hash": "b13bdb0d39b644d6677d38961db94295b1bb6364d018f44d950cbb693a79f3a1"
+  }
+}

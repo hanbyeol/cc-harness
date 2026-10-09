@@ -1,0 +1,64 @@
+{
+  "id": "F95",
+  "title": "backlog 항목 닫기 — harness backlog close 로 사람이 이미 해결됐거나 처리할 필요가 없는 열린 항목을 근거와 함께 닫는다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness backlog close B<n> [B<m> ...] --resolved \"<근거>\" (또는 --obsolete) 는 지정한 열린 항목마다 closed: { as: 'resolved'|'obsolete', reason: <근거>, at: <ISO 시각> } 를 기록하고 exit 0 이며, stdout 에 닫은 id 마다 한 줄('B<n>: closed as <as>')을 쓴다. 항목의 다른 필드(id·summary·priority·seen·sources·file·line)는 바뀌지 않고 항목은 backlog.json 에 남는다 — 한 id·여러 id·--resolved·--obsolete 경우별 테스트",
+      "check": "node test/t.mjs \"F95 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "closed 가 있는 항목은 열린 항목이 아니다: lib/backlog.mjs 의 isOpen 이 false 이고, 따라서 harness status 의 'backlog: N open' 수, 평가 프롬프트의 '## Open backlog' 절, harness learn --propose 의 열린 항목 합치기, 평가자 backlog_id 합치기(seen 증가), flaky_test 항목 재사용에 들어가지 않는다 — 닫힌 항목 1개·열린 항목 1개 fixture 로 각 경로 테스트",
+      "check": "node test/t.mjs \"F95 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "닫을 때마다 stage 'feedback', type 'backlog_close' 이벤트가 하나 남는다 — data 는 ids(닫은 id 배열)·as·reason 이다. 근거는 backlog.json 과 이벤트 모두 decide 와 같은 가림(redactor, env_allowlist)을 거친다 — 허용되지 않은 환경 변수 값이 근거에 있으면 두 곳 모두에 평문으로 남지 않는다",
+      "check": "node test/t.mjs \"F95 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "계약의 resolves 가 닫힌 항목을 가리키면 lint-contract 는 이미 해결된 항목처럼 warning('resolves: backlog item B<n> is already closed as <as>')을 내고, 그 기능이 passed 가 되어도 닫힌 항목에 resolved_by 를 쓰지 않는다",
+      "check": "node test/t.mjs \"F95 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "harness --help 의 명령 목록에 backlog 가 있고, docs/SPEC.md §2 와 §7.7 이 backlog close 명령의 인자·closed 필드·열린 항목 정의(resolved_by 도 closed 도 없고 kind decision 이 아닌 항목)·backlog_close 이벤트를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F95 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "다음은 모두 usage 오류(exit 2)이고 backlog.json 과 이벤트는 바뀌지 않는다(여러 id 중 하나만 문제여도 아무것도 닫지 않는다): id 가 없음, B<n> 형식이 아닌 id, backlog 에 없는 id(메시지에 그 id), 이미 닫혔거나 resolved_by 가 있는 id(메시지에 그 id 와 'already'), kind decision 항목, --resolved·--obsolete 가 둘 다이거나 없음, 근거가 비었거나 여러 인자, 알 수 없는 옵션 — 경우별 테스트",
+      "check": "node test/t.mjs \"F95 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "backlog.json 이 { items: [...] } 가 아니거나 id 가 중복되면 E6(state_corrupt, exit 2)이고 파일을 쓰지 않는다. .harness/ 가 없으면 not_initialized(exit 2)다",
+      "check": "node test/t.mjs \"F95 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "닫은 항목 다시 열기",
+    "backlog 목록 보기·검색 명령(harness status 가 계속 요약을 보여 준다)",
+    "닫힌 항목을 backlog.json 에서 지우거나 다른 파일로 옮기기",
+    "평가자가 항목을 닫게 하기 — 닫기는 사람의 결정이다"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-09T07:20:41.415Z",
+    "hash": "d15629eaed507793f89b0b8a29a22dcd99d8510cfd6e6e0a4b0953b4ad04d83b"
+  }
+}

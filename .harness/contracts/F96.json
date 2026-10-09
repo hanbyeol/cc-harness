@@ -1,0 +1,79 @@
+{
+  "id": "F96",
+  "title": "verify·run backlog 수정 묶음 — 병합 전 verify 의 미추적 파일 정리, git 오류 구분, 트리 키 실패 기억, 명령 이벤트 정확성",
+  "security_tier": "standard",
+  "version": 1,
+  "resolves": [
+    "B377",
+    "B413",
+    "B435",
+    "B460",
+    "B462",
+    "B467",
+    "B468",
+    "B478"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "병렬 harness run 의 병합 전 verify(pre_merge_verify)가 끝나 기능 worktree 를 기능 브랜치로 되돌린 뒤, 그 verify 동안 생긴 추적되지 않은(무시되지 않은) 파일은 .harness/ 밖이면 지워지고 .harness/ 안 파일과 git 이 무시하는 파일은 남는다 — verify 명령이 미추적 파일 leak.txt 와 무시 파일을 쓰는 fixture 에서, 되돌린 뒤 leak.txt 가 없고 그 기능의 병합 커밋과 이후 라운드의 builder 커밋에 leak.txt 가 없다",
+      "check": "node test/t.mjs \"F96 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "run 시작의 base 동기화에서 git merge-base --is-ancestor 가 0·1 이 아닌 코드(예: 128)로 끝나면 '조상 아님'으로 보지 않고 integration_sync 오류로 run 이 멈춘다 — 메시지에 'merge-base' 와 git 의 오류 문장이 있고, 병합·rev-list 를 시도하지 않는다(가짜 git 으로 128 주입). exit 1 이면 이 기능 전처럼 동기화한다",
+      "check": "node test/t.mjs \"F96 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "한 verify 안에서 같은 커밋의 트리 키 계산(cacheTrees)이 실패하면 그 결과를 기억해, 같은 커밋에 대한 git ls-tree 호출은 그 verify 에서 한 번뿐이다(실패 경고도 한 번). 성공한 계산도 같은 커밋에 대해 한 번만 한다 — 가짜 git 의 호출 기록으로 확인",
+      "check": "node test/t.mjs \"F96 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "verify.flaky 'retry' 에서 세 번째 실행도 실패하면 그 명령 결과의 code(verify/command 이벤트의 exit_code 포함)는 마지막 시도의 종료 코드다 — 1차 exit 3·2차 exit 0·3차 exit 5 인 fixture 에서 5",
+      "check": "node test/t.mjs \"F96 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "verify 명령이 NAME=value 단어 하나뿐이면(예: 'TOKEN=abc123') verify/command 이벤트의 program 은 null 이고 이벤트 파일에 'abc123' 이 없다. 'FOO=1 node x.mjs' 는 이 기능 전처럼 program 'node' 다",
+      "check": "node test/t.mjs \"F96 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "verify 결과 캐시 적중의 warnings 에는 같은 문장이 두 번 들어가지 않는다 — 저장된 결과와 이번 verify 가 같은 경고('verify.test_paths is empty' 등)를 내는 fixture 에서 그 문장은 한 번이다",
+      "check": "node test/t.mjs \"F96 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "lib/verify.mjs 에서 'cacheFile' 이라는 이름의 선언은 하나뿐이다 — verify 결과 캐시와 테스트 수 캐시 파일 변수는 서로 다른 이름이다(소스 check)",
+      "check": "node test/t.mjs \"F96 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "AC-1 의 정리(git clean)가 실패해도 run 은 멈추지 않는다 — 경고 하나를 남기고 이 기능 전처럼 진행한다",
+      "check": "node test/t.mjs \"F96 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "병합 전 verify 외 단계(기능 verify·병합 후 verify)의 미추적 파일 정리",
+    "base 동기화 외 merge-base --is-ancestor 호출의 코드 구분",
+    "verify 결과 캐시 키·저장 조건 변경"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-09T07:20:41.752Z",
+    "hash": "76818bd05d3053059b3cf31cccfe3f638f325a836d8e5e1ce2dbbe37cebdce5f"
+  }
+}
