@@ -4443,7 +4443,12 @@
       "sources": [
         "F54-r2",
         "F58-r1"
-      ]
+      ],
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Hypothetical: today event keys are lint-checked criterion ids; no current leak.",
+        "at": "2026-10-09T09:24:27.675Z"
+      }
     },
     {
       "feature": "F54",
@@ -4457,7 +4462,12 @@
       "seen": 2,
       "sources": [
         "F54-r2"
-      ]
+      ],
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Hypothetical future caller; current callers pass F<n> ids and constant types.",
+        "at": "2026-10-09T09:24:27.927Z"
+      }
     },
     {
       "feature": "F54",
@@ -4485,7 +4495,12 @@
       "seen": 2,
       "sources": [
         "F56-r2"
-      ]
+      ],
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Accepted by SR-8 (only env values are redacted); not actionable.",
+        "at": "2026-10-09T09:24:28.178Z"
+      }
     },
     {
       "feature": "F56",
@@ -4563,7 +4578,12 @@
       "seen": 2,
       "sources": [
         "F60-r1"
-      ]
+      ],
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: Telemetry export drops path-like values (lib/telemetry.mjs:68 allow-list), so session_log.path never reaches the hub.",
+        "at": "2026-10-09T09:24:28.424Z"
+      }
     },
     {
       "feature": "F55",
@@ -4577,7 +4597,12 @@
       "seen": 2,
       "sources": [
         "F70-r1"
-      ]
+      ],
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Nothing leaks; test-pinning note only.",
+        "at": "2026-10-09T09:24:28.675Z"
+      }
     },
     {
       "feature": "F56",
@@ -4603,7 +4628,12 @@
       "sources": [
         "F56-r3",
         "F56-r4"
-      ]
+      ],
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: dup of B380",
+        "at": "2026-10-09T09:24:28.925Z"
+      }
     },
     {
       "feature": "F58",
@@ -4617,7 +4647,12 @@
       "seen": 2,
       "sources": [
         "F93-r1"
-      ]
+      ],
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: telemetry.mjs imports sha16 from lib/util.mjs (l.13); no local copy.",
+        "at": "2026-10-09T09:24:29.172Z"
+      }
     },
     {
       "feature": "F58",
@@ -4658,7 +4693,12 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B386"
+      "id": "B386",
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: ENUM_FIELDS.reason now includes pass/fail/approve/run_start/dependency_blocked etc. (lib/telemetry.mjs:33-37).",
+        "at": "2026-10-09T09:24:29.426Z"
+      }
     },
     {
       "feature": "F58",
@@ -4668,7 +4708,12 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B387"
+      "id": "B387",
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: Export now tracks byte positions per event file (readNewEvents/.exported files), not a timestamp cut-off.",
+        "at": "2026-10-09T09:24:29.677Z"
+      }
     },
     {
       "feature": "F58",
@@ -4682,7 +4727,12 @@
       "seen": 2,
       "sources": [
         "F63-r1"
-      ]
+      ],
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: writeExport creates hub dirs 0o700 and bundles 0o600 (lib/telemetry.mjs:323-324).",
+        "at": "2026-10-09T09:24:29.927Z"
+      }
     },
     {
       "feature": "F56",
@@ -4706,7 +4756,12 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B390"
+      "id": "B390",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Concurrent eval of the same round is an edge case; duplicate error events are harmless records.",
+        "at": "2026-10-09T09:24:30.188Z"
+      }
     },
     {
       "source": "run:F56",
@@ -4730,7 +4785,12 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ],
-      "id": "B391"
+      "id": "B391",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Record of a past merge_conflict block event.",
+        "at": "2026-10-09T09:24:30.444Z"
+      }
     },
     {
       "feature": "F59",
@@ -4751,7 +4811,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B393"
+      "id": "B393",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Coverage note; resume-safe by inspection, no defect.",
+        "at": "2026-10-09T09:24:30.697Z"
+      }
     },
     {
       "id": "B394",
@@ -4774,7 +4839,12 @@
       "seen": 2,
       "sources": [
         "F90-r1"
-      ]
+      ],
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: lastExport no longer exists in lib/telemetry.mjs.",
+        "at": "2026-10-09T09:24:30.944Z"
+      }
     },
     {
       "feature": "F60",
@@ -4784,7 +4854,12 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B396"
+      "id": "B396",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Documented in SR-2; not secrets.",
+        "at": "2026-10-09T09:24:31.199Z"
+      }
     },
     {
       "feature": "F60",
@@ -4794,7 +4869,12 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B397"
+      "id": "B397",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Full read is needed for line numbers in warnings; fine at current scale.",
+        "at": "2026-10-09T09:24:31.450Z"
+      }
     },
     {
       "feature": "F61",
@@ -4804,7 +4884,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B398"
+      "id": "B398",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Required by F61 AC-1 per-file test; matter of taste.",
+        "at": "2026-10-09T09:24:31.709Z"
+      }
     },
     {
       "feature": "F61",
@@ -4814,7 +4899,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B399"
+      "id": "B399",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Past scope note on a bundled test-timeout change.",
+        "at": "2026-10-09T09:24:31.959Z"
+      }
     },
     {
       "feature": "F61",
@@ -4824,7 +4914,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B400"
+      "id": "B400",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Observation; both codes exit 2 as tested.",
+        "at": "2026-10-09T09:24:32.206Z"
+      }
     },
     {
       "feature": "F63",
@@ -4844,7 +4939,12 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B402"
+      "id": "B402",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Same result on the CLI path; hypothetical in-process caller.",
+        "at": "2026-10-09T09:24:32.456Z"
+      }
     },
     {
       "feature": "F62",
@@ -4858,7 +4958,12 @@
       "seen": 2,
       "sources": [
         "F62-r2"
-      ]
+      ],
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Cosmetic message wording; not checked by any criterion.",
+        "at": "2026-10-09T09:24:32.712Z"
+      }
     },
     {
       "feature": "F62",
@@ -4872,7 +4977,12 @@
       "seen": 2,
       "sources": [
         "F62-r2"
-      ]
+      ],
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: F69 made block freshness content-based (blockStatus re-renders the template), not version-string equality.",
+        "at": "2026-10-09T09:24:32.960Z"
+      }
     },
     {
       "feature": "F62",
@@ -4882,7 +4992,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B405"
+      "id": "B405",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Edge case of odd directory names in a heading; cosmetic.",
+        "at": "2026-10-09T09:24:33.218Z"
+      }
     },
     {
       "feature": "F62",
@@ -4914,7 +5029,12 @@
       "reason": "out_of_scope",
       "source": "user",
       "priority": "low",
-      "id": "B408"
+      "id": "B408",
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: lib/tmp.mjs registers temp dirs and removes all on process exit; run.mjs hooksOff uses makeTempDir.",
+        "at": "2026-10-09T09:24:33.473Z"
+      }
     },
     {
       "feature": "F64",
@@ -4935,7 +5055,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B410"
+      "id": "B410",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Harmless: profiles/sdlc.json ships with the package; validation is fine.",
+        "at": "2026-10-09T09:24:33.724Z"
+      }
     },
     {
       "feature": "F66",
@@ -4989,7 +5114,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B415"
+      "id": "B415",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Performance observation; fine at current scale.",
+        "at": "2026-10-09T09:24:33.973Z"
+      }
     },
     {
       "source": "human",
@@ -5036,7 +5166,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B420"
+      "id": "B420",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: SPEC §8 now explicitly specifies | -> \\| in Needs you lines.",
+        "at": "2026-10-09T09:24:34.225Z"
+      }
     },
     {
       "feature": "F71",
@@ -5046,7 +5181,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B421"
+      "id": "B421",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Not a defect per contract (per-call warnings).",
+        "at": "2026-10-09T09:24:34.484Z"
+      }
     },
     {
       "feature": "F71",
@@ -5056,7 +5196,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B422"
+      "id": "B422",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Design observation; behavior identical.",
+        "at": "2026-10-09T09:24:34.737Z"
+      }
     },
     {
       "feature": "F71",
@@ -5066,7 +5211,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B423"
+      "id": "B423",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Hypothetical future double prefix; taste.",
+        "at": "2026-10-09T09:24:34.992Z"
+      }
     },
     {
       "feature": "F73",
@@ -5076,7 +5226,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B424"
+      "id": "B424",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Intended strictness of a test helper.",
+        "at": "2026-10-09T09:24:35.241Z"
+      }
     },
     {
       "feature": "F73",
@@ -5086,7 +5241,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B425"
+      "id": "B425",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Cosmetic version marker; freshness is content-based.",
+        "at": "2026-10-09T09:24:35.500Z"
+      }
     },
     {
       "feature": "F75",
@@ -5096,7 +5256,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B426"
+      "id": "B426",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Not required by contract; no consumer compares paths.",
+        "at": "2026-10-09T09:24:35.750Z"
+      }
     },
     {
       "feature": "F75",
@@ -5106,7 +5271,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B427"
+      "id": "B427",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Within SC-1 scope; secret_globs covers it.",
+        "at": "2026-10-09T09:24:36.006Z"
+      }
     },
     {
       "feature": "F75",
@@ -5116,7 +5286,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B428"
+      "id": "B428",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Doc-check limitation note.",
+        "at": "2026-10-09T09:24:36.260Z"
+      }
     },
     {
       "feature": "F74",
@@ -5126,7 +5301,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B429"
+      "id": "B429",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Coverage note; covered indirectly by ES-2 integration test.",
+        "at": "2026-10-09T09:24:36.512Z"
+      }
     },
     {
       "feature": "F74",
@@ -5147,7 +5327,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B431"
+      "id": "B431",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Sequential execution is specified by contract.",
+        "at": "2026-10-09T09:24:36.760Z"
+      }
     },
     {
       "source": "run:F76",
@@ -5163,7 +5348,12 @@
       "sources": [
         "F76-r1"
       ],
-      "id": "B432"
+      "id": "B432",
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: Stabilized in commit 582154d (B432 B433 B434 B438).",
+        "at": "2026-10-09T09:24:37.015Z"
+      }
     },
     {
       "source": "run:F76",
@@ -5179,7 +5369,12 @@
       "sources": [
         "F76-r1"
       ],
-      "id": "B433"
+      "id": "B433",
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: Stabilized in commit 582154d.",
+        "at": "2026-10-09T09:24:37.263Z"
+      }
     },
     {
       "source": "run:F76",
@@ -5195,7 +5390,12 @@
       "sources": [
         "F76-r1"
       ],
-      "id": "B434"
+      "id": "B434",
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: Stabilized in commit 582154d.",
+        "at": "2026-10-09T09:24:37.517Z"
+      }
     },
     {
       "feature": "F76",
@@ -5222,7 +5422,12 @@
       "source": "evaluator",
       "file": "lib/run.mjs",
       "priority": "low",
-      "id": "B436"
+      "id": "B436",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Matches the spec wording; message clarity only.",
+        "at": "2026-10-09T09:24:37.782Z"
+      }
     },
     {
       "feature": "F76",
@@ -5232,7 +5437,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B437"
+      "id": "B437",
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: Same flaky tests stabilized in commit 582154d.",
+        "at": "2026-10-09T09:24:38.039Z"
+      }
     },
     {
       "source": "run:F76",
@@ -5248,7 +5458,12 @@
       "sources": [
         "F76-r1"
       ],
-      "id": "B438"
+      "id": "B438",
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: Stabilized in commit 582154d.",
+        "at": "2026-10-09T09:24:38.289Z"
+      }
     },
     {
       "feature": "F46",
@@ -5257,7 +5472,12 @@
       "summary": "The diff against the base is empty, because the approval commit says the criteria already pass on v2. The verdict rests on the deterministic verify results: AC-1, AC-2 and AC-3 all passed. I did not re-run the checks myself, since this session is in plan mode.",
       "reason": "out_of_scope",
       "source": "evaluator",
-      "id": "B439"
+      "id": "B439",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Evaluator process note for a past eval.",
+        "at": "2026-10-09T09:24:38.541Z"
+      }
     },
     {
       "feature": "F46",
@@ -5267,7 +5487,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B440"
+      "id": "B440",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: One-off note about a past verify under load; config advice.",
+        "at": "2026-10-09T09:24:38.792Z"
+      }
     },
     {
       "feature": "F77",
@@ -5279,7 +5504,12 @@
       "file": "lib/sleep.mjs",
       "line": 38,
       "priority": "low",
-      "id": "B441"
+      "id": "B441",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Matches contract; label difference only.",
+        "at": "2026-10-09T09:24:39.048Z"
+      }
     },
     {
       "feature": "F77",
@@ -5290,7 +5520,12 @@
       "source": "evaluator",
       "file": "test/f77-no-sleep-inhibitor.test.mjs",
       "priority": "low",
-      "id": "B442"
+      "id": "B442",
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: Fixed in commit fac7b82 (warm up F77 fake inhibitors, B442).",
+        "at": "2026-10-09T09:24:39.304Z"
+      }
     },
     {
       "feature": "F79",
@@ -5302,7 +5537,12 @@
       "file": "lib/verify.mjs",
       "line": 660,
       "priority": "low",
-      "id": "B443"
+      "id": "B443",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Accepted by contract; note only.",
+        "at": "2026-10-09T09:24:39.561Z"
+      }
     },
     {
       "feature": "F79",
@@ -5312,7 +5552,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B444"
+      "id": "B444",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Consistent with SPEC; presentation note.",
+        "at": "2026-10-09T09:24:39.814Z"
+      }
     },
     {
       "feature": "F78",
@@ -5324,7 +5569,12 @@
       "file": "test/t.mjs",
       "line": 10,
       "priority": "low",
-      "id": "B445"
+      "id": "B445",
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: test/t.mjs is self-contained (imports only node: built-ins); lib/criterion-files.mjs no longer exists.",
+        "at": "2026-10-09T09:24:40.063Z"
+      }
     },
     {
       "feature": "F78",
@@ -5336,7 +5586,12 @@
       "file": "lib/criterion-files.mjs",
       "line": 19,
       "priority": "low",
-      "id": "B446"
+      "id": "B446",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Follows frozen AC-2 fallback rule; known limit.",
+        "at": "2026-10-09T09:24:40.315Z"
+      }
     },
     {
       "feature": "F78",
@@ -5348,7 +5603,12 @@
       "file": "lib/criterion-files.mjs",
       "line": 13,
       "priority": "low",
-      "id": "B447"
+      "id": "B447",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Skipping dot-dirs/node_modules is intended; no defect.",
+        "at": "2026-10-09T09:24:40.561Z"
+      }
     },
     {
       "feature": "F80",
@@ -5360,7 +5620,12 @@
       "file": "test/f80-single-file-runner.test.mjs",
       "line": 16,
       "priority": "low",
-      "id": "B448"
+      "id": "B448",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Sufficient for current t.mjs.",
+        "at": "2026-10-09T09:24:40.812Z"
+      }
     },
     {
       "feature": "F80",
@@ -5372,7 +5637,12 @@
       "file": "test/f80-single-file-runner.test.mjs",
       "line": 55,
       "priority": "low",
-      "id": "B449"
+      "id": "B449",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Contract check satisfied; edge note.",
+        "at": "2026-10-09T09:24:41.067Z"
+      }
     },
     {
       "feature": "F81",
@@ -5383,7 +5653,12 @@
       "source": "evaluator",
       "file": "lib/run.mjs",
       "priority": "low",
-      "id": "B450"
+      "id": "B450",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Cannot happen today (verifies of a feature are sequential).",
+        "at": "2026-10-09T09:24:41.316Z"
+      }
     },
     {
       "feature": "F81",
@@ -5394,7 +5669,12 @@
       "source": "evaluator",
       "file": "lib/verify.mjs",
       "priority": "low",
-      "id": "B451"
+      "id": "B451",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Refactor taste.",
+        "at": "2026-10-09T09:24:41.568Z"
+      }
     },
     {
       "feature": "F82",
@@ -5405,7 +5685,12 @@
       "source": "evaluator",
       "file": "lib/contract.mjs",
       "priority": "low",
-      "id": "B452"
+      "id": "B452",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Fits contract wording; coverage note.",
+        "at": "2026-10-09T09:24:41.918Z"
+      }
     },
     {
       "feature": "F82",
@@ -5415,7 +5700,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B453"
+      "id": "B453",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Harmless warning on the introducing contract.",
+        "at": "2026-10-09T09:24:42.457Z"
+      }
     },
     {
       "feature": "F82",
@@ -5426,7 +5716,12 @@
       "source": "evaluator",
       "file": "lib/commands/approve.mjs",
       "priority": "low",
-      "id": "B454"
+      "id": "B454",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Both callers pass test_paths; hypothetical third caller.",
+        "at": "2026-10-09T09:24:42.711Z"
+      }
     },
     {
       "feature": "F83",
@@ -5437,7 +5732,12 @@
       "source": "evaluator",
       "file": "lib/verify.mjs",
       "priority": "low",
-      "id": "B455"
+      "id": "B455",
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: `const flaky =[` no longer present in lib/verify.mjs.",
+        "at": "2026-10-09T09:24:42.966Z"
+      }
     },
     {
       "feature": "F83",
@@ -5448,7 +5748,12 @@
       "source": "evaluator",
       "file": "lib/verify.mjs",
       "priority": "low",
-      "id": "B456"
+      "id": "B456",
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: fillTree backfills the tree on a commit hit (lib/verify.mjs:928-931, lib/testcount.mjs:117).",
+        "at": "2026-10-09T09:24:43.219Z"
+      }
     },
     {
       "feature": "F83",
@@ -5459,7 +5764,12 @@
       "source": "evaluator",
       "file": "lib/verify.mjs",
       "priority": "low",
-      "id": "B457"
+      "id": "B457",
+      "closed": {
+        "as": "resolved",
+        "reason": "triage 2026-10-09: cacheTrees warns once per verify (treeWarned, lib/verify.mjs:656-663).",
+        "at": "2026-10-09T09:24:43.470Z"
+      }
     },
     {
       "feature": "F84",
@@ -5470,7 +5780,12 @@
       "source": "evaluator",
       "file": "lib/testcount.mjs",
       "priority": "low",
-      "id": "B458"
+      "id": "B458",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Duplicates not expected; harmless.",
+        "at": "2026-10-09T09:24:43.722Z"
+      }
     },
     {
       "feature": "F84",
@@ -5481,7 +5796,12 @@
       "source": "evaluator",
       "file": "test/f84-count-cache-tree-fill.test.mjs",
       "priority": "low",
-      "id": "B459"
+      "id": "B459",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Platform test limitation; acceptable.",
+        "at": "2026-10-09T09:24:43.975Z"
+      }
     },
     {
       "feature": "F84",
@@ -5504,7 +5824,12 @@
       "source": "evaluator",
       "file": "test/f83-test-count-tree-cache.test.mjs",
       "priority": "low",
-      "id": "B461"
+      "id": "B461",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Reasonable adaptation, not weakening.",
+        "at": "2026-10-09T09:24:44.222Z"
+      }
     },
     {
       "feature": "F85",
@@ -5537,7 +5862,12 @@
       "source": "evaluator",
       "file": "lib/eval.mjs",
       "priority": "low",
-      "id": "B464"
+      "id": "B464",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Only affects ordering; follows SPEC.",
+        "at": "2026-10-09T09:24:44.470Z"
+      }
     },
     {
       "feature": "F86",
@@ -5548,7 +5878,12 @@
       "source": "evaluator",
       "file": "test/f22-backlog.test.mjs",
       "priority": "low",
-      "id": "B465"
+      "id": "B465",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Rename forbidden by assert-count; comment explains.",
+        "at": "2026-10-09T09:24:44.720Z"
+      }
     },
     {
       "source": "run:F87",
@@ -5572,7 +5907,12 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ],
-      "id": "B466"
+      "id": "B466",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Record of a past eval_error block.",
+        "at": "2026-10-09T09:24:44.976Z"
+      }
     },
     {
       "feature": "F87",
@@ -5607,7 +5947,12 @@
       "source": "evaluator",
       "file": "lib/eval.mjs",
       "priority": "low",
-      "id": "B469"
+      "id": "B469",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Harmless; first usage_limit reported.",
+        "at": "2026-10-09T09:24:45.231Z"
+      }
     },
     {
       "feature": "F88",
@@ -5618,7 +5963,12 @@
       "source": "evaluator",
       "file": "lib/adapters/common.mjs",
       "priority": "low",
-      "id": "B470"
+      "id": "B470",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Matches contract.",
+        "at": "2026-10-09T09:24:45.487Z"
+      }
     },
     {
       "feature": "F89",
@@ -5629,7 +5979,12 @@
       "source": "evaluator",
       "file": "lib/verify.mjs",
       "priority": "low",
-      "id": "B471"
+      "id": "B471",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Negligible parsing cost.",
+        "at": "2026-10-09T09:24:45.745Z"
+      }
     },
     {
       "feature": "F89",
@@ -5640,7 +5995,12 @@
       "source": "evaluator",
       "file": "test/f89-retry-skip.test.mjs",
       "priority": "low",
-      "id": "B472"
+      "id": "B472",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Test fragility note; no defect.",
+        "at": "2026-10-09T09:24:45.994Z"
+      }
     },
     {
       "feature": "F90",
@@ -5652,7 +6012,12 @@
       "file": "lib/verify.mjs",
       "line": 53,
       "priority": "low",
-      "id": "B473"
+      "id": "B473",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Cosmetic comment width.",
+        "at": "2026-10-09T09:24:46.247Z"
+      }
     },
     {
       "feature": "F90",
@@ -5663,7 +6028,12 @@
       "source": "evaluator",
       "file": "test/f90-cleanup.test.mjs",
       "priority": "low",
-      "id": "B474"
+      "id": "B474",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Platform test limitation.",
+        "at": "2026-10-09T09:24:46.500Z"
+      }
     },
     {
       "feature": "F92",
@@ -5674,7 +6044,12 @@
       "source": "evaluator",
       "file": "lib/run.mjs",
       "priority": "low",
-      "id": "B475"
+      "id": "B475",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Correctness unaffected; a couple of extra git calls.",
+        "at": "2026-10-09T09:24:46.750Z"
+      }
     },
     {
       "feature": "F92",
@@ -5685,7 +6060,12 @@
       "source": "evaluator",
       "file": "test/f47-carry-blocked.test.mjs",
       "priority": "low",
-      "id": "B476"
+      "id": "B476",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Asserts not weakened; review note.",
+        "at": "2026-10-09T09:24:47.006Z"
+      }
     },
     {
       "feature": "F91",
@@ -5720,7 +6100,12 @@
       "source": "evaluator",
       "file": "test/f25-auto-parallel.test.mjs",
       "priority": "low",
-      "id": "B479"
+      "id": "B479",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Reasonable test filter; note only.",
+        "at": "2026-10-09T09:24:47.256Z"
+      }
     },
     {
       "feature": "F93",
@@ -5753,7 +6138,12 @@
       "source": "evaluator",
       "file": "lib/verify.mjs",
       "priority": "low",
-      "id": "B482"
+      "id": "B482",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: Refactor taste.",
+        "at": "2026-10-09T09:24:47.509Z"
+      }
     },
     {
       "feature": "F94",
@@ -5764,7 +6154,12 @@
       "source": "evaluator",
       "file": "test/f94-early-checks.test.mjs",
       "priority": "low",
-      "id": "B483"
+      "id": "B483",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: A lower bound on a 3 s sleep only gets longer under load; not timing-fragile.",
+        "at": "2026-10-09T09:24:47.770Z"
+      }
     },
     {
       "feature": "F97",
@@ -5775,7 +6170,12 @@
       "source": "evaluator",
       "file": "test/f81-verify-phases.test.mjs",
       "priority": "low",
-      "id": "B484"
+      "id": "B484",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: review note on the f81 AC-5 timing fix; the change waits on an explicit condition, keeps the 1500 ms assert, assert-count clean, stress 2 passed",
+        "at": "2026-10-09T09:24:58.918Z"
+      }
     },
     {
       "feature": "F97",
@@ -5786,7 +6186,12 @@
       "source": "evaluator",
       "file": "lib/telemetry.mjs",
       "priority": "low",
-      "id": "B485"
+      "id": "B485",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: the reviewer states it is not a defect (planExport always yields .jsonl; the AC-7 source check is the criterion itself)",
+        "at": "2026-10-09T09:24:59.167Z"
+      }
     },
     {
       "feature": "F96",
@@ -5808,7 +6213,12 @@
       "source": "evaluator",
       "file": "test/f96-backlog-fixes.test.mjs",
       "priority": "low",
-      "id": "B487"
+      "id": "B487",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: the reviewer states it is not a defect (planExport always yields .jsonl; the AC-7 source check is the criterion itself)",
+        "at": "2026-10-09T09:24:59.167Z"
+      }
     },
     {
       "feature": "F95",
@@ -5854,7 +6264,12 @@
       "seen": 2,
       "sources": [
         "F95-r2"
-      ]
+      ],
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: review note on the f81 AC-5 timing fix; the change waits on an explicit condition, keeps the 1500 ms assert, assert-count clean, stress 2 passed",
+        "at": "2026-10-09T09:24:58.918Z"
+      }
     },
     {
       "feature": "F98",
@@ -5864,7 +6279,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B491"
+      "id": "B491",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-09: review note on the f81 AC-5 timing fix; the change waits on an explicit condition, keeps the 1500 ms assert, assert-count clean, stress 2 passed",
+        "at": "2026-10-09T09:24:58.918Z"
+      }
     }
   ]
 }
