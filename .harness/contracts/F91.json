@@ -1,0 +1,75 @@
+{
+  "id": "F91",
+  "title": "병렬 run 의 병합 잠금 줄이기 — 잠금 전에 integration 을 기능 worktree 에 병합해 미리 verify 하고, 잠금 안의 병합 후 verify 는 결과 캐시로 끝낸다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness run 에서 기능이 eval 을 통과했을 때 integration 브랜치가 그 기능의 base 커밋보다 앞서 있으면(다른 기능이 먼저 병합됨), 코어는 병합 잠금을 잡기 전에 integration 을 그 기능 worktree 에 병합하고(충돌 없을 때) 그 worktree 에서 step 'pre_merge_verify' 로 verify 를 실행한다. metrics 에 step 'pre_merge_verify' 줄이 남는다",
+      "check": "node test/t.mjs \"F91 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "pre_merge_verify 는 병합 잠금 밖에서 실행된다 — 두 기능 병렬 run 에서 한 기능의 pre_merge_verify 구간이 다른 기능의 병합 후 verify 구간과 시간상 겹친다(가짜 verify 가 기록한 구간으로 확인, 각 verify 는 다른 쪽이 시작할 때까지 상한 30초로 기다린다)",
+      "check": "node test/t.mjs \"F91 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "pre_merge_verify 가 통과하고 그 뒤 integration 이 움직이지 않았으면, 잠금 안의 병합 결과 트리가 미리 verify 한 트리와 같아 병합 후 verify 는 verify 결과 캐시로 끝난다 — 실제 verify 를 쓰는 두 기능 run 에서 두 번째 기능의 병합 후 verify metrics 줄이 cached: true 다",
+      "check": "node test/t.mjs \"F91 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "pre_merge_verify 뒤 다른 기능이 먼저 병합해 integration 이 다시 움직였으면, 병합 후 verify 는 이 기능 전처럼 모두 실행된다(cached false)",
+      "check": "node test/t.mjs \"F91 AC-4\"",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "integration 이 기능의 base 와 같으면(단일 기능 run 등) pre_merge_verify 를 실행하지 않고 이 기능 전처럼 병합한다",
+      "check": "node test/t.mjs \"F91 AC-5\"",
+      "new": false
+    },
+    {
+      "id": "AC-6",
+      "criterion": "integration 을 기능 worktree 에 병합하다 충돌하면 그 병합을 되돌리고(worktree 는 병합 전 커밋, MERGE_HEAD 없음) pre_merge_verify 없이 이 기능 전의 병합·충돌 해결 흐름을 그대로 따른다",
+      "check": "node test/t.mjs \"F91 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "pre_merge_verify 가 실패하면 그것만으로 기능을 blocked 하지 않고 이 기능 전의 흐름(잠금·병합·병합 후 verify·그 복구)을 그대로 따른다. 라운드·build 시도를 소모하지 않는다",
+      "check": "node test/t.mjs \"F91 AC-7\"",
+      "new": true
+    },
+    {
+      "id": "AC-8",
+      "criterion": "run 보고서 Steps 표에 pre_merge_verify 줄이 나오고, docs/SPEC.md §8.10 이 pre_merge_verify 의 조건·잠금 밖 실행·캐시와의 관계·충돌/실패 시 기존 흐름을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F91 AC-8\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "pre_merge_verify 도중 run 이 중단되면(SIGINT) 상태가 저장되고, harness run --resume 은 그 기능의 pre_merge_verify 부터 다시 한다(라운드·시도 소모 없음)",
+      "check": "node test/t.mjs \"F91 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "여러 기능을 한 번에 묶어 병합하고 실패 시 나누어 찾기(batch merge)",
+    "verify_parallel 풀 크기 변경",
+    "병합 후 verify 자체를 없애기(D1 안전장치 유지)"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-09T01:42:41.400Z",
+    "hash": "fb1318af716fc249d8aa165590538adb94e01c5130a71d7a128dd46fe5a57936"
+  }
+}

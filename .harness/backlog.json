@@ -4759,7 +4759,11 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B395"
+      "id": "B395",
+      "seen": 2,
+      "sources": [
+        "F90-r1"
+      ]
     },
     {
       "feature": "F60",
@@ -5610,6 +5614,29 @@
       "file": "test/f89-retry-skip.test.mjs",
       "priority": "low",
       "id": "B472"
+    },
+    {
+      "feature": "F90",
+      "round": 1,
+      "at": "2026-10-09T01:29:13.870Z",
+      "summary": "The comment above GIT_SAFE in lib/verify.mjs got longer and runs past the usual line width. Cosmetic only.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "line": 53,
+      "priority": "low",
+      "id": "B473"
+    },
+    {
+      "feature": "F90",
+      "round": 1,
+      "at": "2026-10-09T01:29:13.870Z",
+      "summary": "The AC-5 test is skipped on Windows because the fake git is a shebang script. Fine for now, but the option is not verified on that platform.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f90-cleanup.test.mjs",
+      "priority": "low",
+      "id": "B474"
     }
   ]
 }

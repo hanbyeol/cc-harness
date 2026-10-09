@@ -790,6 +790,15 @@
       "title": "코드 정리 — 쓰이지 않는 export·재노출 제거, 테스트 전용 코드를 test/ 로, 참조 없는 rules/ 제거, verify git 옵션을 eval 과 맞춤",
       "security_tier": "standard",
       "depends_on": [],
+      "status": "passed"
+    },
+    {
+      "id": "F91",
+      "title": "병렬 run 의 병합 잠금 줄이기 — 잠금 전에 integration 을 기능 worktree 에 병합해 미리 verify 하고, 잠금 안의 병합 후 verify 는 결과 캐시로 끝낸다",
+      "security_tier": "standard",
+      "depends_on": [
+        "F87"
+      ],
       "status": "approved"
     }
   ]

@@ -1,0 +1,61 @@
+{
+  "feature": "F90",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The comment above GIT_SAFE in lib/verify.mjs got longer and runs past the usual line width. Cosmetic only.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "line": 53,
+      "priority": "low"
+    },
+    {
+      "summary": "The AC-5 test is skipped on Windows because the fake git is a shebang script. Fine for now, but the option is not verified on that platform.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f90-cleanup.test.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "Backlog B395 (lib/telemetry.mjs lastExport has no callers) is resolved by this change and can be closed.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B395"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.12547,
+  "contract_hash": "bf3d9a4c641945dcf71a911dc40e30878ac2f14ad6093f5d5dec5ea5ca780cfa",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-09T01:29:13.870Z",
+  "origin": "run"
+}
