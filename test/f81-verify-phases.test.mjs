@@ -230,7 +230,9 @@ test('F81 AC-5: with verify_parallel 1 the later of two concurrent verifies reco
     // the other feature's verify is then already waiting for the slot.
     if (!c.integration && calls.filter((x) => !x.integration).length === 1) {
       for (const t0 = Date.now(); b.calls.filter((x) => x.end !== null).length < 2 && Date.now() - t0 < 30_000;) await sleep(20);
-      await sleep(SLOW);
+      // The other feature asks for the slot some time after its build returns (longer under
+      // load), so hold well past SLOW: its wait must still reach 1500 ms.
+      await sleep(SLOW * 2);
     }
     return PASSING;
   };
