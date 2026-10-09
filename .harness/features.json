@@ -855,6 +855,48 @@
         "F97"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F99",
+      "title": "builder 는 전체 verify 명령을 돌리지 않는다 — harness run 의 builder 프롬프트가 코어가 곧바로 verify 명령과 기준 check 를 실행한다고 알리고, 기준 check 와 바꾼 모듈의 테스트만 돌리게 한다",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F100",
+      "title": "verify 재시도는 실패한 테스트 파일만 — node --test 명령이 실패하면 재시도(2·3차)는 실패한 테스트가 있는 파일만 다시 실행한다",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F101",
+      "title": "telemetry 개인정보 강화 — 내보낼 때 project id·테스트 이름 해시에 설치별 salt, 읽을 때 다시 가림, repro 프로그램은 가린 뒤 소문자로, 끄기 값은 대소문자·공백 무관",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F102",
+      "title": "작은 수정 묶음 — 병합 전 verify 정리가 중첩 git 저장소도 지움, backlog close 의 '-' 로 시작하는 근거, lint 의 닫힌 항목 메시지",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F103",
+      "title": "모델 거부(refusal)를 따로 분류 — claude 응답의 stop_reason 이 refusal 이면 error 'refusal' 로 돌려주고, run 은 남은 시도를 쓰지 않고 기능을 blocked(refusal) 로 둔다",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F104",
+      "title": "낮은 우선순위 묶음 — stats 의 builder_model 제안이 시간 초과율을 보고, effort 는 병합된 adapter 기준으로 검사하고, test_paths 밖 테스트 파일 변경을 경고",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }

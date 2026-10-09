@@ -1,0 +1,56 @@
+{
+  "id": "F104",
+  "title": "낮은 우선순위 묶음 — stats 의 builder_model 제안이 시간 초과율을 보고, effort 는 병합된 adapter 기준으로 검사하고, test_paths 밖 테스트 파일 변경을 경고",
+  "security_tier": "standard",
+  "version": 1,
+  "resolves": [
+    "B416",
+    "B418",
+    "B463"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness stats 의 builder_model 제안은 builder 비용 비중이 70% 초과일 때, 현재 builder 모델보다 싼 모델 중 build 줄이 5개 이상이고 build 시간 초과율(outcome 'timeout' 또는 'timeout-continued' 비율)이 현재 모델 이하인 모델이 있을 때만 그 모델 이름과 두 시간 초과율을 담아 나온다. 그런 모델이 없으면 제안하지 않는다 — 싼 모델 시간 초과율이 높은 fixture(제안 없음), 낮은 fixture(제안 있음), 데이터 5줄 미만 fixture(제안 없음) 경우별 테스트. 모델 가격 순서는 opus > sonnet > haiku(이름에 든 낱말)다",
+      "check": "node test/t.mjs \"F104 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "roles.<역할>.effort 검사는 사용자 파일·프로필·기본값을 병합한 뒤의 그 역할 adapter 로 한다 — 사용자 파일에 adapter 없이 effort 만 쓰고 병합 결과가 claude 면 받아들이고, 병합 결과가 claude 가 아니면 이 기능 전처럼 config_invalid(exit 2, 메시지에 실제 adapter)다",
+      "check": "node test/t.mjs \"F104 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "verify 의 테스트 수가 test_tree 캐시로 정해질 때, base 와 head 사이에 바뀐 파일 중 이름이 테스트 파일 모양(.test.·.spec.·_test.·test_ 로 시작)인데 verify.test_paths 어느 경로에도 들지 않는 파일이 있으면 경고 하나('test file outside verify.test_paths: <경로>' — 첫 경로 하나와 나머지 수)를 결과 warnings 에 남긴다. 그런 파일이 없으면 경고가 없다",
+      "check": "node test/t.mjs \"F104 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "docs/SPEC.md 가 builder_model 제안의 시간 초과율 조건(§2 stats), effort 검사의 병합 기준(§4), test_paths 밖 테스트 파일 경고(§6.2)를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F104 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "metrics 줄에 model·outcome 이 없거나 문자열이 아니면 그 줄은 시간 초과율 계산에서 빠지고 예외가 없다",
+      "check": "node test/t.mjs \"F104 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "다른 stats 제안 규칙 변경",
+    "test_paths 자동 추정",
+    "모델 가격표를 config 로 받기"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-09T09:38:30.746Z",
+    "hash": "2de2967ce5c0953645503756ba8c7969be3c8fc214df1842c39ce4625478fda2"
+  }
+}

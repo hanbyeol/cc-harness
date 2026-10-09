@@ -1,0 +1,70 @@
+{
+  "id": "F100",
+  "title": "verify 재시도는 실패한 테스트 파일만 — node --test 명령이 실패하면 재시도(2·3차)는 실패한 테스트가 있는 파일만 다시 실행한다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify 명령이 'node [--옵션...] --test [인자...]' 형식이고 1차 실행이 실패했으며 그 출력(spec reporter)의 'test at <경로>:<줄>:<열>' 줄에서 실패한 테스트 파일을 하나 이상 얻으면, 재시도(2차와 verify.flaky 'retry' 의 3차)는 'node [같은 --옵션] --test [원래 인자 중 --로 시작하는 것] <실패 파일...>' 만 실행한다 — 파일 두 개 중 하나만 실패하는 fixture 에서 2차 실행이 그 파일만 실행했음을 실행 기록으로 확인. 실패 파일은 명령 cwd 기준 상대 경로이고 cwd 안의 존재하는 파일만 쓴다",
+      "check": "node test/t.mjs \"F100 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "AC-1 의 부분 재시도로 통과한 결과는 지금의 재시도 통과와 같게 기록된다(attempts·flaky·flaky_tests·flaky_passed·pass). 그 명령의 결과에 retry_files(재시도한 파일 목록)가 있고 verify/command 이벤트 data 에 retry_files 수가 있다",
+      "check": "node test/t.mjs \"F100 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "부분 재시도가 있으면 테스트 수(test_count 의 from:commands[i] 파싱)는 재시도 출력이 아니라 1차 실행 출력의 전체 수로 센다 — 1차 3개 중 1개 실패, 재시도 1개 통과인 fixture 에서 head 테스트 수가 3 이다",
+      "check": "node test/t.mjs \"F100 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "다음이면 이 기능 전처럼 명령 전체를 다시 실행한다: 명령이 node --test 형식이 아님(npm test 등), 실패 출력에서 파일을 하나도 얻지 못함, 얻은 파일 중 cwd 밖이거나 없는 파일이 있음, 실패한 테스트 수가 위치를 얻은 수보다 많음, config verify.retry_scope 가 'command' — 경우별 테스트",
+      "check": "node test/t.mjs \"F100 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "config verify.retry_scope 는 'failed_files'(기본)와 'command' 만 받는다. 그 외 값은 키 경로와 허용 값을 담은 config_invalid(exit 2)다. retry_scope 는 verify 결과 캐시 키의 verify 설정에 들어간다",
+      "check": "node test/t.mjs \"F100 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "docs/SPEC.md §6.1 이 부분 재시도의 조건, 재시도 명령 구성, 테스트 수의 출처, verify.retry_scope 를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F100 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "파일 경로에 공백·따옴표가 있어도 재시도 명령은 그 파일을 하나의 인자로 넘긴다(Windows·POSIX 모두 셸 인용) — 공백 있는 파일 이름 fixture",
+      "check": "node test/t.mjs \"F100 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "verify.flaky 가 'fail' 이거나 F89 의 재시도 생략 조건(own_test·no_test_names)이면 이 기능 전과 같다 — 부분 재시도로 바뀌는 것은 재시도가 일어날 때의 명령뿐이다",
+      "check": "node test/t.mjs \"F100 ES-2\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "node:test 외 테스트 러너(jest·pytest·go test)의 부분 재시도",
+    "TAP 등 spec 외 reporter 출력에서 파일 얻기",
+    "실패한 테스트 이름만 골라 다시 실행하기(--test-name-pattern)",
+    "기준 check 의 재시도 정책"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-09T09:38:29.418Z",
+    "hash": "e9ec65851843e80f902a84baa4db29f189157d7244b2432bba4c976504e59b97"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "id": "F99",
+  "title": "builder 는 전체 verify 명령을 돌리지 않는다 — harness run 의 builder 프롬프트가 코어가 곧바로 verify 명령과 기준 check 를 실행한다고 알리고, 기준 check 와 바꾼 모듈의 테스트만 돌리게 한다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness run 이 builder 에 주는 프롬프트에 '## Verification' 절이 있다. 그 절은 config 의 verify.commands(프로필 기본값 포함, 해석된 값) 문자열을 각각 그대로 나열하고, builder 가 돌아온 뒤 코어가 그 명령들과 계약의 모든 기준 check 를 실행한다고 말하며, builder 는 그 명령들을 직접 실행하지 말고 기준 check 와 바꾼 모듈의 테스트 파일만 실행하라고 말한다 — 가짜 builder 가 받은 프롬프트로 확인(build 시도·이어가기·충돌 해결·병합 후 verify 복구 호출 각각)",
+      "check": "node test/t.mjs \"F99 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "verify.commands 가 비어 있으면 '## Verification' 절은 명령 목록 없이 코어가 기준 check 를 실행한다고만 말한다(명령을 실행하지 말라는 문장 없음)",
+      "check": "node test/t.mjs \"F99 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "agents/builder.md 의 작업 순서는 harness run 아래에서는 코어가 builder 다음에 verify 명령을 실행하므로 builder 가 전체 verify 명령을 실행하지 않는다고 말하고, harness run 밖(대화형)에서는 지금처럼 끝에 한 번 실행하라고 말한다(문서 check)",
+      "check": "node test/t.mjs \"F99 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "docs/SPEC.md §8 이 builder 프롬프트의 '## Verification' 절(명령 목록, 직접 실행하지 말 것, 빈 경우)을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F99 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "verify.commands 의 명령 문자열에 허용되지 않은 환경 변수 값이 들어 있으면 프롬프트의 그 줄에서 가려진다(기존 builder 프롬프트와 같은 redactor)",
+      "check": "node test/t.mjs \"F99 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "builder 가 전체 명령을 실행하는 것을 막거나 감지하기 — 안내만 한다",
+    "builder 의 명령 실행 시간 측정",
+    "evaluator·security-reviewer 프롬프트 변경"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-09T09:38:29.087Z",
+    "hash": "3897e36babc40acbfa45d5f7a90f58ccbd59db287a3ccd19ffd16c99439ccbf1"
+  }
+}
