@@ -1,0 +1,69 @@
+{
+  "id": "F89",
+  "title": "결과가 바뀔 수 없는 verify 명령 재실행 빼기 — 기능 자신의 테스트가 실패했거나 실패한 테스트 이름이 없으면 retry 모드에서도 다시 돌리지 않는다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify.flaky 가 'retry'(기본값)일 때 verify 명령의 첫 실행이 실패하고 그 출력에서 읽은 실패 테스트 이름 중 하나라도 그 기능 id 와 공백으로 시작하면('F9 AC-1 …') 명령을 다시 실행하지 않는다 — 가짜 명령의 실행 기록이 1번이고, 명령 결과는 pass false·attempts 1·flaky false 이며 retry_skipped 가 'own_test' 다",
+      "check": "node test/t.mjs \"F89 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "verify.flaky 가 'retry' 일 때 첫 실행이 실패했는데 출력에서 실패 테스트 이름을 하나도 읽지 못하면(예: lint 실패, 시간 초과) 명령을 다시 실행하지 않는다 — 실행 기록 1번, pass false·attempts 1, retry_skipped 'no_test_names'. 시간 초과였으면 timed_out true 가 그대로 남는다",
+      "check": "node test/t.mjs \"F89 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "verify.flaky 가 'retry' 이고 첫 실행의 실패 테스트가 모두 다른 기능의 테스트이면 이 기능 전처럼 다시 실행하고(2차), 2차가 통과하면 3차까지 실행한다 — retry_skipped 가 없다",
+      "check": "node test/t.mjs \"F89 AC-3\"",
+      "new": false
+    },
+    {
+      "id": "AC-4",
+      "criterion": "verify.flaky 가 'fail' 이면 이 기능 전처럼 실패한 명령을 한 번 다시 실행해 flaky 여부를 기록한다 — retry_skipped 가 없다",
+      "check": "node test/t.mjs \"F89 AC-4\"",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "재실행을 건너뛴 명령의 verify/command 이벤트 data 에 retry_skipped('own_test' 또는 'no_test_names')가 있고 attempts 는 1 이다. 건너뛰지 않은 명령의 이벤트에는 retry_skipped 키가 없다",
+      "check": "node test/t.mjs \"F89 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "재실행을 건너뛴 명령의 실패 요약(verify 결과의 명령 output 과 다음 build 시도에 넘기는 verifyFailure)은 첫 실행의 출력 끝부분이다",
+      "check": "node test/t.mjs \"F89 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "docs/SPEC.md §6.1 이 retry 모드에서 재실행을 건너뛰는 두 경우(기능 자신의 테스트 실패, 실패 테스트 이름 없음)와 그 이유(재실행해도 판정이 fail 로 같다), retry_skipped 기록을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F89 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "첫 실행이 명령 없음(exit 127 등 환경 실패)이면 이 기능 전처럼 환경 실패로 판정되고 run 은 environment 사유로 멈춘다",
+      "check": "node test/t.mjs \"F89 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "기준 check 의 동시 실행 실패 단독 재시도 규칙 변경",
+    "flaky 'fail' 모드의 재실행 제거",
+    "실패 테스트 이름 읽는 규칙(✖·not ok) 변경"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-09T00:15:53.700Z",
+    "hash": "a687b342ed1d27d8fb624d28d8bd7dbf5ebc1c5916f26aa85d1173bcc5e5ff25"
+  }
+}
