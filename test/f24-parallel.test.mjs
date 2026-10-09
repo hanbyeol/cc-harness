@@ -256,13 +256,20 @@ test('F24 AC-4: an evaluator blocking finding makes the reviewer result unused; 
 // ------------------------------------------------------------------ AC-5
 test('F24 AC-5: parallel costs add up to one run total; over max-usd no new feature or step starts', async () => {
   const dir = fixture([{ id: 'F1' }, { id: 'F2' }, { id: 'F3' }]);
-  const build = slowBuild({ delay: (a) => (a.featureId === 'F1' ? 100 : 300), cost: () => 1 });
+  // F2's build ends only after F1's eval has started (up to 30 s), so F1 reaches eval under the
+  // limit however long its commit and verify take on a loaded machine.
+  let evaluate = null;
+  const f1Evaluating = async (a) => {
+    if (a.featureId !== 'F2') return;
+    for (const t0 = Date.now(); !evaluate.calls.some((c) => c.featureId === 'F1') && Date.now() - t0 < 30_000;) await sleep(20);
+  };
+  const build = slowBuild({ delay: (a) => (a.featureId === 'F1' ? 100 : 300), cost: () => 1, onCall: f1Evaluating });
   // F1's eval is still running when F2's build ends and pushes the total over the limit: hold it
   // until F2's build has ended (up to 30 s), then leave the run time to record that cost.
   const f2Built = async () => {
     for (const t0 = Date.now(); !build.calls.some((c) => c.featureId === 'F2' && c.end) && Date.now() - t0 < 30_000;) await sleep(20);
   };
-  const evaluate = fakeEvaluate({}, { delay: () => 1500, onCall: f2Built });
+  evaluate = fakeEvaluate({}, { delay: () => 1500, onCall: f2Built });
   const r = await run(dir, { build, evaluate }, { parallel: 2, maxUsd: 1.5 });
   assert.equal(r.costUsd, 2, 'both builds are counted in the run total');
   assert.equal(r.stopped?.reason, 'budget');
