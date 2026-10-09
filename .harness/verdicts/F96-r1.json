@@ -1,0 +1,60 @@
+{
+  "feature": "F96",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "`git clean -fd` after the pre-merge verify does not remove untracked nested git repositories (that needs `-ff`). A verify that clones a repo inside the worktree could still leave files. This is outside AC-1's leak.txt case.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "The AC-7 test checks the source text with a regex. It would also fail on harmless reformatting of the `cacheFile` declaration. Acceptable, since the criterion is itself a source check.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f96-backlog-fixes.test.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "B435, B460, B462 and B467 are resolved by this diff and can be closed.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B435"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.17349720000000002,
+  "contract_hash": "76818bd05d3053059b3cf31cccfe3f638f325a836d8e5e1ce2dbbe37cebdce5f",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-09T08:16:15.195Z",
+  "origin": "run"
+}

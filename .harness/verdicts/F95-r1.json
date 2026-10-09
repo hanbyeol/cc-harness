@@ -1,0 +1,61 @@
+{
+  "feature": "F95",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "A reason that starts with '-' (for example \"-5% fixed\") is rejected as an unknown option by parseClose in lib/commands/backlog.mjs. The user has to rephrase the reason. This matches ES-1 (unknown option), so it is a usability note, not a defect.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/commands/backlog.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "lintContract prints 'already closed as undefined' when a hand-edited `closed` value is not an object with a string `as`. The `closed` check in backlog close handles that case, but lint does not.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/contract.mjs",
+      "line": 167,
+      "priority": "low"
+    },
+    {
+      "summary": "The change to test/f81-verify-phases.test.mjs (waiting for the other feature's commit) is timing stabilization outside the F95 scope. It is similar to open backlog item B484, which is about F97.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f81-verify-phases.test.mjs",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.1419412,
+  "contract_hash": "d15629eaed507793f89b0b8a29a22dcd99d8510cfd6e6e0a4b0953b4ad04d83b",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-09T08:22:52.269Z",
+  "origin": "run"
+}

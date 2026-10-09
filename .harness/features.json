@@ -829,21 +829,21 @@
       "title": "backlog 항목 닫기 — harness backlog close 로 사람이 이미 해결됐거나 처리할 필요가 없는 열린 항목을 근거와 함께 닫는다",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F96",
       "title": "verify·run backlog 수정 묶음 — 병합 전 verify 의 미추적 파일 정리, git 오류 구분, 트리 키 실패 기억, 명령 이벤트 정확성",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F97",
       "title": "eval·CLI·telemetry backlog 수정 묶음 — repro 프로그램 길이 제한, note 의 기능 id 확인, eval_error 때 reviewer 지적 표시, export 이름 충돌, learn --json --compare, 빠진 테스트",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F98",
@@ -854,7 +854,7 @@
         "F96",
         "F97"
       ],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }

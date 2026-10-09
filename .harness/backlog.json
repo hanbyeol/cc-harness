@@ -4500,7 +4500,8 @@
         "F56-r2",
         "F56-r3",
         "F56-r4"
-      ]
+      ],
+      "resolved_by": "F97"
     },
     {
       "feature": "F57",
@@ -4525,7 +4526,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B375"
+      "id": "B375",
+      "resolved_by": "F97"
     },
     {
       "feature": "F55",
@@ -4535,7 +4537,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B376"
+      "id": "B376",
+      "resolved_by": "F98"
     },
     {
       "feature": "F55",
@@ -4545,7 +4548,8 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B377"
+      "id": "B377",
+      "resolved_by": "F96"
     },
     {
       "feature": "F55",
@@ -4583,7 +4587,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B380"
+      "id": "B380",
+      "resolved_by": "F97"
     },
     {
       "feature": "F56",
@@ -4622,7 +4627,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B383"
+      "id": "B383",
+      "resolved_by": "F97"
     },
     {
       "feature": "F58",
@@ -4734,7 +4740,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B392"
+      "id": "B392",
+      "resolved_by": "F97"
     },
     {
       "feature": "F59",
@@ -4885,7 +4892,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B406"
+      "id": "B406",
+      "resolved_by": "F97"
     },
     {
       "feature": "F61",
@@ -4916,7 +4924,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B409"
+      "id": "B409",
+      "resolved_by": "F97"
     },
     {
       "feature": "F64",
@@ -4947,7 +4956,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B412"
+      "id": "B412",
+      "resolved_by": "F98"
     },
     {
       "feature": "F65",
@@ -4957,7 +4967,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B413"
+      "id": "B413",
+      "resolved_by": "F96"
     },
     {
       "feature": "F68",
@@ -4967,7 +4978,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B414"
+      "id": "B414",
+      "resolved_by": "F98"
     },
     {
       "feature": "F69",
@@ -5013,7 +5025,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B419"
+      "id": "B419",
+      "resolved_by": "F97"
     },
     {
       "feature": "F72",
@@ -5123,7 +5136,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B430"
+      "id": "B430",
+      "resolved_by": "F98"
     },
     {
       "feature": "F74",
@@ -5192,7 +5206,12 @@
       "source": "evaluator",
       "file": "lib/run.mjs",
       "priority": "low",
-      "id": "B435"
+      "id": "B435",
+      "seen": 2,
+      "sources": [
+        "F96-r1"
+      ],
+      "resolved_by": "F96"
     },
     {
       "feature": "F76",
@@ -5473,7 +5492,8 @@
       "source": "evaluator",
       "file": "lib/verify.mjs",
       "priority": "low",
-      "id": "B460"
+      "id": "B460",
+      "resolved_by": "F96"
     },
     {
       "feature": "F85",
@@ -5495,7 +5515,8 @@
       "source": "evaluator",
       "file": "lib/verify.mjs",
       "priority": "low",
-      "id": "B462"
+      "id": "B462",
+      "resolved_by": "F96"
     },
     {
       "feature": "F85",
@@ -5562,7 +5583,8 @@
       "source": "evaluator",
       "file": "lib/verify.mjs",
       "priority": "low",
-      "id": "B467"
+      "id": "B467",
+      "resolved_by": "F96"
     },
     {
       "feature": "F87",
@@ -5573,7 +5595,8 @@
       "source": "evaluator",
       "file": "lib/verify.mjs",
       "priority": "low",
-      "id": "B468"
+      "id": "B468",
+      "resolved_by": "F96"
     },
     {
       "feature": "F88",
@@ -5673,7 +5696,8 @@
       "source": "evaluator",
       "file": "docs/SPEC.md",
       "priority": "low",
-      "id": "B477"
+      "id": "B477",
+      "resolved_by": "F98"
     },
     {
       "feature": "F91",
@@ -5684,7 +5708,8 @@
       "source": "evaluator",
       "file": "lib/run.mjs",
       "priority": "low",
-      "id": "B478"
+      "id": "B478",
+      "resolved_by": "F96"
     },
     {
       "feature": "F91",
@@ -5705,7 +5730,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B480"
+      "id": "B480",
+      "resolved_by": "F98"
     },
     {
       "feature": "F93",
@@ -5715,7 +5741,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B481"
+      "id": "B481",
+      "resolved_by": "F98"
     },
     {
       "feature": "F94",
@@ -5738,6 +5765,106 @@
       "file": "test/f94-early-checks.test.mjs",
       "priority": "low",
       "id": "B483"
+    },
+    {
+      "feature": "F97",
+      "round": 1,
+      "at": "2026-10-09T08:09:35.121Z",
+      "summary": "test/f81-verify-phases.test.mjs 의 변경(sleep SLOW → SLOW*2)은 F97 계약 범위 밖의 타이밍 안정화다. 단언은 약해지지 않았지만 별도 변경으로 다루는 편이 추적하기 쉽다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f81-verify-phases.test.mjs",
+      "priority": "low",
+      "id": "B484"
+    },
+    {
+      "feature": "F97",
+      "round": 1,
+      "at": "2026-10-09T08:09:35.121Z",
+      "summary": "writeExport 의 접미사 이름은 file.replace(/\\.jsonl$/, '-1.jsonl') 로 만든다. plan.file 이 .jsonl 로 끝나지 않으면 접미사 없이 같은 이름으로 재시도하게 되지만, 현재 planExport 는 항상 .jsonl 이름을 만들어 실제 결함은 아니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/telemetry.mjs",
+      "priority": "low",
+      "id": "B485"
+    },
+    {
+      "feature": "F96",
+      "round": 1,
+      "at": "2026-10-09T08:16:15.195Z",
+      "summary": "`git clean -fd` after the pre-merge verify does not remove untracked nested git repositories (that needs `-ff`). A verify that clones a repo inside the worktree could still leave files. This is outside AC-1's leak.txt case.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "priority": "low",
+      "id": "B486"
+    },
+    {
+      "feature": "F96",
+      "round": 1,
+      "at": "2026-10-09T08:16:15.195Z",
+      "summary": "The AC-7 test checks the source text with a regex. It would also fail on harmless reformatting of the `cacheFile` declaration. Acceptable, since the criterion is itself a source check.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f96-backlog-fixes.test.mjs",
+      "priority": "low",
+      "id": "B487"
+    },
+    {
+      "feature": "F95",
+      "round": 1,
+      "at": "2026-10-09T08:22:52.269Z",
+      "summary": "A reason that starts with '-' (for example \"-5% fixed\") is rejected as an unknown option by parseClose in lib/commands/backlog.mjs. The user has to rephrase the reason. This matches ES-1 (unknown option), so it is a usability note, not a defect.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/commands/backlog.mjs",
+      "priority": "low",
+      "id": "B488",
+      "seen": 2,
+      "sources": [
+        "F95-r2"
+      ]
+    },
+    {
+      "feature": "F95",
+      "round": 1,
+      "at": "2026-10-09T08:22:52.269Z",
+      "summary": "lintContract prints 'already closed as undefined' when a hand-edited `closed` value is not an object with a string `as`. The `closed` check in backlog close handles that case, but lint does not.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/contract.mjs",
+      "line": 167,
+      "priority": "low",
+      "id": "B489",
+      "seen": 2,
+      "sources": [
+        "F95-r2"
+      ]
+    },
+    {
+      "feature": "F95",
+      "round": 1,
+      "at": "2026-10-09T08:22:52.269Z",
+      "summary": "The change to test/f81-verify-phases.test.mjs (waiting for the other feature's commit) is timing stabilization outside the F95 scope. It is similar to open backlog item B484, which is about F97.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f81-verify-phases.test.mjs",
+      "priority": "low",
+      "id": "B490",
+      "seen": 2,
+      "sources": [
+        "F95-r2"
+      ]
+    },
+    {
+      "feature": "F98",
+      "round": 1,
+      "at": "2026-10-09T09:14:46.765Z",
+      "summary": "F98 변경 범위 밖인 test/f81-verify-phases.test.mjs 의 수정은 SPEC 문구 단언 갱신뿐이라 문제없음. 다만 B484 의 SLOW 타이밍 변경은 이 diff 에 없음(참고).",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B491"
     }
   ]
 }

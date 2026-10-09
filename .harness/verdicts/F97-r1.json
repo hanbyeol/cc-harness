@@ -1,0 +1,53 @@
+{
+  "feature": "F97",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "test/f81-verify-phases.test.mjs 의 변경(sleep SLOW → SLOW*2)은 F97 계약 범위 밖의 타이밍 안정화다. 단언은 약해지지 않았지만 별도 변경으로 다루는 편이 추적하기 쉽다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f81-verify-phases.test.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "writeExport 의 접미사 이름은 file.replace(/\\.jsonl$/, '-1.jsonl') 로 만든다. plan.file 이 .jsonl 로 끝나지 않으면 접미사 없이 같은 이름으로 재시도하게 되지만, 현재 planExport 는 항상 .jsonl 이름을 만들어 실제 결함은 아니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/telemetry.mjs",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.138462,
+  "contract_hash": "d0ee9df567d025b2d073792be7ee549743a4e0701fb1f7025e8ba3aa75758b81",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-09T08:09:35.121Z",
+  "origin": "run"
+}

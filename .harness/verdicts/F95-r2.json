@@ -1,0 +1,64 @@
+{
+  "feature": "F95",
+  "round": 2,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "lintContract prints 'already closed as undefined' when a hand-edited `closed` value has no string `as`.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/contract.mjs",
+      "line": 167,
+      "priority": "low",
+      "backlog_id": "B489"
+    },
+    {
+      "summary": "A reason that starts with '-' (for example \"-5% fixed\") is rejected as an unknown option by parseClose.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/commands/backlog.mjs",
+      "priority": "low",
+      "backlog_id": "B488"
+    },
+    {
+      "summary": "The change to test/f81-verify-phases.test.mjs is timing stabilization outside F95's scope. It would be easier to track as a separate change.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f81-verify-phases.test.mjs",
+      "priority": "low",
+      "backlog_id": "B490"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.1397452,
+  "contract_hash": "d15629eaed507793f89b0b8a29a22dcd99d8510cfd6e6e0a4b0953b4ad04d83b",
+  "contract_round": 2,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-09T08:33:07.101Z",
+  "origin": "run"
+}
