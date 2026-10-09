@@ -298,7 +298,7 @@ test('F81 AC-7: SPEC describes the phases event, metrics queue_ms and the stats 
   const spec = fs.readFileSync(path.join(REPO, 'docs', 'SPEC.md'), 'utf8');
   for (const re of [/verify\/phases/, /`phases_ms`/, /`total_ms`/, /`test_count_source`/,
     ...PHASE_KEYS.map((k) => new RegExp(`\`${k}\``)), /`parsed`·`ran`·`cache`/,
-    /`queue_ms`\(`verify`·`post_merge_verify` 줄은/, /verify 풀/, /단계별 `queue_ms` 합계/, /0 으로 집계/]) {
+    /`queue_ms`\(`verify`·`pre_merge_verify`·`post_merge_verify` 줄은/, /verify 풀/, /단계별 `queue_ms` 합계/, /0 으로 집계/]) {
     assert.match(spec, re);
   }
 });
