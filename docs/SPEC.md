@@ -44,7 +44,7 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
   verify 가 끝나면(통과·실패 모두) 단계별 시간 `verify/phases` `{step, total_ms, phases_ms, test_count_source}` 하나를 더 남긴다. `step` 은 run 이면 `verify`·`post_merge_verify`,
   `harness verify` 면 null 이다. `phases_ms` 의 키는 정확히 `integrity`·`commands`·`test_count`·`checks`·`cleanup` 이고 값은 0 이상의 정수(ms, 코어가 잰 벽시계 시간)다 —
   `integrity` 는 verify 시작부터(base·merge-base 해석 포함) 무결성 검사(§6.2 diff·skip 표시·`.harness` 변경)까지, `commands` 는 `verify.commands` 실행(재실행 포함),
-  `test_count` 는 head·base 테스트 수 계산(캐시가 없어 base 를 실행하면 그 실행과 base worktree 생성 포함, 미설정이면 0 에 가깝다), `checks` 는 기준 check 와 base vacuity 실행(단독 재실행 포함),
+  `test_count` 는 head·base 테스트 수 계산(캐시가 없어 base 를 실행하면 그 실행과 base worktree 생성 포함, 미설정이면 0 에 가깝다), `checks` 는 기준 check 와 base vacuity 실행(단독 재실행 포함 — head check 가 verify 명령·테스트 수와 겹친 시간도 `checks` 다, §6.3),
   `cleanup` 은 base worktree 와 node_modules 링크 정리다. 구간은 이어져 있어 다섯 값의 합은 `total_ms`(verify 전체) 이하다. `test_count_source` 는 `verify.test_count` 가 설정되어
   계산했으면 `{head, base}` 출처(`parsed`·`ran`·`cache`, §6.2 와 같다), 아니면 null 이다. data 에는 수치·step 이름·출처 문자열만 있고 명령·경로·출력·환경 값은 없다.
   verify 결과 객체(`harness verify --json` 출력과 run 의 verify 결과)에도 같은 `phases_ms`·`total_ms` 가 있다.
@@ -278,12 +278,13 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
 
 **동시 실행** (`verify.check_parallel`):
 - 기준 check(작업 트리)와 `new: true` 기준의 base vacuity 실행(base 임시 worktree)은 하나의 상한을 공유해 동시에 최대 `verify.check_parallel` 개 실행된다. 없거나 `'auto'`(기본)이면 max(1, floor(CPU 수 / 4))(가용 CPU 수; `harness run` 안에서는 run 시작 때 읽은 값)이다. `'auto'` 도 1 이상의 정수도 아니면(0·소수·다른 문자열·숫자 문자열) 작업 없이 `config_invalid`(exit 2), 메시지에 `verify.check_parallel` 이 나온다(§4).
-- 실행 순서 제약: **base 테스트 수 → 얹기 → base vacuity**. §6.2-3 의 head·base 테스트 수 산출이 모두 끝나고 기능의 테스트 파일을 base 에 얹은 뒤에만 기준 check 와 base vacuity 실행이 시작된다. head 쪽과 base 쪽 테스트 수는 동시에 센다.
+- 실행 순서 제약: **base 테스트 수 → 얹기 → base vacuity**. §6.2-3 의 head·base 테스트 수 산출이 모두 끝나고 기능의 테스트 파일을 base 에 얹은 뒤에만 base vacuity 실행이 시작된다. head 쪽과 base 쪽 테스트 수는 동시에 센다.
+- **head check 의 시작 시점**: `verify.check_parallel` 이 1 보다 크면 head 기준 check 는 `verify.commands` 와 동시에 시작한다 — verify 명령(§6.1, 여전히 하나씩 순서대로)과 테스트 수 산출을 기다리지 않고, 상한 안에서 계약 순서대로 시작한다. verify 명령과 테스트 수 실행은 상한의 자리를 차지하지 않지만 동시 실행으로 센다: 그와 겹쳐 돌다 실패한 head check 도 아래의 단독 재확인 대상이다(그 재확인은 verify 명령이 모두 끝난 뒤다). 통과한 `new: true` 기준의 base vacuity 실행은 테스트 수 산출이 끝날 때까지 기다린다. verify 명령이 명령 없음 등으로 실패해도 동시에 돌던 check 는 끝까지 기다려 결과에 남는다. 단계별 시간(§2 `verify/phases`)에서 head check 가 verify 명령·테스트 수와 겹친 시간은 `checks` 구간에 들어간다.
 - 결과의 `criteria` 는 check 가 끝난 순서와 무관하게 계약 순서다.
 - 다른 실행과 동시에 돌다가 실패한 check 는 모든 동시 실행이 끝난 뒤 혼자 한 번 더 실행한다(하나씩, 계약 순서). 그때 통과하면 pass 로 기록하고 결과에 `parallel_retry: true`, `warnings` 에 기준 id 를 남긴다(공유 자원 의존 가능성 — 필요하면 `check_parallel` 1). 다시 실패하면 fail(`parallel_retry: true`)이다. 단독 재확인에서 통과한 `new: true` 기준은 그 뒤 base vacuity 실행도 혼자 한다. 시간 초과된 check 는 단독 재확인 없이 fail(`timedOut`)이고, 다른 check 의 결과는 그대로 기록된다.
 - **base 단독 재확인**: `new: true` 기준의 base vacuity 실행이 다른 실행과 동시에 돌다가 통과하지 못하면(실패·시간 초과 모두) 경합 때문에 실패했을 수 있고, 그러면 vacuous 기준이 통과할 수 있다. 그래서 그 결과로 판정하지 않고, 모든 동시 실행(head 단독 재확인 포함)이 끝난 뒤 그 base 실행을 혼자 한 번 더 한다(하나씩, 계약 순서, 같은 base 시간 제한). vacuous 판정은 이 단독 실행 결과로 한다 — 통과하면 vacuous, 실패면 head 결과대로, 시간 초과면 vacuous 가 아니고 `base_timed_out: true`. 재확인한 기준의 결과에는 `base_retry: true` 가 남는다. `verify.check_parallel` 이 1 이면 동시 실행이 없으므로 base 단독 재확인도 없다.
 - **병합 후 verify 의 base vacuity 재사용**: `harness run` 의 병합 후 verify(§8 5.)에서 병합 전 integration 커밋(`preMergeSha`, 이 verify 의 base)이 그 기능 verify 의 base(`baseSha` — 기능 worktree 를 만든 integration 커밋, 충돌 해결·병합 후 verify 복구 뒤에는 그때 병합한 integration 커밋)와 같은 커밋이면, `new: true` 기준의 base vacuity 실행을 다시 하지 않는다 — 같은 base 에서 기능 verify 가 이미 그 실행을 했다. head 쪽 check 가 통과한 `new: true` 기준의 결과 항목에 `vacuity_reused: true` 가 남고 `base_retry` 는 false 다. head 쪽 기준 check·`verify.commands`·무결성 검사(§6.2: `.harness` 변경·skip 표시·테스트 수)는 그대로 병합된 integration worktree 에서 모두 실행된다. 둘이 다르면(병렬 run 에서 다른 기능이 먼저 병합됨), 기능의 `baseSha` 가 없거나(이 규칙 이전 run 상태에서 `--resume`) 커밋으로 해석되지 않으면 지금처럼 base vacuity 를 실행하고 `vacuity_reused` 는 없다. 기능 verify(`step` = `verify`)와 `harness verify F{n}` 은 언제나 base vacuity 를 실행한다. 병합 후 verify 의 `verify/check` 이벤트(§2)에는 `vacuity_reused`(true 또는 false)가 있다.
-- `verify.check_parallel` 이 1 이면 지금처럼 모두 하나씩 순서대로 실행된다: head 테스트 수 → base 테스트 수, 그다음 기준마다 check → (필요하면) base vacuity. 동시 실행이 없으므로 단독 재확인도 없다.
+- `verify.check_parallel` 이 1 이면 지금처럼 모두 하나씩 순서대로 실행된다: `verify.commands` → 테스트 수(head → base) → 기준 check(기준마다 check → (필요하면) base vacuity). 동시 실행이 없으므로 단독 재확인도 없다.
 - 범위 밖: `verify.commands` 끼리의 병렬 실행(§6.1 은 항상 순서대로), check 별 자원 충돌(DB·포트) 자동 감지 — 필요한 프로젝트는 `check_parallel` 1 로 설정한다.
 
 ### 6.4 결과 캐시 (`verify.cache`)
