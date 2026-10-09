@@ -88,7 +88,8 @@ test('F90 AC-4: no rules/ directory, not packaged, and no tracked file points at
   // (`.claude/rules/` in a v1 project is a different directory).
   const ref = new RegExp(`(^|[^\\w./-])${dir}/`, 'm');
   const files = spawnSync('git', ['ls-files', '-z'], { cwd: REPO, encoding: 'utf8' }).stdout.split('\0')
-    .filter((f) => f && !f.startsWith('.harness/'));
+    // This file names the directory in its own text; once committed it is a tracked file too.
+    .filter((f) => f && !f.startsWith('.harness/') && f !== 'test/f90-cleanup.test.mjs');
   assert.ok(files.length > 10, 'git ls-files lists the repository');
   const hits = [];
   for (const f of files) {
