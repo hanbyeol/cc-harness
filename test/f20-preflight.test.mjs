@@ -9,7 +9,7 @@ import { resolveConfig } from '../lib/config.mjs';
 import { hashContract } from '../lib/contract.mjs';
 import { getAdapter } from '../lib/adapters/index.mjs';
 import doctor, { diagnose } from '../lib/commands/doctor.mjs';
-import { runFeatures } from '../lib/run.mjs';
+import { runFeatures, preflight } from '../lib/run.mjs';
 import { HarnessError } from '../lib/errors.mjs';
 
 const FIX = path.join(REPO, 'test', 'fixtures');
@@ -370,4 +370,12 @@ test('F20 ES-1 a gemini role with an unreadable settings.json is not usable (sam
   const ev = await evaluatorOf({ HOME: home('{ not json') });
   assert.equal(ev.usable, false);
   assert.equal(ev.reason, 'not authenticated (settings.json unreadable)');
+});
+
+test('F20 regression: run preflight probes only the adapters the roles use', async () => {
+  const probed = [];
+  const spy = async (adapter) => { probed.push(adapter.name); return PROBE(adapter); };
+  const config = resolveConfig({ roles: { builder: 'claude', evaluator: 'claude', 'security-reviewer': 'claude' } });
+  await preflight({ config, critical: false, diagnose: (args) => diagnose({ ...args, probe: spy }) });
+  assert.deepEqual([...new Set(probed)], ['claude'], `probed: ${probed.join(', ')}`);
 });
