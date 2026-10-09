@@ -108,7 +108,7 @@ test('F19 AC-1 two interactive fails of the current hash, max_rounds 3: one buil
   assert.equal(r.builds, 1, JSON.stringify(r.results));
   assert.equal(ra.calls, 1);
   assert.equal(r.results[0].status, 'blocked');
-  assert.equal(r.results[0].reason, 'max_rounds', 'the run’s round-limit reason');
+  assert.equal(r.results[0].reason, 'rounds', 'the run’s round-limit reason');
   assert.equal(statusOf(dir), 'blocked');
   assert.deepEqual(verdictFiles(dir), ['F9-r1.json', 'F9-r2.json', 'F9-r3.json']);
   const v3 = readJson(vfile(dir, 3));
@@ -150,7 +150,7 @@ test('F19 AC-3 no verdicts: run gets all max_rounds rounds', async () => {
   const ra = adapter(failReply('AC-1', 'AC-2', 'SC-1'), failReply('AC-1', 'AC-2'), failReply('AC-1'));
   const r = await runOnce(dir, ra);
   assert.equal(r.builds, 3, JSON.stringify(r.results));
-  assert.equal(r.results[0].reason, 'max_rounds');
+  assert.equal(r.results[0].reason, 'rounds');
   assert.equal(r.results[0].rounds, 3);
 });
 
@@ -199,7 +199,7 @@ test('F19 SC-1 max_rounds verdicts of the current hash already: no builder, no e
   assert.equal(r.builds, 0);
   assert.equal(ra.calls, 0);
   assert.equal(r.results[0].status, 'blocked');
-  assert.equal(r.results[0].reason, 'max_rounds');
+  assert.equal(r.results[0].reason, 'rounds');
   assert.equal(r.results[0].rounds, 3);
   assert.equal(statusOf(dir), 'blocked');
   assert.deepEqual(verdictFiles(dir), ['F9-r1.json', 'F9-r2.json', 'F9-r3.json']);
