@@ -36,9 +36,9 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
   `session_log` 는 세션 id 가 있으면 `{path, exists}` — `path` 는 claude 세션 기록 파일의 예상 위치 `~/.claude/projects/<cwd 인코딩>/<session_id>.jsonl`
   (cwd 인코딩 = 호출한 작업 디렉터리의 실제 경로에서 영문·숫자 외 문자를 모두 `-` 로), `exists` 는 기록 시점에 그 파일이 있는지다. 없으면 `null`. 파일 내용은 읽지 않는다.
 - verify: `harness verify`·run 의 verify(`step` = `verify`·`post_merge_verify`, round 포함)는 끝날 때 `verify.commands` 마다 `verify/command`
-  `{step?, index, program, duration_ms, pass, exit_code, attempts, flaky, timed_out, flaky_passed?}`(program = 명령의 첫 프로그램 이름, `duration_ms` = 재실행 포함 시간),
+  `{step?, index, program, duration_ms, pass, exit_code, attempts, flaky, timed_out, flaky_passed?, retry_skipped?}`(program = 명령의 첫 프로그램 이름, `duration_ms` = 재실행 포함 시간),
   기준 check 마다 `verify/check` `{step?, id, duration_ms, pass, exit_code, vacuous, parallel_retry, base_retry, timed_out, vacuity_reused?}`(`duration_ms` = head 실행 시간, 단독 재실행 포함)를 남긴다.
-  재실행 여부: `attempts` 2 는 실패한 명령을 한 번 더 돌린 것이고 `flaky` 는 그 재실행에서 결과가 바뀐 것, `attempts` 3 은 `verify.flaky` 'retry' 의 3차 실행이고 `flaky_passed` true 는 그 3차로 통과한 것(§6.1), `parallel_retry` 는 동시 실행 중 실패해
+  재실행 여부: `attempts` 2 는 실패한 명령을 한 번 더 돌린 것이고 `flaky` 는 그 재실행에서 결과가 바뀐 것, `attempts` 3 은 `verify.flaky` 'retry' 의 3차 실행이고 `flaky_passed` true 는 그 3차로 통과한 것, `retry_skipped`(`own_test`·`no_test_names`)는 재실행을 건너뛰어 `attempts` 1 로 끝난 실패(§6.1), `parallel_retry` 는 동시 실행 중 실패해
   단독으로 다시 돈 기준, `base_retry` 는 base 쪽 vacuity 실행을 단독으로 다시 돈 기준이다(§6.3). `post_merge_verify` 의 `verify/check` 에는
   `vacuity_reused`(true 또는 false)도 있다 — true 는 기능 verify 의 base vacuity 실행을 재사용해 base 에서 다시 돌리지 않은 기준이다(§6.3).
   verify 가 끝나면(통과·실패 모두) 단계별 시간 `verify/phases` `{step, total_ms, phases_ms, test_count_source}` 하나를 더 남긴다. `step` 은 run 이면 `verify`·`post_merge_verify`,
@@ -235,13 +235,17 @@ lint 규칙(전부 결정적, 위반 = error):
 config의 `verify.commands`(예: test·lint·build)를 순서대로 실행. 하나라도 비정상 종료 = fail. 실행 파일이 없으면 `command not found: <이름>` 으로 보고한다(판정 규칙은 §7.3 의 명령 미발견과 같다).
 **명령 없음 판정(verify 명령·기준 check·`test_count`)**: exit 127 은 stderr 의 한 줄에 그 명령의 첫 프로그램 이름(앞의 `NAME=value` 대입을 건너뛴 첫 단어, 따옴표 제거)과 `not found`(대소문자 무시) 또는 `No such file` 이 함께 있을 때만 명령 없음이다 — 그 밖의 exit 127(예: `sh -c "exit 127"`, `npm test` 안에서 `jest` 가 없는 경우처럼 스크립트 자체가 127 로 끝남)은 일반 실패(`exit 127`)다. 명령이 `&&`·`||`·`;`·`|` 로 이어져 있으면(따옴표 안의 기호는 제외) 각 부분의 첫 프로그램 중 하나가 그렇게 이름 불릴 때 명령 없음이다 — `cd sub && no-such-prog` 는 명령 없음, `cd sub && sh -c "exit 127"` 은 일반 실패다. Windows 형식(exit 9009, cmd.exe 의 exit 1 + `'<프로그램>' is not recognized …`)과 spawn ENOENT 판정은 그대로다. repro·어댑터 CLI 의 판정(§7.3, §10)은 바뀌지 않는다.
 **코어 명령 내장 실행**: verify 명령·기준 check(base vacuity 실행 포함)·`test_count` 명령 문자열이 정확히 `harness ` 로 시작하고 나머지가 공백으로 나뉜 평범한 단어(영숫자와 `_-./:=@+,` 만)로만 이뤄지면, 코어는 PATH 의 `harness` 대신 자기 자신의 `bin/harness.mjs` 를 현재 node 로 셸 없이 인자 배열로 실행한다(PATH 에 다른 버전의 harness 가 있어도 이 checkout 의 코어가 실행되고, 변수 확장은 없다). `;`·`|`·`&`·`$`·따옴표·리다이렉션·`%`·`~`·역슬래시 등이 한 글자라도 있거나 앞에 공백이 있으면 내장 실행하지 않고 지금처럼 셸 명령으로 실행한다(예: `harness tf-check; echo pwned` 는 셸이 처리한다).
-실패 시 **1회 재실행**, 결과가 다르면 `flaky`로 기록하고 fail로 취급. 첫 실행에 실패하고 재실행에 통과한 명령은 첫 실행 출력(stdout·stderr)에서 `✖ ` 또는 `not ok ` 로 시작하는 줄(앞 공백 무시)의 테스트 이름(끝의 `(12ms)` 시간·TAP `# …` 지시어 제외, 중복 제거, 최대 20개)을 그 명령의 `flaky_tests` 로, 모든 명령의 합(최대 20개)을 verify 결과의 `flaky_tests` 로 기록한다.
+실패 시 **1회 재실행**(아래 `'retry'` 의 건너뛰기 제외), 결과가 다르면 `flaky`로 기록하고 fail로 취급. 첫 실행에 실패하고 재실행에 통과한 명령은 첫 실행 출력(stdout·stderr)에서 `✖ ` 또는 `not ok ` 로 시작하는 줄(앞 공백 무시)의 테스트 이름(끝의 `(12ms)` 시간·TAP `# …` 지시어 제외, 중복 제거, 최대 20개)을 그 명령의 `flaky_tests` 로, 모든 명령의 합(최대 20개)을 verify 결과의 `flaky_tests` 로 기록한다.
 **불안정 테스트 판정(`verify.flaky`)**: `'retry'`(기본값) 또는 `'fail'`, 그 밖의 값은 `verify.flaky` 를 담은 `config_invalid`(exit 2).
 `'fail'` 이면 flaky 명령은 fail 이고 3차 실행은 없다. `'retry'` 이면 1차 실패·2차 통과한 명령을 코어가 같은 조건으로 **3차로 한 번 더** 실행한다.
 3차가 통과하면 그 명령은 통과로 판정되고(`attempts` 3, `flaky` true, 명령 결과에 `flaky_passed` true), verify 결과의 `warnings` 에
 `flaky: passed on retry — <명령> (<테스트 이름>)` 이 남는다. 3차가 실패하거나 step 시간 제한에 걸리면(`timed_out`) 명령 실패(`attempts` 3)다.
 1차·2차 모두 실패하면 3차는 실행하지 않는다(`attempts` 2). 예외 — 1차 출력에서 뽑은 실패 테스트 이름(개수 제한 없이 모두) 중 하나라도
-`<기능 id> ` 로 시작하면(예: `F65 AC-1 …`, 기능 자신의 테스트는 안정적이어야 한다) 또는 이름을 하나도 뽑지 못하면, 3차 없이 지금처럼 fail 이다(`attempts` 2).
+`<기능 id> ` 로 시작하면(예: `F65 AC-1 …`, 기능 자신의 테스트는 안정적이어야 한다) 또는 이름을 하나도 뽑지 못하면(lint 실패, 시간 초과 등) fail 이다.
+**재실행 건너뛰기**: `'retry'` 에서 이 두 경우는 재실행해도 판정이 fail 로 같으므로 1차 실패 뒤 **2차도 실행하지 않는다** —
+명령 결과는 `pass` false·`attempts` 1·`flaky` false 이고 `retry_skipped` 가 `own_test`(기능 자신의 테스트 실패) 또는 `no_test_names`(실패 테스트 이름 없음)이며,
+시간 초과였으면 `timed_out` 이 그대로 남는다. 실패 요약(명령 `output`, 다음 build 시도에 넘기는 verify 실패)은 1차 출력의 끝부분이고, 명령 없음(§7.3)도 1차 결과로 판정한다.
+`verify/command` 이벤트에는 건너뛴 명령에만 `retry_skipped` 가 있다. 실패 테스트가 모두 다른 기능의 것이면 위처럼 2차(·3차)를 실행하고, `'fail'` 이면 건너뛰지 않고 1회 재실행한다.
 3차로 통과한 명령은 `verify/command` 이벤트에 `attempts` 3 과 `data.flaky_passed` true 로 기록되고, `harness run` 은 그 명령의 `flaky_tests`
 이름마다 backlog 항목(`reason`·`kind` `flaky_test`, `priority` low, `test` = 이름)을 남긴다 — 같은 이름의 열린 `flaky_test` 항목이 있으면 새로 만들지 않고
 그 항목의 `seen` 을 1 늘리고 `sources` 에 `<기능>-r<라운드>` 를 더한다. 기준 check 의 재시도 규칙과 base vacuity 실행은 이 설정과 무관하다.

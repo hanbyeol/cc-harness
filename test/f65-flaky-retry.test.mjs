@@ -113,9 +113,10 @@ test("F65 AC-3: a flaky failure of the feature's own test stays a fail whatever 
   const r = await run(dir, { verify: { commands: [planCmd('fpp', 'other test|F9 AC-1: own test', 'a.state')] } });
   const c = r.commands[0];
   assert.equal(c.pass, false, JSON.stringify(c));
-  assert.equal(c.flaky, true);
+  // F89: the own test failed, so no re-run can pass the command — it is not re-run at all
+  assert.equal(c.flaky, false);
   assert.equal(Boolean(c.flaky_passed), false);
-  assert.deepEqual(c.flaky_tests, ['other test', 'F9 AC-1: own test']);
+  assert.deepEqual([c.flaky_tests, c.retry_skipped, attemptsRun(dir)], [undefined, 'own_test', 1]);
   assert.equal(r.pass, false);
 });
 
@@ -123,7 +124,8 @@ test('F65 AC-3: a flaky failure without failed test names in the output stays a 
   const dir = fixture();
   const r = await run(dir, { verify: { commands: [planCmd('fpp', '-')] } });
   const c = r.commands[0];
-  assert.deepEqual([c.pass, c.flaky, Boolean(c.flaky_passed)], [false, true, false], JSON.stringify(c));
+  // F89: no failed test names, so the command is not re-run
+  assert.deepEqual([c.pass, c.flaky, Boolean(c.flaky_passed), c.retry_skipped], [false, false, false, 'no_test_names'], JSON.stringify(c));
   assert.equal(r.pass, false);
 });
 
