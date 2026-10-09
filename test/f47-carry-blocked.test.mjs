@@ -171,7 +171,10 @@ test('F47 AC-2: --fresh is parsed by the CLI and needs feature ids', () => {
 // ------------------------------------------------------------------ AC-3
 test('F47 AC-3: uncommitted changes in the leftover worktree are committed as carried work before the build', async () => {
   const dir = fixture();
-  await leaveBlocked(dir, dirtyWork);
+  // The core commits each build attempt before its verify (F92), so the uncommitted work is left
+  // in the blocked worktree afterwards, as a timed-out last attempt or an eval repro leaves it.
+  await leaveBlocked(dir, () => ({ ok: true, costUsd: 0 }));
+  dirtyWork({ cwd: wt(dir) });
   assert.notEqual(git(wt(dir), 'status', '--porcelain'), '', 'the fixture leaves uncommitted work');
   const build = fakeBuild();
   const r = await runF(dir, { build });
