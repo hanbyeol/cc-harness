@@ -99,6 +99,7 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 - 허브에 새로 만드는 디렉터리(허브와 `<hub>/<project>`)는 모드 0700, 묶음 파일은 0600 이다(POSIX, umask 와 무관). 이미 있는 디렉터리는 바꾸지 않는다.
 - 허브는 `--hub <dir>`(현재 디렉터리 기준), 없으면 환경 변수 `CC_HARNESS_HUB`, 없으면 `<사용자 홈>/.cc-harness/hub` 다. 묶음 파일은 `<hub>/<project>/<시각>.jsonl` —
   `project` 는 이벤트의 `project` 와 같은 경로 해시, 시각은 내보낸 시각의 ISO 8601 기본 형식(`20260928T123456.789Z`, Windows 파일 이름에 `:` 를 쓸 수 없어서)이다.
+  그 이름의 파일이 이미 있으면(같은 밀리초의 다른 export) `<시각>-1.jsonl` 로 한 번 더 쓰고, 그것도 있으면 export 실패다. 기존 파일은 바꾸지 않는다.
 - 내보내기 위치는 `.harness/events/.exported` 에 JSON 한 줄 `{"at": <내보낸 ISO 시각>, "files": {"YYYY-MM.jsonl": <바이트 위치>, …}}` 로 기록한다 — 이벤트 파일별로 마지막으로 내보낸
   바이트 위치다. 내보내는 이벤트는 각 파일에서 그 위치 뒤의 줄(파일이 `files` 에 없으면 처음부터, 개행으로 끝나지 않은 마지막 줄은 아직 쓰는 중이므로 다음 내보내기)이고 `ts` 순이다.
   시각이 아니라 위치로 고르므로 이미 내보낸 이벤트와 같은 밀리초 `ts` 를 가진 새 이벤트도 다음 내보내기에 들어가고, 같은 줄을 두 번 내보내지 않는다.
@@ -355,8 +356,8 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
      `criterion_id` 는 정규화한 id(없으면 null, 계약 밖 id 는 그대로 앞 100자), `source` 는 역할, `result` 는 `blocking` 또는 `backlogged`, `reason` 은 차단이면 null, 아니면 이관 사유 —
      `no_criterion`(id 없음)·`not_in_contract`·`no_repro`·`repro_denied`(SR-3)·`adversarial`(D1)·`repro_timeout`·`repro_not_runnable`·`not_reproduced`(exit 0)·`out_of_scope`.
      `repro_exit`·`repro_ms` 는 코어가 repro 를 실행했을 때의 종료 코드(시그널이면 null, 시간 초과면 플랫폼에 따라 null 또는 수)와 소요 밀리초, 실행하지 않았으면 null 이다(같은 명령은 한 번만 실행해 같은 값). `timed_out` 은 repro 가 시간 초과로 끝났으면 `true`, 아니면 `false` 다 — 시간 초과 판정은 종료 코드가 아니라 이 값으로 한다.
-     repro 명령 문자열은 남기지 않고 첫 명령의 프로그램 이름(앞의 `VAR=값` 제외, 경로·`.exe` 제거, 소문자)만 `repro_program` 에 남긴다. `summary` 는 가린 뒤 앞 300자로 자른다 — 자르고 가리면 잘린 비밀 조각이 남기 때문이다.
-     evaluator 에 차단 finding 이 있어 reviewer 결과를 쓰지 않은 판정(§7.4)의 `security/finding` 에는 `unused: true` 가 붙는다.
+     repro 명령 문자열은 남기지 않고 첫 명령의 프로그램 이름(앞의 `VAR=값` 제외, 경로·`.exe` 제거, 소문자, 앞 100자(코드 포인트))만 `repro_program` 에 남긴다. `summary` 는 가린 뒤 앞 300자로 자른다 — 자르고 가리면 잘린 비밀 조각이 남기 때문이다.
+     evaluator 에 차단 finding 이 있어 reviewer 결과를 쓰지 않은 판정(§7.4)의 `security/finding` 에는 `unused: true` 가 붙는다. evaluator 가 eval_error 로 끝나고 reviewer 는 정상 응답한 평가도 reviewer 결과를 쓰지 않으므로(`security/verdict` 의 `reviewer: "unused"`) 그 `security/finding` 에 `unused: true` 가 붙는다.
    - **재요청**: 스키마 불일치 재요청은 `eval/reask` `{role, reason: "schema_mismatch", problems}`(문제 최대 5개, 각 200자), 근거 없는 저점 재요청은 `eval/reask` `{role, reason: "unsupported_low_score", scores, unsupported}`(비차단이 된 finding 수).
    - **판정**: 판정마다 `eval/verdict` — `verdict`·`score`·`scores`·`roles`·`threshold`·`independence`·`verify_pass`·`blocking`·`backlogged`·`contract_round`·`origin`. `roles` 는 역할별 점수(`evaluator`, critical 이면 `security-reviewer` — 쓰지 않았으면 `"unused"`), `scores`·`score` 는 최종 점수와 그 최솟값.
      eval_error 면 `{verdict: "eval_error", error, score: null, scores: null, roles, …}`. critical 이면 `security/verdict` 도 남는다 — `{reviewer, reviewer_scores, security, security_min, blocking, security_verdict}`:

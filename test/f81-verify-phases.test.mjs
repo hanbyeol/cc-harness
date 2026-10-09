@@ -237,7 +237,9 @@ test('F81 AC-5: with verify_parallel 1 the later of two concurrent verifies reco
       const other = a.featureId === 'F1' ? 'F2' : 'F1';
       const committed = () => execFileP('git', ['cat-file', '-e', `harness/${other}:${other}.txt`], { cwd: dir }).then(() => true, () => false);
       for (const t0 = Date.now(); !(await committed()) && Date.now() - t0 < 30_000;) await sleep(20);
-      await sleep(SLOW);
+      // The other feature asks for the slot some time after its commit (longer under load), so
+      // hold well past SLOW: its wait must still reach 1500 ms.
+      await sleep(SLOW * 2);
     }
     return PASSING;
   };
