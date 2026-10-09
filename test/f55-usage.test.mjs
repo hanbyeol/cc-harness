@@ -9,7 +9,7 @@ import { hashContract } from '../lib/contract.mjs';
 import { runFeatures } from '../lib/run.mjs';
 import { verify } from '../lib/verify.mjs';
 import { METRIC_FIELDS } from '../lib/metrics.mjs';
-import { parseOutput, parseUsage } from '../lib/adapters/index.mjs';
+import { parseOutput, parseUsage } from '../lib/adapters/common.mjs';
 import { claudeSessionLog, usageOf } from '../lib/usage.mjs';
 import claude from '../lib/adapters/claude.mjs';
 import gemini from '../lib/adapters/gemini.mjs';
