@@ -1,0 +1,69 @@
+{
+  "id": "F92",
+  "title": "builder 변경을 기능 verify 전에 커밋 — 기능 verify 와 병합 후 verify 가 같은 git 상태(추적 여부)를 보게 해 verify 결과 캐시 재사용을 안전하게 한다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness run 에서 build 시도가 끝나면 코어는 그 기능 verify 전에 worktree 의 변경(추적·추적되지 않은 파일, 병합 전 커밋과 같은 제외 규칙)을 'harness: F<n> round <r> builder changes' 로 커밋한다 — 가짜 builder 가 새 파일을 쓰고, 가짜 verify 가 실행될 때 그 worktree 의 git status --porcelain 이 비어 있고 새 파일이 git ls-files 에 있다",
+      "check": "node test/t.mjs \"F92 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "build 시도가 아무것도 바꾸지 않았으면 빈 커밋을 만들지 않는다(HEAD 가 시도 전과 같다)",
+      "check": "node test/t.mjs \"F92 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "verify 가 실패해 같은 라운드의 다음 build 시도가 이어지면, 그 시도의 변경도 그 시도의 verify 전에 새 커밋으로 남는다 — 시도마다 builder changes 커밋이 하나씩이다",
+      "check": "node test/t.mjs \"F92 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "병합 단계에서 worktree 에 커밋되지 않은 변경이 없으면 builder changes 커밋을 더 만들지 않는다. 변경이 남아 있으면(eval 의 repro 실행 등) 이 기능 전처럼 커밋한다",
+      "check": "node test/t.mjs \"F92 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "실제 verify 를 쓰는 단일 기능 run 에서, 결과가 git 추적 여부에 달린 기준 check(builder 가 새로 만든 파일이 git ls-files 에 있어야 통과)가 기능 verify 에서 통과하고, 병합 후 verify 는 verify 결과 캐시로 적중한다(cached true)",
+      "check": "node test/t.mjs \"F92 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "harness verify F{n}(대화형 CLI)은 worktree 를 커밋하지 않는다 — 실행 전후 HEAD 와 git status 가 같다",
+      "check": "node test/t.mjs \"F92 AC-6\"",
+      "new": false
+    },
+    {
+      "id": "AC-7",
+      "criterion": "docs/SPEC.md §8 의 builder 변경 커밋 설명이 커밋 시점(각 build 시도 뒤, 기능 verify 전)과 그 이유(verify 결과 캐시가 같은 git 상태를 비교하도록), 병합 단계의 남은 변경 커밋을 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F92 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "build 시도 뒤 커밋이 실패하면 병합 단계의 builder changes 커밋 실패와 같은 방식으로 처리되고 오류 메시지에 'commit of builder changes failed' 가 들어간다",
+      "check": "node test/t.mjs \"F92 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "verify 결과 캐시 키에 추적 상태를 넣기",
+    "대화형 build 스킬 흐름에서의 커밋",
+    "커밋 메시지 형식 변경"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-09T02:09:50.810Z",
+    "hash": "bb3dd31b906778cce0e634f30bea0e240351609cc760ea3e6ebda1d475667c6d"
+  }
+}

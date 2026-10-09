@@ -800,6 +800,15 @@
         "F87"
       ],
       "status": "approved"
+    },
+    {
+      "id": "F92",
+      "title": "builder 변경을 기능 verify 전에 커밋 — 기능 verify 와 병합 후 verify 가 같은 git 상태(추적 여부)를 보게 해 verify 결과 캐시 재사용을 안전하게 한다",
+      "security_tier": "standard",
+      "depends_on": [
+        "F87"
+      ],
+      "status": "approved"
     }
   ]
 }
