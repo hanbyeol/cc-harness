@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { harness, REPO } from './helpers.mjs';
 import { gitRepo, writeFiles } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
@@ -11,6 +13,7 @@ import * as verifyLib from '../lib/verify.mjs';
 import { HarnessError } from '../lib/errors.mjs';
 
 const { verify } = verifyLib;
+const execFileP = promisify(execFile);
 
 // F81: verify phase timings (verify/phases event, result phases_ms/total_ms) and the time a
 // run's verify waited for a verify pool slot (metrics queue_ms, harness stats).
@@ -226,11 +229,17 @@ test('F81 AC-5: with verify_parallel 1 the later of two concurrent verifies reco
   const fakeVerify = async (a) => {
     const c = { featureId: a.featureId, integration: isIntegration(a.cwd) };
     calls.push(c);
-    // The first feature verify holds the only slot until both builds have returned (bounded);
-    // the other feature's verify is then already waiting for the slot.
+    // The first feature verify holds the only slot until the other feature's builder changes are
+    // committed (bounded) — the run asks for that feature's verify right after the commit, so it
+    // is then already waiting for the slot. Waiting only for the build to return would leave the
+    // commit's git time out of the measured wait.
     if (!c.integration && calls.filter((x) => !x.integration).length === 1) {
-      for (const t0 = Date.now(); b.calls.filter((x) => x.end !== null).length < 2 && Date.now() - t0 < 30_000;) await sleep(20);
-      await sleep(SLOW);
+      const other = a.featureId === 'F1' ? 'F2' : 'F1';
+      const committed = () => execFileP('git', ['cat-file', '-e', `harness/${other}:${other}.txt`], { cwd: dir }).then(() => true, () => false);
+      for (const t0 = Date.now(); !(await committed()) && Date.now() - t0 < 30_000;) await sleep(20);
+      // The other feature asks for the slot some time after its commit (longer under load), so
+      // hold well past SLOW: its wait must still reach 1500 ms.
+      await sleep(SLOW * 2);
     }
     return PASSING;
   };
@@ -289,7 +298,7 @@ test('F81 AC-7: SPEC describes the phases event, metrics queue_ms and the stats 
   const spec = fs.readFileSync(path.join(REPO, 'docs', 'SPEC.md'), 'utf8');
   for (const re of [/verify\/phases/, /`phases_ms`/, /`total_ms`/, /`test_count_source`/,
     ...PHASE_KEYS.map((k) => new RegExp(`\`${k}\``)), /`parsed`·`ran`·`cache`/,
-    /`queue_ms`\(`verify`·`post_merge_verify` 줄은/, /verify 풀/, /단계별 `queue_ms` 합계/, /0 으로 집계/]) {
+    /`queue_ms`\(`verify`·`pre_merge_verify`·`post_merge_verify` 줄은/, /verify 풀/, /단계별 `queue_ms` 합계/, /0 으로 집계/]) {
     assert.match(spec, re);
   }
 });
