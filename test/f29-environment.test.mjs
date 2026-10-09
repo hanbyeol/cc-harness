@@ -242,7 +242,7 @@ test('F29 AC-4 a feature blocked by verify lists the failed command and criterio
   const dir = fixture([{ id: 'F1', check: 'node scripts/fail.mjs' }]);
   const r = await run(dir, { build: fakeBuild() }, { config: { max_rounds: 1, verify: { commands: ['node scripts/long.mjs'] } } });
   assert.equal(r.results[0].status, 'blocked', r.out);
-  assert.equal(r.results[0].reason, 'max_rounds');
+  assert.equal(r.results[0].reason, 'rounds');
   const md = fs.readFileSync(r.report, 'utf8');
   const cmdLine = md.split('\n').find((l) => l.startsWith('- failed: `node scripts/long.mjs`'));
   assert.ok(cmdLine, md);

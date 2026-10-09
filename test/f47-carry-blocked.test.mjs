@@ -94,7 +94,7 @@ function reapprove(dir, ids = ['F1']) {
 // A first run whose evaluator stops F1 as needs-human: the worktree and branch stay behind.
 async function leaveBlocked(dir, script) {
   const r = await runF(dir, { build: fakeBuild(script), evaluate: verdict('needs-human') }, { ids: ['F1'] });
-  assert.deepEqual([r.results[0].status, r.results[0].reason], ['blocked', 'needs-human']);
+  assert.deepEqual([r.results[0].status, r.results[0].reason], ['blocked', 'needs_human']);
   assert.ok(fs.existsSync(wt(dir)), 'the blocked worktree is kept');
   reapprove(dir);
 }
