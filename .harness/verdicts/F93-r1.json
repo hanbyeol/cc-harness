@@ -1,0 +1,58 @@
+{
+  "feature": "F93",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "Leftover blank lines where the local helpers were removed (lib/config.mjs, lib/eval-status.mjs, lib/events.mjs, lib/telemetry.mjs, lib/verify-cache.mjs) leave double blank lines. This is cosmetic.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "lib/metrics.mjs re-exports median via `export { median }` and lib/learn.mjs wraps it as median2. Callers could import from util.mjs directly, which would drop the wrapper layers.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "B382 (telemetry's own sha16) is resolved by this diff, since telemetry.mjs and events.mjs now import sha16 from util.mjs.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B382"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.175149,
+  "contract_hash": "927afba66c8f0b55e863df2c653f6e0f20deb9e3b7dda8c3ef649845824b7468",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-09T04:46:37.979Z",
+  "origin": "run"
+}

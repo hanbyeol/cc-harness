@@ -4608,7 +4608,11 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B382"
+      "id": "B382",
+      "seen": 2,
+      "sources": [
+        "F93-r1"
+      ]
     },
     {
       "feature": "F58",
@@ -5692,6 +5696,48 @@
       "file": "test/f25-auto-parallel.test.mjs",
       "priority": "low",
       "id": "B479"
+    },
+    {
+      "feature": "F93",
+      "round": 1,
+      "at": "2026-10-09T04:46:37.979Z",
+      "summary": "Leftover blank lines where the local helpers were removed (lib/config.mjs, lib/eval-status.mjs, lib/events.mjs, lib/telemetry.mjs, lib/verify-cache.mjs) leave double blank lines. This is cosmetic.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B480"
+    },
+    {
+      "feature": "F93",
+      "round": 1,
+      "at": "2026-10-09T04:46:37.979Z",
+      "summary": "lib/metrics.mjs re-exports median via `export { median }` and lib/learn.mjs wraps it as median2. Callers could import from util.mjs directly, which would drop the wrapper layers.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B481"
+    },
+    {
+      "feature": "F94",
+      "round": 1,
+      "at": "2026-10-09T05:16:48.957Z",
+      "summary": "lib/verify.mjs의 verify() 함수가 더 길어지고 early/openCounted 같은 가변 상태가 try 블록 밖으로 나와 있다. 단계(commands, test count, checks)를 별도 함수로 나누면 읽기 쉬워진다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low",
+      "id": "B482"
+    },
+    {
+      "feature": "F94",
+      "round": 1,
+      "at": "2026-10-09T05:16:48.957Z",
+      "summary": "F94 AC-5 테스트가 phases_ms.checks >= 2900 처럼 벽시계 시간 하한을 단언한다. 부하가 큰 머신에서는 타이밍에 민감할 수 있으므로 test/stress.mjs로 확인하는 것이 좋다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f94-early-checks.test.mjs",
+      "priority": "low",
+      "id": "B483"
     }
   ]
 }
