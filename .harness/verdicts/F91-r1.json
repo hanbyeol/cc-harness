@@ -1,0 +1,60 @@
+{
+  "feature": "F91",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 8,
+    "quality": 8,
+    "security": 9,
+    "errors": 8,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The SPEC §8.11 metrics text says `queue_ms` is non-null only for `verify` and `post_merge_verify` lines. The `pre_merge_verify` line was added to the step list with its own note that it matches `verify`, but the general `queue_ms` and `cached` sentences were not updated. The text is slightly inconsistent.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "docs/SPEC.md",
+      "priority": "low"
+    },
+    {
+      "summary": "preMergeVerify leaves untracked files that the verify wrote in the feature worktree, because `git checkout -f` only resets tracked files. Such files could leak into the later lock merge or into the eval diff. The tests do not cover this.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "The existing tests f25 and f32 were adjusted to filter out pre-merge-verify calls. This is reasonable, but those filters are tied to string matching on the merge commit message `(pre-merge verify)`.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f25-auto-parallel.test.mjs",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.1450132,
+  "contract_hash": "fb1318af716fc249d8aa165590538adb94e01c5130a71d7a128dd46fe5a57936",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 8,
+        "quality": 8,
+        "security": 9,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-09T03:52:07.368Z",
+  "origin": "run"
+}

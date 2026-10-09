@@ -5659,6 +5659,39 @@
       "file": "test/f47-carry-blocked.test.mjs",
       "priority": "low",
       "id": "B476"
+    },
+    {
+      "feature": "F91",
+      "round": 1,
+      "at": "2026-10-09T03:52:07.368Z",
+      "summary": "The SPEC §8.11 metrics text says `queue_ms` is non-null only for `verify` and `post_merge_verify` lines. The `pre_merge_verify` line was added to the step list with its own note that it matches `verify`, but the general `queue_ms` and `cached` sentences were not updated. The text is slightly inconsistent.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "docs/SPEC.md",
+      "priority": "low",
+      "id": "B477"
+    },
+    {
+      "feature": "F91",
+      "round": 1,
+      "at": "2026-10-09T03:52:07.368Z",
+      "summary": "preMergeVerify leaves untracked files that the verify wrote in the feature worktree, because `git checkout -f` only resets tracked files. Such files could leak into the later lock merge or into the eval diff. The tests do not cover this.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "priority": "low",
+      "id": "B478"
+    },
+    {
+      "feature": "F91",
+      "round": 1,
+      "at": "2026-10-09T03:52:07.368Z",
+      "summary": "The existing tests f25 and f32 were adjusted to filter out pre-merge-verify calls. This is reasonable, but those filters are tied to string matching on the merge commit message `(pre-merge verify)`.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f25-auto-parallel.test.mjs",
+      "priority": "low",
+      "id": "B479"
     }
   ]
 }
