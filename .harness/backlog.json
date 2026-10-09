@@ -5588,6 +5588,28 @@
       "file": "lib/adapters/common.mjs",
       "priority": "low",
       "id": "B470"
+    },
+    {
+      "feature": "F89",
+      "round": 1,
+      "at": "2026-10-09T00:53:55.280Z",
+      "summary": "lib/verify.mjs의 runVerifyCommand는 verify.flaky 가 'fail'일 때도 첫 실행 출력에서 failedTestNames(…, Infinity)를 미리 계산한다. 'retry'에서만 쓰이는 값이므로 모드 확인 뒤로 미루면 불필요한 파싱을 줄일 수 있다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low",
+      "id": "B471"
+    },
+    {
+      "feature": "F89",
+      "round": 1,
+      "at": "2026-10-09T00:53:55.280Z",
+      "summary": "F89 AC-6의 verifyFailure 테스트는 builds.length 가 2 이상이라는 조건에 의존한다. 이 값은 run 재시도 정책에 좌우되므로 정책이 바뀌면 깨질 수 있다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f89-retry-skip.test.mjs",
+      "priority": "low",
+      "id": "B472"
     }
   ]
 }

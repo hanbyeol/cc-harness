@@ -783,7 +783,7 @@
       "title": "결과가 바뀔 수 없는 verify 명령 재실행 빼기 — 기능 자신의 테스트가 실패했거나 실패한 테스트 이름이 없으면 retry 모드에서도 다시 돌리지 않는다",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }

@@ -1,0 +1,53 @@
+{
+  "feature": "F89",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "lib/verify.mjs의 runVerifyCommand는 verify.flaky 가 'fail'일 때도 첫 실행 출력에서 failedTestNames(…, Infinity)를 미리 계산한다. 'retry'에서만 쓰이는 값이므로 모드 확인 뒤로 미루면 불필요한 파싱을 줄일 수 있다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "F89 AC-6의 verifyFailure 테스트는 builds.length 가 2 이상이라는 조건에 의존한다. 이 값은 run 재시도 정책에 좌우되므로 정책이 바뀌면 깨질 수 있다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f89-retry-skip.test.mjs",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.11649520000000001,
+  "contract_hash": "a687b342ed1d27d8fb624d28d8bd7dbf5ebc1c5916f26aa85d1173bcc5e5ff25",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-09T00:53:55.280Z",
+  "origin": "run"
+}
