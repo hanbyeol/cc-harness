@@ -113,7 +113,8 @@ test('F3 AC-1: CLI --json prints the full result with per-command exit codes; ex
 // ---------- AC-2 ----------
 test('F3 AC-2: a failing command is re-run once; a different outcome is flaky and still fails', async () => {
   const dir = fixture();
-  const r = await run(dir, { verify: { commands: ['node scripts/flaky.mjs'] } });
+  // 'fail': under the default 'retry' a failure that names no test is not re-run (F89)
+  const r = await run(dir, { verify: { commands: ['node scripts/flaky.mjs'], flaky: 'fail' } });
   assert.equal(r.commands[0].attempts, 2);
   assert.equal(r.commands[0].flaky, true);
   assert.equal(r.commands[0].pass, false);
@@ -122,7 +123,7 @@ test('F3 AC-2: a failing command is re-run once; a different outcome is flaky an
 
 test('F3 AC-2: a consistently failing command is re-run once and is not flaky', async () => {
   const dir = fixture();
-  const r = await run(dir, { verify: { commands: ['node scripts/fail.mjs'] } });
+  const r = await run(dir, { verify: { commands: ['node scripts/fail.mjs'], flaky: 'fail' } });
   assert.deepEqual([r.commands[0].attempts, r.commands[0].flaky, r.commands[0].pass], [2, false, false]);
 });
 
@@ -289,7 +290,8 @@ test('F3 SC-1: a command past the timeout is killed together with its grandchild
   const pids = path.join(dir, 'pids.txt');
   const t0 = Date.now();
   // The timeout must outlast node's start-up under load, or the script is killed before it records its grandchild.
-  const r = await run(dir, { budget: { step_timeout_sec: 5 }, verify: { commands: [`node scripts/slow.mjs ${JSON.stringify(pids)}`] } });
+  // 'fail' re-runs the timed-out command, so the kill is checked twice (F89 skips it under 'retry')
+  const r = await run(dir, { budget: { step_timeout_sec: 5 }, verify: { commands: [`node scripts/slow.mjs ${JSON.stringify(pids)}`], flaky: 'fail' } });
   const elapsed = Date.now() - t0;
   assert.equal(r.commands[0].pass, false);
   assert.equal(r.commands[0].timedOut, true);
