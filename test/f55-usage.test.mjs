@@ -257,7 +257,7 @@ test('F55 AC-3: verify records a verify/command event per command and a verify/c
     'scripts/b.mjs': `import fs from 'node:fs';\nfs.writeFileSync('b.started', '1');\n${WAIT_FOR('a.started')}process.exit(0);\n`,
     '.gitignore': '*.started\n*.retry\n*.state\n',
   });
-  const config = resolveConfig({ base_branch: 'main', verify: { commands: ['node scripts/ok.mjs', 'node scripts/flaky.mjs'], check_parallel: 2 }, budget: { step_timeout_sec: 60 } });
+  const config = resolveConfig({ base_branch: 'main', verify: { commands: ['node scripts/ok.mjs', 'node scripts/flaky.mjs'], check_parallel: 2, flaky: 'fail' }, budget: { step_timeout_sec: 60 } });
   const r = await verify({ root: dir, featureId: 'F9', base: 'main', config, cpus: 8 });
   assert.equal(r.criteria[0].parallel_retry, true, JSON.stringify(r.criteria));
   const cmds = of(dir, 'verify', 'command');
