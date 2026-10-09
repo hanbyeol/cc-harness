@@ -472,7 +472,6 @@ AGENTS.md                    공통 워크플로우 지시 (Codex·Cursor·openc
 skills/                      spec · plan · build · fix · status · plan-review · rollout   (SKILL.md)
 agents/                      builder · evaluator · security-reviewer (Claude subagent 겸 headless 역할 프롬프트)
 profiles/                    sdlc · iac · ops (.json: verify 명령·루브릭)
-rules/                       언어별 규칙 (v1 유지)
 templates/claude-block.md    프로젝트 CLAUDE.md 관리 블록의 내용 (§4.1)
 bin/harness.mjs, lib/*.mjs   코어 (Node ≥ 22 — Node 20 은 2026-04 EOL 이고 `node --test` glob 이 21+ 부터; 런타임 의존성 0)
 hooks/hooks.json             Claude SessionStart 1개: `harness status --brief` — Claude 전용(`${CLAUDE_PLUGIN_ROOT}`). Gemini 도 이 파일을 로드하지만 변수가 비어 실패(비치명). Gemini 는 `${extensionPath}` 변형을 쓰는 방법이 확인될 때까지 hook 없음으로 간주

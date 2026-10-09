@@ -5,8 +5,9 @@ import path from 'node:path';
 import { REPO, tmpdir, writeJson, harness } from './helpers.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import {
-  getAdapter, extractJson, parseOutput, independence, resolveInvocation, missingFlags,
+  getAdapter, independence, resolveInvocation, missingFlags,
 } from '../lib/adapters/index.mjs';
+import { extractJson, parseOutput } from '../lib/adapters/common.mjs';
 import { createGenericAdapter } from '../lib/adapters/generic.mjs';
 import { DENY } from '../lib/adapters/claude.mjs';
 import doctor, { diagnose } from '../lib/commands/doctor.mjs';
