@@ -6,10 +6,18 @@
 // `--files <glob>` (relative to the root) runs only the matching test files — the load of the
 // whole suite is not needed to stress a few timing-sensitive files.
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { expandFileGlob } from '../lib/glob.mjs';
-import { STDERR_TAIL_CHARS, appendTail } from '../lib/stress.mjs';
+
+// The abnormal-exit report (F52 AC-2) keeps only the trailing STDERR_TAIL_CHARS of a crashed
+// run's stderr, so the printed diagnostic stays bounded.
+const STDERR_TAIL_CHARS = 2000;
+const appendTail = (tail, chunk) => (tail + chunk).slice(-STDERR_TAIL_CHARS);
+
+// Files under `cwd` matching a shell-style glob (`*`, `?`, `[...]`, `**`), sorted, in the
+// platform's path spelling.
+const expandFileGlob = (glob, cwd) => fs.globSync(glob, { cwd }).sort();
 
 const USAGE = 'usage: node test/stress.mjs <N> [--root <dir>] [--files <glob>]   (N: positive integer)';
 

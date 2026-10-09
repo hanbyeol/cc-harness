@@ -13,7 +13,6 @@
     "agents/",
     "skills/",
     "profiles/",
-    "rules/",
     "templates/",
     "hooks/hooks.json",
     "AGENTS.md",

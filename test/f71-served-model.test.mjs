@@ -10,7 +10,8 @@ import { hashContract } from '../lib/contract.mjs';
 import { readEvents } from '../lib/events.mjs';
 import { runFeatures } from '../lib/run.mjs';
 import { servedModelOf, modelMismatch } from '../lib/usage.mjs';
-import { parseUsage, getAdapter } from '../lib/adapters/index.mjs';
+import { getAdapter } from '../lib/adapters/index.mjs';
+import { parseUsage } from '../lib/adapters/common.mjs';
 import evalCommand from '../lib/commands/eval.mjs';
 
 const FIX = path.join(REPO, 'test', 'fixtures');
