@@ -5566,6 +5566,28 @@
       "file": "lib/verify.mjs",
       "priority": "low",
       "id": "B468"
+    },
+    {
+      "feature": "F88",
+      "round": 1,
+      "at": "2026-10-08T23:57:15.435Z",
+      "summary": "In lib/eval.mjs, when the evaluator and security-reviewer both return usage_limit, only the first match (evaluator) is reported. This is harmless, but the security-reviewer's detail is dropped.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/eval.mjs",
+      "priority": "low",
+      "id": "B469"
+    },
+    {
+      "feature": "F88",
+      "round": 1,
+      "at": "2026-10-08T23:57:15.435Z",
+      "summary": "A usage_limit result from a claude call that has r.error set (spawn error or timeout) is never classified as usage_limit. This matches the contract, but a timeout whose partial stdout already held the limit wrapper is treated as a plain timeout.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/adapters/common.mjs",
+      "priority": "low",
+      "id": "B470"
     }
   ]
 }

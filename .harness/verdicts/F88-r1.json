@@ -1,0 +1,53 @@
+{
+  "feature": "F88",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "In lib/eval.mjs, when the evaluator and security-reviewer both return usage_limit, only the first match (evaluator) is reported. This is harmless, but the security-reviewer's detail is dropped.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/eval.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "A usage_limit result from a claude call that has r.error set (spawn error or timeout) is never classified as usage_limit. This matches the contract, but a timeout whose partial stdout already held the limit wrapper is treated as a plain timeout.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/adapters/common.mjs",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.1447532,
+  "contract_hash": "e43639e0b966c98102ed730d12abd96cd05dd1081675766a2b56d73b10823321",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-08T23:57:15.435Z",
+  "origin": "run"
+}
