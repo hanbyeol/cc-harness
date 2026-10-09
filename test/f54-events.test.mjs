@@ -282,7 +282,7 @@ test('F54 AC-3: run records the blocked feature and each dependent it skips', as
     ['eval', 'F1', 'in_progress', 'blocked'],
     ['build', 'F2', 'approved', 'skipped'],
   ]);
-  assert.equal(st[1].data.reason, 'needs-human');
+  assert.equal(st[1].data.reason, 'needs_human');
   assert.equal(st[2].data.blocked_by, 'F1');
   assert.ok(st.every((e) => e.stage !== 'feedback'));
 });

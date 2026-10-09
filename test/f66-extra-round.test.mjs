@@ -213,7 +213,7 @@ test('F66 AC-2 harness run takes the extra round: one build and one evaluation, 
   });
   assert.equal(builds, 1, JSON.stringify(r.results));
   assert.equal(r.results[0].status, 'blocked', JSON.stringify(r.results));
-  assert.equal(r.results[0].reason, 'max_rounds', JSON.stringify(r.results));
+  assert.equal(r.results[0].reason, 'rounds', JSON.stringify(r.results));
   assert.equal(readJson(vfile(dir, 4)).contract_round, 4);
 });
 

@@ -147,7 +147,8 @@ test('F81 AC-1: a run labels the phases events with step verify and post_merge_v
 // ------------------------------------------------------------------ AC-2
 test('F81 AC-2: a slow verify command shows in phases_ms.commands and a slow check in phases_ms.checks', async () => {
   const dir = fixture([{ id: 'AC-1', criterion: 'slow', check: `node scripts/slow.mjs ${SLOW}`, new: false }]);
-  const r = await verify({ root: dir, featureId: 'F9', base: 'main', config: cfg({ commands: [`node scripts/slow.mjs ${SLOW}`] }) });
+  // check_parallel 1: above 1 the check runs alongside the command and that time is checks (F94).
+  const r = await verify({ root: dir, featureId: 'F9', base: 'main', config: cfg({ commands: [`node scripts/slow.mjs ${SLOW}`], check_parallel: 1 }) });
   assert.equal(r.pass, true, JSON.stringify(r.criteria));
   const [e] = phasesEvents(dir);
   assertShape(e.data);

@@ -247,14 +247,14 @@ test('F6 AC-6: max_rounds exhausted blocks the feature and records a re-scope pr
   const evaluate = fakeEvaluate({ F1: [['AC-1', 'AC-2', 'SC-1'], ['AC-1', 'AC-2'], ['AC-1'], 'pass'] });
   const r = await run(dir, { build, evaluate });
   assert.equal(statuses(dir).F1, 'blocked');
-  assert.equal(r.results[0].reason, 'max_rounds');
+  assert.equal(r.results[0].reason, 'rounds');
   assert.equal(evaluate.calls.length, 3, 'default max_rounds is 3');
   assert.deepEqual([...new Set(build.calls.map((c) => c.round))], [1, 2, 3]);
   const items = backlog(dir);
   assert.equal(items.length, 1);
   assert.equal(items[0].kind, 'rescope');
   assert.equal(items[0].feature, 'F1');
-  assert.equal(items[0].reason, 'max_rounds');
+  assert.equal(items[0].reason, 'rounds');
   assert.deepEqual(items[0].blocking, ['AC-1']);
   assert.deepEqual(items[0].options.map((o) => o.kind), ['split', 'rewrite', 'accept-risk']);
 });
@@ -263,7 +263,7 @@ test('F6 AC-6: max_rounds comes from config', async () => {
   const dir = fixture([{ id: 'F1' }]);
   const evaluate = fakeEvaluate({ F1: [['AC-1', 'AC-2'], ['AC-1']] });
   const r = await run(dir, { build: fakeBuild(), evaluate }, { config: { max_rounds: 2 } });
-  assert.equal(r.results[0].reason, 'max_rounds');
+  assert.equal(r.results[0].reason, 'rounds');
   assert.equal(evaluate.calls.length, 2);
 });
 
@@ -281,7 +281,7 @@ test('F6 eval: eval_error does not consume a round; two in a row block the featu
 test('F6 eval: needs-human blocks the feature at once', async () => {
   const dir = fixture([{ id: 'F1' }]);
   const r = await run(dir, { build: fakeBuild(), evaluate: fakeEvaluate({ F1: ['needs-human'] }) });
-  assert.deepEqual([r.results[0].status, r.results[0].reason], ['blocked', 'needs-human']);
+  assert.deepEqual([r.results[0].status, r.results[0].reason], ['blocked', 'needs_human']);
 });
 
 // ------------------------------------------------------------------ AC-7
