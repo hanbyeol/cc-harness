@@ -65,6 +65,13 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
     `summary` 는 `decision <decision> for F<n>: <사유>` 이다(사유는 `reason` 과 같이 가린 값). `kind: decision` 항목(summary 가 없는 이전 항목 포함)은 기록이지
     열린 항목이 아니다 — backlog.json 에 그대로 남지만 `harness status` 의 `backlog: N open` 수, 평가 프롬프트의 `## Open backlog` 절,
     `harness learn --propose` 의 열린 항목 합치기(§7.7)에 들어가지 않는다(`harness insights` 는 backlog 가 아니라 이벤트로 결정을 센다).
+  - `harness backlog close B<n> [B<m> ...] --resolved|--obsolete "<근거>"` — 이미 해결됐거나(`--resolved`) 처리할 필요가 없는(`--obsolete`) 열린 backlog 항목(§7.7)을 사람이 닫는다.
+    id 는 플래그 앞, 근거는 플래그 뒤의 인자 하나다. 지정한 항목마다 `closed: {as, reason, at}`(`as` 는 `resolved`·`obsolete`, `at` 은 ISO 시각)을 기록하고 닫은 id 마다
+    `B<n>: closed as <as>` 한 줄을 쓴다. 항목의 다른 필드는 바뀌지 않고 항목은 backlog.json 에 남는다(지우거나 옮기지 않는다). 닫을 때마다 `feedback/backlog_close` 이벤트
+    `{ids, as, reason}` 를 하나 남긴다. 근거는 backlog.json 과 이벤트 모두 decide 와 같이 가린다(redactor, `env_allowlist`). id 가 없음, `B<n>` 형식이 아닌 id, backlog 에 없는 id,
+    이미 닫혔거나 `resolved_by` 가 있는 id(메시지에 `already`), `kind: decision` 항목, `--resolved`·`--obsolete` 가 둘 다이거나 없음, 근거가 비었거나 여러 인자, 알 수 없는 옵션·하위 명령은
+    `usage`(exit 2)이고 — 여러 id 중 하나만 문제여도 — 아무것도 닫지 않는다. backlog.json 이 `{ items: [...] }` 가 아니거나 id 가 중복되면 E6(state_corrupt)이고 파일을 쓰지 않는다.
+    닫은 항목을 다시 여는 명령과 목록·검색 명령은 없다(요약은 `harness status`).
   - `harness note [F<n>] --kind manual-fix|manual-merge|environment|other "<내용>"` — 수동 수정·수동 병합·환경 문제 등 사람의 개입을 `feedback/intervention` 이벤트 `{kind, text}` 로 남긴다(기능은 선택).
   - `harness ci-record --sha <sha> --result success|failure [--job <name>] [--test <name>]...` — CI 결과 한 건을 `feedback/ci` 이벤트 `{sha, result, job, tests}` 로 남긴다.
     `--sha` 는 16진 커밋 해시, `--test` 는 실패한 테스트 이름이고 여러 번 줄 수 있다. CI 결과 자동 수집은 하지 않는다.
@@ -169,7 +176,7 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 | `features.json` | `[{id, title, security_tier, depends_on[], status}]` — status ∈ `todo·approved·in_progress·passed·blocked·skipped`. 각 항목의 `id`·`title`·`status` 는 필수 문자열. `eval_round`(선택)는 대화형 eval 이 상태를 기록한 마지막 라운드(§7.6), `extra_rounds`(선택)는 `{hash, count}` — 사람이 `approve --extra-round` 로 그 계약 해시에 더한 라운드 수(§7.6), `blocked_reason`(선택, 문자열)은 `blocked` 인 동안의 사유(§7.6) |
 | `contracts/F{n}.json` | 계약 (§5) |
 | `verdicts/F{n}-r{k}.json` | 라운드별 판정 (§7) |
-| `backlog.json` | `{ items: [...] }` — 범위 밖 발견 · blocked 재범위 제안 · `harness decide` 의 결정(`kind: decision`, §2). 항목 id(`B<n>`)·`priority`·`seen`·`sources`·`resolved_by` 규칙은 §7.7 |
+| `backlog.json` | `{ items: [...] }` — 범위 밖 발견 · blocked 재범위 제안 · `harness decide` 의 결정(`kind: decision`, §2). 항목 id(`B<n>`)·`priority`·`seen`·`sources`·`resolved_by`·`closed`(`harness backlog close`, §2) 규칙은 §7.7 |
 | `runs/{ts}.md` | 자율 실행 보고서 |
 | `runs/{ts}.metrics.jsonl`, `runs/eval.metrics.jsonl` | 단계별 실행 지표(한 줄 = 끝난 단계 하나, §8 실행 지표). `harness stats` 가 집계한다 |
 | `events/YYYY-MM.jsonl` | 이벤트 기록(한 줄 = 사건 하나, §2 이벤트 기록). `harness events` 가 보여 준다. `events/.exported` 는 마지막 `harness export` 의 시각과 이벤트 파일별 바이트 위치(§2 현장 데이터 내보내기) |
@@ -211,7 +218,7 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 }
 ```
 `security_tier` 는 `standard|critical` 외 값이면 error. `run_steps` 는 선택(생략 시 위 기본값).
-`resolves` 는 선택 — 이 기능이 해결하는 backlog 항목 id 배열(§7.7). 문자열 배열이 아니면 error, backlog 에 없거나 이미 해결된(`resolved_by` 있음) id 를 가리키면 warning.
+`resolves` 는 선택 — 이 기능이 해결하는 backlog 항목 id 배열(§7.7). 문자열 배열이 아니면 error, backlog 에 없거나 이미 해결된(`resolved_by` 있음) 또는 닫힌(`closed` 있음, `already closed as <as>`) id 를 가리키면 warning.
 lint 규칙(전부 결정적, 위반 = error):
 1. 모든 기준에 비어 있지 않은 `check`.
 2. 기준 id 유일, 형식 `AC-n|SC-n|ES-n` (n ≥ 1), 접두사는 소속 배열과 일치. 계약 `id` 는 파일명과 일치.
@@ -336,11 +343,12 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
    - **blocked 사유와 재승인**: 기능이 `blocked` 로 바뀔 때마다(`eval`·`run` 모두) features 항목에 `blocked_reason` 이 기록된다 — 그 상태 이벤트의 reason 과 같은 값(`run`·`eval` 모두 `rounds`·`stall`·`divergence`·`needs_human`·`eval_error`, run 단계의 `budget`·`merge_conflict`·`post_merge_verify`·`worktree`·`adapter_unavailable`·`verify_error`·`run_stopped`·`dependency_blocked` 등)이고, `blocked` 가 아닌 상태로 바뀌면(재승인·pass 등) 지워진다. 이전 철자 `max_rounds`·`needs-human`(F93 전의 run 이 기록한 사유)는 더 쓰지 않고 읽기만 한다 — features.json·이벤트에 남은 그 값은 이전처럼 읽힌다: 아래 재승인 판정에서 `max_rounds` 는 `rounds` 처럼 수렴 실패이고 `needs-human` 은 `needs_human` 처럼 아니며, `harness status` 는 기록된 사유를 그대로 괄호에 보이고, 텔레메트리 내보내기는 두 철자를 모두 허용 값으로 받는다(§2). 위의 같은 해시 재승인 거부는 수렴 실패로 막힌 경우에만 적용된다: `blocked_reason` 이 `rounds`·`max_rounds`·`stall`·`divergence` 면 판정 수가 허용 라운드 이상일 때 거부(exit 2, `rounds_exhausted`)되고 `--extra-round` 로만 한 라운드를 더한다. 그 밖의 사유(`needs_human`·`eval_error` 와 run 단계 사유 `budget`·`merge_conflict`·`post_merge_verify`·`worktree`·`adapter_unavailable`·`verify_error`·`run_stopped`·`dependency_blocked`)면 같은 해시 판정 수가 max_rounds 이상이어도 `harness approve F{n}` 이 승인한다(exit 0) — 라운드를 다 써서가 아니라 사람의 판단이나 환경 문제로 막혔기 때문이다. `blocked_reason` 이 없는 blocked 항목(이 필드 이전에 막힌 기능)은 판정 수 기준 규칙을 그대로 따른다. `blocked_reason` 이 문자열이 아니면 features.json 을 읽는 모든 명령이 `state_corrupt`(exit 2, E6)로 멈추고 approve 는 아무것도 쓰지 않는다. `harness status` 의 blocked 줄에는 사유가 괄호로 붙는다(예: `F7    blocked (needs_human) <제목>`).
    - features.json 쓰기가 실패하면 verdict 파일은 남기고 exit 2(`io`). features 항목의 `eval_round` 가 기록된 마지막 라운드이며, 최신 `origin: eval` verdict 의 라운드가 그와 다르면 다음 `harness eval F{n}` 은 새 평가 없이 그 라운드의 상태 기록을 재시도한다.
 7. **backlog 정리 루프** (`backlog.json`)
-   - **id**: 코어가 backlog 를 쓸 때(평가 결과 기록, blocked 재범위 제안, resolves 해결) `id` 가 없는 항목(기존 항목 포함)에 파일 순서대로 `B1`, `B2`, … 를 붙인다. 새 번호는 기존 `B<n>` 중 가장 큰 번호 다음이고, 이미 있는 id 는 바뀌지 않는다. id 가 중복된 backlog 는 E6(state_corrupt, 메시지에 중복 id) — 평가·status·lint-contract 가 파일을 고치지 않고 exit 2.
+   - **id**: 코어가 backlog 를 쓸 때(평가 결과 기록, blocked 재범위 제안, resolves 해결, `harness backlog close`) `id` 가 없는 항목(기존 항목 포함)에 파일 순서대로 `B1`, `B2`, … 를 붙인다. 새 번호는 기존 `B<n>` 중 가장 큰 번호 다음이고, 이미 있는 id 는 바뀌지 않는다. id 가 중복된 backlog 는 E6(state_corrupt, 메시지에 중복 id) — 평가·status·lint-contract 가 파일을 고치지 않고 exit 2.
    - **severity → priority**: findings·out_of_scope 항목의 `severity`(`high`·`medium`·`low`)는 backlog 항목의 `priority` 로 기록된다. 그 외 값은 무시되고 `priority` 를 쓰지 않는다. 기존 항목의 priority 는 소급 추정하지 않는다.
-   - **열린 항목**: `resolved_by` 가 없고 `kind: decision`(§2 `harness decide`)이 아닌 항목. 평가 프롬프트의 `## Open backlog` 절에 열린 항목의 `id`·`priority`·`summary` 를 최대 15개 넣는다. 순서는 diff 가 바꾼 파일(시크릿 제외 뒤 diff 에 남은 추적·미추적 경로)과 관련된 항목 — 항목의 `file` 이 바뀐 경로와 같거나, `summary` 에 바뀐 경로 또는 그 파일 이름(마지막 `/` 뒤)이 들어 있음 — 이 먼저, 그다음 나머지다. 두 묶음 안에서는 priority `high`→`medium`→`low`→없음 순(같은 priority 안에서는 파일 순서)이다. 바뀐 파일이 없거나 관련 항목이 없으면 그 순서 그대로다. 각 `summary` 는 공백(줄바꿈 포함)을 하나로 줄인 뒤 160자(코드 포인트)를 넘으면 160자까지 자르고 `…` 를 붙인다. 문자열이 아닌·없는 `summary` 는 빈 요약이다. 보이지 않은 열린 항목이 있으면 `- … N more open item(s) not shown` 줄이 남는다.
-   - **반복 지적 합치기**: 평가자 출력 항목의 `backlog_id` 가 열린 항목 id 와 같으면 새 항목을 만들지 않고 그 항목의 `seen` 을 1 늘리고(없으면 1 로 보고 2) `sources` 에 `F{n}-r{k}`(이번 기능·판정 파일 번호)를 추가한다. `backlog_id` 가 없는 id 이거나 이미 해결된 항목을 가리키면 새 항목으로 추가된다. 요약 문장의 유사도로 자동 중복 판정은 하지 않는다.
-   - **resolves**: 계약의 `resolves`(§5)에 적힌 열린 항목은 그 기능이 `passed` 로 기록될 때(대화형 `harness eval` §7.6, `harness run` §8.5 각각) `resolved_by` 가 기능 id 가 된다. fail·blocked 이면 바뀌지 않는다. 이미 해결된 항목의 `resolved_by` 는 덮어쓰지 않는다.
+   - **열린 항목**: `resolved_by` 도 `closed` 도 없고 `kind: decision`(§2 `harness decide`)이 아닌 항목. 닫힌 항목(`closed` 있음)은 `harness status` 의 열린 수, `## Open backlog` 절, `learn --propose` 합치기, 아래 반복 지적 합치기, flaky_test 항목 재사용(§6.1), resolves 해결에 들어가지 않는다. 평가 프롬프트의 `## Open backlog` 절에 열린 항목의 `id`·`priority`·`summary` 를 최대 15개 넣는다. 순서는 diff 가 바꾼 파일(시크릿 제외 뒤 diff 에 남은 추적·미추적 경로)과 관련된 항목 — 항목의 `file` 이 바뀐 경로와 같거나, `summary` 에 바뀐 경로 또는 그 파일 이름(마지막 `/` 뒤)이 들어 있음 — 이 먼저, 그다음 나머지다. 두 묶음 안에서는 priority `high`→`medium`→`low`→없음 순(같은 priority 안에서는 파일 순서)이다. 바뀐 파일이 없거나 관련 항목이 없으면 그 순서 그대로다. 각 `summary` 는 공백(줄바꿈 포함)을 하나로 줄인 뒤 160자(코드 포인트)를 넘으면 160자까지 자르고 `…` 를 붙인다. 문자열이 아닌·없는 `summary` 는 빈 요약이다. 보이지 않은 열린 항목이 있으면 `- … N more open item(s) not shown` 줄이 남는다.
+   - **반복 지적 합치기**: 평가자 출력 항목의 `backlog_id` 가 열린 항목 id 와 같으면 새 항목을 만들지 않고 그 항목의 `seen` 을 1 늘리고(없으면 1 로 보고 2) `sources` 에 `F{n}-r{k}`(이번 기능·판정 파일 번호)를 추가한다. `backlog_id` 가 없는 id 이거나 이미 해결됐거나 닫힌 항목을 가리키면 새 항목으로 추가된다. 요약 문장의 유사도로 자동 중복 판정은 하지 않는다.
+   - **resolves**: 계약의 `resolves`(§5)에 적힌 열린 항목은 그 기능이 `passed` 로 기록될 때(대화형 `harness eval` §7.6, `harness run` §8.5 각각) `resolved_by` 가 기능 id 가 된다. fail·blocked 이면 바뀌지 않는다. 이미 해결된 항목의 `resolved_by` 는 덮어쓰지 않고, 닫힌 항목에는 `resolved_by` 를 쓰지 않는다.
+   - **닫기**: 사람이 `harness backlog close B<n> [B<m> ...] --resolved|--obsolete "<근거>"`(§2)로 열린 항목을 닫는다. 항목에 `closed: {as, reason, at}` 이 기록되고(다른 필드는 그대로, 항목은 backlog.json 에 남음) `feedback/backlog_close` 이벤트 `{ids, as, reason}` 가 남는다. 근거는 두 곳 모두 가린다. 이미 닫혔거나 해결된 id·`kind: decision` 항목·없는 id 는 usage(exit 2)이고 아무것도 닫지 않는다. 계약의 `resolves` 가 닫힌 항목을 가리키면 lint-contract 가 `resolves: backlog item B<n> is already closed as <as>` warning 을 낸다(§5). 평가자는 항목을 닫지 않는다 — 닫기는 사람의 결정이다.
    - **status**: `harness status` 는 `backlog: N open (high a · medium b · low c · none d)` 줄과 열린 `high` 항목 최대 5개(id·summary 앞 100자)를 보여 준다. `--brief` 에는 열린 high 항목 수만 ` — backlog high: n` 으로 덧붙인다(0 이면 생략). backlog.json 이 `{ items: [...] }` 가 아니면 status 도 E6 로 exit 2.
    - **새 계약을 쓸 때**(spec skill): 열린 `high` 항목을 검토해 이 기능이 해결하는 항목의 id 를 `resolves` 에 넣는다.
 8. **평가·보안 이벤트** (§2 이벤트 기록). 평가(대화형 `eval`·`run` 모두)가 판정 또는 eval_error 로 끝날 때 코어는 그 평가의 이벤트를 `feature`·`round`(판정 파일 번호)와 함께 남긴다. 중단된 평가는 판정 파일처럼 이벤트도 남기지 않는다.
