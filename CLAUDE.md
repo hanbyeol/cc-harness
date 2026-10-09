@@ -44,7 +44,7 @@ This block is managed by `harness claude-md`; edits inside it are replaced on th
 <!-- cc-harness:end -->
 
 This repository is cc-harness v2 and uses its own workflow. The workflow for any project,
-including this one, is in @AGENTS.md. Design rationale: `docs/brainstorms/2026-09-23-v2-from-scratch.md`.
+including this one, is in `AGENTS.md` (the managed block above holds its rules, so it is not imported here). Design rationale: `docs/brainstorms/2026-09-23-v2-from-scratch.md`.
 Requirements: `docs/SPEC.md`. v1 is preserved at tag `v1.39.18-final`.
 
 ## Priority
