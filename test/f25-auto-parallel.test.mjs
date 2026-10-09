@@ -247,7 +247,8 @@ test('F25 AC-4: worktree add/remove, branch create/delete and merge calls never 
   const kinds = (pred) => calls.filter((c) => pred(c.args)).length;
   assert.equal(kinds((a) => a[0] === 'worktree' && a[1] === 'add'), 5, 'integration + four feature worktrees');
   assert.equal(kinds((a) => a[0] === 'worktree' && a[1] === 'remove'), 5);
-  assert.equal(kinds((a) => a[0] === 'merge'), 4);
+  // Merges into integration; a pre-merge verify (F91) also merges integration into a feature worktree.
+  assert.equal(kinds((a) => a[0] === 'merge' && !a.some((x) => String(x).endsWith('(pre-merge verify)'))), 4);
   assert.ok(kinds((a) => a[0] === 'branch') >= 5, 'integration branch created, four feature branches deleted');
   for (let i = 0; i < calls.length; i += 1) {
     for (let j = i + 1; j < calls.length; j += 1) {

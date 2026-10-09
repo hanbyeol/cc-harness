@@ -64,7 +64,7 @@ function fakeVerify({ integration } = {}) {
   const calls = [];
   const fn = async (a) => {
     const onInt = isIntegration(a.cwd);
-    calls.push({ cwd: a.cwd, base: a.base, integration: onInt });
+    calls.push({ cwd: a.cwd, base: a.base, integration: onInt, step: a.step });
     if (onInt) return integration ? integration(a) : (fs.existsSync(path.join(a.cwd, 'fixed.txt')) ? PASSING : FAILING);
     return fs.existsSync(path.join(a.cwd, 'broken.txt')) ? FAILING : PASSING;
   };
@@ -199,7 +199,8 @@ test('F32 AC-2: a failed post-merge verify goes to the builder once in the featu
   assert.equal(evaluate.calls.length, 2, 'evaluated again after the recovery');
   assert.notEqual(evaluate.calls[0].base, intTip);
   assert.equal(evaluate.calls[1].base, intTip, 'the re-evaluation is against the integration commit');
-  const featureVerifies = verify.calls.filter((c) => !c.integration);
+  // The pre-merge verify (F91) also runs in the feature worktree; these are its build and eval verifies.
+  const featureVerifies = verify.calls.filter((c) => !c.integration && c.step !== 'pre_merge_verify');
   assert.equal(featureVerifies.length, 2, 'verified again after the recovery');
   assert.equal(featureVerifies[1].base, intTip);
   for (const f of ['F1.txt', 'fixed.txt', 'other.txt']) git(dir, 'cat-file', '-e', `harness/integration:${f}`);
