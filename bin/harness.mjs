@@ -20,6 +20,7 @@ const COMMANDS = {
   stats: ['aggregate step metrics and suggest config changes', true],
   events: ['show the event log (.harness/events) oldest first', true],
   decide: ['record a human decision on a feature (--accept-risk|--split|--rewrite)', true],
+  backlog: ['close open backlog items (close B<n>... --resolved|--obsolete "<reason>")', true],
   note: ['record a manual intervention (--kind manual-fix|manual-merge|environment|other)', true],
   'ci-record': ['record a CI result (--sha, --result, --job, --test)', true],
   insights: ['aggregate events into improvement candidates', true],
