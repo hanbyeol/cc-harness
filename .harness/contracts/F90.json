@@ -1,0 +1,64 @@
+{
+  "id": "F90",
+  "title": "코드 정리 — 쓰이지 않는 export·재노출 제거, 테스트 전용 코드를 test/ 로, 참조 없는 rules/ 제거, verify git 옵션을 eval 과 맞춤",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "lib/telemetry.mjs 는 lastExport·isShareOn·isAutoExportOn 을 export 하지 않는다",
+      "check": "node test/t.mjs \"F90 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "lib/run.mjs 는 redactor·verifyFailures 를 재노출(export)하지 않고, lib/adapters/index.mjs 는 extractJson·parseOutput·parseUsage 를 재노출하지 않는다. 그 함수를 쓰는 테스트는 정의된 모듈(lib/failures.mjs·lib/adapters/common.mjs)에서 불러온다",
+      "check": "node test/t.mjs \"F90 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "lib/stress.mjs 가 없고 lib/glob.mjs 에 expandFileGlob 이 없다. 그 코드는 test 디렉터리 아래로 옮겨져, 부하 도구를 f1-core 테스트 파일 하나로 1회 실행하면 exit 0 이다",
+      "check": "node test/t.mjs \"F90 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "저장소에 rules/ 디렉터리가 없고 package.json 의 files 에 'rules/' 가 없다. 추적 파일(.harness/ 제외) 어디에도 'rules/' 경로를 가리키는 참조가 남지 않는다",
+      "check": "node test/t.mjs \"F90 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "lib/verify.mjs 가 git 에 넘기는 고정 옵션에 '-c core.fsmonitor=false' 가 있다 — 가짜 git 이 받은 인자로 verify 의 git 호출 각각에 그 옵션이 있음을 확인한다",
+      "check": "node test/t.mjs \"F90 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "node test/assert-count.mjs 가 exit 0 이다",
+      "check": "node test/assert-count.mjs",
+      "new": false
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "harness 의 모든 명령(--help 출력의 명령 목록)이 이 기능 뒤에도 불러와진다 — 각 명령 모듈을 import 해 default export 가 함수임을 확인한다",
+      "check": "node test/t.mjs \"F90 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "decide·note·ci-record·insights 명령 제거(사용자 결정으로 유지)",
+    "blocked 사유 철자(rounds/max_rounds, needs_human/needs-human) 통일",
+    "계약 필드 run_steps 와 bin 의 not_implemented 분기",
+    "중복 helper(isObj·sha16·median 등) 통합"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-09T01:08:23.173Z",
+    "hash": "bf3d9a4c641945dcf71a911dc40e30878ac2f14ad6093f5d5dec5ea5ca780cfa"
+  }
+}

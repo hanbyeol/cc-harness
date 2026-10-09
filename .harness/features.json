@@ -784,6 +784,13 @@
       "security_tier": "standard",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F90",
+      "title": "코드 정리 — 쓰이지 않는 export·재노출 제거, 테스트 전용 코드를 test/ 로, 참조 없는 rules/ 제거, verify git 옵션을 eval 과 맞춤",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }
