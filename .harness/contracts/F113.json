@@ -1,0 +1,57 @@
+{
+  "id": "F113",
+  "title": "lib/run.mjs 분할 — 동작은 그대로, run 로직을 lib/run/ 의 state·worktree·feature·merge·report 모듈로 나누고 runFeatures 는 스케줄러만 남긴다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "lib/run.mjs 는 400줄 이하이고 여전히 이 이름들을 export 한다: MAX_BUILD_ATTEMPTS, MAX_EVAL_ERRORS, INTEGRATION_WT, environmentFailure, FAILURE_MESSAGE_CHARS, blockingIds, verdictBlockingIds, convergence, git, isSerializedGit, protectedSet, assertIntegrationName, assertIntegrationAllowed, preflight, effectiveTier, MAX_PROMPT_FILES, builderPrompt, hasConflictMarkers, conflictMarkedFiles, verifyBlocking, renderReport, availableCpus, verifyParallelFor, runFeatures (테스트가 import 해 확인)",
+      "check": "node test/t.mjs \"F113 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "lib/run/ 에 state.mjs(run 상태 파일·resume·validateState), worktree.mjs(worktree·브랜치·git 잠금·이어받기), feature.mjs(기능 하나의 build→verify→eval 라운드), merge.mjs(병합·병합 전후 verify·복구), report.mjs(renderReport·단계 표) 가 있고 각각 600줄 이하다. runFeatures 함수 본문은 200줄 이하다",
+      "check": "node test/t.mjs \"F113 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "lib/run.mjs 와 lib/run/*.mjs 의 최상위 함수(줄 시작의 'export function'·'export async function'·'function'·'async function' 부터 다음 '}' 만 있는 줄까지) 중 250줄을 넘는 것이 없다",
+      "check": "node test/t.mjs \"F113 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "run 의 기본 흐름(build→verify→eval→병합)은 그대로다 — F6 AC-1 테스트",
+      "check": "node test/t.mjs \"F6 AC-1\"",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "병합 복구(충돌·병합 후 verify)는 그대로다 — F32 AC-1 테스트",
+      "check": "node test/t.mjs \"F32 AC-1\"",
+      "new": false
+    },
+    {
+      "id": "AC-6",
+      "criterion": "--resume 과 병렬 한도는 그대로다 — F105 AC-1·F108 AC-4 테스트",
+      "check": "node test/t.mjs \"F105 AC-1\" && node test/t.mjs \"F108 AC-4\"",
+      "new": false
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [],
+  "out_of_scope": [
+    "run 의 동작·메시지·이벤트·보고서 형식 변경",
+    "export 제거나 이름 변경",
+    "lib/eval.mjs·lib/verify.mjs 분할",
+    "테스트 파일 재배치"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-10T11:31:53.101Z",
+    "hash": "2d9b3d61254def4e10b2f24dd7e25be49fb324c3967f29643e4f7312963427b6"
+  }
+}

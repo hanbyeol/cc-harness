@@ -1,0 +1,83 @@
+{
+  "id": "F112",
+  "title": "builder 프롬프트에 프로젝트 컨텍스트 파일 — run.context_files 의 파일(모듈 지도)을 모든 builder 프롬프트에 싣고, 이 저장소의 docs/MAP.md 를 lib·bin 파일 목록과 동기화 검사",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "config run.context_files — 기본값 [] (DEFAULTS.run.context_files), 상대 POSIX 경로 문자열 배열을 받는다. resolveConfig 결과의 run.context_files 에 그대로 들어간다",
+      "check": "node test/t.mjs \"F112 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "harness run 에서(프롬프트를 포착하는 가짜 builder 어댑터) run.context_files 가 ['docs/MAP.md'] 이고 그 파일이 기능 worktree 에 있으면, 첫 build 시도와 verify 실패 뒤의 재시도 프롬프트 모두 '## Verification' 절 바로 뒤에 '## Project context' 절이 있고, 그 안에 '### docs/MAP.md' 제목과 파일 본문이 울타리(본문 안의 어떤 백틱 연속보다 긴 울타리) 안에 들어 있다",
+      "check": "node test/t.mjs \"F112 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "builderPrompt 는 contextFiles 인자([{path, text}] 또는 {path, missing: true})를 받아 같은 절을 만든다 — 충돌 해결·병합 후 복구·이어가기 프롬프트도 같은 builderPrompt 를 거치므로 같은 절을 갖는다(세 경로 각각 포착해 확인)",
+      "check": "node test/t.mjs \"F112 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "run.context_files 가 비어 있거나 없으면 '## Project context' 절이 없고 프롬프트는 F112 이전과 바이트 단위로 같다(같은 입력으로 만든 두 프롬프트 비교)",
+      "check": "node test/t.mjs \"F112 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "컨텍스트 파일 본문은 run 의 redactor 를 거친다(env_allowlist 밖 환경 변수 값이 본문에 있으면 프롬프트에는 [redacted]). 16,384자(코드 포인트)를 넘는 본문은 그 길이에서 잘리고 마지막 줄에 '… truncated (<N> more characters)' 가 붙는다",
+      "check": "node test/t.mjs \"F112 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "이 저장소의 docs/MAP.md 가 있고, lib/ 아래 모든 .mjs 파일(재귀)과 bin/ 아래 모든 파일을 저장소 기준 경로(예: lib/adapters/claude.mjs)로 각각 한 줄에 이름하며 그 줄에 책임 설명이 있다(경로 뒤에 ' — ' 와 텍스트). 테스트가 파일을 열거해 빠진 경로가 있으면 실패한다",
+      "check": "node test/t.mjs \"F112 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "docs/SPEC.md §8 의 builder 프롬프트 설명에 '## Project context' 절과 run.context_files(기본값, 상대 경로만, 16,384자 상한, 없는 파일 표시, redactor 적용)가 적혀 있다(문서 check)",
+      "check": "node test/t.mjs \"F112 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "run.context_files 의 항목이 비밀 경로(§9 isSecretPath — '.env', 'secrets/key.pem')이거나 config secret_globs 에 맞으면 config_invalid(exit 2)이고 메시지가 run.context_files 와 그 경로를 이름한다 — 비밀 파일 본문이 프롬프트에 실리지 않는다",
+      "check": "node test/t.mjs \"F112 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "run.context_files 가 배열이 아니거나, 항목이 문자열이 아니거나 빈 문자열이거나, 절대 경로('/x', 'C:\\\\x')이거나 '..' 세그먼트를 가지면 config_invalid(exit 2)이고 메시지가 run.context_files 를 이름한다",
+      "check": "node test/t.mjs \"F112 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "목록의 파일이 worktree 에 없으면 '## Project context' 절에 '- docs/MAP.md: not found' 한 줄로 표시되고 build 는 그대로 진행된다(오류·blocked 아님)",
+      "check": "node test/t.mjs \"F112 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "claude --setting-sources 로 홈 CLAUDE.md 를 빼기 (2026-10-10 실측: project 만 지정해도 상위 디렉터리 CLAUDE.md 는 그대로 로드된다)",
+    "evaluator·security-reviewer 프롬프트에 컨텍스트 파일 싣기",
+    "지도 자동 생성 (harness init)",
+    "이 저장소 .harness/config.json 에 run.context_files 를 두는 것 — 사람이 승인 뒤 직접 한다"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-10T11:31:53.101Z",
+    "hash": "a0ac9babea22e21afba9861d88843789f498462f8fa731346a075b2afaa2fd1f"
+  }
+}
