@@ -6285,6 +6285,28 @@
         "reason": "triage 2026-10-09: review note on the f81 AC-5 timing fix; the change waits on an explicit condition, keeps the 1500 ms assert, assert-count clean, stress 2 passed",
         "at": "2026-10-09T09:24:58.918Z"
       }
+    },
+    {
+      "feature": "F99",
+      "round": 1,
+      "at": "2026-10-10T02:26:22.680Z",
+      "summary": "The F99 tests build the prompt by calling run.builderPrompt with the arguments the fake builder receives. They never go through defaultBuild, which is where `config` and `redact` are passed to builderPrompt. If that call in lib/run.mjs stopped passing `config` or `redact`, the F99 tests would still pass. An end-to-end test with a fake adapter that captures the real prompt would close this gap.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f99-builder-verification.test.mjs",
+      "priority": "low",
+      "id": "B492"
+    },
+    {
+      "feature": "F99",
+      "round": 1,
+      "at": "2026-10-10T02:26:22.680Z",
+      "summary": "verificationSection is only added when `config` is passed to builderPrompt. A caller that omits it silently gets no `## Verification` section.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "priority": "low",
+      "id": "B493"
     }
   ]
 }
