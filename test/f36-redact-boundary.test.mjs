@@ -91,8 +91,8 @@ async function evaluated() {
     findings: [
       { criterion_id: 'AC-1', dimension: 'functionality', summary: `${SECRET.slice(25)} leaks`, repro: 'node scripts/leak.mjs' },
       { criterion_id: '', dimension: 'security', summary: `token ${SECRET.slice(0, 40)}`, repro: 'false' },
+      { criterion_id: 'AC-99', dimension: 'quality', summary: `rotate ${SECRET.slice(0, 20)}`, repro: 'false' },
     ],
-    out_of_scope: [{ summary: `rotate ${SECRET.slice(0, 20)}` }],
   };
   const runAdapter = async () => ({ ok: true, error: null, text: JSON.stringify(json), json, costUsd: 0, exitCode: 0 });
   const v = await evaluate({ root: dir, featureId: 'F1', base: 'main', config, runAdapter, env: ENV });

@@ -383,7 +383,7 @@ test('F27 SC-1: metrics lines carry only the listed fields — no prompt, output
   const MARK = 'MARKER-7f3a9c';
   const SECRET = 'sk-test-secret';
   const builder = `import fs from 'node:fs';\nlet s = '';\nfor await (const c of process.stdin) s += c;\nfs.writeFileSync('F1.txt', 'x');\nprocess.stdout.write('${MARK} ' + (process.env.GEMINI_API_KEY || '') + ' ' + s);\n`;
-  const reply = JSON.stringify({ scores, findings: [], out_of_scope: [{ summary: `${MARK} out of scope` }] });
+  const reply = JSON.stringify({ scores, findings: [{ criterion_id: 'AC-99', dimension: 'quality', summary: `${MARK} later`, repro: 'node -e 0' }] });
   const evaluator = `let s = '';\nfor await (const c of process.stdin) s += c;\nprocess.stdout.write(${JSON.stringify(reply)} + ' ${MARK} ' + (process.env.GEMINI_API_KEY || ''));\n`;
   const dir = fixture(['F1'], {
     text: `F1.txt exists ${MARK}`,

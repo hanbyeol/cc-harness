@@ -94,23 +94,24 @@ const backlogFinding = (loc, summary) => ({
   criterion_id: 'AC-9', dimension: 'quality', summary, repro: 'node scripts/fail.mjs', ...loc,
 });
 
-// Evaluates one reply whose out_of_scope entries each carry a location; returns backlog items by summary.
+// Evaluates one reply whose non-blocking findings each carry a location; returns backlog items by summary.
 async function backlogOf(cases, opts) {
   const dir = fixture(opts);
-  const oos = cases.map(([summary, loc]) => ({ summary, ...loc }));
-  const r = await evalCmd(dir, adapter(reply({ scores: scores(), findings: [], out_of_scope: oos })));
+  const later = cases.map(([summary, loc]) => backlogFinding(loc, summary));
+  const r = await evalCmd(dir, adapter(reply({ scores: scores(), findings: later })));
   assert.equal(r.code, 0, r.out + r.err);
   return bySummary(backlog(dir));
 }
 
 // ---------- AC-1 ----------
 test('F75 AC-1 findings and out_of_scope offer optional file (string) and line (integer ≥ 1)', () => {
-  for (const s of [OUTPUT_SCHEMA.properties.findings.items, OUTPUT_SCHEMA.properties.out_of_scope.items]) {
+  for (const s of [OUTPUT_SCHEMA.properties.findings.items]) {
     assert.deepEqual(s.properties.file, { type: 'string' });
     assert.deepEqual(s.properties.line, { type: 'integer', minimum: 1 });
     assert.ok(!s.required.includes('file'));
     assert.ok(!s.required.includes('line'));
   }
+  assert.equal(OUTPUT_SCHEMA.properties.out_of_scope, undefined);
 });
 
 test('F75 AC-1 a reply with or without file/line, valid or not, is not a schema error', () => {
@@ -163,7 +164,6 @@ test('F75 AC-3 backlogged findings and out_of_scope entries keep file and line i
       { ...blockingFinding({ file: 'lib/b.mjs', line: 8 }, 'not reproduced'), repro: 'node scripts/ok.mjs' },
       { ...blockingFinding({ file: 'lib/c.mjs', line: 9 }, 'no repro'), repro: '' },
     ],
-    out_of_scope: [{ summary: 'oos', file: 'docs/SPEC.md', line: 300 }],
   })));
   assert.equal(r.code, 0, r.out + r.err);
   const by = bySummary(backlog(dir));
@@ -173,8 +173,7 @@ test('F75 AC-3 backlogged findings and out_of_scope entries keep file and line i
   assert.deepEqual([by['not reproduced'].file, by['not reproduced'].line], ['lib/b.mjs', 8]);
   assert.equal(by['no repro'].reason, 'missing_repro');
   assert.deepEqual([by['no repro'].file, by['no repro'].line], ['lib/c.mjs', 9]);
-  assert.equal(by.oos.reason, 'out_of_scope');
-  assert.deepEqual([by.oos.file, by.oos.line], ['docs/SPEC.md', 300]);
+  assert.equal(Object.keys(by).length, 3);
 });
 
 test('F75 AC-3 a repeat reported with the same backlog_id leaves the existing item\'s file and line unchanged', async () => {
@@ -184,15 +183,18 @@ test('F75 AC-3 a repeat reported with the same backlog_id leaves the existing it
   ] });
   const r = await evalCmd(dir, adapter(reply({
     scores: scores(),
-    findings: [backlogFinding({ file: 'lib/new.mjs', line: 99, backlog_id: 'B1' }, 'known again')],
-    out_of_scope: [{ summary: 'again', backlog_id: 'B2', file: 'lib/x.mjs', line: 5 }],
+    findings: [
+      backlogFinding({ file: 'lib/new.mjs', line: 99, backlog_id: 'B1' }, 'known again'),
+      backlogFinding({ file: 'lib/x.mjs', line: 5, backlog_id: 'B2' }, 'again'),
+    ],
   })));
   assert.equal(r.code, 0, r.out + r.err);
+  // F111: backlog_id is ignored — the open items stay as they were and each report is a new item.
   const items = backlog(dir);
-  assert.equal(items.length, 2, JSON.stringify(items));
-  assert.deepEqual([items[0].file, items[0].line, items[0].seen], ['lib/old.mjs', 3, 2]);
+  assert.equal(items.length, 4, JSON.stringify(items));
+  assert.deepEqual([items[0].file, items[0].line, items[0].seen], ['lib/old.mjs', 3, undefined]);
   assert.ok(!('file' in items[1]) && !('line' in items[1]), JSON.stringify(items[1]));
-  assert.equal(items[1].seen, 2);
+  assert.equal(items[1].seen, undefined);
 });
 
 // ---------- AC-4 ----------
@@ -262,7 +264,7 @@ test('F75 SC-1 a secret file drops file and line, the finding is kept as if it h
     const item = by[summary];
     assert.ok(item, summary);
     assert.ok(!('file' in item) && !('line' in item), `${summary}: ${JSON.stringify(item)}`);
-    assert.equal(item.reason, 'out_of_scope');
+    assert.equal(item.reason, 'criterion_not_in_contract');
   }
   assert.deepEqual([by.plain.file, by.plain.line], ['lib/ok.mjs', 9]);
 });

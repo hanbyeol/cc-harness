@@ -66,7 +66,7 @@ test('F7 AC-2 roles: agents have subagent frontmatter and load as role prompts w
   }
   for (const r of ['evaluator', 'security-reviewer']) {
     const p = loadRolePrompt(r);
-    for (const key of [...DIMENSIONS, 'findings', 'criterion_id', 'repro', 'out_of_scope', 'REGRESSION']) {
+    for (const key of [...DIMENSIONS, 'findings', 'criterion_id', 'repro', 'REGRESSION']) {
       assert.ok(p.includes(key), `${r}: prompt must describe '${key}'`);
     }
     assert.match(p, /read-only/i, `${r}: must be read-only`);
