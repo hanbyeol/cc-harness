@@ -89,17 +89,17 @@ test('F56 AC-1: eval records one eval/finding event per finding with id, dimensi
     finding('AC-1', 'no-such-program-f56 --flag', 'missing program'),
     finding('SC-1', 'git config core.hooksPath x', 'adversarial', 'security'),
     finding('AC-1', '', 'no repro'),
-  ], [{ summary: 'later please' }])] });
+  ])] });
   assert.equal(r.verdict, 'fail');
   const es = of(dir, 'eval', 'finding');
-  assert.equal(es.length, 8);
+  assert.equal(es.length, 7);
   for (const e of es) {
     assert.equal(e.feature, 'F9');
     assert.equal(e.round, r.round);
     for (const k of ['criterion_id', 'dimension', 'source', 'result', 'reason', 'repro_exit', 'repro_ms', 'summary']) assert.ok(Object.hasOwn(e.data, k), k);
     assert.equal(e.data.source, 'evaluator');
   }
-  const [hit, noId, notIn, notRepro, notRunnable, adv, noRepro, oos] = es.map((e) => e.data);
+  const [hit, noId, notIn, notRepro, notRunnable, adv, noRepro] = es.map((e) => e.data);
   assert.deepEqual([hit.criterion_id, hit.dimension, hit.result, hit.reason, hit.repro_exit], ['AC-1', 'functionality', 'blocking', null, 3]);
   assert.ok(Number.isInteger(hit.repro_ms) && hit.repro_ms >= 0);
   assert.deepEqual([noId.result, noId.reason, noId.criterion_id, noId.repro_exit, noId.repro_ms], ['backlogged', 'no_criterion', null, null, null]);
@@ -109,7 +109,7 @@ test('F56 AC-1: eval records one eval/finding event per finding with id, dimensi
   assert.deepEqual([notRunnable.result, notRunnable.reason], ['backlogged', 'repro_not_runnable']);
   assert.deepEqual([adv.result, adv.reason, adv.repro_exit], ['backlogged', 'adversarial', null]);
   assert.deepEqual([noRepro.result, noRepro.reason], ['backlogged', 'no_repro']);
-  assert.deepEqual([oos.result, oos.reason, oos.criterion_id, oos.summary], ['backlogged', 'out_of_scope', null, 'later please']);
+  assert.ok(es.every((e) => e.data.reason !== 'out_of_scope'));
 });
 
 test('F56 AC-1: an out-of-contract criterion_id is clipped in the finding event', async () => {
@@ -262,7 +262,7 @@ test('F56 SC-1: the summary is redacted before it is cut to 300 characters', asy
   // The secret straddles the 300th character: cutting first would leave a fragment
   // that no longer matches the secret value.
   const summary = `${'x'.repeat(295)}${SECRET} tail`;
-  await run(dir, { evaluator: [good({}, [], [{ summary }])] }, { env: { ...process.env, F56_TOKEN: SECRET } });
+  await run(dir, { evaluator: [good({}, [finding('AC-99', 'node scripts/fail.mjs', summary)])] }, { env: { ...process.env, F56_TOKEN: SECRET } });
   const [e] = of(dir, 'eval', 'finding');
   assert.equal(e.data.summary, `${'x'.repeat(295)}[reda`);
   assert.equal(e.data.summary.length, 300);

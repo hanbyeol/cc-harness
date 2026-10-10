@@ -55,7 +55,7 @@ test('F98 AC-2 maxRoundsOf: a positive integer max_rounds, otherwise 3', () => {
 });
 
 test('F98 AC-2 eval-status, approve and run take the round limit from maxRoundsOf; no lib file repeats the fallback', () => {
-  for (const [f, from] of [['eval-status.mjs', './config.mjs'], ['commands/approve.mjs', '../config.mjs'], ['run.mjs', './config.mjs']]) {
+  for (const [f, from] of [['eval-status.mjs', './config.mjs'], ['commands/approve.mjs', '../config.mjs'], ['run/state.mjs', '../config.mjs']]) {
     const src = lib(f);
     assert.ok(importedFrom(src, from).includes('maxRoundsOf'), f);
     assert.match(src, /maxRoundsOf\(/, f);

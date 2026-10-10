@@ -131,13 +131,10 @@ test('F67 AC-2: the eval prompt "## Open backlog" lists the ordinary item only',
   const dir = fixture({ backlog: MIXED(), status: 'approved' });
   assert.equal(harness(['decide', 'F2', '--split', 'too big'], { cwd: dir }).code, 0);
   const prompt = await evalPrompt(dir);
-  const start = prompt.indexOf('## Open backlog');
-  assert.ok(start !== -1, prompt);
-  const next = prompt.indexOf('\n## ', start + 1);
-  const section = prompt.slice(start, next === -1 ? undefined : next);
-  const listed = [...section.matchAll(/^- (B\d+) \[/gm)].map((m) => m[1]);
-  assert.deepEqual(listed, ['B2']);
-  assert.ok(!section.includes('too big') && !section.includes('decision'), section);
+  // F111: the evaluator prompt has no backlog section at all.
+  assert.ok(!prompt.includes('## Open backlog'), prompt);
+  assert.ok(!prompt.includes('- B2 ['), prompt);
+  assert.ok(!/^- B\d+ \[/m.test(prompt), prompt);
 });
 
 test('F67 AC-2: learn --propose treats only the ordinary item as open', () => {
@@ -203,7 +200,8 @@ test('F67 AC-4: SPEC decide section documents the summary format and the open-ta
   assert.ok(section.includes('decision <decision> for F<n>: <사유>'), section);
   assert.match(section, /열린 (과제|항목)이 아니다/);
   assert.match(section, /status/);
-  assert.match(section, /Open backlog/);
+  assert.ok(!section.includes('## Open backlog'), section);
+  assert.ok(!section.includes('Open backlog'), section);
 });
 
 // ---------- ES-1 ----------

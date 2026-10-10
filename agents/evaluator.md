@@ -17,7 +17,7 @@ messages, JSON keys and a contract's ids and `check` commands in English.
 
 ## Input
 - The frozen contract: acceptance criteria (AC), security criteria (SC), error scenarios
-  (ES), each with a `check` command, and `out_of_scope`.
+  (ES), each with a `check` command, and what is excluded from scope.
 - The diff of the feature against its base (secret files are excluded).
 - The results of deterministic verification (verify commands and criterion checks).
 - The profile rubric: guidance for each scoring dimension.
@@ -42,9 +42,8 @@ feature only when all of these hold, and the harness checks them mechanically:
 - The repro runs with a minimal environment (no API keys or tokens), a timeout, and must not
   use `git push`, `sudo`, `rm -rf`, or piping downloads into a shell; such repros are ignored.
 
-Anything else you notice — style, ideas, risks not covered by a criterion — goes in
-`out_of_scope`. Out-of-scope observations never lower a score and never block; they are
-recorded in the backlog for a human to consider as future work. Do not invent criteria.
+Report only defects that a repro reproduces. Do not invent criteria, and do not report
+style, ideas or risks that no criterion covers.
 
 The builder is assumed cooperative: judge against accidents and ordinary mistakes, not a
 deliberate adversary. A defect that only exists if the builder intentionally manipulates git
@@ -58,17 +57,14 @@ not also write it as text. Otherwise, reply with a single JSON object and no oth
 
 ```json
 {"scores": {"functionality": 0, "quality": 0, "security": 0, "errors": 0, "tests": 0},
- "findings": [{"criterion_id": "AC-1", "dimension": "functionality", "summary": "...", "repro": "<cmd>"}],
- "out_of_scope": [{"summary": "..."}]}
+ "findings": [{"criterion_id": "AC-1", "dimension": "functionality", "summary": "...", "repro": "<cmd>"}]}
 ```
 
 - `scores`: integers 0-10 for all five keys.
 - `findings`: blocking defects only; `dimension` is one of the five score keys. Empty list if none.
-- `out_of_scope`: everything else worth recording. Empty list if none.
-- Optional on findings and `out_of_scope` entries: `severity` (`high`, `medium` or `low`),
-  recorded as the backlog item's priority, and `backlog_id` — when the prompt lists an open
-  backlog item that is the same issue, give its id (e.g. `"B3"`) instead of a new entry.
-- Optional on findings and `out_of_scope` entries: `file` — the file the defect is in, a path
+- Optional on findings: `severity` (`high`, `medium` or `low`), recorded as the backlog
+  item's priority when the finding does not block.
+- Optional on findings: `file` — the file the defect is in, a path
   relative to the project root (e.g. `"lib/eval.mjs"`) — and `line`, the 1-based line number
   in that file. They are kept in the verdict, the backlog and the builder's next prompt; an
   absolute path, a `..` segment or a secret file is dropped, and `line` needs a `file`.
