@@ -57,7 +57,8 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 - `harness events [--stage S] [--feature F] [--since YYYY-MM-DD] [--json]` 은 모든 월 파일의 이벤트를 `ts` 순(같으면 파일 순)으로 보여 준다. 조건은 함께 쓰면 모두 만족해야 하고,
   `--since` 는 그날 0시(UTC) 이후다. 텍스트 출력은 한 줄에 `<ts> <stage>/<type> [<feature>] [r<round>] <data JSON>`, `--json` 은 이벤트 배열이다. 이벤트가 없으면 `no events yet`,
   조건에 맞는 것이 없으면 `no matching events`. 출력하는 줄마다(텍스트·`--json` 모두) 그 저장소의 redactor(`process.env`, config `env_allowlist`)를 다시 적용한다 —
-  손으로 쓴 줄이나 그 값이 비밀이 되기 전에 기록된 줄에 든 비밀 환경 변수 값도 출력에서는 가려진다(파일은 바꾸지 않는다). JSON 객체가 아닌 줄은 건너뛰고 stderr 에 `harness: warning: events/<파일>:<줄 번호>: not a JSON object — line skipped` 경고를 낸다.
+  손으로 쓴 줄이나 그 값이 비밀이 되기 전에 기록된 줄에 든 비밀 환경 변수 값도 출력에서는 가려진다(파일은 바꾸지 않는다). 이벤트를 쓸 때와 같이 data 의 값뿐 아니라
+  객체 키에도 적용한다 — 가린 뒤 같아지는 두 키는 뒤의 값 하나로 남고, 그래도 쓰기·출력은 실패하지 않는다. JSON 객체가 아닌 줄은 건너뛰고 stderr 에 `harness: warning: events/<파일>:<줄 번호>: not a JSON object — line skipped` 경고를 낸다.
   잘못된 옵션(없는 stage, `F<n>` 이 아닌 feature, 날짜가 아닌 since)은 `usage`(exit 2).
 - 피드백 단계: 사람이 명령으로 남기는 기록이다. 세 명령 모두 사유·내용이 비어 있거나(공백만 포함) 옵션이 잘못되면 `usage`(exit 2)이고 아무것도 기록하지 않는다.
   이벤트를 쓰지 못하면(위 기록 실패) 경고 후 exit 1 이다 — 기록이 이 명령들의 목적이기 때문이다.
@@ -94,7 +95,7 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 - 환경 변수 `CC_HARNESS_TELEMETRY` 가 — 앞뒤 공백을 빼고 대소문자를 가리지 않고 — `0`·`off`·`false`·`no` 면 config 와 상관없이 export 와 자동 export 가 모두 꺼진다
   (`telemetry.share is off (CC_HARNESS_TELEMETRY) …`, exit 0; `OFF`·` 0 `·`False`·`NO` 도 끈다). 없거나 비었거나 `1`·`on`·`yes` 면 config 를 따른다.
   그 밖의 값이면 stderr 에 경고 한 줄 `harness: warning: CC_HARNESS_TELEMETRY is not one of 0|off|false|no|1|on|yes — following .harness/config.json` 을 내고 config 를 따른다
-  (값 자체는 출력하지 않는다). 예: `CC_HARNESS_TELEMETRY=0 harness run`.
+  (값 자체는 출력하지 않는다). 이 경고는 프로세스당 한 번이다 — run 이 기능마다 자동 export 를 해도 다시 나오지 않는다. 예: `CC_HARNESS_TELEMETRY=0 harness run`.
 - 첫 안내 — 기본값으로 켜진 상태(`telemetry.share` 없음)에서 프로젝트의 첫 export(`.harness/events/.exported` 가 없을 때)가 성공하면 stderr 에 한 줄
   `harness: telemetry is on by default — anonymized events go to <hub> (local only); set "telemetry": {"share": false} in .harness/config.json or CC_HARNESS_TELEMETRY=0 to turn it off`
   를 낸다. `telemetry.share` 를 명시적으로 `true` 로 둔 경우와 그 뒤의 export 에서는 내지 않는다.
@@ -105,7 +106,8 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
   `project` 는 sha256(salt + 로컬 project id) 앞 16자, `data.test`·`data.tests` 는 sha256(salt + 테스트 이름) 앞 16자다. 로컬 이벤트 파일의 `project` 는 salt 없는 경로 해시
   그대로이고, salt 자체는 묶음·허브·로컬 이벤트·run 보고서 어디에도 쓰지 않는다. 같은 salt 로는 값이 안정적이라(같은 저장소는 같은 허브 디렉터리) learn 이 프로젝트를 구분하고,
   salt 를 모르면 경로나 테스트 이름을 짐작해 해시를 맞춰 볼 수 없다. salt 파일을 지우면 다음 export 가 새 salt 를 만들고 같은 저장소도 새 project id 로 내보낸다(이전 묶음은
-  그대로 남고 learn 은 둘을 다른 프로젝트로 센다). salt 파일 내용이 64자 hex 가 아니거나(앞뒤 공백 제외) 읽을 수 없으면 export 는 경고 한 줄
+  그대로 남고 learn 은 둘을 다른 프로젝트로 센다). salt 파일의 hex 는 대문자·소문자 모두 받고 소문자로 바꾼 값으로 해시를 계산한다(대소문자만 다른 두 salt 는 같은 해시를 낸다).
+  salt 파일 내용이 64자 hex 가 아니거나(앞뒤 공백 제외) 읽을 수 없으면 export 는 경고 한 줄
   `harness: warning: … telemetry salt … — nothing exported` 를 stderr 에 내고 묶음도 `.exported` 도 쓰지 않으며(exit 0 — telemetry 실패는 명령을 실패시키지 않는다) 그 파일을 덮어쓰지 않는다.
 - 허브는 `--hub <dir>`(현재 디렉터리 기준), 없으면 환경 변수 `CC_HARNESS_HUB`, 없으면 `<사용자 홈>/.cc-harness/hub` 다. 묶음 파일은 `<hub>/<project>/<시각>.jsonl` —
   `project` 는 위의 salt 를 넣은 내보낸 project id, 시각은 내보낸 시각의 ISO 8601 기본 형식(`20260928T123456.789Z`, Windows 파일 이름에 `:` 를 쓸 수 없어서)이다.
@@ -117,7 +119,9 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
   이벤트 파일이 기록된 위치보다 짧아지거나 위치가 줄의 시작이 아니면(잘리거나 교체됨) 그 파일을 처음부터 내보내고 `harness: warning: events/<파일> is shorter than or does not match its export position …` 경고를 stderr 에 낸다.
   내보낼 줄이 없으면 `nothing to export …` 를 출력하고 묶음을 쓰지 않는다(위치가 바뀌었으면 — 건너뛴 줄·이전 형식·잘린 파일 — `.exported` 만 고쳐 쓴다).
   `ts` 가 시각이 아니거나 `stage` 가 §2 의 단계가 아닌 줄은 내보내지 않는다.
-- `--dry-run` 은 쓰지 않고(묶음·`.exported` 모두) `dry run: <n> lines would be exported to <파일>` 과 내보낼 첫 3줄을 출력한다.
+- `--dry-run` 은 쓰지 않고(묶음·`.exported` 모두) `dry run: <n> lines would be exported to <파일>` 과 내보낼 첫 3줄을 출력한다. salt 파일도 만들지 않는다 —
+  없으면 `~/.cc-harness` 도 만들지 않고, `… the salt will be created at <경로> by the first real export …` 한 줄을 먼저 출력한 뒤 임시 salt 로 계산한 값을 보여 준다
+  (실제 export 의 값과 다르다). salt 파일이 있으면 그 salt 로 계산하고, 형식이 틀리거나 읽을 수 없으면 실제 export 와 같은 경고 한 줄을 내고 exit 0 이다.
 - 허브에 쓸 수 없으면(디렉터리를 만들 수 없음·권한 등) `harness: export failed: cannot write <경로>: <오류 코드>` 를 stderr 에 내고 exit 1 이며 `.exported` 는 바뀌지 않는다.
   묶음을 쓴 뒤 `.exported` 를 쓰지 못하면 묶음을 지우고 같은 방식으로 exit 1 이다.
 - `harness run`(중단된 경우 제외)과 `harness eval` 이 끝날 때 `telemetry.share` 가 켜져 있고 `telemetry.auto_export` 가 없거나 `true` 면(기본) export 를 한 번 실행한다
