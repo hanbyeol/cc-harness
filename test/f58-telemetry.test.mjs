@@ -8,7 +8,7 @@ import { harness, REPO, tmpdir } from './helpers.mjs';
 import { git, gitRepo } from './gitfixture.mjs';
 import { hashContract } from '../lib/contract.mjs';
 import { recordEvent } from '../lib/events.mjs';
-import { LINE_FIELDS, ENUM_FIELDS } from '../lib/telemetry.mjs';
+import { LINE_FIELDS, ENUM_FIELDS, readSalt } from '../lib/telemetry.mjs';
 import { runExport } from '../lib/commands/export.mjs';
 import evalCommand from '../lib/commands/eval.mjs';
 
@@ -40,13 +40,15 @@ function fixture({ telemetry, config = {}, files = {}, status = 'approved' } = {
 }
 
 const exportedPath = (dir) => path.join(dir, '.harness', 'events', '.exported');
-const projectOf = (dir) => sha16(git(dir, 'rev-parse', '--show-toplevel'));
+// The exported project id: salted with the installation's salt in the test home (F101).
+const salted = (t) => sha16(readSalt() + t);
+const projectOf = (dir, home) => sha16(readSalt({ home }) + sha16(git(dir, 'rev-parse', '--show-toplevel')));
 const listFiles = (d) => {
   try { return fs.readdirSync(d).sort(); } catch { return []; }
 };
 const readLines = (file) => fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
 // Every bundle under <hub>/<project>/, oldest first.
-const bundles = (hub, dir) => listFiles(path.join(hub, projectOf(dir))).map((n) => path.join(hub, projectOf(dir), n));
+const bundles = (hub, dir, home) => listFiles(path.join(hub, projectOf(dir, home))).map((n) => path.join(hub, projectOf(dir, home), n));
 const hubText = (hub) => {
   const out = [];
   const walk = (d) => {
@@ -148,20 +150,20 @@ test('F58 AC-2: the hub is --hub, else CC_HARNESS_HUB, else <home>/.cc-harness/h
   let r = harness(['export'], { cwd: dir, env: noHubEnv });
   assert.equal(r.code, 0, r.stdout + r.stderr);
   const homeHub = path.join(home, '.cc-harness', 'hub');
-  assert.equal(bundles(homeHub, dir).length, 1);
+  assert.equal(bundles(homeHub, dir, home).length, 1);
 
   dir = fixture({ telemetry: SHARE });
   note(dir, 'a', '2026-09-01T00:00:00Z');
   r = harness(['export'], { cwd: dir, env: { ...noHubEnv, CC_HARNESS_HUB: envHub } });
   assert.equal(r.code, 0, r.stdout + r.stderr);
-  assert.equal(bundles(envHub, dir).length, 1);
+  assert.equal(bundles(envHub, dir, home).length, 1);
 
   dir = fixture({ telemetry: SHARE });
   note(dir, 'a', '2026-09-01T00:00:00Z');
   r = harness(['export', '--hub', flagHub], { cwd: dir, env: { ...noHubEnv, CC_HARNESS_HUB: envHub } });
   assert.equal(r.code, 0, r.stdout + r.stderr);
-  assert.equal(bundles(flagHub, dir).length, 1);
-  assert.equal(bundles(envHub, dir).length, 0);
+  assert.equal(bundles(flagHub, dir, home).length, 1);
+  assert.equal(bundles(envHub, dir, home).length, 0);
 
   // bad arguments
   assert.equal(harness(['export', '--hub'], { cwd: dir }).code, 2);
@@ -197,7 +199,7 @@ test('F58 AC-3: an exported line keeps only the allowed fields and the numbers, 
     data: {
       duration_ms: 1200, cost_usd: 0.5, ok: true, retried: false,
       outcome: 'backlogged', reason: 'repro_not_reproduced', model: 'claude-opus-5-5', role: 'evaluator',
-      dimension: 'security', kind: 'manual-fix', rule: 'check', tests: [sha16('test one'), sha16('test two')], test: sha16('solo'),
+      dimension: 'security', kind: 'manual-fix', rule: 'check', tests: [salted('test one'), salted('test two')], test: salted('solo'),
       errors: [{ rule: 'size' }],
       empty: [], nested: { turns: 3 },
     },
@@ -411,7 +413,7 @@ test('F58 SC-1: the bundle has no title, criterion, finding summary, command, fi
   assert.equal(text.includes(dir), false);
   // the CI test name is there only as its hash; the finding's dimension survives
   const ci = lines.find((l) => l.type === 'ci');
-  assert.deepEqual(ci.data.tests, [sha16(M.test)]);
+  assert.deepEqual(ci.data.tests, [salted(M.test)]);
   assert.equal(lines[0].data.findings[0].dimension, 'security');
   assert.equal(lines[1].type, null);
   assert.equal(lines[1].profile, null);

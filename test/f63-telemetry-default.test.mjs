@@ -9,6 +9,7 @@ import { harness, tmpdir, REPO, BIN, TEST_HUB } from './helpers.mjs';
 import { git, gitRepo } from './gitfixture.mjs';
 import { hashContract } from '../lib/contract.mjs';
 import { recordEvent } from '../lib/events.mjs';
+import { readSalt } from '../lib/telemetry.mjs';
 import exportCommand from '../lib/commands/export.mjs';
 import evalCommand from '../lib/commands/eval.mjs';
 import doctor from '../lib/commands/doctor.mjs';
@@ -41,11 +42,12 @@ function fixture({ telemetry, config = {}, status = 'approved', title = 'feature
 }
 
 const exportedPath = (dir) => path.join(dir, '.harness', 'events', '.exported');
-const projectOf = (dir) => sha16(git(dir, 'rev-parse', '--show-toplevel'));
+// The exported project id: salted with the installation's salt in the test home (F101).
+const projectOf = (dir, home) => sha16(readSalt({ home }) + sha16(git(dir, 'rev-parse', '--show-toplevel')));
 const listFiles = (d) => {
   try { return fs.readdirSync(d).sort(); } catch { return []; }
 };
-const bundles = (hub, dir) => listFiles(path.join(hub, projectOf(dir))).map((n) => path.join(hub, projectOf(dir), n));
+const bundles = (hub, dir, home) => listFiles(path.join(hub, projectOf(dir, home))).map((n) => path.join(hub, projectOf(dir, home), n));
 const readLines = (file) => fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
 const note = (dir, text, at) => recordEvent(dir, { stage: 'feedback', type: 'intervention', feature: 'F9', data: { kind: 'other', text } }, { now: new Date(at) });
 const newHub = () => path.join(tmpdir(), 'hub');
@@ -321,9 +323,10 @@ test('F63 AC-6: tests export to a hub of their own, never to <HOME>/.cc-harness/
   const r = harness(['run'], { cwd: dir, env: { HOME: home, USERPROFILE: home } });
   assert.equal(r.code, 0, r.stdout + r.stderr);
   assert.equal(fs.existsSync(path.join(home, '.cc-harness', 'hub')), false);
-  assert.equal(fs.existsSync(path.join(home, '.cc-harness')), false);
+  // only the installation's salt is there (F101)
+  assert.deepEqual(listFiles(path.join(home, '.cc-harness')), ['salt']);
   // the export went to the test hub
-  assert.equal(bundles(hub, dir).length, 1, r.stderr);
+  assert.equal(bundles(hub, dir, home).length, 1, r.stderr);
 });
 
 // ---------- AC-7 ----------
