@@ -1,0 +1,81 @@
+{
+  "feature": "F109",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "redactDeep 의 기본값이 keys:true 라서, 새 호출부가 옵션을 빼먹으면 조용히 키까지 가린다. 이벤트 경로만 기본값을 쓰는 지금은 맞지만, 기본값을 false 로 하고 이벤트에서 명시적으로 켜는 편이 계약 문구('이벤트 경로에서만 켠다')와 더 일치한다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/failures.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "AC-4 테스트가 소스 정규식과 줄 끝 모양에 의존해, 호출부 포맷이 바뀌면 깨지기 쉽다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f109-finishing-touches.test.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "runExport 의 실제 export(dryRun=false) 경로에서 readSalt({create:true}) 가 EEXIST 경합 후 다시 읽을 때 그 사이에 파일이 지워지면 null 을 돌려줄 수 있고, 그러면 temporary 분기가 SALT_PENDING 을 salt 로 넘겨 '<salt-pending>' project 디렉터리와 해시 자리표시로 묶음이 실제로 쓰인다(F109 전에는 무작위 salt). 경합에서만 생기며 비밀 노출은 없다. 'temporary' 분기를 dryRun 일 때로만 한정하거나 실제 export 에서 null 이면 실패 처리하는 것을 고려.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "file": "lib/commands/export.mjs",
+      "line": 48,
+      "priority": "low"
+    },
+    {
+      "summary": "'<salt-pending>' 의 '<' '>' 는 Windows 경로에 쓸 수 없는 문자다. 지금은 dry-run 출력에만 나오므로 문제가 없지만, 이 자리표시가 쓰기 경로(writeExport)에 들어가면 Windows 에서 실패한다. planExport/writeExport 가 SALT_PENDING 계획을 쓰기 전에 거부하도록 막는 방어를 고려.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "file": "lib/telemetry.mjs",
+      "line": 372,
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.5213813,
+  "contract_hash": "15bbfb3e4dec852330d2089054cd00a251741dfebd01a041cfc603cc4da83a6f",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-10-10T06:39:33.123Z",
+  "origin": "run"
+}

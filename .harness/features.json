@@ -931,7 +931,7 @@
       "title": "마무리 정리 — 키 가림은 이벤트에만, 경고 한 번 플래그를 테스트에서 초기화, salt 없는 dry-run 은 고정 자리표시, 실패 사유 기본값 통일",
       "security_tier": "critical",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }
