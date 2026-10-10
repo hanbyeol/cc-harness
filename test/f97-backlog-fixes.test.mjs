@@ -10,7 +10,7 @@ import { gitRepo, writeFiles, commitAll } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { evaluate, reproProgram } from '../lib/eval.mjs';
 import { recordEvent } from '../lib/events.mjs';
-import { planExport } from '../lib/telemetry.mjs';
+import { planExport, readSalt } from '../lib/telemetry.mjs';
 import { runExport } from '../lib/commands/export.mjs';
 import { renderBlock, TEMPLATE } from '../lib/claudemd.mjs';
 
@@ -168,7 +168,7 @@ const NOW = new Date('2026-10-09T01:02:03.456Z');
 test('F97 AC-4 an export whose bundle name exists writes a suffixed bundle and leaves the existing one alone', () => {
   const dir = exportFixture();
   const hub = path.join(tmpdir(), 'hub');
-  const { file } = planExport(dir, { hub, now: NOW });
+  const { file } = planExport(dir, { hub, now: NOW, salt: readSalt() });
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, 'existing\n');
   const c = collect();
@@ -186,7 +186,7 @@ test('F97 AC-4 an export whose bundle name exists writes a suffixed bundle and l
 test('F97 ES-1 when the suffixed name exists too the export fails with a warning and changes no file', () => {
   const dir = exportFixture();
   const hub = path.join(tmpdir(), 'hub');
-  const { file } = planExport(dir, { hub, now: NOW });
+  const { file } = planExport(dir, { hub, now: NOW, salt: readSalt() });
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, 'existing\n');
   const suffixed = file.replace(/\.jsonl$/, '-1.jsonl');

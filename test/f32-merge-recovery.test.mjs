@@ -209,7 +209,7 @@ test('F32 AC-2: a failed post-merge verify goes to the builder once in the featu
 
 test('F32 AC-2: the recovery prompt names the failed items', () => {
   const prompt = run.builderPrompt({
-    rolePrompt: 'role', featureId: 'F1', round: 1, attempt: 1, contract: {}, findings: [],
+    rolePrompt: 'role', featureId: 'F1', round: 1, attempt: 1, contract: {}, findings: [], config: {},
     postMergeFailures: [{ item: 'npm test', message: 'exit 1: boom' }, { item: 'AC-1', message: 'exit 1' }],
   });
   assert.match(prompt, /verify failed on the integration branch/i);
