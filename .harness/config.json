@@ -35,5 +35,10 @@
   "telemetry": {
     "share": true,
     "auto_export": true
+  },
+  "run": {
+    "context_files": [
+      "docs/MAP.md"
+    ]
   }
 }
