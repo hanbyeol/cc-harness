@@ -1,0 +1,62 @@
+{
+  "id": "F110",
+  "title": "salt 자리표시 방어와 키 가림 기본값 — 실제 export 는 salt 를 얻지 못하면 자리표시로 쓰지 않고 경고 후 건너뛰며, writeExport 는 자리표시 계획을 거부하고, redactDeep 의 키 가림은 기본 꺼짐으로 이벤트 경로만 켠다",
+  "security_tier": "critical",
+  "version": 1,
+  "resolves": [
+    "B520",
+    "B522",
+    "B523"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "dry-run 이 아닌 export(harness export 와 run·eval 의 autoExport)에서 readSalt 가 salt 를 돌려주지 못하면(null — 예: 만든 직후 파일이 사라짐) 자리표시 '<salt-pending>' 를 salt 로 쓰지 않는다 — 경고 하나를 stderr 에 내고 묶음을 쓰지 않으며 exit 0, hub 에 '<salt-pending>' 이 든 디렉터리·파일이 생기지 않는다. readSalt 가 null 을 돌려주게 주입한 테스트로 확인",
+      "check": "node test/t.mjs \"F110 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "writeExport 는 project 가 자리표시('<salt-pending>')인 계획이나 줄에 자리표시 해시가 든 계획을 받으면 아무것도 쓰지 않고 HarnessError 를 던진다 — 자리표시 계획을 직접 넘긴 테스트에서 hub 디렉터리가 비어 있다",
+      "check": "node test/t.mjs \"F110 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "redactDeep 의 keys 옵션 기본값은 false 다 — 옵션 없이 부르면 값만 가리고 키는 그대로다. 이벤트 쓰기(lib/events.mjs)와 harness events 출력(lib/commands/events.mjs)은 keys: true 를 명시한다. F107 AC-3·F109 AC-1 테스트가 그대로 통과한다",
+      "check": "node test/t.mjs \"F110 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "docs/SPEC.md §2 가 실제 export 에서 salt 를 얻지 못하면 묶음을 쓰지 않는다는 것과 자리표시가 dry-run 출력에만 쓰인다는 것을 적는다(문서 check)",
+      "check": "node test/t.mjs \"F110 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "이벤트 파일과 harness events 출력은 AC-3 뒤에도 data 키·값의 허용되지 않은 환경 변수 값을 가린다 — F107 AC-3 테스트",
+      "check": "node test/t.mjs \"F107 AC-3\"",
+      "new": false
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "dry-run 의 동작(salt 가 없으면 '<salt-pending>' 자리표시로 보여 주고 파일을 만들지 않음, 두 번 실행해도 같은 출력)은 F109 그대로다 — F109 AC-3 테스트",
+      "check": "node test/t.mjs \"F109 AC-3\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "자리표시 문자열 자체 변경(dry-run 출력 전용)",
+    "salt 파일 잠금"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-10T08:06:08.003Z",
+    "hash": "71cf7a70f372eded9c777ce1a4de5b14c7fabc012f7098a2bfbea54824b2cc9f"
+  }
+}

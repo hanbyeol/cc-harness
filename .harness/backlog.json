@@ -6718,7 +6718,12 @@
       "source": "evaluator",
       "file": "test/f109-finishing-touches.test.mjs",
       "priority": "low",
-      "id": "B521"
+      "id": "B521",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-10: the criterion is itself a source check; a format change that breaks it is caught and fixed with the change",
+        "at": "2026-10-10T07:36:05.146Z"
+      }
     },
     {
       "feature": "F109",

@@ -932,6 +932,13 @@
       "security_tier": "critical",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F110",
+      "title": "salt 자리표시 방어와 키 가림 기본값 — 실제 export 는 salt 를 얻지 못하면 자리표시로 쓰지 않고 경고 후 건너뛰며, writeExport 는 자리표시 계획을 거부하고, redactDeep 의 키 가림은 기본 꺼짐으로 이벤트 경로만 켠다",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }
