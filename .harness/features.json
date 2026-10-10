@@ -945,14 +945,14 @@
       "title": "evaluator 출력을 차단 finding 으로 좁힘 — out_of_scope·backlog_id·Open backlog 절 제거, 비차단 메모는 받지 않는다",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F112",
       "title": "builder 프롬프트에 프로젝트 컨텍스트 파일 — run.context_files 의 모듈 지도를 모든 builder 프롬프트에 싣고, docs/MAP.md 를 lib·bin 파일 목록과 동기화 검사",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F113",
@@ -961,7 +961,7 @@
       "depends_on": [
         "F112"
       ],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }

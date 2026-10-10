@@ -1,0 +1,71 @@
+{
+  "feature": "F111",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "lib/backlog.mjs 의 PROMPT_LIMIT·PROMPT_SUMMARY_CHARS 는 이제 어디서도 쓰이지 않는 export 입니다(죽은 코드). 제거를 검토해 볼 만합니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/backlog.mjs",
+      "line": 9,
+      "priority": "low"
+    },
+    {
+      "summary": "recordEntries 의 backlog_id 합치기 분기(seen 증가·sources 추가)와 그 JSDoc 이 남아 있습니다. eval 은 더 이상 backlog_id 를 넘기지 않으므로 이 경로는 테스트(f95)에서만 닿습니다. §7.7 폐지에 맞춰 정리할 수 있습니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/backlog.mjs",
+      "line": 79,
+      "priority": "low"
+    },
+    {
+      "summary": "lib/eval.mjs 의 주석이 오래됐습니다. 695행은 'backlog_id is resolved when the backlog is written', 872행은 'criterion_id and backlog_id are not among them' 이라고 적혀 있는데, 이제 backlog_id 는 버려집니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/eval.mjs",
+      "line": 695,
+      "priority": "low"
+    },
+    {
+      "summary": "docs/SPEC.md §7.8 의 '지적' 항목에 아직 'findings·out_of_scope 항목마다' 이벤트를 남긴다고 적혀 있고, 357행 D1 은 적대적 시나리오를 '`out_of_scope`(backlog)로 보낸다'고 씁니다. 이제 회신의 out_of_scope 는 무시되므로 문구를 'backlog 로 보낸다' 정도로 바꾸는 편이 정확합니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "docs/SPEC.md",
+      "line": 383,
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.44683680000000003,
+  "contract_hash": "ab0aaeb3dfc9bbc9be4b57ee2bbbf7c9d100ee39ec2cbae8e18d1822c9ffc0ad",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-10-10T12:04:33.259Z",
+  "origin": "run"
+}

@@ -1,0 +1,61 @@
+{
+  "feature": "F113",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "분할하면서 함수 앞 주석 몇 개가 파일 머리(import 위)로 밀려났습니다. lib/run/feature.mjs 2행의 'Compact, prompt-sized summary…'는 verifyFailureSummary의 주석이고, lib/run/merge.mjs 3–7행은 cleanIntegration의 주석, lib/run/preflight.mjs 2행의 '// ---- defaults'는 구분선입니다. 원래 함수 바로 위로 옮겨야 합니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run/merge.mjs",
+      "line": 3,
+      "priority": "low"
+    },
+    {
+      "summary": "lib/run/prompt.mjs 끝에 빈 줄이 하나 더 있고, '// ---- helpers' 구분선 아래 hasConflictMarkers·conflictMarkedFiles가 builder prompt 모듈에 들어 있습니다. merge 쪽에서만 쓰는 함수라 worktree.mjs나 merge.mjs가 더 자연스러운 위치일 수 있습니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run/prompt.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "F113 AC-2/AC-3 테스트의 함수 범위 판정은 다음 '}' 한 줄까지를 셉니다. 함수 안에 들여쓰기 없는 '}' 줄이 있으면(예: 템플릿 문자열) 길이를 실제보다 짧게 셀 수 있습니다. 계약에 적힌 정의 그대로라 결함은 아닙니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f113-run-split.test.mjs",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.9354686000000001,
+  "contract_hash": "2d9b3d61254def4e10b2f24dd7e25be49fb324c3967f29643e4f7312963427b6",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-10-10T12:28:45.051Z",
+  "origin": "run"
+}

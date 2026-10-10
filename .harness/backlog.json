@@ -6817,6 +6817,123 @@
         "reason": "triage 2026-10-10: dup of B525",
         "at": "2026-10-10T08:25:10.411Z"
       }
+    },
+    {
+      "feature": "F112",
+      "round": 1,
+      "at": "2026-10-10T11:48:37.774Z",
+      "summary": "readContextFiles는 마지막 경로 요소만 lstat로 확인하므로, 중간 디렉터리가 심볼릭 링크이면(예: docs -> /elsewhere) worktree 밖의 파일 본문이 프롬프트에 실릴 수 있습니다. realpath로 worktree 안에 있는지 확인하는 방안을 검토해 볼 만합니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "line": 424,
+      "priority": "low",
+      "id": "B528"
+    },
+    {
+      "feature": "F112",
+      "round": 1,
+      "at": "2026-10-10T11:48:37.774Z",
+      "summary": "SC-1 비밀 경로 검사는 user.secret_globs만 사용합니다. 현재 프로필에는 secret_globs가 없어 결과는 같지만, 나중에 프로필이 secret_globs를 갖게 되면 해석된 값(profile ← user)으로 검사해야 합니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/config.mjs",
+      "line": 291,
+      "priority": "low",
+      "id": "B529"
+    },
+    {
+      "feature": "F112",
+      "round": 1,
+      "at": "2026-10-10T11:48:37.774Z",
+      "summary": "docs/MAP.md 동기화 테스트는 빠진 경로만 잡아냅니다. 삭제된 파일이 지도에 남아 있는 경우(stale 항목)는 잡지 못합니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f112-context-files.test.mjs",
+      "priority": "low",
+      "id": "B530"
+    },
+    {
+      "feature": "F111",
+      "round": 1,
+      "at": "2026-10-10T12:04:33.259Z",
+      "summary": "lib/backlog.mjs 의 PROMPT_LIMIT·PROMPT_SUMMARY_CHARS 는 이제 어디서도 쓰이지 않는 export 입니다(죽은 코드). 제거를 검토해 볼 만합니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/backlog.mjs",
+      "line": 9,
+      "priority": "low",
+      "id": "B531"
+    },
+    {
+      "feature": "F111",
+      "round": 1,
+      "at": "2026-10-10T12:04:33.259Z",
+      "summary": "recordEntries 의 backlog_id 합치기 분기(seen 증가·sources 추가)와 그 JSDoc 이 남아 있습니다. eval 은 더 이상 backlog_id 를 넘기지 않으므로 이 경로는 테스트(f95)에서만 닿습니다. §7.7 폐지에 맞춰 정리할 수 있습니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/backlog.mjs",
+      "line": 79,
+      "priority": "low",
+      "id": "B532"
+    },
+    {
+      "feature": "F111",
+      "round": 1,
+      "at": "2026-10-10T12:04:33.259Z",
+      "summary": "lib/eval.mjs 의 주석이 오래됐습니다. 695행은 'backlog_id is resolved when the backlog is written', 872행은 'criterion_id and backlog_id are not among them' 이라고 적혀 있는데, 이제 backlog_id 는 버려집니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/eval.mjs",
+      "line": 695,
+      "priority": "low",
+      "id": "B533"
+    },
+    {
+      "feature": "F111",
+      "round": 1,
+      "at": "2026-10-10T12:04:33.259Z",
+      "summary": "docs/SPEC.md §7.8 의 '지적' 항목에 아직 'findings·out_of_scope 항목마다' 이벤트를 남긴다고 적혀 있고, 357행 D1 은 적대적 시나리오를 '`out_of_scope`(backlog)로 보낸다'고 씁니다. 이제 회신의 out_of_scope 는 무시되므로 문구를 'backlog 로 보낸다' 정도로 바꾸는 편이 정확합니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "docs/SPEC.md",
+      "line": 383,
+      "priority": "low",
+      "id": "B534"
+    },
+    {
+      "feature": "F113",
+      "round": 1,
+      "at": "2026-10-10T12:28:45.051Z",
+      "summary": "분할하면서 함수 앞 주석 몇 개가 파일 머리(import 위)로 밀려났습니다. lib/run/feature.mjs 2행의 'Compact, prompt-sized summary…'는 verifyFailureSummary의 주석이고, lib/run/merge.mjs 3–7행은 cleanIntegration의 주석, lib/run/preflight.mjs 2행의 '// ---- defaults'는 구분선입니다. 원래 함수 바로 위로 옮겨야 합니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run/merge.mjs",
+      "line": 3,
+      "priority": "low",
+      "id": "B535"
+    },
+    {
+      "feature": "F113",
+      "round": 1,
+      "at": "2026-10-10T12:28:45.051Z",
+      "summary": "lib/run/prompt.mjs 끝에 빈 줄이 하나 더 있고, '// ---- helpers' 구분선 아래 hasConflictMarkers·conflictMarkedFiles가 builder prompt 모듈에 들어 있습니다. merge 쪽에서만 쓰는 함수라 worktree.mjs나 merge.mjs가 더 자연스러운 위치일 수 있습니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run/prompt.mjs",
+      "priority": "low",
+      "id": "B536"
+    },
+    {
+      "feature": "F113",
+      "round": 1,
+      "at": "2026-10-10T12:28:45.051Z",
+      "summary": "F113 AC-2/AC-3 테스트의 함수 범위 판정은 다음 '}' 한 줄까지를 셉니다. 함수 안에 들여쓰기 없는 '}' 줄이 있으면(예: 템플릿 문자열) 길이를 실제보다 짧게 셀 수 있습니다. 계약에 적힌 정의 그대로라 결함은 아닙니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f113-run-split.test.mjs",
+      "priority": "low",
+      "id": "B537"
     }
   ]
 }

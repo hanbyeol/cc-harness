@@ -1,0 +1,62 @@
+{
+  "feature": "F112",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "readContextFiles는 마지막 경로 요소만 lstat로 확인하므로, 중간 디렉터리가 심볼릭 링크이면(예: docs -> /elsewhere) worktree 밖의 파일 본문이 프롬프트에 실릴 수 있습니다. realpath로 worktree 안에 있는지 확인하는 방안을 검토해 볼 만합니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "line": 424,
+      "priority": "low"
+    },
+    {
+      "summary": "SC-1 비밀 경로 검사는 user.secret_globs만 사용합니다. 현재 프로필에는 secret_globs가 없어 결과는 같지만, 나중에 프로필이 secret_globs를 갖게 되면 해석된 값(profile ← user)으로 검사해야 합니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/config.mjs",
+      "line": 291,
+      "priority": "low"
+    },
+    {
+      "summary": "docs/MAP.md 동기화 테스트는 빠진 경로만 잡아냅니다. 삭제된 파일이 지도에 남아 있는 경우(stale 항목)는 잡지 못합니다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f112-context-files.test.mjs",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.3474252,
+  "contract_hash": "a0ac9babea22e21afba9861d88843789f498462f8fa731346a075b2afaa2fd1f",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 8,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-10-10T11:48:37.774Z",
+  "origin": "run"
+}
