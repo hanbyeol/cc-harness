@@ -6707,7 +6707,8 @@
       "source": "evaluator",
       "file": "lib/failures.mjs",
       "priority": "low",
-      "id": "B520"
+      "id": "B520",
+      "resolved_by": "F110"
     },
     {
       "feature": "F109",
@@ -6735,7 +6736,8 @@
       "file": "lib/commands/export.mjs",
       "line": 48,
       "priority": "low",
-      "id": "B522"
+      "id": "B522",
+      "resolved_by": "F110"
     },
     {
       "feature": "F109",
@@ -6747,7 +6749,54 @@
       "file": "lib/telemetry.mjs",
       "line": 372,
       "priority": "low",
-      "id": "B523"
+      "id": "B523",
+      "resolved_by": "F110"
+    },
+    {
+      "feature": "F110",
+      "round": 1,
+      "at": "2026-10-10T08:19:06.624Z",
+      "summary": "writeExport 의 줄 검사는 JSON.stringify(l).includes('<salt-pending>') 라서, 이벤트 data 에 우연히 그 문자열이 들어 있는 정상 계획도 거부한다. 해시 필드(project, 해시된 test 값)만 검사하면 오탐이 없다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/telemetry.mjs",
+      "priority": "low",
+      "id": "B524"
+    },
+    {
+      "feature": "F110",
+      "round": 1,
+      "at": "2026-10-10T08:19:06.624Z",
+      "summary": "AC-3 테스트는 lib/events.mjs 와 lib/commands/events.mjs 의 redactDeep 호출 줄에 'keys: true' 문자열이 있는지 소스를 읽어 확인한다. 호출이 여러 줄로 나뉘면 깨지기 쉬운 방식이라, 동작을 직접 확인하는 테스트가 보완하면 좋다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f110-salt-placeholder.test.mjs",
+      "priority": "low",
+      "id": "B525"
+    },
+    {
+      "feature": "F110",
+      "round": 1,
+      "at": "2026-10-10T08:19:06.624Z",
+      "summary": "writeExport 의 자리표시 판별이 JSON.stringify(line).includes(SALT_PENDING) 로 문자열 포함 여부를 본다. 지금은 exportLine 이 data 를 허용 목록·enum·해시로만 남겨 실제 이벤트 값에 '<salt-pending>' 이 그대로 들어갈 수 없으므로 오탐이 없다. 다만 나중에 자유 문자열 필드를 허용 목록에 넣으면 정상 묶음까지 거부될 수 있다. project/해시 필드만 정확히 비교하는 편이 더 견고하다.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "file": "lib/telemetry.mjs",
+      "line": 395,
+      "priority": "low",
+      "id": "B526"
+    },
+    {
+      "feature": "F110",
+      "round": 1,
+      "at": "2026-10-10T08:19:06.624Z",
+      "summary": "AC-3 테스트는 lib/events.mjs 와 lib/commands/events.mjs 의 소스에서 'keys: true' 문자열을 찾는 방식이다. 호출을 여러 줄로 나눠 쓰면 오탐이나 미탐이 생길 수 있다. 동작 검증은 SC-1(F107 AC-3)이 따로 맡고 있다.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "file": "test/f110-salt-placeholder.test.mjs",
+      "line": 108,
+      "priority": "low",
+      "id": "B527"
     }
   ]
 }
