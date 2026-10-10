@@ -176,11 +176,11 @@ test('F109 AC-3 a dry run without a salt shows <salt-pending> and the same outpu
 
 // ---------- AC-4 ----------
 test('F109 AC-4 both fail helpers in run.mjs have no reason default and every call names it', () => {
-  const src = fs.readFileSync(path.join(REPO, 'lib', 'run.mjs'), 'utf8');
+  const src = fs.readFileSync(path.join(REPO, 'lib', 'run', 'merge.mjs'), 'utf8');
   for (const fn of ['resolveConflict', 'recoverPostMerge']) {
     const start = src.indexOf(`async function ${fn}(`);
     assert.ok(start > 0, fn);
-    const body = src.slice(start, src.indexOf('\n  }\n', start));
+    const body = src.slice(start, src.indexOf('\n}\n', start));
     const def = body.match(/const fail = async \(([^)]*)\)/);
     assert.ok(def, `${fn} defines fail`);
     assert.equal(def[1].includes('reason = '), false, def[0]);
