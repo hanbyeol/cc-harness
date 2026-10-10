@@ -117,8 +117,8 @@ function sectionOf(text, title) {
   return text.slice(at + 1, next === -1 ? undefined : next);
 }
 
-const listed = (prompt) => [...sectionOf(prompt, 'Open backlog').matchAll(/^- (B\d+) \[/gm)].map((m) => m[1]);
-const backlogLines = (prompt) => sectionOf(prompt, 'Open backlog').split('\n').filter((l) => l.startsWith('- '));
+const listed = (prompt) => [...(sectionOf(prompt, 'Open backlog') ?? '').matchAll(/^- (B\d+) \[/gm)].map((m) => m[1]);
+const backlogLines = (prompt) => (sectionOf(prompt, 'Open backlog') ?? '').split('\n').filter((l) => l.startsWith('- '));
 
 // ------------------------------------------------------------------ AC-1
 
@@ -298,23 +298,20 @@ const plain = (from, to, extra = {}) => Array.from({ length: to - from + 1 }, (_
 test('F86 AC-5 items about a changed file come first even from the end of the list, then the pre-feature order', async () => {
   const items = [
     ...plain(1, 3, { priority: 'high' }),
-    ...plain(4, 17),
     { id: 'B18', summary: 'file field names the changed path', file: 'lib/widget.mjs' },
     { id: 'B19', summary: 'crash in widget.mjs when empty', priority: 'low' },
-    { id: 'B20', summary: 'see lib/widget.mjs line 3' },
-    { id: 'B21', summary: 'widget without an extension is not a file name', file: 'lib/other.mjs' },
   ];
   const { prompts } = await evalPrompts({ items, changed: { 'lib/widget.mjs': 'export const widget = 2;\n' } });
-  const prompt = prompts.evaluator[0];
-  // related: B19 (low) before B18 and B20 (no priority, file order); then high B1–B3, then the rest
-  assert.deepEqual(listed(prompt), ['B19', 'B18', 'B20', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B9', 'B10', 'B11', 'B12']);
-  assert.equal(backlogLines(prompt).at(-1), '- … 6 more open item(s) not shown');
+  // F111: the evaluator prompt has no backlog section, so nothing is listed, ordered, cut or counted.
+  assert.deepEqual(listed(prompts.evaluator[0]), []);
+  assert.ok(!prompts.evaluator[0].includes('Open backlog'));
 });
 
 test('F86 AC-5 a new (untracked) file counts as changed, matched by its path in file and summary', async () => {
   const items = [...plain(1, 20), { id: 'B21', summary: 'gizmo.mjs leaks a handle' }, { id: 'B22', summary: 'x', file: 'lib/gizmo.mjs' }];
   const { prompts } = await evalPrompts({ items, changed: { 'lib/gizmo.mjs': 'export const gizmo = 1;\n' } });
-  assert.deepEqual(listed(prompts.evaluator[0]).slice(0, 3), ['B21', 'B22', 'B1']);
+  // F111: the evaluator prompt has no backlog section, so nothing is listed, ordered, cut or counted.
+  assert.deepEqual(listed(prompts.evaluator[0]), []);
 });
 
 const promptFor = (items, files = []) => buildPrompt({
@@ -323,28 +320,19 @@ const promptFor = (items, files = []) => buildPrompt({
 });
 
 test('F86 AC-5 at most 15 items: 16 or more leave a "… N more" line, 15 or fewer do not', () => {
-  for (const [n, more] of [[16, 1], [40, 25], [15, 0], [3, 0]]) {
+  // F111: the evaluator prompt has no backlog section, so nothing is listed, ordered, cut or counted.
+  for (const n of [16, 40, 15, 3]) {
     const prompt = promptFor(plain(1, n));
-    assert.deepEqual(listed(prompt), plain(1, Math.min(n, 15)).map((i) => i.id), `n=${n}`);
-    const last = backlogLines(prompt).at(-1);
-    if (more) assert.equal(last, `- … ${more} more open item(s) not shown`, `n=${n}`);
-    else assert.ok(!last.includes('more open item'), `n=${n}: ${last}`);
+    assert.deepEqual(listed(prompt), [], `n=${n}`);
+    assert.ok(!prompt.includes('more open item'), `n=${n}`);
   }
 });
 
 test('F86 AC-5 a summary is collapsed to single spaces, then cut to 160 characters with "…"', () => {
-  const long = Array.from({ length: 60 }, (_, k) => `w${k}`).join('  \n\t ');
-  const collapsed = long.replace(/\s+/g, ' ');
-  assert.ok(collapsed.length > 160 && long.length > collapsed.length);
-  const exact = 'e'.repeat(160);
-  const spaced = `${'s'.repeat(150)}${' '.repeat(30)}end`; // 184 raw, 154 after collapsing
-  const lines = backlogLines(promptFor([
-    { id: 'B1', summary: long }, { id: 'B2', summary: exact }, { id: 'B3', summary: `${exact}x` }, { id: 'B4', summary: spaced },
-  ]));
-  assert.equal(lines[0], `- B1 [-] ${collapsed.slice(0, 160)}…`);
-  assert.equal(lines[1], `- B2 [-] ${exact}`);
-  assert.equal(lines[2], `- B3 [-] ${exact}…`);
-  assert.equal(lines[3], `- B4 [-] ${'s'.repeat(150)} end`);
+  // F111: the evaluator prompt has no backlog section, so nothing is listed, ordered, cut or counted.
+  const prompt = promptFor([{ id: 'B1', summary: 'a  long\n summary' }]);
+  assert.deepEqual(backlogLines(prompt), []);
+  assert.ok(!prompt.includes('a  long'));
 });
 
 // ------------------------------------------------------------------ ES-1
@@ -356,7 +344,7 @@ test('F86 ES-1 a missing or non-string summary shows as an empty summary, withou
   ];
   const { result, prompts } = await evalPrompts({ items, changed: { 'lib/widget.mjs': 'export const widget = 2;\n' } });
   assert.equal(result.verdict, 'pass', JSON.stringify(result));
-  assert.deepEqual(backlogLines(prompts.evaluator[0]), ['- B1 [-] ', '- B2 [-] ', '- B3 [-] ', '- B4 [-] ', '- B5 [-] ', '- B6 [-] ok']);
+  assert.deepEqual(backlogLines(prompts.evaluator[0]), []);
 });
 
 // ------------------------------------------------------------------ ES-2
@@ -371,18 +359,17 @@ const OPEN = () => openItems({ items: structuredClone(ORDERED) });
 
 test('F86 ES-2 no changed files: the pre-feature order, 15 items and the "… more" line', async () => {
   const { prompts } = await evalPrompts({ items: ORDERED });
-  assert.deepEqual(listed(prompts.evaluator[0]), PRE_FEATURE);
-  assert.equal(backlogLines(prompts.evaluator[0]).at(-1), '- … 5 more open item(s) not shown');
-  // a diff without a file list (no changed files) is the same
+  // F111: the evaluator prompt has no backlog section, so nothing is listed, ordered, cut or counted.
+  assert.deepEqual(listed(prompts.evaluator[0]), []);
   const bare = buildPrompt({ rolePrompt: '# E', featureId: 'F9', contract: contract(), base: 'main', vr: PASS_VERIFY, threshold: 7,
     diff: { text: '', mergeBase: '0'.repeat(40) }, backlog: OPEN() });
-  assert.deepEqual(listed(bare), PRE_FEATURE);
+  assert.deepEqual(listed(bare), []);
 });
 
 test('F86 ES-2 changed files no item is about: the pre-feature order', async () => {
   const { prompts } = await evalPrompts({ items: ORDERED, changed: { 'lib/widget.mjs': 'export const widget = 2;\n' } });
-  assert.deepEqual(listed(prompts.evaluator[0]), PRE_FEATURE);
-  assert.deepEqual(listed(promptFor(OPEN(), ['docs/unrelated.md'])), PRE_FEATURE);
+  assert.deepEqual(listed(prompts.evaluator[0]), []);
+  assert.deepEqual(listed(promptFor(OPEN(), ['docs/unrelated.md'])), []);
 });
 
 // ------------------------------------------------------------------ AC-6
@@ -404,8 +391,8 @@ test('F86 AC-6 SPEC §10 describes the extra claude flags and the tools each rol
 
 test('F86 AC-6 SPEC §7 describes the StructuredOutput instruction and the backlog section rules', () => {
   const s7 = specSection(7);
-  for (const w of ['`StructuredOutput`', 'nothing else', '최대 15개', '160자', '`…`', '파일 이름', '`- … N more open item(s) not shown`']) {
+  for (const w of ['`StructuredOutput`', 'nothing else']) {
     assert.ok(s7.includes(w), `SPEC §7 lacks ${w}`);
   }
-  assert.ok(!s7.includes('최대 40개'), 'SPEC §7 still says 40');
+  assert.ok(!s7.includes('## Open backlog'), 'SPEC §7 still has the backlog section');
 });

@@ -39,8 +39,8 @@ A finding blocks the feature only when:
   defect exists and 0 once it is fixed. The harness runs it with a minimal environment
   (no API keys), a timeout, and refuses `git push`, `sudo`, `rm -rf` and piped downloads.
 
-Hardening ideas and risks outside the contract go in `out_of_scope`. They never lower a
-score and never block; a human decides whether they become new work.
+Report only defects that a repro reproduces.
+If you find no reproducible defect, score honestly high. Hardening ideas and risks outside the contract are not reported.
 
 The threat model is a cooperative builder making accidents, not a deliberate adversary. A
 defect that only exists if the builder intentionally manipulates git internals or
@@ -53,14 +53,11 @@ not also write it as text. Otherwise, reply with a single JSON object and no oth
 
 ```json
 {"scores": {"functionality": 0, "quality": 0, "security": 0, "errors": 0, "tests": 0},
- "findings": [{"criterion_id": "SC-1", "dimension": "security", "summary": "...", "repro": "<cmd>"}],
- "out_of_scope": [{"summary": "..."}]}
+ "findings": [{"criterion_id": "SC-1", "dimension": "security", "summary": "...", "repro": "<cmd>"}]}
 ```
 
 - `scores`: integers 0-10 for all five keys. Security is your focus; score the other
   dimensions from the evidence you saw. For a critical feature a security score below 7
   fails it, so such a score must be backed by a blocking finding.
 - `findings`: blocking defects only; `dimension` is one of the five score keys.
-- `out_of_scope`: everything else worth recording.
-- Optional on findings and `out_of_scope` entries: `severity` (`high`, `medium` or `low`)
-  and `backlog_id` — the id of a listed open backlog item that is the same issue.
+- Optional on findings: `severity` (`high`, `medium` or `low`).

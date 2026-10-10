@@ -126,7 +126,7 @@ test('F5 AC-1 prompt holds the role prompt, frozen contract, diff (committed, tr
   assert.match(prompt, /UNTRACKED_LINE/);
   assert.match(prompt, /result: FAIL/);
   assert.match(prompt, /criterion FAIL SC-1 — DISTINCT_VERIFY_MESSAGE/);
-  assert.match(prompt, /"out_of_scope"/, 'output schema is stated');
+  assert.match(prompt, /"required":\["scores","findings"\]/, 'output schema is stated');
 });
 
 test('F5 AC-1 without verifyResult the core runs verify itself and feeds its result to the prompt', async () => {
@@ -213,7 +213,7 @@ test('F5 AC-2 schema check table', () => {
     { scores: scores(), findings: {} },
     { scores: scores(), findings: [{ criterion_id: 'AC-1', repro: 'x' }] },
     { scores: scores(), findings: [{ summary: 's', repro: 42 }] },
-    { scores: scores(), findings: [], out_of_scope: [{}] },
+    { scores: scores(), findings: [{ summary: '' }] },
   ];
   for (const b of bad) assert.notDeepEqual(validateOutput(b), [], JSON.stringify(b));
 });
@@ -244,13 +244,13 @@ test('F5 AC-3 findings outside the contract, without repro, or not reproduced go
       finding(undefined, 'node scripts/fail.mjs', 'no id'),
       { criterion_id: 'AC-1', dimension: 'functionality', summary: 'no repro' },
       finding('ES-1', 'node scripts/ok.mjs', 'repro passes'),
-    ], [{ summary: 'rename variables' }])],
+    ])],
   });
   const r = await run(dir, ra);
   assert.equal(r.verdict, 'pass');
   assert.equal(r.blocking.length, 0);
   const reasons = r.backlogged.map((b) => b.reason);
-  assert.deepEqual(reasons, ['criterion_not_in_contract', 'missing_criterion_id', 'missing_repro', 'repro_not_reproduced', 'out_of_scope']);
+  assert.deepEqual(reasons, ['criterion_not_in_contract', 'missing_criterion_id', 'missing_repro', 'repro_not_reproduced']);
   assert.equal(fs.existsSync(path.join(dir, 'ran-ac99.txt')), false, 'an out-of-contract repro is not run');
   const items = backlog(dir);
   assert.deepEqual(items.map((i) => i.reason), reasons);

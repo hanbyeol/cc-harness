@@ -60,9 +60,6 @@ How the backlog is kept (the core does this; you only read it):
 - ids `B1`, `B2`, … are given in file order to items without one; existing ids never change.
 - the evaluator may give each backlog entry a `severity` (`high`, `medium`, `low`), recorded
   as the item's `priority`; any other value is ignored.
-- the evaluator sees the open items and sets `backlog_id` when it reports the same issue
-  again; the core then bumps that item's `seen` and adds the round to its `sources`
-  instead of adding a duplicate. An unknown or resolved `backlog_id` adds a new item.
 
 Then add `{"id": "F3", "title": "...", "security_tier": "standard", "depends_on": [], "status": "todo"}`
 to `features.json`. Do not add an `approval` block; approval writes it.

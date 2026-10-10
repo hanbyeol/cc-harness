@@ -58,9 +58,11 @@ const PASS_VERIFY = {
 
 const scores = (o = {}) => ({ functionality: 9, quality: 9, security: 9, errors: 9, tests: 9, ...o });
 const reply = (json) => ({ ok: true, error: null, text: JSON.stringify(json), json, costUsd: 0, exitCode: 0 });
-const passWith = (out_of_scope = [], findings = []) => reply({ scores: scores(), findings, out_of_scope });
+// F111: the reply has no out_of_scope; a backlog entry now comes from a non-blocking finding (criterion not in the contract).
+const extra = (o) => ({ criterion_id: 'AC-9', dimension: 'quality', repro: 'node scripts/fail.mjs', ...o });
+const passWith = (entries = [], findings = []) => reply({ scores: scores(), findings: [...entries.map(extra), ...findings] });
 const failReply = () => reply({
-  scores: scores({ functionality: 3 }), out_of_scope: [],
+  scores: scores({ functionality: 3 }),
   findings: [{ criterion_id: 'AC-1', dimension: 'functionality', summary: 'broken', repro: 'node scripts/fail.mjs' }],
 });
 
@@ -128,7 +130,7 @@ test('F22 AC-1 a blocked re-scope proposal is written with an id too', async () 
   const c = contract();
   const dir = fixture({ c, items: [{ id: 'B4', summary: 'x' }] });
   // needs-human: low score without a finding, re-asked once
-  const low = () => reply({ scores: scores({ quality: 2 }), findings: [], out_of_scope: [] });
+  const low = () => reply({ scores: scores({ quality: 2 }), findings: [] });
   const r = await evalCmd(dir, adapter(low(), low()));
   assert.equal(statusOf(dir), 'blocked', r.out + r.err);
   const items = backlog(dir);
@@ -139,8 +141,7 @@ test('F22 AC-1 a blocked re-scope proposal is written with an id too', async () 
 // ---------- AC-2 ----------
 test('F22 AC-2 the output schema has an optional severity enum on findings and out_of_scope', () => {
   const f = OUTPUT_SCHEMA.properties.findings.items;
-  const o = OUTPUT_SCHEMA.properties.out_of_scope.items;
-  for (const s of [f, o]) {
+  for (const s of [f]) {
     assert.deepEqual(s.properties.severity, { type: 'string', enum: ['high', 'medium', 'low'] });
     assert.ok(!s.required.includes('severity'));
   }
@@ -161,7 +162,7 @@ test('F22 AC-2 severity is recorded as priority on backlog items (out_of_scope a
 });
 
 test('F22 AC-2 a severity outside high|medium|low is ignored: no schema error, no priority', async () => {
-  const bad = { scores: scores(), findings: [], out_of_scope: [{ summary: 'weird', severity: 'critical' }, { summary: 'num', severity: 3 }] };
+  const bad = { scores: scores(), findings: [extra({ summary: 'weird', severity: 'critical' }), extra({ summary: 'num', severity: 3 })] };
   assert.deepEqual(validateOutput(bad), []);
   const dir = fixture();
   const a = adapter(reply(bad));
@@ -174,24 +175,15 @@ test('F22 AC-2 a severity outside high|medium|low is ignored: no schema error, n
 
 // ---------- AC-3 ----------
 test('F22 AC-3 the prompt lists open items by priority high→medium→low→none, resolved ones left out', async () => {
+  // F111: the evaluator prompt no longer lists the backlog.
   const dir = fixture({ items: [
-    { id: 'B1', summary: 'none one' },
-    { id: 'B2', summary: 'low one', priority: 'low' },
     { id: 'B3', summary: 'high one', priority: 'high' },
-    { id: 'B4', summary: 'resolved high', priority: 'high', resolved_by: 'F1' },
     { id: 'B5', summary: 'medium one', priority: 'medium' },
-    { id: 'B6', summary: 'high two', priority: 'high' },
   ] });
   const a = adapter(passWith());
   assert.equal((await evalCmd(dir, a)).code, 0);
-  const prompt = a.prompts[0];
-  assert.match(prompt, /## Open backlog/);
-  const order = ['B3', 'B6', 'B5', 'B2', 'B1'].map((id) => prompt.indexOf(`- ${id} `));
-  assert.ok(order.every((x) => x !== -1), order.join(','));
-  assert.deepEqual([...order].sort((x, y) => x - y), order);
-  assert.match(prompt, /- B3 \[high\] high one/);
-  assert.match(prompt, /- B1 \[-\] none one/);
-  assert.ok(!prompt.includes('resolved high'));
+  assert.doesNotMatch(a.prompts[0], /## Open backlog/);
+  assert.ok(!a.prompts[0].includes('high one'));
 });
 
 // The limit was 40 until F86 made it 15; the name is kept because test names must not change
@@ -199,36 +191,26 @@ test('F22 AC-3 the prompt lists open items by priority high→medium→low→non
 test('F22 AC-3 at most 40 open items reach the prompt, the high ones first', async () => {
   const items = [];
   for (let n = 1; n <= 45; n += 1) items.push({ id: `B${n}`, summary: `plain item ${n}.` });
-  items.push({ id: 'B46', summary: 'urgent item.', priority: 'high' });
   const dir = fixture({ items });
   const a = adapter(passWith());
   assert.equal((await evalCmd(dir, a)).code, 0);
-  const listed = [...a.prompts[0].matchAll(/^- (B\d+) \[/gm)].map((m) => m[1]);
-  assert.equal(listed.length, 15);
-  assert.equal(listed[0], 'B46');
-  assert.ok(!listed.includes('B15') && listed.includes('B14'));
+  assert.equal([...a.prompts[0].matchAll(/^- (B\d+) \[/gm)].length, 0);
 });
 
 test('F22 AC-3 a backlog_id naming an open item bumps seen and adds the feature-round to sources', async () => {
+  // F111: backlog_id is ignored — the open items are left alone and new items are added.
   const dir = fixture({ items: [{ id: 'B1', summary: 'known', sources: ['F3-r1'] }, { id: 'B2', summary: 'other', seen: 4 }] });
-  const r = await evalCmd(dir, adapter(passWith(
-    [{ summary: 'known again', backlog_id: 'B1' }],
-    [{ criterion_id: 'AC-9', dimension: 'quality', summary: 'other again', repro: 'node scripts/fail.mjs', backlog_id: 'B2' }],
-  )));
+  const r = await evalCmd(dir, adapter(passWith([{ summary: 'known again', backlog_id: 'B1' }, { summary: 'other again', backlog_id: 'B2' }])));
   assert.equal(r.code, 0, r.out + r.err);
   const items = backlog(dir);
-  assert.equal(items.length, 2, JSON.stringify(items));
-  assert.equal(items[0].seen, 2);
-  assert.deepEqual(items[0].sources, ['F3-r1', 'F9-r1']);
-  assert.equal(items[1].seen, 5);
-  assert.deepEqual(items[1].sources, ['F9-r1']);
+  assert.equal(items.length, 4, JSON.stringify(items));
+  assert.equal(items[0].seen, undefined);
+  assert.deepEqual(items[0].sources, ['F3-r1']);
+  assert.equal(items[1].seen, 4);
 });
 
 test('F22 AC-3 the schema offers backlog_id as an optional string', () => {
-  for (const s of [OUTPUT_SCHEMA.properties.findings.items, OUTPUT_SCHEMA.properties.out_of_scope.items]) {
-    assert.deepEqual(s.properties.backlog_id, { type: 'string' });
-    assert.ok(!s.required.includes('backlog_id'));
-  }
+  assert.equal(OUTPUT_SCHEMA.properties.findings.items.properties.backlog_id, undefined);
 });
 
 // ---------- AC-4 ----------
@@ -274,7 +256,7 @@ test('F22 AC-5 harness eval: fail and blocked leave resolves items open', async 
   assert.equal((await evalCmd(dir, adapter(failReply()))).code, 1);
   assert.equal(statusOf(dir), 'in_progress');
   assert.equal(backlog(dir)[0].resolved_by, undefined);
-  const low = () => reply({ scores: scores({ quality: 2 }), findings: [], out_of_scope: [] });
+  const low = () => reply({ scores: scores({ quality: 2 }), findings: [] });
   await evalCmd(dir, adapter(low(), low()));
   assert.equal(statusOf(dir), 'blocked');
   assert.equal(backlog(dir)[0].resolved_by, undefined);
@@ -394,7 +376,7 @@ test('F22 AC-7 status --brief appends only the open high count, omitted when 0',
 test('F22 AC-8 SPEC describes backlog ids, severity, backlog_id, resolves and the spec-time review', () => {
   const spec = fs.readFileSync(path.join(REPO, 'docs', 'SPEC.md'), 'utf8');
   const s7 = spec.slice(spec.indexOf('## 7.'), spec.indexOf('## 8.'));
-  for (const w of ['`B1`', '`severity`', '`priority`', '`backlog_id`', '`seen`', '`sources`', '`resolves`', '`resolved_by`', '15']) {
+  for (const w of ['`B1`', '`severity`', '`priority`', '`resolves`', '`resolved_by`']) {
     assert.ok(s7.includes(w), `SPEC §7 mentions ${w}`);
   }
   assert.match(s7, /spec skill/);
@@ -404,7 +386,7 @@ test('F22 AC-8 SPEC describes backlog ids, severity, backlog_id, resolves and th
 
 test('F22 AC-8 skills/spec/SKILL.md tells the contract writer to review open high items into resolves', () => {
   const skill = fs.readFileSync(path.join(REPO, 'skills', 'spec', 'SKILL.md'), 'utf8');
-  for (const w of ['`resolves`', '`high`', '`severity`', '`backlog_id`', '`resolved_by`', '`B1`', 'backlog.json']) {
+  for (const w of ['`resolves`', '`high`', '`severity`', '`resolved_by`', '`B1`', 'backlog.json']) {
     assert.ok(skill.includes(w), `spec skill mentions ${w}`);
   }
   assert.match(skill, /Review the open `high` items/);
@@ -466,12 +448,13 @@ test('F22 AC-7 regression: open items without an id are counted and listed with 
 });
 
 test('F22 AC-3 regression: id-less open items reach the prompt under the ids the write then persists', async () => {
+  // F111: no prompt listing and no merge by backlog_id; the id-less item still gets its id when the backlog is written.
   const dir = fixture({ items: [{ summary: 'legacy item', priority: 'high' }] });
   const a = adapter(passWith([{ summary: 'legacy again', backlog_id: 'B1' }]));
   assert.equal((await evalCmd(dir, a)).code, 0);
-  assert.match(a.prompts[0], /- B1 \[high\] legacy item/);
+  assert.doesNotMatch(a.prompts[0], /legacy item/);
   const items = backlog(dir);
-  assert.equal(items.length, 1, JSON.stringify(items));
+  assert.equal(items.length, 2, JSON.stringify(items));
   assert.equal(items[0].id, 'B1');
-  assert.equal(items[0].seen, 2);
+  assert.equal(items[0].seen, undefined);
 });

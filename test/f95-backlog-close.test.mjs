@@ -157,12 +157,9 @@ test('F95 AC-2: the eval prompt "## Open backlog" lists only the open item', asy
   }
   assert.ok(prompts.length >= 1, 'the evaluator was asked');
   const prompt = prompts[0];
-  const start = prompt.indexOf('## Open backlog');
-  assert.ok(start !== -1, prompt);
-  const next = prompt.indexOf('\n## ', start + 1);
-  const section = prompt.slice(start, next === -1 ? undefined : next);
-  assert.deepEqual([...section.matchAll(/^- (B\d+) \[/gm)].map((m) => m[1]), ['B2']);
-  assert.ok(!section.includes('closed finding'), section);
+  // F111: the evaluator prompt has no backlog section at all.
+  assert.ok(!prompt.includes('## Open backlog'), prompt);
+  assert.ok(!prompt.includes('closed finding'), prompt);
 });
 
 test('F95 AC-2: learn --propose does not merge into a closed item', () => {
