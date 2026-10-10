@@ -134,7 +134,7 @@ test('F75 AC-2 a blocking finding keeps file and line in the verdict and in the 
   assert.equal(v.blocking[0].file, 'lib/eval.mjs');
   assert.equal(v.blocking[0].line, 42);
 
-  const prompt = builderPrompt({ rolePrompt: 'role', featureId: 'F9', round: 2, attempt: 1, contract: contract(), findings: v.blocking });
+  const prompt = builderPrompt({ rolePrompt: 'role', featureId: 'F9', round: 2, attempt: 1, contract: contract(), findings: v.blocking, config: {} });
   const m = /Blocking findings from the previous round[^\n]*\n```json\n([\s\S]*?)\n```/.exec(prompt);
   assert.ok(m, prompt);
   const findings = JSON.parse(m[1]);

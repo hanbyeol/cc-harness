@@ -141,7 +141,7 @@ test('F74 AC-1: the checks run in the feature worktree before the builder is cal
 
 test('F74 AC-1: builderPrompt renders the section from criteriaStatus', () => {
   const p = run.builderPrompt({
-    rolePrompt: 'ROLE', featureId: 'F1', round: 1, attempt: 2, contract: {},
+    rolePrompt: 'ROLE', featureId: 'F1', round: 1, attempt: 2, contract: {}, config: {},
     continuation: { files: ['a.txt'] },
     criteriaStatus: [{ id: 'AC-1', status: 'pass' }, { id: 'ES-1', status: 'fail' }, { id: 'AC-2', status: 'timeout' }],
   });
@@ -193,9 +193,9 @@ test('F74 AC-3: of a first attempt, a retry after a failed verify, a findings ro
 });
 
 test('F74 AC-3: a merge conflict resolution gets no section', () => {
-  const p = run.builderPrompt({ rolePrompt: 'ROLE', featureId: 'F1', round: 1, attempt: 1, contract: {}, conflicts: ['a.txt'] });
+  const p = run.builderPrompt({ rolePrompt: 'ROLE', featureId: 'F1', round: 1, attempt: 1, contract: {}, config: {}, conflicts: ['a.txt'] });
   assert.ok(!p.includes(HEADER));
-  const q = run.builderPrompt({ rolePrompt: 'ROLE', featureId: 'F1', round: 1, attempt: 1, contract: {}, postMergeFailures: [{ id: 'AC-1' }] });
+  const q = run.builderPrompt({ rolePrompt: 'ROLE', featureId: 'F1', round: 1, attempt: 1, contract: {}, config: {}, postMergeFailures: [{ id: 'AC-1' }] });
   assert.ok(!q.includes(HEADER));
 });
 
@@ -229,7 +229,7 @@ for (const kind of ['conflict', 'post-merge recovery']) {
     for (const c of calls) assert.ok(!c.prompt.includes(HEADER), `${c.which} has no section`);
     assert.ok(!metricsOf(dir).some((m) => m.step === 'criteria_status'), 'no criteria_status step');
     // The same recovery prompt with a status list would show it: the absence above is the run's choice.
-    const p = run.builderPrompt({ rolePrompt: 'ROLE', featureId: 'F1', round: 1, attempt: 1, contract: {}, conflicts: ['shared.txt'], criteriaStatus: [{ id: 'AC-1', status: 'pass' }] });
+    const p = run.builderPrompt({ rolePrompt: 'ROLE', featureId: 'F1', round: 1, attempt: 1, contract: {}, config: {}, conflicts: ['shared.txt'], criteriaStatus: [{ id: 'AC-1', status: 'pass' }] });
     assert.ok(p.includes(HEADER));
   });
 }
