@@ -21,8 +21,7 @@
   "roles": {
     "builder": {
       "adapter": "claude",
-      "model": "claude-sonnet-5-5",
-      "escalate": "claude-opus-5-5"
+      "model": "claude-sonnet-5-5"
     },
     "evaluator": {
       "adapter": "claude",
