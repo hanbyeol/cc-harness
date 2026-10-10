@@ -6761,7 +6761,12 @@
       "source": "evaluator",
       "file": "lib/telemetry.mjs",
       "priority": "low",
-      "id": "B524"
+      "id": "B524",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-10: no false positive is possible today: exportLine keeps only allowlisted, enum and hashed fields, so a real line cannot contain the placeholder (as B526 notes); revisit if a free-text field is ever allowlisted",
+        "at": "2026-10-10T08:25:09.659Z"
+      }
     },
     {
       "feature": "F110",
@@ -6772,7 +6777,12 @@
       "source": "evaluator",
       "file": "test/f110-salt-placeholder.test.mjs",
       "priority": "low",
-      "id": "B525"
+      "id": "B525",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-10: the behavior is checked directly by SC-1 (F107 AC-3); the source check is only a second guard",
+        "at": "2026-10-10T08:25:10.163Z"
+      }
     },
     {
       "feature": "F110",
@@ -6784,7 +6794,12 @@
       "file": "lib/telemetry.mjs",
       "line": 395,
       "priority": "low",
-      "id": "B526"
+      "id": "B526",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-10: dup of B524",
+        "at": "2026-10-10T08:25:09.912Z"
+      }
     },
     {
       "feature": "F110",
@@ -6796,7 +6811,12 @@
       "file": "test/f110-salt-placeholder.test.mjs",
       "line": 108,
       "priority": "low",
-      "id": "B527"
+      "id": "B527",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-10: dup of B525",
+        "at": "2026-10-10T08:25:10.411Z"
+      }
     }
   ]
 }
