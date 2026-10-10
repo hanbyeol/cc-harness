@@ -58,7 +58,8 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
   `--since` 는 그날 0시(UTC) 이후다. 텍스트 출력은 한 줄에 `<ts> <stage>/<type> [<feature>] [r<round>] <data JSON>`, `--json` 은 이벤트 배열이다. 이벤트가 없으면 `no events yet`,
   조건에 맞는 것이 없으면 `no matching events`. 출력하는 줄마다(텍스트·`--json` 모두) 그 저장소의 redactor(`process.env`, config `env_allowlist`)를 다시 적용한다 —
   손으로 쓴 줄이나 그 값이 비밀이 되기 전에 기록된 줄에 든 비밀 환경 변수 값도 출력에서는 가려진다(파일은 바꾸지 않는다). 이벤트를 쓸 때와 같이 data 의 값뿐 아니라
-  객체 키에도 적용한다 — 가린 뒤 같아지는 두 키는 뒤의 값 하나로 남고, 그래도 쓰기·출력은 실패하지 않는다. JSON 객체가 아닌 줄은 건너뛰고 stderr 에 `harness: warning: events/<파일>:<줄 번호>: not a JSON object — line skipped` 경고를 낸다.
+  객체 키에도 적용한다 — 가린 뒤 같아지는 두 키는 뒤의 값 하나로 남고, 그래도 쓰기·출력은 실패하지 않는다. 키 가림은 이벤트(쓰기와 `harness events` 출력)에만 적용된다 —
+  run 상태 파일·backlog·verdict·verify 결과·metrics·run 보고서는 키로 다시 읽히므로 값만 가린다(SR-8). JSON 객체가 아닌 줄은 건너뛰고 stderr 에 `harness: warning: events/<파일>:<줄 번호>: not a JSON object — line skipped` 경고를 낸다.
   잘못된 옵션(없는 stage, `F<n>` 이 아닌 feature, 날짜가 아닌 since)은 `usage`(exit 2).
 - 피드백 단계: 사람이 명령으로 남기는 기록이다. 세 명령 모두 사유·내용이 비어 있거나(공백만 포함) 옵션이 잘못되면 `usage`(exit 2)이고 아무것도 기록하지 않는다.
   이벤트를 쓰지 못하면(위 기록 실패) 경고 후 exit 1 이다 — 기록이 이 명령들의 목적이기 때문이다.
@@ -120,8 +121,8 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
   내보낼 줄이 없으면 `nothing to export …` 를 출력하고 묶음을 쓰지 않는다(위치가 바뀌었으면 — 건너뛴 줄·이전 형식·잘린 파일 — `.exported` 만 고쳐 쓴다).
   `ts` 가 시각이 아니거나 `stage` 가 §2 의 단계가 아닌 줄은 내보내지 않는다.
 - `--dry-run` 은 쓰지 않고(묶음·`.exported` 모두) `dry run: <n> lines would be exported to <파일>` 과 내보낼 첫 3줄을 출력한다. salt 파일도 만들지 않는다 —
-  없으면 `~/.cc-harness` 도 만들지 않고, `… the salt will be created at <경로> by the first real export …` 한 줄을 먼저 출력한 뒤 임시 salt 로 계산한 값을 보여 준다
-  (실제 export 의 값과 다르다). salt 파일이 있으면 그 salt 로 계산하고, 형식이 틀리거나 읽을 수 없으면 실제 export 와 같은 경고 한 줄을 내고 exit 0 이다.
+  없으면 `~/.cc-harness` 도 만들지 않고, `… the salt will be created at <경로> by the first real export …` 한 줄을 먼저 출력한 뒤 project 와 test·tests 해시 값을
+  무작위 값 대신 고정 자리표시 `<salt-pending>` 으로 보여 준다(묶음 경로의 project 디렉터리도 같다) — 같은 저장소에서 두 번 실행한 출력이 같다. salt 파일이 있으면 그 salt 로 계산하고, 형식이 틀리거나 읽을 수 없으면 실제 export 와 같은 경고 한 줄을 내고 exit 0 이다.
 - 허브에 쓸 수 없으면(디렉터리를 만들 수 없음·권한 등) `harness: export failed: cannot write <경로>: <오류 코드>` 를 stderr 에 내고 exit 1 이며 `.exported` 는 바뀌지 않는다.
   묶음을 쓴 뒤 `.exported` 를 쓰지 못하면 묶음을 지우고 같은 방식으로 exit 1 이다.
 - `harness run`(중단된 경우 제외)과 `harness eval` 이 끝날 때 `telemetry.share` 가 켜져 있고 `telemetry.auto_export` 가 없거나 `true` 면(기본) export 를 한 번 실행한다
@@ -469,8 +470,8 @@ blocked 기능의 worktree·브랜치는 점검용으로 남기고, passed 기�
 - SR-5 코어는 `main`(및 config의 protected 브랜치)에 병합·push하지 않는다. 브랜치 이름은 대소문자를 무시하고 비교한다(대소문자 비구분 파일시스템에서는 같은 loose ref). run 시작 전 로컬 브랜치 목록(`git for-each-ref refs/heads/`)을 확인해, `integration_branch` 와 대소문자만 다른 기존 브랜치(예: `Work` vs `work`)가 있으면 브랜치 생성·worktree 추가·병합 전에 두 이름을 모두 담은 메시지로 exit 2. 철자가 정확히 같은 브랜치는 그대로 쓰고, 없으면 base 에서 만든다. 브랜치 목록을 얻지 못하면 run 을 시작하지 않고 exit 2. `integration_branch` 가 `refs/` 또는 `heads/` 로 시작하면(ref 경로이지 브랜치 이름이 아니다) 사전 점검·브랜치 생성·build 전에 `integration_branch` 를 담은 `config_invalid` 로 exit 2.
 - SR-6 evaluator·security-reviewer는 읽기 전용 모드로 호출된다(어댑터별 플래그).
 - SR-7 ops 프로필의 라이브 변경 skill(`rollout`)은 `run` 대상이 될 수 없다(lint가 거부).
-- SR-8 기록 파일의 가림: run 상태 파일(`.harness/runs/current.json`), verdict 파일(`F{n}-r{k}.json`·`.eval_error.json`), backlog 항목에 저장되는 문자열(verify 명령·기준 출력과 메시지, `verify_failures`, blocking·backlog 의 요약·repro, re-scope 제안)에서 env_allowlist(SR-2) 밖 환경 변수의 값(8자 이상)은 보고서(§8)와 같은 규칙으로 `[redacted]` 로 바뀐다. 값은 문자열 그대로(정규식 아님) 비교하고, 허용목록 안 변수와 8자 미만 값은 가리지 않는다. 가림은 파일을 쓰기 직전 사본에 적용되고(상태 파일은 모든 저장 경로 — 중단·blocked 포함), run 은 메모리의 원래 값으로 계속한다. 파일을 다시 읽는 데 쓰는 식별자(config 스냅샷, 기능·기준 id, 커밋 sha, 충돌 파일 경로, 라운드 이력)는 가리지 않으므로 `--resume` 은 가려진 상태 파일로도 이어진다. 이미 커밋된 과거 기록과 환경 변수 밖의 비밀은 범위 밖.
-- SR-9 가림과 자르기의 순서: verify 명령 출력은 끝 2000자로 자르기 전에 가리므로(test_count 출력의 앞 80자도 같다) 잘린 경계가 비밀 값 한가운데를 지나도 조각이 남지 않는다 — 그래서 verify 결과의 출력은 메모리에서도 가려져 있다. 상태 파일·run 보고서·verdict·backlog·metrics(§8.11) 다섯 기록 경로는 같은 가림 함수를 쓰고, 이 함수는 값 전체를 `[redacted]` 로 바꾼 뒤 문자열의 첫머리가 값의 8자 이상 접미사와 같거나 끝이 값의 8자 이상 접두사와 같으면 그 잘린 조각도 `[redacted]` 로 바꾼다(어댑터 오류처럼 먼저 잘린 출력). 2000자보다 긴 값이 출력 전체면 출력은 `[redacted]` 가 된다. 어댑터 오류(0 아닌 종료)의 detail 도 끝 2000자로 자르기 전에 가리므로(run·eval 은 자기 가림 함수를, 그 밖에는 CLI 가 물려받는 환경 변수 전체를 쓴다) blocked detail·보고서·상태 파일 문자열 가운데에 들어가도 조각이 남지 않는다. 문자열 가운데의 부분 조각, 8자 미만 조각, 인코딩·분할된 값은 범위 밖.
+- SR-8 기록 파일의 가림: run 상태 파일(`.harness/runs/current.json`), verdict 파일(`F{n}-r{k}.json`·`.eval_error.json`), backlog 항목에 저장되는 문자열(verify 명령·기준 출력과 메시지, `verify_failures`, blocking·backlog 의 요약·repro, re-scope 제안)에서 env_allowlist(SR-2) 밖 환경 변수의 값(8자 이상)은 보고서(§8)와 같은 규칙으로 `[redacted]` 로 바뀐다. 값은 문자열 그대로(정규식 아님) 비교하고, 허용목록 안 변수와 8자 미만 값은 가리지 않는다. 가림은 파일을 쓰기 직전 사본에 적용되고(상태 파일은 모든 저장 경로 — 중단·blocked 포함), run 은 메모리의 원래 값으로 계속한다. 파일을 다시 읽는 데 쓰는 식별자(config 스냅샷, 기능·기준 id, 커밋 sha, 충돌 파일 경로, 라운드 이력)는 가리지 않으므로 `--resume` 은 가려진 상태 파일로도 이어진다. 객체 키는 가리지 않는다 — 키 가림은 이벤트(§2)에만 적용된다. 이미 커밋된 과거 기록과 환경 변수 밖의 비밀은 범위 밖.
+- SR-9 가림과 자르기의 순서: verify 명령 출력은 끝 2000자로 자르기 전에 가리므로(test_count 출력의 앞 80자도 같다) 잘린 경계가 비밀 값 한가운데를 지나도 조각이 남지 않는다 — 그래서 verify 결과의 출력은 메모리에서도 가려져 있다. 상태 파일·run 보고서·verdict·backlog·metrics(§8.11) 다섯 기록 경로는 같은 가림 함수를 쓰고, 이 함수는 값 전체를 `[redacted]` 로 바꾼 뒤 문자열의 첫머리가 값의 8자 이상 접미사와 같거나 끝이 값의 8자 이상 접두사와 같으면 그 잘린 조각도 `[redacted]` 로 바꾼다(어댑터 오류처럼 먼저 잘린 출력). 2000자보다 긴 값이 출력 전체면 출력은 `[redacted]` 가 된다. 어댑터 오류(0 아닌 종료)의 detail 도 끝 2000자로 자르기 전에 가리므로(run·eval 은 자기 가림 함수를, 그 밖에는 CLI 가 물려받는 환경 변수 전체를 쓴다) blocked detail·보고서·상태 파일 문자열 가운데에 들어가도 조각이 남지 않는다. 문자열 가운데의 부분 조각, 8자 미만 조각, 인코딩·분할된 값은 범위 밖. salt 파일이 없을 때 `harness export --dry-run` 은 salt 를 만들지 않고 project·테스트 해시를 `<salt-pending>` 자리표시로 보여 준다(§2) — 임시 salt 로 계산한 해시를 내보이지 않는다.
 
 ## 10. 어댑터 (`harness doctor`)
 | 어댑터 | 쓰기(builder) | 읽기전용(evaluator) | 구조화 출력 | 예산 | 모델 |
