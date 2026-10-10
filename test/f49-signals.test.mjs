@@ -272,7 +272,7 @@ test('F49 AC-2 blocked detail, report and state file hold no piece of the secret
 }));
 
 // ------------------------------------------------------------------ AC-3
-const prompt = (extra) => builderPrompt({ rolePrompt: 'ROLE', featureId: 'F1', round: 1, attempt: 2, contract: { id: 'F1' }, ...extra });
+const prompt = (extra) => builderPrompt({ rolePrompt: 'ROLE', featureId: 'F1', round: 1, attempt: 2, contract: { id: 'F1' }, config: {}, ...extra });
 const listed = (text) => text.split('\n').filter((l) => l.startsWith('- f'));
 
 for (const kind of ['continuation', 'carriedWork']) {
