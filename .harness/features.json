@@ -917,14 +917,14 @@
       "title": "telemetry 후속 수정 — dry-run 은 salt 를 만들지 않고, 끄기 값 경고는 프로세스당 한 번, 이벤트 재가림은 키도 가리고, salt 는 대소문자 hex 를 받고 planExport 는 salt 를 필수로",
       "security_tier": "critical",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F108",
       "title": "run 후속 수정 — builder 프롬프트의 Verification 절을 실제 build 경로로 확인, 충돌 해결·병합 후 복구 build 의 refusal 처리, 사용자 역할 effort 오류 메시지, --resume --parallel CLI 테스트, refusal 판정 조건 문서화",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }

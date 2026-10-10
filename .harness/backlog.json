@@ -6312,7 +6312,8 @@
       "source": "evaluator",
       "file": "test/f99-builder-verification.test.mjs",
       "priority": "low",
-      "id": "B492"
+      "id": "B492",
+      "resolved_by": "F108"
     },
     {
       "feature": "F99",
@@ -6323,7 +6324,8 @@
       "source": "evaluator",
       "file": "lib/run.mjs",
       "priority": "low",
-      "id": "B493"
+      "id": "B493",
+      "resolved_by": "F108"
     },
     {
       "feature": "F101",
@@ -6335,7 +6337,8 @@
       "file": "lib/commands/export.mjs",
       "line": 37,
       "priority": "low",
-      "id": "B494"
+      "id": "B494",
+      "resolved_by": "F107"
     },
     {
       "feature": "F101",
@@ -6347,7 +6350,8 @@
       "file": "lib/commands/export.mjs",
       "line": 74,
       "priority": "low",
-      "id": "B495"
+      "id": "B495",
+      "resolved_by": "F107"
     },
     {
       "feature": "F101",
@@ -6359,7 +6363,8 @@
       "file": "lib/failures.mjs",
       "line": 65,
       "priority": "low",
-      "id": "B496"
+      "id": "B496",
+      "resolved_by": "F107"
     },
     {
       "feature": "F101",
@@ -6371,7 +6376,8 @@
       "file": "lib/telemetry.mjs",
       "line": 191,
       "priority": "low",
-      "id": "B497"
+      "id": "B497",
+      "resolved_by": "F107"
     },
     {
       "feature": "F101",
@@ -6383,7 +6389,8 @@
       "file": "lib/telemetry.mjs",
       "line": 354,
       "priority": "low",
-      "id": "B498"
+      "id": "B498",
+      "resolved_by": "F107"
     },
     {
       "feature": "F100",
@@ -6441,7 +6448,8 @@
       "source": "evaluator",
       "file": "lib/run.mjs",
       "priority": "low",
-      "id": "B502"
+      "id": "B502",
+      "resolved_by": "F108"
     },
     {
       "feature": "F103",
@@ -6468,7 +6476,8 @@
       "source": "evaluator",
       "file": "lib/adapters/claude.mjs",
       "priority": "low",
-      "id": "B504"
+      "id": "B504",
+      "resolved_by": "F108"
     },
     {
       "feature": "F104",
@@ -6519,7 +6528,8 @@
       "source": "evaluator",
       "file": "lib/config.mjs",
       "priority": "low",
-      "id": "B507"
+      "id": "B507",
+      "resolved_by": "F108"
     },
     {
       "feature": "F105",
@@ -6562,7 +6572,8 @@
       "source": "evaluator",
       "file": "test/f105-resume-cleanup.test.mjs",
       "priority": "low",
-      "id": "B510"
+      "id": "B510",
+      "resolved_by": "F108"
     },
     {
       "feature": "F106",
@@ -6608,6 +6619,74 @@
         "reason": "triage 2026-10-10: observation or narrow edge case outside the contract, no user-visible defect",
         "at": "2026-10-10T04:21:51.535Z"
       }
+    },
+    {
+      "feature": "F107",
+      "round": 1,
+      "at": "2026-10-10T04:37:07.616Z",
+      "summary": "The warn-once flag in lib/commands/export.mjs is module-level state, so tests that call runExport/autoExport in-process cannot observe the warning twice without a fresh process. AC-2's test spawns a child process, so it is fine. Resetting the flag in other in-process tests would need a test hook.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/commands/export.mjs",
+      "priority": "low",
+      "id": "B514"
+    },
+    {
+      "feature": "F107",
+      "round": 1,
+      "at": "2026-10-10T04:37:07.616Z",
+      "summary": "A dry run without a salt file previews with a random temporary salt, so the project directory and hashes differ on every run. The new message says so. Showing a placeholder instead would make output stable but is not required by the contract.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/commands/export.mjs",
+      "priority": "low",
+      "id": "B515"
+    },
+    {
+      "feature": "F107",
+      "round": 1,
+      "at": "2026-10-10T04:37:07.616Z",
+      "summary": "redactDeep 의 키 가림은 이벤트뿐 아니라 이를 쓰는 모든 곳(run 상태 writeJsonAtomic, backlog appendItem, eval 기록, verify 결과, metrics)에 적용된다. 키에 8자 이상 비밀 환경 변수 값이나 그 앞뒤 조각(SR-8 조각 규칙)이 든 경우, 이 레코드들을 다시 읽을 때 키가 바뀌어 있고 겹치는 키는 값 하나가 조용히 사라진다. 지금 키는 대부분 id 라 실제 영향은 낮지만, 계약이 다루는 범위는 이벤트뿐이다.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "file": "lib/failures.mjs",
+      "line": 66,
+      "priority": "low",
+      "id": "B516"
+    },
+    {
+      "feature": "F107",
+      "round": 1,
+      "at": "2026-10-10T04:37:07.616Z",
+      "summary": "CC_HARNESS_TELEMETRY 경고를 한 번만 내는 플래그(warned)는 모듈 전역이고 테스트에서 초기화할 수 없다. 같은 프로세스에서 경고가 나오는지 확인하는 테스트가 여럿 있으면 실행 순서에 따라 결과가 달라질 수 있다(F107 AC-2 테스트는 별도 프로세스를 띄워 이 문제를 피한다).",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "file": "lib/commands/export.mjs",
+      "line": 74,
+      "priority": "low",
+      "id": "B517"
+    },
+    {
+      "feature": "F108",
+      "round": 1,
+      "at": "2026-10-10T04:42:40.986Z",
+      "summary": "builderPrompt는 config가 객체인지만 확인한다. 테스트 여러 곳이 `config: {}`를 넘기므로 빈 객체가 verify.commands 없는 config로 취급되어 절이 '코어가 check 를 실행한다'는 문장만 남는다. 실제 resolveConfig 결과가 아닌 값도 통과하지만 계약 범위 밖이다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "priority": "low",
+      "id": "B518"
+    },
+    {
+      "feature": "F108",
+      "round": 1,
+      "at": "2026-10-10T04:42:40.986Z",
+      "summary": "resolveConflict의 fail(detail, reason)은 reason 기본값이 'merge_conflict'이고 recoverPostMerge의 fail은 기본값이 null이다. 두 함수의 기본값 표기가 달라 일관성이 떨어진다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "priority": "low",
+      "id": "B519"
     }
   ]
 }

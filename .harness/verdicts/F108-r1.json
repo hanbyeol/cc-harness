@@ -1,0 +1,53 @@
+{
+  "feature": "F108",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "builderPrompt는 config가 객체인지만 확인한다. 테스트 여러 곳이 `config: {}`를 넘기므로 빈 객체가 verify.commands 없는 config로 취급되어 절이 '코어가 check 를 실행한다'는 문장만 남는다. 실제 resolveConfig 결과가 아닌 값도 통과하지만 계약 범위 밖이다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "resolveConflict의 fail(detail, reason)은 reason 기본값이 'merge_conflict'이고 recoverPostMerge의 fail은 기본값이 null이다. 두 함수의 기본값 표기가 달라 일관성이 떨어진다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.163606,
+  "contract_hash": "6ae235ebf5b25f30aa7223c79d4f7d77ac03e0c5e52ad1342bd3c7e8c56485d0",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-10T04:42:40.986Z",
+  "origin": "run"
+}
