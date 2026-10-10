@@ -342,10 +342,12 @@ test('F27 AC-6: (b) verify and post_merge_verify over 30% of the time → only v
 });
 
 test('F27 AC-6: (c) builder over 70% of the cost with a standard feature → only builder_model', () => {
+  // F104: the suggestion also needs a cheaper model with five builds timing out no more often.
   const rows = [
-    line({ step: 'build', role: 'builder', duration_ms: 10_000, cost_usd: 8, ended_at: t(1) }),
+    line({ step: 'build', role: 'builder', model: 'opus', duration_ms: 10_000, cost_usd: 8, ended_at: t(1) }),
     line({ step: 'eval', role: 'evaluator', duration_ms: 10_000, cost_usd: 2, ended_at: t(2) }),
     line({ step: 'verify', duration_ms: 1_000, ended_at: t(3) }),
+    ...[0, 1, 2, 3, 4].map((i) => line({ step: 'build', role: 'builder', model: 'haiku', duration_ms: 1_000, cost_usd: 0, ended_at: at(19, i) })),
   ];
   const std = statsProject({ 'c.metrics.jsonl': rows }, { features: [{ id: 'F1', security_tier: 'standard' }, { id: 'F2', security_tier: 'critical' }] });
   const s = statsJson(std);
@@ -353,7 +355,7 @@ test('F27 AC-6: (c) builder over 70% of the cost with a standard feature → onl
   assert.match(s.suggestions[0].message, /standard/);
   const critOnly = statsProject({ 'c.metrics.jsonl': rows }, { features: [{ id: 'F2', security_tier: 'critical' }] });
   assert.deepEqual(rules(critOnly), [], 'no standard feature → no builder model suggestion');
-  const even = statsProject({ 'c.metrics.jsonl': [rows[0], { ...rows[1], cost_usd: 8 }, rows[2]] }, { features: [{ id: 'F1', security_tier: 'standard' }] });
+  const even = statsProject({ 'c.metrics.jsonl': [rows[0], { ...rows[1], cost_usd: 8 }, ...rows.slice(2)] }, { features: [{ id: 'F1', security_tier: 'standard' }] });
   assert.deepEqual(rules(even), [], 'builder at 50% → none');
 });
 
