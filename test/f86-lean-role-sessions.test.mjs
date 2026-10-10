@@ -312,6 +312,8 @@ test('F86 AC-5 a new (untracked) file counts as changed, matched by its path in 
   const { prompts } = await evalPrompts({ items, changed: { 'lib/gizmo.mjs': 'export const gizmo = 1;\n' } });
   // F111: the evaluator prompt has no backlog section, so nothing is listed, ordered, cut or counted.
   assert.deepEqual(listed(prompts.evaluator[0]), []);
+  assert.ok(!prompts.evaluator[0].includes('gizmo.mjs leaks'));
+  assert.ok(!prompts.evaluator[0].includes('Open backlog'));
 });
 
 const promptFor = (items, files = []) => buildPrompt({
@@ -325,6 +327,8 @@ test('F86 AC-5 at most 15 items: 16 or more leave a "… N more" line, 15 or few
     const prompt = promptFor(plain(1, n));
     assert.deepEqual(listed(prompt), [], `n=${n}`);
     assert.ok(!prompt.includes('more open item'), `n=${n}`);
+    assert.ok(!prompt.includes('## Open backlog'), `n=${n}`);
+    assert.deepEqual(backlogLines(prompt), [], `n=${n}`);
   }
 });
 
@@ -333,6 +337,7 @@ test('F86 AC-5 a summary is collapsed to single spaces, then cut to 160 characte
   const prompt = promptFor([{ id: 'B1', summary: 'a  long\n summary' }]);
   assert.deepEqual(backlogLines(prompt), []);
   assert.ok(!prompt.includes('a  long'));
+  assert.ok(!prompt.includes('a long summary'));
 });
 
 // ------------------------------------------------------------------ ES-1
@@ -364,6 +369,7 @@ test('F86 ES-2 no changed files: the pre-feature order, 15 items and the "… mo
   const bare = buildPrompt({ rolePrompt: '# E', featureId: 'F9', contract: contract(), base: 'main', vr: PASS_VERIFY, threshold: 7,
     diff: { text: '', mergeBase: '0'.repeat(40) }, backlog: OPEN() });
   assert.deepEqual(listed(bare), []);
+  assert.ok(!bare.includes('Open backlog'));
 });
 
 test('F86 ES-2 changed files no item is about: the pre-feature order', async () => {

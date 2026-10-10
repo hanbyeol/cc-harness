@@ -111,6 +111,7 @@ test('F75 AC-1 findings and out_of_scope offer optional file (string) and line (
     assert.ok(!s.required.includes('file'));
     assert.ok(!s.required.includes('line'));
   }
+  assert.equal(OUTPUT_SCHEMA.properties.out_of_scope, undefined);
 });
 
 test('F75 AC-1 a reply with or without file/line, valid or not, is not a schema error', () => {
@@ -172,6 +173,7 @@ test('F75 AC-3 backlogged findings and out_of_scope entries keep file and line i
   assert.deepEqual([by['not reproduced'].file, by['not reproduced'].line], ['lib/b.mjs', 8]);
   assert.equal(by['no repro'].reason, 'missing_repro');
   assert.deepEqual([by['no repro'].file, by['no repro'].line], ['lib/c.mjs', 9]);
+  assert.equal(Object.keys(by).length, 3);
 });
 
 test('F75 AC-3 a repeat reported with the same backlog_id leaves the existing item\'s file and line unchanged', async () => {

@@ -109,6 +109,7 @@ test('F56 AC-1: eval records one eval/finding event per finding with id, dimensi
   assert.deepEqual([notRunnable.result, notRunnable.reason], ['backlogged', 'repro_not_runnable']);
   assert.deepEqual([adv.result, adv.reason, adv.repro_exit], ['backlogged', 'adversarial', null]);
   assert.deepEqual([noRepro.result, noRepro.reason], ['backlogged', 'no_repro']);
+  assert.ok(es.every((e) => e.data.reason !== 'out_of_scope'));
 });
 
 test('F56 AC-1: an out-of-contract criterion_id is clipped in the finding event', async () => {

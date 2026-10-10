@@ -184,6 +184,9 @@ test('F22 AC-3 the prompt lists open items by priority high→medium→low→non
   assert.equal((await evalCmd(dir, a)).code, 0);
   assert.doesNotMatch(a.prompts[0], /## Open backlog/);
   assert.ok(!a.prompts[0].includes('high one'));
+  assert.ok(!a.prompts[0].includes('medium one'));
+  assert.ok(!/- B[35] /.test(a.prompts[0]));
+  assert.deepEqual(backlog(dir).map((i) => i.id), ['B3', 'B5']);
 });
 
 // The limit was 40 until F86 made it 15; the name is kept because test names must not change
@@ -195,6 +198,9 @@ test('F22 AC-3 at most 40 open items reach the prompt, the high ones first', asy
   const a = adapter(passWith());
   assert.equal((await evalCmd(dir, a)).code, 0);
   assert.equal([...a.prompts[0].matchAll(/^- (B\d+) \[/gm)].length, 0);
+  assert.ok(!a.prompts[0].includes('plain item 1.'));
+  assert.ok(!a.prompts[0].includes('B45'));
+  assert.equal(backlog(dir).length, 45);
 });
 
 test('F22 AC-3 a backlog_id naming an open item bumps seen and adds the feature-round to sources', async () => {
@@ -207,10 +213,15 @@ test('F22 AC-3 a backlog_id naming an open item bumps seen and adds the feature-
   assert.equal(items[0].seen, undefined);
   assert.deepEqual(items[0].sources, ['F3-r1']);
   assert.equal(items[1].seen, 4);
+  assert.deepEqual(items[1].sources, undefined);
+  assert.deepEqual(items.slice(2).map((i) => i.summary), ['known again', 'other again']);
+  assert.ok(items.slice(2).every((i) => !('backlog_id' in i)), JSON.stringify(items));
+  assert.ok(items.slice(2).every((i) => i.seen === undefined), JSON.stringify(items));
 });
 
 test('F22 AC-3 the schema offers backlog_id as an optional string', () => {
   assert.equal(OUTPUT_SCHEMA.properties.findings.items.properties.backlog_id, undefined);
+  assert.equal(OUTPUT_SCHEMA.properties.out_of_scope, undefined);
 });
 
 // ---------- AC-4 ----------
@@ -457,4 +468,7 @@ test('F22 AC-3 regression: id-less open items reach the prompt under the ids the
   assert.equal(items.length, 2, JSON.stringify(items));
   assert.equal(items[0].id, 'B1');
   assert.equal(items[0].seen, undefined);
+  assert.equal(items[0].summary, 'legacy item');
+  assert.equal(items[1].summary, 'legacy again');
+  assert.ok(!('backlog_id' in items[1]), JSON.stringify(items));
 });

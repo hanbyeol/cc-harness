@@ -160,6 +160,7 @@ test('F95 AC-2: the eval prompt "## Open backlog" lists only the open item', asy
   // F111: the evaluator prompt has no backlog section at all.
   assert.ok(!prompt.includes('## Open backlog'), prompt);
   assert.ok(!prompt.includes('closed finding'), prompt);
+  assert.ok(!/^- B\d+ \[/m.test(prompt), prompt);
 });
 
 test('F95 AC-2: learn --propose does not merge into a closed item', () => {

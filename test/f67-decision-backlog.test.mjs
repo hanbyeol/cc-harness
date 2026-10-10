@@ -133,6 +133,8 @@ test('F67 AC-2: the eval prompt "## Open backlog" lists the ordinary item only',
   const prompt = await evalPrompt(dir);
   // F111: the evaluator prompt has no backlog section at all.
   assert.ok(!prompt.includes('## Open backlog'), prompt);
+  assert.ok(!prompt.includes('- B2 ['), prompt);
+  assert.ok(!/^- B\d+ \[/m.test(prompt), prompt);
 });
 
 test('F67 AC-2: learn --propose treats only the ordinary item as open', () => {
@@ -198,7 +200,8 @@ test('F67 AC-4: SPEC decide section documents the summary format and the open-ta
   assert.ok(section.includes('decision <decision> for F<n>: <사유>'), section);
   assert.match(section, /열린 (과제|항목)이 아니다/);
   assert.match(section, /status/);
-  assert.match(section, /status/);
+  assert.ok(!section.includes('## Open backlog'), section);
+  assert.ok(!section.includes('Open backlog'), section);
 });
 
 // ---------- ES-1 ----------
