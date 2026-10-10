@@ -6394,7 +6394,12 @@
       "source": "evaluator",
       "file": "lib/retryfiles.mjs",
       "priority": "low",
-      "id": "B499"
+      "id": "B499",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-10: observation or narrow edge case outside the contract, no user-visible defect",
+        "at": "2026-10-10T04:21:51.535Z"
+      }
     },
     {
       "feature": "F100",
@@ -6405,7 +6410,12 @@
       "source": "evaluator",
       "file": "lib/verify.mjs",
       "priority": "low",
-      "id": "B500"
+      "id": "B500",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-10: observation or narrow edge case outside the contract, no user-visible defect",
+        "at": "2026-10-10T04:21:51.535Z"
+      }
     },
     {
       "feature": "F102",
@@ -6415,7 +6425,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B501"
+      "id": "B501",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-10: behavior the contract required and SPEC documents",
+        "at": "2026-10-10T04:21:51.016Z"
+      }
     },
     {
       "feature": "F103",
@@ -6437,7 +6452,12 @@
       "source": "evaluator",
       "file": "lib/eval.mjs",
       "priority": "low",
-      "id": "B503"
+      "id": "B503",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-10: observation or narrow edge case outside the contract, no user-visible defect",
+        "at": "2026-10-10T04:21:51.535Z"
+      }
     },
     {
       "feature": "F103",
@@ -6463,7 +6483,12 @@
       "seen": 2,
       "sources": [
         "F104-r2"
-      ]
+      ],
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-10: observation or narrow edge case outside the contract, no user-visible defect",
+        "at": "2026-10-10T04:21:51.535Z"
+      }
     },
     {
       "feature": "F104",
@@ -6478,7 +6503,12 @@
       "seen": 2,
       "sources": [
         "F104-r2"
-      ]
+      ],
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-10: behavior the contract required and SPEC documents",
+        "at": "2026-10-10T04:21:51.016Z"
+      }
     },
     {
       "feature": "F104",
@@ -6500,7 +6530,12 @@
       "source": "evaluator",
       "file": "lib/exec.mjs",
       "priority": "low",
-      "id": "B508"
+      "id": "B508",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-10: a ps call of a few ms only on abort or timeout; not worth an async rewrite",
+        "at": "2026-10-10T04:21:51.793Z"
+      }
     },
     {
       "feature": "F105",
@@ -6511,7 +6546,12 @@
       "source": "evaluator",
       "file": "lib/exec.mjs",
       "priority": "low",
-      "id": "B509"
+      "id": "B509",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-10: observation or narrow edge case outside the contract, no user-visible defect",
+        "at": "2026-10-10T04:21:51.535Z"
+      }
     },
     {
       "feature": "F105",
@@ -6532,7 +6572,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B511"
+      "id": "B511",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-10: intended design of the F106 test helper (hash dirs are kept; POSIX-only link helper is guarded by each test)",
+        "at": "2026-10-10T04:21:51.277Z"
+      }
     },
     {
       "feature": "F106",
@@ -6542,7 +6587,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B512"
+      "id": "B512",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-10: intended design of the F106 test helper (hash dirs are kept; POSIX-only link helper is guarded by each test)",
+        "at": "2026-10-10T04:21:51.277Z"
+      }
     },
     {
       "feature": "F106",
@@ -6552,7 +6602,12 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B513"
+      "id": "B513",
+      "closed": {
+        "as": "obsolete",
+        "reason": "triage 2026-10-10: observation or narrow edge case outside the contract, no user-visible defect",
+        "at": "2026-10-10T04:21:51.535Z"
+      }
     }
   ]
 }
