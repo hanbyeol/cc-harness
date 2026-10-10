@@ -1,0 +1,70 @@
+{
+  "id": "F109",
+  "title": "마무리 정리 — 키 가림은 이벤트에만, 경고 한 번 플래그를 테스트에서 초기화, salt 없는 dry-run 은 고정 자리표시, 실패 사유 기본값 통일",
+  "security_tier": "critical",
+  "version": 1,
+  "resolves": [
+    "B514",
+    "B515",
+    "B516",
+    "B517",
+    "B519"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "redactDeep 의 키 가림은 선택(옵션)이고 이벤트 경로에서만 켠다 — 이벤트 쓰기(lib/events.mjs)와 harness events 출력은 F107 처럼 키도 가린다. run 상태 파일·backlog 항목·verdict·verify 결과·metrics·run 보고서는 키를 가리지 않고 값만 가린다(F107 전과 같음) — 키에 허용되지 않은 환경 변수 값이 든 객체를 run 상태와 이벤트에 각각 쓰는 테스트로, 이벤트 파일에는 그 값이 없고 run 상태의 키는 그대로임을 확인",
+      "check": "node test/t.mjs \"F109 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "CC_HARNESS_TELEMETRY 경고 한 번 상태를 초기화하는 resetTelemetryWarning() 이 lib/commands/export.mjs 에서 export 된다 — 같은 프로세스에서 경고 → 다시 호출(경고 없음) → resetTelemetryWarning() → 다시 호출(경고 1줄) 순서를 확인",
+      "check": "node test/t.mjs \"F109 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "salt 파일이 없을 때 harness export --dry-run 출력의 project 와 test·tests 해시 값은 무작위 값이 아니라 고정 자리표시 '<salt-pending>' 이다 — 같은 저장소에서 dry-run 을 두 번 실행한 stdout 이 같고, salt 파일은 여전히 만들어지지 않는다",
+      "check": "node test/t.mjs \"F109 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "lib/run.mjs 의 충돌 해결 fail 과 병합 후 복구 fail 은 reason 기본값을 같은 방식으로 다룬다 — 두 함수 모두 기본값 없이 호출부가 사유를 명시한다(소스 check: 'reason = ' 기본값 매개변수가 두 fail 정의에 없다). 기존 F32·F108 테스트의 blocked_reason 은 그대로다",
+      "check": "node test/t.mjs \"F109 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md §2·§9 가 키 가림이 이벤트에만 적용된다는 것과 salt 없는 dry-run 의 '<salt-pending>' 자리표시를 설명한다(문서 check)",
+      "check": "node test/t.mjs \"F109 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "AC-1 뒤에도 이벤트 파일·harness events 텍스트·--json 출력 어디에도 data 키나 값에 든 허용되지 않은 환경 변수 값 'sekret-value-12345' 가 나오지 않는다(F107 AC-3 테스트가 그대로 통과)",
+      "check": "node test/t.mjs \"F107 AC-3\"",
+      "new": false
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "resetTelemetryWarning() 을 경고가 한 번도 나지 않은 상태에서 불러도 예외가 없고 이후 동작은 같다",
+      "check": "node test/t.mjs \"F109 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "builderPrompt 가 config 의 모양(verify 객체)까지 검사하기",
+    "이벤트 외 기록의 키 허용 목록"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-10T06:25:48.347Z",
+    "hash": "15bbfb3e4dec852330d2089054cd00a251741dfebd01a041cfc603cc4da83a6f"
+  }
+}
