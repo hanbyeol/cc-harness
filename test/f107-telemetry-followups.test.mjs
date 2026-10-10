@@ -126,7 +126,7 @@ const SECRET = 'sekret-value-12345';
 
 test('F107 AC-3: redactDeep redacts object keys too and keeps the values under a keep key', () => {
   const redact = redactor({ F107_SECRET: SECRET });
-  const out = redactDeep({ [SECRET]: 'a', nested: [{ [`k-${SECRET}`]: SECRET }], feature: SECRET }, redact, new Set(['feature']));
+  const out = redactDeep({ [SECRET]: 'a', nested: [{ [`k-${SECRET}`]: SECRET }], feature: SECRET }, redact, new Set(['feature']), { keys: true });
   assert.equal(JSON.stringify(out).includes('[redacted]'), true);
   assert.deepEqual(Object.keys(out), ['[redacted]', 'nested', 'feature']);
   assert.deepEqual(out.nested, [{ 'k-[redacted]': '[redacted]' }]);
