@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { REPO, tmpdir, harness } from './helpers.mjs';
+import { REPO, fakeExecutableLink, tmpdir, harness } from './helpers.mjs';
 import { gitRepo, writeFiles, commitAll } from './gitfixture.mjs';
 import { resolveConfig, DEFAULTS } from '../lib/config.mjs';
 import { hashContract } from '../lib/contract.mjs';
@@ -21,16 +21,14 @@ const pathKey = () => Object.keys(process.env).find((k) => k.toUpperCase() === '
 
 /**
  * A directory with a fake `git` (sh script) that runs `onMatch` when its arguments contain
- * `match` (e.g. "worktree add"), then hands every call to the real git.
+ * `match` (e.g. "worktree add"), then hands every call to the real git. The returned directory
+ * (first on PATH) is `$(dirname "$0")` in `onMatch`.
  */
 function fakeGit(match, onMatch) {
-  const dir = fs.realpathSync(tmpdir('harness-f31-git-'));
-  fs.writeFileSync(path.join(dir, 'git'), `#!/bin/sh
+  return fakeExecutableLink('git', `#!/bin/sh
 case " $* " in *" ${match} "*) ${onMatch} ;; esac
 exec "${REAL_GIT}" "$@"
-`);
-  fs.chmodSync(path.join(dir, 'git'), 0o755);
-  return dir;
+`, 'harness-f31-git-');
 }
 
 // Runs fn with `dir` first on PATH; the core's commands inherit PATH (env allowlist).
@@ -200,15 +198,15 @@ test('F31 AC-3: run — the core git runner past its timeout is HarnessError(git
 // The fake must start its child and record both pids before the core kills it; a loaded
 // machine can take seconds for that, so the budget is generous (the fake still hangs far longer).
 const HANG_T = 30;
-// The fake git starts a background child, records both pids, then hangs.
-const HANG = (pids) => `sleep 1000 & echo $! > "${pids}/child.tmp" && mv "${pids}/child.tmp" "${pids}/child.pid"; `
-  + `echo $$ > "${pids}/self.tmp" && mv "${pids}/self.tmp" "${pids}/self.pid"; wait`;
+// The fake git starts a background child, records both pids in its own PATH directory, then hangs.
+const HANG = 'd="$(dirname "$0")"; sleep 1000 & echo $! > "$d/child.tmp" && mv "$d/child.tmp" "$d/child.pid"; '
+  + 'echo $$ > "$d/self.tmp" && mv "$d/self.tmp" "$d/self.pid"; wait';
 
 test('F31 SC-1: verify — a timed-out core git command and its child are both gone within 3s', async () => {
   if (!POSIX) return;
   const dir = fixture();
-  const pids = fs.realpathSync(tmpdir('harness-f31-pids-'));
-  const bin = fakeGit('worktree add', HANG(pids));
+  const bin = fakeGit('worktree add', HANG);
+  const pids = bin; // HANG records the pids beside the fake
   await withPath(bin, () => assert.rejects(runVerify(dir, cfg({ step_timeout_sec: 60, git_timeout_sec: HANG_T })), (e) => e.code === 'git'));
   for (const name of ['self.pid', 'child.pid']) {
     const file = path.join(pids, name);
@@ -220,8 +218,8 @@ test('F31 SC-1: verify — a timed-out core git command and its child are both g
 test('F31 SC-1: run — a timed-out core git command and its child are both gone within 3s', async () => {
   if (!POSIX) return;
   const dir = fixture();
-  const pids = fs.realpathSync(tmpdir('harness-f31-pids-'));
-  const bin = fakeGit('for-each-ref', HANG(pids));
+  const bin = fakeGit('for-each-ref', HANG);
+  const pids = bin; // HANG records the pids beside the fake
   await withPath(bin, () => assert.rejects(runGit(['for-each-ref', 'refs/heads/'], dir, { timeoutSec: HANG_T }), (e) => e.code === 'git'));
   for (const name of ['self.pid', 'child.pid']) {
     const file = path.join(pids, name);

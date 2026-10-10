@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { REPO, tmpdir, harness } from './helpers.mjs';
+import { REPO, fakeExecutableLink, tmpdir, harness } from './helpers.mjs';
 import { git, gitRepo, writeFiles, commitAll } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { hashContract } from '../lib/contract.mjs';
@@ -629,13 +629,11 @@ const pathKey = () => Object.keys(process.env).find((k) => k.toUpperCase() === '
 // A fake git, first on PATH, that fails the call whose arguments contain ` <sub> ` (logging the
 // temporary index it was given) and hands every other call to the real git.
 async function withFailingGit(sub, fn) {
-  const bin = fs.realpathSync(tmpdir('harness-f87-git-'));
-  const seen = path.join(bin, 'index-files.txt');
-  fs.writeFileSync(path.join(bin, 'git'), `#!/bin/sh
-case " $* " in *" ${sub} "*) echo "\${GIT_INDEX_FILE:-none}" >> "${seen}"; echo "fatal: injected failure" >&2; exit 128 ;; esac
+  const bin = fakeExecutableLink('git', `#!/bin/sh
+case " $* " in *" ${sub} "*) echo "\${GIT_INDEX_FILE:-none}" >> "$(dirname "$0")/index-files.txt"; echo "fatal: injected failure" >&2; exit 128 ;; esac
 exec "${REAL_GIT}" "$@"
-`);
-  fs.chmodSync(path.join(bin, 'git'), 0o755);
+`, 'harness-f87-git-');
+  const seen = path.join(bin, 'index-files.txt');
   const key = pathKey();
   const saved = process.env[key];
   process.env[key] = `${bin}${path.delimiter}${saved}`;

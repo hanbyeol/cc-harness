@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { REPO, tmpdir } from './helpers.mjs';
+import { REPO, fakeExecutableLink, tmpdir } from './helpers.mjs';
 import { git, gitRepo, writeFiles, commitAll } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { hashContract } from '../lib/contract.mjs';
@@ -141,16 +141,14 @@ const POSIX = process.platform !== 'win32'; // the fake git is a shebang script
 const REAL_GIT = spawnSync(POSIX ? 'which' : 'where', ['git'], { encoding: 'utf8' }).stdout.split(/\r?\n/)[0].trim();
 const pathKey = () => Object.keys(process.env).find((k) => k.toUpperCase() === 'PATH') || 'PATH';
 
-// A fake `git` that logs every call's arguments and fails `worktree add` with a fixed message.
-function failingAddGit(calls) {
-  const dir = fs.realpathSync(tmpdir('harness-f35-git-'));
-  fs.writeFileSync(path.join(dir, 'git'), `#!/bin/sh
-printf '%s\\n' "$*" >> "${calls}"
+// A fake `git` that logs every call's arguments (calls.txt beside it, in the returned PATH
+// directory) and fails `worktree add` with a fixed message.
+function failingAddGit() {
+  return fakeExecutableLink('git', `#!/bin/sh
+printf '%s\\n' "$*" >> "$(dirname "$0")/calls.txt"
 case " $* " in *" worktree add "*) echo "fatal: simulated worktree add failure" >&2; exit 128 ;; esac
 exec "${REAL_GIT}" "$@"
-`);
-  fs.chmodSync(path.join(dir, 'git'), 0o755);
-  return dir;
+`, 'harness-f35-git-');
 }
 
 test('F35 AC-3: a failed base worktree add removes only the temp directory and ends with the git error', async () => {
@@ -162,8 +160,8 @@ test('F35 AC-3: a failed base worktree add removes only the temp directory and e
   });
   writeFiles(dir, { 'marker.txt': 'feature\n' });
   commitAll(dir, 'feature');
-  const calls = path.join(fs.realpathSync(tmpdir('harness-f35-calls-')), 'calls.txt');
-  const bin = failingAddGit(calls);
+  const bin = failingAddGit();
+  const calls = path.join(bin, 'calls.txt');
   const key = pathKey();
   const saved = process.env[key];
   process.env[key] = `${bin}${path.delimiter}${saved}`;

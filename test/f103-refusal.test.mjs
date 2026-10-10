@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { BIN, REPO, harness, tmpdir } from './helpers.mjs';
+import { BIN, REPO, harness, tmpdir, fakeNodeCli } from './helpers.mjs';
 import { gitRepo, writeFiles } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { hashContract } from '../lib/contract.mjs';
@@ -126,15 +126,7 @@ function blockedCell(r, id) {
 
 // A PATH directory holding a fake `claude` (fixtures/fake-claude.mjs).
 function fakeClaudeBin() {
-  const dir = tmpdir('harness-f103-bin-');
-  if (process.platform === 'win32') {
-    fs.writeFileSync(path.join(dir, 'claude.cmd'), `@"${process.execPath}" "${FAKE_CLAUDE}" %*\r\n`);
-  } else {
-    const f = path.join(dir, 'claude');
-    fs.writeFileSync(f, `#!/bin/sh\nexec "${process.execPath}" "${FAKE_CLAUDE}" "$@"\n`);
-    fs.chmodSync(f, 0o755);
-  }
-  return dir;
+  return fakeNodeCli('claude', FAKE_CLAUDE);
 }
 const GIT_DIR = path.dirname(spawnSync(process.platform === 'win32' ? 'where' : 'which', ['git'], { encoding: 'utf8' }).stdout.split(/\r?\n/)[0].trim());
 

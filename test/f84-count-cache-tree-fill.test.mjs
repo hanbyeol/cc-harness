@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { REPO, tmpdir, readJson, writeJson } from './helpers.mjs';
+import { REPO, fakeExecutableLink, tmpdir, readJson, writeJson } from './helpers.mjs';
 import { git, gitRepo, writeFiles } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { verify } from '../lib/verify.mjs';
@@ -129,13 +129,12 @@ const REAL_GIT = spawnSync(POSIX ? 'which' : 'where', ['git'], { encoding: 'utf8
 const pathKey = () => Object.keys(process.env).find((k) => k.toUpperCase() === 'PATH') || 'PATH';
 
 // A fake git, first on PATH, that fails `ls-tree` and hands every other call to the real git.
+// Each call puts a new directory on PATH, as the verify result cache keys on PATH (§6.4).
 async function withFailingLsTree(fn) {
-  const bin = fs.realpathSync(tmpdir('harness-f84-git-'));
-  fs.writeFileSync(path.join(bin, 'git'), `#!/bin/sh
+  const bin = fakeExecutableLink('git', `#!/bin/sh
 case " $* " in *" ls-tree "*) echo "fatal: injected ls-tree failure" >&2; exit 128 ;; esac
 exec "${REAL_GIT}" "$@"
-`);
-  fs.chmodSync(path.join(bin, 'git'), 0o755);
+`, 'harness-f84-git-');
   const key = pathKey();
   const saved = process.env[key];
   process.env[key] = `${bin}${path.delimiter}${saved}`;
@@ -210,6 +209,7 @@ test('F84 ES-2: a cache that cannot be written leaves a warning and the verify g
   const log = newLog();
   writeJson(cacheFile(dir), { entries: [oldEntry(dir, log)] });
   const runs = path.dirname(cacheFile(dir));
+  const mode = fs.statSync(runs).mode & 0o7777;
   fs.chmodSync(runs, 0o555);
   try {
     const r = await run(dir, { test_count: countCmd(log) });
@@ -220,6 +220,6 @@ test('F84 ES-2: a cache that cannot be written leaves a warning and the verify g
     assert.equal(baseRuns(log, dir), 0);
     assert.equal('tree' in readJson(cacheFile(dir)).entries[0], false);
   } finally {
-    fs.chmodSync(runs, 0o755);
+    fs.chmodSync(runs, mode);
   }
 });

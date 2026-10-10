@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { BIN, REPO, tmpdir, harness, readJson, writeJson } from './helpers.mjs';
+import { BIN, REPO, tmpdir, harness, readJson, writeJson, fakeNodeCli } from './helpers.mjs';
 import { gitRepo, writeFiles } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { verify } from '../lib/verify.mjs';
@@ -49,19 +49,9 @@ const NODE_TESTS = {
   'test/b.test.mjs': "import test from 'node:test';\ntest('three', () => {});\n",
 };
 
-// A PATH directory with fake `go` / `python` executables (fixtures/fake-runner.mjs).
+// PATH entries with fake `go` / `python` executables (fixtures/fake-runner.mjs).
 function fakeBin(names = ['go', 'python']) {
-  const dir = tmpdir('harness-f23-bin-');
-  for (const name of names) {
-    if (process.platform === 'win32') {
-      fs.writeFileSync(path.join(dir, `${name}.cmd`), `@"${process.execPath}" "${RUNNER}" ${name} %*\r\n`);
-    } else {
-      const f = path.join(dir, name);
-      fs.writeFileSync(f, `#!/bin/sh\nexec "${process.execPath}" "${RUNNER}" ${name} "$@"\n`);
-      fs.chmodSync(f, 0o755);
-    }
-  }
-  return dir;
+  return names.map((name) => fakeNodeCli(name, RUNNER, [name])).join(path.delimiter);
 }
 
 const which = (name) => spawnSync(process.platform === 'win32' ? 'where' : 'which', [name], { encoding: 'utf8' }).stdout.split(/\r?\n/)[0].trim();

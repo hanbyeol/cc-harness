@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { REPO, BIN, tmpdir } from './helpers.mjs';
+import { REPO, BIN, fakeExecutable, tmpdir } from './helpers.mjs';
 import { gitRepo } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { verify } from '../lib/verify.mjs';
@@ -140,15 +140,12 @@ function childVerify(dir, extra) {
   assert.ok(r.stdout.trim().startsWith('{'), `${r.stdout}\n${r.stderr}`);
   return JSON.parse(r.stdout);
 }
-// A PATH-first program `name` that appends its name to `<cwd>/ran.txt` and exits `exit`.
-function fakeProgram(dir, name, exit) {
-  const script = path.join(dir, `${name}.cjs`);
-  fs.writeFileSync(script, `require('node:fs').appendFileSync('ran.txt', '${name}\\n'); process.exit(${exit});\n`);
-  if (posix) {
-    fs.writeFileSync(path.join(dir, name), `#!/bin/sh\nexec "${process.execPath}" "${script}" "$@"\n`, { mode: 0o755 });
-  } else {
-    fs.writeFileSync(path.join(dir, `${name}.cmd`), `@echo off\r\n"${process.execPath}" "${script}" %*\r\n`);
-  }
+// A PATH directory with a program `name` that appends its name to `<cwd>/ran.txt` and exits `exit`.
+function fakeProgram(name, exit) {
+  const js = `require('node:fs').appendFileSync('ran.txt', '${name}\\n'); process.exit(${exit})`;
+  return fakeExecutable(name, posix
+    ? `#!/bin/sh\nexec "${process.execPath}" -e "${js}"\n`
+    : `@echo off\r\n"${process.execPath}" -e "${js}"\r\n`);
 }
 const withConfig = (dir, verifyCfg) => fs.writeFileSync(path.join(dir, '.harness/config.json'),
   JSON.stringify({ profile: 'sdlc', base_branch: 'main', verify: { commands: [], ...verifyCfg } }));
@@ -156,8 +153,7 @@ const ranIn = (dir) => (fs.existsSync(path.join(dir, 'ran.txt')) ? fs.readFileSy
 const noHarnessIn = (d) => ['harness', 'harness.cmd', 'harness.exe', 'harness.ps1'].every((n) => !fs.existsSync(path.join(d, n)));
 
 test('F44 AC-2: "harness tf-check" as a verify command runs the core itself when PATH has no harness', () => {
-  const bin = tmpdir('harness-f44-bin-');
-  fakeProgram(bin, 'terraform', 0); // tf-check's fmt -check passes
+  const bin = fakeProgram('terraform', 0); // tf-check's fmt -check passes
   assert.ok(noHarnessIn(bin) && noHarnessIn(gitDir()), 'fixture PATH has no harness');
   const dir = fixture([['AC-1', 'harness tf-check']]);
   withConfig(dir, { commands: ['harness tf-check'] });
@@ -168,12 +164,10 @@ test('F44 AC-2: "harness tf-check" as a verify command runs the core itself when
 });
 
 test('F44 AC-2: a "harness" on PATH is not used for a "harness …" verify command', () => {
-  const bin = tmpdir('harness-f44-bin-');
-  fakeProgram(bin, 'terraform', 0);
-  fakeProgram(bin, 'harness', 3); // a decoy: running it would fail the command
+  const bins = [fakeProgram('terraform', 0), fakeProgram('harness', 3)]; // harness: a decoy, running it would fail the command
   const dir = fixture();
   withConfig(dir, { commands: ['harness tf-check'] });
-  const r = childVerify(dir, [bin]);
+  const r = childVerify(dir, bins);
   assert.equal(r.commands[0].pass, true, JSON.stringify(r.commands[0]));
   assert.ok(!ranIn(dir).includes('harness'), 'the decoy did not run');
 });
@@ -186,8 +180,7 @@ test('F44 AC-2: builtinInvocation runs bin/harness.mjs under the current node wi
 
 test('F44 SC-1: "harness tf-check; echo pwned" is not run built in — the shell handles it', () => {
   assert.equal(builtinInvocation('harness tf-check; echo pwned'), null);
-  const bin = tmpdir('harness-f44-bin-');
-  fakeProgram(bin, 'harness', 0);
+  const bin = fakeProgram('harness', 0);
   const dir = fixture();
   withConfig(dir, { commands: ['harness tf-check; echo pwned > pwned.txt'] });
   const r = childVerify(dir, [bin]);

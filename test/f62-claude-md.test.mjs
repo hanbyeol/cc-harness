@@ -370,6 +370,7 @@ test('F62 ES-2 the CLI exits 2 and keeps CLAUDE.md when its directory is not wri
   const dir = tmpdir();
   const content = '# p\nmine\n';
   write(dir, content);
+  const mode = fs.statSync(dir).mode & 0o7777;
   fs.chmodSync(dir, 0o555);
   try {
     const r = cli(dir);
@@ -377,6 +378,6 @@ test('F62 ES-2 the CLI exits 2 and keeps CLAUDE.md when its directory is not wri
     assert.match(r.stderr, /write failed/);
     assert.equal(bytes(dir).toString('utf8'), content);
   } finally {
-    fs.chmodSync(dir, 0o755);
+    fs.chmodSync(dir, mode);
   }
 });

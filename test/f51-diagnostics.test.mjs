@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
-  harness, project, writeJson, readJson, tmpdir, REPO,
+  fakeExecutable, harness, project, writeJson, readJson, tmpdir, REPO,
 } from './helpers.mjs';
 import { gitRepo } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
@@ -56,8 +56,8 @@ for (const [key, make, get] of TIMEOUT_KEYS) {
 
 // A fake CLI whose --version/--help outcomes are configurable.
 function fakeVersionHelpCli({ versionOk, helpOk, helpText = 'usage: fakecli [options]' }) {
-  const dir = tmpdir('harness-f51-cli-');
   if (process.platform === 'win32') {
+    const dir = tmpdir('harness-f51-cli-');
     // Shaped like the npm shims of real CLIs (claude.cmd, gemini.cmd): the .cmd only forwards
     // %* to node and the script decides. The core escapes .cmd arguments for exactly this
     // forwarding, so a batch file that compares %1 itself would see ^"--help^" and fail to parse.
@@ -72,7 +72,6 @@ function fakeVersionHelpCli({ versionOk, helpOk, helpText = 'usage: fakecli [opt
     fs.writeFileSync(file, `@echo off\r\n"${process.execPath}" "%~dp0fakecli.js" %*\r\n`);
     return file;
   }
-  const file = path.join(dir, 'fakecli');
   const body = `#!/bin/sh
 if [ "$1" = "--version" ]; then
   ${versionOk ? 'echo "fakecli 1.0.0"' : 'exit 127'}
@@ -80,8 +79,7 @@ elif [ "$1" = "--help" ]; then
   ${helpOk ? `echo "${helpText}"` : 'exit 127'}
 fi
 `;
-  fs.writeFileSync(file, body);
-  fs.chmodSync(file, 0o755);
+  const file = path.join(fakeExecutable('fakecli', body), 'fakecli');
   // macOS checks a new executable on its first run. Under load that check took up to 33 s
   // (measured; a second run took 15 ms), longer than doctor's 30 s probe bound, so --version
   // looked failed. Run the script once here, with a generous bound, so the probe under test

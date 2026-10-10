@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { BIN, REPO, tmpdir } from './helpers.mjs';
+import { BIN, FAKE_INHIBIT_LOG, REPO, fakeInhibitorDirs, tmpdir } from './helpers.mjs';
 import { gitRepo } from './gitfixture.mjs';
 import { hashContract } from '../lib/contract.mjs';
 import { startSleepInhibitor } from '../lib/sleep.mjs';
@@ -15,29 +15,25 @@ const VAR = 'HARNESS_TEST_NO_SLEEP_INHIBITOR';
 const DISABLED = `disabled by ${VAR}`;
 
 /**
- * A directory with fake `caffeinate` and `systemd-inhibit` (sh scripts) that log their name and
- * pid, then stay alive. `env(value)` puts them first on PATH with VAR set to `value`
- * (undefined: VAR absent).
+ * Fake `caffeinate` and `systemd-inhibit` (fakeInhibitorDirs) that log their name and pid in
+ * this call's own log directory, then stay alive. `env(value)` puts them first on PATH with VAR
+ * set to `value` (undefined: VAR absent).
  */
 function fakeInhibitors() {
-  const dir = tmpdir('harness-inhibit-');
-  const logs = path.join(dir, 'logs');
-  fs.mkdirSync(logs);
-  for (const name of ['caffeinate', 'systemd-inhibit']) {
-    const file = path.join(dir, name);
-    fs.writeFileSync(file, `#!/bin/sh\n[ "$1" = "--warm-up" ] && exit 0\nprintf '%s\\n' "${name}" "$$" > "${logs}/$$.tmp" && mv "${logs}/$$.tmp" "${logs}/$$.txt"\nexec sleep 1000\n`);
-    fs.chmodSync(file, 0o755);
+  const logs = tmpdir('harness-f77-inhibit-log-');
+  const dirs = fakeInhibitorDirs();
+  for (const [i, name] of ['caffeinate', 'systemd-inhibit'].entries()) {
     // macOS checks a new executable on its first run, which under load took up to 33 s. Run each
     // fake once here (bounded generously) so a started fake logs within moments — otherwise the
     // fixed wait in AC-1 could end before a fake that did start had logged, and pass vacuously.
-    if (POSIX) spawnSync(file, ['--warm-up'], { stdio: 'ignore', timeout: 120_000 });
+    if (POSIX) spawnSync(path.join(dirs[i], name), ['--warm-up'], { stdio: 'ignore', timeout: 120_000 });
   }
   const entries = () => fs.readdirSync(logs).filter((n) => n.endsWith('.txt')).map((n) => {
     const [name, pid] = fs.readFileSync(path.join(logs, n), 'utf8').trim().split('\n');
     return { name, pid: Number(pid) };
   });
   const env = (value) => {
-    const e = { ...process.env, PATH: `${dir}${path.delimiter}${process.env.PATH}` };
+    const e = { ...process.env, [FAKE_INHIBIT_LOG]: logs, PATH: [...dirs, process.env.PATH].join(path.delimiter) };
     delete e[VAR];
     if (value !== undefined) e[VAR] = value;
     return e;
