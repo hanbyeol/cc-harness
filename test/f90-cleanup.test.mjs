@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { REPO, tmpdir, BIN } from './helpers.mjs';
+import { REPO, fakeExecutableLink, tmpdir, BIN } from './helpers.mjs';
 import { gitRepo, writeFiles, commitAll } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { verify } from '../lib/verify.mjs';
@@ -105,14 +105,13 @@ test('F90 AC-4: no rules/ directory, not packaged, and no tracked file points at
 test('F90 AC-5: every git call verify makes carries -c core.fsmonitor=false', async () => {
   if (!POSIX) return; // the fake git is a shebang script
   const realGit = spawnSync('which', ['git'], { encoding: 'utf8' }).stdout.split(/\r?\n/)[0].trim();
-  const bin = fs.realpathSync(tmpdir('harness-f90-git-'));
-  const log = path.join(bin, 'calls.log');
-  // One record per call: arguments separated by \037, the record ended by \036.
-  fs.writeFileSync(path.join(bin, 'git'), `#!/bin/sh
-{ for a in "$@"; do printf '%s\\037' "$a"; done; printf '\\036'; } >> "${log}"
+  // One record per call: arguments separated by \037, the record ended by \036, in calls.log
+  // beside the fake.
+  const bin = fakeExecutableLink('git', `#!/bin/sh
+{ for a in "$@"; do printf '%s\\037' "$a"; done; printf '\\036'; } >> "$(dirname "$0")/calls.log"
 exec "${realGit}" "$@"
-`);
-  fs.chmodSync(path.join(bin, 'git'), 0o755);
+`, 'harness-f90-git-');
+  const log = path.join(bin, 'calls.log');
 
   const dir = gitRepo({
     '.harness/config.json': { profile: 'sdlc', base_branch: 'main', verify: { commands: [] } },

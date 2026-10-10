@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
-import { BIN, REPO, tmpdir } from './helpers.mjs';
+import { BIN, FAKE_INHIBIT_LOG, REPO, fakeInhibitorDirs, tmpdir } from './helpers.mjs';
 import { gitRepo, writeFiles, commitAll } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { hashContract } from '../lib/contract.mjs';
@@ -81,20 +81,16 @@ const readPid = (file) => (fs.existsSync(file) ? Number(fs.readFileSync(file, 'u
 const kill = (pid) => { if (pid) { try { process.kill(pid, 'SIGKILL'); } catch { /* gone */ } } };
 
 /**
- * A directory with fake `caffeinate` and `systemd-inhibit` (sh scripts) that log their pid and
- * stay alive: the sleep inhibitor a run starts on darwin and linux.
+ * Fake `caffeinate` and `systemd-inhibit` first on PATH (fakeInhibitorDirs) that log their pid
+ * in this call's own log directory and stay alive: the sleep inhibitor a run starts on darwin
+ * and linux.
  */
 function fakeInhibitors() {
-  const dir = tmpdir('harness-inhibit-');
-  const logs = path.join(dir, 'logs');
-  fs.mkdirSync(logs);
-  for (const name of ['caffeinate', 'systemd-inhibit']) {
-    const file = path.join(dir, name);
-    fs.writeFileSync(file, `#!/bin/sh\nprintf '%s\\n' "$$" > "${logs}/$$.tmp" && mv "${logs}/$$.tmp" "${logs}/$$.txt"\nexec sleep 1000\n`);
-    fs.chmodSync(file, 0o755);
-  }
-  const pids = () => fs.readdirSync(logs).filter((n) => n.endsWith('.txt')).map((n) => Number(fs.readFileSync(path.join(logs, n), 'utf8').trim()));
-  return { pids, env: { ...INHIBITOR_ENV, PATH: `${dir}${path.delimiter}${process.env.PATH}` } };
+  const logs = tmpdir('harness-f49-inhibit-log-');
+  const dirs = fakeInhibitorDirs();
+  // Each log is name, pid, parent pid and arguments, one per line.
+  const pids = () => fs.readdirSync(logs).filter((n) => n.endsWith('.txt')).map((n) => Number(fs.readFileSync(path.join(logs, n), 'utf8').split('\n')[1]));
+  return { pids, env: { ...INHIBITOR_ENV, [FAKE_INHIBIT_LOG]: logs, PATH: [...dirs, process.env.PATH].join(path.delimiter) } };
 }
 
 /** Starts `harness run` and waits for the slow builder; `stop()` sends `sig` and waits for the exit. */

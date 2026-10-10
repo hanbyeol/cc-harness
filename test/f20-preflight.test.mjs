@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { BIN, REPO, tmpdir } from './helpers.mjs';
+import { BIN, REPO, tmpdir, fakeNodeCli } from './helpers.mjs';
 import { git, gitRepo } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { hashContract } from '../lib/contract.mjs';
@@ -39,19 +39,9 @@ function home(settings) {
 const GEMINI_ROLES = resolveConfig({ roles: { builder: 'claude', evaluator: 'gemini', 'security-reviewer': 'claude' } });
 const evaluatorOf = async (env) => (await diagnose({ config: GEMINI_ROLES, probe: PROBE, env })).roles.find((r) => r.role === 'evaluator');
 
-// A PATH directory holding fake `claude` / `gemini` executables (fixtures/fake-role-cli.mjs).
+// PATH entries holding fake `claude` / `gemini` executables (fixtures/fake-role-cli.mjs).
 function fakeBin(names = ['claude', 'gemini']) {
-  const dir = tmpdir('harness-bin-');
-  for (const name of names) {
-    if (process.platform === 'win32') {
-      fs.writeFileSync(path.join(dir, `${name}.cmd`), `@"${process.execPath}" "${ROLE_CLI}" ${name} %*\r\n`);
-    } else {
-      const f = path.join(dir, name);
-      fs.writeFileSync(f, `#!/bin/sh\nexec "${process.execPath}" "${ROLE_CLI}" ${name} "$@"\n`);
-      fs.chmodSync(f, 0o755);
-    }
-  }
-  return dir;
+  return names.map((name) => fakeNodeCli(name, ROLE_CLI, [name])).join(path.delimiter);
 }
 
 const GIT_DIR = path.dirname(spawnSync(process.platform === 'win32' ? 'where' : 'which', ['git'], { encoding: 'utf8' }).stdout.split(/\r?\n/)[0].trim());

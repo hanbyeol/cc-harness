@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { REPO, tmpdir, harness } from './helpers.mjs';
+import { REPO, tmpdir, harness, fakeNodeCli } from './helpers.mjs';
 import { gitRepo, writeFiles, commitAll } from './gitfixture.mjs';
 import { resolveConfig, loadConfig } from '../lib/config.mjs';
 import { hashContract } from '../lib/contract.mjs';
@@ -67,14 +67,8 @@ const argOf = (argv, flag) => {
 // Runs fn with a fake `claude` first on PATH that logs every call; returns the calls as
 // {role, model, effort, feature, conflict, argv}.
 async function withFakeClaude(fn) {
-  const bin = tmpdir('harness-bin-');
+  const bin = fakeNodeCli('claude', MODEL_CLI);
   const log = path.join(tmpdir('harness-log-'), 'calls.jsonl');
-  if (process.platform === 'win32') {
-    fs.writeFileSync(path.join(bin, 'claude.cmd'), `@"${process.execPath}" "${MODEL_CLI}" %*\r\n`);
-  } else {
-    fs.writeFileSync(path.join(bin, 'claude'), `#!/bin/sh\nexec "${process.execPath}" "${MODEL_CLI}" "$@"\n`);
-    fs.chmodSync(path.join(bin, 'claude'), 0o755);
-  }
   const pathKey = Object.keys(process.env).find((k) => k.toUpperCase() === 'PATH') || 'PATH';
   const saved = { path: process.env[pathKey], log: process.env.FAKE_MODEL_LOG };
   process.env[pathKey] = [bin, path.dirname(process.execPath), GIT_DIR].join(path.delimiter);

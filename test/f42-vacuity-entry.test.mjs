@@ -36,7 +36,12 @@ const PASS_SH = '#!/bin/sh\nexit 0\n';
 async function featureRun(checks, files) {
   const dir = gitRepo({ ...HARNESS(checks), 'lib/x.mjs': 'export const x = 1;\n' });
   writeFiles(dir, files);
-  for (const f of Object.keys(files)) if (f.endsWith('.sh')) fs.chmodSync(path.join(dir, f), 0o755);
+  // A committed script run as ./x.sh is recreated executable (a fixture file, not a PATH fake).
+  for (const f of Object.keys(files)) {
+    if (!f.endsWith('.sh')) continue;
+    fs.rmSync(path.join(dir, f));
+    fs.writeFileSync(path.join(dir, f), files[f], { mode: 0o755 });
+  }
   commitAll(dir, 'feature adds its tool');
   return { dir, r: await run(dir) };
 }
