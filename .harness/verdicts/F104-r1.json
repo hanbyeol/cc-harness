@@ -1,0 +1,53 @@
+{
+  "feature": "F104",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "cheaperBuilder 는 현재 모델을 ended_at 이 아니라 time(r) 로 고르고 같으면 뒤 줄을 택한다. ended_at 이 없거나 해석되지 않는 줄이 섞이면 '가장 늦은 build 줄'이 입력 순서에 의존한다. 계약 범위 밖의 경계 사례다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/metrics.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "test_paths 밖 테스트 파일 경고는 base 수가 test_tree 로 적중한 경우에만 나온다. 캐시가 꺼져 있거나 base 에서 실행한 경우에는 경고가 없고, SPEC 에 그렇게 적혀 있다. 다만 사용자가 test_paths 설정 실수를 알아채기 어려울 수 있다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.156474,
+  "contract_hash": "2de2967ce5c0953645503756ba8c7969be3c8fc214df1842c39ce4625478fda2",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-10T03:22:22.772Z",
+  "origin": "run"
+}

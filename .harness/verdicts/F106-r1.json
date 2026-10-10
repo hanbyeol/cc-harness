@@ -1,0 +1,57 @@
+{
+  "feature": "F106",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "fakeExecutable 은 디렉터리를 지우지 않는다(의도된 동작). 내용이 자주 바뀌는 가짜(예: 경로가 들어가는 fakeProgram 의 -e 스크립트)는 해시 디렉터리가 계속 쌓일 수 있다. 정리 정책은 계약 범위 밖이다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "fakeExecutableLink 는 POSIX 전용이다. Windows 에서 호출되는 경로는 각 테스트의 POSIX 가드에 의존한다. 가드가 빠진 테스트가 생기면 symlink 오류가 난다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    },
+    {
+      "summary": "AC-4 의 소스 검사는 숫자 리터럴 모드만 잡는다. 변수나 식으로 모드를 넘기는 chmodSync 는 잡지 못한다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.19510200000000003,
+  "contract_hash": "ead4f8a35cfe6b46190384807747fce798e7c34f9af1ed7348075a54394121b4",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-10T04:11:59.012Z",
+  "origin": "run"
+}

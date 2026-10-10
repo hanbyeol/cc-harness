@@ -1,0 +1,60 @@
+{
+  "feature": "F105",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "processTable() uses spawnSync('ps') with a 5 s timeout, which blocks the event loop of a parallel run during an abort or timeout. It is only a brief stall in the normal case.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/exec.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "killDescendants reads the process table once, then kills. A detached grandchild forked between the ps read and the kill escapes. This is a narrow race and the contract does not cover it.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/exec.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "The AC-1 and AC-2 tests use fake build, verify and evaluate functions instead of the CLI path `harness run --resume --parallel N`. The CLI wiring of --parallel for resume is therefore only covered indirectly.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f105-resume-cleanup.test.mjs",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.119384,
+  "contract_hash": "5b640a0b3d4959893777e8aac302005a4b5e64c5bc98098217ed8daf75d18192",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-10T03:40:38.586Z",
+  "origin": "run"
+}

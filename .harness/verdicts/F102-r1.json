@@ -1,0 +1,52 @@
+{
+  "feature": "F102",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "B486, B488, B489를 이 diff가 해결한다. 계약의 resolves 에 올라 있으므로 통과하면 resolved_by 가 F102 로 기록된다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B486"
+    },
+    {
+      "summary": "git clean -ff 는 프로젝트가 추적하지 않는 중첩 저장소를 모두 지운다. verify 가 의도적으로 남긴 중첩 저장소(예: 캐시용 clone)가 있으면 사라진다. 계약이 요구한 동작이라 결함은 아니고, SPEC 에 이미 적혀 있다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.110518,
+  "contract_hash": "81631a201e7b8f61c6d77c9c371b8fe250c44ac1ff749e39604a09acbaa6c0b9",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-10T02:56:07.051Z",
+  "origin": "run"
+}

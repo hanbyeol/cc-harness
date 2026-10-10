@@ -1,0 +1,98 @@
+{
+  "feature": "F101",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 8,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "`harness export --dry-run` now calls readSalt() first, so a dry run creates ~/.cc-harness/salt (and the directory) when none exists. The contract does not forbid this, but a dry run that writes a file may surprise users.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/commands/export.mjs",
+      "line": 37,
+      "priority": "low"
+    },
+    {
+      "summary": "The CC_HARNESS_TELEMETRY warning is printed on every autoExport and export call. A `harness run` that auto-exports several times could repeat the line. The contract only requires one warning per command.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/commands/export.mjs",
+      "line": 74,
+      "priority": "low"
+    },
+    {
+      "summary": "B371 is resolved by this diff (`harness events` redacts again). B384, B385, B389 and B401 are resolved too.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "backlog_id": "B371"
+    },
+    {
+      "summary": "harness events 재가림(redactDeep)은 객체의 값만 가리고 키는 가리지 않는다. 손으로 쓴 이벤트 줄의 data 키에 비밀 환경 변수 값이 있으면(예: {\"data\":{\"sekret-value-12345\":1}}, S=sekret-value-12345) 텍스트·--json 출력에 그대로 나온다. 쓰기 경로(eventLine)도 같은 redactDeep 을 쓰므로 이번 diff 에서 생긴 회귀는 아니고, AC-3 fixture(값에 든 비밀)는 통과한다. 키도 가리거나 허용 키만 남기는 방안을 검토할 만하다.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "file": "lib/failures.mjs",
+      "line": 65,
+      "priority": "low"
+    },
+    {
+      "summary": "readSalt 는 소문자 hex 만 받는다(/^[0-9a-f]{64}$/). 사용자가 대문자 hex 64자로 salt 를 직접 바꿔 두면 '64자 hex 가 아니다'라는 경고가 나오고 export 가 멈춘다. SPEC 에는 '64자 hex'라고만 적혀 있으니 소문자만 받는다는 점을 문서에 적거나 대소문자를 모두 받도록 해야 한다.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "file": "lib/telemetry.mjs",
+      "line": 191,
+      "priority": "low"
+    },
+    {
+      "summary": "planExport 의 기본 인자 salt = readSalt() 는 planExport 를 직접 부르는 호출자(지금은 없음)가 salt 를 넘기지 않으면 ~/.cc-harness/salt 를 만들고, 오류가 나면 runExport 의 경고·exit 0 경로를 거치지 않고 예외를 던진다. salt 를 필수 인자로 두면 이 경로가 분명해진다.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "file": "lib/telemetry.mjs",
+      "line": 354,
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.7141386000000001,
+  "contract_hash": "26e7bd486b0e8510d4389beed4ab69a78f9add284b68f470ab2a712e16472698",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 8,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-10-10T02:36:14.956Z",
+  "origin": "run"
+}

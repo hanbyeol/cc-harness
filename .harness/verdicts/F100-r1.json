@@ -1,0 +1,53 @@
+{
+  "feature": "F100",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 8,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "파일 경로에 작은따옴표나 공백이 있어도 PLAIN 정규식 밖이면 인용되지만, parseNodeTest 가 원래 인자(예: --test-name-pattern 값)를 쓰인 그대로 복사하므로 따옴표 안의 특수 문자가 재실행에서 그대로 셸에 전달된다. 현재 SPEC 의 조건으로는 문제가 없지만 문서화가 약하다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/retryfiles.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "부분 재시도가 통과해도 verify 결과 output 과 'run'(from:commands[i])은 1차 전체 실행 기준이라, 재시도 출력의 테스트 수와 어긋날 수 있는 점을 로그로 남기지 않는다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.1574491,
+  "contract_hash": "e9ec65851843e80f902a84baa4db29f189157d7244b2432bba4c976504e59b97",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 8,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-10T02:46:11.626Z",
+  "origin": "run"
+}

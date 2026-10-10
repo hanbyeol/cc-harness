@@ -4478,10 +4478,12 @@
       "source": "security-reviewer",
       "priority": "low",
       "id": "B371",
-      "seen": 2,
+      "seen": 3,
       "sources": [
-        "F54-r2"
-      ]
+        "F54-r2",
+        "F101-r1"
+      ],
+      "resolved_by": "F101"
     },
     {
       "feature": "F54",
@@ -4673,7 +4675,8 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B384"
+      "id": "B384",
+      "resolved_by": "F101"
     },
     {
       "feature": "F58",
@@ -4683,7 +4686,8 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B385"
+      "id": "B385",
+      "resolved_by": "F101"
     },
     {
       "feature": "F58",
@@ -4746,7 +4750,8 @@
       "seen": 2,
       "sources": [
         "F56-r4"
-      ]
+      ],
+      "resolved_by": "F101"
     },
     {
       "feature": "F56",
@@ -4929,7 +4934,8 @@
       "reason": "out_of_scope",
       "source": "security-reviewer",
       "priority": "low",
-      "id": "B401"
+      "id": "B401",
+      "resolved_by": "F101"
     },
     {
       "feature": "F63",
@@ -5127,7 +5133,8 @@
       "priority": "medium",
       "at": "2026-09-30T01:18:35.391Z",
       "id": "B416",
-      "summary": "harness stats builder_model suggestion looks only at the builder cost share (>70%) and recommends a cheaper builder for standard-tier features. Field data contradicts it: claude-sonnet-5 builds timed out in 6 of 14 steps (median 1394s) while claude-opus-5-5 builds were ok in 46 of 46 (median 962s). The rule should also weigh per-model build timeout rate (outcome timeout / timeout-continued) and not suggest a model whose timeout rate is higher."
+      "summary": "harness stats builder_model suggestion looks only at the builder cost share (>70%) and recommends a cheaper builder for standard-tier features. Field data contradicts it: claude-sonnet-5 builds timed out in 6 of 14 steps (median 1394s) while claude-opus-5-5 builds were ok in 46 of 46 (median 962s). The rule should also weigh per-model build timeout rate (outcome timeout / timeout-continued) and not suggest a model whose timeout rate is higher.",
+      "resolved_by": "F104"
     },
     {
       "source": "human",
@@ -5135,7 +5142,8 @@
       "priority": "low",
       "at": "2026-09-30T01:18:35.391Z",
       "id": "B417",
-      "summary": "Adapter results do not distinguish a model refusal (stop_reason refusal; Sonnet 5.5 categories cyber, bio, frontier_llm, reasoning_extraction, general_harms; Opus 5.5 adds bio and reasoning_extraction) from other failures; it likely surfaces as no_json or exit_nonzero. Needs a recorded claude -p refusal fixture first, then decide whether a refusal is an environment stop (resumable) rather than a spent round, and record the category in metrics."
+      "summary": "Adapter results do not distinguish a model refusal (stop_reason refusal; Sonnet 5.5 categories cyber, bio, frontier_llm, reasoning_extraction, general_harms; Opus 5.5 adds bio and reasoning_extraction) from other failures; it likely surfaces as no_json or exit_nonzero. Needs a recorded claude -p refusal fixture first, then decide whether a refusal is an environment stop (resumable) rather than a spent round, and record the category in metrics.",
+      "resolved_by": "F103"
     },
     {
       "feature": "F70",
@@ -5145,7 +5153,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B418"
+      "id": "B418",
+      "resolved_by": "F104"
     },
     {
       "feature": "F70",
@@ -5851,7 +5860,8 @@
       "reason": "out_of_scope",
       "source": "evaluator",
       "priority": "low",
-      "id": "B463"
+      "id": "B463",
+      "resolved_by": "F104"
     },
     {
       "feature": "F86",
@@ -6202,7 +6212,12 @@
       "source": "evaluator",
       "file": "lib/run.mjs",
       "priority": "low",
-      "id": "B486"
+      "id": "B486",
+      "seen": 2,
+      "sources": [
+        "F102-r1"
+      ],
+      "resolved_by": "F102"
     },
     {
       "feature": "F96",
@@ -6233,7 +6248,8 @@
       "seen": 2,
       "sources": [
         "F95-r2"
-      ]
+      ],
+      "resolved_by": "F102"
     },
     {
       "feature": "F95",
@@ -6249,7 +6265,8 @@
       "seen": 2,
       "sources": [
         "F95-r2"
-      ]
+      ],
+      "resolved_by": "F102"
     },
     {
       "feature": "F95",
@@ -6307,6 +6324,235 @@
       "file": "lib/run.mjs",
       "priority": "low",
       "id": "B493"
+    },
+    {
+      "feature": "F101",
+      "round": 1,
+      "at": "2026-10-10T02:36:14.956Z",
+      "summary": "`harness export --dry-run` now calls readSalt() first, so a dry run creates ~/.cc-harness/salt (and the directory) when none exists. The contract does not forbid this, but a dry run that writes a file may surprise users.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/commands/export.mjs",
+      "line": 37,
+      "priority": "low",
+      "id": "B494"
+    },
+    {
+      "feature": "F101",
+      "round": 1,
+      "at": "2026-10-10T02:36:14.956Z",
+      "summary": "The CC_HARNESS_TELEMETRY warning is printed on every autoExport and export call. A `harness run` that auto-exports several times could repeat the line. The contract only requires one warning per command.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/commands/export.mjs",
+      "line": 74,
+      "priority": "low",
+      "id": "B495"
+    },
+    {
+      "feature": "F101",
+      "round": 1,
+      "at": "2026-10-10T02:36:14.956Z",
+      "summary": "harness events 재가림(redactDeep)은 객체의 값만 가리고 키는 가리지 않는다. 손으로 쓴 이벤트 줄의 data 키에 비밀 환경 변수 값이 있으면(예: {\"data\":{\"sekret-value-12345\":1}}, S=sekret-value-12345) 텍스트·--json 출력에 그대로 나온다. 쓰기 경로(eventLine)도 같은 redactDeep 을 쓰므로 이번 diff 에서 생긴 회귀는 아니고, AC-3 fixture(값에 든 비밀)는 통과한다. 키도 가리거나 허용 키만 남기는 방안을 검토할 만하다.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "file": "lib/failures.mjs",
+      "line": 65,
+      "priority": "low",
+      "id": "B496"
+    },
+    {
+      "feature": "F101",
+      "round": 1,
+      "at": "2026-10-10T02:36:14.956Z",
+      "summary": "readSalt 는 소문자 hex 만 받는다(/^[0-9a-f]{64}$/). 사용자가 대문자 hex 64자로 salt 를 직접 바꿔 두면 '64자 hex 가 아니다'라는 경고가 나오고 export 가 멈춘다. SPEC 에는 '64자 hex'라고만 적혀 있으니 소문자만 받는다는 점을 문서에 적거나 대소문자를 모두 받도록 해야 한다.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "file": "lib/telemetry.mjs",
+      "line": 191,
+      "priority": "low",
+      "id": "B497"
+    },
+    {
+      "feature": "F101",
+      "round": 1,
+      "at": "2026-10-10T02:36:14.956Z",
+      "summary": "planExport 의 기본 인자 salt = readSalt() 는 planExport 를 직접 부르는 호출자(지금은 없음)가 salt 를 넘기지 않으면 ~/.cc-harness/salt 를 만들고, 오류가 나면 runExport 의 경고·exit 0 경로를 거치지 않고 예외를 던진다. salt 를 필수 인자로 두면 이 경로가 분명해진다.",
+      "reason": "out_of_scope",
+      "source": "security-reviewer",
+      "file": "lib/telemetry.mjs",
+      "line": 354,
+      "priority": "low",
+      "id": "B498"
+    },
+    {
+      "feature": "F100",
+      "round": 1,
+      "at": "2026-10-10T02:46:11.626Z",
+      "summary": "파일 경로에 작은따옴표나 공백이 있어도 PLAIN 정규식 밖이면 인용되지만, parseNodeTest 가 원래 인자(예: --test-name-pattern 값)를 쓰인 그대로 복사하므로 따옴표 안의 특수 문자가 재실행에서 그대로 셸에 전달된다. 현재 SPEC 의 조건으로는 문제가 없지만 문서화가 약하다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/retryfiles.mjs",
+      "priority": "low",
+      "id": "B499"
+    },
+    {
+      "feature": "F100",
+      "round": 1,
+      "at": "2026-10-10T02:46:11.626Z",
+      "summary": "부분 재시도가 통과해도 verify 결과 output 과 'run'(from:commands[i])은 1차 전체 실행 기준이라, 재시도 출력의 테스트 수와 어긋날 수 있는 점을 로그로 남기지 않는다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low",
+      "id": "B500"
+    },
+    {
+      "feature": "F102",
+      "round": 1,
+      "at": "2026-10-10T02:56:07.051Z",
+      "summary": "git clean -ff 는 프로젝트가 추적하지 않는 중첩 저장소를 모두 지운다. verify 가 의도적으로 남긴 중첩 저장소(예: 캐시용 clone)가 있으면 사라진다. 계약이 요구한 동작이라 결함은 아니고, SPEC 에 이미 적혀 있다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B501"
+    },
+    {
+      "feature": "F103",
+      "round": 1,
+      "at": "2026-10-10T03:08:58.000Z",
+      "summary": "build 외 경로의 builder 호출(충돌 해결 build, 병합 후 verify 복구 build)에서 refusal 결과가 나왔을 때의 처리는 계약과 테스트가 다루지 않는다. 지금 diff 는 일반 build 단계의 `b?.error === 'refusal'` 분기만 추가했다. 해당 경로에서 같은 프롬프트로 재시도하거나 다른 오류로 분류될 수 있다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "priority": "low",
+      "id": "B502"
+    },
+    {
+      "feature": "F103",
+      "round": 1,
+      "at": "2026-10-10T03:08:58.000Z",
+      "summary": "eval 거부 처리는 evaluator 가 먼저 거부하면 security-reviewer 호출 결과를 보지 않고 첫 번째 거부만 보고한다. 두 역할이 모두 거부해도 detail 에는 하나만 남는다. 동작에는 문제가 없고 보고 정보가 줄어드는 정도다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/eval.mjs",
+      "priority": "low",
+      "id": "B503"
+    },
+    {
+      "feature": "F103",
+      "round": 1,
+      "at": "2026-10-10T03:08:58.000Z",
+      "summary": "claude 어댑터의 refusal() 은 `w.type === 'result'` 도 요구한다. 계약 ES-1 은 stop_reason 만 말하므로 type 이 없는 wrapper 는 거부로 보지 않는다. 측정된 wrapper 에는 type 이 있어 문제는 없지만 SPEC 에 이 조건이 적혀 있지 않다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/adapters/claude.mjs",
+      "priority": "low",
+      "id": "B504"
+    },
+    {
+      "feature": "F104",
+      "round": 1,
+      "at": "2026-10-10T03:22:22.772Z",
+      "summary": "cheaperBuilder 는 현재 모델을 ended_at 이 아니라 time(r) 로 고르고 같으면 뒤 줄을 택한다. ended_at 이 없거나 해석되지 않는 줄이 섞이면 '가장 늦은 build 줄'이 입력 순서에 의존한다. 계약 범위 밖의 경계 사례다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/metrics.mjs",
+      "priority": "low",
+      "id": "B505",
+      "seen": 2,
+      "sources": [
+        "F104-r2"
+      ]
+    },
+    {
+      "feature": "F104",
+      "round": 1,
+      "at": "2026-10-10T03:22:22.772Z",
+      "summary": "test_paths 밖 테스트 파일 경고는 base 수가 test_tree 로 적중한 경우에만 나온다. 캐시가 꺼져 있거나 base 에서 실행한 경우에는 경고가 없고, SPEC 에 그렇게 적혀 있다. 다만 사용자가 test_paths 설정 실수를 알아채기 어려울 수 있다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/verify.mjs",
+      "priority": "low",
+      "id": "B506",
+      "seen": 2,
+      "sources": [
+        "F104-r2"
+      ]
+    },
+    {
+      "feature": "F104",
+      "round": 2,
+      "at": "2026-10-10T03:28:44.381Z",
+      "summary": "사용자 파일의 사용자 정의 역할(프로필·기본값에 없는 역할)이 adapter 없이 effort 만 쓰면 병합 adapter 가 비어 config_invalid 가 된다. 계약상 '병합 결과가 claude 가 아니면 오류'와 일치하지만 메시지가 'adapter null' 로만 나와 원인을 알기 어렵다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/config.mjs",
+      "priority": "low",
+      "id": "B507"
+    },
+    {
+      "feature": "F105",
+      "round": 1,
+      "at": "2026-10-10T03:40:38.586Z",
+      "summary": "processTable() uses spawnSync('ps') with a 5 s timeout, which blocks the event loop of a parallel run during an abort or timeout. It is only a brief stall in the normal case.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/exec.mjs",
+      "priority": "low",
+      "id": "B508"
+    },
+    {
+      "feature": "F105",
+      "round": 1,
+      "at": "2026-10-10T03:40:38.586Z",
+      "summary": "killDescendants reads the process table once, then kills. A detached grandchild forked between the ps read and the kill escapes. This is a narrow race and the contract does not cover it.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/exec.mjs",
+      "priority": "low",
+      "id": "B509"
+    },
+    {
+      "feature": "F105",
+      "round": 1,
+      "at": "2026-10-10T03:40:38.586Z",
+      "summary": "The AC-1 and AC-2 tests use fake build, verify and evaluate functions instead of the CLI path `harness run --resume --parallel N`. The CLI wiring of --parallel for resume is therefore only covered indirectly.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f105-resume-cleanup.test.mjs",
+      "priority": "low",
+      "id": "B510"
+    },
+    {
+      "feature": "F106",
+      "round": 1,
+      "at": "2026-10-10T04:11:59.012Z",
+      "summary": "fakeExecutable 은 디렉터리를 지우지 않는다(의도된 동작). 내용이 자주 바뀌는 가짜(예: 경로가 들어가는 fakeProgram 의 -e 스크립트)는 해시 디렉터리가 계속 쌓일 수 있다. 정리 정책은 계약 범위 밖이다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B511"
+    },
+    {
+      "feature": "F106",
+      "round": 1,
+      "at": "2026-10-10T04:11:59.012Z",
+      "summary": "fakeExecutableLink 는 POSIX 전용이다. Windows 에서 호출되는 경로는 각 테스트의 POSIX 가드에 의존한다. 가드가 빠진 테스트가 생기면 symlink 오류가 난다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B512"
+    },
+    {
+      "feature": "F106",
+      "round": 1,
+      "at": "2026-10-10T04:11:59.012Z",
+      "summary": "AC-4 의 소스 검사는 숫자 리터럴 모드만 잡는다. 변수나 식으로 모드를 넘기는 chmodSync 는 잡지 못한다.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "priority": "low",
+      "id": "B513"
     }
   ]
 }
