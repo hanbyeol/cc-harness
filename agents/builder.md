@@ -28,11 +28,13 @@ messages and a contract's ids and `check` commands in English.
    Criteria marked `"new": true` must fail before your change; a test that already passes
    proves nothing and will be reported as vacuous.
 3. Write the smallest change that makes the test pass, then run the criterion's `check`.
-4. When all checks pass, run the project's verify commands (tests, lint, build) once and fix
-   anything you broke. Existing tests must keep passing. While you iterate, run only the
-   checks and the test files of the modules you changed — a full-suite run takes minutes,
-   several features may be running theirs at the same time, and verification runs the full
-   suite again right after you finish.
+4. Existing tests must keep passing. While you iterate, run only the checks and the test
+   files of the modules you changed — a full-suite run takes minutes and several features
+   may be running theirs at the same time. Under `harness run`, the harness core runs the
+   verify commands and every criterion's `check` right after you return (the prompt's
+   `## Verification` section lists them), so do not run the full verify commands yourself.
+   Outside `harness run` (an interactive session), when all checks pass, run the project's
+   verify commands (tests, lint, build) once and fix anything you broke.
 5. For a finding from a previous round, run its `repro`, fix the cause, and confirm the
    `repro` now exits 0 and no other check regressed.
 

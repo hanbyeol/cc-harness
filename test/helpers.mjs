@@ -30,6 +30,12 @@ export function tmpdir(prefix = 'harness-test-') {
 export const TEST_HUB = path.join(tmpdir('harness-test-hub-'), 'hub');
 process.env.CC_HARNESS_HUB = TEST_HUB;
 
+// An export creates the installation's salt in <home>/.cc-harness/salt (F101): tests use a home
+// of their own (HOME, and USERPROFILE on Windows), never the user's.
+export const TEST_HOME = tmpdir('harness-test-home-');
+process.env.HOME = TEST_HOME;
+process.env.USERPROFILE = TEST_HOME;
+
 // Every `harness run` in the tests would otherwise start a real caffeinate (F77). Tests that
 // check the inhibitor itself remove this from the env they pass.
 process.env.HARNESS_TEST_NO_SLEEP_INHIBITOR = '1';

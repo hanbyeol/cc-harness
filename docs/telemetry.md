@@ -23,9 +23,9 @@
    ```
 
    자동 export 만 끄려면 `{ "telemetry": { "auto_export": false } }` — `harness export` 는 그대로 쓸 수 있다.
-2. 환경에서 끄기 — 환경 변수 `CC_HARNESS_TELEMETRY` 가 `0` 또는 `off` 면 config 와 상관없이 export 와 자동 export 가
-   모두 꺼진다(예: `CC_HARNESS_TELEMETRY=0 harness run`, 셸 프로필에 `export CC_HARNESS_TELEMETRY=off`). 그 밖의 값이거나
-   없으면 config 를 따른다.
+2. 환경에서 끄기 — 환경 변수 `CC_HARNESS_TELEMETRY` 가 `0`·`off`·`false`·`no`(앞뒤 공백·대소문자 무관 — `OFF`·`False`
+   도 된다)면 config 와 상관없이 export 와 자동 export 가 모두 꺼진다(예: `CC_HARNESS_TELEMETRY=0 harness run`, 셸 프로필에
+   `export CC_HARNESS_TELEMETRY=off`). 없거나 `1`·`on`·`yes` 면 config 를 따르고, 그 밖의 값이면 경고 한 줄을 내고 config 를 따른다.
 
 기본값으로 켜진 상태에서 프로젝트의 첫 export(`.harness/events/.exported` 가 아직 없을 때)가 성공하면 stderr 에 한 줄
 안내가 나온다. `share` 를 명시적으로 `true` 로 둔 경우와 두 번째 export 부터는 나오지 않는다.
@@ -51,10 +51,17 @@ harness export --hub /path/to/hub # 다른 허브에 쓴다
 2. 없으면 환경 변수 `CC_HARNESS_HUB`
 3. 없으면 `<사용자 홈>/.cc-harness/hub` (`~/.cc-harness/hub`)
 
-묶음 파일은 `<hub>/<project>/<시각>.jsonl` 이다. `<project>` 는 저장소 최상위 경로의 sha256 앞 16자(이벤트의
-`project` 와 같다), `<시각>` 은 내보낸 시각의 ISO 8601 기본 형식(예: `20260928T123456.789Z` — Windows 에서도 쓸 수
+묶음 파일은 `<hub>/<project>/<시각>.jsonl` 이다. `<project>` 는 설치별 salt 를 넣은 해시 — sha256(salt + 로컬 project id)
+앞 16자다(로컬 project id 는 이벤트의 `project`, 저장소 최상위 경로의 sha256 앞 16자). `<시각>` 은 내보낸 시각의 ISO 8601 기본 형식(예: `20260928T123456.789Z` — Windows 에서도 쓸 수
 있게 `:` 가 없다)이다. POSIX 에서 export 가 새로 만드는 허브·프로젝트 디렉터리는 모드 0700, 묶음 파일은 0600 이다
 (소유자만 읽을 수 있다).
+
+설치별 salt 는 `~/.cc-harness/salt`(Windows 는 `USERPROFILE` 아래)이다. 첫 export 가 crypto 난수 32바이트(64자 hex)로 만들고
+파일은 0600, 새로 만든 `~/.cc-harness` 디렉터리는 0700 이다. salt 는 내보낸 값(`project`, `data.test`·`data.tests`)에만 들어가고
+salt 자체는 묶음·허브·`.harness/` 어디에도 쓰이지 않는다 — 허브만 보고는 경로나 테스트 이름을 짐작해 해시를 맞춰 볼 수 없다.
+로컬 이벤트 파일의 `project` 는 salt 없는 값 그대로다. salt 파일을 지우면 다음 export 가 새 salt 를 만들고 같은 저장소도 새 id 로
+내보낸다(이전 묶음은 남고 `harness learn` 은 다른 프로젝트로 센다). salt 파일이 64자 hex 가 아니거나 읽을 수 없으면 export 는 경고만
+내고 아무것도 내보내지 않으며(exit 0) 그 파일을 덮어쓰지 않는다.
 
 마지막 내보내기의 시각과 이벤트 파일별 바이트 위치는 프로젝트의 `.harness/events/.exported` 에 기록된다. 다음 export 는 각 파일에서 그 위치 뒤에 추가된 줄만 내보내므로 같은 이벤트를 두 번 내보내지 않고, 같은 밀리초에 기록된 이벤트도 빠뜨리지 않는다. 이벤트 파일이 잘리거나 교체되면 그 파일을 처음부터 내보내고 경고한다. 허브에
 쓸 수 없으면 경로와 오류를 출력하고 exit 1 이며 `.exported` 는 바뀌지 않는다 — 고친 뒤 다시 실행하면 같은 이벤트가 나간다.
@@ -70,7 +77,7 @@ harness export --hub /path/to/hub # 다른 허브에 쓴다
 | `type` | 단계 안의 사건 이름(코드 식별자 형태가 아니면 null) |
 | `harness_version` | 하네스 버전 |
 | `profile` | 프로필 이름(코어의 프로필이 아니면 null) |
-| `project` | 저장소 경로의 해시 — 경로 자체는 없다 |
+| `project` | salt 를 넣은 저장소 경로 해시 — 경로 자체는 없다 |
 | `round` | 라운드 번호 |
 | `data.rule` | lint 규칙 이름 |
 | `data.reason` | 지적의 이관 사유(`missing_repro`·`repro_not_reproduced` 등), 기능 상태가 바뀐 사유(`pass`·`stall`·`max_rounds` 등) |
@@ -80,7 +87,7 @@ harness export --hub /path/to/hub # 다른 허브에 쓴다
 | `data.role` | 역할(`builder`·`evaluator`·`security-reviewer`) |
 | `data.dimension` | 평가 차원 |
 | `data.kind` | 개입 종류(`harness note --kind`) |
-| `data.test`·`data.tests` | 테스트 이름의 sha256 앞 16자 |
+| `data.test`·`data.tests` | sha256(salt + 테스트 이름) 앞 16자 |
 
 그 밖에 `data` 의 수치·불리언(시간, 비용, 개수 등)은 코드 식별자 형태의 키에서만 남는다.
 

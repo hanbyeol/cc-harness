@@ -1,0 +1,53 @@
+{
+  "feature": "F99",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [
+    {
+      "summary": "The F99 tests build the prompt by calling run.builderPrompt with the arguments the fake builder receives. They never go through defaultBuild, which is where `config` and `redact` are passed to builderPrompt. If that call in lib/run.mjs stopped passing `config` or `redact`, the F99 tests would still pass. An end-to-end test with a fake adapter that captures the real prompt would close this gap.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "test/f99-builder-verification.test.mjs",
+      "priority": "low"
+    },
+    {
+      "summary": "verificationSection is only added when `config` is passed to builderPrompt. A caller that omits it silently gets no `## Verification` section.",
+      "reason": "out_of_scope",
+      "source": "evaluator",
+      "file": "lib/run.mjs",
+      "priority": "low"
+    }
+  ],
+  "independence": "cross-model",
+  "costUsd": 0.11616,
+  "contract_hash": "3897e36babc40acbfa45d5f7a90f58ccbd59db287a3ccd19ffd16c99439ccbf1",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-10T02:26:22.680Z",
+  "origin": "run"
+}
