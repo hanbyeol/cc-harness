@@ -56,7 +56,8 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 - `harness run` 이 기능 worktree 의 변경을 커밋할 때 `.harness/events/` 는 뺀다(test-count 캐시와 같음) — 기능 브랜치마다 같은 월 파일에 줄을 더하면 병합이 충돌하기 때문이다. worktree 안에서 남은 이벤트는 커밋되지 않는다. 이벤트 로그는 프로젝트의 로컬 기록이다 — 대상 프로젝트는 `.harness/events/` 를 `.gitignore` 에 두기를 권하고(이 저장소도 그렇다), 여러 프로젝트에 걸친 축적은 git 이 아니라 `harness export`(허브, 기본으로 켜짐)로 한다. 이미 무시되는 경로는 run 의 `git add` 제외 지정에서 빠진다(git 이 무시된 경로를 가리키는 pathspec 을 거부하므로).
 - `harness events [--stage S] [--feature F] [--since YYYY-MM-DD] [--json]` 은 모든 월 파일의 이벤트를 `ts` 순(같으면 파일 순)으로 보여 준다. 조건은 함께 쓰면 모두 만족해야 하고,
   `--since` 는 그날 0시(UTC) 이후다. 텍스트 출력은 한 줄에 `<ts> <stage>/<type> [<feature>] [r<round>] <data JSON>`, `--json` 은 이벤트 배열이다. 이벤트가 없으면 `no events yet`,
-  조건에 맞는 것이 없으면 `no matching events`. JSON 객체가 아닌 줄은 건너뛰고 stderr 에 `harness: warning: events/<파일>:<줄 번호>: not a JSON object — line skipped` 경고를 낸다.
+  조건에 맞는 것이 없으면 `no matching events`. 출력하는 줄마다(텍스트·`--json` 모두) 그 저장소의 redactor(`process.env`, config `env_allowlist`)를 다시 적용한다 —
+  손으로 쓴 줄이나 그 값이 비밀이 되기 전에 기록된 줄에 든 비밀 환경 변수 값도 출력에서는 가려진다(파일은 바꾸지 않는다). JSON 객체가 아닌 줄은 건너뛰고 stderr 에 `harness: warning: events/<파일>:<줄 번호>: not a JSON object — line skipped` 경고를 낸다.
   잘못된 옵션(없는 stage, `F<n>` 이 아닌 feature, 날짜가 아닌 since)은 `usage`(exit 2).
 - 피드백 단계: 사람이 명령으로 남기는 기록이다. 세 명령 모두 사유·내용이 비어 있거나(공백만 포함) 옵션이 잘못되면 `usage`(exit 2)이고 아무것도 기록하지 않는다.
   이벤트를 쓰지 못하면(위 기록 실패) 경고 후 exit 1 이다 — 기록이 이 명령들의 목적이기 때문이다.
@@ -90,15 +91,24 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 - 기본으로 켜져 있다: config 에 `telemetry` 가 없거나 `telemetry.share` 가 없으면 동작한다. `telemetry.share` 가 `false` 거나 불리언이 아닌 값(`"true"`·`1`·`null` 등)이면,
   또는 `telemetry` 가 객체가 아니면 꺼진 것이다 — `telemetry.share is off …` 를 출력하고 아무것도 쓰지 않는다(exit 0, `--dry-run` 도 같다). 끄려면 `.harness/config.json` 에
   `"telemetry": {"share": false}` 를 둔다.
-- 환경 변수 `CC_HARNESS_TELEMETRY` 가 `0` 또는 `off` 면 config 와 상관없이 export 와 자동 export 가 모두 꺼진다(`telemetry.share is off (CC_HARNESS_TELEMETRY) …`, exit 0).
-  그 밖의 값이거나 없으면 config 를 따른다. 예: `CC_HARNESS_TELEMETRY=0 harness run`.
+- 환경 변수 `CC_HARNESS_TELEMETRY` 가 — 앞뒤 공백을 빼고 대소문자를 가리지 않고 — `0`·`off`·`false`·`no` 면 config 와 상관없이 export 와 자동 export 가 모두 꺼진다
+  (`telemetry.share is off (CC_HARNESS_TELEMETRY) …`, exit 0; `OFF`·` 0 `·`False`·`NO` 도 끈다). 없거나 비었거나 `1`·`on`·`yes` 면 config 를 따른다.
+  그 밖의 값이면 stderr 에 경고 한 줄 `harness: warning: CC_HARNESS_TELEMETRY is not one of 0|off|false|no|1|on|yes — following .harness/config.json` 을 내고 config 를 따른다
+  (값 자체는 출력하지 않는다). 예: `CC_HARNESS_TELEMETRY=0 harness run`.
 - 첫 안내 — 기본값으로 켜진 상태(`telemetry.share` 없음)에서 프로젝트의 첫 export(`.harness/events/.exported` 가 없을 때)가 성공하면 stderr 에 한 줄
   `harness: telemetry is on by default — anonymized events go to <hub> (local only); set "telemetry": {"share": false} in .harness/config.json or CC_HARNESS_TELEMETRY=0 to turn it off`
   를 낸다. `telemetry.share` 를 명시적으로 `true` 로 둔 경우와 그 뒤의 export 에서는 내지 않는다.
 - `harness doctor` 는 `telemetry: on (default) | on (config) | off (config) | off (CC_HARNESS_TELEMETRY) — hub <허브 경로>` 한 줄로 상태를 보여 준다.
 - 허브에 새로 만드는 디렉터리(허브와 `<hub>/<project>`)는 모드 0700, 묶음 파일은 0600 이다(POSIX, umask 와 무관). 이미 있는 디렉터리는 바꾸지 않는다.
+- 설치별 salt — export 는 `<사용자 홈>/.cc-harness/salt`(Windows 는 `USERPROFILE`) 파일의 salt 를 쓴다. 없으면 crypto 난수 32바이트를 64자 hex 로 만들어 모드 0600 으로 쓰고,
+  `~/.cc-harness` 디렉터리를 새로 만들면 0700 이다(POSIX, umask 와 무관). 이미 있는 salt 파일은 바꾸지 않는다. salt 는 내보낸 값에만 들어간다 — 내보낸 줄과 허브 디렉터리의
+  `project` 는 sha256(salt + 로컬 project id) 앞 16자, `data.test`·`data.tests` 는 sha256(salt + 테스트 이름) 앞 16자다. 로컬 이벤트 파일의 `project` 는 salt 없는 경로 해시
+  그대로이고, salt 자체는 묶음·허브·로컬 이벤트·run 보고서 어디에도 쓰지 않는다. 같은 salt 로는 값이 안정적이라(같은 저장소는 같은 허브 디렉터리) learn 이 프로젝트를 구분하고,
+  salt 를 모르면 경로나 테스트 이름을 짐작해 해시를 맞춰 볼 수 없다. salt 파일을 지우면 다음 export 가 새 salt 를 만들고 같은 저장소도 새 project id 로 내보낸다(이전 묶음은
+  그대로 남고 learn 은 둘을 다른 프로젝트로 센다). salt 파일 내용이 64자 hex 가 아니거나(앞뒤 공백 제외) 읽을 수 없으면 export 는 경고 한 줄
+  `harness: warning: … telemetry salt … — nothing exported` 를 stderr 에 내고 묶음도 `.exported` 도 쓰지 않으며(exit 0 — telemetry 실패는 명령을 실패시키지 않는다) 그 파일을 덮어쓰지 않는다.
 - 허브는 `--hub <dir>`(현재 디렉터리 기준), 없으면 환경 변수 `CC_HARNESS_HUB`, 없으면 `<사용자 홈>/.cc-harness/hub` 다. 묶음 파일은 `<hub>/<project>/<시각>.jsonl` —
-  `project` 는 이벤트의 `project` 와 같은 경로 해시, 시각은 내보낸 시각의 ISO 8601 기본 형식(`20260928T123456.789Z`, Windows 파일 이름에 `:` 를 쓸 수 없어서)이다.
+  `project` 는 위의 salt 를 넣은 내보낸 project id, 시각은 내보낸 시각의 ISO 8601 기본 형식(`20260928T123456.789Z`, Windows 파일 이름에 `:` 를 쓸 수 없어서)이다.
   그 이름의 파일이 이미 있으면(같은 밀리초의 다른 export) `<시각>-1.jsonl` 로 한 번 더 쓰고, 그것도 있으면 export 실패다. 기존 파일은 바꾸지 않는다.
 - 내보내기 위치는 `.harness/events/.exported` 에 JSON 한 줄 `{"at": <내보낸 ISO 시각>, "files": {"YYYY-MM.jsonl": <바이트 위치>, …}}` 로 기록한다 — 이벤트 파일별로 마지막으로 내보낸
   바이트 위치다. 내보내는 이벤트는 각 파일에서 그 위치 뒤의 줄(파일이 `files` 에 없으면 처음부터, 개행으로 끝나지 않은 마지막 줄은 아직 쓰는 중이므로 다음 내보내기)이고 `ts` 순이다.
@@ -125,7 +135,7 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 | `type` | `^[a-z][a-z0-9_-]{0,63}$` 이면 그대로, 아니면 null |
 | `harness_version` | `x.y.z[-태그]` 형식이면 그대로, 아니면 null |
 | `profile` | 코어의 프로필 이름(`profiles/*.json`)이면 그대로, 아니면 null |
-| `project` | 내보내는 저장소의 경로 해시(sha256 앞 16자) — 줄의 값이 무엇이든 이것으로 바꾼다 |
+| `project` | 내보내는 저장소의 내보낸 project id: sha256(salt + 로컬 project id) 앞 16자 — 줄의 값이 무엇이든 이것으로 바꾼다 |
 | `round` | 정수일 때만 |
 | `data.rule` | lint 규칙 이름: `shape`·`contract_id`·`security_tier`·`id`·`check`·`criterion_text`·`universal`·`size`·`critical_sc`·`rollout`·`resolves`·`approval`·`overlaid_helper` |
 | `data.reason` | 이관 사유: `missing_criterion_id`·`criterion_not_in_contract`·`missing_repro`·`repro_denied`·`adversarial_scenario`·`repro_timeout`·`repro_not_runnable`·`repro_not_reproduced`·`out_of_scope`, status 이벤트의 사유: `pass`·`fail`·`approve`·`run_start`·`rounds`·`max_rounds`·`divergence`·`stall`·`needs_human`·`needs-human`·`eval_error`·`budget`·`merge_conflict`·`post_merge_verify`·`worktree`·`adapter_unavailable`·`verify_error`·`run_stopped`·`dependency_blocked`·`critical_blocked` (`max_rounds`·`needs-human` 은 F93 전 이벤트의 이전 철자로, 읽기만 한다 — §7.6) |
@@ -136,8 +146,8 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 | `data.role` | 역할: `builder`·`evaluator`·`security-reviewer` |
 | `data.dimension` | 차원: `functionality`·`quality`·`security`·`errors`·`tests` |
 | `data.kind` | 개입 종류: `manual-fix`·`manual-merge`·`environment`·`other` |
-| `data.test` | 테스트 이름의 sha256 앞 16자 |
-| `data.tests` | 테스트 이름마다 sha256 앞 16자 |
+| `data.test` | sha256(salt + 테스트 이름) 앞 16자 |
+| `data.tests` | 테스트 이름마다 sha256(salt + 테스트 이름) 앞 16자 |
 
 **하네스 자기 개선** (설명: `docs/telemetry.md`) — `harness learn [--hub <dir>] [--since YYYY-MM-DD] [--json] [--propose | --compare <v1> <v2>]` 은 허브(위치는 export 와 같다)의
 모든 프로젝트 묶음(`<hub>/<project>/*.jsonl`, 프로젝트 = 디렉터리 이름)을 읽어 하네스 버전별 지표와 개선 과제 후보를 보여 준다. `.harness/` 가 없어도 동작한다(`--propose` 제외).
@@ -356,7 +366,8 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
      `criterion_id` 는 정규화한 id(없으면 null, 계약 밖 id 는 그대로 앞 100자), `source` 는 역할, `result` 는 `blocking` 또는 `backlogged`, `reason` 은 차단이면 null, 아니면 이관 사유 —
      `no_criterion`(id 없음)·`not_in_contract`·`no_repro`·`repro_denied`(SR-3)·`adversarial`(D1)·`repro_timeout`·`repro_not_runnable`·`not_reproduced`(exit 0)·`out_of_scope`.
      `repro_exit`·`repro_ms` 는 코어가 repro 를 실행했을 때의 종료 코드(시그널이면 null, 시간 초과면 플랫폼에 따라 null 또는 수)와 소요 밀리초, 실행하지 않았으면 null 이다(같은 명령은 한 번만 실행해 같은 값). `timed_out` 은 repro 가 시간 초과로 끝났으면 `true`, 아니면 `false` 다 — 시간 초과 판정은 종료 코드가 아니라 이 값으로 한다.
-     repro 명령 문자열은 남기지 않고 첫 명령의 프로그램 이름(앞의 `VAR=값` 제외, 경로·`.exe` 제거, 소문자, 앞 100자(코드 포인트))만 `repro_program` 에 남긴다. `summary` 는 가린 뒤 앞 300자로 자른다 — 자르고 가리면 잘린 비밀 조각이 남기 때문이다.
+     repro 명령 문자열은 남기지 않고 첫 명령의 프로그램 이름(앞의 `VAR=값` 제외, 경로·`.exe` 제거, 소문자, 앞 100자(코드 포인트))만 `repro_program` 에 남긴다 —
+     repro 를 먼저 가린(redactor) 뒤 이름을 뽑아 소문자로 바꾼다. 소문자로 바꾼 비밀 값은 더 이상 가려지지 않기 때문이다. `summary` 는 가린 뒤 앞 300자로 자른다 — 자르고 가리면 잘린 비밀 조각이 남기 때문이다.
      evaluator 에 차단 finding 이 있어 reviewer 결과를 쓰지 않은 판정(§7.4)의 `security/finding` 에는 `unused: true` 가 붙는다. evaluator 가 eval_error 로 끝나고 reviewer 는 정상 응답한 평가도 reviewer 결과를 쓰지 않으므로(`security/verdict` 의 `reviewer: "unused"`) 그 `security/finding` 에 `unused: true` 가 붙는다.
    - **재요청**: 스키마 불일치 재요청은 `eval/reask` `{role, reason: "schema_mismatch", problems}`(문제 최대 5개, 각 200자), 근거 없는 저점 재요청은 `eval/reask` `{role, reason: "unsupported_low_score", scores, unsupported}`(비차단이 된 finding 수).
    - **판정**: 판정마다 `eval/verdict` — `verdict`·`score`·`scores`·`roles`·`threshold`·`independence`·`verify_pass`·`blocking`·`backlogged`·`contract_round`·`origin`. `roles` 는 역할별 점수(`evaluator`, critical 이면 `security-reviewer` — 쓰지 않았으면 `"unused"`), `scores`·`score` 는 최종 점수와 그 최솟값.
