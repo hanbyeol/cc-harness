@@ -962,6 +962,13 @@
         "F112"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F114",
+      "title": "verify 범위 축소 — 기능 verify 는 변경에 영향받는 테스트 파일만(verify.affected_command), 전체 verify.commands 는 run 끝에 integration 에서 한 번",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "todo"
     }
   ]
 }

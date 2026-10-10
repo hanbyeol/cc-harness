@@ -1,0 +1,102 @@
+{
+  "id": "F114",
+  "title": "verify 범위 축소 — 기능 verify 는 변경에 영향받는 테스트 파일만 돌리고(verify.affected_command), 전체 verify.commands 는 run 끝에 integration 에서 한 번 돈다",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "config verify.affected_command — 기본 null(지금 동작). '{files}' 자리표시를 가진 문자열이며, 설정하려면 verify.test_count 가 'from:commands[i]' 여야 한다. resolveConfig 결과에 그대로 들어간다",
+      "check": "node test/t.mjs \"F114 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "lib/verify.mjs 가 affectedTestFiles({top, mergeBase, changed, untracked, testPaths}) 를 export 한다: 결과는 (a) merge-base 대비 바뀐·추가된 테스트 파일(verify.test_paths 에 맞는 파일)과 (b) 바뀐 비테스트 파일을 정적 상대 import('import … from \"./x.mjs\"', 'export … from', 'require(\"./x\")', 동적 import(\"./x\") 포함)로 직간접 참조하는 테스트 파일의 합집합이고, 정렬된 저장소 기준 POSIX 경로다. 픽스처 저장소: lib/a.mjs 변경 → a 를 import 하는 test/a.test.mjs 와 lib/b.mjs(→a) 를 import 하는 test/b.test.mjs 는 포함, 무관한 test/c.test.mjs 는 제외",
+      "check": "node test/t.mjs \"F114 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "affected_command 가 설정된 기능 verify(step verify)는 verify.commands[i](test_count 가 가리키는 명령) 대신 affected_command 의 '{files}' 를 영향 파일 목록(공백 구분, 각 경로를 따옴표로 감쌈)으로 바꾼 명령을 돌리고 나머지 commands 는 그대로 순서대로 돌린다. 결과의 commands[i] 에 cmd(치환된 명령)·scope 'affected'·files(파일 수)가 있고 verify/command 이벤트 data 에 scope 와 files 가 있다. 영향 파일이 없으면 commands[i] 는 실행 없이 pass 이고 skipped 'no affected tests' 다",
+      "check": "node test/t.mjs \"F114 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "affected 모드의 테스트 수 무결성: head 수는 영향 파일 실행 출력에서 읽고(기존 파서), base 수는 base 임시 worktree 에서 영향 파일 중 base 에 있는 파일만으로 같은 affected_command 를 한 번 돌려 읽는다. head < base 면 testCount.status 'decreased' 로 verify fail(지금 규칙), 아니면 ok. 결과의 testCount.source 는 {head:'parsed', base:'ran'} 이고 테스트 수 캐시는 쓰지도 읽지도 않는다",
+      "check": "node test/t.mjs \"F114 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "run 의 pre_merge_verify·post_merge_verify 도 affected 모드면 영향 파일만 돌린다 — 변경 집합은 병합 전 integration 커밋 대비다. 가짜 어댑터 run 에서 두 단계의 verify/command 이벤트가 scope 'affected' 를 갖는다",
+      "check": "node test/t.mjs \"F114 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "affected 모드의 run 은 끝에(기능이 하나라도 integration 에 병합됐을 때) integration worktree 에서 치환 없는 verify.commands 전체를 한 번 돌린다(step 'final_verify', verify/command 이벤트 step 'final_verify', metrics 줄). 통과하면 보고서에 '## Final verify' 절 'pass'. 병합된 기능이 없거나 affected 모드가 아니면 돌지 않고 절도 없다",
+      "check": "node test/t.mjs \"F114 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "harness verify F{n} --full 은 affected_command 가 있어도 verify.commands 를 치환 없이 돌린다(scope 'full'). --json 출력의 commands[i].scope 가 그 값이다. --full 없이 affected 모드면 텍스트 출력에 'scope: affected (N files)' 한 줄이 있다",
+      "check": "node test/t.mjs \"F114 AC-7\"",
+      "new": true
+    },
+    {
+      "id": "AC-8",
+      "criterion": "affected_command 가 없으면(기본) verify·run 의 동작과 결과 객체는 F114 이전과 같다 — F3 AC-1·F30 AC-1·F87 AC-1 테스트",
+      "check": "node test/t.mjs \"F3 AC-1\" && node test/t.mjs \"F30 AC-1\" && node test/t.mjs \"F87 AC-1\"",
+      "new": false
+    },
+    {
+      "id": "AC-9",
+      "criterion": "docs/SPEC.md §6.1 이 verify.affected_command(자리표시, test_count 전제, 영향 파일 규칙, 빈 집합, 테스트 수 비교, --full)와 §8 이 final_verify(언제 도는지, 실패 시 처리)를 적는다(문서 check)",
+      "check": "node test/t.mjs \"F114 AC-9\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "'{files}' 에 들어가는 경로는 [A-Za-z0-9_./-] 만 허용한다 — 공백·'$'·'`'·';'·따옴표가 든 테스트 파일 경로가 영향 집합에 있으면 명령을 실행하지 않고 verify 는 fail 이며 commands[i].message 가 그 경로를 이름한다(셸로 가는 명령 문자열에 비허용 문자가 끼어들지 않는다)",
+      "check": "node test/t.mjs \"F114 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "affected 모드에서도 무결성 검사(skip 표시 추가·.harness 변경)와 기준 check·base vacuity 는 지금과 같이 전부 돈다 — F3 SC-1·F16 AC-1 테스트",
+      "check": "node test/t.mjs \"F3 SC-1\" && node test/t.mjs \"F16 AC-1\"",
+      "new": false
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "affected_command 에 '{files}' 가 없거나, 문자열이 아니거나, verify.test_count 가 'from:commands[i]' 가 아니면 config_invalid(exit 2)이고 메시지가 verify.affected_command 를 이름한다",
+      "check": "node test/t.mjs \"F114 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "import 그래프에 순환(a→b→a)이 있어도 affectedTestFiles 는 끝나고, 읽을 수 없는 파일이나 해석할 수 없는 import 지정자('pkg', 'node:fs', 'http://…')는 건너뛴다(경고 없음, 결과에 영향 없음)",
+      "check": "node test/t.mjs \"F114 ES-2\"",
+      "new": true
+    },
+    {
+      "id": "ES-3",
+      "criterion": "final_verify 가 실패하면 run 은 exit 1 이고 보고서 '## Needs you' 에 'final verify failed on <integration 브랜치>' 줄과 '## Final verify' 절에 실패한 명령·메시지 앞 300자가 있으며, 기능 status 는 바뀌지 않고(passed 그대로) integration 브랜치 커밋도 그대로다",
+      "check": "node test/t.mjs \"F114 ES-3\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "final_verify 실패 원인 기능 자동 추적(bisect)",
+    "테스트 수 캐시·verify 결과 캐시의 제거 — 별도 기능",
+    "node 외 러너(pytest·go)의 영향 파일 계산 — 상대 import 를 쓰는 ESM/CJS 만",
+    "이 저장소 .harness/config.json 에 affected_command 를 두는 것 — 사람이 승인 뒤 한다"
+  ]
+}
