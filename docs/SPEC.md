@@ -110,6 +110,9 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
   그대로 남고 learn 은 둘을 다른 프로젝트로 센다). salt 파일의 hex 는 대문자·소문자 모두 받고 소문자로 바꾼 값으로 해시를 계산한다(대소문자만 다른 두 salt 는 같은 해시를 낸다).
   salt 파일 내용이 64자 hex 가 아니거나(앞뒤 공백 제외) 읽을 수 없으면 export 는 경고 한 줄
   `harness: warning: … telemetry salt … — nothing exported` 를 stderr 에 내고 묶음도 `.exported` 도 쓰지 않으며(exit 0 — telemetry 실패는 명령을 실패시키지 않는다) 그 파일을 덮어쓰지 않는다.
+  실제 export(`harness export` 와 run·eval 의 자동 export)에서 salt 를 얻지 못하면(예: 만든 직후 salt 파일이 사라짐) 묶음을 쓰지 않는다 — 경고 한 줄
+  `harness: warning: no telemetry salt at <경로> — nothing exported` 를 stderr 에 내고 묶음도 `.exported` 도 쓰지 않으며 exit 0 이다. 자리표시 `<salt-pending>` 은
+  dry-run 출력에만 쓰인다 — 실제 export 는 그것을 salt 로 쓰지 않고, 자리표시로 만든 계획(project 나 줄의 해시가 `<salt-pending>`)은 아무것도 쓰지 않고 거부한다.
 - 허브는 `--hub <dir>`(현재 디렉터리 기준), 없으면 환경 변수 `CC_HARNESS_HUB`, 없으면 `<사용자 홈>/.cc-harness/hub` 다. 묶음 파일은 `<hub>/<project>/<시각>.jsonl` —
   `project` 는 위의 salt 를 넣은 내보낸 project id, 시각은 내보낸 시각의 ISO 8601 기본 형식(`20260928T123456.789Z`, Windows 파일 이름에 `:` 를 쓸 수 없어서)이다.
   그 이름의 파일이 이미 있으면(같은 밀리초의 다른 export) `<시각>-1.jsonl` 로 한 번 더 쓰고, 그것도 있으면 export 실패다. 기존 파일은 바꾸지 않는다.
