@@ -1,0 +1,58 @@
+{
+  "id": "F106",
+  "title": "테스트의 가짜 실행 파일을 한 번만 만든다 — 가짜 claude·caffeinate·terraform·git 등을 내용 해시 디렉터리에 한 번 만들어 재사용해, macOS 가 새 실행 파일마다 'xxx 검사 중' 창을 띄우지 않게 한다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "test/helpers.mjs 가 fakeExecutable(name, content) 를 export 한다. POSIX 에서 반환값은 <os.tmpdir()>/cc-harness-fake-bin-<sha256(name + '\\0' + content) 앞 16 hex> 디렉터리이고 그 안에 모드 0755 인 파일 name 이 content 그대로 있다(Windows 는 name.cmd). 같은 인자의 두 번째 호출은 같은 경로를 돌려주고 파일을 다시 쓰지 않는다(inode·mtime 그대로). 인자가 다르면 다른 디렉터리다",
+      "check": "node test/t.mjs \"F106 AC-1\"",
+      "new": false
+    },
+    {
+      "id": "AC-2",
+      "criterion": "두 프로세스가 동시에 같은 인자로 fakeExecutable 을 처음 불러도 둘 다 완전한 파일이 있는 같은 디렉터리를 얻는다(임시 이름으로 쓴 뒤 rename) — 비어 있는 tmpdir 에서 자식 프로세스 4개를 동시에 띄워, 각자 받은 파일을 실행해 exit 0 을 확인",
+      "check": "node test/t.mjs \"F106 AC-2\"",
+      "new": false
+    },
+    {
+      "id": "AC-3",
+      "criterion": "가짜 caffeinate·systemd-inhibit(f21·f49·f77)처럼 테스트마다 다른 기록 위치가 필요한 가짜는 그 위치를 파일 내용에 넣지 않고 환경 변수(HARNESS_FAKE_INHIBIT_LOG 등)로 받는다 — 같은 가짜를 서로 다른 변수 값으로 두 번 실행하면 각 위치에 기록된다",
+      "check": "node test/t.mjs \"F106 AC-3\"",
+      "new": false
+    },
+    {
+      "id": "AC-4",
+      "criterion": "test/ 아래 *.test.mjs 파일 어디에도 실행 권한을 주는 fs.chmodSync 호출(모드 0o755·0o775·0o700·0o711, 또는 0o100 비트가 있는 숫자)이 없고, 'harness-inhibit-'·'harness-bin-' 임시 디렉터리를 만들지 않는다 — 가짜 실행 파일은 모두 fakeExecutable 로 만든다(소스 check). 권한을 빼는 chmodSync(0·0o555·0o644 등 오류 상황 fixture)는 그대로 둔다",
+      "check": "node test/t.mjs \"F106 AC-4\"",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "바뀐 기존 테스트가 같은 단언으로 통과한다 — 전체 테스트가 exit 0 이고(verify 명령), node test/assert-count.mjs 가 약해진 테스트를 보고하지 않는다",
+      "check": "node test/assert-count.mjs",
+      "new": false
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "내용 해시 디렉터리에 같은 이름의 파일이 있지만 내용이나 모드가 다르면(손상) fakeExecutable 은 그 파일을 원자적으로 다시 써서 올바른 파일을 돌려준다",
+      "check": "node test/t.mjs \"F106 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "harness 코드(lib/) 변경",
+    "테스트 fixture 저장소 안에 커밋되는 스크립트(PATH 로 찾지 않는 파일)",
+    "이미 남아 있는 harness-bin-*·harness-inhibit-* 임시 디렉터리 지우기",
+    "macOS 검사 자체를 끄기"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-10T02:55:57.020Z",
+    "hash": "ead4f8a35cfe6b46190384807747fce798e7c34f9af1ed7348075a54394121b4"
+  }
+}
