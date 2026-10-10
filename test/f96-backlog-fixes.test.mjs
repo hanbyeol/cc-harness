@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { REPO, tmpdir } from './helpers.mjs';
+import { REPO, fakeExecutableLink, tmpdir } from './helpers.mjs';
 import { git, gitRepo, writeFiles, commitAll } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { hashContract } from '../lib/contract.mjs';
@@ -211,14 +211,12 @@ const pathKey = () => Object.keys(process.env).find((k) => k.toUpperCase() === '
 // A fake git, first on PATH, that logs every call's arguments and (with `failLsTree`) fails
 // `ls-tree`; every other call goes to the real git.
 async function withFakeGit({ failLsTree }, fn) {
-  const bin = fs.realpathSync(tmpdir('harness-f96-git-'));
-  const log = path.join(bin, 'calls.log');
-  fs.writeFileSync(path.join(bin, 'git'), `#!/bin/sh
-echo "$*" >> "${log}"
+  const bin = fakeExecutableLink('git', `#!/bin/sh
+echo "$*" >> "$(dirname "$0")/calls.log"
 ${failLsTree ? 'case " $* " in *" ls-tree "*) echo "fatal: injected ls-tree failure" >&2; exit 128 ;; esac' : ''}
 exec "${REAL_GIT}" "$@"
-`);
-  fs.chmodSync(path.join(bin, 'git'), 0o755);
+`, 'harness-f96-git-');
+  const log = path.join(bin, 'calls.log');
   const key = pathKey();
   const saved = process.env[key];
   process.env[key] = `${bin}${path.delimiter}${saved}`;

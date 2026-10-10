@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { REPO, harness, tmpdir } from './helpers.mjs';
+import { REPO, fakeNodeCli, harness, tmpdir } from './helpers.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { runCommand } from '../lib/exec.mjs';
 
@@ -12,55 +12,13 @@ import { runCommand } from '../lib/exec.mjs';
 // A fake `terraform` (PATH-first). Behaviour is driven by markers in the *.tf files of its cwd:
 //   FAIL_INIT / FAIL_VALIDATE  → that subcommand exits 1;  FAIL_FMT → fmt exits 1 (any *.tf below cwd).
 // `init` "downloads" the provider unless it is already in $TF_PLUGIN_CACHE_DIR.
-// Every call is appended to $FAKE_TF_LOG as one JSON line.
-const FAKE = `
-import fs from 'node:fs';
-import path from 'node:path';
-const [sub, ...rest] = process.argv.slice(2);
-const cache = process.env.TF_PLUGIN_CACHE_DIR || null;
-fs.appendFileSync(process.env.FAKE_TF_LOG, JSON.stringify({ sub, args: rest, cwd: fs.realpathSync(process.cwd()), cache }) + '\\n');
-const tfs = (dir, deep) => {
-  const out = [];
-  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.isFile() && e.name.endsWith('.tf')) out.push(fs.readFileSync(path.join(dir, e.name), 'utf8'));
-    else if (deep && e.isDirectory() && !e.name.startsWith('.')) out.push(tfs(path.join(dir, e.name), true));
-  }
-  return out.join('\\n');
-};
-const has = (text, marker) => text.includes(marker);
-if (sub === 'init') {
-  const text = tfs('.', false);
-  if (has(text, 'FAIL_INIT')) { process.stderr.write('Error: Failed to query available provider packages ' + 'x'.repeat(400) + '\\n'); process.exit(1); }
-  if (cache) {
-    const provider = path.join(cache, 'fake-provider');
-    if (!fs.existsSync(provider)) {
-      fs.writeFileSync(provider, 'binary');
-      fs.appendFileSync(process.env.FAKE_TF_LOG, JSON.stringify({ sub: 'download' }) + '\\n');
-    }
-  }
-} else if (sub === 'validate') {
-  if (has(tfs('.', false), 'FAIL_VALIDATE')) { process.stderr.write('Error: Unsupported argument\\n'); process.exit(1); }
-} else if (sub === 'fmt') {
-  if (has(tfs('.', true), 'FAIL_FMT')) { process.stdout.write('main.tf\\n'); process.exit(3); }
-}
-`;
+// Every call is appended to $FAKE_TF_LOG as one JSON line. Source: test/fixtures/fake-terraform.mjs.
+const FAKE = path.join(REPO, 'test', 'fixtures', 'fake-terraform.mjs');
 
 const readLog = (log) => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l)) : []);
 const real = (p) => fs.realpathSync.native(p);
 
-function fakeBin() {
-  const dir = tmpdir('harness-f40-bin-');
-  fs.writeFileSync(path.join(dir, 'terraform.mjs'), FAKE);
-  const script = path.join(dir, 'terraform.mjs');
-  if (process.platform === 'win32') {
-    fs.writeFileSync(path.join(dir, 'terraform.cmd'), `@echo off\r\n"${process.execPath}" "${script}" %*\r\n`);
-  } else {
-    const sh = path.join(dir, 'terraform');
-    fs.writeFileSync(sh, `#!/bin/sh\nexec "${process.execPath}" "${script}" "$@"\n`);
-    fs.chmodSync(sh, 0o755);
-  }
-  return dir;
-}
+const fakeBin = () => fakeNodeCli('terraform', FAKE);
 
 // A project directory with `dirs` ({ 'rel/dir': tf content }); returns { root, log, env }.
 function fixture(dirs, { withFake = true } = {}) {

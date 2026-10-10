@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { REPO, tmpdir } from './helpers.mjs';
+import { REPO, fakeExecutableLink, tmpdir } from './helpers.mjs';
 import { gitRepo, git, commitAll, writeFiles } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { verify } from '../lib/verify.mjs';
@@ -150,27 +150,27 @@ test('F50 AC-2: withNoHooksDir gives each call a new empty directory and removes
 });
 
 // A PATH-first `git` that logs each core.hooksPath value (and whether it is an empty
-// directory at that moment) to `log`, then runs the real git.
-function fakeGit(log) {
+// directory at that moment) to hooks.log beside it (in the returned PATH directory), then runs
+// the real git.
+function fakeGit() {
   const realGit = (process.env.PATH || '').split(path.delimiter).map((d) => path.join(d, 'git')).find((f) => fs.existsSync(f));
   assert.ok(realGit, 'git on PATH');
-  const bin = tmpdir('harness-f50-bin-');
-  fs.writeFileSync(path.join(bin, 'git'), `#!/bin/sh
+  return fakeExecutableLink('git', `#!/bin/sh
 for a in "$@"; do
   case "$a" in core.hooksPath=*)
     d="\${a#core.hooksPath=}"
     if [ -d "$d" ] && [ -z "$(ls -A "$d")" ]; then s=empty; else s=bad; fi
-    printf '%s\\t%s\\n' "$d" "$s" >> '${log}';;
+    printf '%s\\t%s\\n' "$d" "$s" >> "$(dirname "$0")/hooks.log";;
   esac
 done
 exec '${realGit}' "$@"
-`, { mode: 0o755 });
-  return bin;
+`, 'harness-f50-git-');
 }
 async function withFakeGit(fn) {
-  const log = path.join(tmpdir('harness-f50-log-'), 'hooks.log');
+  const bin = fakeGit();
+  const log = path.join(bin, 'hooks.log');
   const saved = process.env.PATH;
-  process.env.PATH = `${fakeGit(log)}${path.delimiter}${saved}`;
+  process.env.PATH = `${bin}${path.delimiter}${saved}`;
   try { await fn(); } finally { process.env.PATH = saved; }
   return fs.readFileSync(log, 'utf8').trim().split('\n').map((l) => l.split('\t'));
 }

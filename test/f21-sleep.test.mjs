@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { BIN, REPO, tmpdir } from './helpers.mjs';
+import { BIN, FAKE_INHIBIT_LOG, REPO, fakeInhibitorDirs, tmpdir } from './helpers.mjs';
 import { gitRepo, writeFiles, commitAll } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { hashContract } from '../lib/contract.mjs';
@@ -72,27 +72,18 @@ function clocks() {
 }
 
 /**
- * A directory with fake `caffeinate` and `systemd-inhibit` (sh scripts: they start as fast as
- * the real ones). Each records its name, pid, parent pid and arguments, then stays alive
+ * Fake `caffeinate` and `systemd-inhibit` first on PATH (fakeInhibitorDirs). Each records its
+ * name, pid, parent pid and arguments in this call's own log directory, then stays alive
  * ('stay', exec keeps the pid) or exits at once ('exit').
  */
 function fakeInhibitors(mode = 'stay') {
-  const dir = tmpdir('harness-inhibit-');
-  const logs = path.join(dir, 'logs');
-  fs.mkdirSync(logs);
-  for (const name of ['caffeinate', 'systemd-inhibit']) {
-    const file = path.join(dir, name);
-    fs.writeFileSync(file, `#!/bin/sh
-printf '%s\\n' "${name}" "$$" "$PPID" "$@" > "${logs}/$$.tmp" && mv "${logs}/$$.tmp" "${logs}/$$.txt"
-${mode === 'exit' ? 'exit 1' : 'exec sleep 1000'}
-`);
-    fs.chmodSync(file, 0o755);
-  }
+  const logs = tmpdir('harness-f21-inhibit-log-');
+  const dirs = fakeInhibitorDirs(mode);
   const entries = () => fs.readdirSync(logs).filter((n) => n.endsWith('.txt')).map((n) => {
     const [name, pid, ppid, ...argv] = fs.readFileSync(path.join(logs, n), 'utf8').replace(/\n$/, '').split('\n');
     return { name, pid: Number(pid), ppid: Number(ppid), argv };
   });
-  return { dir, entries, env: { ...INHIBITOR_ENV, PATH: `${dir}${path.delimiter}${process.env.PATH}` } };
+  return { entries, env: { ...INHIBITOR_ENV, [FAKE_INHIBIT_LOG]: logs, PATH: [...dirs, process.env.PATH].join(path.delimiter) } };
 }
 
 const until = async (fn, ms = 60000) => {

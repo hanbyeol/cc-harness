@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { BIN, REPO, tmpdir } from './helpers.mjs';
+import { BIN, REPO, fakeExecutable, tmpdir } from './helpers.mjs';
 import { git, gitRepo, writeFiles } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { hashContract } from '../lib/contract.mjs';
@@ -68,12 +68,7 @@ function fakeBuild({ delay = () => 0, wait = async () => {} } = {}) {
 }
 
 // A directory holding TOOL (exit 0), put on PATH only while `withTool` runs.
-const toolDir = (() => {
-  const dir = tmpdir('harness-f29-bin-');
-  fs.writeFileSync(path.join(dir, TOOL), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
-  fs.writeFileSync(path.join(dir, `${TOOL}.cmd`), '@exit /b 0\r\n');
-  return dir;
-})();
+const toolDir = fakeExecutable(TOOL, process.platform === 'win32' ? '@exit /b 0\r\n' : '#!/bin/sh\nexit 0\n');
 const pathKey = () => Object.keys(process.env).find((k) => k.toUpperCase() === 'PATH') || 'PATH';
 async function withTool(fn) {
   const key = pathKey();

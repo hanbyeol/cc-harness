@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { REPO, tmpdir, readJson, writeJson } from './helpers.mjs';
+import { REPO, fakeExecutableLink, tmpdir, readJson, writeJson } from './helpers.mjs';
 import { git, gitRepo, writeFiles } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { hashContract } from '../lib/contract.mjs';
@@ -321,13 +321,12 @@ const REAL_GIT = spawnSync(POSIX ? 'which' : 'where', ['git'], { encoding: 'utf8
 const pathKey = () => Object.keys(process.env).find((k) => k.toUpperCase() === 'PATH') || 'PATH';
 
 // A fake git, first on PATH, that fails `ls-tree` and hands every other call to the real git.
+// Each call puts a new directory on PATH, as the verify result cache keys on PATH (§6.4).
 async function withFailingLsTree(fn) {
-  const bin = fs.realpathSync(tmpdir('harness-f85-git-'));
-  fs.writeFileSync(path.join(bin, 'git'), `#!/bin/sh
+  const bin = fakeExecutableLink('git', `#!/bin/sh
 case " $* " in *" ls-tree "*) echo "fatal: injected ls-tree failure" >&2; exit 128 ;; esac
 exec "${REAL_GIT}" "$@"
-`);
-  fs.chmodSync(path.join(bin, 'git'), 0o755);
+`, 'harness-f85-git-');
   const key = pathKey();
   const saved = process.env[key];
   process.env[key] = `${bin}${path.delimiter}${saved}`;
