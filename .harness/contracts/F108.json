@@ -1,0 +1,64 @@
+{
+  "id": "F108",
+  "title": "run 후속 수정 — builder 프롬프트의 Verification 절을 실제 build 경로로 확인, 충돌 해결·병합 후 복구 build 의 refusal 처리, 사용자 역할 effort 오류 메시지, --resume --parallel CLI 테스트, refusal 판정 조건 문서화",
+  "security_tier": "standard",
+  "version": 1,
+  "resolves": [
+    "B492",
+    "B493",
+    "B502",
+    "B504",
+    "B507",
+    "B510"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "builderPrompt 는 config 를 필수로 받는다 — config 없이 부르면 예외를 던진다. harness run 의 실제 build 경로(defaultBuild)가 어댑터에 넘긴 프롬프트를 가짜 claude CLI 로 받아, '## Verification' 절과 config 의 verify 명령이 들어 있음을 확인한다(build·충돌 해결·병합 후 복구 호출 각각)",
+      "check": "node test/t.mjs \"F108 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "충돌 해결 build 또는 병합 후 verify 복구 build 의 어댑터 결과가 'refusal' 이면 같은 프롬프트로 다시 부르지 않고 기능은 blocked, blocked_reason 'refusal' 이며 그 단계의 metrics 줄 outcome 이 'refusal' 이다 — 경우별 테스트",
+      "check": "node test/t.mjs \"F108 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "roles.<역할>.effort 를 쓴 역할의 병합 adapter 가 없으면(사용자 정의 역할) config_invalid 메시지는 'adapter null' 대신 그 역할에 adapter 가 없어 effort 를 쓸 수 없다는 것과 roles.<역할>.adapter 를 'claude' 로 지정하라는 안내를 담는다. adapter 가 claude 가 아닌 경우의 메시지는 이 기능 전과 같다",
+      "check": "node test/t.mjs \"F108 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "CLI 경로 테스트: active 4개·maxParallel 4 인 상태 파일과 가짜 claude 로 'harness run --resume --parallel 1' 을 실행하면 가짜 builder 의 동시 실행 최댓값이 1 이고 상태 파일의 maxParallel 이 1 로 저장된다",
+      "check": "node test/t.mjs \"F108 AC-4\"",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md 의 refusal 판정 조건이 wrapper 의 type 이 'result' 이고 stop_reason 이 'refusal' 인 경우라고 적고, 충돌 해결·병합 후 복구 build 의 refusal 처리(AC-2)를 적는다(문서 check)",
+      "check": "node test/t.mjs \"F108 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "충돌 해결·병합 후 복구 build 의 refusal 이 아닌 오류(exit_nonzero·timeout)는 이 기능 전과 같이 처리된다",
+      "check": "node test/t.mjs \"F108 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "evaluator 와 security-reviewer 가 모두 거부할 때 detail 에 둘 다 남기기",
+    "refusal 판정 조건 자체의 변경"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-10T04:25:24.831Z",
+    "hash": "6ae235ebf5b25f30aa7223c79d4f7d77ac03e0c5e52ad1342bd3c7e8c56485d0"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "id": "F107",
+  "title": "telemetry 후속 수정 — dry-run 은 salt 를 만들지 않고, 끄기 값 경고는 프로세스당 한 번, 이벤트 재가림은 키도 가리고, salt 는 대소문자 hex 를 받고 planExport 는 salt 를 필수로",
+  "security_tier": "critical",
+  "version": 1,
+  "resolves": [
+    "B494",
+    "B495",
+    "B496",
+    "B497",
+    "B498"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness export --dry-run 은 salt 파일이 없을 때 <홈>/.cc-harness/salt 와 그 디렉터리를 만들지 않고 exit 0 이며, stdout 에 salt 가 첫 실제 export 때 만들어진다는 문장('salt will be created')이 있다. salt 가 있으면 이 기능 전처럼 그 salt 로 계산한 값을 보여 준다 — HOME 을 임시 디렉터리로 둔 fixture",
+      "check": "node test/t.mjs \"F107 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "CC_HARNESS_TELEMETRY 의 알 수 없는 값 경고는 한 프로세스에서 한 번만 나온다 — 같은 프로세스에서 runExport·autoExport 를 세 번 부르면 stderr 에 그 경고 줄이 정확히 1개다",
+      "check": "node test/t.mjs \"F107 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "lib/failures.mjs 의 redactDeep 은 객체의 값뿐 아니라 키에도 redactor 를 적용한다(keep 에 든 키의 값은 지금처럼 그대로). harness events 의 텍스트·--json 출력과 이벤트 쓰기 모두, data 키에 허용되지 않은 환경 변수 값 'sekret-value-12345' 가 있는 줄에서 그 문자열이 나오지 않는다",
+      "check": "node test/t.mjs \"F107 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "readSalt 는 대문자·소문자가 섞인 64자 hex 를 받는다(내보낸 해시는 그 salt 를 소문자로 바꾼 값으로 계산해, 대소문자만 다른 두 salt 는 같은 해시를 낸다). docs/SPEC.md §2 가 이 규칙을 적는다",
+      "check": "node test/t.mjs \"F107 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "planExport 는 salt 를 기본값 없는 필수 인자로 받는다 — salt 없이 부르면 HarnessError(code 'usage' 또는 'internal')를 던지고 salt 파일을 만들지 않는다. runExport 는 지금처럼 salt 를 읽어 넘긴다",
+      "check": "node test/t.mjs \"F107 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "AC-3 의 키 가림 뒤에도 같은 키가 둘로 겹쳐 값이 사라지는 경우가 이벤트 쓰기를 실패시키지 않는다 — 가린 뒤 같은 키가 되는 두 키({'S1값':1,'S2값':2}, 둘 다 비밀)도 이벤트가 기록되고 두 비밀 모두 파일에 없다",
+      "check": "node test/t.mjs \"F107 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "dry-run 에서 salt 파일이 있지만 형식이 틀리면 F101 처럼 경고 하나를 내고 exit 0 이며 파일을 바꾸지 않는다",
+      "check": "node test/t.mjs \"F107 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "이벤트 data 키를 허용 목록으로 제한하기",
+    "salt 회전 명령",
+    "redactor 의 8자 미만 값 규칙 변경"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-10T04:25:24.488Z",
+    "hash": "2d21bebb41de5d8ecac4d6984ba70744ddd9445101ea52338b593d01770a1a55"
+  }
+}
