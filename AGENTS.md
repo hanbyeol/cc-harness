@@ -33,7 +33,10 @@ outside the `spec` step described below.
 1. **Contract** (skill `spec`). Turn the request into `.harness/contracts/F{n}.json` and an
    entry in `features.json` with status `todo`. Every criterion needs a `check`: a shell
    command that exits 0 when the criterion is met. Ask the user about anything unclear
-   before writing — a guess here becomes a wrong target later.
+   before writing — a guess here becomes a wrong target later. `security_tier` is `critical`
+   only for authentication, authorization, secret handling, payments, data deletion, running
+   commands that come from a model or user input, merging or switching branches, or writing
+   outside the repository; anything else is `standard` (see `skills/spec/SKILL.md`).
 2. **Lint** (skill `plan`). Run `harness lint-contract F{n}` and fix every error it reports.
 3. **Approval** (skill `plan`). Present the contract to the user. Only after they say yes,
    run `harness approve F{n}`. This records who approved it and freezes the contract by hash.
