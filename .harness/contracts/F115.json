@@ -1,0 +1,88 @@
+{
+  "id": "F115",
+  "title": "승인된 테스트 제거 — 계약의 removes_tests(테스트 이름 접두어)에 든 테스트만 verify 의 테스트 수 비교와 assert-count 에서 줄어들 수 있다",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "계약의 선택 필드 removes_tests 는 문자열 배열이고 각 항목은 /^F\\d+( (AC|SC|ES)-\\d+)?$/ 에 맞는 테스트 이름 접두어다. 테스트 이름 n 이 접두어 p 에 맞는다 = n === p 이거나 n 이 p + ' ' 또는 p + ':' 로 시작한다('F5' 는 'F5 AC-1' 에 맞고 'F51 AC-1' 에는 맞지 않는다). lib/contract.mjs 가 이 판정을 matchesRemoved(name, prefixes) 로 export 한다",
+      "check": "node test/t.mjs \"F115 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "verify 의 테스트 수 비교(verify.test_count 설정 시, full·affected 모드 모두): base 실행 출력에서 이름을 읽은 테스트 중 removes_tests 에 맞고 head 실행 출력에 같은 이름이 없는 테스트 수를 removed 라 하면, head ≥ base − removed 일 때 status 'ok' 이고 결과의 testCount 에 removed(정수)가 있으며 warnings 에 '<removed> test(s) removed as approved by removes_tests' 한 줄이 있다. 이름은 node spec('✔ '·'✖ ' 줄, 끝의 '(12ms)' 제거)과 TAP('ok N - '·'not ok N - ' 줄, '# …' 지시어 제거) 출력에서 읽는다",
+      "check": "node test/t.mjs \"F115 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "removes_tests 가 없거나 빈 배열이면 테스트 수 비교와 결과 객체는 F115 이전과 같다(testCount 에 removed 키 없음) — 픽스처에서 head 가 base 보다 하나 적으면 'decreased' fail",
+      "check": "node test/t.mjs \"F115 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "node test/assert-count.mjs --removes F<n> 은 .harness/contracts/F<n>.json 의 removes_tests 를 읽는다: base 의 모든 테스트 이름이 접두어에 맞는 파일의 삭제, 접두어에 맞는 테스트 이름의 사라짐은 문제가 아니고, 한 파일의 assert 감소는 그 파일에서 사라진(접두어에 맞는) 테스트 블록들의 base assert 수 합까지 허용된다. 테스트 블록 = 줄 시작의 'test(' 부터 다음 줄 시작 'test(' 직전까지. 픽스처 저장소에서 접두어에 맞는 테스트만 지운 경우 exit 0",
+      "check": "node test/t.mjs \"F115 AC-4\"",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "harness lint-contract 는 removes_tests 를 검사한다 — 배열이 아니거나 항목이 위 형식이 아니면 오류(rule 'removes_tests'), 자기 기능 id('F<n>' 또는 'F<n> …', n 이 이 계약)를 가리키면 오류. plan/lint 이벤트의 규칙 이름 목록에 removes_tests 가 들어간다",
+      "check": "node test/t.mjs \"F115 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "docs/SPEC.md §5(계약 형식·lint)와 §6.2(무결성 검사)가 removes_tests 의 형식, 접두어 일치 규칙, removed 계산, 경고 문구, assert-count --removes 를 적는다(문서 check)",
+      "check": "node test/t.mjs \"F115 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "removes_tests 에 맞는 테스트가 head 에 그대로 있으면 removed 에 들어가지 않는다 — 접두어 'F9' 가 있어도 base 의 'F9 AC-1' 이 head 에 있고 다른 테스트 'F8 AC-1' 이 사라졌으면 head < base − removed(=0) 이라 'decreased' fail",
+      "check": "node test/t.mjs \"F115 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "removes_tests 밖의 감소는 지금처럼 막힌다 — verify: 접두어에 맞는 테스트 2개와 맞지 않는 1개가 사라지면 'decreased' fail; assert-count --removes: 맞지 않는 이름의 사라짐, 맞지 않는 이름이 남은 파일의 삭제, 허용량을 넘는 assert 감소는 각각 exit 1 이고 그 파일·이름을 출력한다",
+      "check": "node test/t.mjs \"F115 SC-2\"",
+      "new": true
+    },
+    {
+      "id": "SC-3",
+      "criterion": "승인 뒤 removes_tests 를 바꾸면 계약 해시가 달라져 verify·eval·run 이 지금처럼 거부한다 — removes_tests 에 항목을 더한 계약으로 harness verify 가 approval/hash 오류로 exit 2",
+      "check": "node test/t.mjs \"F115 SC-3\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "base 출력에서 테스트 이름을 하나도 읽지 못하면(이름 없는 출력) removed 는 0 이고 비교는 지금 규칙대로다(감소면 fail) — removes_tests 가 있어도 허용이 늘지 않는다",
+      "check": "node test/t.mjs \"F115 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "assert-count --removes 에 없는 계약이나 removes_tests 가 없는 계약을 주면 exit 2 이고 메시지가 그 계약 id 를 이름한다",
+      "check": "node test/t.mjs \"F115 ES-2\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "테스트 파일 사이의 테스트 이동 허용",
+    "다른 기능의 계약 check 가 지워진 테스트를 가리키는지 검사",
+    "실제 테스트 제거(F116)"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-11T01:41:42.250Z",
+    "hash": "d56b9dcc6d088eb702e4b850094e683f617569b2a4a0570ec92c52d9dc0362b2"
+  }
+}

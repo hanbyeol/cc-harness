@@ -1,0 +1,107 @@
+{
+  "id": "F116",
+  "title": "telemetry·learn·insights 분리 제거 — export·learn·insights·ci-record·note 명령과 lib/telemetry·learn·insights 를 지우고, events·stats·decide 는 남긴다",
+  "security_tier": "standard",
+  "version": 1,
+  "removes_tests": [
+    "F58",
+    "F59",
+    "F63",
+    "F101 AC-1",
+    "F101 AC-2",
+    "F101 AC-5",
+    "F101 AC-6",
+    "F101 SC-1",
+    "F101 SC-2",
+    "F101 SC-3",
+    "F101 ES-1",
+    "F107 AC-1",
+    "F107 AC-2",
+    "F107 AC-4",
+    "F107 AC-5",
+    "F110 AC-1",
+    "F110 AC-2",
+    "F110 AC-4",
+    "F57 AC-2",
+    "F57 AC-3",
+    "F57 AC-4",
+    "F57 AC-5",
+    "F57 ES-1",
+    "F57 ES-2",
+    "F60 AC-2",
+    "F60 AC-3",
+    "F60 AC-5",
+    "F60 ES-1",
+    "F109 AC-2",
+    "F109 ES-1",
+    "F109 AC-3",
+    "F109 AC-5",
+    "F103 AC-4",
+    "F67 AC-2",
+    "F95 AC-2",
+    "F90 AC-1",
+    "F97 AC-2",
+    "F97 AC-4",
+    "F97 ES-1",
+    "F97 AC-5"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness export·learn·insights·ci-record·note 는 각각 unknown command 로 exit 2 이고 harness --help 목록에 없다. lib/telemetry.mjs·lib/learn.mjs·lib/insights.mjs·lib/commands/{export,learn,insights,ci-record,note}.mjs·docs/telemetry.md 가 없고, lib·bin 아래 .mjs 파일의 import 지정자 중 그 모듈 경로를 가리키는 것이 없다(테스트가 파일을 열거해 확인)",
+      "check": "node test/t.mjs \"F116 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "harness run 과 harness eval 은 끝날 때 아무것도 내보내지 않는다 — HOME 을 임시 디렉터리로 둔 가짜 어댑터 run·eval 뒤 <HOME>/.cc-harness 가 없고 stderr 에 'telemetry'·'exported' 가 없다. harness doctor 출력에 'telemetry:' 줄이 없다",
+      "check": "node test/t.mjs \"F116 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "config 의 telemetry 키(예: {share: true, auto_export: true})는 오류 없이 무시된다 — 그런 config 로 harness status·verify·doctor 가 config_invalid 없이 동작한다",
+      "check": "node test/t.mjs \"F116 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "harness events·stats·decide 는 그대로 동작한다 — decide 는 kind: decision backlog 항목과 feedback/decision 이벤트를 남기고, 사유가 비면 exit 2 로 아무것도 기록하지 않는다(F57 AC-1 테스트 포함)",
+      "check": "node test/t.mjs \"F116 AC-4\" && node test/t.mjs \"F57 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "이벤트 쓰기와 harness events 출력의 비밀 가림(값·키)은 그대로다 — F101 AC-3·F107 AC-3·F107 SC-1·F110 AC-3 테스트",
+      "check": "node test/t.mjs \"F101 AC-3\" && node test/t.mjs \"F107 AC-3\" && node test/t.mjs \"F107 SC-1\" && node test/t.mjs \"F110 AC-3\"",
+      "new": false
+    },
+    {
+      "id": "AC-6",
+      "criterion": "node test/assert-count.mjs --removes F116 이 exit 0 이다 — 지운 테스트는 removes_tests 에 든 것뿐이다",
+      "check": "node test/assert-count.mjs --removes F116",
+      "new": false
+    },
+    {
+      "id": "AC-7",
+      "criterion": "docs/SPEC.md·README.md·AGENTS.md·docs/MAP.md 에 'harness export'·'harness learn'·'harness insights'·'ci-record'·'harness note'·'CC_HARNESS_TELEMETRY'·'docs/telemetry.md' 문자열이 없고, SPEC §2 에 telemetry 를 v2.0.64 에서 뺐으며 config 의 telemetry 키는 무시된다는 한 문장이 있다(문서 check)",
+      "check": "node test/t.mjs \"F116 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "<HOME>/.cc-harness/hub 에 이전 묶음 파일이 있을 때 run·eval·doctor 를 실행한 뒤 그 파일의 내용과 mtime 이 실행 전과 같다",
+      "check": "node test/t.mjs \"F116 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "events·stats·decide·backlog close 의 변경",
+    "사용자 홈의 허브·salt 파일 정리(사람이 지운다)",
+    "telemetry 를 별도 패키지로 만들기",
+    "이 저장소 .harness/config.json 의 telemetry 키 삭제 — 사람이 한다"
+  ]
+}
