@@ -1,0 +1,69 @@
+{
+  "id": "F117",
+  "title": "assert-count 이 비교 범위의 승인된 removes_tests 를 스스로 읽는다 — --removes 없이도 merge-base 이후 추가·변경된 승인 계약의 제거 목록을 허용해, integration 의 final verify 가 승인된 제거로 실패하지 않게",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "node test/assert-count.mjs(--removes 없음)는 merge-base 와 HEAD 사이에 추가되거나 내용이 바뀐 .harness/contracts/F<n>.json 중 approval.hash 가 그 계약의 현재 해시(lib/contract.mjs hashContract)와 같은 것들의 removes_tests 합집합을 허용 목록으로 쓴다 — 픽스처: base 커밋 뒤 승인된 계약 F9(removes_tests ['F9'])를 추가하고 'F9 AC-1' 테스트를 지운 저장소에서 exit 0",
+      "check": "node test/t.mjs \"F117 AC-1\"",
+      "new": false
+    },
+    {
+      "id": "AC-2",
+      "criterion": "허용 목록이 비어 있지 않으면 assert-count 는 stdout 에 'assert-count: removes_tests approved by F<n>[, F<m>…]' 한 줄을 출력한다(계약 id 오름차순)",
+      "check": "node test/t.mjs \"F117 AC-2\"",
+      "new": false
+    },
+    {
+      "id": "AC-3",
+      "criterion": "--removes F<n> 을 주면 지금처럼 그 계약의 목록만 쓴다(자동 수집과 합치지 않는다) — F115 AC-4 테스트",
+      "check": "node test/t.mjs \"F115 AC-4\"",
+      "new": false
+    },
+    {
+      "id": "AC-4",
+      "criterion": "이 저장소에서 F41 AC-3 테스트(저장소 테스트가 base 보다 약하지 않다)는 승인된 removes_tests 로 지운 테스트가 merge-base 이후에 있어도 통과한다 — 픽스처 저장소에 F41 AC-3 과 같은 호출(node test/assert-count.mjs, cwd 저장소)을 해 exit 0",
+      "check": "node test/t.mjs \"F117 AC-4\"",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md §6.2 가 assert-count 의 자동 수집(merge-base 이후 추가·변경, 승인 해시 일치, 출력 줄)을 적는다(문서 check)",
+      "check": "node test/t.mjs \"F117 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "승인되지 않은 계약(approval 없음)이나 approval.hash 가 현재 해시와 다른 계약(승인 뒤 removes_tests 를 고친 경우)의 removes_tests 는 허용 목록에 들어가지 않는다 — 두 픽스처 모두 테스트를 지우면 exit 1 이고 그 이름을 출력한다",
+      "check": "node test/t.mjs \"F117 SC-1\"",
+      "new": false
+    },
+    {
+      "id": "SC-2",
+      "criterion": "merge-base 에 이미 있고 그 뒤 바뀌지 않은 계약의 removes_tests 는 쓰지 않는다 — base 에 있던 승인 계약 F8(removes_tests ['F8'])이 있어도 merge-base 뒤 'F8 AC-1' 을 지우면 exit 1",
+      "check": "node test/t.mjs \"F117 SC-2\"",
+      "new": false
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "merge-base 이후 추가된 계약 파일이 JSON 이 아니거나 removes_tests 가 배열이 아니면 그 계약은 건너뛰고 stderr 에 'assert-count: skipped .harness/contracts/F<n>.json: <이유>' 한 줄을 낸다(허용 목록에 넣지 않음, 나머지 비교는 그대로)",
+      "check": "node test/t.mjs \"F117 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "verify 의 테스트 수 비교(F115 이 이미 기능 계약의 removes_tests 를 쓴다)",
+    "이 저장소 밖 프로젝트의 assert-count 배포"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-11T05:41:00.016Z",
+    "hash": "f47d74836b6f4947dfbc784c7dded67b7cc0e5fbfc586302b37680317b2442a4"
+  }
+}

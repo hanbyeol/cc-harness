@@ -1,0 +1,70 @@
+{
+  "id": "F118",
+  "title": "affected 모드의 테스트 수를 소스에서 센다 — base 를 다시 실행하지 않고, head·base 모두 영향 파일 소스의 테스트 이름 수로 비교해 verify 마다 드는 base 실행(~300초)을 없앤다",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify.affected_command 가 설정된 verify(step verify·pre_merge_verify·post_merge_verify)의 테스트 수 비교는 base 임시 worktree 에서 affected_command 를 실행하지 않는다: base 수 = merge-base 의 영향 파일(그 커밋에 있는 것) 소스에서 lib/testcount.mjs sourceTestNames 로 읽은 이름 수의 합, head 수 = 작업 트리 영향 파일 소스의 같은 합이다. 결과의 testCount.source 는 {head: 'source', base: 'source'} 다. 가짜 실행 파일로 확인: base 쪽에서 affected_command 가 한 번도 실행되지 않는다",
+      "check": "node test/t.mjs \"F118 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "소스 수로 head < base − removed(F115 규칙) 면 status 'decreased' fail, 아니면 ok — 픽스처에서 영향 파일의 test( 하나를 지우면 fail, 하나를 더하면 ok",
+      "check": "node test/t.mjs \"F118 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "affected 모드 verify 의 verify/phases 이벤트에서 test_count 구간은 base worktree 생성 없이 계산된다 — 결과의 testCount 계산 동안 'git worktree add' 가 test_count 를 위해 호출되지 않는다(base vacuity 실행용 worktree 는 그대로 만들어질 수 있다)",
+      "check": "node test/t.mjs \"F118 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "affected_command 가 없으면 테스트 수 비교는 F118 이전과 같다(러너 출력·캐시) — F30 AC-1·F85 AC-1 테스트",
+      "check": "node test/t.mjs \"F30 AC-1\" && node test/t.mjs \"F85 AC-1\"",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md §6.1·§6.2 가 affected 모드의 소스 기반 테스트 수(이름 규칙, 루프·변수 이름은 세지 않음, source 값)를 적는다(문서 check)",
+      "check": "node test/t.mjs \"F118 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "removed 는 F115 와 같이 base 소스 이름 중 removes_tests 에 맞고 작업 트리 어느 테스트 파일에도 없는 것만이다 — 맞지 않는 이름의 테스트를 지우면 소스 수 비교에서도 'decreased' fail(F115 SC-1·SC-2 테스트 포함)",
+      "check": "node test/t.mjs \"F118 SC-1\" && node test/t.mjs \"F115 SC-1\" && node test/t.mjs \"F115 SC-2\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "영향 파일 중 base 에 있던 테스트 파일을 작업 트리에서 지우면 그 파일의 base 이름은 base 수에 들어가고 head 수에는 없다 — removes_tests 없이 파일을 지우면 'decreased' fail",
+      "check": "node test/t.mjs \"F118 SC-2\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "영향 파일 소스를 읽을 수 없으면(git show 실패, 파일 읽기 실패) 테스트 수 비교는 fail 이고 message 가 그 파일을 이름한다 — 0 으로 세어 통과하지 않는다",
+      "check": "node test/t.mjs \"F118 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "루프·변수로 이름을 만든 테스트의 수 변화 검출(소스로 읽을 수 없다 — 문서에 적는다)",
+    "affected 가 아닌 모드의 테스트 수 캐시 변경",
+    "이 저장소 config 에 affected_command 를 다시 두는 것 — 사람이 한다"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-11T05:41:00.016Z",
+    "hash": "5d9d4d292a7972e45aae00a1a6e929fdfa402ce28fbd0ab4ed3a5c5af21218b0"
+  }
+}
