@@ -7,8 +7,10 @@
 // With `--removes F<n>` the removes_tests prefixes of .harness/contracts/F<n>.json are approved
 // removals: tests whose name matches a prefix may vanish (a file whose every test name matches may
 // be deleted), and a file may lose as many asserts as the vanished matching test blocks held.
-// Exit 2 when that contract is missing or has no removes_tests.
+// Exit 2 when that contract is missing or has no removes_tests. Without --removes the removes_tests of
+// the approved contracts added or changed since the merge base are used (printed on stdout).
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -41,6 +43,7 @@ if (removesId !== null) {
   }
   prefixes = list;
 }
+const explicit = removesId !== null;
 // Same rule as matchesRemoved in lib/contract.mjs (this file imports only node: built-ins).
 const matches = (name) => prefixes.some((p) => name === p || name.startsWith(`${p} `) || name.startsWith(`${p}:`));
 
@@ -85,6 +88,32 @@ function blockAsserts(src) {
   return out;
 }
 
+// Without --removes: the removes_tests of every approved contract added or changed since the merge
+// base (approval.hash equal to the contract's current hash, as hashContract in lib/contract.mjs).
+if (!explicit) {
+  const approvedBy = [];
+  const changed = (git('diff', '--name-only', '--diff-filter=AM', mergeBase, 'HEAD', '--', '.harness/contracts') || '')
+    .split('\n').filter((f) => /^\.harness\/contracts\/F\d+\.json$/.test(f));
+  for (const file of changed.sort((a, b) => Number(a.match(/F(\d+)/)[1]) - Number(b.match(/F(\d+)/)[1]))) {
+    try {
+      const c = JSON.parse(git('show', `HEAD:${file}`) ?? '');
+      if (c === null || typeof c !== 'object' || Array.isArray(c)) throw new Error('not a JSON object');
+      if (c.removes_tests !== undefined && !Array.isArray(c.removes_tests)) throw new Error('removes_tests is not an array');
+      const { approval, ...rest } = c;
+      const hash = crypto.createHash('sha256').update(JSON.stringify(rest)).digest('hex');
+      if (!Array.isArray(c.removes_tests) || typeof approval?.hash !== 'string' || approval.hash !== hash) continue;
+      const list = c.removes_tests.filter((p) => typeof p === 'string');
+      if (list.length === 0) continue;
+      prefixes.push(...list);
+      approvedBy.push(path.basename(file, '.json'));
+    } catch (e) {
+      console.error(`assert-count: skipped ${file}: ${e.message.split('\n')[0]}`);
+    }
+  }
+  if (approvedBy.length > 0) console.log(`assert-count: removes_tests approved by ${approvedBy.join(', ')}`);
+}
+const active = prefixes.length > 0;
+
 const files = (git('ls-tree', '-r', '--name-only', mergeBase, '--', 'test') || '')
   .split('\n').filter((f) => /\.test\.mjs$/.test(f));
 
@@ -95,9 +124,9 @@ for (const file of files) {
   const abs = path.join(root, file);
   if (!fs.existsSync(abs)) {
     const names = testNames(before);
-    if (removesId !== null && names.length > 0 && names.every(matches)) continue;
-    const unmatched = removesId !== null ? names.filter((n) => !matches(n)) : [];
-    if (unmatched.length) problems.push(`${file}: deleted, but test name not in removes_tests of ${removesId}: "${unmatched[0]}"`);
+    if (active && names.length > 0 && names.every(matches)) continue;
+    const unmatched = active ? names.filter((n) => !matches(n)) : [];
+    if (unmatched.length) problems.push(`${file}: deleted, but test name not in removes_tests of ${explicit ? removesId : 'the approved contracts'}: "${unmatched[0]}"`);
     else problems.push(`${file}: deleted (had ${countAsserts(before)} asserts)`);
     continue;
   }
@@ -106,12 +135,12 @@ for (const file of files) {
   const na = countAsserts(after);
   const kept = new Set(testNames(after));
   let allowed = 0;
-  if (removesId !== null) {
+  if (active) {
     for (const b of blockAsserts(before)) if (!kept.has(b.name) && matches(b.name)) allowed += b.asserts;
   }
-  if (na < nb - allowed) problems.push(`${file}: asserts ${nb} -> ${na}${removesId !== null ? ` (at most ${allowed} may be removed)` : ''}`);
+  if (na < nb - allowed) problems.push(`${file}: asserts ${nb} -> ${na}${active ? ` (at most ${allowed} may be removed)` : ''}`);
   for (const name of testNames(before)) {
-    if (!kept.has(name) && !(removesId !== null && matches(name))) problems.push(`${file}: test name removed or renamed: "${name}"`);
+    if (!kept.has(name) && !(active && matches(name))) problems.push(`${file}: test name removed or renamed: "${name}"`);
   }
 }
 
