@@ -7003,6 +7003,15 @@
         }
       ],
       "id": "B540"
+    },
+    {
+      "kind": "decision",
+      "feature": "F118",
+      "decision": "rewrite",
+      "reason": "Parsing JS test sources by regex/hand scanner keeps hitting edge cases (block comments, then regex literals; r2 regressed F115). Affected mode is shelved: affected sets are 67-104 of 113 test files anyway. verify.affected_command stays unset.",
+      "summary": "decision rewrite for F118: Parsing JS test sources by regex/hand scanner keeps hitting edge cases (block comments, then regex literals; r2 regressed F115). Affected mode is shelved: affected sets are 67-104 of 113 test files anyway. verify.affected_command stays unset.",
+      "at": "2026-10-11T07:49:09.018Z",
+      "id": "B541"
     }
   ]
 }
