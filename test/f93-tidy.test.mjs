@@ -7,8 +7,8 @@ import { gitRepo, writeFiles } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { hashContract } from '../lib/contract.mjs';
 import { runFeatures } from '../lib/run.mjs';
-import { exportLine } from '../lib/telemetry.mjs';
 import * as util from '../lib/util.mjs';
+import { recordEvent, readEvents } from '../lib/events.mjs';
 
 // ------------------------------------------------------------------ fixtures
 
@@ -215,11 +215,12 @@ test('F93 AC-6 docs/SPEC.md: run and eval write rounds and needs_human; the earl
 // ------------------------------------------------------------------ ES-1
 
 for (const reason of ['max_rounds', 'needs-human', 'rounds', 'needs_human']) {
+  // (the name predates F116: telemetry export is gone, the event log keeps the reason)
   test(`F93 ES-1 telemetry export keeps a status event with reason ${reason}`, () => {
-    const line = exportLine(
-      { ts: '2026-10-01T00:00:00.000Z', stage: 'eval', type: 'status', data: { from: 'in_progress', to: 'blocked', reason } },
-      { project: '0123456789abcdef', profiles: ['sdlc'] },
-    );
+    const dir = gitRepo({ '.harness/config.json': { profile: 'sdlc', base_branch: 'main', verify: { commands: [] } } }, { branch: null });
+    const ok = recordEvent(dir, { stage: 'eval', type: 'status', data: { from: 'in_progress', to: 'blocked', reason } }, { now: new Date('2026-10-01T00:00:00.000Z') });
+    assert.equal(ok, true);
+    const [line] = readEvents(dir).events;
     assert.equal(line.data.reason, reason, JSON.stringify(line));
   });
 }

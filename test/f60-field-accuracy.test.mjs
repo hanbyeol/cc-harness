@@ -14,10 +14,9 @@ import { stepEventData } from '../lib/usage.mjs';
 import { verify as realVerify } from '../lib/verify.mjs';
 import { evaluate } from '../lib/eval.mjs';
 import { runFeatures } from '../lib/run.mjs';
-import { runExport } from '../lib/commands/export.mjs';
 
-// F60: field data accuracy — Windows user and host names are not redacted, export goes by the
-// byte position in each event file, and a timed-out repro says so in timed_out.
+// F60: field data accuracy — Windows user and host names are not redacted and a timed-out
+// repro says so in timed_out.
 
 function contract(id = 'F9') {
   const c = {
@@ -51,18 +50,7 @@ const eventsText = (dir) => {
 const listFiles = (d) => {
   try { return fs.readdirSync(d).sort(); } catch { return []; }
 };
-// Every bundle line in the hub, bundles oldest first.
-const hubLines = (hub) => listFiles(hub).flatMap((p) => listFiles(path.join(hub, p)).flatMap((n) =>
-  fs.readFileSync(path.join(hub, p, n), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))));
-const bundleCount = (hub) => listFiles(hub).reduce((n, p) => n + listFiles(path.join(hub, p)).length, 0);
 const note = (dir, n, at) => recordEvent(dir, { stage: 'feedback', type: 'intervention', feature: 'F9', data: { kind: 'other', n } }, { now: new Date(at) });
-const collect = () => {
-  const out = [];
-  const err = [];
-  return { out, err, o: (s) => out.push(s), e: (s) => err.push(s) };
-};
-const exportAt = (dir, hub, at, c = collect()) => ({ code: runExport({ root: dir, hub, out: c.o, err: c.e, now: new Date(at) }), ...c });
-
 // Runs `fn` with `vars` set in process.env, restoring the previous values afterwards.
 async function withEnv(vars, fn) {
   const saved = Object.fromEntries(Object.keys(vars).map((k) => [k, process.env[k]]));
@@ -111,90 +99,6 @@ test('F60 AC-1: with USERNAME=runneradmin the session log path of a build/step e
   assert.ok(f.data.session_log.path.includes('runneradmin'), f.data.session_log.path);
 });
 
-// ---------- AC-2 ----------
-test('F60 AC-2: export records the byte position of each event file in .exported', () => {
-  const dir = fixture();
-  note(dir, 1, '2026-08-31T00:00:00Z');
-  note(dir, 2, '2026-09-01T00:00:00Z');
-  const hub = path.join(tmpdir(), 'hub');
-  const r = exportAt(dir, hub, '2026-09-10T00:00:00Z');
-  assert.equal(r.code, 0, r.err.join('\n'));
-  const marker = JSON.parse(fs.readFileSync(exportedPath(dir), 'utf8'));
-  assert.equal(marker.at, '2026-09-10T00:00:00.000Z');
-  assert.deepEqual(marker.files, {
-    '2026-08.jsonl': fs.statSync(path.join(eventsDir(dir), '2026-08.jsonl')).size,
-    '2026-09.jsonl': fs.statSync(path.join(eventsDir(dir), '2026-09.jsonl')).size,
-  });
-});
-
-test('F60 AC-2: a new event with the same millisecond ts as an exported one, or before the export time, goes to the next export', () => {
-  const dir = fixture();
-  const hub = path.join(tmpdir(), 'hub');
-  note(dir, 1, '2026-09-01T00:00:00.123Z');
-  assert.equal(exportAt(dir, hub, '2026-09-01T00:00:00.123Z').code, 0);
-  // recorded after that export, with the same millisecond as the exported event and the export
-  note(dir, 2, '2026-09-01T00:00:00.123Z');
-  note(dir, 3, '2026-09-01T00:00:00.122Z');
-  const r = exportAt(dir, hub, '2026-09-01T00:00:00.124Z');
-  assert.equal(r.code, 0, r.err.join('\n'));
-  assert.equal(bundleCount(hub), 2);
-  assert.deepEqual(hubLines(hub).map((l) => l.ts), ['2026-09-01T00:00:00.123Z', '2026-09-01T00:00:00.122Z', '2026-09-01T00:00:00.123Z']);
-  // nothing new: no third bundle, nothing sent twice
-  const again = exportAt(dir, hub, '2026-09-02T00:00:00Z');
-  assert.match(again.out.at(-1), /nothing to export/);
-  assert.equal(bundleCount(hub), 2);
-});
-
-test('F60 AC-2: a line still being written (no newline yet) is left for the next export', () => {
-  const dir = fixture();
-  const hub = path.join(tmpdir(), 'hub');
-  note(dir, 1, '2026-09-01T00:00:00Z');
-  const file = path.join(eventsDir(dir), '2026-09.jsonl');
-  const whole = fs.readFileSync(file, 'utf8');
-  note(dir, 2, '2026-09-02T00:00:00Z');
-  const second = fs.readFileSync(file, 'utf8').slice(whole.length);
-  fs.writeFileSync(file, whole + second.slice(0, 10));
-  assert.equal(exportAt(dir, hub, '2026-09-03T00:00:00Z').code, 0);
-  assert.deepEqual(hubLines(hub).map((l) => l.ts), ['2026-09-01T00:00:00.000Z']);
-  fs.writeFileSync(file, whole + second);
-  assert.equal(exportAt(dir, hub, '2026-09-04T00:00:00Z').code, 0);
-  assert.deepEqual(hubLines(hub).map((l) => l.ts), ['2026-09-01T00:00:00.000Z', '2026-09-02T00:00:00.000Z']);
-});
-
-// ---------- AC-3 ----------
-test('F60 AC-3: an .exported of the earlier form (a time only) exports the events since that time once, then is rewritten with positions', () => {
-  const dir = fixture();
-  const hub = path.join(tmpdir(), 'hub');
-  note(dir, 1, '2026-09-01T00:00:00Z');
-  note(dir, 2, '2026-09-05T00:00:00Z');
-  note(dir, 3, '2026-09-06T00:00:00Z');
-  fs.writeFileSync(exportedPath(dir), '2026-09-05T00:00:00.000Z\n');
-  assert.equal(exportAt(dir, hub, '2026-09-07T00:00:00Z').code, 0);
-  assert.deepEqual(hubLines(hub).map((l) => l.ts), ['2026-09-05T00:00:00.000Z', '2026-09-06T00:00:00.000Z']);
-  const marker = JSON.parse(fs.readFileSync(exportedPath(dir), 'utf8'));
-  assert.equal(marker.at, '2026-09-07T00:00:00.000Z');
-  assert.deepEqual(marker.files, { '2026-09.jsonl': fs.statSync(path.join(eventsDir(dir), '2026-09.jsonl')).size });
-  // from now on positions decide: an older ts recorded later is exported, nothing twice
-  note(dir, 4, '2026-09-02T00:00:00Z');
-  assert.equal(exportAt(dir, hub, '2026-09-08T00:00:00Z').code, 0);
-  assert.deepEqual(hubLines(hub).map((l) => l.ts), ['2026-09-05T00:00:00.000Z', '2026-09-06T00:00:00.000Z', '2026-09-02T00:00:00.000Z']);
-});
-
-test('F60 AC-3: an .exported of the earlier form with no event after it is still rewritten with positions', () => {
-  const dir = fixture();
-  const hub = path.join(tmpdir(), 'hub');
-  note(dir, 1, '2026-09-01T00:00:00Z');
-  fs.writeFileSync(exportedPath(dir), '2026-09-05T00:00:00.000Z\n');
-  const r = exportAt(dir, hub, '2026-09-07T00:00:00Z');
-  assert.equal(r.code, 0);
-  assert.match(r.out.at(-1), /nothing to export/);
-  assert.equal(bundleCount(hub), 0);
-  assert.deepEqual(JSON.parse(fs.readFileSync(exportedPath(dir), 'utf8')).files, { '2026-09.jsonl': fs.statSync(path.join(eventsDir(dir), '2026-09.jsonl')).size });
-  note(dir, 2, '2026-09-02T00:00:00Z');
-  assert.equal(exportAt(dir, hub, '2026-09-08T00:00:00Z').code, 0);
-  assert.deepEqual(hubLines(hub).map((l) => l.ts), ['2026-09-02T00:00:00.000Z']);
-});
-
 // ---------- AC-4 ----------
 const scores = { functionality: 9, quality: 9, security: 9, errors: 9, tests: 9 };
 const reply = (json) => ({ ok: true, error: null, text: JSON.stringify(json), json, costUsd: 0, exitCode: 0 });
@@ -234,17 +138,6 @@ test('F60 AC-4: the F56 ES-1 test checks timed_out instead of the exit value', (
   const body = es1.slice(0, es1.indexOf('\n});'));
   assert.match(body, /e\.data\.timed_out/);
   assert.doesNotMatch(body, /'AC-1', null, 'node'/); // no longer asserts a null exit
-});
-
-// ---------- AC-5 ----------
-test('F60 AC-5: SPEC describes the extended allowlist in the redaction rules and the byte positions of export', () => {
-  const spec = fs.readFileSync(path.join(REPO, 'docs', 'SPEC.md'), 'utf8');
-  const sr2 = spec.split('\n').find((l) => l.startsWith('- SR-2 '));
-  for (const k of HOST_VARS) assert.ok(sr2.includes(k), k);
-  assert.match(sr2, /가리지 않는다/);
-  const ex = spec.slice(spec.indexOf('**현장 데이터 내보내기**'), spec.indexOf('- `--dry-run`'));
-  for (const s of ['.exported', '바이트 위치', '"files"', '같은 밀리초', '이전 형식', '처음부터', '경고']) assert.ok(ex.includes(s), s);
-  assert.match(spec, /`timed_out`/);
 });
 
 // ---------- SC-1 ----------
@@ -298,39 +191,3 @@ for (const name of Object.keys(SECRETS)) {
     await assertRedacted(name);
   });
 }
-
-// ---------- ES-1 ----------
-test('F60 ES-1: an event file shorter than its export position is exported from the start, with a warning', () => {
-  const dir = fixture();
-  const hub = path.join(tmpdir(), 'hub');
-  note(dir, 1, '2026-09-01T00:00:00Z');
-  note(dir, 2, '2026-09-02T00:00:00Z');
-  assert.equal(exportAt(dir, hub, '2026-09-03T00:00:00Z').code, 0);
-  // the file is replaced by a shorter one
-  const file = path.join(eventsDir(dir), '2026-09.jsonl');
-  fs.writeFileSync(file, '');
-  note(dir, 3, '2026-09-04T00:00:00Z');
-  const r = exportAt(dir, hub, '2026-09-05T00:00:00Z');
-  assert.equal(r.code, 0, r.err.join('\n'));
-  assert.ok(r.err.some((l) => /^harness: warning: events\/2026-09\.jsonl is shorter than/.test(l)), r.err.join('\n'));
-  assert.deepEqual(hubLines(hub).map((l) => l.ts), ['2026-09-01T00:00:00.000Z', '2026-09-02T00:00:00.000Z', '2026-09-04T00:00:00.000Z']);
-  assert.deepEqual(JSON.parse(fs.readFileSync(exportedPath(dir), 'utf8')).files, { '2026-09.jsonl': fs.statSync(file).size });
-});
-
-test('F60 ES-1: a truncated event file with no new line still gets its position reset, with a warning', () => {
-  const dir = fixture();
-  const hub = path.join(tmpdir(), 'hub');
-  note(dir, 1, '2026-09-01T00:00:00Z');
-  assert.equal(exportAt(dir, hub, '2026-09-03T00:00:00Z').code, 0);
-  const file = path.join(eventsDir(dir), '2026-09.jsonl');
-  fs.writeFileSync(file, '');
-  const r = exportAt(dir, hub, '2026-09-05T00:00:00Z');
-  assert.equal(r.code, 0);
-  assert.ok(r.err.some((l) => l.includes('events/2026-09.jsonl')), r.err.join('\n'));
-  assert.deepEqual(JSON.parse(fs.readFileSync(exportedPath(dir), 'utf8')).files, { '2026-09.jsonl': 0 });
-  // later events in the replaced file are exported
-  note(dir, 2, '2026-09-06T00:00:00Z');
-  const again = exportAt(dir, hub, '2026-09-07T00:00:00Z');
-  assert.deepEqual(again.err, []);
-  assert.deepEqual(hubLines(hub).map((l) => l.ts), ['2026-09-01T00:00:00.000Z', '2026-09-06T00:00:00.000Z']);
-});

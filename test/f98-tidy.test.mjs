@@ -73,7 +73,7 @@ test('F98 AC-3 metrics.mjs does not export median; no lib file imports median fr
     return ['./metrics.mjs', '../metrics.mjs'].some((s) => importedFrom(src, s).includes('median'));
   }).map((f) => path.relative(REPO, f));
   assert.deepEqual(found, []);
-  for (const f of ['metrics.mjs', 'learn.mjs']) assert.ok(importedFrom(lib(f), './util.mjs').includes('median'), f);
+  for (const f of ['metrics.mjs']) assert.ok(importedFrom(lib(f), './util.mjs').includes('median'), f);
 });
 
 // ------------------------------------------------------------------ AC-4

@@ -6,7 +6,6 @@ import { harness, REPO } from './helpers.mjs';
 import { gitRepo } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { lintContract } from '../lib/contract.mjs';
-import { ENUM_FIELDS } from '../lib/telemetry.mjs';
 
 // F82: lint-contract warns when a new criterion names a test_paths helper the base vacuity
 // run overlays (§6.3), so the criterion can pass on base.
@@ -106,7 +105,7 @@ test('F82 AC-3: a contract with only the warning lints with exit 0 and the plan/
   const [e] = lintEvents(dir);
   assert.deepEqual(e.data.warnings, [{ rule: 'overlaid_helper', id: 'AC-1' }]);
   assert.equal(e.data.error_count, 0);
-  assert.ok(ENUM_FIELDS.rule.includes('overlaid_helper'));
+  assert.equal(e.data.warning_count, 1);
 });
 
 test('F82 AC-3: the warning does not stop harness approve', () => {

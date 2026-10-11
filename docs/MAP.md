@@ -41,9 +41,6 @@ A test (`F112 AC-6`) fails when a file is missing here. Requirements are in `doc
 - lib/events.mjs — event log (.harness/events/*.jsonl) writer and reader
 - lib/metrics.mjs — step metrics lines (.harness/runs/*.metrics.jsonl) and their aggregation
 - lib/usage.mjs — adapter usage (turns, tokens, session) and model mismatch detection
-- lib/insights.mjs — aggregates the event log into improvement candidates
-- lib/learn.mjs — aggregates field data from the hub per harness version
-- lib/telemetry.mjs — field data export: allowlist reduction, salt and bundle files
 
 ## Adapters
 - lib/adapters/index.mjs — adapter registry, role resolution, model policy and independence classification
@@ -56,19 +53,14 @@ A test (`F112 AC-6`) fails when a file is missing here. Requirements are in `doc
 ## Commands
 - lib/commands/approve.mjs — `harness approve`: freezes a contract by hash after user approval
 - lib/commands/backlog.mjs — `harness backlog close`: closes backlog items with a reason
-- lib/commands/ci-record.mjs — `harness ci-record`: records a CI result as an event
 - lib/commands/claude-md.mjs — `harness claude-md`: writes or checks the managed CLAUDE.md block
 - lib/commands/decide.mjs — `harness decide`: records a human decision about a blocked feature
 - lib/commands/doctor.mjs — `harness doctor`: detects CLIs and reports whether each role is usable
 - lib/commands/eval.mjs — `harness eval`: one interactive evaluation round
 - lib/commands/events.mjs — `harness events`: prints the redacted event log
-- lib/commands/export.mjs — `harness export`: writes the field data bundle
 - lib/commands/init.mjs — `harness init`: creates `.harness/` for a project
-- lib/commands/insights.mjs — `harness insights`: prints improvement candidates from events
-- lib/commands/learn.mjs — `harness learn`: reads the field data hub, proposes candidates
 - lib/commands/lint-contract.mjs — `harness lint-contract`: checks contracts against the lint rules
 - lib/commands/migrate-v1.mjs — `harness migrate-v1`: converts a v1 project
-- lib/commands/note.mjs — `harness note`: records a human intervention
 - lib/commands/run.mjs — `harness run`: argument handling and report output around lib/run.mjs
 - lib/commands/stats.mjs — `harness stats`: aggregates run metrics
 - lib/commands/status.mjs — `harness status`: feature and backlog overview

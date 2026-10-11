@@ -31,14 +31,6 @@ function importedNames(src, spec) {
 const testFiles = () => fs.readdirSync(path.join(REPO, 'test')).filter((f) => f.endsWith('.test.mjs'));
 
 // ---------- AC-1 ----------
-test('F90 AC-1: lib/telemetry.mjs does not export lastExport, isShareOn or isAutoExportOn', async () => {
-  const t = await mod('lib/telemetry.mjs');
-  for (const name of ['lastExport', 'isShareOn', 'isAutoExportOn']) {
-    assert.equal(name in t, false, `telemetry.mjs still exports ${name}`);
-  }
-  assert.equal(typeof t.readExported, 'function', 'the module itself still loads');
-});
-
 // ---------- AC-2 ----------
 test('F90 AC-2: run.mjs and adapters/index.mjs do not re-export helpers; tests import them from their own module', async () => {
   const run = await mod('lib/run.mjs');
