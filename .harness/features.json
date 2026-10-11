@@ -991,14 +991,15 @@
       "title": "assert-count 이 비교 범위의 승인된 removes_tests 를 스스로 읽는다 — integration final verify 가 승인된 제거로 실패하지 않게",
       "security_tier": "critical",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F118",
       "title": "affected 모드의 테스트 수를 소스에서 센다 — base 재실행(~300초) 제거",
       "security_tier": "critical",
       "depends_on": [],
-      "status": "approved"
+      "status": "blocked",
+      "blocked_reason": "divergence"
     }
   ]
 }

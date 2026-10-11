@@ -6960,6 +6960,49 @@
         }
       ],
       "id": "B538"
+    },
+    {
+      "source": "run:F118",
+      "feature": "F118",
+      "round": 2,
+      "at": "2026-10-11T06:11:33.457Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F74 ES-2: an abort during the status run stops the running check, calls no builder and saves the run",
+      "summary": "flaky test 'F74 ES-2: an abort during the status run stops the running check, calls no builder and saves the run' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F118-r2"
+      ],
+      "id": "B539"
+    },
+    {
+      "source": "run:F118",
+      "feature": "F118",
+      "kind": "rescope",
+      "reason": "divergence",
+      "rounds": 2,
+      "blocking": [
+        "AC-2",
+        "REGRESSION"
+      ],
+      "summary": "F118 blocked (divergence): criteria that were not blocking came back — the change to fix one breaks another — newly blocking: AC-2",
+      "options": [
+        {
+          "kind": "split",
+          "summary": "split F118 so AC-2 ship as a separate feature with its own contract"
+        },
+        {
+          "kind": "rewrite",
+          "summary": "rewrite the criteria for AC-2 (new contract version, re-approval)"
+        },
+        {
+          "kind": "accept-risk",
+          "summary": "accept the risk: drop or relax AC-2 with a recorded decision"
+        }
+      ],
+      "id": "B540"
     }
   ]
 }

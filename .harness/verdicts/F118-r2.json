@@ -1,0 +1,63 @@
+{
+  "feature": "F118",
+  "round": 2,
+  "verdict": "fail",
+  "score": 5,
+  "scores": {
+    "functionality": 5,
+    "quality": 7,
+    "security": 5,
+    "errors": 8,
+    "tests": 6
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [
+    {
+      "criterion_id": "AC-2",
+      "dimension": "security",
+      "summary": "round 2 에서 바꾼 sourceTestNames 스캐너는 정규식 리터럴을 모른다. `/`/` 나 `/'/` 같은 정규식 안의 백틱·따옴표를 템플릿·문자열의 시작으로 읽어서, 그 뒤의 test( 호출을 파일 끝(백틱) 또는 다음 줄(따옴표, 개행까지 삼켜 lineStart 가 다시 켜지지 않음)까지 세지 않는다. 그래서 그런 파일에서는 test( 하나를 지워도 affected 모드 소스 수가 줄지 않아 'decreased' 가 나지 않는다. 이 저장소에서도 test/f111-narrow-output.test.mjs 는 7개 중 1개만 센다(정규식 /(`+)json/ 때문).",
+      "repro": "node -e \"import('./lib/testcount.mjs').then(({sourceTestNames:s})=>{const n=s('const re = /\\`/;\\ntest(\\'A\\', () => {});\\ntest(\\'B\\', () => {});\\n').size;if(n!==2){console.error('names',n);process.exit(1)}})\"",
+      "source": "evaluator",
+      "exit": 1,
+      "file": "lib/testcount.mjs",
+      "line": 124
+    },
+    {
+      "criterion_id": "REGRESSION",
+      "dimension": "functionality",
+      "summary": "sourceTestNames 는 이 diff 이전부터 F115 removedTests 가 쓰던 함수다. 이전 정규식은 이 저장소 테스트 파일의 이름을 모두 읽었는데, 새 스캐너는 4개 파일에서 이름을 빠뜨린다(f111 7→1, f71 21→16, f64 11→9, f33 11→10). 그래서 이 파일들의 테스트를 removes_tests 로 승인해 지워도 removed 에 들어가지 않고 'decreased' 로 잘못 fail 한다.",
+      "repro": "node -e \"import('./lib/testcount.mjs').then(({sourceTestNames:s})=>{const n=s(require('fs').readFileSync('test/f111-narrow-output.test.mjs','utf8')).size;if(n!==7){console.error('names',n);process.exit(1)}})\"",
+      "source": "evaluator",
+      "exit": 1,
+      "file": "lib/testcount.mjs",
+      "line": 106
+    }
+  ],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 0.8580238000000001,
+  "contract_hash": "5d9d4d292a7972e45aae00a1a6e929fdfa402ce28fbd0ab4ed3a5c5af21218b0",
+  "contract_round": 2,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 5,
+        "quality": 7,
+        "security": 5,
+        "errors": 8,
+        "tests": 6
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    },
+    "security-reviewer": "unused"
+  },
+  "at": "2026-10-11T06:13:03.949Z",
+  "origin": "run",
+  "flaky_tests": [
+    "F74 ES-2: an abort during the status run stops the running check, calls no builder and saves the run"
+  ]
+}

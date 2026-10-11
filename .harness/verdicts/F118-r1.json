@@ -1,0 +1,61 @@
+{
+  "feature": "F118",
+  "round": 1,
+  "verdict": "fail",
+  "score": 5,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 5,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [
+    {
+      "criterion_id": "REGRESSION",
+      "dimension": "security",
+      "summary": "In affected mode, a test commented out with a /* ... */ block comment still counts. sourceTestNames matches any line that starts with test( or it(, even inside a block comment, so the head source count stays the same and testCount.status is 'ok'. Before F118, the affected run reported fewer tests and this case was a 'decreased' fail. I confirmed this by running the same repro against bba05d3: base 2, head 1, decreased. The skip-marker scan does not catch block comments either. As a result, a test commented out to make verify pass is no longer detected. This can be fixed without changing the contract, for example by having sourceTestNames ignore block-comment and template-literal bodies.",
+      "repro": "node --input-type=module <<'EOF'\nimport path from 'node:path';\nconst R = process.cwd();\nconst { gitRepo, writeFiles } = await import(path.join(R, 'test/gitfixture.mjs'));\nconst { resolveConfig } = await import(path.join(R, 'lib/config.mjs'));\nconst { hashContract } = await import(path.join(R, 'lib/contract.mjs'));\nconst { verify } = await import(path.join(R, 'lib/verify.mjs'));\nconst c = { id: 'F7', title: 'x', security_tier: 'standard', version: 1, acceptance_criteria: [{ id: 'AC-1', criterion: 'ok', check: 'node -e 0', new: false }], security_criteria: [], error_scenarios: [], out_of_scope: [] };\nc.approval = { by: 't', at: '2026-10-11T00:00:00.000Z', hash: hashContract(c) };\nconst v = { commands: ['node --test --test-reporter=tap test/'], test_count: 'from:commands[0]', affected_command: 'node --test --test-reporter=tap {files}', test_paths: ['test/**/*.test.*'], cache: 'off' };\nconst head = \"import test from 'node:test';\\nimport { a } from '../lib/a.mjs';\\n\";\nconst dir = gitRepo({ '.harness/config.json': { profile: 'sdlc', base_branch: 'main', verify: v }, '.harness/features.json': { features: [{ id: 'F7', title: 'x', status: 'approved', depends_on: [] }] }, '.harness/contracts/F7.json': c, 'lib/a.mjs': 'export const a = 1;\\n', 'test/a.test.mjs': head + \"test('F9 AC-1', () => {});\\ntest('F9 AC-2', () => {});\\n\" });\nwriteFiles(dir, { 'test/a.test.mjs': head + \"test('F9 AC-1', () => {});\\n/*\\ntest('F9 AC-2', () => {});\\n*/\\n\" });\nconst r = await verify({ root: dir, featureId: 'F7', base: 'main', config: resolveConfig({ base_branch: 'main', verify: v, budget: { step_timeout_sec: 60 } }) });\nconsole.log(JSON.stringify(r.integrity.testCount));\nprocess.exit(r.integrity.testCount.status === 'decreased' ? 0 : 1);\nEOF",
+      "source": "security-reviewer",
+      "exit": 1,
+      "file": "lib/verify.mjs",
+      "line": 1132
+    }
+  ],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 0.8105437999999999,
+  "contract_hash": "5d9d4d292a7972e45aae00a1a6e929fdfa402ce28fbd0ab4ed3a5c5af21218b0",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 7,
+        "quality": 8,
+        "security": 5,
+        "errors": 8,
+        "tests": 7
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-10-11T06:03:32.451Z",
+  "origin": "run"
+}
