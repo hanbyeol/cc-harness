@@ -1,0 +1,70 @@
+{
+  "feature": "F115",
+  "round": 3,
+  "verdict": "fail",
+  "score": 3,
+  "scores": {
+    "functionality": 3,
+    "quality": 6,
+    "security": 3,
+    "errors": 4,
+    "tests": 4
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [
+    {
+      "criterion_id": "AC-2",
+      "dimension": "functionality",
+      "summary": "AC-2는 removed를 '러너 출력이 아니라 소스로' 세라고 합니다(merge-base·작업 트리의 test_paths 파일에서 줄 시작 test(/it( 의 문자열 리터럴 첫 인자). 그런데 구현은 parseTestNames로 러너 stdout을 파싱합니다. 계약은 이 방식을 out_of_scope에서 명시적으로 버렸습니다. 그래서 이름을 출력하지 않는 test_count(셸 명령이 정수만 출력)에서는 소스에 F9 AC-1·F9 AC-2가 있다가 사라져도 removed=0이 되어 decreased fail이 납니다. 기대값은 ok, removed 2입니다. SPEC §6.2에도 같은 러너 출력 방식이 적혀 있어 계약과 어긋납니다.",
+      "repro": "node --input-type=module -e \"import {gitRepo,writeFiles} from './test/gitfixture.mjs';import {hashContract} from './lib/contract.mjs';import {resolveConfig} from './lib/config.mjs';import {verify} from './lib/verify.mjs';const c={id:'F7',title:'x',security_tier:'standard',version:1,acceptance_criteria:[{id:'AC-1',criterion:'ok',check:'node -e 0',new:false}],security_criteria:[],error_scenarios:[],out_of_scope:[],removes_tests:['F9']};c.approval={by:'t',at:'2026-10-11T00:00:00.000Z',hash:hashContract(c)};const V={commands:['node -e 0'],test_count:'node scripts/count.mjs',test_paths:['test/**/*.test.*'],cache:'off'};const T=(n)=>\\\"test('\\\"+n+\\\"', () => { assert.ok(true); });\\n\\\";const d=gitRepo({'.harness/config.json':{profile:'sdlc',base_branch:'main',verify:V},'.harness/features.json':{features:[{id:'F7',title:'x',status:'approved',depends_on:[]}]},'.harness/contracts/F7.json':c,'scripts/count.mjs':\\\"import fs from 'node:fs';console.log((fs.readFileSync('test/a.test.mjs','utf8').match(/^test\\\\\\\\(/gm)||[]).length);\\n\\\",'test/a.test.mjs':T('F9 AC-1')+T('F9 AC-2')+T('F8 AC-1')});writeFiles(d,{'test/a.test.mjs':T('F8 AC-1')});const r=await verify({root:d,featureId:'F7',base:'main',config:resolveConfig({base_branch:'main',verify:V,budget:{step_timeout_sec:60}})});const tc=r.integrity.testCount;console.log(JSON.stringify(tc));process.exit(tc.status==='ok'&&tc.removed===2?0:1);\"",
+      "source": "evaluator",
+      "exit": 1,
+      "file": "lib/verify.mjs",
+      "line": 1134
+    },
+    {
+      "criterion_id": "SC-1",
+      "dimension": "security",
+      "summary": "SC-1 위반입니다. 작업 트리 소스에 'F9 AC-1'이 { skip: true } 옵션으로 그대로 남아 있어도 node spec 리포터가 이를 '﹣ F9 AC-1 # SKIP'로 출력합니다. parseTestNames는 ✔/✖ 줄만 읽으므로 이 테스트를 head에서 사라진 것으로 보고 removed에 넣습니다. 그 결과 승인되지 않은 'F8 AC-1'의 삭제가 가려져 status가 ok로 나옵니다. 기대값은 decreased fail입니다.",
+      "repro": "node --input-type=module -e \"import {gitRepo,writeFiles} from './test/gitfixture.mjs';import {hashContract} from './lib/contract.mjs';import {resolveConfig} from './lib/config.mjs';import {verify} from './lib/verify.mjs';const c={id:'F7',title:'x',security_tier:'standard',version:1,acceptance_criteria:[{id:'AC-1',criterion:'ok',check:'node -e 0',new:false}],security_criteria:[],error_scenarios:[],out_of_scope:[],removes_tests:['F9']};c.approval={by:'t',at:'2026-10-11T00:00:00.000Z',hash:hashContract(c)};const V={commands:['node --test --test-reporter=spec test/'],test_count:'from:commands[0]',test_paths:['test/**/*.test.*'],cache:'off'};const T=(n,o='')=>\\\"test('\\\"+n+\\\"', \\\"+o+\\\"() => { assert.ok(true); });\\n\\\";const H=\\\"import test from 'node:test';import assert from 'node:assert';\\n\\\";const d=gitRepo({'.harness/config.json':{profile:'sdlc',base_branch:'main',verify:V},'.harness/features.json':{features:[{id:'F7',title:'x',status:'approved',depends_on:[]}]},'.harness/contracts/F7.json':c,'test/a.test.mjs':H+T('F9 AC-1')+T('F8 AC-1')+T('F51 AC-1')});writeFiles(d,{'test/a.test.mjs':H+T('F9 AC-1','{ skip: true }, ')+T('F51 AC-1')});const r=await verify({root:d,featureId:'F7',base:'main',config:resolveConfig({base_branch:'main',verify:V,budget:{step_timeout_sec:60}})});console.log(JSON.stringify(r.integrity.testCount));process.exit(r.integrity.testCount.status==='decreased'?0:1);\"",
+      "source": "evaluator",
+      "exit": 1,
+      "file": "lib/testcount.mjs",
+      "line": 72
+    },
+    {
+      "criterion_id": "ES-1",
+      "dimension": "errors",
+      "summary": "ES-1 위반입니다. base 소스의 테스트 이름이 변수(for (const n of [...]) test(n, …))라서 소스에서 읽을 수 있는 이름이 없으면 removed는 0이고 감소는 fail이어야 합니다. 그런데 구현은 러너 출력에서 실제 이름을 읽어 removed=1을 계산하고 status를 ok로 냅니다.",
+      "repro": "node --input-type=module -e \"import {gitRepo,writeFiles} from './test/gitfixture.mjs';import {hashContract} from './lib/contract.mjs';import {resolveConfig} from './lib/config.mjs';import {verify} from './lib/verify.mjs';const c={id:'F7',title:'x',security_tier:'standard',version:1,acceptance_criteria:[{id:'AC-1',criterion:'ok',check:'node -e 0',new:false}],security_criteria:[],error_scenarios:[],out_of_scope:[],removes_tests:['F9']};c.approval={by:'t',at:'2026-10-11T00:00:00.000Z',hash:hashContract(c)};const V={commands:['node --test --test-reporter=spec test/'],test_count:'from:commands[0]',test_paths:['test/**/*.test.*'],cache:'off'};const H=\\\"import test from 'node:test';import assert from 'node:assert';\\n\\\";const d=gitRepo({'.harness/config.json':{profile:'sdlc',base_branch:'main',verify:V},'.harness/features.json':{features:[{id:'F7',title:'x',status:'approved',depends_on:[]}]},'.harness/contracts/F7.json':c,'test/a.test.mjs':H+\\\"for (const n of ['F9 AC-1','F8 AC-1']) test(n, () => assert.ok(true));\\n\\\"});writeFiles(d,{'test/a.test.mjs':H+\\\"for (const n of ['F8 AC-1']) test(n, () => assert.ok(true));\\n\\\"});const r=await verify({root:d,featureId:'F7',base:'main',config:resolveConfig({base_branch:'main',verify:V,budget:{step_timeout_sec:60}})});console.log(JSON.stringify(r.integrity.testCount));process.exit(r.integrity.testCount.status==='decreased'&&r.integrity.testCount.removed===0?0:1);\"",
+      "source": "evaluator",
+      "exit": 1,
+      "file": "lib/verify.mjs",
+      "line": 1138
+    }
+  ],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 1.0215429999999999,
+  "contract_hash": "43b7dae1ad4d0bb21133019aa802e9c9fa9a25657365fcc856946af23d938fd1",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 3,
+        "quality": 6,
+        "security": 3,
+        "errors": 4,
+        "tests": 4
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    },
+    "security-reviewer": "unused"
+  },
+  "at": "2026-10-11T03:08:40.523Z",
+  "origin": "run"
+}
