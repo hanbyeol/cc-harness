@@ -1,0 +1,52 @@
+{
+  "id": "F120",
+  "title": "affected 모드 제거 — F114 의 verify.affected_command·affectedTestFiles·final_verify·verify --full 을 지운다(F118 결정: 영향 집합이 테스트 67~104/113 이라 이득이 없고 정확한 수 세기는 파서 수준)",
+  "security_tier": "standard",
+  "version": 1,
+  "removes_tests": [
+    "F114"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "lib/ 아래 .mjs 파일(재귀, 테스트가 열거)의 내용에 affected_command·affectedTestFiles·final_verify 문자열이 0회 나오고 test/f114-affected-verify.test.mjs 가 없다",
+      "check": "node test/t.mjs \"F120 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "config 의 verify.affected_command 는 config_invalid(exit 2)이고 메시지가 'verify.affected_command' 와 'removed in v2.0.67' 을 담는다. harness verify F<n> --full 은 알 수 없는 옵션으로 usage(exit 2)다",
+      "check": "node test/t.mjs \"F120 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "verify·run 의 기본 동작은 그대로다 — F3 AC-1·F6 AC-1·F87 AC-1·F115 AC-2 테스트",
+      "check": "node test/t.mjs \"F3 AC-1\" && node test/t.mjs \"F6 AC-1\" && node test/t.mjs \"F87 AC-1\" && node test/t.mjs \"F115 AC-2\"",
+      "new": false
+    },
+    {
+      "id": "AC-4",
+      "criterion": "node test/assert-count.mjs --removes F120 이 exit 0 이다",
+      "check": "node test/assert-count.mjs --removes F120",
+      "new": false
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md·docs/MAP.md·README.md 에 'affected_command'·'final_verify'·'final verify' 가 없고, SPEC §6.1 에 affected 모드를 v2.0.67 에서 뺐다는 한 문장(이유: 영향 집합이 대부분의 테스트)이 있다(문서 check)",
+      "check": "node test/t.mjs \"F120 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [],
+  "out_of_scope": [
+    "F115 removes_tests·F117 assert-count 자동 수집(그대로 둔다)",
+    "verify 캐시 계열"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-11T10:51:37.949Z",
+    "hash": "c8447bc07cc582bbaa1636476f5d160e7685ff1849e56d50bdd53ee08a7aa65d"
+  }
+}

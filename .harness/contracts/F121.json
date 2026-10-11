@@ -1,0 +1,43 @@
+{
+  "id": "F121",
+  "title": "security_tier 기준을 좁힌다 — critical 은 인증·권한·비밀 처리·결제·데이터 삭제, 그리고 모델·사용자가 준 명령 실행·브랜치 병합·저장소 밖 쓰기를 바꾸는 기능뿐; 로그 가림·설정 검증·메시지는 standard",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "skills/spec/SKILL.md 의 security tier 안내가 critical 목록(authentication, authorization, secret handling, payments, data deletion, running commands that come from a model or user input, merging or switching branches, writing outside the repository)과 standard 예시(redacting log or report text, validating configuration, wording of messages, documentation)를 영어로 나열한다",
+      "check": "node test/t.mjs \"F121 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "AGENTS.md 의 workflow 1단계(Contract)가 같은 기준을 한 문장으로 적고 skills/spec/SKILL.md 를 가리킨다",
+      "check": "node test/t.mjs \"F121 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "docs/SPEC.md §5 가 security_tier 의 정의로 같은 목록을 적는다(문서 check)",
+      "check": "node test/t.mjs \"F121 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "기존 언어 규칙·skill 구조 테스트는 그대로 통과한다 — F61 AC-1·F7 AC-1 테스트",
+      "check": "node test/t.mjs \"F61 AC-1\" && node test/t.mjs \"F7 AC-1\"",
+      "new": false
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [],
+  "out_of_scope": [
+    "이미 승인된 계약의 등급 변경",
+    "lint 가 등급을 자동 판정하기"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-11T10:51:37.949Z",
+    "hash": "8f89ee0e52edbe30ec517a44639aec4706c49c90ca06e2bb5683d2fe08942a25"
+  }
+}
