@@ -1,0 +1,50 @@
+{
+  "feature": "F115",
+  "round": 2,
+  "verdict": "fail",
+  "score": 5,
+  "scores": {
+    "functionality": 7,
+    "quality": 8,
+    "security": 5,
+    "errors": 8,
+    "tests": 7
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [
+    {
+      "criterion_id": "SC-1",
+      "dimension": "security",
+      "summary": "removes_tests 접두어에 맞는 테스트가 head 에 그대로 남아 있어도 removed 로 세어진다. 그래서 removes_tests 밖의 테스트가 사라져도 통과한다. node spec 리포터는 todo 테스트를 '✔ F9 AC-1 (0.2ms) # TODO' 형태로 출력하는데, parseTestNames 는 줄 끝의 '(Nms)' 만 지운다. 그 결과 head 쪽 이름이 'F9 AC-1 (0.2ms) # TODO' 가 되어 base 의 'F9 AC-1' 과 맞지 않는다. 재현: base 에 'F9 AC-1'·'F8 AC-1' 이 있고, head 에서 'F9 AC-1' 은 { todo: true } 로 남기고 'F8 AC-1' 은 삭제했다. removes_tests 는 ['F9'] 이다. 이때 head=1, base=2 인데 removed=1 로 계산되어 status 'ok' 가 나온다. SC-1 에 따르면 removed=0 이어야 하고 'decreased' fail 이어야 한다. 같은 원리로 '﹣ name # SKIP'(skip 옵션) 줄도 이름으로 읽히지 않아 head 에서 사라진 것으로 세어진다.",
+      "repro": "node -e \"process.stdout.write(Buffer.from('Y29uc3QgVyA9IHByb2Nlc3MuY3dkKCk7CmNvbnN0IHsgZ2l0UmVwbywgd3JpdGVGaWxlcyB9ID0gYXdhaXQgaW1wb3J0KFcgKyAnL3Rlc3QvZ2l0Zml4dHVyZS5tanMnKTsKY29uc3QgeyBoYXNoQ29udHJhY3QgfSA9IGF3YWl0IGltcG9ydChXICsgJy9saWIvY29udHJhY3QubWpzJyk7CmNvbnN0IHsgcmVzb2x2ZUNvbmZpZyB9ID0gYXdhaXQgaW1wb3J0KFcgKyAnL2xpYi9jb25maWcubWpzJyk7CmNvbnN0IHsgdmVyaWZ5IH0gPSBhd2FpdCBpbXBvcnQoVyArICcvbGliL3ZlcmlmeS5tanMnKTsKY29uc3QgViA9IHsgY29tbWFuZHM6IFsnbm9kZSAtLXRlc3QgLS10ZXN0LXJlcG9ydGVyPXNwZWMgdGVzdC8nXSwgdGVzdF9jb3VudDogJ2Zyb206Y29tbWFuZHNbMF0nLCB0ZXN0X3BhdGhzOiBbJ3Rlc3QvKiovKi50ZXN0LionXSwgY2FjaGU6ICdvZmYnIH07CmNvbnN0IGMgPSB7IGlkOiAnRjcnLCB0aXRsZTogJ3gnLCBzZWN1cml0eV90aWVyOiAnc3RhbmRhcmQnLCB2ZXJzaW9uOiAxLCBhY2NlcHRhbmNlX2NyaXRlcmlhOiBbeyBpZDogJ0FDLTEnLCBjcml0ZXJpb246ICdvaycsIGNoZWNrOiAnbm9kZSAtZSAwJywgbmV3OiBmYWxzZSB9XSwgc2VjdXJpdHlfY3JpdGVyaWE6IFtdLCBlcnJvcl9zY2VuYXJpb3M6IFtdLCBvdXRfb2Zfc2NvcGU6IFtdLCByZW1vdmVzX3Rlc3RzOiBbJ0Y5J10gfTsKYy5hcHByb3ZhbCA9IHsgYnk6ICd0JywgYXQ6ICcyMDI2LTEwLTExVDAwOjAwOjAwLjAwMFonLCBoYXNoOiBoYXNoQ29udHJhY3QoYykgfTsKY29uc3QgVCA9ICJpbXBvcnQgdGVzdCBmcm9tICdub2RlOnRlc3QnO1xuIjsKY29uc3QgZGlyID0gZ2l0UmVwbyh7ICcuaGFybmVzcy9jb25maWcuanNvbic6IHsgcHJvZmlsZTogJ3NkbGMnLCBiYXNlX2JyYW5jaDogJ21haW4nLCB2ZXJpZnk6IFYgfSwgJy5oYXJuZXNzL2ZlYXR1cmVzLmpzb24nOiB7IGZlYXR1cmVzOiBbeyBpZDogJ0Y3JywgdGl0bGU6ICd4Jywgc3RhdHVzOiAnYXBwcm92ZWQnLCBkZXBlbmRzX29uOiBbXSB9XSB9LCAnLmhhcm5lc3MvY29udHJhY3RzL0Y3Lmpzb24nOiBjLAogICd0ZXN0L2EudGVzdC5tanMnOiBUICsgInRlc3QoJ0Y5IEFDLTEnLCAoKSA9PiB7fSk7XG50ZXN0KCdGOCBBQy0xJywgKCkgPT4ge30pO1xuIiB9KTsKd3JpdGVGaWxlcyhkaXIsIHsgJ3Rlc3QvYS50ZXN0Lm1qcyc6IFQgKyAidGVzdCgnRjkgQUMtMScsIHsgdG9kbzogdHJ1ZSB9LCAoKSA9PiB7fSk7XG4iIH0pOwpjb25zdCByID0gYXdhaXQgdmVyaWZ5KHsgcm9vdDogZGlyLCBmZWF0dXJlSWQ6ICdGNycsIGJhc2U6ICdtYWluJywgY29uZmlnOiByZXNvbHZlQ29uZmlnKHsgYmFzZV9icmFuY2g6ICdtYWluJywgdmVyaWZ5OiBWLCBidWRnZXQ6IHsgc3RlcF90aW1lb3V0X3NlYzogNjAgfSB9KSB9KTsKY29uc29sZS5sb2coSlNPTi5zdHJpbmdpZnkoci5pbnRlZ3JpdHkudGVzdENvdW50KSk7CnByb2Nlc3MuZXhpdChyLmludGVncml0eS50ZXN0Q291bnQuc3RhdHVzID09PSAnZGVjcmVhc2VkJyA/IDAgOiAxKTsK','base64'))\" | node --input-type=module",
+      "source": "evaluator",
+      "exit": 1,
+      "file": "lib/testcount.mjs",
+      "line": 84
+    }
+  ],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 1.2554474,
+  "contract_hash": "d56b9dcc6d088eb702e4b850094e683f617569b2a4a0570ec92c52d9dc0362b2",
+  "contract_round": 2,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 7,
+        "quality": 8,
+        "security": 5,
+        "errors": 8,
+        "tests": 7
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    },
+    "security-reviewer": "unused"
+  },
+  "at": "2026-10-11T02:39:13.604Z",
+  "origin": "run"
+}

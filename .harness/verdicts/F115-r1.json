@@ -1,0 +1,50 @@
+{
+  "feature": "F115",
+  "round": 1,
+  "verdict": "fail",
+  "score": 5,
+  "scores": {
+    "functionality": 7,
+    "quality": 8,
+    "security": 5,
+    "errors": 8,
+    "tests": 7
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [
+    {
+      "criterion_id": "SC-2",
+      "dimension": "security",
+      "summary": "parseTestNames 가 node spec 의 describe 스위트 요약 줄('✔ F9 (3ms)')과 TAP 의 스위트 'ok N - F9' 줄까지 테스트 이름으로 읽는다. 스위트는 'ℹ tests N' 수에 들어가지 않는데 removed 에는 들어가서 허용량이 실제 지워진 테스트보다 커진다. 그래서 removes_tests 밖의 테스트가 사라져도 통과한다. 예: base 에 describe('F9') 안의 'F9 AC-1'·'F9 AC-2' 와 'F8 AC-1'·'F8 AC-2' 가 있고(테스트 4개), head 에서 접두어에 맞는 2개와 맞지 않는 'F8 AC-1' 이 사라지면 removed=3, head 1 ≥ 4−3 이라 status 'ok' 가 된다. SC-2 는 이 경우 'decreased' fail 이어야 한다고 정한다.",
+      "repro": "node --input-type=module <<'EOF'\nimport { gitRepo, writeFiles } from './test/gitfixture.mjs';\nimport { hashContract } from './lib/contract.mjs';\nimport { resolveConfig } from './lib/config.mjs';\nimport { verify } from './lib/verify.mjs';\nconst c = { id: 'F7', title: 'x', security_tier: 'standard', version: 1, acceptance_criteria: [{ id: 'AC-1', criterion: 'ok', check: 'node -e 0', new: false }], security_criteria: [], error_scenarios: [], out_of_scope: [], removes_tests: ['F9'] };\nc.approval = { by: 't', at: '2026-10-11T00:00:00.000Z', hash: hashContract(c) };\nconst V = { commands: ['node --test test/'], test_count: 'from:commands[0]', test_paths: ['test/**/*.test.*'], cache: 'off' };\nconst dir = gitRepo({ '.harness/config.json': { profile: 'sdlc', base_branch: 'main', verify: V }, '.harness/features.json': { features: [{ id: 'F7', title: 'x', status: 'approved', depends_on: [] }] }, '.harness/contracts/F7.json': c, 'test/a.test.mjs': \"import { describe, test } from 'node:test';\\ndescribe('F9', () => { test('F9 AC-1', () => {}); test('F9 AC-2', () => {}); });\\ntest('F8 AC-1', () => {});\\ntest('F8 AC-2', () => {});\\n\" });\nwriteFiles(dir, { 'test/a.test.mjs': \"import { test } from 'node:test';\\ntest('F8 AC-2', () => {});\\n\" });\nconst r = await verify({ root: dir, featureId: 'F7', base: 'main', config: resolveConfig({ base_branch: 'main', verify: V, budget: { step_timeout_sec: 60 } }) });\nconsole.log(JSON.stringify(r.integrity.testCount));\nprocess.exit(r.integrity.testCount.status === 'decreased' ? 0 : 1);\nEOF",
+      "source": "evaluator",
+      "exit": 1,
+      "file": "lib/testcount.mjs",
+      "line": 71
+    }
+  ],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 1.1154608000000001,
+  "contract_hash": "d56b9dcc6d088eb702e4b850094e683f617569b2a4a0570ec92c52d9dc0362b2",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 7,
+        "quality": 8,
+        "security": 5,
+        "errors": 8,
+        "tests": 7
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    },
+    "security-reviewer": "unused"
+  },
+  "at": "2026-10-11T02:25:08.024Z",
+  "origin": "run"
+}

@@ -6934,6 +6934,32 @@
       "file": "test/f113-run-split.test.mjs",
       "priority": "low",
       "id": "B537"
+    },
+    {
+      "source": "run:F115",
+      "feature": "F115",
+      "kind": "rescope",
+      "reason": "divergence",
+      "rounds": 2,
+      "blocking": [
+        "SC-1"
+      ],
+      "summary": "F115 blocked (divergence): criteria that were not blocking came back — the change to fix one breaks another — newly blocking: SC-1",
+      "options": [
+        {
+          "kind": "split",
+          "summary": "split F115 so SC-1 ship as a separate feature with its own contract"
+        },
+        {
+          "kind": "rewrite",
+          "summary": "rewrite the criteria for SC-1 (new contract version, re-approval)"
+        },
+        {
+          "kind": "accept-risk",
+          "summary": "accept the risk: drop or relax SC-1 with a recorded decision"
+        }
+      ],
+      "id": "B538"
     }
   ]
 }
