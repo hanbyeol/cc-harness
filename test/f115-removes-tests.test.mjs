@@ -7,7 +7,7 @@ import { REPO, harness } from './helpers.mjs';
 import { gitRepo, writeFiles } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { hashContract, lintContract, matchesRemoved } from '../lib/contract.mjs';
-import { parseTestNames } from '../lib/testcount.mjs';
+import { sourceTestNames } from '../lib/testcount.mjs';
 import { readEvents } from '../lib/events.mjs';
 import { verify } from '../lib/verify.mjs';
 
@@ -79,19 +79,11 @@ test('F115 AC-1 matchesRemoved: exact name, then prefix + space or colon', () =>
   assert.equal(matchesRemoved('F5 AC-1', undefined), false);
 });
 
-test('F115 AC-1 parseTestNames reads node spec and TAP lines', () => {
-  const spec = parseTestNames('✔ F1 AC-1 does x (12.3ms)\n  ✖ F1 AC-2 (3ms)\nℹ tests 2\n');
-  assert.deepEqual([...spec], ['F1 AC-1 does x', 'F1 AC-2']);
-  const tap = parseTestNames('ok 1 - F1 AC-1\n    not ok 2 - F1 AC-2 # SKIP later\n# tests 2\n');
-  assert.deepEqual([...tap], ['F1 AC-1', 'F1 AC-2']);
-  assert.equal(parseTestNames('nothing here\n').size, 0);
-});
-
-test('F115 SC-2 parseTestNames skips describe suite summary lines (spec and TAP)', () => {
-  const spec = parseTestNames('▶ F9\n  ✔ F9 AC-1 (1ms)\n  ✔ F9 AC-2 (1ms)\n✔ F9 (3ms)\n✔ F8 AC-1 (1ms)\n');
-  assert.deepEqual([...spec], ['F9 AC-1', 'F9 AC-2', 'F8 AC-1']);
-  const tap = parseTestNames('# Subtest: F9\n    ok 1 - F9 AC-1\n    ok 2 - F9 AC-2\nok 1 - F9\nok 2 - F8 AC-1\n');
-  assert.deepEqual([...tap], ['F9 AC-1', 'F9 AC-2', 'F8 AC-1']);
+test('F115 AC-1 sourceTestNames reads literal first arguments of line-start test( and it( calls', () => {
+  const src = "test('F1 AC-1', () => {});\n  it(\"F1 AC-2\", {skip: true}, () => {});\ntest(`F1 AC-3`, () => {});\n"
+    + "test(`F1 ${x}`, () => {});\nfor (const n of ['F9']) test(n, () => {});\ndescribe('F9', () => {});\nx; test('F2', () => {});\n";
+  assert.deepEqual([...sourceTestNames(src)], ['F1 AC-1', 'F1 AC-2', 'F1 AC-3']);
+  assert.equal(sourceTestNames('nothing here\n').size, 0);
 });
 
 // ------------------------------------------------------------------ AC-2
@@ -250,12 +242,41 @@ test('F115 SC-3 adding a removes_tests entry after approval makes verify refuse 
 
 // ------------------------------------------------------------------ ES-1
 
-test('F115 ES-1 a base output without test names allows nothing', async () => {
-  const dir = fixture(['F9']);
-  headTests(dir, 'F8 AC-1', 'F51 AC-1');
-  const tc = (await run(dir, {}, { env: { ANON: '1' } })).integrity.testCount;
+test('F115 ES-1 test names the base source does not spell as literals allow nothing', async () => {
+  const over = { test_count: 'node scripts/count.mjs' };
+  const dir = fixture(['F9'], over);
+  const vars = (...names) => names.map((n, i) => `const n${i} = '${n}';\ntest(n${i}, () => { assert.ok(true); });\n`).join('');
+  writeFiles(dir, {
+    'scripts/count.mjs': "import fs from 'node:fs';console.log((fs.readFileSync('test/a.test.mjs','utf8').match(/^test\\(/gm)||[]).length);\n",
+    'test/a.test.mjs': vars('F9 AC-1', 'F9 AC-2', 'F8 AC-1'),
+  });
+  spawnSync('git', ['add', '-A'], { cwd: dir });
+  spawnSync('git', ['commit', '-qm', 'vars'], { cwd: dir });
+  spawnSync('git', ['branch', '-f', 'main', 'HEAD'], { cwd: dir });
+  writeFiles(dir, { 'test/a.test.mjs': vars('F8 AC-1') });
+  const tc = (await run(dir, over)).integrity.testCount;
   assert.equal(tc.status, 'decreased', JSON.stringify(tc));
   assert.equal(tc.removed, 0);
+});
+
+test('F115 AC-2 removed is read from sources even when test_count prints no names', async () => {
+  const dir = fixture(['F9'], { test_count: 'node scripts/count.mjs' });
+  writeFiles(dir, { 'scripts/count.mjs': "import fs from 'node:fs';console.log((fs.readFileSync('test/a.test.mjs','utf8').match(/^test\\(/gm)||[]).length);\n" });
+  spawnSync('git', ['add', '-A'], { cwd: dir });
+  spawnSync('git', ['commit', '-qm', 'count'], { cwd: dir });
+  spawnSync('git', ['branch', '-f', 'main', 'HEAD'], { cwd: dir });
+  headTests(dir, 'F8 AC-1', 'F51 AC-1');
+  const tc = (await run(dir, { test_count: 'node scripts/count.mjs' })).integrity.testCount;
+  assert.equal(tc.status, 'ok', JSON.stringify(tc));
+  assert.equal(tc.removed, 2);
+});
+
+test('F115 SC-1 a matching test still in the source with a skip option is not removed', async () => {
+  const dir = fixture(['F9']);
+  writeFiles(dir, { 'test/a.test.mjs': tests('F9 AC-1', 'F51 AC-1').replace("test('F9 AC-1', ", "test('F9 AC-1', { skip: true }, ") });
+  const tc = (await run(dir)).integrity.testCount;
+  assert.equal(tc.status, 'decreased', JSON.stringify(tc));
+  assert.equal(tc.removed, 1);
 });
 
 // ------------------------------------------------------------------ ES-2
