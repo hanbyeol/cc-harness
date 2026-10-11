@@ -11,7 +11,8 @@
       "node --test \"test/**/*.test.mjs\"",
       "node bin/harness.mjs lint-contract"
     ],
-    "test_count": "from:commands[0]"
+    "test_count": "from:commands[0]",
+    "affected_command": "node --test {files}"
   },
   "threshold": 7,
   "max_rounds": 3,
