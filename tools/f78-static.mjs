@@ -2,7 +2,7 @@
 // for a test whose name starts with the check's id in the files t.mjs would load for it.
 import fs from 'node:fs';
 import path from 'node:path';
-import { selectTestFiles } from './t.mjs';
+import { selectTestFiles } from '../test/t.mjs';
 
 // The ids of the `node test/t.mjs "<id>"` checks of contracts F70..F77 under `repo`.
 // A contract that cannot be read or parsed fails with its path in the message.

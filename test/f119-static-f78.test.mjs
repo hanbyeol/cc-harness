@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { REPO, tmpdir } from './helpers.mjs';
-import { t78CheckIds, hasTestFor } from './f78-static.mjs';
+import { t78CheckIds, hasTestFor } from '../tools/f78-static.mjs';
 
 test('F119 AC-1 the F78 AC-5 test block starts no child process', () => {
   const src = fs.readFileSync(path.join(REPO, 'test', 'f78-scoped-runner.test.mjs'), 'utf8');

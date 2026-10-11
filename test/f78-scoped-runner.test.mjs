@@ -8,7 +8,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { REPO, tmpdir } from './helpers.mjs';
 import { selectTestFiles as selectFiles } from './t.mjs';
-import { t78CheckIds, hasTestFor } from './f78-static.mjs';
+import { t78CheckIds, hasTestFor } from '../tools/f78-static.mjs';
 
 const T_MJS = path.join(REPO, 'test', 't.mjs');
 
