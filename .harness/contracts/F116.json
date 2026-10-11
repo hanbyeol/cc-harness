@@ -84,7 +84,7 @@
     },
     {
       "id": "AC-7",
-      "criterion": "docs/SPEC.md·README.md·AGENTS.md·docs/MAP.md 에 'harness export'·'harness learn'·'harness insights'·'ci-record'·'harness note'·'CC_HARNESS_TELEMETRY'·'docs/telemetry.md' 문자열이 없고, SPEC §2 에 telemetry 를 v2.0.64 에서 뺐으며 config 의 telemetry 키는 무시된다는 한 문장이 있다(문서 check)",
+      "criterion": "docs/SPEC.md·README.md·AGENTS.md·docs/MAP.md 에 'harness export'·'harness learn'·'harness insights'·'ci-record'·'harness note'·'CC_HARNESS_TELEMETRY'·'docs/telemetry.md' 문자열이 없고, SPEC §2 에 telemetry 를 v2.0.65 에서 뺐으며 config 의 telemetry 키는 무시된다는 한 문장이 있다(문서 check)",
       "check": "node test/t.mjs \"F116 AC-7\"",
       "new": true
     }
@@ -103,5 +103,10 @@
     "사용자 홈의 허브·salt 파일 정리(사람이 지운다)",
     "telemetry 를 별도 패키지로 만들기",
     "이 저장소 .harness/config.json 의 telemetry 키 삭제 — 사람이 한다"
-  ]
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-11T03:53:24.811Z",
+    "hash": "e6c3adf5a3d9581b417c09cbd759ed5c64b4387da102da10f013954775980d51"
+  }
 }
