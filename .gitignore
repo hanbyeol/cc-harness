@@ -11,3 +11,6 @@ node_modules/
 # Event log written by this checkout's own commands (verify runs lint-contract); a core older
 # than F54 has no events/** exemption and would count the file as a .harness change.
 .harness/events/
+
+# harness run worktrees (blocked features keep theirs for inspection)
+.harness/wt/
