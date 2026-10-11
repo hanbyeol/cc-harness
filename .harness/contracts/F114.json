@@ -98,5 +98,10 @@
     "테스트 수 캐시·verify 결과 캐시의 제거 — 별도 기능",
     "node 외 러너(pytest·go)의 영향 파일 계산 — 상대 import 를 쓰는 ESM/CJS 만",
     "이 저장소 .harness/config.json 에 affected_command 를 두는 것 — 사람이 승인 뒤 한다"
-  ]
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-11T01:01:17.105Z",
+    "hash": "c1fd0a0ea54549f5866949a05513df766c24957ec6ade6dd67b1c27ea0a45f96"
+  }
 }
