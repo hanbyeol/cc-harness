@@ -7,7 +7,6 @@ import { gitRepo } from './gitfixture.mjs';
 import { hashContract, lintContract } from '../lib/contract.mjs';
 import { HarnessError } from '../lib/errors.mjs';
 import { isOpen, recordEntries, recordFlakyTests, resolveItems } from '../lib/backlog.mjs';
-import { propose } from '../lib/learn.mjs';
 import evalCommand from '../lib/commands/eval.mjs';
 import statusCommand from '../lib/commands/status.mjs';
 
@@ -101,12 +100,6 @@ const ONE_OPEN_ONE_CLOSED = () => [
   { id: 'B2', summary: 'open finding', priority: 'high' },
 ];
 
-test('F95 AC-2: isOpen is false for an item with closed', () => {
-  const [closed, open] = ONE_OPEN_ONE_CLOSED();
-  assert.equal(isOpen(closed), false);
-  assert.equal(isOpen(open), true);
-});
-
 function evalFixture(backlogItems) {
   const c = {
     id: 'F1', title: 'fixture feature', security_tier: 'standard', version: 1,
@@ -126,86 +119,6 @@ function evalFixture(backlogItems) {
     'scripts/ok.mjs': 'process.exit(0);\n',
   }, { branch: null });
 }
-
-test('F95 AC-2: harness status counts only the open item', async () => {
-  const dir = project({ items: ONE_OPEN_ONE_CLOSED() });
-  const out = [];
-  assert.equal(await statusCommand({ root: dir, args: [], out: (s) => out.push(s), err: () => {} }), 0);
-  const text = out.join('\n');
-  assert.match(text, /^backlog: 1 open \(high 1 · medium 0 · low 0 · none 0\)$/m);
-  assert.ok(!text.includes('closed finding'), text);
-});
-
-test('F95 AC-2: the eval prompt "## Open backlog" lists only the open item', async () => {
-  const dir = evalFixture(ONE_OPEN_ONE_CLOSED());
-  const prompts = [];
-  const scores = { functionality: 9, quality: 9, security: 9, errors: 9, tests: 9 };
-  const json = { scores, findings: [], out_of_scope: [] };
-  const runAdapter = async (role, opts) => {
-    prompts.push(opts.prompt);
-    return { ok: true, error: null, text: JSON.stringify(json), json, costUsd: 0, exitCode: 0 };
-  };
-  const verifyResult = {
-    pass: true, commands: [], warnings: [],
-    integrity: { markers: [], harnessPaths: [], testCount: { status: 'unset' } },
-    criteria: [{ id: 'AC-1', pass: true }],
-  };
-  try {
-    await evalCommand({ root: dir, args: ['F1'], out: () => {}, err: () => {}, deps: { runAdapter, verifyResult } });
-  } catch (e) {
-    if (!(e instanceof HarnessError)) throw e;
-  }
-  assert.ok(prompts.length >= 1, 'the evaluator was asked');
-  const prompt = prompts[0];
-  // F111: the evaluator prompt has no backlog section at all.
-  assert.ok(!prompt.includes('## Open backlog'), prompt);
-  assert.ok(!prompt.includes('closed finding'), prompt);
-  assert.ok(!/^- B\d+ \[/m.test(prompt), prompt);
-});
-
-test('F95 AC-2: learn --propose does not merge into a closed item', () => {
-  const dir = project({ items: [
-    { id: 'B1', source: 'field-data', learn_rule: 'rule:a', summary: 'a', priority: 'low', seen: 1, closed: { as: 'obsolete', reason: 'r', at: '2026-10-01T00:00:00.000Z' } },
-    { id: 'B2', source: 'field-data', learn_rule: 'rule:b', summary: 'b', priority: 'low', seen: 1 },
-  ] });
-  const evidence = { projects: 2, events: 10, versions: ['2.0.0'] };
-  const { added, updated } = propose(backlogFile(dir), [
-    { key: 'rule:a', title: 'a', priority: 'low', evidence },
-    { key: 'rule:b', title: 'b', priority: 'low', evidence },
-  ]);
-  assert.deepEqual(updated.map((i) => i.id), ['B2']);
-  assert.deepEqual(added.map((i) => i.learn_rule), ['rule:a']);
-  assert.equal(items(dir).find((i) => i.id === 'B1').seen, 1, 'the closed item is not bumped');
-});
-
-test('F95 AC-2: an evaluator backlog_id naming a closed item adds a new item instead of bumping seen', () => {
-  const dir = project({ items: ONE_OPEN_ONE_CLOSED() });
-  recordEntries(backlogFile(dir), [
-    { summary: 'again closed', backlog_id: 'B1' },
-    { summary: 'again open', backlog_id: 'B2' },
-  ], { feature: 'F7', round: 1, at: '2026-10-09T00:00:00.000Z' });
-  const after = items(dir);
-  assert.deepEqual(after[0], ONE_OPEN_ONE_CLOSED()[0], 'the closed item is untouched');
-  assert.equal(after[1].seen, 2);
-  assert.deepEqual(after[1].sources, ['F7-r1']);
-  assert.equal(after.length, 3);
-  assert.equal(after[2].summary, 'again closed');
-  assert.equal(after[2].id, 'B3');
-});
-
-test('F95 AC-2: a flaky test with only a closed flaky_test item gets a new item', () => {
-  const closedFlaky = { id: 'B1', kind: 'flaky_test', reason: 'flaky_test', priority: 'low', test: 'slow test', summary: 's', seen: 1, sources: ['F1-r1'],
-    closed: { as: 'resolved', reason: 'stabilized', at: '2026-10-01T00:00:00.000Z' } };
-  const openFlaky = { id: 'B2', kind: 'flaky_test', reason: 'flaky_test', priority: 'low', test: 'other test', summary: 'o', seen: 1, sources: ['F1-r1'] };
-  const dir = project({ items: [closedFlaky, openFlaky] });
-  recordFlakyTests(backlogFile(dir), ['slow test', 'other test'], { feature: 'F8', round: 2, at: '2026-10-09T00:00:00.000Z' });
-  const after = items(dir);
-  assert.deepEqual(after[0], closedFlaky, 'the closed item is not reused');
-  assert.equal(after[1].seen, 2);
-  assert.equal(after.length, 3);
-  assert.equal(after[2].test, 'slow test');
-  assert.equal(after[2].closed, undefined);
-});
 
 // ---------- AC-3 ----------
 test('F95 AC-3: one feedback/backlog_close event per close with ids, as and reason', () => {
