@@ -87,6 +87,13 @@ test('F115 AC-1 parseTestNames reads node spec and TAP lines', () => {
   assert.equal(parseTestNames('nothing here\n').size, 0);
 });
 
+test('F115 SC-2 parseTestNames skips describe suite summary lines (spec and TAP)', () => {
+  const spec = parseTestNames('▶ F9\n  ✔ F9 AC-1 (1ms)\n  ✔ F9 AC-2 (1ms)\n✔ F9 (3ms)\n✔ F8 AC-1 (1ms)\n');
+  assert.deepEqual([...spec], ['F9 AC-1', 'F9 AC-2', 'F8 AC-1']);
+  const tap = parseTestNames('# Subtest: F9\n    ok 1 - F9 AC-1\n    ok 2 - F9 AC-2\nok 1 - F9\nok 2 - F8 AC-1\n');
+  assert.deepEqual([...tap], ['F9 AC-1', 'F9 AC-2', 'F8 AC-1']);
+});
+
 // ------------------------------------------------------------------ AC-2
 
 test('F115 AC-2 verify: matching tests removed from head are allowed, with removed and a warning (spec output)', async () => {
