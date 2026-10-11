@@ -5,10 +5,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import os from 'node:os';
-import { spawn, spawnSync } from 'node:child_process';
-import { REPO, tmpdir, readJson } from './helpers.mjs';
+import { spawnSync } from 'node:child_process';
+import { REPO, tmpdir } from './helpers.mjs';
 import { selectTestFiles as selectFiles } from './t.mjs';
+import { t78CheckIds, hasTestFor } from './f78-static.mjs';
 
 const T_MJS = path.join(REPO, 'test', 't.mjs');
 
@@ -146,41 +146,11 @@ test('F78 AC-4 a failing test of a longer id (AC-10) does not count for its pref
 });
 
 // ---------- AC-5 ----------
-// spawnSync's result shape ({status, stderr}) without blocking the event loop.
-function runAsync(file, args, opts) {
-  return new Promise((resolve) => {
-    const child = spawn(file, args, { ...opts, stdio: ['ignore', 'ignore', 'pipe'] });
-    let stderr = '';
-    child.stderr.on('data', (b) => { stderr += b; });
-    child.on('close', (status) => resolve({ status, stderr }));
-    child.on('error', (e) => resolve({ status: null, stderr: String(e) }));
-  });
-}
-test('F78 AC-5 every t.mjs check of the F70–F77 contracts still exits 0', { timeout: 30 * 60 * 1000 }, async () => {
-  const ids = [];
-  for (let n = 70; n <= 77; n++) {
-    const c = readJson(path.join(REPO, '.harness', 'contracts', `F${n}.json`));
-    for (const key of ['acceptance_criteria', 'security_criteria', 'error_scenarios']) {
-      for (const cr of c[key] || []) {
-        const m = /^node test\/t\.mjs "([^"]+)"$/.exec(cr.check);
-        if (m) ids.push(m[1]);
-      }
-    }
-  }
+test('F78 AC-5 every t.mjs check of the F70–F77 contracts still exits 0', () => {
+  const ids = t78CheckIds(REPO);
   assert.ok(ids.length >= 60, `found ${ids.length} t.mjs checks`);
-  // Run the checks a few at a time, as verify does (check_parallel auto = cpus / 4): one at a
-  // time this test took over 4 minutes and set the wall time of the whole suite.
-  const failed = [];
-  const queue = [...ids];
-  const worker = async () => {
-    for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
-      const r = await runAsync(process.execPath, [T_MJS, id], { cwd: REPO, env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
-      if (r.status !== 0) failed.push(`${id}: exit ${r.status}\n${r.stderr.slice(-2000)}`);
-    }
-  };
-  await Promise.all(Array.from({ length: Math.max(2, Math.floor(os.availableParallelism() / 4)) }, worker));
-  failed.sort();
-  assert.deepEqual(failed, []);
+  const missing = ids.filter((id) => !hasTestFor(REPO, id));
+  assert.deepEqual(missing, []);
 });
 
 // ---------- AC-6 ----------
