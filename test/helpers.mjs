@@ -25,14 +25,7 @@ export function tmpdir(prefix = 'harness-test-') {
   return d;
 }
 
-// Telemetry is on by default (F63): every run and eval exports to the hub. Tests export to a hub
-// of their own, never to the user's (<home>/.cc-harness/hub or a CC_HARNESS_HUB they set).
-// Child processes inherit it; a test that needs another hub passes CC_HARNESS_HUB itself.
-export const TEST_HUB = path.join(tmpdir('harness-test-hub-'), 'hub');
-process.env.CC_HARNESS_HUB = TEST_HUB;
-
-// An export creates the installation's salt in <home>/.cc-harness/salt (F101): tests use a home
-// of their own (HOME, and USERPROFILE on Windows), never the user's.
+// Tests use a home of their own (HOME, and USERPROFILE on Windows), never the user's.
 export const TEST_HOME = tmpdir('harness-test-home-');
 process.env.HOME = TEST_HOME;
 process.env.USERPROFILE = TEST_HOME;

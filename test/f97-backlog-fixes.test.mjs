@@ -1,6 +1,5 @@
-// F97: a batch of backlog fixes — repro_program length cap, note's feature id check, unused
-// reviewer findings after an eval_error, export name collisions, learn --json --compare, the
-// profile section's anchor, and tests for init's CLAUDE.md warnings and effort-free reviews.
+// F97: a batch of backlog fixes — repro_program length cap, unused reviewer findings after an
+// eval_error, the profile section's anchor, and tests for init's CLAUDE.md warnings and effort-free reviews.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -10,8 +9,6 @@ import { gitRepo, writeFiles, commitAll } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { evaluate, reproProgram } from '../lib/eval.mjs';
 import { recordEvent } from '../lib/events.mjs';
-import { planExport, readSalt } from '../lib/telemetry.mjs';
-import { runExport } from '../lib/commands/export.mjs';
 import { renderBlock, TEMPLATE } from '../lib/claudemd.mjs';
 
 // ------------------------------------------------------------------ eval fixtures
@@ -95,26 +92,6 @@ test('F97 AC-1 a finding event keeps a repro_program of length 100 for a 500-cha
   assert.equal(e.data.repro_program.length, 100);
 });
 
-// ------------------------------------------------------------------ AC-2
-
-test('F97 AC-2 note with an unknown feature id is a usage error naming it and records no event', () => {
-  const dir = project([{ id: 'F2', title: 'two', status: 'todo', depends_on: [] }]);
-  const r = harness(['note', 'F77', '--kind', 'other', 'typo'], { cwd: dir });
-  assert.equal(r.code, 2, r.stdout + r.stderr);
-  assert.match(r.stderr, /F77/);
-  assert.equal(events(dir).filter((e) => e.type === 'intervention').length, 0);
-});
-
-test('F97 AC-2 note with a known feature id or without one is recorded as before', () => {
-  const dir = project([{ id: 'F2', title: 'two', status: 'todo', depends_on: [] }]);
-  let r = harness(['note', 'F2', '--kind', 'other', 'known'], { cwd: dir });
-  assert.equal(r.code, 0, r.stdout + r.stderr);
-  r = harness(['note', '--kind', 'environment', 'no feature'], { cwd: dir });
-  assert.equal(r.code, 0, r.stdout + r.stderr);
-  const notes = events(dir).filter((e) => e.type === 'intervention');
-  assert.deepEqual(notes.map((e) => [e.feature ?? null, e.data.kind]), [['F2', 'other'], [null, 'environment']]);
-});
-
 // ------------------------------------------------------------------ AC-3
 
 test('F97 AC-3 an evaluator eval_error marks the answering reviewer\'s security/finding events unused', async () => {
@@ -144,77 +121,6 @@ test('F97 AC-3 SPEC §7.8 describes the unused mark after an eval_error', () => 
   const spec = fs.readFileSync(path.join(REPO, 'docs', 'SPEC.md'), 'utf8');
   const s = spec.slice(spec.indexOf('8. **평가·보안 이벤트**'), spec.indexOf('## 8. '));
   assert.match(s, /eval_error[^\n]*`unused: true`/);
-});
-
-// ------------------------------------------------------------------ AC-4 / ES-1
-
-function exportFixture() {
-  const dir = gitRepo({
-    '.harness/config.json': { profile: 'sdlc', base_branch: 'main', verify: { commands: [] }, telemetry: { share: true } },
-    '.harness/features.json': { features: [{ id: 'F9', title: 'feature F9', status: 'approved', depends_on: [] }] },
-    '.harness/backlog.json': { items: [] },
-    '.harness/.gitignore': 'wt/\n*.tmp-*\n',
-  }, { branch: null });
-  recordEvent(dir, { stage: 'feedback', type: 'intervention', feature: 'F9', data: { kind: 'other', text: 'x' } }, { now: new Date('2026-09-01T00:00:00Z') });
-  return dir;
-}
-const collect = () => {
-  const out = [];
-  const err = [];
-  return { out, err, o: (l) => out.push(l), e: (l) => err.push(l) };
-};
-const NOW = new Date('2026-10-09T01:02:03.456Z');
-
-test('F97 AC-4 an export whose bundle name exists writes a suffixed bundle and leaves the existing one alone', () => {
-  const dir = exportFixture();
-  const hub = path.join(tmpdir(), 'hub');
-  const { file } = planExport(dir, { hub, now: NOW, salt: readSalt() });
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, 'existing\n');
-  const c = collect();
-  const code = runExport({ root: dir, hub, out: c.o, err: c.e, now: NOW });
-  assert.equal(code, 0, c.err.join('\n'));
-  const names = fs.readdirSync(path.dirname(file)).sort();
-  assert.equal(names.length, 2, names.join(','));
-  assert.equal(fs.readFileSync(file, 'utf8'), 'existing\n');
-  const other = path.join(path.dirname(file), names.find((n) => n !== path.basename(file)));
-  const lines = fs.readFileSync(other, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
-  assert.equal(lines.length, 1);
-  assert.ok(c.out.some((l) => l.includes(other)), c.out.join('\n'));
-});
-
-test('F97 ES-1 when the suffixed name exists too the export fails with a warning and changes no file', () => {
-  const dir = exportFixture();
-  const hub = path.join(tmpdir(), 'hub');
-  const { file } = planExport(dir, { hub, now: NOW, salt: readSalt() });
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, 'existing\n');
-  const suffixed = file.replace(/\.jsonl$/, '-1.jsonl');
-  fs.writeFileSync(suffixed, 'existing too\n');
-  const c = collect();
-  const code = runExport({ root: dir, hub, out: c.o, err: c.e, now: NOW });
-  assert.equal(code, 1);
-  assert.match(c.err.join('\n'), /export failed/);
-  // the one retry was made: the failure is about the suffixed name
-  assert.ok(c.err.join('\n').includes(path.basename(suffixed)), c.err.join('\n'));
-  assert.deepEqual(fs.readdirSync(path.dirname(file)).sort(), [path.basename(file), path.basename(suffixed)].sort());
-  assert.equal(fs.readFileSync(file, 'utf8'), 'existing\n');
-  assert.equal(fs.readFileSync(suffixed, 'utf8'), 'existing too\n');
-  assert.equal(fs.existsSync(path.join(dir, '.harness', 'events', '.exported')), false);
-});
-
-// ------------------------------------------------------------------ AC-5
-
-test('F97 AC-5 learn --json --compare on an empty hub prints the same empty JSON as --json', () => {
-  const hub = tmpdir();
-  const cwd = tmpdir();
-  const plain = harness(['learn', '--hub', hub, '--json'], { cwd });
-  const cmp = harness(['learn', '--hub', hub, '--json', '--compare', '2.0.1', '2.0.2'], { cwd });
-  assert.equal(plain.code, 0, plain.stderr);
-  assert.equal(cmp.code, 0, cmp.stderr);
-  const j = JSON.parse(cmp.stdout);
-  assert.equal(j.message, 'no field data');
-  assert.deepEqual(j, JSON.parse(plain.stdout));
 });
 
 // ------------------------------------------------------------------ AC-6

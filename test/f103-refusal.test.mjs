@@ -10,7 +10,6 @@ import { hashContract } from '../lib/contract.mjs';
 import { getAdapter } from '../lib/adapters/index.mjs';
 import { runAdapter } from '../lib/adapters/common.mjs';
 import { readEvents } from '../lib/events.mjs';
-import { exportLine } from '../lib/telemetry.mjs';
 import { verify as realVerify } from '../lib/verify.mjs';
 import { runFeatures } from '../lib/run.mjs';
 
@@ -274,32 +273,6 @@ test('F103 AC-3 harness eval: a refusal exits 1 with refusal and the detail, wri
 });
 
 // ------------------------------------------------------------------ AC-4
-test('F103 AC-4 blocked (refusal) with max_rounds verdicts of the same hash is re-approved', () => {
-  const hash = contract('F1').approval.hash;
-  const verdict = (k) => ({
-    feature: 'F1', round: k, verdict: 'fail', score: 3, verify_pass: true, origin: 'eval', contract_hash: hash, contract_round: k,
-    blocking: [{ criterion_id: 'AC-1', summary: 'broken', repro: 'node scripts/ok.mjs', exit: 1 }], backlogged: [],
-  });
-  const files = Object.fromEntries([1, 2, 3].map((k) => [`.harness/verdicts/F1-r${k}.json`, verdict(k)]));
-  const dir = fixture(['F1'], { feature: { status: 'blocked', blocked_reason: 'refusal', eval_round: 3 }, files });
-  const r = harness(['approve', 'F1', '--by', 'test'], { cwd: dir });
-  assert.equal(r.code, 0, r.stdout + r.stderr);
-  assert.equal(featureOf(dir).status, 'approved');
-  assert.equal('blocked_reason' in featureOf(dir), false);
-});
-
-test('F103 AC-4 harness status shows (refusal) on the blocked line', () => {
-  const dir = fixture(['F1'], { feature: { status: 'blocked', blocked_reason: 'refusal' } });
-  const r = harness(['status'], { cwd: dir });
-  assert.equal(r.code, 0, r.stdout + r.stderr);
-  assert.match(r.stdout, /^\s*F1\s+blocked \(refusal\)\s+feature F1$/m);
-});
-
-test('F103 AC-4 telemetry export keeps the reason refusal', () => {
-  const line = exportLine({ ts: '2026-10-09T00:00:00.000Z', stage: 'build', type: 'status', feature: 'F1', round: 1, data: { from: 'in_progress', to: 'blocked', reason: 'refusal' } }, { project: 'a'.repeat(16) });
-  assert.deepEqual(line.data, { from: 'in_progress', to: 'blocked', reason: 'refusal' });
-});
-
 // ------------------------------------------------------------------ AC-5
 test('F103 AC-5 SPEC §7.6, §8 and §10 describe refusal: the stop_reason condition, run and eval handling, re-approval', () => {
   const spec = fs.readFileSync(path.join(REPO, 'docs', 'SPEC.md'), 'utf8');

@@ -15,6 +15,8 @@ AI 코딩 CLI(Claude Code · Codex CLI · Gemini CLI, 그 외 AGENTS.md 호환 �
 | 대화형 | 사용자가 CLI 안에서 skill 호출(`spec` → `plan` → `build`) — skill이 코어 명령을 호출 |
 | 자율 | 사람이 계약을 일괄 승인한 뒤 `harness run` — 코어가 기능별로 headless 세션을 띄워 끝까지 진행, 종료 시 보고서 + PR |
 
+telemetry(이벤트 내보내기·학습·insights 와 사람 개입·CI 기록 명령)는 v2.0.65 에서 뺐으며 config 의 `telemetry` 키는 오류 없이 무시된다.
+
 **이벤트 기록** — 두 모드 모두 코어는 단계별 사건을 `.harness/events/YYYY-MM.jsonl`(`ts` 의 UTC 월)에 한 줄씩 추가한다. 한 줄은
 `{ts, stage, type, feature?, round?, harness_version, profile, project, data}` 이다: `ts` 는 ISO 시각, `stage` 는 plan·build·verify·eval·security·feedback 중 하나,
 `type` 은 단계 안의 사건 이름, `feature`·`round` 는 해당될 때만, `harness_version` 은 코어 `package.json` 의 버전, `profile` 은 config 의 profile,
@@ -53,7 +55,7 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
   verify 가 끝나지 못하면(오류·중단) 이 이벤트들은 남지 않는다.
 - 실행 단계 이벤트와 metrics(§8.11)에는 프롬프트·모델 응답 본문·diff·명령 출력이 들어가지 않는다 — 수치·이름·id·경로만 남는다.
 - 기록 실패(디스크·권한·`events` 가 파일 등)는 명령의 결과·출력·종료 코드를 바꾸지 않고 stderr 에 경고 한 줄(`harness: warning: could not record event …`, 프로세스당 한 번)만 남긴다.
-- `harness run` 이 기능 worktree 의 변경을 커밋할 때 `.harness/events/` 는 뺀다(test-count 캐시와 같음) — 기능 브랜치마다 같은 월 파일에 줄을 더하면 병합이 충돌하기 때문이다. worktree 안에서 남은 이벤트는 커밋되지 않는다. 이벤트 로그는 프로젝트의 로컬 기록이다 — 대상 프로젝트는 `.harness/events/` 를 `.gitignore` 에 두기를 권하고(이 저장소도 그렇다), 여러 프로젝트에 걸친 축적은 git 이 아니라 `harness export`(허브, 기본으로 켜짐)로 한다. 이미 무시되는 경로는 run 의 `git add` 제외 지정에서 빠진다(git 이 무시된 경로를 가리키는 pathspec 을 거부하므로).
+- `harness run` 이 기능 worktree 의 변경을 커밋할 때 `.harness/events/` 는 뺀다(test-count 캐시와 같음) — 기능 브랜치마다 같은 월 파일에 줄을 더하면 병합이 충돌하기 때문이다. worktree 안에서 남은 이벤트는 커밋되지 않는다. 이벤트 로그는 프로젝트의 로컬 기록이다 — 대상 프로젝트는 `.harness/events/` 를 `.gitignore` 에 두기를 권하고(이 저장소도 그렇다), 이미 무시되는 경로는 run 의 `git add` 제외 지정에서 빠진다(git 이 무시된 경로를 가리키는 pathspec 을 거부하므로).
 - `harness events [--stage S] [--feature F] [--since YYYY-MM-DD] [--json]` 은 모든 월 파일의 이벤트를 `ts` 순(같으면 파일 순)으로 보여 준다. 조건은 함께 쓰면 모두 만족해야 하고,
   `--since` 는 그날 0시(UTC) 이후다. 텍스트 출력은 한 줄에 `<ts> <stage>/<type> [<feature>] [r<round>] <data JSON>`, `--json` 은 이벤트 배열이다. 이벤트가 없으면 `no events yet`,
   조건에 맞는 것이 없으면 `no matching events`. 출력하는 줄마다(텍스트·`--json` 모두) 그 저장소의 redactor(`process.env`, config `env_allowlist`)를 다시 적용한다 —
@@ -61,13 +63,13 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
   객체 키에도 적용한다 — 가린 뒤 같아지는 두 키는 뒤의 값 하나로 남고, 그래도 쓰기·출력은 실패하지 않는다. 키 가림은 이벤트(쓰기와 `harness events` 출력)에만 적용된다 —
   run 상태 파일·backlog·verdict·verify 결과·metrics·run 보고서는 키로 다시 읽히므로 값만 가린다(SR-8). JSON 객체가 아닌 줄은 건너뛰고 stderr 에 `harness: warning: events/<파일>:<줄 번호>: not a JSON object — line skipped` 경고를 낸다.
   잘못된 옵션(없는 stage, `F<n>` 이 아닌 feature, 날짜가 아닌 since)은 `usage`(exit 2).
-- 피드백 단계: 사람이 명령으로 남기는 기록이다. 세 명령 모두 사유·내용이 비어 있거나(공백만 포함) 옵션이 잘못되면 `usage`(exit 2)이고 아무것도 기록하지 않는다.
+- 피드백 단계: 사람이 명령으로 남기는 기록이다. 두 명령 모두 사유가 비어 있거나(공백만 포함) 옵션이 잘못되면 `usage`(exit 2)이고 아무것도 기록하지 않는다.
   이벤트를 쓰지 못하면(위 기록 실패) 경고 후 exit 1 이다 — 기록이 이 명령들의 목적이기 때문이다.
   - `harness decide F<n> --accept-risk|--split|--rewrite "<사유>"` — 셋 중 정확히 하나, features.json 에 있는 기능만. backlog 에 `kind: decision` 항목
     `{kind, feature, decision, reason, summary, at}`(id `B<n>` 은 §7.7 규칙)을 추가하고 `feedback/decision` 이벤트 `{decision, reason, backlog_id}` 를 남긴다. 기능의 status 는 바꾸지 않는다.
     `summary` 는 `decision <decision> for F<n>: <사유>` 이다(사유는 `reason` 과 같이 가린 값). `kind: decision` 항목(summary 가 없는 이전 항목 포함)은 기록이지
     열린 항목이 아니다 — backlog.json 에 그대로 남지만 `harness status` 의 `backlog: N open` 수,
-    `harness learn --propose` 의 열린 항목 합치기(§7.7)에 들어가지 않는다(`harness insights` 는 backlog 가 아니라 이벤트로 결정을 센다).
+    열린 항목 합치기(§7.7)에 들어가지 않는다.
   - `harness backlog close B<n> [B<m> ...] --resolved|--obsolete [--] "<근거>"` — 이미 해결됐거나(`--resolved`) 처리할 필요가 없는(`--obsolete`) 열린 backlog 항목(§7.7)을 사람이 닫는다.
     id 는 플래그 앞, 근거는 플래그 뒤의 인자 하나다. 지정한 항목마다 `closed: {as, reason, at}`(`as` 는 `resolved`·`obsolete`, `at` 은 ISO 시각)을 기록하고 닫은 id 마다
     `B<n>: closed as <as>` 한 줄을 쓴다. 항목의 다른 필드는 바뀌지 않고 항목은 backlog.json 에 남는다(지우거나 옮기지 않는다). 닫을 때마다 `feedback/backlog_close` 이벤트
@@ -75,110 +77,7 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
     이미 닫혔거나 `resolved_by` 가 있는 id(메시지에 `already`), `kind: decision` 항목, `--resolved`·`--obsolete` 가 둘 다이거나 없음, 근거가 비었거나 여러 인자, 알 수 없는 옵션·하위 명령은
     `usage`(exit 2)이고 — 여러 id 중 하나만 문제여도 — 아무것도 닫지 않는다. backlog.json 이 `{ items: [...] }` 가 아니거나 id 가 중복되면 E6(state_corrupt)이고 파일을 쓰지 않는다.
     닫은 항목을 다시 여는 명령과 목록·검색 명령은 없다(요약은 `harness status`).
-  - `harness note [F<n>] --kind manual-fix|manual-merge|environment|other "<내용>"` — 수동 수정·수동 병합·환경 문제 등 사람의 개입을 `feedback/intervention` 이벤트 `{kind, text}` 로 남긴다(기능은 선택).
-  - `harness ci-record --sha <sha> --result success|failure [--job <name>] [--test <name>]...` — CI 결과 한 건을 `feedback/ci` 이벤트 `{sha, result, job, tests}` 로 남긴다.
-    `--sha` 는 16진 커밋 해시, `--test` 는 실패한 테스트 이름이고 여러 번 줄 수 있다. CI 결과 자동 수집은 하지 않는다.
-- `harness insights [--since YYYY-MM-DD] [--json]` 은 이벤트(`--since` 는 `harness events` 와 같다)를 모아 보여 준다. 상태는 바꾸지 않고, 제안을 자동 적용하지 않는다.
-  - `lint`: `plan/lint` 이벤트 수(`checked`), 오류가 있던 수(`rejected`), 규칙별 오류(거부) 수. `steps`: 단계별(`build`·`eval`·`security` 의 `step`, `verify` 의 `command`·`check`) 개수와
-    `data` 의 `duration_ms`·`cost_usd`·`turns` 합계(값이 없으면 null)와 각 상위 3개. `findings`: `eval/finding`·`security/finding` 수, `data.outcome`(`blocking`·`backlogged`)별 수,
-    재현율 = blocking / 전체(없으면 null), backlogged 의 `data.reason` 분포, `eval/reask` 수. `interventions`·`decisions`: 종류별 수. `ci`: 기록 수, failure 수, 반복 실패 —
-    같은 테스트 이름이 2개 이상의 `feedback/ci` 기록에 나오면(한 기록 안의 중복은 한 번) 그 기록 수.
-  - 목록은 수가 많은 순, 같으면 이름 순이다. 텍스트 출력은 위 순서의 요약이고 `--json` 은 같은 내용의 객체다. 이벤트가 없으면 `no events yet`(`--json` 이면 모든 수가 0·목록이 빈 구조),
-    `--since` 에 맞는 것이 없으면 `no matching events`.
-  - insights 규칙 — 개선 과제 후보 `{rule, subject, evidence, title}`(`evidence` 는 근거 이벤트 수)를 아래 순서로 낸다:
-    `lint_rule`(한 lint 규칙의 오류 3개 이상), `backlog_reason`(한 이관 사유의 지적 3개 이상), `low_reproduction`(지적 5개 이상이고 재현율 50% 미만),
-    `reask`(재요청 3회 이상), `intervention`(한 종류의 개입 2회 이상), `rescope`(`split`+`rewrite` 결정 2회 이상), `ci_repeated`(반복 실패 테스트마다). 해당이 없으면 `suggestions: none`.
-
-**현장 데이터 내보내기** (기본으로 켜짐, 설명: `docs/telemetry.md`) — `harness export [--hub <dir>] [--dry-run]` 은 이벤트를 익명화한 묶음으로 로컬 허브 디렉터리에 쓴다. 원격 전송·암호화는 하지 않는다.
-- 기본으로 켜져 있다: config 에 `telemetry` 가 없거나 `telemetry.share` 가 없으면 동작한다. `telemetry.share` 가 `false` 거나 불리언이 아닌 값(`"true"`·`1`·`null` 등)이면,
-  또는 `telemetry` 가 객체가 아니면 꺼진 것이다 — `telemetry.share is off …` 를 출력하고 아무것도 쓰지 않는다(exit 0, `--dry-run` 도 같다). 끄려면 `.harness/config.json` 에
-  `"telemetry": {"share": false}` 를 둔다.
-- 환경 변수 `CC_HARNESS_TELEMETRY` 가 — 앞뒤 공백을 빼고 대소문자를 가리지 않고 — `0`·`off`·`false`·`no` 면 config 와 상관없이 export 와 자동 export 가 모두 꺼진다
-  (`telemetry.share is off (CC_HARNESS_TELEMETRY) …`, exit 0; `OFF`·` 0 `·`False`·`NO` 도 끈다). 없거나 비었거나 `1`·`on`·`yes` 면 config 를 따른다.
-  그 밖의 값이면 stderr 에 경고 한 줄 `harness: warning: CC_HARNESS_TELEMETRY is not one of 0|off|false|no|1|on|yes — following .harness/config.json` 을 내고 config 를 따른다
-  (값 자체는 출력하지 않는다). 이 경고는 프로세스당 한 번이다 — run 이 기능마다 자동 export 를 해도 다시 나오지 않는다. 예: `CC_HARNESS_TELEMETRY=0 harness run`.
-- 첫 안내 — 기본값으로 켜진 상태(`telemetry.share` 없음)에서 프로젝트의 첫 export(`.harness/events/.exported` 가 없을 때)가 성공하면 stderr 에 한 줄
-  `harness: telemetry is on by default — anonymized events go to <hub> (local only); set "telemetry": {"share": false} in .harness/config.json or CC_HARNESS_TELEMETRY=0 to turn it off`
-  를 낸다. `telemetry.share` 를 명시적으로 `true` 로 둔 경우와 그 뒤의 export 에서는 내지 않는다.
-- `harness doctor` 는 `telemetry: on (default) | on (config) | off (config) | off (CC_HARNESS_TELEMETRY) — hub <허브 경로>` 한 줄로 상태를 보여 준다.
-- 허브에 새로 만드는 디렉터리(허브와 `<hub>/<project>`)는 모드 0700, 묶음 파일은 0600 이다(POSIX, umask 와 무관). 이미 있는 디렉터리는 바꾸지 않는다.
-- 설치별 salt — export 는 `<사용자 홈>/.cc-harness/salt`(Windows 는 `USERPROFILE`) 파일의 salt 를 쓴다. 없으면 crypto 난수 32바이트를 64자 hex 로 만들어 모드 0600 으로 쓰고,
-  `~/.cc-harness` 디렉터리를 새로 만들면 0700 이다(POSIX, umask 와 무관). 이미 있는 salt 파일은 바꾸지 않는다. salt 는 내보낸 값에만 들어간다 — 내보낸 줄과 허브 디렉터리의
-  `project` 는 sha256(salt + 로컬 project id) 앞 16자, `data.test`·`data.tests` 는 sha256(salt + 테스트 이름) 앞 16자다. 로컬 이벤트 파일의 `project` 는 salt 없는 경로 해시
-  그대로이고, salt 자체는 묶음·허브·로컬 이벤트·run 보고서 어디에도 쓰지 않는다. 같은 salt 로는 값이 안정적이라(같은 저장소는 같은 허브 디렉터리) learn 이 프로젝트를 구분하고,
-  salt 를 모르면 경로나 테스트 이름을 짐작해 해시를 맞춰 볼 수 없다. salt 파일을 지우면 다음 export 가 새 salt 를 만들고 같은 저장소도 새 project id 로 내보낸다(이전 묶음은
-  그대로 남고 learn 은 둘을 다른 프로젝트로 센다). salt 파일의 hex 는 대문자·소문자 모두 받고 소문자로 바꾼 값으로 해시를 계산한다(대소문자만 다른 두 salt 는 같은 해시를 낸다).
-  salt 파일 내용이 64자 hex 가 아니거나(앞뒤 공백 제외) 읽을 수 없으면 export 는 경고 한 줄
-  `harness: warning: … telemetry salt … — nothing exported` 를 stderr 에 내고 묶음도 `.exported` 도 쓰지 않으며(exit 0 — telemetry 실패는 명령을 실패시키지 않는다) 그 파일을 덮어쓰지 않는다.
-  실제 export(`harness export` 와 run·eval 의 자동 export)에서 salt 를 얻지 못하면(예: 만든 직후 salt 파일이 사라짐) 묶음을 쓰지 않는다 — 경고 한 줄
-  `harness: warning: no telemetry salt at <경로> — nothing exported` 를 stderr 에 내고 묶음도 `.exported` 도 쓰지 않으며 exit 0 이다. 자리표시 `<salt-pending>` 은
-  dry-run 출력에만 쓰인다 — 실제 export 는 그것을 salt 로 쓰지 않고, 자리표시로 만든 계획(project 나 줄의 해시가 `<salt-pending>`)은 아무것도 쓰지 않고 거부한다.
-- 허브는 `--hub <dir>`(현재 디렉터리 기준), 없으면 환경 변수 `CC_HARNESS_HUB`, 없으면 `<사용자 홈>/.cc-harness/hub` 다. 묶음 파일은 `<hub>/<project>/<시각>.jsonl` —
-  `project` 는 위의 salt 를 넣은 내보낸 project id, 시각은 내보낸 시각의 ISO 8601 기본 형식(`20260928T123456.789Z`, Windows 파일 이름에 `:` 를 쓸 수 없어서)이다.
-  그 이름의 파일이 이미 있으면(같은 밀리초의 다른 export) `<시각>-1.jsonl` 로 한 번 더 쓰고, 그것도 있으면 export 실패다. 기존 파일은 바꾸지 않는다.
-- 내보내기 위치는 `.harness/events/.exported` 에 JSON 한 줄 `{"at": <내보낸 ISO 시각>, "files": {"YYYY-MM.jsonl": <바이트 위치>, …}}` 로 기록한다 — 이벤트 파일별로 마지막으로 내보낸
-  바이트 위치다. 내보내는 이벤트는 각 파일에서 그 위치 뒤의 줄(파일이 `files` 에 없으면 처음부터, 개행으로 끝나지 않은 마지막 줄은 아직 쓰는 중이므로 다음 내보내기)이고 `ts` 순이다.
-  시각이 아니라 위치로 고르므로 이미 내보낸 이벤트와 같은 밀리초 `ts` 를 가진 새 이벤트도 다음 내보내기에 들어가고, 같은 줄을 두 번 내보내지 않는다.
-  이전 형식(ISO 시각 한 줄)의 `.exported` 가 있으면 그 시각 ≤ `ts` 인 이벤트를 한 번 내보내고 새 형식으로 바꿔 쓴다.
-  이벤트 파일이 기록된 위치보다 짧아지거나 위치가 줄의 시작이 아니면(잘리거나 교체됨) 그 파일을 처음부터 내보내고 `harness: warning: events/<파일> is shorter than or does not match its export position …` 경고를 stderr 에 낸다.
-  내보낼 줄이 없으면 `nothing to export …` 를 출력하고 묶음을 쓰지 않는다(위치가 바뀌었으면 — 건너뛴 줄·이전 형식·잘린 파일 — `.exported` 만 고쳐 쓴다).
-  `ts` 가 시각이 아니거나 `stage` 가 §2 의 단계가 아닌 줄은 내보내지 않는다.
-- `--dry-run` 은 쓰지 않고(묶음·`.exported` 모두) `dry run: <n> lines would be exported to <파일>` 과 내보낼 첫 3줄을 출력한다. salt 파일도 만들지 않는다 —
-  없으면 `~/.cc-harness` 도 만들지 않고, `… the salt will be created at <경로> by the first real export …` 한 줄을 먼저 출력한 뒤 project 와 test·tests 해시 값을
-  무작위 값 대신 고정 자리표시 `<salt-pending>` 으로 보여 준다(묶음 경로의 project 디렉터리도 같다) — 같은 저장소에서 두 번 실행한 출력이 같다. salt 파일이 있으면 그 salt 로 계산하고, 형식이 틀리거나 읽을 수 없으면 실제 export 와 같은 경고 한 줄을 내고 exit 0 이다.
-- 허브에 쓸 수 없으면(디렉터리를 만들 수 없음·권한 등) `harness: export failed: cannot write <경로>: <오류 코드>` 를 stderr 에 내고 exit 1 이며 `.exported` 는 바뀌지 않는다.
-  묶음을 쓴 뒤 `.exported` 를 쓰지 못하면 묶음을 지우고 같은 방식으로 exit 1 이다.
-- `harness run`(중단된 경우 제외)과 `harness eval` 이 끝날 때 `telemetry.share` 가 켜져 있고 `telemetry.auto_export` 가 없거나 `true` 면(기본) export 를 한 번 실행한다
-  (`auto_export` 가 `false` 거나 그 밖의 값이면 하지 않는다). 그 출력·오류는 stderr 로만 가고
-  (`eval --json` 의 stdout 은 JSON 그대로), 실패해도 run·eval 의 결과·종료 코드는 바뀌지 않는다.
-- 내보낸 줄은 아래 허용 목록만 남긴다(코드: `lib/telemetry.mjs` 의 `LINE_FIELDS`·`ENUM_FIELDS`). `feature` 와 그 밖의 최상위 필드는 버린다. `data` 에서는 수치·불리언(유한한 수)을
-  코드 식별자 형태의 키(`^[a-z][a-z0-9_]{0,63}$`)에서만 남기고, 문자열은 아래 `data.*` 키의 허용 값만 남긴다. 배열·객체는 같은 규칙으로 안쪽을 거르고, 비어 있지 않던 것이 비면 버린다.
-  기준 id·환경 변수 이름·경로처럼 사용자 내용으로 된 키는 식별자 형태가 아니므로 값과 함께 버린다. 따라서 기능 제목·기준 문장·지적 요약·명령 문자열·파일 경로·세션 id·환경 변수 값·
-  저장소 경로·git remote·사용자 이름은 묶음에 없다.
-
-| 내보내는 필드 | 값 |
-|------|------|
-| `ts` | ISO 시각(다시 직렬화) |
-| `stage` | §2 의 단계 |
-| `type` | `^[a-z][a-z0-9_-]{0,63}$` 이면 그대로, 아니면 null |
-| `harness_version` | `x.y.z[-태그]` 형식이면 그대로, 아니면 null |
-| `profile` | 코어의 프로필 이름(`profiles/*.json`)이면 그대로, 아니면 null |
-| `project` | 내보내는 저장소의 내보낸 project id: sha256(salt + 로컬 project id) 앞 16자 — 줄의 값이 무엇이든 이것으로 바꾼다 |
-| `round` | 정수일 때만 |
-| `data.rule` | lint 규칙 이름: `shape`·`contract_id`·`security_tier`·`id`·`check`·`criterion_text`·`universal`·`size`·`critical_sc`·`rollout`·`resolves`·`approval`·`overlaid_helper`·`removes_tests` |
-| `data.reason` | 이관 사유: `missing_criterion_id`·`criterion_not_in_contract`·`missing_repro`·`repro_denied`·`adversarial_scenario`·`repro_timeout`·`repro_not_runnable`·`repro_not_reproduced`·`out_of_scope`, status 이벤트의 사유: `pass`·`fail`·`approve`·`run_start`·`rounds`·`max_rounds`·`divergence`·`stall`·`needs_human`·`needs-human`·`eval_error`·`budget`·`merge_conflict`·`post_merge_verify`·`worktree`·`adapter_unavailable`·`verify_error`·`run_stopped`·`dependency_blocked`·`critical_blocked`·`refusal` (`max_rounds`·`needs-human` 은 F93 전 이벤트의 이전 철자로, 읽기만 한다 — §7.6) |
-| `data.outcome` | `blocking`·`backlogged` |
-| `data.from` | status 이벤트의 이전 상태: `todo`·`approved`·`in_progress`·`passed`·`blocked`·`skipped` |
-| `data.to` | status 이벤트의 새 상태: `todo`·`approved`·`in_progress`·`passed`·`blocked`·`skipped` |
-| `data.model` | 모델 이름: 영숫자로 시작하고 영숫자·`.`·`_`·`:`·`@`·`+`·`-` 만, 100자 이하 |
-| `data.role` | 역할: `builder`·`evaluator`·`security-reviewer` |
-| `data.dimension` | 차원: `functionality`·`quality`·`security`·`errors`·`tests` |
-| `data.kind` | 개입 종류: `manual-fix`·`manual-merge`·`environment`·`other` |
-| `data.test` | sha256(salt + 테스트 이름) 앞 16자 |
-| `data.tests` | 테스트 이름마다 sha256(salt + 테스트 이름) 앞 16자 |
-
-**하네스 자기 개선** (설명: `docs/telemetry.md`) — `harness learn [--hub <dir>] [--since YYYY-MM-DD] [--json] [--propose | --compare <v1> <v2>]` 은 허브(위치는 export 와 같다)의
-모든 프로젝트 묶음(`<hub>/<project>/*.jsonl`, 프로젝트 = 디렉터리 이름)을 읽어 하네스 버전별 지표와 개선 과제 후보를 보여 준다. `.harness/` 가 없어도 동작한다(`--propose` 제외).
-상태를 바꾸지 않고(`--propose` 의 backlog 제외), 계약 초안을 만들거나 승인하지 않는다 — 개선은 항상 사람이 계약으로 만들고 승인한다.
-- 허브의 각 줄은 내보내기 허용 목록(위 표)으로 다시 거른다. 허용 목록 밖의 키(최상위 필드, 식별자 형태가 아닌 `data` 키, 허용 값이 아닌 문자열)는 무시하고 파일마다
-  `harness: warning: <파일>: ignored keys outside the allowlist: <키 경로>` 를 stderr 에 낸다. JSON 객체가 아니거나 `ts`·`stage` 가 올바르지 않은 줄은 세지 않고
-  `<n> lines skipped …` 경고를 낸다. `--since` 는 그날(UTC) 이후의 줄만 센다. `harness_version` 이 없으면 버전 `unknown`.
-- 허브가 없거나 셀 줄이 없으면 `no field data` 를 출력하고 exit 0(`--json` 이면 수가 0 이고 `message: "no field data"` 인 구조, `--propose` 는 backlog 를 쓰지 않는다).
-- 출력: 프로젝트 수·이벤트 수, 그리고 버전마다(버전 순, `unknown` 은 마지막) — 기능 = `to` 가 `passed`·`blocked` 인 status 이벤트.
-  `build`(기능당 build 시간·턴·비용 중앙값: status 이벤트의 `build_duration_ms`·`build_turns`·`build_cost_usd`), `first_round_pass_rate`(1라운드에 passed 된 기능 / 기능),
-  `blocked_rate`(blocked / 기능)와 `blocked_reasons`(사유 분포), `interventions`(사람 개입 `feedback/intervention` 수), `lint_rejections`(lint 거부 규칙 상위 3),
-  `reproduction_rate`(지적 재현율 = blocking / 전체 `finding`), `ci_repeated`(2개 이상의 CI 기록에서 실패한 테스트 해시 상위 3). 값이 없으면 null(텍스트는 `n/a`).
 - `harness run` 은 기능이 끝날 때(passed·blocked) status 이벤트 `data` 에 그 기능의 builder 호출 합계 `build_duration_ms`·`build_turns`·`build_cost_usd` 를 넣는다.
-- 개선 과제 후보 `{rule, subject, key, priority, title, evidence: {projects, events, versions}}` — 아래 규칙 순서(규칙 안에서는 근거 이벤트가 많은 순, 같으면 이름 순)이고,
-  근거가 **2개 이상 프로젝트**이거나 **이벤트 10건 이상**인 것만 낸다(`THRESHOLDS`). `priority` 는 근거 프로젝트 3개 이상 `high`, 2개 `medium`, 1개 `low`.
-  `lint_rule`(lint 규칙마다, 그 규칙의 오류가 있는 lint 이벤트), `backlog_reason`(이관 사유마다), `low_reproduction`(전체 지적 재현율 50% 미만이면 모든 지적),
-  `blocked_reason`(blocked 사유마다), `intervention`(개입 종류마다), `ci_repeated`(2개 이상의 CI 기록에서 실패한 테스트 해시마다). `key` 는 `<rule>:<subject>`.
-- `--propose` 는 후보를 현재 저장소의 backlog 에 `{source: "field-data", learn_rule: <key>, summary, priority, evidence, seen: 1, at}` 로 추가한다(id 는 §7.7).
-  같은 `learn_rule` 의 열린 field-data 항목이 있으면 새로 만들지 않고 그 항목의 `seen` 을 1 늘리고 `evidence` 를 새 값으로 바꾼다(priority·summary 는 그대로).
-  해결된 항목은 합치지 않는다. `.harness/` 가 없으면 not_initialized(exit 2), backlog 가 손상되면 E6(exit 2, 쓰지 않음).
-- `--compare <v1> <v2>` 는 두 버전의 `build_duration_ms`·`build_turns`·`build_cost_usd`·`first_round_pass_rate`·`blocked_rate`·`interventions`·`reproduction_rate` 를
-  나란히 보여 주고 변화량(v2 − v1)과 방향을 표시한다: 시간·턴·비용·blocked 비율·개입은 줄면, 통과율·재현율은 늘면 `improved`, 반대면 `worse`, 같으면 `same`,
-  한쪽 값이 없으면 `n/a`. 허브에 없는 버전은 `harness: warning: no field data for version <v>` 를 낸다.
 
 ## 3. 용어
 - **계약(contract)**: 기능 1개의 수락 기준. `.harness/contracts/F{n}.json`. 승인 시 해시로 동결.
@@ -197,7 +96,7 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 | `backlog.json` | `{ items: [...] }` — 범위 밖 발견 · blocked 재범위 제안 · `harness decide` 의 결정(`kind: decision`, §2). 항목 id(`B<n>`)·`priority`·`seen`·`sources`·`resolved_by`·`closed`(`harness backlog close`, §2) 규칙은 §7.7 |
 | `runs/{ts}.md` | 자율 실행 보고서 |
 | `runs/{ts}.metrics.jsonl`, `runs/eval.metrics.jsonl` | 단계별 실행 지표(한 줄 = 끝난 단계 하나, §8 실행 지표). `harness stats` 가 집계한다 |
-| `events/YYYY-MM.jsonl` | 이벤트 기록(한 줄 = 사건 하나, §2 이벤트 기록). `harness events` 가 보여 준다. `events/.exported` 는 마지막 `harness export` 의 시각과 이벤트 파일별 바이트 위치(§2 현장 데이터 내보내기) |
+| `events/YYYY-MM.jsonl` | 이벤트 기록(한 줄 = 사건 하나, §2 이벤트 기록). `harness events` 가 보여 준다. |
 
 **대화 언어(`language`)**: config.json 의 `language` 는 선택 문자열이고 기본값이 없다. `ko`·`en`·`ja` 처럼 소문자 두 글자이거나 `pt-BR` 처럼 소문자 두 글자-대문자 두 글자여야 한다(아니면 `language` 를 담은 `config_invalid`, exit 2 — `null`·숫자·`KO`·`pt-br`·`pt_BR` 포함). `AGENTS.md` 와 모든 skill·agent 파일은 `## Language` 절에서 같은 규칙을 준다: 사용자와의 대화(설명·질문·보고, 역할은 사용자가 읽는 요약·finding)는 `config.language` 가 있으면 그 언어로, 없으면 사용자가 쓰는 언어로 하고, 코드·코드 주석·커밋 메시지·계약의 id 와 `check` 는 영어로 둔다. `status --brief` 는 `language` 가 있으면 요약 줄 뒤 마지막 줄로 `reply in: <language>` 를 출력한다 — SessionStart 훅이 이 출력을 세션에 전하므로 세션이 처음부터 그 언어로 답한다. 없으면 출력은 요약 한 줄 그대로다. `init --language <code>` 는 새로 만드는 config.json 에 `language` 를 쓴다(값은 쓰기 전에 같은 형식 검사, 틀리면 `config_invalid`·값이 없으면 `usage`, 둘 다 exit 2 이고 아무 파일도 만들지 않는다. 기존 config.json 은 바꾸지 않는다). `doctor` 는 `language: <code>`(미설정이면 `language: not set (reply in the user's language)`) 한 줄을 출력한다. CLI 메시지와 skill·agent 본문은 번역하지 않는다.
 
@@ -385,12 +284,12 @@ base 쪽 실행 전에 `verify.test_paths`(경로 매칭은 SR-4 의 `secret_glo
    - `blocked` 이면 backlog.json 에 `source: F{n}-blocked`, `reason`, 재범위 선택지 `split`·`rewrite`·`accept` 항목을 추가한다(같은 라운드·reason 은 한 번만).
    - **라운드와 판정 파일 번호**: 판정 파일 번호는 기능별로 계속 증가한다 — `F{n}-r{k}.json` 의 k 는 계약 버전과 무관하게 기존 최대 번호 + 1 이고, 기존 판정 파일은 덮어쓰지 않는다(`run`·`eval` 모두). 라운드 상한(max_rounds)과 수렴 비교는 계약 해시 단위다 — 현재 승인 해시와 같은 `contract_hash` 의 판정만 세고, 수렴은 그 해시의 직전 판정하고만 비교한다. 그래서 blocked 후 새 버전으로 재승인하면 max_rounds 라운드를 새로 받는다. 판정 기록의 `contract_round` 가 현재 계약 해시 안에서의 라운드 번호이고, 출력에 `round <contract_round>/<max_rounds>` 가 나온다. `contract_hash` 가 없는 판정(F18 이전 기록)은 다른 계약의 라운드로 취급해 파일 번호 계산에만 넣는다. 판정 파일이 JSON 으로 읽히지 않으면(해시를 알 수 없음) 어댑터 호출 없이 `state_corrupt`(파일 경로 포함, E6).
    - **같은 해시 재승인과 추가 라운드**: 같은 해시의 재승인은 라운드를 늘리지 않는다. 기능이 `blocked` 이고 현재 계약 내용 해시의 판정 수가 허용 라운드(max_rounds + 그 해시의 추가 라운드 수) 이상이면(max_rounds 로 blocked — 마지막 라운드가 `stall`·`divergence` 로 끝났어도 같다) `harness approve F{n}` 은 `F{n} is blocked after max_rounds with this contract — change the contract, or pass --extra-round to allow one more round` 로 exit 2 이고 features.json·계약을 쓰지 않는다. 계약을 바꿔 해시가 달라지면 새 해시 기준 라운드 1 부터이고 추가 라운드는 이어지지 않는다. 사람이 `harness approve F{n} --extra-round` 를 주면 기능이 `approved` 가 되고 features 항목의 `extra_rounds: {hash, count}` 가 이 해시에 한 라운드를 더한다(다른 해시면 count 1 로 새로 쓴다). 계약 파일은 그대로 둔다(승인이 유효하지 않을 때만 같은 해시로 approval 을 다시 쓴다). `plan/decision` 이벤트 `{decision: "extra_round", contract_round, extra_rounds, hash}`(contract_round = 허용된 새 라운드 번호)와 `plan/status`(reason `approve`)를 남긴다. `--extra-round` 를 max_rounds 로 blocked 되지 않은 기능(다른 status, 허용 라운드를 다 쓰기 전의 blocked, 계약이 바뀐 기능)에 쓰면 `F{n} is not blocked after max_rounds` 로 exit 2, features.json 쓰기가 실패하면 exit 2 이고 status 는 `blocked` 그대로다(이벤트도 없음). 추가 라운드의 eval 출력은 `contract round 4/3 (+1 extra round approved by a human)` 형식이고, 추가 라운드 중 마지막 허용 라운드가 fail 이면 수렴 비교와 무관하게 `blocked`(reason `rounds`)다. 허용 라운드를 넘는 라운드의 `harness eval` 은 사전 거부 — 어댑터 호출 없이 `round <k> exceeds the rounds allowed for this contract`(k 는 계약 라운드, code `rounds_exceeded`)로 exit 2, 판정 파일을 쓰지 않는다. `harness run` 도 같은 허용 라운드를 상한으로 쓴다(추가 라운드의 마지막 fail 은 `rounds`).
-   - **blocked 사유와 재승인**: 기능이 `blocked` 로 바뀔 때마다(`eval`·`run` 모두) features 항목에 `blocked_reason` 이 기록된다 — 그 상태 이벤트의 reason 과 같은 값(`run`·`eval` 모두 `rounds`·`stall`·`divergence`·`needs_human`·`eval_error`, run 단계의 `budget`·`merge_conflict`·`post_merge_verify`·`worktree`·`adapter_unavailable`·`verify_error`·`run_stopped`·`refusal` 등)이고, `blocked` 가 아닌 상태로 바뀌면(재승인·pass 등) 지워진다. 의존 기능이 blocked 라 건너뛴 기능은 blocked 가 아니라 status `skipped` 로 끝나므로 `blocked_reason` 이 기록되지 않는다(그 상태 이벤트의 reason 은 `dependency_blocked`, §2). 이전 철자 `max_rounds`·`needs-human`(F93 전의 run 이 기록한 사유)는 더 쓰지 않고 읽기만 한다 — features.json·이벤트에 남은 그 값은 이전처럼 읽힌다: 아래 재승인 판정에서 `max_rounds` 는 `rounds` 처럼 수렴 실패이고 `needs-human` 은 `needs_human` 처럼 아니며, `harness status` 는 기록된 사유를 그대로 괄호에 보이고, 텔레메트리 내보내기는 두 철자를 모두 허용 값으로 받는다(§2). 위의 같은 해시 재승인 거부는 수렴 실패로 막힌 경우에만 적용된다: `blocked_reason` 이 `rounds`·`max_rounds`·`stall`·`divergence` 면 판정 수가 허용 라운드 이상일 때 거부(exit 2, `rounds_exhausted`)되고 `--extra-round` 로만 한 라운드를 더한다. 그 밖의 사유(`needs_human`·`eval_error` 와 run 단계 사유 `budget`·`merge_conflict`·`post_merge_verify`·`worktree`·`adapter_unavailable`·`verify_error`·`run_stopped`·`refusal`)면 같은 해시 판정 수가 max_rounds 이상이어도 `harness approve F{n}` 이 승인한다(exit 0) — 라운드를 다 써서가 아니라 사람의 판단이나 환경 문제로 막혔기 때문이다. 모델 거부로 막힌 `refusal`(§8)도 수렴 실패가 아니므로 `needs_human` 과 같은 규칙이다 — 같은 해시의 재승인이 판정 수와 무관하게 승인한다. `blocked_reason` 이 없는 blocked 항목(이 필드 이전에 막힌 기능)은 판정 수 기준 규칙을 그대로 따른다. `blocked_reason` 이 문자열이 아니면 features.json 을 읽는 모든 명령이 `state_corrupt`(exit 2, E6)로 멈추고 approve 는 아무것도 쓰지 않는다. `harness status` 의 blocked 줄에는 사유가 괄호로 붙는다(예: `F7    blocked (needs_human) <제목>`, `F8    blocked (refusal) <제목>`).
+   - **blocked 사유와 재승인**: 기능이 `blocked` 로 바뀔 때마다(`eval`·`run` 모두) features 항목에 `blocked_reason` 이 기록된다 — 그 상태 이벤트의 reason 과 같은 값(`run`·`eval` 모두 `rounds`·`stall`·`divergence`·`needs_human`·`eval_error`, run 단계의 `budget`·`merge_conflict`·`post_merge_verify`·`worktree`·`adapter_unavailable`·`verify_error`·`run_stopped`·`refusal` 등)이고, `blocked` 가 아닌 상태로 바뀌면(재승인·pass 등) 지워진다. 의존 기능이 blocked 라 건너뛴 기능은 blocked 가 아니라 status `skipped` 로 끝나므로 `blocked_reason` 이 기록되지 않는다(그 상태 이벤트의 reason 은 `dependency_blocked`, §2). 이전 철자 `max_rounds`·`needs-human`(F93 전의 run 이 기록한 사유)는 더 쓰지 않고 읽기만 한다 — features.json·이벤트에 남은 그 값은 이전처럼 읽힌다: 아래 재승인 판정에서 `max_rounds` 는 `rounds` 처럼 수렴 실패이고 `needs-human` 은 `needs_human` 처럼 아니며, `harness status` 는 기록된 사유를 그대로 괄호에 보이고. 위의 같은 해시 재승인 거부는 수렴 실패로 막힌 경우에만 적용된다: `blocked_reason` 이 `rounds`·`max_rounds`·`stall`·`divergence` 면 판정 수가 허용 라운드 이상일 때 거부(exit 2, `rounds_exhausted`)되고 `--extra-round` 로만 한 라운드를 더한다. 그 밖의 사유(`needs_human`·`eval_error` 와 run 단계 사유 `budget`·`merge_conflict`·`post_merge_verify`·`worktree`·`adapter_unavailable`·`verify_error`·`run_stopped`·`refusal`)면 같은 해시 판정 수가 max_rounds 이상이어도 `harness approve F{n}` 이 승인한다(exit 0) — 라운드를 다 써서가 아니라 사람의 판단이나 환경 문제로 막혔기 때문이다. 모델 거부로 막힌 `refusal`(§8)도 수렴 실패가 아니므로 `needs_human` 과 같은 규칙이다 — 같은 해시의 재승인이 판정 수와 무관하게 승인한다. `blocked_reason` 이 없는 blocked 항목(이 필드 이전에 막힌 기능)은 판정 수 기준 규칙을 그대로 따른다. `blocked_reason` 이 문자열이 아니면 features.json 을 읽는 모든 명령이 `state_corrupt`(exit 2, E6)로 멈추고 approve 는 아무것도 쓰지 않는다. `harness status` 의 blocked 줄에는 사유가 괄호로 붙는다(예: `F7    blocked (needs_human) <제목>`, `F8    blocked (refusal) <제목>`).
    - features.json 쓰기가 실패하면 verdict 파일은 남기고 exit 2(`io`). features 항목의 `eval_round` 가 기록된 마지막 라운드이며, 최신 `origin: eval` verdict 의 라운드가 그와 다르면 다음 `harness eval F{n}` 은 새 평가 없이 그 라운드의 상태 기록을 재시도한다.
 7. **backlog 정리 루프** (`backlog.json`)
    - **id**: 코어가 backlog 를 쓸 때(평가 결과 기록, blocked 재범위 제안, resolves 해결, `harness backlog close`) `id` 가 없는 항목(기존 항목 포함)에 파일 순서대로 `B1`, `B2`, … 를 붙인다. 새 번호는 기존 `B<n>` 중 가장 큰 번호 다음이고, 이미 있는 id 는 바뀌지 않는다. id 가 중복된 backlog 는 E6(state_corrupt, 메시지에 중복 id) — 평가·status·lint-contract 가 파일을 고치지 않고 exit 2.
    - **severity → priority**: finding 의 `severity`(`high`·`medium`·`low`)는 backlog 항목의 `priority` 로 기록된다. 그 외 값은 무시되고 `priority` 를 쓰지 않는다. 기존 항목의 priority 는 소급 추정하지 않는다.
-   - **열린 항목**: `resolved_by` 도 `closed` 도 없고 `kind: decision`(§2 `harness decide`)이 아닌 항목. 닫힌 항목(`closed` 있음)은 `harness status` 의 열린 수, `learn --propose` 합치기, flaky_test 항목 재사용(§6.1), resolves 해결에 들어가지 않는다.
+   - **열린 항목**: `resolved_by` 도 `closed` 도 없고 `kind: decision`(§2 `harness decide`)이 아닌 항목. 닫힌 항목(`closed` 있음)은 `harness status` 의 열린 수, flaky_test 항목 재사용(§6.1), resolves 해결에 들어가지 않는다.
    - **resolves**: 계약의 `resolves`(§5)에 적힌 열린 항목은 그 기능이 `passed` 로 기록될 때(대화형 `harness eval` §7.6, `harness run` §8.5 각각) `resolved_by` 가 기능 id 가 된다. fail·blocked 이면 바뀌지 않는다. 이미 해결된 항목의 `resolved_by` 는 덮어쓰지 않고, 닫힌 항목에는 `resolved_by` 를 쓰지 않는다.
    - **닫기**: 사람이 `harness backlog close B<n> [B<m> ...] --resolved|--obsolete [--] "<근거>"`(§2)로 열린 항목을 닫는다. `--` 뒤의 인자는 옵션이 아닌 근거라 `-` 로 시작하는 근거는 `--` 뒤에 둔다(`--` 없이 `-` 로 시작하면 unknown option, `--` 뒤 근거가 없거나 비었거나 둘 이상이면 usage). 항목에 `closed: {as, reason, at}` 이 기록되고(다른 필드는 그대로, 항목은 backlog.json 에 남음) `feedback/backlog_close` 이벤트 `{ids, as, reason}` 가 남는다. 근거는 두 곳 모두 가린다. 이미 닫혔거나 해결된 id·`kind: decision` 항목·없는 id 는 usage(exit 2)이고 아무것도 닫지 않는다. 계약의 `resolves` 가 닫힌 항목을 가리키면 lint-contract 가 `resolves: backlog item B<n> is already closed as <as>` warning 을 낸다(§5). 평가자는 항목을 닫지 않는다 — 닫기는 사람의 결정이다.
    - **status**: `harness status` 는 `backlog: N open (high a · medium b · low c · none d)` 줄과 열린 `high` 항목 최대 5개(id·summary 앞 100자)를 보여 준다. `--brief` 에는 열린 high 항목 수만 ` — backlog high: n` 으로 덧붙인다(0 이면 생략). backlog.json 이 `{ items: [...] }` 가 아니면 status 도 E6 로 exit 2.
@@ -494,7 +393,7 @@ blocked 기능의 worktree·브랜치는 점검용으로 남기고, passed 기�
 - SR-6 evaluator·security-reviewer는 읽기 전용 모드로 호출된다(어댑터별 플래그).
 - SR-7 ops 프로필의 라이브 변경 skill(`rollout`)은 `run` 대상이 될 수 없다(lint가 거부).
 - SR-8 기록 파일의 가림: run 상태 파일(`.harness/runs/current.json`), verdict 파일(`F{n}-r{k}.json`·`.eval_error.json`), backlog 항목에 저장되는 문자열(verify 명령·기준 출력과 메시지, `verify_failures`, blocking·backlog 의 요약·repro, re-scope 제안)에서 env_allowlist(SR-2) 밖 환경 변수의 값(8자 이상)은 보고서(§8)와 같은 규칙으로 `[redacted]` 로 바뀐다. 값은 문자열 그대로(정규식 아님) 비교하고, 허용목록 안 변수와 8자 미만 값은 가리지 않는다. 가림은 파일을 쓰기 직전 사본에 적용되고(상태 파일은 모든 저장 경로 — 중단·blocked 포함), run 은 메모리의 원래 값으로 계속한다. 파일을 다시 읽는 데 쓰는 식별자(config 스냅샷, 기능·기준 id, 커밋 sha, 충돌 파일 경로, 라운드 이력)는 가리지 않으므로 `--resume` 은 가려진 상태 파일로도 이어진다. 객체 키는 가리지 않는다 — 키 가림은 이벤트(§2)에만 적용된다. 이미 커밋된 과거 기록과 환경 변수 밖의 비밀은 범위 밖.
-- SR-9 가림과 자르기의 순서: verify 명령 출력은 끝 2000자로 자르기 전에 가리므로(test_count 출력의 앞 80자도 같다) 잘린 경계가 비밀 값 한가운데를 지나도 조각이 남지 않는다 — 그래서 verify 결과의 출력은 메모리에서도 가려져 있다. 상태 파일·run 보고서·verdict·backlog·metrics(§8.11) 다섯 기록 경로는 같은 가림 함수를 쓰고, 이 함수는 값 전체를 `[redacted]` 로 바꾼 뒤 문자열의 첫머리가 값의 8자 이상 접미사와 같거나 끝이 값의 8자 이상 접두사와 같으면 그 잘린 조각도 `[redacted]` 로 바꾼다(어댑터 오류처럼 먼저 잘린 출력). 2000자보다 긴 값이 출력 전체면 출력은 `[redacted]` 가 된다. 어댑터 오류(0 아닌 종료)의 detail 도 끝 2000자로 자르기 전에 가리므로(run·eval 은 자기 가림 함수를, 그 밖에는 CLI 가 물려받는 환경 변수 전체를 쓴다) blocked detail·보고서·상태 파일 문자열 가운데에 들어가도 조각이 남지 않는다. 문자열 가운데의 부분 조각, 8자 미만 조각, 인코딩·분할된 값은 범위 밖. salt 파일이 없을 때 `harness export --dry-run` 은 salt 를 만들지 않고 project·테스트 해시를 `<salt-pending>` 자리표시로 보여 준다(§2) — 임시 salt 로 계산한 해시를 내보이지 않는다.
+- SR-9 가림과 자르기의 순서: verify 명령 출력은 끝 2000자로 자르기 전에 가리므로(test_count 출력의 앞 80자도 같다) 잘린 경계가 비밀 값 한가운데를 지나도 조각이 남지 않는다 — 그래서 verify 결과의 출력은 메모리에서도 가려져 있다. 상태 파일·run 보고서·verdict·backlog·metrics(§8.11) 다섯 기록 경로는 같은 가림 함수를 쓰고, 이 함수는 값 전체를 `[redacted]` 로 바꾼 뒤 문자열의 첫머리가 값의 8자 이상 접미사와 같거나 끝이 값의 8자 이상 접두사와 같으면 그 잘린 조각도 `[redacted]` 로 바꾼다(어댑터 오류처럼 먼저 잘린 출력). 2000자보다 긴 값이 출력 전체면 출력은 `[redacted]` 가 된다. 어댑터 오류(0 아닌 종료)의 detail 도 끝 2000자로 자르기 전에 가리므로(run·eval 은 자기 가림 함수를, 그 밖에는 CLI 가 물려받는 환경 변수 전체를 쓴다) blocked detail·보고서·상태 파일 문자열 가운데에 들어가도 조각이 남지 않는다. 문자열 가운데의 부분 조각, 8자 미만 조각, 인코딩·분할된 값은 범위 밖.
 
 ## 10. 어댑터 (`harness doctor`)
 | 어댑터 | 쓰기(builder) | 읽기전용(evaluator) | 구조화 출력 | 예산 | 모델 |

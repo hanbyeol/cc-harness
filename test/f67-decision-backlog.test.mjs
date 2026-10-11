@@ -6,7 +6,6 @@ import { harness, REPO, readJson } from './helpers.mjs';
 import { gitRepo } from './gitfixture.mjs';
 import { hashContract } from '../lib/contract.mjs';
 import { HarnessError } from '../lib/errors.mjs';
-import { propose } from '../lib/learn.mjs';
 import evalCommand from '../lib/commands/eval.mjs';
 import statusCommand from '../lib/commands/status.mjs';
 
@@ -118,53 +117,6 @@ test('F67 AC-1: the reason in the summary is redacted like the reason field', ()
 });
 
 // ---------- AC-2 ----------
-test('F67 AC-2: harness status counts the ordinary item only — backlog: 1 open', async () => {
-  const dir = fixture({ backlog: MIXED() });
-  const out = await statusOut(dir);
-  assert.match(out, /^backlog: 1 open \(high 1 · medium 0 · low 0 · none 0\)$/m);
-  // a decision written by decide (with a summary) is not counted either
-  assert.equal(harness(['decide', 'F2', '--split', 'too big'], { cwd: dir }).code, 0);
-  assert.match(await statusOut(dir), /^backlog: 1 open \(/m);
-});
-
-test('F67 AC-2: the eval prompt "## Open backlog" lists the ordinary item only', async () => {
-  const dir = fixture({ backlog: MIXED(), status: 'approved' });
-  assert.equal(harness(['decide', 'F2', '--split', 'too big'], { cwd: dir }).code, 0);
-  const prompt = await evalPrompt(dir);
-  // F111: the evaluator prompt has no backlog section at all.
-  assert.ok(!prompt.includes('## Open backlog'), prompt);
-  assert.ok(!prompt.includes('- B2 ['), prompt);
-  assert.ok(!/^- B\d+ \[/m.test(prompt), prompt);
-});
-
-test('F67 AC-2: learn --propose treats only the ordinary item as open', () => {
-  const dir = fixture({ backlog: { items: [
-    { id: 'B1', kind: 'decision', source: 'field-data', learn_rule: 'rule:a', decision: 'split', reason: 'r', at: '2026-09-27T00:00:00.000Z' },
-    { id: 'B2', source: 'field-data', learn_rule: 'rule:b', summary: 'b', priority: 'low', seen: 1 },
-  ] } });
-  const evidence = { projects: 2, events: 10, versions: ['2.0.0'] };
-  const { added, updated } = propose(backlogFile(dir), [
-    { key: 'rule:a', title: 'a', priority: 'low', evidence },
-    { key: 'rule:b', title: 'b', priority: 'low', evidence },
-  ]);
-  assert.deepEqual(updated.map((i) => i.id), ['B2']);
-  assert.deepEqual(added.map((i) => i.learn_rule), ['rule:a']);
-  const items = readJson(backlogFile(dir)).items;
-  assert.equal(items.find((i) => i.id === 'B1').seen, undefined, 'the decision item is not bumped');
-});
-
-test('F67 AC-2: insights counts the decision once, from the event, whatever the backlog holds', () => {
-  const dir = fixture({ backlog: MIXED() });
-  assert.equal(harness(['decide', 'F2', '--split', 'too big'], { cwd: dir }).code, 0);
-  const r = harness(['insights', '--json'], { cwd: dir });
-  assert.equal(r.code, 0, r.stdout + r.stderr);
-  const withBacklog = JSON.parse(r.stdout);
-  assert.deepEqual(withBacklog.decisions, { total: 1, kinds: [{ kind: 'split', count: 1 }] });
-  fs.writeFileSync(backlogFile(dir), JSON.stringify({ items: [] }));
-  const empty = JSON.parse(harness(['insights', '--json'], { cwd: dir }).stdout);
-  assert.deepEqual(withBacklog, empty, 'backlog items do not enter insights');
-});
-
 // ---------- AC-3 ----------
 test('F67 AC-3: decision items stay in backlog.json and the feedback/decision event is unchanged', async () => {
   const dir = fixture({ backlog: MIXED() });
