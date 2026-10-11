@@ -19,8 +19,11 @@ cannot find in the code, a few questions at a time:
 - What should be observably different when this is done? Ask for concrete examples:
   input, expected output, expected error.
 - What is explicitly out of scope?
-- Does it touch authentication, secrets, payments, permissions, or data deletion?
-  If so, it is `security_tier: critical`.
+- Does it change authentication, authorization, secret handling, payments, data deletion,
+  running commands that come from a model or user input, merging or switching branches, or
+  writing outside the repository? If so, it is `security_tier: critical`. Everything else is
+  `standard`, for example redacting log or report text, validating configuration, wording of
+  messages, documentation.
 - Does it depend on another feature that has not passed yet?
 
 When running without a user (headless), do not guess missing requirements. Write down what
