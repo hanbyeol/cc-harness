@@ -135,7 +135,7 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
   "approval": {"by": "...", "at": "ISO8601", "hash": "sha256"}
 }
 ```
-`security_tier` 는 `standard|critical` 외 값이면 error. `run_steps` 는 선택(생략 시 위 기본값).
+`security_tier` 는 `standard|critical` 외 값이면 error. `critical` 은 인증(authentication)·권한(authorization)·비밀 처리(secret handling)·결제(payments)·데이터 삭제(data deletion), 그리고 모델·사용자가 준 명령 실행(running commands that come from a model or user input)·브랜치 병합이나 전환(merging or switching branches)·저장소 밖 쓰기(writing outside the repository)를 바꾸는 기능뿐이다. 그 밖은 `standard` 다 — 예: 로그·보고서 텍스트 가림(redacting log or report text)·설정 검증(validating configuration)·메시지 문구(wording of messages)·문서(documentation). lint 는 등급을 판정하지 않는다. `run_steps` 는 선택(생략 시 위 기본값).
 `resolves` 는 선택 — 이 기능이 해결하는 backlog 항목 id 배열(§7.7). 문자열 배열이 아니면 error, backlog 에 없거나 이미 해결된(`resolved_by` 있음) 또는 닫힌(`closed` 있음, `already closed as <as>` — `closed` 가 객체가 아니거나 `as` 가 문자열이 아니면 `already closed`) id 를 가리키면 warning.
 `removes_tests` 는 선택 — 이 기능이 제거해도 되는 테스트의 이름 접두어 배열이다. 각 항목은 `/^F\d+( (AC|SC|ES)-\d+)?$/` 에 맞아야 한다(`F5`, `F5 AC-1`). 테스트 이름 n 이 접두어 p 에 맞는다 = `n === p` 이거나 n 이 `p + ' '` 또는 `p + ':'` 로 시작한다(`F5` 는 `F5 AC-1` 에 맞고 `F51 AC-1` 에는 맞지 않는다; `lib/contract.mjs` 의 `matchesRemoved(name, prefixes)`). 배열이 아니거나 항목이 형식에 맞지 않거나 자기 기능 id(`F<n>` 또는 `F<n> …`)를 가리키면 error(rule `removes_tests`). plan/lint 이벤트의 규칙 이름 목록에도 `removes_tests` 가 있다. 계약의 일부이므로 승인 뒤 바꾸면 해시가 달라져 verify·eval·run 이 거부한다.
 lint 규칙(전부 결정적, 위반 = error):
