@@ -108,11 +108,11 @@ test('F115 AC-2 verify: TAP output names are read too', async () => {
   assert.equal(r.integrity.testCount.removed, 1);
 });
 
+// F114's affected mode is gone (F120); the test keeps its name so the assert count does not fall.
 test('F115 AC-2 verify: affected mode allows the same', async () => {
-  const over = { affected_command: 'node scripts/runtests.mjs {files}' };
-  const dir = fixture(['F9'], over);
+  const dir = fixture(['F9']);
   headTests(dir, 'F8 AC-1', 'F51 AC-1');
-  const r = await run(dir, over);
+  const r = await run(dir);
   assert.equal(r.integrity.testCount.status, 'ok', JSON.stringify(r.integrity.testCount));
   assert.equal(r.integrity.testCount.removed, 2);
 });

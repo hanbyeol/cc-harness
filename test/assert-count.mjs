@@ -127,7 +127,7 @@ if (!explicit) {
       const parsed = JSON.parse(featuresText);
       const items = Array.isArray(parsed) ? parsed : parsed?.features;
       if (!Array.isArray(items)) throw new Error('no features array');
-      unfinished = new Set(items.filter((f) => f && ['todo', 'in_progress', 'blocked'].includes(f.status)).map((f) => f.id));
+      unfinished = new Set(items.filter((f) => f && ['todo', 'approved', 'in_progress', 'blocked'].includes(f.status)).map((f) => f.id));
     } catch (e) {
       console.error(`assert-count: skipped .harness/features.json: ${e.message.split('\n')[0]}`);
     }
@@ -155,7 +155,8 @@ for (const file of files) {
   if (before === null) continue;
   const abs = path.join(root, file);
   if (!fs.existsSync(abs)) {
-    const names = testNames(before);
+    // A template literal name (`t${i}`) is a generator, not a test name: matching it by prefix is impossible.
+    const names = testNames(before).filter((n) => !n.includes('${'));
     if (active && names.length > 0 && names.every(matches)) continue;
     const unmatched = active ? names.filter((n) => !matches(n)) : [];
     if (unmatched.length) problems.push(`${file}: deleted, but test name not in removes_tests of ${explicit ? removesId : 'the approved contracts'}: "${unmatched[0]}"`);
