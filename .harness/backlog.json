@@ -7038,6 +7038,15 @@
         }
       ],
       "id": "B542"
+    },
+    {
+      "kind": "decision",
+      "feature": "F120",
+      "decision": "rewrite",
+      "reason": "blocked by assert-count tooling gap (contract approved at merge base); fixed by F122 — rerun F120 fresh with the same contract",
+      "summary": "decision rewrite for F120: blocked by assert-count tooling gap (contract approved at merge base); fixed by F122 — rerun F120 fresh with the same contract",
+      "at": "2026-10-12T00:40:23.844Z",
+      "id": "B543"
     }
   ]
 }
