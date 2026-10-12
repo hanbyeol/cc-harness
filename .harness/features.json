@@ -1006,21 +1006,22 @@
       "title": "F78 AC-5 를 프로세스 실행 없이 정적으로 — 스위트 CPU 약 240초 감소",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F120",
       "title": "affected 모드 제거 — verify.affected_command·final_verify·verify --full 삭제",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "blocked",
+      "blocked_reason": "stall"
     },
     {
       "id": "F121",
       "title": "security_tier 기준 좁히기 — critical 목록과 standard 예시를 spec skill·AGENTS·SPEC 에",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }

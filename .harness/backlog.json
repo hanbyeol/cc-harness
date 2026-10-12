@@ -7012,6 +7012,32 @@
       "summary": "decision rewrite for F118: Parsing JS test sources by regex/hand scanner keeps hitting edge cases (block comments, then regex literals; r2 regressed F115). Affected mode is shelved: affected sets are 67-104 of 113 test files anyway. verify.affected_command stays unset.",
       "at": "2026-10-11T07:49:09.018Z",
       "id": "B541"
+    },
+    {
+      "source": "run:F120",
+      "feature": "F120",
+      "kind": "rescope",
+      "reason": "stall",
+      "rounds": 2,
+      "blocking": [
+        "VERIFY:commands"
+      ],
+      "summary": "F120 blocked (stall): the blocking set did not shrink between rounds — still blocking: VERIFY:commands",
+      "options": [
+        {
+          "kind": "split",
+          "summary": "split F120 so VERIFY:commands ship as a separate feature with its own contract"
+        },
+        {
+          "kind": "rewrite",
+          "summary": "rewrite the criteria for VERIFY:commands (new contract version, re-approval)"
+        },
+        {
+          "kind": "accept-risk",
+          "summary": "accept the risk: drop or relax VERIFY:commands with a recorded decision"
+        }
+      ],
+      "id": "B542"
     }
   ]
 }
