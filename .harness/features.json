@@ -1022,6 +1022,13 @@
       "security_tier": "standard",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F122",
+      "title": "assert-count 이 merge-base 에서 아직 끝나지 않은 기능의 승인된 removes_tests 도 읽는다",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }

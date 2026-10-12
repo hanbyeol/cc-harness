@@ -1,0 +1,64 @@
+{
+  "id": "F122",
+  "title": "assert-count 이 merge-base 에서 아직 끝나지 않은 기능의 승인된 removes_tests 도 읽는다 — 승인 커밋이 merge-base 인 기능(F120)의 테스트 제거가 F41 AC-3 에 막히지 않게",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "node test/assert-count.mjs(--removes 없음)는 F117 의 목록에 더해, merge-base 에 이미 있는 .harness/contracts/F<n>.json 중 HEAD 내용의 approval.hash 가 현재 해시와 같고 merge-base 의 .harness/features.json 에서 그 기능의 status 가 'todo'·'in_progress'·'blocked' 인 계약의 removes_tests 도 허용 목록에 넣는다 — 픽스처: base 커밋에 승인된 계약 F9(removes_tests ['F9'])와 features.json 항목 {id:'F9', status:'todo'} 이 있고 그 뒤 'F9 AC-1' 테스트를 지운 저장소에서 exit 0",
+      "check": "node test/t.mjs \"F122 AC-1\"",
+      "new": false
+    },
+    {
+      "id": "AC-2",
+      "criterion": "AC-1 로 들어간 계약도 'assert-count: removes_tests approved by …' 줄에 F117 로 들어간 것과 함께 계약 id 오름차순으로 한 번씩 나온다",
+      "check": "node test/t.mjs \"F122 AC-2\"",
+      "new": false
+    },
+    {
+      "id": "AC-3",
+      "criterion": "F117 의 동작은 그대로다 — F117 AC-1·AC-2·SC-1·SC-2·ES-1 테스트와 --removes 를 준 F115 AC-4 테스트",
+      "check": "node test/t.mjs \"F117 AC-1\" && node test/t.mjs \"F117 AC-2\" && node test/t.mjs \"F117 SC-1\" && node test/t.mjs \"F117 SC-2\" && node test/t.mjs \"F117 ES-1\" && node test/t.mjs \"F115 AC-4\"",
+      "new": false
+    },
+    {
+      "id": "AC-4",
+      "criterion": "docs/SPEC.md §6.2 의 assert-count 자동 수집 설명이 merge-base 에서 status 가 todo·in_progress·blocked 인 기능의 승인 계약도 쓴다고 적는다(문서 check)",
+      "check": "node test/t.mjs \"F122 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "merge-base 의 features.json 에서 status 가 'passed' 이거나, 항목이 없거나, features.json 이 없거나 JSON 이 아니면 merge-base 에 있던(그 뒤 안 바뀐) 계약의 removes_tests 는 쓰지 않는다 — 세 픽스처 모두 'F9 AC-1' 을 지우면 exit 1 이고 그 이름을 출력한다",
+      "check": "node test/t.mjs \"F122 SC-1\"",
+      "new": false
+    },
+    {
+      "id": "SC-2",
+      "criterion": "merge-base 의 status 가 'todo' 여도 HEAD 의 계약에 approval 이 없거나 approval.hash 가 현재 해시와 다르면 쓰지 않는다 — 'F9 AC-1' 을 지우면 exit 1",
+      "check": "node test/t.mjs \"F122 SC-2\"",
+      "new": false
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "merge-base 의 .harness/features.json 이 JSON 이 아니면 stderr 에 'assert-count: skipped .harness/features.json: <이유>' 한 줄을 내고 AC-1 의 추가 수집만 건너뛴다(F117 수집과 나머지 비교는 그대로, merge-base 뒤 추가된 승인 계약의 제거는 여전히 exit 0)",
+      "check": "node test/t.mjs \"F122 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "verify 의 테스트 수 비교(F115)",
+    "F120 의 재실행 — 사람이 decide 뒤 한다",
+    "features.json 의 다른 status 값 추가"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-12T00:26:10.988Z",
+    "hash": "ac5709a1bad9696277766e93f51a73efe9aca3e314c454f39b8c840cc03c76f7"
+  }
+}
