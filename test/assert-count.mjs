@@ -8,7 +8,8 @@
 // removals: tests whose name matches a prefix may vanish (a file whose every test name matches may
 // be deleted), and a file may lose as many asserts as the vanished matching test blocks held.
 // Exit 2 when that contract is missing or has no removes_tests. Without --removes the removes_tests of
-// the approved contracts added or changed since the merge base are used (printed on stdout).
+// the approved contracts added or changed since the merge base, and those at the merge base whose
+// feature was todo, in_progress or blocked there, are used (printed on stdout).
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
@@ -91,25 +92,56 @@ function blockAsserts(src) {
 // Without --removes: the removes_tests of every approved contract added or changed since the merge
 // base (approval.hash equal to the contract's current hash, as hashContract in lib/contract.mjs).
 if (!explicit) {
-  const approvedBy = [];
+  const approved = [];
+  const idOf = (file) => Number(file.match(/F(\d+)/)[1]);
+  const contractFile = /^\.harness\/contracts\/F\d+\.json$/;
+  // removes_tests of the contract at HEAD:<file> when it is approved (approval.hash equals its
+  // current hash, as hashContract in lib/contract.mjs); null when it has none to offer.
+  const approvedList = (file) => {
+    const c = JSON.parse(git('show', `HEAD:${file}`) ?? '');
+    if (c === null || typeof c !== 'object' || Array.isArray(c)) throw new Error('not a JSON object');
+    if (c.removes_tests !== undefined && !Array.isArray(c.removes_tests)) throw new Error('removes_tests is not an array');
+    const { approval, ...rest } = c;
+    const hash = crypto.createHash('sha256').update(JSON.stringify(rest)).digest('hex');
+    if (!Array.isArray(c.removes_tests) || typeof approval?.hash !== 'string' || approval.hash !== hash) return null;
+    const list = c.removes_tests.filter((p) => typeof p === 'string');
+    return list.length === 0 ? null : list;
+  };
   const changed = (git('diff', '--name-only', '--diff-filter=AM', mergeBase, 'HEAD', '--', '.harness/contracts') || '')
-    .split('\n').filter((f) => /^\.harness\/contracts\/F\d+\.json$/.test(f));
-  for (const file of changed.sort((a, b) => Number(a.match(/F(\d+)/)[1]) - Number(b.match(/F(\d+)/)[1]))) {
+    .split('\n').filter((f) => contractFile.test(f));
+  for (const file of changed) {
     try {
-      const c = JSON.parse(git('show', `HEAD:${file}`) ?? '');
-      if (c === null || typeof c !== 'object' || Array.isArray(c)) throw new Error('not a JSON object');
-      if (c.removes_tests !== undefined && !Array.isArray(c.removes_tests)) throw new Error('removes_tests is not an array');
-      const { approval, ...rest } = c;
-      const hash = crypto.createHash('sha256').update(JSON.stringify(rest)).digest('hex');
-      if (!Array.isArray(c.removes_tests) || typeof approval?.hash !== 'string' || approval.hash !== hash) continue;
-      const list = c.removes_tests.filter((p) => typeof p === 'string');
-      if (list.length === 0) continue;
-      prefixes.push(...list);
-      approvedBy.push(path.basename(file, '.json'));
+      const list = approvedList(file);
+      if (list) approved.push({ file, list });
     } catch (e) {
       console.error(`assert-count: skipped ${file}: ${e.message.split('\n')[0]}`);
     }
   }
+  // Contracts already at the merge base and unchanged count while their feature was unfinished there.
+  const atBase = (git('ls-tree', '--name-only', mergeBase, '--', '.harness/contracts/') || '')
+    .split('\n').filter((f) => contractFile.test(f) && !changed.includes(f));
+  let unfinished = new Set();
+  const featuresText = atBase.length > 0 ? git('show', `${mergeBase}:.harness/features.json`) : null;
+  if (featuresText !== null) {
+    try {
+      const parsed = JSON.parse(featuresText);
+      const items = Array.isArray(parsed) ? parsed : parsed?.features;
+      if (!Array.isArray(items)) throw new Error('no features array');
+      unfinished = new Set(items.filter((f) => f && ['todo', 'in_progress', 'blocked'].includes(f.status)).map((f) => f.id));
+    } catch (e) {
+      console.error(`assert-count: skipped .harness/features.json: ${e.message.split('\n')[0]}`);
+    }
+  }
+  for (const file of atBase) {
+    if (!unfinished.has(path.basename(file, '.json'))) continue;
+    try {
+      const list = approvedList(file);
+      if (list) approved.push({ file, list });
+    } catch { /* a contract unreadable at HEAD offers nothing */ }
+  }
+  approved.sort((a, b) => idOf(a.file) - idOf(b.file));
+  for (const { list } of approved) prefixes.push(...list);
+  const approvedBy = approved.map(({ file }) => path.basename(file, '.json'));
   if (approvedBy.length > 0) console.log(`assert-count: removes_tests approved by ${approvedBy.join(', ')}`);
 }
 const active = prefixes.length > 0;
