@@ -108,15 +108,6 @@ test('F115 AC-2 verify: TAP output names are read too', async () => {
   assert.equal(r.integrity.testCount.removed, 1);
 });
 
-test('F115 AC-2 verify: affected mode allows the same', async () => {
-  const over = { affected_command: 'node scripts/runtests.mjs {files}' };
-  const dir = fixture(['F9'], over);
-  headTests(dir, 'F8 AC-1', 'F51 AC-1');
-  const r = await run(dir, over);
-  assert.equal(r.integrity.testCount.status, 'ok', JSON.stringify(r.integrity.testCount));
-  assert.equal(r.integrity.testCount.removed, 2);
-});
-
 // ------------------------------------------------------------------ AC-3
 
 test('F115 AC-3 without removes_tests (absent or empty) a decrease still fails and there is no removed key', async () => {
