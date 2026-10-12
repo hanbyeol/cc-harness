@@ -1013,7 +1013,7 @@
       "title": "affected 모드 제거 — verify.affected_command·final_verify·verify --full 삭제",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F121",
