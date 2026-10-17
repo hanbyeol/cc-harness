@@ -49,7 +49,9 @@ function fixture(tests = { 'tests/a.test.mjs': STABLE, [FLAKY_FILE]: FLAKY }) {
   });
 }
 
-const NODE_TEST = 'node --test "tests/**/*.test.mjs"';
+// The spec reporter is named: without it Node 22 writes TAP when stdout is not a terminal, and a
+// TAP output gives no file (the whole command re-runs, SPEC §6.1). Node 23+ defaults to spec.
+const NODE_TEST = 'node --test --test-reporter=spec "tests/**/*.test.mjs"';
 const cfg = (verifyOver = {}) => resolveConfig({ base_branch: 'main', verify: { commands: [NODE_TEST], ...verifyOver }, budget: { step_timeout_sec: 120 } });
 const run = (dir, verifyOver) => verify({ root: dir, featureId: 'F9', base: 'main', config: cfg(verifyOver) });
 // One entry per test file run, in order: 'a' for the stable file, 'b' for the flaky one.
@@ -87,8 +89,11 @@ test('F100 AC-1: the re-run keeps the options before --test and the -- arguments
   fs.mkdirSync(path.join(cwd, 'tests'));
   fs.writeFileSync(path.join(cwd, 'tests', 'x.test.mjs'), '');
   const out = specOutput([['tests/x.test.mjs:3:1', 'x fails']]);
-  const p = partialRetry('node --no-warnings --test --test-reporter=spec "tests/**/*.test.mjs" --test-concurrency=1', out, cwd, { platform: 'linux' });
-  assert.deepEqual(p, { cmd: `node --no-warnings --test --test-reporter=spec --test-concurrency=1 ${path.join('tests', 'x.test.mjs')}`, files: [path.join('tests', 'x.test.mjs')] });
+  // The platform is this one: the located file is a native relative path, which on win32 has a
+  // backslash and is double-quoted for cmd.exe.
+  const p = partialRetry('node --no-warnings --test --test-reporter=spec "tests/**/*.test.mjs" --test-concurrency=1', out, cwd);
+  const file = process.platform === 'win32' ? '"tests\\x.test.mjs"' : 'tests/x.test.mjs';
+  assert.deepEqual(p, { cmd: `node --no-warnings --test --test-reporter=spec --test-concurrency=1 ${file}`, files: [path.join('tests', 'x.test.mjs')] });
   // An absolute location inside cwd and a file URL become paths relative to cwd, once each.
   const abs = path.join(cwd, 'tests', 'x.test.mjs');
   const twice = specOutput([[`${abs}:3:1`, 'one'], [`${new URL(`file://${abs.startsWith('/') ? '' : '/'}${abs.replace(/\\/g, '/')}`).href}:9:1`, 'two']]);
