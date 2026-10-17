@@ -1,0 +1,65 @@
+{
+  "id": "F126",
+  "title": "명령별 도움말 — harness <command> --help|-h 와 harness help <command> 가 그 명령의 usage 를 부작용 없이 출력, init·doctor 는 모르는 인자를 거부",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness --help 의 commands: 목록 15개 명령(init·lint-contract·approve·verify·eval·run·status·stats·events·decide·backlog·doctor·claude-md·tf-check·migrate-v1) 각각에서 `harness <name> --help`, `-h`, `<name> F1 --help` 가 exit 0, stderr 비어 있음, stdout 첫 줄이 'usage: harness <name>' 로 시작하고 목록의 그 명령 요약 문장을 담는다",
+      "check": "node test/t.mjs \"F126 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "AC-1 의 도움말 stdout 이 그 명령의 옵션 이름을 담는다: init --language · approve --by --extra-round · verify --base --cwd --json · eval --round --base --cwd --json · run --resume --fresh --max-usd --parallel · status --brief --todo-v1 · stats --since --json · events --stage --feature --since --json · decide --accept-risk --split --rewrite · backlog close --resolved --obsolete · claude-md --check · tf-check --dir · migrate-v1 --force",
+      "check": "node test/t.mjs \"F126 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "AC-1 의 15개 명령의 `--help` 는 초기화 안 된 git 저장소와 .harness/features.json 이 JSON 이 아닌 저장소 두 픽스처에서 exit 0 이고, 실행 전후 작업 트리·.git 의 파일 목록과 내용이 같으며, PATH 앞에 둔 가짜 claude·codex·gemini·git·terraform 이 호출되지 않는다",
+      "check": "node test/t.mjs \"F126 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "AC-1 의 15개 명령 각각에서 `harness help <name>` 은 `harness <name> --help` 와 같은 stdout·exit 0 을 낸다. `harness help`·`harness --help` 는 지금처럼 명령 목록을 내고, 마지막 줄이 'harness <command> --help' 로 명령별 옵션을 본다고 안내한다",
+      "check": "node test/t.mjs \"F126 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md 가 명령별 도움말(--help·-h·help <command>, -- 뒤는 제외, 상태 파일 검사(E6) 전에 처리)과 init·doctor 의 모르는 인자 거부를 적고, AGENTS.md·README.md 의 옵션 안내가 `harness <command> --help` 를 가리킨다(문서 check)",
+      "check": "node test/t.mjs \"F126 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "`harness help nope` 와 `harness nope --help` 는 exit 2 이고 stderr 에 \"unknown command 'nope'\" 를 낸다",
+      "check": "node test/t.mjs \"F126 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "`--` 뒤의 --help·-h 는 도움말 요청이 아니다 — `harness backlog close B1 --resolved -- \"--help\"` 는 B1 을 사유 '--help' 로 닫고 exit 0",
+      "check": "node test/t.mjs \"F126 ES-2\"",
+      "new": false
+    },
+    {
+      "id": "ES-3",
+      "criterion": "`harness init extra`, `harness init --bogus`, `harness doctor --bogus` 는 exit 2 이고 stderr 에 그 인자와 'usage: harness <name>' 을 내며, init 은 아무 파일도 만들지 않는다(빈 git 저장소 픽스처에서 실행 전후 파일 목록이 같다)",
+      "check": "node test/t.mjs \"F126 ES-3\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "status 의 모르는 인자 거부 — SessionStart 훅이 모든 프로젝트에서 `status --brief` 를 부르므로 따로 정한다",
+    "옵션별 설명 문장의 문구·서식(옵션 이름이 나오는 것만 정한다)",
+    "backlog 외 하위 명령 체계, 셸 자동 완성, man 페이지",
+    "--help=<값>·-help 같은 다른 철자"
+  ]
+}

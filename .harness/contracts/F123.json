@@ -1,0 +1,84 @@
+{
+  "id": "F123",
+  "title": "대화형 eval 의 수렴 판정이 verify 실패 라운드를 run 과 같은 차단 id 로 세고, evaluator 에 차단 finding 이 있으면 security-reviewer 의 usage_limit·refusal 로 평가를 멈추지 않는다",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify 가 실패한 harness eval 의 판정 파일에 verify_blocking 이 기록된다 — run 의 verifyBlocking 과 같은 id 목록: 실패 기준 id(사례 접미사 '#n' 제거, 중복 없이), 명령 실패 시 'VERIFY:commands', integrity 실패 시 'VERIFY:integrity', 그 무엇도 없으면 'VERIFY'",
+      "check": "node test/t.mjs \"F123 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "decideStatus: 라운드 1 이 finding 없이 verify 실패(verify_blocking AC-1·AC-2·AC-3), 라운드 2 가 finding 없이 verify 실패(verify_blocking AC-1)이면 stall 이 아니라 in_progress 이고 ids 는 ['AC-1'] 이다",
+      "check": "node test/t.mjs \"F123 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "decideStatus: 라운드 1 이 finding 없이 verify 실패(verify_blocking AC-2·AC-3), 라운드 2 가 verify 통과에 차단 finding AC-2 면 divergence 가 아니라 in_progress 이고, 라운드 2 의 차단 finding 이 AC-4 면 blocked(divergence, ids ['AC-4'])",
+      "check": "node test/t.mjs \"F123 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "verify_pass 가 false 인 fail 판정의 차단 id 는 차단 finding 의 id 와 verify_blocking 의 합집합이다 — verifyBlocking AC-1, finding AC-3 인 판정의 verdictBlockingIds 는 AC-1·AC-3 두 id 다",
+      "check": "node test/t.mjs \"F123 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "harness run 이 같은 계약 해시의 대화형 eval 판정(finding 없이 verify 실패, verify_blocking AC-1·AC-2)을 이어받고 첫 라운드가 verify 실패 AC-1 로 끝나면 stall 로 blocked 되지 않고 다음 라운드로 간다",
+      "check": "node test/t.mjs \"F123 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "critical 기능의 harness eval 에서 evaluator 가 재현되는 차단 finding 을 내고 security-reviewer 가 usage_limit(사례 1) 또는 refusal(사례 2)로 끝나면 fail 판정 파일이 쓰이고 reviews.security-reviewer 는 'unused', exit 1, 기능 status 는 in_progress 다",
+      "check": "node test/t.mjs \"F123 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "docs/SPEC.md §7.6 이 verify 실패 라운드의 차단 집합을 verify_blocking(실패 기준 id + VERIFY:commands/VERIFY:integrity, 없으면 VERIFY)과 finding id 의 합집합으로 적고, §7.4 가 reviewer 오류에 usage_limit·refusal 도 포함된다고 적는다(문서 check)",
+      "check": "node test/t.mjs \"F123 AC-7\"",
+      "new": true
+    },
+    {
+      "id": "AC-8",
+      "criterion": "docs/SPEC.md §8 의 수렴 검사 발산 문구가 코드와 같게 'k-1 에서 차단이 아니던 id 가 k 에서 차단'으로 적힌다 — 'k-1에서 통과한 기준 id' 문구는 없다(문서 check)",
+      "check": "node test/t.mjs \"F123 AC-8\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "critical 기능에서 evaluator 에 차단 finding 이 없고 security-reviewer 가 usage_limit(사례 1) 또는 refusal(사례 2)로 끝나면 지금처럼 판정 파일 없이 exit 1 이고 status 는 바뀌지 않는다 — reviewer 없이 pass 가 기록되지 않는다",
+      "check": "node test/t.mjs \"F123 SC-1\"",
+      "new": false
+    },
+    {
+      "id": "SC-2",
+      "criterion": "verify 가 실패한 harness eval 은 evaluator 가 finding 없이 만점을 줘도 verdict 'fail' 이고 verdictBlockingIds 가 빈 배열이 아니다 — 사례: 기준 실패, 명령만 실패, integrity 만 실패",
+      "check": "node test/t.mjs \"F123 SC-2\"",
+      "new": false
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "verify_blocking 이 없는 이전 판정(verify_pass false, 차단 finding 없음)의 verdictBlockingIds 는 ['VERIFY'] 이고, verify_blocking 이 배열이 아니거나 문자열이 아닌 원소만 있으면 같은 판정으로 ['VERIFY'] 를 쓴다(예외 없음)",
+      "check": "node test/t.mjs \"F123 ES-1\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "run 의 verify-only 라운드 판정(verifyBlocking) 자체의 변경",
+    "이미 기록된 판정 파일의 재작성·이주",
+    "evaluator 자신의 usage_limit·refusal 처리(지금처럼 멈춤)",
+    "convergence() 의 비교 규칙 변경 — 입력 id 만 바뀐다"
+  ]
+}

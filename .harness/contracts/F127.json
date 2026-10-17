@@ -1,0 +1,48 @@
+{
+  "id": "F127",
+  "title": "runCommand 가 stdout·stderr 를 스트림 단위 UTF-8 로 디코드한다 — 청크 경계에서 잘린 한글 등 멀티바이트 문자가 U+FFFD 로 깨지지 않게",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "lib/exec.mjs 의 runCommand 로 실행한 자식이 '가나다'×3 의 UTF-8 바이트를 4바이트에서 나눠 두 번(사이 300ms) stdout 에 쓰면 결과 stdout 은 '가나다가나다가나다' 와 정확히 같다 — {file,args} 형식과 셸 문자열 형식 모두",
+      "check": "node test/t.mjs \"F127 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "AC-1 과 같은 자식이 같은 방식으로 stderr 에 쓰면 결과 stderr 도 '가나다가나다가나다' 와 정확히 같다",
+      "check": "node test/t.mjs \"F127 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "자식이 stdout 에 '가' 를 1 MiB(MAX_OUTPUT) 글자보다 많이(예: 1,200,000 자) 쓰면 결과 stdout 은 길이가 MAX_OUTPUT 이고 U+FFFD 가 없으며 모두 '가' 다 — 64 KiB 파이프 청크 경계마다 문자가 잘려도",
+      "check": "node test/t.mjs \"F127 AC-3\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "자식이 올바르지 않은 UTF-8 바이트(0xFF) 를 'a' 와 'b' 사이에 쓰면 runCommand 는 던지지 않고 stdout 은 'a\\uFFFDb' 다 — 잘못된 바이트만 U+FFFD 로 바뀐다",
+      "check": "node test/t.mjs \"F127 ES-1\"",
+      "new": false
+    },
+    {
+      "id": "ES-2",
+      "criterion": "자식이 '가' 의 앞 2바이트만 쓰고 exit 0 하면 runCommand 는 code 0 으로 끝나고 stdout 은 U+FFFD 하나로 끝난다(미완성 꼬리를 버리거나 멈추지 않는다)",
+      "check": "node test/t.mjs \"F127 ES-2\"",
+      "new": false
+    }
+  ],
+  "out_of_scope": [
+    "test/stress.mjs 의 자식 출력 디코드(같은 패턴 child.stdout.on('data', d => stdout += d) 이 test/stress.mjs:83-84 에 있다 — 테스트 도구라 별도 fix)",
+    "spawnSync(..., { encoding: 'utf8' }) 호출(lib/events.mjs·lib/commands/approve.mjs·lib/exec.mjs) — 버퍼 전체를 한 번에 디코드하므로 해당 없음",
+    "cap 의 UTF-16 길이 기준 자르기가 서로게이트 쌍(이모지 등 BMP 밖 문자)의 앞 반쪽을 버려 꼬리 첫 글자가 홀로 남은 low surrogate 가 되는 경우",
+    "MAX_OUTPUT 을 바이트 단위로 바꾸는 것(현재 UTF-16 코드 유닛 기준)",
+    "UTF-8 이 아닌 콘솔 코드페이지(Windows cp949 등)로 출력하는 자식의 디코드"
+  ]
+}

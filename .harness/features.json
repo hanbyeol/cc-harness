@@ -1028,6 +1028,48 @@
       "security_tier": "critical",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F123",
+      "title": "대화형 eval 의 수렴 판정이 verify 실패 라운드를 run 과 같은 차단 id 로 세고, evaluator 에 차단 finding 이 있으면 security-reviewer 의 usage_limit·refusal 로 평가를 멈추지 않는다",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "todo"
+    },
+    {
+      "id": "F124",
+      "title": "harness run 실행 잠금 — 살아 있는 run 이 있으면 두 번째 run·run --resume 을 거부해 같은 worktree·상태·integration 브랜치에 스케줄러가 둘 생기지 않게",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "todo"
+    },
+    {
+      "id": "F125",
+      "title": "verify 실패 뒤 builder 가 보는 실패 출력 — 다음 라운드 첫 시도에도 직전 verify 실패 요약을 넘기고, 명령·기준 check 실패 출력에 stderr 와 stdout 끝부분을 모두 담는다",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "todo"
+    },
+    {
+      "id": "F126",
+      "title": "명령별 도움말 — harness <command> --help|-h 와 harness help <command> 가 그 명령의 usage 를 부작용 없이 출력, init·doctor 는 모르는 인자를 거부",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "todo"
+    },
+    {
+      "id": "F127",
+      "title": "runCommand 가 stdout·stderr 를 스트림 단위 UTF-8 로 디코드한다 — 청크 경계에서 잘린 한글 등 멀티바이트 문자가 U+FFFD 로 깨지지 않게",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "todo"
+    },
+    {
+      "id": "F128",
+      "title": "저장소 하위 디렉터리 프로젝트(모노레포)에서 base 쪽 실행 — new 기준의 vacuity 실행과 base 테스트 수 — 을 base worktree 최상위가 아니라 head 와 같은 프로젝트 디렉터리에서 한다",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "todo"
     }
   ]
 }
