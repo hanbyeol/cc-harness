@@ -74,5 +74,10 @@
     "node_modules 외 의존성 디렉터리(vendor, .venv)와 최상위·프로젝트 외 중간 디렉터리의 node_modules",
     "head 쪽 실행 위치(이미 cwd)와 verify.commands 의 실행 위치",
     "check 의 두 번째 이후 명령(&&, ; 뒤) 분석"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-17T12:50:06.059Z",
+    "hash": "97fce8ae69a58e183a7273c6bb5fcd3a8a4a6aa5a5b5d9e74e1ff0a86b19ba90"
+  }
 }

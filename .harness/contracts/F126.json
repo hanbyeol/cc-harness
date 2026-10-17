@@ -61,5 +61,10 @@
     "옵션별 설명 문장의 문구·서식(옵션 이름이 나오는 것만 정한다)",
     "backlog 외 하위 명령 체계, 셸 자동 완성, man 페이지",
     "--help=<값>·-help 같은 다른 철자"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-17T12:50:06.059Z",
+    "hash": "b18ec80ea5b7ff398a4f0cf2d91b331fc76fcafd5d62e067cdbc00c89824b70a"
+  }
 }

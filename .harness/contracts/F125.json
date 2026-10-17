@@ -70,5 +70,10 @@
     "verify/command·verify/check 이벤트와 metrics 에 출력 싣기(§2 그대로 출력 없음)",
     "프롬프트 전체 크기 상한, 테스트 러너별 실패 줄 추출",
     "병합 충돌 해결·병합 후 verify 복구 프롬프트"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-17T12:50:06.059Z",
+    "hash": "c1fc4493b676d33c89f86322658b1e8ecf53afa54066c76631557dc243692e8c"
+  }
 }

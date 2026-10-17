@@ -80,5 +80,10 @@
     "이미 기록된 판정 파일의 재작성·이주",
     "evaluator 자신의 usage_limit·refusal 처리(지금처럼 멈춤)",
     "convergence() 의 비교 규칙 변경 — 입력 id 만 바뀐다"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-17T12:50:06.059Z",
+    "hash": "44bd5b57753aeb171afbac927fb6c56867c6b6ba26c1fd8acb80c04a5318c73c"
+  }
 }

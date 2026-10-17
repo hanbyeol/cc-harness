@@ -71,5 +71,10 @@
     "harness verify·eval·status 등 run 이외 명령의 잠금",
     ".harness/.gitignore 에 run.lock 추가 — runs/** 는 이미 무결성 검사(§6.2)·결과 캐시(§6.4) 대상 밖이다",
     "Windows 에서 다른 사용자 소유 프로세스의 생존 판정 차이"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-17T12:50:06.059Z",
+    "hash": "1334b83380ca3a5378722fce7a6d05ba2265f352461e2077bbd46d009cd2afa3"
+  }
 }
