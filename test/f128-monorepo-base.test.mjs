@@ -33,8 +33,10 @@ const run = (root, verifyCfg, cwd = root) => verify({ root, cwd, featureId: 'F9'
 const byId = (r) => Object.fromEntries(r.criteria.map((c) => [c.id, c]));
 
 // A node command that appends its cwd to `log`, then exits with `tail` (a JS expression).
-const recordCwd = (log, tail = '0') => `node -e ${q(`require('fs').appendFileSync(${q(log)}, process.cwd() + '\\n'); process.exit(${tail})`)}`;
-const lines = (log) => fs.readFileSync(log, 'utf8').split('\n').filter(Boolean);
+// os.EOL, not a '\\n' escape: cmd.exe passes backslashes through, so the escape would reach
+// node as a literal backslash-n on Windows.
+const recordCwd = (log, tail = '0') => `node -e ${q(`require('fs').appendFileSync(${q(log)}, process.cwd() + require('os').EOL); process.exit(${tail})`)}`;
+const lines = (log) => fs.readFileSync(log, 'utf8').split(/\r?\n/).filter(Boolean);
 const baseLines = (log) => lines(log).filter((l) => /harness-base-/.test(l));
 const countFiles = `node -e ${q("console.log(require('fs').readdirSync('test').length)")}`;
 const summaryOfFiles = `node -e ${q("console.log('# tests ' + require('fs').readdirSync('test').length)")}`;
