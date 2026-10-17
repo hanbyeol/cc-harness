@@ -1,0 +1,79 @@
+{
+  "id": "F125",
+  "title": "verify 실패 뒤 builder 가 보는 실패 출력 — 다음 라운드 첫 시도에도 직전 verify 실패 요약을 넘기고, 명령·기준 check 실패 출력에 stderr 와 stdout 끝부분을 모두 담는다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "라운드 k 의 build 시도가 모두 verify 실패로 끝나 라운드 k+1 이 시작되면, 라운드 k+1 시도 1 의 build 인자 verifyFailure 는 라운드 k 마지막 verify 의 verifyFailureSummary 와 같고 builder 프롬프트에 'Deterministic verification failed' 절이 있다 — fakeVerify [false,false,false,true,…] 픽스처",
+      "check": "node test/t.mjs \"F125 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "라운드 k 가 끝나 상태가 저장된 뒤 라운드 k+1 시도 1 의 build 전에 run 이 중단되면, --resume 의 그 시도도 AC-1 과 같은 verifyFailure 를 받는다",
+      "check": "node test/t.mjs \"F125 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "실패한 verify 명령의 output 은 stderr·stdout 이 모두 비어 있지 않으면 '--- stderr ---\\n<stderr 끝 2000자>\\n--- stdout ---\\n<stdout 끝 2000자>' 이다(스트림마다 가린 뒤 자른다) — stderr 'npm WARN deprecated', stdout '✖ F1 AC-1 boom' 픽스처에서 둘 다 나온다. 한 스트림만 있으면 지금처럼 그 스트림의 끝 2000자다",
+      "check": "node test/t.mjs \"F125 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "실패한 기준 check 의 verify 결과 항목에 AC-3 과 같은 규칙의 output 이 있고(message 는 지금처럼 'exit N' 등), verifyFailureSummary 의 criteria 항목이 그 output 을 싣는다 — stdout 에 'assert boom-F125' 를 쓰고 exit 1 하는 check 의 재시도 프롬프트에 그 문자열이 있다. 통과한 기준에는 output 이 없다",
+      "check": "node test/t.mjs \"F125 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "기존 동작이 그대로다 — F36 AC-1·AC-3·ES-1, F89 AC-6, F6 AC-3, F112 AC-2 테스트가 통과한다",
+      "check": "node test/t.mjs \"F36 AC-1\" && node test/t.mjs \"F36 AC-3\" && node test/t.mjs \"F36 ES-1\" && node test/t.mjs \"F89 AC-6\" && node test/t.mjs \"F6 AC-3\" && node test/t.mjs \"F112 AC-2\"",
+      "new": false
+    },
+    {
+      "id": "AC-6",
+      "criterion": "docs/SPEC.md §6.1 이 명령·기준 check 실패 output 의 두 스트림 형식과 2000자 한도를, §8 build 단계가 다음 라운드 첫 시도에도 직전 verify 실패 요약을 넘긴다고 적는다(문서 check)",
+      "check": "node test/t.mjs \"F125 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "env_allowlist 밖 환경 변수 값(8자 이상)이 기준 check 의 stdout 과 stderr 에 각각 있고 그 하나가 2000자 자르기 경계에 걸쳐도, verify 결과의 기준 output·builder 프롬프트·.harness/runs/current.json 에 값이나 8자 이상 조각이 없고 '[redacted]' 가 있다(SR-8·SR-9)",
+      "check": "node test/t.mjs \"F125 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "verify 는 통과하고 eval 이 fail 해 끝난 라운드의 다음 라운드 시도 1 은 verifyFailure 가 null 이고 프롬프트에 'Deterministic verification failed' 절이 없다",
+      "check": "node test/t.mjs \"F125 ES-1\"",
+      "new": false
+    },
+    {
+      "id": "ES-2",
+      "criterion": "시간 초과로 죽은 기준 check 는 message 가 지금처럼 'timed out — process tree killed' 이고, 죽기 전에 쓴 stdout 이 output 에 있다",
+      "check": "node test/t.mjs \"F125 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "run 보고서·verdict 의 verify_failures 메시지(앞 300자) 형식",
+    "기준 상태 섹션(§8 criteriaStatus)에 check 출력 싣기",
+    "base(vacuity) 실행 출력",
+    "verify/command·verify/check 이벤트와 metrics 에 출력 싣기(§2 그대로 출력 없음)",
+    "프롬프트 전체 크기 상한, 테스트 러너별 실패 줄 추출",
+    "병합 충돌 해결·병합 후 verify 복구 프롬프트"
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-17T12:50:06.059Z",
+    "hash": "c1fc4493b676d33c89f86322658b1e8ecf53afa54066c76631557dc243692e8c"
+  }
+}

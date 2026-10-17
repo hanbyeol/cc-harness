@@ -1,0 +1,80 @@
+{
+  "id": "F124",
+  "title": "harness run 실행 잠금 — 살아 있는 run 이 있으면 두 번째 run·run --resume 을 거부해 같은 worktree·상태·integration 브랜치에 스케줄러가 둘 생기지 않게",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "새 run 과 run --resume 은 상태 파일 확인·사전 점검(preflight)·base 동기화 전에 .harness/runs/run.lock 을 배타 생성(fs flag 'wx')하고 JSON {pid, host, startedAt} 를 쓴다 — deps.diagnose 안에서 읽은 잠금의 pid 가 process.pid, host 가 os.hostname() 이다",
+      "check": "node test/t.mjs \"F124 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "run 이 정상으로 끝나면(보고서 작성, current.json 삭제) 잠금 파일도 지워지고, 시작 뒤 오류로 끝나도(preflight 실패 exit 2, run_in_progress, unknown feature) runFeatures 가 반환·throw 한 뒤 잠금 파일이 없다",
+      "check": "node test/t.mjs \"F124 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "중단된 run(signal abort → interrupted, current.json 저장)이 끝난 뒤 잠금 파일이 없고, 이어서 harness run --resume 이 잠금 거부 없이 재개된다",
+      "check": "node test/t.mjs \"F124 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "docs/SPEC.md §8 중단 복구 문단이 runs/run.lock(내용 pid·host·startedAt, 생성 시점, 거부 코드 run_locked, stale 잠금 인계와 경고, 해제 시점)을 설명하고 §12 표에 그 행이 있다(문서 check)",
+      "check": "node test/t.mjs \"F124 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "host 가 os.hostname() 이고 pid 가 살아 있는 프로세스(테스트 프로세스 자신)인 잠금이 있으면 새 run 과 run --resume 은 code 'run_locked'·exit 2 로 거부하고 메시지에 잠금 경로·pid·host 가 나온다 — 잠금 파일·current.json 내용은 그대로이고 deps.git·deps.build 는 불리지 않는다",
+      "check": "node test/t.mjs \"F124 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "같은 저장소에서 두 runFeatures(새 run, deps 주입)를 await 없이 동시에 시작하면 정확히 하나만 run_locked 로 거부되고 다른 하나는 끝까지 진행하며, builder 는 한 run 에서만 불린다",
+      "check": "node test/t.mjs \"F124 SC-2\"",
+      "new": true
+    },
+    {
+      "id": "SC-3",
+      "criterion": "host 가 os.hostname() 과 다른 잠금, 또는 JSON 이 아니거나 pid 가 양의 정수가 아닌 잠금은 인계하지 않고 run_locked(exit 2)로 거부하며 메시지에 잠금 경로와 'delete it if no run is active' 가 나온다 — 잠금 파일은 그대로다",
+      "check": "node test/t.mjs \"F124 SC-3\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "host 가 os.hostname() 이고 pid 가 이미 끝난 자식 프로세스의 pid 인 stale 잠금은 인계된다 — run 이 진행되고, 잠금 내용이 새 pid·startedAt 으로 바뀌며, 경고(deps.warn)에 'stale run lock' 과 이전 pid 가 나온다",
+      "check": "node test/t.mjs \"F124 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "프로세스 생존 판정: process.kill(pid, 0) 이 성공하거나 EPERM 이면 살아 있음, ESRCH 면 끝남으로 본다 — 판정 함수가 export 되어 세 경우(자신의 pid, 끝난 자식 pid, kill 이 EPERM 을 던지는 주입)를 각각 true·false·true 로 돌려준다",
+      "check": "node test/t.mjs \"F124 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "다른 host 의 잠금 생존 판정(공유 파일 시스템) — 거부만 하고 사용자가 지운다",
+    "pid 재사용으로 끝난 run 의 잠금이 살아 있는 것으로 보이는 경우 — 거부되고 메시지대로 사용자가 지운다",
+    "두 프로세스가 같은 stale 잠금을 동시에 인계하는 경쟁(D1, 충돌 뒤 동시 시작)",
+    "harness 가 SIGKILL·두 번째 신호(process.exit 130)로 죽었을 때 남은 잠금의 즉시 정리 — 다음 run 이 stale 로 인계한다",
+    "harness verify·eval·status 등 run 이외 명령의 잠금",
+    ".harness/.gitignore 에 run.lock 추가 — runs/** 는 이미 무결성 검사(§6.2)·결과 캐시(§6.4) 대상 밖이다",
+    "Windows 에서 다른 사용자 소유 프로세스의 생존 판정 차이"
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-17T12:50:06.059Z",
+    "hash": "1334b83380ca3a5378722fce7a6d05ba2265f352461e2077bbd46d009cd2afa3"
+  }
+}
