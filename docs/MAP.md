@@ -12,6 +12,7 @@ A test (`F112 AC-6`) fails when a file is missing here. Requirements are in `doc
 - lib/run/worktree.mjs — core git runner, integration branch and worktrees, taking over a blocked run's work
 - lib/run/feature.mjs — one feature's rounds: build → verify → eval, convergence, final status
 - lib/run/merge.mjs — merge into integration, pre/post-merge verify, conflict and verify recovery
+- lib/run/lock.mjs — the run lock (`runs/run.lock`): exclusive creation, stale takeover, process liveness
 - lib/run/report.mjs — run report and step tables
 - lib/run/prompt.mjs — builder prompt, default build and evaluate calls; lib/run/preflight.mjs — role preflight, effective tier; lib/run/common.mjs — stop signals, constants, pure helpers
 - lib/eval.mjs — independent evaluation: evaluator and security-reviewer calls, verdict rules, secret-path filtering of diffs
