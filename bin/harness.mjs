@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { HarnessError } from '../lib/errors.mjs';
 import { isInitialized, loadFeatures, paths } from '../lib/state.mjs';
 import { loadConfig } from '../lib/config.mjs';
+import { commandHelp } from '../lib/help.mjs';
 
 const LIB = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'lib', 'commands');
 
@@ -30,18 +31,30 @@ const COMMANDS = {
 function help() {
   const lines = ['usage: harness <command> [options]', '', 'commands:'];
   for (const [name, [summary]] of Object.entries(COMMANDS)) lines.push(`  ${name.padEnd(14)} ${summary}`);
+  lines.push('', 'harness <command> --help   options of one command');
   return lines.join('\n');
 }
 
 export async function main(argv, { root = process.cwd(), out = console.log, err = console.error } = {}) {
   const [name, ...args] = argv;
-  if (!name || name === '--help' || name === '-h' || name === 'help') {
+  const known = (n) => Object.hasOwn(COMMANDS, n);
+  const unknown = (n) => new HarnessError(`unknown command '${n}'. Run \`harness --help\`.`, { code: 'usage' });
+  // Help is answered before any state file is read (SPEC §3): arguments after `--` are values.
+  const dash = args.indexOf('--');
+  const wantsHelp = (dash === -1 ? args : args.slice(0, dash)).some((a) => a === '--help' || a === '-h');
+  if (!name || name === '--help' || name === '-h' || (name === 'help' && !args.length)) {
     out(help());
     return 0;
   }
   try {
-    const spec = Object.hasOwn(COMMANDS, name) ? COMMANDS[name] : undefined;
-    if (!spec) throw new HarnessError(`unknown command '${name}'. Run \`harness --help\`.`, { code: 'usage' });
+    if (name === 'help' || wantsHelp) {
+      const target = name === 'help' ? args[0] : name;
+      if (!known(target)) throw unknown(target);
+      out(commandHelp(target, COMMANDS[target][0]));
+      return 0;
+    }
+    const spec = known(name) ? COMMANDS[name] : undefined;
+    if (!spec) throw unknown(name);
     // Every command refuses to run on corrupted state (SPEC E6), including init.
     // init may complete a partial .harness/ (e.g. only contracts/), so a file that
     // is missing is not an error for it — one that exists is still checked.

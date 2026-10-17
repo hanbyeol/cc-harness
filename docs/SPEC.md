@@ -79,6 +79,8 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
     닫은 항목을 다시 여는 명령과 목록·검색 명령은 없다(요약은 `harness status`).
 - `harness run` 은 기능이 끝날 때(passed·blocked) status 이벤트 `data` 에 그 기능의 builder 호출 합계 `build_duration_ms`·`build_turns`·`build_cost_usd` 를 넣는다.
 
+**명령별 도움말**: `harness <command> --help`·`harness <command> -h`·`harness help <command>`(`<command> F1 --help` 처럼 다른 인자가 있어도 같다)는 그 명령의 `usage: harness <command> …` 줄, 명령 요약, 옵션 이름 목록을 stdout 에 내고 exit 0 이다. 상태 파일 검사(E6)와 초기화 검사 전에 처리하므로 초기화되지 않은 저장소나 손상된 `.harness/` 에서도 같고, 파일·git·어댑터 CLI 를 건드리지 않는다. `--` 뒤의 `--help`·`-h` 는 도움말 요청이 아니라 값이다(`backlog close B1 --resolved -- "--help"`). 모르는 명령이면 `unknown command '<이름>'`, exit 2. `harness help`·`harness --help` 는 명령 목록을 내고 마지막 줄이 `harness <command> --help` 로 명령별 옵션을 안내한다. `init`·`doctor` 는 모르는 인자(init 은 `--language <code>` 외 전부, doctor 는 모든 인자)를 `usage`(exit 2)로 거부하고 stderr 에 그 인자와 usage 줄을 내며 init 은 아무 파일도 만들지 않는다. `status` 는 SessionStart 훅이 부르므로 모르는 인자를 거부하지 않는다.
+
 ## 3. 용어
 - **계약(contract)**: 기능 1개의 수락 기준. `.harness/contracts/F{n}.json`. 승인 시 해시로 동결.
 - **check**: 기준 하나를 판정하는 셸 명령. exit 0 = 충족.

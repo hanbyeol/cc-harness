@@ -36,6 +36,7 @@ A test (`F112 AC-6`) fails when a file is missing here. Requirements are in `doc
 - lib/sleep.mjs — keeps the machine awake during a run and detects timeouts caused by sleep
 - lib/jsonpos.mjs — locates the offset of a JSON syntax error for messages
 - lib/roles.mjs — loads the role prompts (agents/*.md) used by headless calls
+- lib/help.mjs — per-command usage text for `harness <command> --help`
 - lib/claudemd.mjs — builds the managed block of a project's CLAUDE.md from templates
 
 ## Records and feedback
