@@ -1,0 +1,38 @@
+{
+  "feature": "F126",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [],
+  "independence": "fresh-context",
+  "costUsd": 0.08365349999999999,
+  "contract_hash": "b18ec80ea5b7ff398a4f0cf2d91b331fc76fcafd5d62e067cdbc00c89824b70a",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-sonnet-5-5"
+    }
+  },
+  "at": "2026-10-17T17:20:47.797Z",
+  "origin": "run"
+}
