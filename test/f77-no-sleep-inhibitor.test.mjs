@@ -51,7 +51,8 @@ const until = async (fn, ms = 60000) => {
 test('F77 AC-1 HARNESS_TEST_NO_SLEEP_INHIBITOR=1: no inhibitor is started, {ok:false, label:"disabled by ..."}', async () => {
   const fk = fakeInhibitors();
   try {
-    for (const platform of ['darwin', 'linux']) {
+    // win32 has no inhibitor command; the switch still gives the same label there.
+    for (const platform of ['darwin', 'linux', 'win32']) {
       const r = await startSleepInhibitor({ platform, env: fk.env('1') });
       r.stop();
       assert.equal(r.ok, false, platform);
