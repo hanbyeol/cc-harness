@@ -1,0 +1,50 @@
+{
+  "feature": "F123",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 0.5878129999999999,
+  "contract_hash": "44bd5b57753aeb171afbac927fb6c56867c6b6ba26c1fd8acb80c04a5318c73c",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-10-17T17:03:20.014Z",
+  "origin": "run"
+}
