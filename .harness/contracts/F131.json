@@ -94,5 +94,10 @@
     "한 저장소의 여러 프로젝트(모노레포)가 같은 디렉터리를 나눠 쓰기 — 표시 파일이 다른 프로젝트면 SC-3 대로 거부한다",
     "verify 의 base 임시 worktree(이미 os.tmpdir() 의 harness-base-*)",
     "다른 git worktree 의 작업 트리 안 경로 검사, 실행 도중 디렉터리를 바꿔치기하는 경우(D1)"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-18T00:53:13.358Z",
+    "hash": "0c53f0dd009d5c1adf1b22f425e927e39c3f4a1eb1591dd453b60d02ba7d49df"
+  }
 }

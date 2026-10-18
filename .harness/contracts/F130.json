@@ -107,5 +107,10 @@
     "준비 명령의 내용 검사·deny 패턴 — config 는 사용자가 쓴 것으로 verify.commands 와 같이 신뢰한다",
     "준비 명령이 worktree 밖에 쓰는 것(OS 권한의 몫)",
     "Windows 의 셸별 명령 문법 차이"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-18T00:53:13.358Z",
+    "hash": "03fd48fd1282947005c23e788fe63bc09933873bfc09b439b45c90a373700b52"
+  }
 }

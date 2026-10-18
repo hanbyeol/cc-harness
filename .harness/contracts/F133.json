@@ -57,5 +57,10 @@
     "이미 승인된 계약에 new_reason 을 채우는 것(해시가 바뀌어 재승인이 필요하다)",
     "warning 을 error 로 올리는 설정, 문턱값(300자·8개)의 config 화",
     "overlaid_helper 경고의 변경"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-18T00:53:13.358Z",
+    "hash": "62ded8836ce2b47ff4c3c26ec23f69b6f8c177fd6e3b8b44fb9e90a5985812bb"
+  }
 }
