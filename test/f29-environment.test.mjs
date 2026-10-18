@@ -46,7 +46,7 @@ const readJson = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
 const statusOf = (dir, id = 'F1') => readJson(path.join(dir, '.harness/features.json')).features.find((f) => f.id === id).status;
 const statePath = (dir) => path.join(dir, '.harness/runs/current.json');
 const backlog = (dir) => readJson(path.join(dir, '.harness/backlog.json')).items;
-const real = (p) => path.join(fs.realpathSync(path.dirname(p)), path.basename(p));
+const real = (p) => path.join(fs.realpathSync.native(path.dirname(p)), path.basename(p));
 const isIntegration = (cwd) => real(cwd).endsWith(`${path.sep}_integration`);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const evalResult = (a, over = {}) => ({ feature: a.featureId, round: a.round, verdict: 'pass', score: 8, scores: {}, blocking: [], backlogged: [], independence: 'cross-model', costUsd: 0, file: null, ...over });

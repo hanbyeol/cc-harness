@@ -62,7 +62,7 @@ const GIT_DIR = path.dirname(which('git'));
 function onlyGitAndNode() {
   if (process.platform === 'win32') return [path.dirname(process.execPath), GIT_DIR].join(path.delimiter);
   const dir = tmpdir('harness-f23-min-');
-  fs.symlinkSync(fs.realpathSync(which('git')), path.join(dir, 'git'));
+  fs.symlinkSync(fs.realpathSync.native(which('git')), path.join(dir, 'git'));
   fs.symlinkSync(process.execPath, path.join(dir, 'node'));
   return dir;
 }

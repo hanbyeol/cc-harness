@@ -56,7 +56,7 @@ const statePath = (dir) => path.join(dir, '.harness/runs/current.json');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const now = () => performance.now();
 // realpath of the parent: the path itself may be gone (worktrees are removed after a merge)
-const real = (p) => path.join(fs.realpathSync(path.dirname(p)), path.basename(p));
+const real = (p) => path.join(fs.realpathSync.native(path.dirname(p)), path.basename(p));
 const isIntegration = (cwd) => real(cwd).endsWith(`${path.sep}_integration`);
 const overlap = (a, b) => a.start < b.end && b.start < a.end;
 

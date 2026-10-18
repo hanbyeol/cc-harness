@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 const [sub, ...rest] = process.argv.slice(2);
 const cache = process.env.TF_PLUGIN_CACHE_DIR || null;
-fs.appendFileSync(process.env.FAKE_TF_LOG, JSON.stringify({ sub, args: rest, cwd: fs.realpathSync(process.cwd()), cache }) + '\n');
+fs.appendFileSync(process.env.FAKE_TF_LOG, JSON.stringify({ sub, args: rest, cwd: fs.realpathSync.native(process.cwd()), cache }) + '\n');
 const tfs = (dir, deep) => {
   const out = [];
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {

@@ -182,7 +182,7 @@ test('F16 AC-7: SPEC documents the base-side test overlay and verify.test_paths'
 // ---------- SC-1 ----------
 test('F16 SC-1: a base-side symlinked test path is replaced, never written through', async (t) => {
   if (process.platform === 'win32') return; // symlink creation needs privileges on Windows
-  const outside = fs.realpathSync(tmpdir('harness-f16-outside-'));
+  const outside = fs.realpathSync.native(tmpdir('harness-f16-outside-'));
   const target = path.join(outside, 'target.txt');
   fs.writeFileSync(target, 'OUTSIDE ORIGINAL\n');
   const dir = gitRepo({ ...HARNESS([['AC-1', 'node check.mjs']]),
@@ -203,7 +203,7 @@ test('F16 SC-1: a base-side symlinked test path is replaced, never written throu
 
 test('F16 SC-1: a base-side symlinked test directory is replaced, never written through', async (t) => {
   if (process.platform === 'win32') return;
-  const outside = fs.realpathSync(tmpdir('harness-f16-outside-'));
+  const outside = fs.realpathSync.native(tmpdir('harness-f16-outside-'));
   const dir = gitRepo({ ...HARNESS([['AC-1', 'node check.mjs']]),
     'check.mjs': BASE_CHECK("!fs.lstatSync('test').isSymbolicLink() && fs.existsSync('test/new.test.mjs')") });
   git(dir, 'checkout', '-q', 'main');
@@ -222,7 +222,7 @@ test('F16 SC-1: a base-side symlinked test directory is replaced, never written 
 // ---------- SC-2 ----------
 test('F16 SC-2: a working-tree symlinked test path is not placed on base', async (t) => {
   if (process.platform === 'win32') return;
-  const outside = fs.realpathSync(tmpdir('harness-f16-outside-'));
+  const outside = fs.realpathSync.native(tmpdir('harness-f16-outside-'));
   fs.writeFileSync(path.join(outside, 'secret.txt'), 'OUTSIDE CONTENT\n');
   // On base, check.mjs passes only if the regular test file was placed and the symlinked one was not.
   const dir = gitRepo({ ...HARNESS([['AC-1', 'node check.mjs']]),

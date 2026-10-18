@@ -45,7 +45,9 @@ passes only on your machine fails the release later. Write tests that do not dep
   sleeps overlapped. Make the order explicit instead: wait on a barrier (the other side has
   started, a file exists) with a generous upper bound, then assert.
 - **Path spelling** — compare paths with `fs.realpathSync.native` on both sides; Windows can
-  spell one directory as a short name (`RUNNER~1`) in one API and in full in another.
+  spell one directory as a short name (`RUNNER~1`) in one API and in full in another. Use
+  `realTmpdir(prefix)` from `test/helpers.mjs` for a test's temporary directory; a repository
+  test (F134 AC-2) fails any plain `realpathSync(` call in `test/` and `lib/`.
 - **Process ids as identity** — pids are reused quickly (Windows especially); pair start and
   end events by order or by a token you generate, not by pid alone.
 - **Startup speed** — a child process may be killed before it writes anything; do not make

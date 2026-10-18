@@ -20,7 +20,7 @@ const hashDir = (name, content) => path.join(os.tmpdir(),
 // at exit) while fn runs, so no fake made here outlives the test.
 const TMP_VARS = ['TMPDIR', 'TEMP', 'TMP'];
 async function withEmptyTmp(fn) {
-  const dir = fs.realpathSync(tmpdir('harness-f106-tmp-'));
+  const dir = fs.realpathSync.native(tmpdir('harness-f106-tmp-'));
   const saved = TMP_VARS.map((k) => process.env[k]);
   for (const k of TMP_VARS) process.env[k] = dir;
   try {
@@ -98,7 +98,7 @@ process.stdout.write(fakeExecutable('fk-race', content));
 test('F106 AC-2 four processes calling fakeExecutable at once in an empty tmpdir all get the same complete file', async () => {
   await withEmptyTmp(async (tmp) => {
     assert.deepEqual(fs.readdirSync(tmp), []);
-    const sync = fs.realpathSync(tmpdir('harness-f106-sync-'));
+    const sync = fs.realpathSync.native(tmpdir('harness-f106-sync-'));
     const go = path.join(sync, 'go');
     const children = [0, 1, 2, 3].map((i) => {
       const ready = path.join(sync, `ready-${i}`);

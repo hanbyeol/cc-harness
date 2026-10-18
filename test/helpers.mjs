@@ -25,6 +25,12 @@ export function tmpdir(prefix = 'harness-test-') {
   return d;
 }
 
+// tmpdir() spelled the way fs.realpathSync.native does: Windows can return a short name
+// (RUNNER~1) from os.tmpdir() that the native call expands. Same cleanup list as tmpdir().
+export function realTmpdir(prefix = 'harness-test-') {
+  return fs.realpathSync.native(tmpdir(prefix));
+}
+
 // Tests use a home of their own (HOME, and USERPROFILE on Windows), never the user's.
 export const TEST_HOME = tmpdir('harness-test-home-');
 process.env.HOME = TEST_HOME;
@@ -129,7 +135,7 @@ export function fakeNodeCli(name, script, args = []) {
 // checked once, while `$(dirname "$0")` in the script is this directory, a place for that
 // test's logs. POSIX only (symlinks).
 export function fakeExecutableLink(name, content, prefix = 'harness-fake-link-') {
-  const dir = fs.realpathSync(tmpdir(prefix));
+  const dir = fs.realpathSync.native(tmpdir(prefix));
   fs.symlinkSync(path.join(fakeExecutable(name, content), name), path.join(dir, name));
   return dir;
 }

@@ -66,7 +66,7 @@ function vacuityFixture(log, alone = 'pass') {
   return dir;
 }
 
-const logFile = () => path.join(fs.realpathSync(tmpdir('harness-f35-log-')), 'log.jsonl');
+const logFile = () => path.join(fs.realpathSync.native(tmpdir('harness-f35-log-')), 'log.jsonl');
 const events = (log) => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l)) : []);
 const cfg = (verifyExtra = {}, budget = { step_timeout_sec: 60 }) => resolveConfig({ base_branch: 'main', verify: { commands: [], ...verifyExtra }, budget });
 const runVerify = (dir, config) => verify({ root: dir, featureId: 'F9', base: 'main', config, cpus: 16 });
@@ -298,7 +298,7 @@ test('F35 AC-5: the builder-changes commit leaves out .harness/runs/test-count-c
 });
 
 test('F35 AC-5: harness init writes runs/test-count-cache.json into .harness/.gitignore', async () => {
-  const root = fs.realpathSync(tmpdir('harness-f35-init-'));
+  const root = fs.realpathSync.native(tmpdir('harness-f35-init-'));
   await init({ root, out: () => {} });
   const lines = fs.readFileSync(path.join(root, '.harness', '.gitignore'), 'utf8').split(/\r?\n/);
   assert.ok(lines.includes('runs/test-count-cache.json'), lines.join('|'));

@@ -21,7 +21,7 @@ const side = fs.statSync('.git').isDirectory() ? 'head' : 'base';
 const exitHead = Number(opt('--exit', '0'));
 const code = side === 'base' ? Number(opt('--base-exit', String(exitHead))) : exitHead;
 const probe = opt('--probe', null);
-const cwd = fs.realpathSync(process.cwd());
+const cwd = fs.realpathSync.native(process.cwd());
 const write = (ev) => fs.appendFileSync(log, `${JSON.stringify(ev)}\n`);
 
 const start = Date.now();

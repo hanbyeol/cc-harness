@@ -15,7 +15,7 @@ const STRESS = path.join(REPO, 'test', 'stress.mjs');
 const HEAD = "import test from 'node:test';\n";
 
 function stressWithChildCrash(preloadSrc) {
-  const dir = fs.realpathSync(tmpdir('harness-f52-ac2-'));
+  const dir = fs.realpathSync.native(tmpdir('harness-f52-ac2-'));
   const preload = path.join(dir, 'crash-preload.cjs');
   writeFiles(dir, {
     'test/ok.test.mjs': `${HEAD}test('fake passing test', () => {});\n`,
@@ -44,7 +44,7 @@ test('F52 AC-2: only the last 2000 chars of stderr are printed', () => {
 });
 
 test('F52 AC-2: a normal failing test prints no stderr-tail section', () => {
-  const dir = fs.realpathSync(tmpdir('harness-f52-ac2-'));
+  const dir = fs.realpathSync.native(tmpdir('harness-f52-ac2-'));
   writeFiles(dir, { 'test/bad.test.mjs': `${HEAD}test('fake failing test', () => { throw new Error('boom'); });\n` });
   const r = spawnSync(process.execPath, [STRESS, '1', '--root', dir], { encoding: 'utf8', env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
   assert.equal(r.status, 1, r.stdout + r.stderr);
