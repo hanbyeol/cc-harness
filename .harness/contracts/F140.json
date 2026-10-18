@@ -1,0 +1,66 @@
+{
+  "id": "F140",
+  "title": "이 저장소 테스트 suite 의 파일 동시성을 6 으로 — package.json scripts.test 를 `node --test --test-concurrency=6 \"test/**/*.test.mjs\"` 로 하고 그 부하에서 suite·timeout 파일이 통과함을 고정. baseline(2026-10-18, 4 CPU, Node 22, e551fac): 129 파일 1978 테스트 438 s, 기본 동시성 3, CPU 59%. 기대: 약 300 s(CPU 포화 하한 약 260 s)",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "package.json 의 scripts.test 가 정확히 `node --test --test-concurrency=6 \"test/**/*.test.mjs\"` 이고(플래그는 glob 앞 — Node 22 는 glob 뒤의 --test-concurrency 를 오류 없이 무시한다), lib/retryfiles.mjs 의 parseNodeTest 가 그 명령의 options 를 ['--test-concurrency=6'] 로 읽는다",
+      "check": "node test/t.mjs \"F140 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "임시 디렉터리의 test/ 에 파일 6개를 두고 — 각 파일은 시작 표시 파일을 쓰고 표시 6개가 모두 생길 때까지(상한 60 s) 기다린 뒤 통과한다 — package.json scripts.test 문자열을 그 디렉터리에서 셸로 실행하면 exit 0 이다(6 파일이 동시에 실행된다)",
+      "check": "node test/t.mjs \"F140 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "CLAUDE.md 의 'Running the core' Tests 줄이 AC-1 명령을 보여 주고, 6 이 4 CPU 에서 load stress 2(기본 3 파일×2 suite)와 같은 동시 파일 수라는 것, 플래그를 glob 뒤에 두면 무시된다는 것, .harness/config.json 의 verify 명령은 사용자가 바꾼다는 것을 적는다(문서 check)",
+      "check": "node test/t.mjs \"F140 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "전체 suite 가 동시성 6 으로 통과한다: `node --test --test-concurrency=6 \"test/**/*.test.mjs\"` 가 exit 0",
+      "check": "node --test --test-concurrency=6 \"test/**/*.test.mjs\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 에서도 통과할 수 있다. 동시성 6 부하에서 실패하는 테스트가 있으면 이 기능이 그 테스트를 약화 없이 안정화한다"
+    },
+    {
+      "id": "AC-5",
+      "criterion": "가장 긴 timeout·sleep 대기 파일 6개(f25·f31·f33·f37·f81·f132)가 부하에서 통과한다: `node test/stress.mjs 2 --files \"test/f{25,31,33,37,81,132}-*.test.mjs\"` 가 exit 0",
+      "check": "node test/stress.mjs 2 --files \"test/f{25,31,33,37,81,132}-*.test.mjs\"",
+      "new": false,
+      "new_reason": "회귀 방지 — CLAUDE.md 가 이미 timing 테스트에 stress 2 통과를 요구하므로 base 에서도 통과한다. 이 기능이 이 파일들을 고쳐도 부하 내성이 유지되는지 본다"
+    },
+    {
+      "id": "AC-6",
+      "criterion": "기존 테스트를 약화하지 않는다: `node test/assert-count.mjs` 가 exit 0 이다(base_branch 대비 assert 수 감소·테스트 이름 변경·파일 삭제 없음)",
+      "check": "node test/assert-count.mjs",
+      "new": false,
+      "new_reason": "회귀 방지 — 변경이 없으면 base 에서 통과한다. 동시성 6 안정화 중 테스트 파일 분할·이름 변경·assert 삭제를 막는다"
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "AC-1 명령의 첫 실행에서 test/b.test.mjs 의 테스트 하나만 실패한 출력이면 partialRetry 의 재실행 명령은 `node --test --test-concurrency=6 test/b.test.mjs`, files 는 그 파일 하나다(재실행도 동시성 플래그를 유지)",
+      "check": "node test/t.mjs \"F140 ES-1\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 의 parseNodeTest 가 --test 뒤 옵션을 이미 보존한다(f100 테스트). package.json 명령 형식에서도 그런지 고정한다"
+    }
+  ],
+  "out_of_scope": [
+    ".harness/config.json 의 verify.commands[0] 변경 — 보호 경로(§6.2-2)라 builder 가 바꾸면 integrity fail. F140 통과 후 사용자가 AC-1 과 같은 명령으로 바꾼다",
+    ".github/workflows/ci.yml 의 테스트 명령 — F8 AC-4 정규식이 `node --test \"test/` 형식을 고정하고, macOS runner 는 3 CPU 라 6 은 stress 2 기준보다 무겁다",
+    "테스트 파일 분할 — 동시성 6 에서 최장 파일(f31 139 s)이 CPU 포화 하한(약 260 s)보다 짧아 이득이 없고, assert-count 가 이동을 이름 변경·삭제로 본다",
+    "파일 안 테스트 동시 실행({ concurrency }) — f31 등은 process.env PATH 를 바꾸는 전역 상태를 공유한다",
+    "CPU 수에서 동시성을 계산하는 러너 스크립트 — `node test/run.mjs` 형식은 parseNodeTest 가 읽지 못해 실패 파일 재실행(§6.1)을 잃는다",
+    "test/stress.mjs·test/count.mjs·test/t.mjs 의 동시성 변경, `node test/stress.mjs 3` 통과(backlog)",
+    "벽시계 시간 단언 — 속도는 제목의 baseline·기대값으로만 적는다. 7 CPU 이상 머신에서는 기본 동시성이 6 이상이라 AC-2 가 base 에서도 통과한다"
+  ]
+}

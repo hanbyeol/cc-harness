@@ -1,0 +1,85 @@
+{
+  "id": "F141",
+  "title": "GitHub Actions 의 비밀이 아닌 메타데이터 환경 변수(GITHUB_HEAD_REF 등)를 가림에서 뺀다 — 가림 전용 목록이고 명령에는 넘기지 않는다 (CI 에서 GITHUB_HEAD_REF=contracts/f135-f139 가 'criterion_not_in_contract' 끝의 'contract' 를 잘린 조각으로 가려 F5 AC-3·F56 AC-1·F75 AC-3·F75 SC-1 이 실패한 재발 방지)",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "lib/failures.mjs 가 export 하는 동결 배열 CI_METADATA_ENV 에 GITHUB_ + {ACTION·ACTION_PATH·ACTION_REPOSITORY·ACTIONS·ACTOR·ACTOR_ID·API_URL·BASE_REF·ENV·EVENT_NAME·EVENT_PATH·GRAPHQL_URL·HEAD_REF·JOB·OUTPUT·PATH·REF·REF_NAME·REF_PROTECTED·REF_TYPE·REPOSITORY·REPOSITORY_ID·REPOSITORY_OWNER} 23개가 있다",
+      "check": "node test/t.mjs \"F141 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "CI_METADATA_ENV 에 GITHUB_ + {REPOSITORY_OWNER_ID·RETENTION_DAYS·RUN_ATTEMPT·RUN_ID·RUN_NUMBER·SERVER_URL·SHA·STATE·STEP_SUMMARY·TRIGGERING_ACTOR·WORKFLOW·WORKFLOW_REF·WORKFLOW_SHA·WORKSPACE} 14개와 RUNNER_ + {ARCH·DEBUG·ENVIRONMENT·NAME·OS·TEMP·TOOL_CACHE·WORKSPACE} 8개가 있다 — AC-1 과 합쳐 정확히 45개, 중복 없음",
+      "check": "node test/t.mjs \"F141 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "redactor 는 CI_METADATA_ENV 이름의 값과 그 잘린 조각을 가리지 않는다 — GITHUB_HEAD_REF=contracts/f135-f139 일 때 'criterion_not_in_contract'·'f135-f139 rest'·'ref contracts/f135-f139' 가 그대로이고, GITHUB_REPOSITORY=hanbyeol/cc-harness·GITHUB_SHA(40 hex)·RUNNER_TEMP=/home/runner/work/_temp 의 값이 든 텍스트도 그대로다",
+      "check": "node test/t.mjs \"F141 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "process.env 에 GITHUB_HEAD_REF=contracts/f135-f139 를 넣은 자식 프로세스로 test/f5-eval·f56-eval-events·f75-finding-location 테스트 파일의 'F5 AC-3'·'F56 AC-1'·'F75 AC-3'·'F75 SC-1' 테스트를 실행하면 exit 0 이다(오늘 CI 에서 실패한 5개 테스트의 재현)",
+      "check": "node test/t.mjs \"F141 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md SR-2 가 lib/failures.mjs 의 CI_METADATA_ENV 를 설명한다 — 가림(SR-8)에서만 빼는 GitHub Actions 메타데이터 이름이고, verify 명령·기준 check·repro 에는 넘기지 않으며, GITHUB_TOKEN 과 ACTIONS_ 로 시작하는 이름은 계속 가린다고 적는다(문서 check)",
+      "check": "node test/t.mjs \"F141 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "GitHub Actions 의 비밀 변수는 계속 가린다 — GITHUB_TOKEN·GH_TOKEN·ACTIONS_RUNTIME_TOKEN·ACTIONS_ID_TOKEN_REQUEST_TOKEN·ACTIONS_ID_TOKEN_REQUEST_URL·ACTIONS_CACHE_URL·ACTIONS_RESULTS_URL 각각의 값(8자 이상)이 텍스트 가운데·첫머리 접미사·끝 접두사(8자 이상)로 있으면 '[redacted]' 로 바뀐다",
+      "check": "node test/t.mjs \"F141 SC-1\"",
+      "new": false,
+      "new_reason": "회귀 확인 — 이 이름들은 base 에서도 허용 목록 밖이라 가려진다"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "잘린 조각 규칙(SR-9)은 그대로다 — 목록 밖 이름 MY_REF=contracts/f135-f139 이면 'criterion_not_in_contract' 는 'criterion_not_in_[redacted]', 'f135-f139 rest' 는 '[redacted] rest' 가 되고, 같은 값을 GITHUB_HEAD_REF 와 목록 밖 변수가 함께 가지면 그 값과 조각을 가린다",
+      "check": "node test/t.mjs \"F141 SC-2\"",
+      "new": false,
+      "new_reason": "회귀 확인 — 목록 밖 변수의 가림과 조각 규칙은 base 의 동작 그대로다"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "CI_METADATA_ENV 이름은 명령 환경에 들어가지 않는다 — BASE_ENV_ALLOWLIST 에 없고, filteredEnv([], {PATH, GITHUB_ENV, GITHUB_OUTPUT, GITHUB_PATH, GITHUB_STEP_SUMMARY, GITHUB_STATE, GITHUB_HEAD_REF}) 는 PATH 만 돌려주며, process.env 에 그 이름들이 있어도 verify 의 기준 check 자식 프로세스는 그 이름을 보지 못한다",
+      "check": "node test/t.mjs \"F141 SC-3\"",
+      "new": false,
+      "new_reason": "회귀 확인 — 이 이름들은 base 에서도 BASE_ENV_ALLOWLIST 밖이라 명령에 넘어가지 않는다"
+    },
+    {
+      "id": "SC-4",
+      "criterion": "기존 가림 테스트가 그대로 통과한다 — test/f36-redact-boundary·f49-signals·f60-field-accuracy·f107-telemetry-followups·f110-salt-placeholder·f125-verify-failure-output 테스트 파일 실행이 exit 0",
+      "check": "node --test test/f36-redact-boundary.test.mjs test/f49-signals.test.mjs test/f60-field-accuracy.test.mjs test/f107-telemetry-followups.test.mjs test/f110-salt-placeholder.test.mjs test/f125-verify-failure-output.test.mjs",
+      "new": false,
+      "new_reason": "회귀 확인 — 기존 가림 동작이 base 에서도 통과해야 한다"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "CI_METADATA_ENV 이름의 값이 빈 문자열·8자 미만·문자열이 아님(undefined·숫자)이어도 redactor 가 예외 없이 텍스트를 그대로 돌려주고, config env_allowlist 에 같은 이름이 또 있어도 결과가 같다",
+      "check": "node test/t.mjs \"F141 ES-1\"",
+      "new": false,
+      "new_reason": "base 의 redactor 도 문자열이 아니거나 8자 미만인 값은 건너뛰므로 통과한다 — 새 목록이 이 경우를 깨지 않는지 확인하는 회귀 기준"
+    }
+  ],
+  "out_of_scope": [
+    "다른 CI(GitLab CI_*·CircleCI·Buildkite·Jenkins 등)의 메타데이터 이름 — 사용자가 config env_allowlist 로 더한다",
+    "잘린 조각 규칙을 토큰 경계나 실제 자른 위치에서만 적용하기 — 잘린 비밀 조각도 대부분 토큰 한가운데에서 잘리므로 경계 조건은 SR-9 보호를 약하게 하고, 자른 위치를 아는 방식은 모든 가림 호출 경로를 바꿔야 한다(backlog)",
+    "test/helpers.mjs 가 자식 프로세스의 GITHUB_* 등 CI 환경 변수를 지우기 — CI 에서 사용자 보고서가 실제로 망가지는 결함을 테스트에서 숨긴다",
+    "CI_METADATA_ENV 이름을 verify 명령·기준 check·repro 환경에 넘기기(GITHUB_ENV·GITHUB_OUTPUT·GITHUB_PATH 는 워크플로의 다음 단계 환경을 바꾸는 파일 경로다)",
+    "builder·evaluator 어댑터 프로세스가 물려받는 환경",
+    "문자열 가운데의 부분 조각, 8자 미만 조각, 인코딩·분할된 값(SR-9 범위 밖 그대로)"
+  ]
+}
