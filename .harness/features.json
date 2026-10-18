@@ -1113,7 +1113,7 @@
       "title": "Windows 경로 표기 차이를 정적으로 막는다 — 테스트·lib 의 fs.realpathSync 는 .native 만, 테스트용 realTmpdir 도우미 추가 (F129~F131 이 Linux 평가를 통과한 뒤 Windows CI 에서만 8.3 짧은 경로로 깨진 재발 방지)",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }
