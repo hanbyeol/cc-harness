@@ -104,6 +104,8 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
 
 `init` 은 없는 파일·디렉터리만 만든다. `.harness/` 가 일부만 있어도(예: `contracts/` 만) 빠진 것을 채우고 기존 파일은 건드리지 않는다. 상태 파일 쓰기는 원자적이다(같은 디렉터리의 임시 파일 → rename). 어느 단계에서 실패해도 임시 파일을 지우고 대상 파일은 이전 내용 그대로 남는다(`io` 에러).
 
+**기준 check 러너 생성(F136)**: `init` 은 프로젝트가 `node --test` 프로젝트(`package.json` 의 `scripts.test` 에 `node --test`, `preset:node-test` 와 같은 감지)이면 하네스의 `test/t.mjs` 와 바이트가 같은 러너를 프로젝트의 `test/t.mjs` 에 만들고 `created test/t.mjs` 를 출력한다. 그 경로에 파일이 이미 있으면(내용이 달라도, 심볼릭 링크면 대상이 없어도) 덮어쓰지 않고 링크를 따라 쓰지도 않으며 `kept    test/t.mjs` 를 출력한다. `test` 가 디렉터리가 아닌 일반 파일이면 stderr 에 `harness: warning: test/t.mjs not created …` 를 내고 그 파일은 그대로 둔 채 나머지 init 은 끝낸다(exit 0). `node --test` 가 아닌 프로젝트에는 `test` 디렉터리를 만들지 않고 `next:` 줄 앞에 `hint: ` 줄 하나를 출력한다 — `go.mod` 면 `go test -run F3AC1`, `pytest.ini` 등 pytest 감지면 `pytest -k F3_AC_1`, 감지된 러너가 없으면 `"F3 AC-1"` 형태의 이름 붙인 테스트 예시를 담는다. `migrate-v1` 은 init 을 부르므로 같다.
+
 ### 4.1 프로젝트 CLAUDE.md 관리 블록 (`harness claude-md`)
 대상 프로젝트의 `CLAUDE.md` 에는 하네스가 관리하는 블록이 하나 있다 — `<!-- cc-harness:begin v<버전> profile=<이름> -->` 줄과 `<!-- cc-harness:end -->` 줄 사이다(`<버전>` 은 코어 `package.json` 의 버전, `<이름>` 은 config 의 `profile` — sdlc 포함 항상 쓴다). `profile=` 가 없는 v2.0.30 형식의 표시(`<!-- cc-harness:begin v<버전> -->`)는 sdlc 로 읽는다.
 - 블록 내용은 하네스 설치 위치(`bin/harness.mjs` 기준 패키지 루트)의 `templates/claude-block.md` 에서만 읽는다 — 대상 프로젝트에 같은 경로의 파일이 있어도 쓰지 않는다. 내용은 `## Language`(config.language 가 있으면 그 언어로 대화, 없으면 사용자가 쓰는 언어로. 코드·주석·커밋·계약 id·`check` 는 영어), v2 워크플로(spec·plan·build·verify·eval·fix·status), `## When to keep going and when to stop`(`## Convergence rules` 바로 앞), 수렴 규칙, 금지 사항이다. 계속 진행·멈춤 절은 세 줄이다 — 사용자의 결정이 필요 없는 다음 단계(실패한 verify 고치기, 라운드가 남았을 때 다음 라운드, check·테스트 실행)는 묻지 않고 진행하고 진행 메모는 다음 행동과 같은 메시지에 담는다(`Keep going without asking …`, 결정이 필요 없는 단계에서 멈춰 묻는 왕복을 줄인다); 사용자 없이는 계속할 수 없을 때만 멈춰 묻는다 — 계약 승인(`harness approve`), `blocked` 기능, 모호하거나 모순된 기준, 보호 브랜치 merge·push, 파괴적인 일(데이터 삭제, force-push, 이 저장소 밖 변경)(`Stop and ask only …`, 사람이 결정할 지점을 열거한다); 긴 작업은 사용자가 할 일 → 바뀐 것 → 발견한 것 순서로 끝맺는다(`End a long piece of work …`, 보고에서 사용자 결정이 묻히지 않게). 안내 문서일 뿐 코드로 강제하지 않는다.
@@ -438,6 +440,7 @@ agents/                      builder · evaluator · security-reviewer (Claude s
 profiles/                    sdlc · iac · ops (.json: verify 명령·루브릭)
 templates/claude-block.md    프로젝트 CLAUDE.md 관리 블록의 내용 (§4.1)
 bin/harness.mjs, lib/*.mjs   코어 (Node ≥ 22 — Node 20 은 2026-04 EOL 이고 `node --test` glob 이 21+ 부터; 런타임 의존성 0)
+test/t.mjs                   기준 check 러너 (`files` 에 포함 — `init` 이 node --test 프로젝트에 그대로 복사, §4)
 hooks/hooks.json             Claude SessionStart 1개: `harness status --brief` — Claude 전용(`${CLAUDE_PLUGIN_ROOT}`). Gemini 도 이 파일을 로드하지만 변수가 비어 실패(비치명). Gemini 는 `${extensionPath}` 변형을 쓰는 방법이 확인될 때까지 hook 없음으로 간주
 ```
 설치: `npx github:hanbyeol/cc-harness init` (npm 레지스트리의 `cc-harness` 는 다른 프로젝트) (대상 프로젝트에 `.harness/` 생성, 감지된 CLI별 설치 안내 출력).
