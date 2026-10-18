@@ -1196,7 +1196,7 @@
       "title": "blocked 기능 이어받기의 base 커밋 — run 이 이전 run 의 worktree 를 이어받을 때 기능의 baseSha 를 integration 끝 커밋이 아니라 harness/F{n} 과 integration 의 merge-base 로 둔다. 그래서 그 사이 integration 이 움직였으면 pre_merge_verify 가 잠금 밖에서 돌고, 병합 후 verify 가 기능 verify 의 base vacuity 를 다른 base 에서 잘못 재사용하지 않는다. baseline(run 2026-10-18T09-32-28-305Z, F138): pre_merge_verify 없음, 잠금 안 post_merge_verify 437 s(cached false). 기대: 잠금 안 post_merge_verify 는 결과 캐시 적중(cached true)",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "todo"
+      "status": "approved"
     },
     {
       "id": "F146",
@@ -1205,7 +1205,7 @@
       "depends_on": [
         "F142"
       ],
-      "status": "todo"
+      "status": "approved"
     },
     {
       "id": "F147",
@@ -1215,14 +1215,14 @@
         "F78",
         "F136"
       ],
-      "status": "todo"
+      "status": "approved"
     },
     {
       "id": "F148",
       "title": "run.context_files 는 실제 경로(fs.realpathSync.native)가 기능 worktree 의 실제 경로 안에 있을 때만 읽는다 — 중간 디렉터리가 심볼릭 링크·junction 이면(예: docs -> /elsewhere) worktree 밖 파일 본문이 builder 프롬프트에 실리던 결함(B528)의 수정. 밖이면 본문을 읽지 않고 '- <경로>: outside the worktree' 한 줄로 표시한다",
       "security_tier": "critical",
       "depends_on": [],
-      "status": "todo"
+      "status": "approved"
     }
   ]
 }

@@ -3,7 +3,9 @@
   "title": "run.context_files 는 실제 경로(fs.realpathSync.native)가 기능 worktree 의 실제 경로 안에 있을 때만 읽는다 — 중간 디렉터리가 심볼릭 링크·junction 이면(예: docs -> /elsewhere) worktree 밖 파일 본문이 builder 프롬프트에 실리던 결함(B528)의 수정. 밖이면 본문을 읽지 않고 '- <경로>: outside the worktree' 한 줄로 표시한다",
   "security_tier": "critical",
   "version": 1,
-  "resolves": ["B528"],
+  "resolves": [
+    "B528"
+  ],
   "acceptance_criteria": [
     {
       "id": "AC-1",
@@ -110,5 +112,10 @@
     "run 시작 전 config 단계에서 링크 검사 — 파일은 기능 worktree 에서 읽고 worktree 마다 다를 수 있다",
     "conflictMarkedFiles·evaluator·security-reviewer 프롬프트의 같은 검사 — git 은 링크 디렉터리 아래 경로를 추적하지 않으므로 충돌 파일 목록에 나오지 않는다. 필요하면 backlog",
     "win32·darwin 대소문자 접기 — 양쪽 모두 realpathSync.native 의 디스크 표기로 비교하므로 별도 기준이 없다"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-18T22:01:22.367Z",
+    "hash": "70572a87bde0f5f902eabcc8bdfe64d1a063a3a2c0902b38b193b970093c1a91"
+  }
 }

@@ -74,5 +74,10 @@
     "F79 재사용이 기능 verify 에서 vacuity 실행이 실제로 있었는지 확인하기(backlog, F79 r1)",
     "builder 프롬프트의 변경 파일 목록 — 이미 merge-base 기준이라 바뀌지 않는다(F47 AC-1)",
     "벽시계 시간 단언 — 속도는 제목의 baseline·기대값으로만 적는다"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-18T22:01:21.316Z",
+    "hash": "4cc9bbb6f1a242a3e07628c7d82cd373c03c792743e55d0bdc56f08572b886ff"
+  }
 }
