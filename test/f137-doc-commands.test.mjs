@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { harness, tmpdir, REPO } from './helpers.mjs';
+import { compareCommandNames as compareCommands } from '../lib/util.mjs';
 
 const read = (p) => fs.readFileSync(path.join(REPO, p), 'utf8');
 
@@ -23,16 +24,6 @@ const paragraph = (text, marker) => {
   const end = text.indexOf('\n\n', start);
   return text.slice(start, end < 0 ? undefined : end);
 };
-
-// Compare the `harness <name>` names in a paragraph with the command list.
-export function compareCommands(par, commands) {
-  const found = new Set();
-  for (const m of par.matchAll(/`harness ([a-z][a-z0-9-]*)/g)) found.add(m[1]);
-  found.delete('<command>');
-  const missing = commands.filter((c) => !found.has(c));
-  const notCommands = [...found].filter((n) => !commands.includes(n));
-  return { missing, notCommands };
-}
 
 const report = ({ missing, notCommands }) =>
   `빠짐: ${missing.join(', ') || '-'}; 명령 아님: ${notCommands.join(', ') || '-'}`;
