@@ -32,7 +32,7 @@ export function commitAll(dir, message = 'commit') {
  * out on a new `branch` (default feature). Returns the repo directory.
  */
 export function gitRepo(files = {}, { base = 'main', branch = 'feature' } = {}) {
-  const dir = fs.realpathSync(tmpdir('harness-git-'));
+  const dir = fs.realpathSync.native(tmpdir('harness-git-'));
   git(dir, 'init', '-q');
   git(dir, 'symbolic-ref', 'HEAD', `refs/heads/${base}`);
   git(dir, 'config', 'user.name', 'Harness Test');

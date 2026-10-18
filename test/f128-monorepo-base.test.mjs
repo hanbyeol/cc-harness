@@ -140,7 +140,7 @@ test('F128 ES-2: a root reached through a symbolic link still runs base in <base
   const link = path.join(tmpdir('f128-link-'), 'repo-link');
   fs.symlinkSync(dir, link);
   const root = path.join(link, P);
-  assert.notEqual(fs.realpathSync(root), root);
+  assert.notEqual(fs.realpathSync.native(root), root);
   const r = await run(root);
   assert.ok(baseLines(log).length >= 1);
   for (const l of baseLines(log)) {

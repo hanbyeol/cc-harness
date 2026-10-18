@@ -18,7 +18,7 @@ const stress = (args) => node([STRESS, ...args]);
 
 // A checkout-shaped directory holding only test files: `files` = { 'name.test.mjs': body }.
 function suite(files) {
-  const dir = fs.realpathSync(tmpdir('harness-f41-suite-'));
+  const dir = fs.realpathSync.native(tmpdir('harness-f41-suite-'));
   writeFiles(dir, Object.fromEntries(Object.entries(files).map(([n, body]) => [`test/${n}`, body])));
   return dir;
 }
@@ -47,7 +47,7 @@ test('F41 AC-1: a failing test → exit 1 with its name and the number of runs i
 
 test('F41 AC-1: a test that fails in only one of the runs is reported with 1/2', () => {
   // The first run to create the marker fails, the other one passes: exactly one failure.
-  const marker = path.join(fs.realpathSync(tmpdir('harness-f41-marker-')), 'first');
+  const marker = path.join(fs.realpathSync.native(tmpdir('harness-f41-marker-')), 'first');
   const dir = suite({
     'once.test.mjs': `${HEAD}test('fake failing once', () => {\n`
       + `  assert.doesNotThrow(() => fs.writeFileSync(${JSON.stringify(marker)}, '', { flag: 'wx' }));\n});\n`,

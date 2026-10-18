@@ -268,14 +268,14 @@ test('F3 AC-6: a contract with no checks fails instead of passing vacuously', as
 // ---------- SC-1 ----------
 test('F3 SC-1: commands run with cwd = the verified worktree, contracts are read from root', async () => {
   const dir = fixture();
-  const wt = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'harness-wt-')));
+  const wt = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'harness-wt-')));
   fs.rmSync(wt, { recursive: true });
   git(dir, 'worktree', 'add', '-q', '-b', 'other', wt, 'feature');
   try {
     writeFiles(wt, { 'check.mjs': 'process.exit(0);\n' });
     const out = path.join(wt, 'cwd.txt');
     const r = await run(dir, { verify: { commands: [`node scripts/cwd.mjs ${JSON.stringify(out)}`] } }, { cwd: wt });
-    assert.equal(fs.realpathSync(fs.readFileSync(out, 'utf8')), wt);
+    assert.equal(fs.realpathSync.native(fs.readFileSync(out, 'utf8')), wt);
     assert.equal(r.criteria[0].pass, true);
     assert.equal(fs.existsSync(path.join(dir, 'cwd.txt')), false);
   } finally {

@@ -47,7 +47,7 @@ const readJson = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
 const statuses = (dir) => Object.fromEntries(readJson(path.join(dir, '.harness/features.json')).features.map((f) => [f.id, f.status]));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const now = () => performance.now();
-const real = (p) => path.join(fs.realpathSync(path.dirname(p)), path.basename(p));
+const real = (p) => path.join(fs.realpathSync.native(path.dirname(p)), path.basename(p));
 const isIntegration = (cwd) => real(cwd).endsWith(`${path.sep}_integration`);
 const overlap = (a, b) => a.start < b.end && b.start < a.end;
 const IDS4 = ['F1', 'F2', 'F3', 'F4'];

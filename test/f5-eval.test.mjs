@@ -543,7 +543,7 @@ test('F5 SC-2 deny pattern variants and near misses', () => {
 // ---------- SC-3 ----------
 test('F5 SC-3 repro runs with the worktree as cwd', async () => {
   const dir = fixture();
-  const wt = fs.realpathSync(path.dirname(dir));
+  const wt = fs.realpathSync.native(path.dirname(dir));
   const wtDir = path.join(wt, `${path.basename(dir)}-cwd-wt`);
   git(dir, 'worktree', 'add', '-q', wtDir, 'HEAD');
   const out = path.join(dir, 'cwd-out.txt');
@@ -551,7 +551,7 @@ test('F5 SC-3 repro runs with the worktree as cwd', async () => {
     root: dir, cwd: wtDir, featureId: 'F9', base: 'main', config: cfg(), verifyResult: PASS_VERIFY,
     runAdapter: scripted({ evaluator: [good({ quality: 3 }, [finding('AC-1', `node scripts/cwd.mjs "${out}"`)])] }),
   });
-  assert.equal(fs.readFileSync(out, 'utf8'), fs.realpathSync(wtDir));
+  assert.equal(fs.readFileSync(out, 'utf8'), fs.realpathSync.native(wtDir));
   assert.equal(r.blocking[0].exit, 4);
 });
 

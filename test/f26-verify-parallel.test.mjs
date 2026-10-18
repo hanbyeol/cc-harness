@@ -41,7 +41,7 @@ const cfg = (verifyExtra = {}, timeout = 60) => resolveConfig({
 });
 const run = (dir, { config = cfg(), cpus = 16 } = {}) => verify({ root: dir, featureId: 'F9', base: 'main', config, cpus });
 const byId = (r) => Object.fromEntries(r.criteria.map((c) => [c.id, c]));
-const logFile = () => path.join(fs.realpathSync(tmpdir('harness-f26-log-')), 'log.jsonl');
+const logFile = () => path.join(fs.realpathSync.native(tmpdir('harness-f26-log-')), 'log.jsonl');
 const events = (log) => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l)) : []);
 
 // Runs as {id, side, cwd, start, end} (end: Infinity when the run never finished).

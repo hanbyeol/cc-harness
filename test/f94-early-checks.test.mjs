@@ -70,7 +70,7 @@ const cfg = (verifyExtra = {}) => resolveConfig({
   base_branch: 'main', verify: { commands: [], test_paths: ['test/**'], cache: 'off', ...verifyExtra }, budget: { step_timeout_sec: 120 },
 });
 const run = (dir, config) => verify({ root: dir, featureId: 'F9', base: 'main', config, cpus: 16 });
-const logFile = () => path.join(fs.realpathSync(tmpdir('harness-f94-log-')), 'log.jsonl');
+const logFile = () => path.join(fs.realpathSync.native(tmpdir('harness-f94-log-')), 'log.jsonl');
 const q = JSON.stringify;
 const events = (log) => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l)) : []);
 const byId = (r) => Object.fromEntries(r.criteria.map((c) => [c.id, c]));

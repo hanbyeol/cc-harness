@@ -18,7 +18,7 @@ const HEAD = "import test from 'node:test';\nimport fs from 'node:fs';\n";
 const logging = (log, name) => `${HEAD}test('fake ${name}', () => { fs.appendFileSync(${JSON.stringify(log)}, '${name}\\n'); });\n`;
 
 test('F45 AC-1: --files runs only the matching file, in every concurrent run', () => {
-  const dir = fs.realpathSync(tmpdir('harness-f45-suite-'));
+  const dir = fs.realpathSync.native(tmpdir('harness-f45-suite-'));
   const log = path.join(dir, 'ran.log');
   writeFiles(dir, {
     'test/one.test.mjs': logging(log, 'one'),
@@ -31,7 +31,7 @@ test('F45 AC-1: --files runs only the matching file, in every concurrent run', (
 });
 
 test('F45 AC-1: --files takes a glob and reports a failing test of a matched file', () => {
-  const dir = fs.realpathSync(tmpdir('harness-f45-suite-'));
+  const dir = fs.realpathSync.native(tmpdir('harness-f45-suite-'));
   const log = path.join(dir, 'ran.log');
   writeFiles(dir, {
     'test/a1.test.mjs': logging(log, 'a1'),
@@ -45,7 +45,7 @@ test('F45 AC-1: --files takes a glob and reports a failing test of a matched fil
 });
 
 test('F45 ES-1: a glob that matches no file → "no test files match" and exit 2, nothing runs', () => {
-  const dir = fs.realpathSync(tmpdir('harness-f45-suite-'));
+  const dir = fs.realpathSync.native(tmpdir('harness-f45-suite-'));
   writeFiles(dir, { 'test/one.test.mjs': `${HEAD}test('fake one', () => {});\n` });
   const r = stress(['2', '--root', dir, '--files', 'test/none-*.test.mjs']);
   assert.equal(r.code, 2, r.out);

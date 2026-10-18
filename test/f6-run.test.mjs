@@ -122,7 +122,7 @@ function fakeVerify(seq = []) {
 const run = (dir, deps, { config, ...opts } = {}) => runFeatures({ root: dir, config: cfg(config), deps: { verify: fakeVerify(), ...deps }, ...opts });
 const sha = (dir, ref) => git(dir, 'rev-parse', ref);
 // realpath of the parent: the path itself may be gone (worktrees are removed after the run)
-const real = (p) => path.join(fs.realpathSync(path.dirname(p)), path.basename(p));
+const real = (p) => path.join(fs.realpathSync.native(path.dirname(p)), path.basename(p));
 
 // ------------------------------------------------------------------ AC-1
 test('F6 AC-1: only approved features with a frozen contract run, in depends_on order', async () => {
