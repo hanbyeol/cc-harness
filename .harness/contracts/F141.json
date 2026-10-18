@@ -81,5 +81,10 @@
     "CI_METADATA_ENV 이름을 verify 명령·기준 check·repro 환경에 넘기기(GITHUB_ENV·GITHUB_OUTPUT·GITHUB_PATH 는 워크플로의 다음 단계 환경을 바꾸는 파일 경로다)",
     "builder·evaluator 어댑터 프로세스가 물려받는 환경",
     "문자열 가운데의 부분 조각, 8자 미만 조각, 인코딩·분할된 값(SR-9 범위 밖 그대로)"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-18T07:02:05.187Z",
+    "hash": "2ab40f4727c09a862e9d8ffaa7789225001ef83ad4b55f321f3b034e3afedd13"
+  }
 }

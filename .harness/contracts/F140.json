@@ -62,5 +62,10 @@
     "CPU 수에서 동시성을 계산하는 러너 스크립트 — `node test/run.mjs` 형식은 parseNodeTest 가 읽지 못해 실패 파일 재실행(§6.1)을 잃는다",
     "test/stress.mjs·test/count.mjs·test/t.mjs 의 동시성 변경, `node test/stress.mjs 3` 통과(backlog)",
     "벽시계 시간 단언 — 속도는 제목의 baseline·기대값으로만 적는다. 7 CPU 이상 머신에서는 기본 동시성이 6 이상이라 AC-2 가 base 에서도 통과한다"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-18T07:02:05.068Z",
+    "hash": "ff154b2f9aee1373d60382970b8a4c206e78e5c6c5d1af4d39158ef6b402a0d2"
+  }
 }
