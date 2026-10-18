@@ -64,7 +64,8 @@ function fixture({ ids = ['F1'], prefix = '', setup = [], scripts = {}, config =
   };
   for (const id of ids) files[at(`.harness/contracts/${id}.json`)] = contract(id);
   for (const [name, content] of Object.entries(scripts)) files[at(name)] = typeof content === 'function' ? content(log) : content;
-  const dir = gitRepo(files, { branch: null });
+  // The native real path, as the setup scripts log it (a Windows 8.3 temp path expands).
+  const dir = fs.realpathSync.native(gitRepo(files, { branch: null }));
   const root = prefix ? path.join(dir, prefix) : dir;
   return { dir, root, log, marker, tmp, prefix, setup };
 }

@@ -219,7 +219,8 @@ test('F131 SC-4: a plain directory at <dir>/F1 is not removed by --fresh', async
   const r = await runIn(repo, {}, { ids: ['F1'], fresh: true });
   assert.equal(r.results[0].status, 'blocked');
   assert.equal(r.results[0].reason, 'worktree');
-  assert.ok(JSON.stringify(r.results[0]).includes(path.join(dir, 'F1')), JSON.stringify(r.results[0]));
+  // The detail itself, not its JSON: JSON doubles a Windows path's backslashes.
+  assert.ok(String(r.results[0].detail).includes(path.join(dir, 'F1')), JSON.stringify(r.results[0]));
   assert.ok(fs.existsSync(path.join(dir, 'F1', 'mine.txt')));
   assert.ok(fs.existsSync(path.join(dir, 'keep.txt')));
 });
