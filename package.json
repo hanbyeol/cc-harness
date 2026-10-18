@@ -21,7 +21,7 @@
     "gemini-extension.json"
   ],
   "scripts": {
-    "test": "node --test \"test/**/*.test.mjs\""
+    "test": "node --test --test-concurrency=6 \"test/**/*.test.mjs\""
   },
   "keywords": [
     "claude-code",
