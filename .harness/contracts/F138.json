@@ -73,5 +73,10 @@
     ".harness/config.json 의 run.context_files 변경",
     "builder.md 의 일반 플랫폼 안내(시간·pid·시작 속도·무한 대기)의 내용 변경",
     "F4 AC-2·F70 AC-2·F86 AC-1 테스트의 기대 argv 를 새 deny 항목으로 갱신하는 것 외의 변경 — 이 갱신은 약화가 아니라 AC-2 의 결과다"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-18T06:16:27.666Z",
+    "hash": "8f44ad45c604641a5f1c294f7d063a93ec474d806b562e06824ce4e59b517128"
+  }
 }

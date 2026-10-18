@@ -65,5 +65,10 @@
     "test 디렉터리 자체가 심볼릭 링크인 경우(D1: 협력적 builder·사용자)",
     "이 저장소 CLAUDE.md 의 블록 밖 docs/SPEC.md 규칙 — 그대로 둔다",
     "AGENTS.md 문구 변경"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-18T06:16:27.428Z",
+    "hash": "395ca212f18a74c50e84b9ee4edfd27b5521b036fd0ed4e0347977787bdd78b0"
+  }
 }

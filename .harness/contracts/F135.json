@@ -67,5 +67,10 @@
     "telemetry 키를 'removed' 경고로 바꾸는 것(F116 AC-3 이 출력에 telemetry 가 없음을 단언한다)",
     "config 파일 자동 수정·키 이름 변환",
     "harness run 이 띄우는 builder·evaluator 세션 안의 출력"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-18T06:16:27.292Z",
+    "hash": "c4c3534604fe26891ec0e711c4fb4f0ec99a1e9b94ac8b65456f09fbbc3ea188"
+  }
 }

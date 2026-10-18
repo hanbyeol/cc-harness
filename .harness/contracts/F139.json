@@ -82,5 +82,10 @@
     "캐시 키 구성·저장 규칙(§6.4)의 변경, miss 일 때 키를 두 번 계산하는 비용의 최적화",
     "build·eval 의 동시성, pre_merge_verify 를 없애는 것",
     "캐시 파일을 일부러 고치거나 슬롯 대기 중 builder 가 아닌 주체가 worktree 를 바꾸는 경우의 일반 보장(AC-4 의 열거된 경우만, D1)"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-18T06:16:27.827Z",
+    "hash": "8933810997547166539826787defc3e6522c1f2a0c10e9c777a7d60680bb6ca5"
+  }
 }
