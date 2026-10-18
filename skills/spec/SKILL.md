@@ -78,6 +78,8 @@ speed or cost, write the measured baseline and the expected gain in the contract
 - Every criterion has a `check`: a shell command that exits 0 when it is met. Prefer
   running a named test (`node test/t.mjs "F3 AC-1"`, `pytest -k F3_AC_1`, `go test -run F3AC1`),
   so the test and the criterion share an id.
+  In a `node --test` project `harness init` creates the `test/t.mjs` runner for you; for other
+  runners it prints a hint with the named-test form.
 - Describe one observable behaviour per criterion: a command, an input, an output.
 - `"new": true` marks behaviour that does not exist yet. Its check must fail on the base
   branch; a check that already passes proves nothing and is reported as vacuous.
