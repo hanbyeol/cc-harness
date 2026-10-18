@@ -1,0 +1,49 @@
+{
+  "id": "F134",
+  "title": "Windows 경로 표기 차이를 정적으로 막는다 — 테스트·lib 의 fs.realpathSync 는 .native 만, 테스트용 realTmpdir 도우미 추가 (F129~F131 이 Linux 평가를 통과한 뒤 Windows CI 에서만 8.3 짧은 경로로 깨진 재발 방지)",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "test/helpers.mjs 가 realTmpdir(prefix) 를 export 한다 — tmpdir(prefix) 로 만든 디렉터리의 fs.realpathSync.native 경로를 돌려주고, 같은 정리 목록에 들어간다. 기존 tmpdir 의 반환값은 그대로다",
+      "check": "node test/t.mjs \"F134 AC-1\"",
+      "new": false,
+      "new_reason": "test/helpers.mjs 는 vacuity 실행에서 base 에 덮어씌워지므로(§6.3) base 에서도 통과한다"
+    },
+    {
+      "id": "AC-2",
+      "criterion": "test/ 와 lib/ 아래 모든 .mjs 파일에서 주석이 아닌 줄의 `realpathSync(` 호출은 모두 `realpathSync.native(` 이다 — 이를 검사하는 정적 테스트가 위반 파일과 줄 번호를 실패 메시지에 낸다",
+      "check": "node test/t.mjs \"F134 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "AC-2 의 정적 검사는 픽스처 문자열로 확인된다: `fs.realpathSync(x)` 가 든 줄은 위반, `fs.realpathSync.native(x)` 와 `// fs.realpathSync(x)` 주석 줄은 위반이 아니다",
+      "check": "node test/t.mjs \"F134 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "agents/builder.md 의 Path spelling 항목이 테스트 임시 디렉터리에 realTmpdir 를 쓰라고 하고, AC-2 의 정적 검사가 있음을 적는다(문서 check)",
+      "check": "node test/t.mjs \"F134 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "AC-2 로 바꾼 기존 테스트 파일들이 그대로 통과한다 — F3·F16·F23·F24·F25·F29·F41·F45·F106·F128 테스트 파일 실행이 exit 0",
+      "check": "node --test test/f3-verify.test.mjs test/f16-vacuity-overlay.test.mjs test/f23-test-count-presets.test.mjs test/f24-parallel.test.mjs test/f25-auto-parallel.test.mjs test/f29-environment.test.mjs test/f41-stress.test.mjs test/f45-stress-files.test.mjs test/f106-fake-executable.test.mjs test/f128-monorepo-base.test.mjs",
+      "new": false,
+      "new_reason": "회귀 확인 — 기존 동작이 base 에서도 통과해야 한다"
+    }
+  ],
+  "out_of_scope": [
+    "Windows 를 흉내 내는 8.3 짧은 경로 픽스처(Linux 에서 만들 수 없다)",
+    "CI 에 Windows 를 evaluator 실행 환경으로 추가하기",
+    "realpathSync 외 경로 함수(path.resolve 등)의 표기 비교 규칙",
+    "lint-contract 에 이 규칙을 넣기 — 저장소 테스트로만 검사한다"
+  ]
+}
