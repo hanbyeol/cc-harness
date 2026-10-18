@@ -15,6 +15,7 @@
     "profiles/",
     "templates/",
     "hooks/hooks.json",
+    "test/t.mjs",
     "AGENTS.md",
     ".claude-plugin/",
     "gemini-extension.json"
