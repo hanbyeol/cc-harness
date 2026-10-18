@@ -93,7 +93,7 @@ harness run --resume              # 중단된 run을 상태 파일만으로 재�
 통과하면 integration 브랜치에 병합한 뒤 병합 결과를 다시 verify합니다. 종료 시 `.harness/runs/{ts}.md`
 보고서를 씁니다. 코어는 `main`(및 protected 브랜치)에 병합·push하지 않습니다 — main 병합은 사람이 결정합니다.
 
-- **병렬** — `run.max_parallel`이 없거나 `'auto'`면 의존성이 충족된 기능을 개수 제한 없이 모두 동시에 진행합니다.
+- **병렬** — `run.max_parallel`이 없거나 `'auto'`면 의존성이 충족된 기능을 동시에 최대 3개까지 진행합니다. 정수를 지정하면 그 수만큼 동시에 진행합니다.
   양의 정수나 `--parallel N`이면 그 수가 상한입니다. verify(병합 후 verify 포함)는 build·eval과 별도인 풀에서
   최대 `run.verify_parallel`개만 동시에 돕니다(`'auto'`·미지정 = `max(1, floor(CPU 수 / 8))`). worktree·브랜치·병합
   git 호출은 하나의 잠금으로 직렬화되고 병합은 한 번에 하나입니다.
