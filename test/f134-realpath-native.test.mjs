@@ -3,29 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { REPO, tmpdir, realTmpdir } from './helpers.mjs';
+import { violations, mjsFiles } from '../tools/f134-realpath.mjs';
 
-// Built from parts so this file does not contain the forbidden spelling itself.
 const CALL = 'real' + 'pathSync';
-
-// Lines (1-based numbers) of `text` that call the non-native realpath and are not comments.
-function violations(text) {
-  const out = [];
-  text.split('\n').forEach((line, i) => {
-    if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;
-    if (line.includes(CALL + '(')) out.push(i + 1);
-  });
-  return out;
-}
-
-function mjsFiles(dir) {
-  const files = [];
-  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    const p = path.join(dir, e.name);
-    if (e.isDirectory()) files.push(...mjsFiles(p));
-    else if (e.name.endsWith('.mjs')) files.push(p);
-  }
-  return files;
-}
 
 test('F134 AC-1: realTmpdir returns the native real path of a tmpdir directory', () => {
   const d = realTmpdir('harness-f134-');
