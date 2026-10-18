@@ -87,5 +87,10 @@
     "이미 '[redacted]' 로 저장된 과거 run 보고서·이벤트·verdict 고치기",
     "builder·evaluator 어댑터 프로세스가 물려받는 환경",
     "문자열 가운데의 부분 조각, 8자 미만 조각, 인코딩·분할된 값(SR-9 범위 밖 그대로)"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-18T08:52:30.431Z",
+    "hash": "2ef1345b77987d192c343caa7a04d2ef8f16173e567dea7c2914ef62fc5b6bb5"
+  }
 }
