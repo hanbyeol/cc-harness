@@ -1114,6 +1114,34 @@
       "security_tier": "standard",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F135",
+      "title": "config 의 모르는 키 경고 — 오타(max_round·verify.comands·run.worktree_dirs)를 명령마다 stderr 에 한 번씩 키 경로와 'did you mean' 으로 알리고 doctor 도 보여 준다. 오류가 아니므로 종료 코드는 그대로",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "todo"
+    },
+    {
+      "id": "F136",
+      "title": "새 프로젝트 첫 사용 — init 이 node --test 프로젝트에 기준 check 러너(test/t.mjs)를 만들고 다른 러너에는 이름 붙인 테스트 예시를 안내하며, CLAUDE.md 블록의 SPEC 규칙을 사용자 프로젝트에 맞게 일반화",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "todo"
+    },
+    {
+      "id": "F137",
+      "title": "문서의 명령 목록·안내를 CLI 와 맞춘다 — AGENTS.md·README 명령 목록이 COMMANDS 와 같음을 테스트로 고정, skill 이 harness decide·backlog close 를 이름으로 안내, README CI 문장·SPEC 자율 모드 'PR' 문구 정정",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "todo"
+    },
+    {
+      "id": "F138",
+      "title": "역할 프롬프트 정리 — headless builder 는 대화형 워크플로·harness 명령을 따르지 않고(claude 는 deny 로 막음), evaluator 는 verify 를 다시 돌리지 않으며, cc-harness 전용 테스트 안내는 이 저장소 CLAUDE.md 로",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "todo"
     }
   ]
 }

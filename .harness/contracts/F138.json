@@ -1,0 +1,77 @@
+{
+  "id": "F138",
+  "title": "역할 프롬프트 정리 — headless builder 는 대화형 워크플로·harness 명령을 따르지 않고(claude 는 deny 로 막음), evaluator 는 verify 를 다시 돌리지 않으며, cc-harness 전용 테스트 안내는 이 저장소 CLAUDE.md 로",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "builderPrompt 결과(build 시도·병합 충돌 해결·병합 후 verify 복구 프롬프트 모두)에 `## Headless session` 절이 있고, 그 절이 CLAUDE.md·AGENTS.md 의 대화형 워크플로(skill, `harness verify`·`harness eval`)는 이 세션에 해당하지 않는다고 하며 `Do not run harness commands` 문장을 담는다",
+      "check": "node test/t.mjs \"F138 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "claude 어댑터의 쓰기(builder) 호출에서 가짜 claude 가 받은 `--disallowedTools` 값에 `Bash(harness:*)`·`Bash(cc-harness:*)`·`Bash(npx cc-harness:*)`·`Bash(npx github:hanbyeol/cc-harness:*)`·`Bash(node bin/harness.mjs:*)` 가 모두 있고, docs/SPEC.md §10 의 `<deny>` 목록이 같은 다섯 항목을 적는다",
+      "check": "node test/t.mjs \"F138 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "agents/builder.md 의 `## Finish` 절이 `harness run` 아래에서는 verify 결과를 코어에 맡기고 각 기준 check 결과만 보고하며, verify 명령 결과는 `harness run` 밖(대화형)에서만 보고한다고 적는다 — 조건 없이 'the verify command results' 를 요구하는 문장이 없다",
+      "check": "node test/t.mjs \"F138 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "agents/builder.md 에 `realTmpdir`·테스트 도우미 파일 경로·`F134`·`realpathSync`·`CI also runs Windows, macOS and Linux` 가 없고, 이 저장소 CLAUDE.md 의 관리 블록 밖에 realTmpdir 사용과 `realpathSync.native` 정적 검사(F134 AC-2) 안내가 있다. F134 AC-4 테스트는 CLAUDE.md 를 읽도록 바뀐다",
+      "check": "node test/t.mjs \"F138 AC-4\" && node test/t.mjs \"F134 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "agents/evaluator.md 와 agents/security-reviewer.md 가 verify 명령과 기준 check 의 결과는 프롬프트의 `## Deterministic verification` 절에 주어지므로 다시 실행할 필요가 없고, finding 의 repro 는 코어가 실행한다고 적는다. 두 파일에 'run its `check`'·'Run or read each criterion' 문구가 없고, buildPrompt 결과에도 새 문장이 실린다",
+      "check": "node test/t.mjs \"F138 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "agents/security-reviewer.md 에 `has already judged` 가 없고, evaluator 가 같은 때 따로 평가하며 security-reviewer 는 그 verdict 를 보지 않는다고 적는다",
+      "check": "node test/t.mjs \"F138 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "claude 쓰기 호출 인자에 `--permission-mode auto` 와 `--disallowedTools` 가 정확히 한 번씩 있고, 그 값에 기존 `<deny>` 다섯 항목(`Bash(git push:*)`·`Bash(git reset --hard:*)`·`Bash(rm -rf /:*)`·`Bash(rm -rf ~:*)`·`Bash(sudo:*)`)과 `Workflow`·`Skill`·`ReportFindings`·`ListAgents`·`Agent` 가 모두 그대로 있다",
+      "check": "node test/t.mjs \"F138 SC-1\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 새 deny 항목을 넣으며 기존 deny·제외 도구가 빠지지 않는지 본다. base 에서도 통과한다"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "claude 읽기 전용(evaluator·security-reviewer) 호출 인자는 이 기능 전과 같다 — `--permission-mode plan` 이고 `--disallowedTools` 값이 정확히 `Workflow`·`ScheduleWakeup`·`Skill`·`ReportFindings`·`ListAgents`·`Agent` 이며, requiredFlags 는 쓰기·읽기 전용 모두 바뀌지 않는다",
+      "check": "node test/t.mjs \"F138 SC-2\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 읽기 전용 인자와 doctor 필수 플래그는 바꾸지 않는다. base 에서도 통과한다"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "config 의 verify.commands 가 빈 배열이어도 builderPrompt 결과에 AC-1 의 `## Headless session` 절과 `Do not run harness commands` 문장이 있고, `## Verification` 절에는 지금처럼 'Do not run these commands' 문장이 없다",
+      "check": "node test/t.mjs \"F138 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "codex·gemini·generic 어댑터의 harness 명령 차단 — 프롬프트 문장(AC-1)만 적용된다",
+    "다섯 철자 밖의 harness 호출(절대 경로, `sh -c`, 환경 변수 접두, 별칭) — D1: builder 는 협조적이다",
+    "evaluator·security-reviewer 세션에 harness deny 항목을 넣는 것, 읽기 전용 permission mode 변경",
+    "templates/claude-block.md(관리 블록)·AGENTS.md 의 워크플로 문구 변경, headless 세션의 CLAUDE.md 자동 로드 끄기(--bare 는 OAuth 를 읽지 않는다)",
+    ".harness/config.json 의 run.context_files 변경",
+    "builder.md 의 일반 플랫폼 안내(시간·pid·시작 속도·무한 대기)의 내용 변경",
+    "F4 AC-2·F70 AC-2·F86 AC-1 테스트의 기대 argv 를 새 deny 항목으로 갱신하는 것 외의 변경 — 이 갱신은 약화가 아니라 AC-2 의 결과다"
+  ]
+}

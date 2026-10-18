@@ -1,0 +1,69 @@
+{
+  "id": "F136",
+  "title": "새 프로젝트 첫 사용 — init 이 node --test 프로젝트에 기준 check 러너(test/t.mjs)를 만들고 다른 러너에는 이름 붙인 테스트 예시를 안내하며, CLAUDE.md 블록의 SPEC 규칙을 사용자 프로젝트에 맞게 일반화",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "package.json 의 `files` 에 러너(test 디렉터리의 `t.mjs`, 이하 러너 경로)가 들어 있어 npx·npm 설치본에도 그 파일이 있다 — `files` 의 다른 항목은 그대로이고, 이 저장소의 그 파일이 init 이 복사하는 원본이다",
+      "check": "node test/t.mjs \"F136 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "package.json 의 scripts.test 에 `node --test` 가 있고(preset:node-test 와 같은 감지) 러너 경로에 파일이 없는 프로젝트에서 init 이 하네스 러너와 바이트가 같은 파일을 그 경로에 만들고 `created ` 다음에 러너 경로가 오는 줄을 출력한다. 그 러너로 이름이 `F1 AC-1` 로 시작하는 테스트를 실행하면 exit 0 이다",
+      "check": "node test/t.mjs \"F136 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "같은 프로젝트의 러너 경로에 이미 파일이 있으면(내용이 하네스 러너와 달라도) init 은 그 바이트를 바꾸지 않고 `kept    ` 다음에 러너 경로가 오는 줄을 출력하며 exit 0 이다",
+      "check": "node test/t.mjs \"F136 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "node --test 가 아닌 프로젝트에서 init 은 test 디렉터리를 만들지 않고 `hint: ` 로 시작하는 줄 하나를 `next:` 줄 앞에 출력한다 — go.mod 면 `go test -run F3AC1`, pytest.ini 면 `pytest -k F3_AC_1`, 감지된 러너가 없으면 `\"F3 AC-1\"` 을 담는다",
+      "check": "node test/t.mjs \"F136 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "sdlc·iac·ops 블록(renderBlock)에 `A gap in the SPEC` 줄이 없고 그 자리(Convergence rules 의 마지막 항목)에 `- A gap in the project's spec or requirements document (if it has one) found during implementation is fixed in that document in the same change.` 가 있으며, 이 저장소 CLAUDE.md 블록은 `claude-md --check` 로 current 이다",
+      "check": "node test/t.mjs \"F136 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "docs/SPEC.md §4 가 init 의 러너 생성(감지 조건, 덮어쓰지 않음, created·kept 줄)과 hint 줄 세 가지를, §11 이 배포되는 러너 파일을 적고, skills/spec/SKILL.md 가 node --test 프로젝트에서는 init 이 러너를 만든다고 적는다(문서 check)",
+      "check": "node test/t.mjs \"F136 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "node --test 프로젝트의 러너 경로가 심볼릭 링크면(대상이 없거나 프로젝트 밖 파일이어도) init 은 링크를 따라 쓰지 않는다 — 링크와 대상의 바이트가 그대로이고 `kept    ` 와 러너 경로의 줄을 출력하며 exit 0 이다. 링크를 만들 수 없는 환경에서는 진단만 남긴다",
+      "check": "node test/t.mjs \"F136 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "node --test 프로젝트에서 `test` 가 디렉터리가 아닌 일반 파일이면 init 은 stderr 에 `harness: warning: ` 로 시작하고 러너 경로와 `not created` 를 담은 줄을 내고 그 파일은 그대로 두며, .harness 상태 파일과 CLAUDE.md 는 만들고 exit 0 이다",
+      "check": "node test/t.mjs \"F136 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "러너가 test/**/*.test.mjs 밖의 테스트 파일(*.test.js·*.test.cjs·다른 디렉터리)을 고르게 하는 것 — 러너의 파일 선택(F78)은 그대로다",
+    "pytest·go 등 다른 러너용 러너 파일 생성 — 안내 줄만 출력한다",
+    "기존 프로젝트의 scripts.test·verify.commands 를 고치거나 package.json 을 만드는 것",
+    "doctor·status 에서 러너 유무를 알리는 것",
+    "migrate-v1 의 별도 동작 — init 을 부르므로 같은 규칙을 그대로 따른다",
+    "test 디렉터리 자체가 심볼릭 링크인 경우(D1: 협력적 builder·사용자)",
+    "이 저장소 CLAUDE.md 의 블록 밖 docs/SPEC.md 규칙 — 그대로 둔다",
+    "AGENTS.md 문구 변경"
+  ]
+}

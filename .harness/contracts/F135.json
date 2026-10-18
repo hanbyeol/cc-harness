@@ -1,0 +1,71 @@
+{
+  "id": "F135",
+  "title": "config 의 모르는 키 경고 — 오타(max_round·verify.comands·run.worktree_dirs)를 명령마다 stderr 에 한 번씩 키 경로와 'did you mean' 으로 알리고 doctor 도 보여 준다. 오류가 아니므로 종료 코드는 그대로",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "config 최상위에 모르는 키 max_round 가 있으면 harness status·verify F1·lint-contract 의 stderr 에 `harness: warning: unknown config key 'max_round' (did you mean 'max_rounds'?)` 가 정확히 한 줄 나오고, 종료 코드와 stdout 은 그 키가 없는 config 와 같다",
+      "check": "node test/t.mjs \"F135 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "알려진 객체 안의 모르는 키는 전체 경로와 같은 층의 가까운 키로 경고한다: verify.comands→verify.commands, run.worktree_dirs→run.worktree_dir, budget.run_us→budget.run_usd, roles.builder.modle→roles.builder.model, adapters.generic.comand→adapters.generic.command. 편집 거리 3 이상(verify.zzz)이면 'did you mean' 이 없다",
+      "check": "node test/t.mjs \"F135 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "config.mjs 의 unknownConfigKeys(user) 는 DEFAULTS 의 모든 키 경로, profiles/*.json 각각(name·description 제외), language·run.worktree_dir, roles.<임의 역할>.{adapter,model,by_tier,escalate,conflict_model,effort}, adapters.<임의 이름>.{model,command,read_only_command,help_args}, telemetry 를 담은 config 에 [] 를 돌려준다",
+      "check": "node test/t.mjs \"F135 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "harness doctor 는 모르는 키가 있으면 stdout 에 키마다 `config: unknown key '<경로>'`(가까운 키가 있으면 ` (did you mean '<경로>'?)` 를 붙여) 한 줄을 내고 종료 코드는 그 키가 없을 때와 같다. 모르는 키가 없으면 'unknown key' 를 담은 줄이 없다",
+      "check": "node test/t.mjs \"F135 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "뺀 키 처리는 그대로다 — telemetry 키는 경고 없이 무시되고(F116 AC-3 테스트, telemetry 와 max_round 가 함께 있으면 max_round 만 경고), verify.affected_command 는 config_invalid(exit 2)다(F120 AC-2 테스트)",
+      "check": "node test/t.mjs \"F135 AC-5\" && node test/t.mjs \"F116 AC-3\" && node test/t.mjs \"F120 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "docs/SPEC.md §4 config.json 줄이 모르는 키 경고(stderr, 명령 실행마다 키당 한 번, 편집 거리 2 이내 'did you mean', 오류 아님), 임의 역할·어댑터 이름 허용, telemetry 무시, doctor 의 목록을 적는다(문서 check)",
+      "check": "node test/t.mjs \"F135 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "config 가 모르는 키와 config_invalid 위반(verify.commands: \"npm test\")을 함께 가지면 harness status 는 지금과 같은 config_invalid 메시지로 exit 2 이고 stderr 에 'unknown config key' 가 없다",
+      "check": "node test/t.mjs \"F135 ES-1\"",
+      "new": false,
+      "new_reason": "base 에는 모르는 키 경고가 없어 이미 통과한다 — config_invalid 가 경고보다 먼저라는 것을 지키는 회귀 기준"
+    },
+    {
+      "id": "ES-2",
+      "criterion": "adapters 가 문자열·배열·숫자이거나 roles.builder 가 문자열 \"claude\" 이거나 adapters.generic 이 null 이면 harness status 가 internal error 없이 그 키가 없을 때와 같은 종료 코드로 끝난다",
+      "check": "node test/t.mjs \"F135 ES-2\"",
+      "new": false,
+      "new_reason": "base 에는 키 검사가 없어 이미 통과한다 — 새 키 검사가 객체가 아닌 값에서 깨지지 않는지 지키는 회귀 기준"
+    }
+  ],
+  "out_of_scope": [
+    "모르는 키를 오류(config_invalid)로 올리는 설정·strict 모드",
+    "roles 아래 역할 이름 자체의 오타(roles.buildr) — 사용자 정의 역할로 허용한다",
+    "rubric 아래 키 검사 — rubric 은 evaluator 프롬프트에 그대로 들어가는 자유 객체로 둔다",
+    "adapters 아래 어댑터 이름이 등록된 어댑터(claude·gemini·codex·generic)인지 검사",
+    "키 값의 형식 검사 추가(기존 validateUser 규칙은 그대로)",
+    "telemetry 키를 'removed' 경고로 바꾸는 것(F116 AC-3 이 출력에 telemetry 가 없음을 단언한다)",
+    "config 파일 자동 수정·키 이름 변환",
+    "harness run 이 띄우는 builder·evaluator 세션 안의 출력"
+  ]
+}
