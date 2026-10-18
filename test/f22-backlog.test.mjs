@@ -24,7 +24,7 @@ const SCRIPTS = {
 function contract({ resolves, approve = true } = {}) {
   const c = {
     id: 'F9', title: 'fixture feature', security_tier: 'standard', version: 1,
-    acceptance_criteria: [{ id: 'AC-1', criterion: 'one', check: 'node scripts/ok.mjs', new: false }],
+    acceptance_criteria: [{ id: 'AC-1', criterion: 'one', check: 'node scripts/ok.mjs', new: false, new_reason: 'fixture' }],
     security_criteria: [],
     error_scenarios: [],
     out_of_scope: [],

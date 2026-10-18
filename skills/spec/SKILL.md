@@ -67,6 +67,13 @@ How the backlog is kept (the core does this; you only read it):
 Then add `{"id": "F3", "title": "...", "security_tier": "standard", "depends_on": [], "status": "todo"}`
 to `features.json`. Do not add an `approval` block; approval writes it.
 
+### new_reason and goals measured in speed or cost
+A criterion with `"new": false` needs a non-empty `new_reason` string saying why it is
+expected to pass before the change; `harness lint-contract` warns (rule `new_reason`) on an
+unapproved contract otherwise. It also warns about a criterion over 300 characters
+(`criterion_length`) and 9–12 acceptance criteria (`split_suggested`). If a feature's goal is
+speed or cost, write the measured baseline and the expected gain in the contract.
+
 ## 3. Rules that make a criterion decidable
 - Every criterion has a `check`: a shell command that exits 0 when it is met. Prefer
   running a named test (`node test/t.mjs "F3 AC-1"`, `pytest -k F3_AC_1`, `go test -run F3AC1`),

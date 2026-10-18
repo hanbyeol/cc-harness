@@ -23,8 +23,8 @@ function contract(id = 'F9', { approve = false, criteria, version = 1 } = {}) {
   const c = {
     id, title: `feature ${id}`, security_tier: 'standard', version,
     acceptance_criteria: criteria ?? [
-      { id: 'AC-1', criterion: 'one', check: 'node scripts/ok.mjs', new: false },
-      { id: 'AC-2', criterion: 'two', check: 'node scripts/ok.mjs', new: false },
+      { id: 'AC-1', criterion: 'one', check: 'node scripts/ok.mjs', new: false, new_reason: 'fixture' },
+      { id: 'AC-2', criterion: 'two', check: 'node scripts/ok.mjs', new: false, new_reason: 'fixture' },
     ],
     security_criteria: [], error_scenarios: [], out_of_scope: [],
   };
