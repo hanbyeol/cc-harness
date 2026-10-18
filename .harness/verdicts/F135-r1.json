@@ -1,0 +1,38 @@
+{
+  "feature": "F135",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 0.4036194000000001,
+  "contract_hash": "c4c3534604fe26891ec0e711c4fb4f0ec99a1e9b94ac8b65456f09fbbc3ea188",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-10-18T06:30:06.346Z",
+  "origin": "run"
+}

@@ -1,0 +1,38 @@
+{
+  "feature": "F137",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 10,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 0.1584381,
+  "contract_hash": "1ad2fcfb9e4314201f0a77c14712af6e3d733a28830fd17eb28fd6429172068a",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 10,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-10-18T06:43:21.663Z",
+  "origin": "run"
+}

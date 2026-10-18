@@ -1,0 +1,50 @@
+{
+  "feature": "F138",
+  "round": 2,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "critical",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 0.45128650000000003,
+  "contract_hash": "8f44ad45c604641a5f1c294f7d063a93ec474d806b562e06824ce4e59b517128",
+  "contract_round": 2,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    },
+    "security-reviewer": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-10-18T08:08:44.481Z",
+  "origin": "run"
+}

@@ -7047,6 +7047,54 @@
       "summary": "decision rewrite for F120: blocked by assert-count tooling gap (contract approved at merge base); fixed by F122 — rerun F120 fresh with the same contract",
       "at": "2026-10-12T00:40:23.844Z",
       "id": "B543"
+    },
+    {
+      "source": "run:F137",
+      "feature": "F137",
+      "kind": "rescope",
+      "reason": "post_merge_verify",
+      "rounds": 1,
+      "blocking": [],
+      "summary": "F137 blocked (post_merge_verify): verify failed on the integration branch after the merge and one automatic recovery did not fix it — verify failed on the merged integration branch; merge rolled back after the post-merge verify recovery",
+      "options": [
+        {
+          "kind": "split",
+          "summary": "split F137 so the feature ship as a separate feature with its own contract"
+        },
+        {
+          "kind": "rewrite",
+          "summary": "rewrite the criteria for the feature (new contract version, re-approval)"
+        },
+        {
+          "kind": "accept-risk",
+          "summary": "accept the risk: drop or relax the feature with a recorded decision"
+        }
+      ],
+      "id": "B544"
+    },
+    {
+      "source": "run:F138",
+      "feature": "F138",
+      "kind": "rescope",
+      "reason": "worktree",
+      "rounds": 1,
+      "blocking": [],
+      "summary": "F138 blocked (worktree): the feature worktree could not be created — [redacted]/.harness/wt/F138 is missing — cannot resume F138",
+      "options": [
+        {
+          "kind": "split",
+          "summary": "split F138 so the feature ship as a separate feature with its own contract"
+        },
+        {
+          "kind": "rewrite",
+          "summary": "rewrite the criteria for the feature (new contract version, re-approval)"
+        },
+        {
+          "kind": "accept-risk",
+          "summary": "accept the risk: drop or relax the feature with a recorded decision"
+        }
+      ],
+      "id": "B545"
     }
   ]
 }
