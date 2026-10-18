@@ -28,7 +28,7 @@ When `harness` is not on PATH, run `npx github:hanbyeol/cc-harness <command>`.
   criteria; otherwise the feature is `blocked` and the user decides.
 - Score = the minimum of five dimensions (functionality, quality, security, errors, tests).
   `security_tier: critical` fails below security 7.
-- A gap in the SPEC found during implementation is fixed in the SPEC in the same change.
+- A gap in the project's spec or requirements document (if it has one) found during implementation is fixed in that document in the same change.
 
 ## Prohibited
 - Editing `.harness/` (except contract and feature drafts in the spec step), changing a feature's
