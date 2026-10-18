@@ -98,5 +98,10 @@
     "builder·verify 명령·사용자가 실행하는 git config 쓰기, git gc·pack-refs 의 packed-refs 다시 쓰기",
     "worktree.useRelativePaths 같은 사용자 git 설정으로 git worktree add 가 config 를 쓰는 경우",
     "run 밖 명령(harness approve 의 git config user.email 읽기 등)"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-18T11:32:03.346Z",
+    "hash": "c2b1de50bf848ae476c53ac0174df9d87299337d0513755f87b91b34ca910ec1"
+  }
 }

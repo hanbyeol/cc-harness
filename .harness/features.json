@@ -1178,7 +1178,7 @@
       "title": "harness run 이 기능 브랜치를 git branch -D 대신 git update-ref -d 로 지워 run 도중 .git/config 를 다시 쓰지 않는다 — branch -D 는 언제나 config 를 잠금 파일+rename 으로 바꿔 써서, Windows 에서 같은 때 잠금 밖 git 읽기(git status)가 'unable to access .git/config: Permission denied' 로 실패한 결함(F91 AC-3, CI 1회)의 수정",
       "security_tier": "critical",
       "depends_on": [],
-      "status": "todo"
+      "status": "approved"
     },
     {
       "id": "F144",
@@ -1189,7 +1189,7 @@
         "F139",
         "F143"
       ],
-      "status": "todo"
+      "status": "approved"
     }
   ]
 }

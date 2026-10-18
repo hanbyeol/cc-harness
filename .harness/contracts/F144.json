@@ -98,5 +98,10 @@
     "순번의 우선순위·재정렬(먼저 eval 을 통과한 기능이 먼저), 순번 대기 시간의 metrics 필드",
     "carried work 처럼 baseSha 가 integration 과 같지만 기능 브랜치에 integration 커밋이 없는 경우의 pre_merge_verify 조건(2026-10-18 09:33 F138 의 잠금 안 전체 post_merge_verify 437 s) — backlog",
     "벽시계 시간 단언 — 속도는 제목의 baseline·기대값으로만 적는다. 대기는 명시한 조건과 상한(10 s·30 s)으로만 한다"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-18T11:32:03.512Z",
+    "hash": "bb9458fc6c2d66c93862ede4b31e260eec39bc92686f925a9d638cb1d06a7043"
+  }
 }
