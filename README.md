@@ -22,7 +22,7 @@ v2는 v1을 처음부터 다시 쓴 버전입니다. 설계 근거는 `docs/brai
 | 상태 | 대상 프로젝트의 `.harness/` (git 추적) — config · features · contracts · verdicts · backlog · runs · events |
 
 코어 명령: `harness init`, `harness lint-contract`, `harness approve`, `harness verify`, `harness eval`,
-`harness run`, `harness status`, `harness stats`, `harness events`(`.harness/events/` 기록 조회, `--stage`·`--feature`·`--since`, SPEC §2 — 평가 단계의 `eval/finding`·`eval/reask`·`eval/verdict`·`security/verdict` 는 SPEC §7.8), `harness decide`(사람 결정 기록), `harness doctor`, `harness migrate-v1`. 옵션은 `harness <command> --help`.
+`harness run`, `harness status`, `harness stats`, `harness events`(`.harness/events/` 기록 조회, `--stage`·`--feature`·`--since`, SPEC §2 — 평가 단계의 `eval/finding`·`eval/reask`·`eval/verdict`·`security/verdict` 는 SPEC §7.8), `harness decide`(사람 결정 기록), `harness backlog`(backlog 항목 닫기), `harness doctor`, `harness claude-md`, `harness tf-check`, `harness migrate-v1`. 옵션은 `harness <command> --help`.
 
 ## 설치
 
@@ -191,8 +191,8 @@ v1은 에너지 대부분을 "자율 구동 모델의 파괴적 행위 방어"�
 `docs/brainstorms/2026-09-23-v2-from-scratch.md`에 있습니다.
 
 ## 개발
-
-테스트·기준 check·lint 명령과 CI 매트릭스(ubuntu · macos · windows × Node 22 · 24)는 `CLAUDE.md`에 있습니다.
+테스트·기준 check·lint 명령은 `CLAUDE.md`에 있습니다.
+CI 매트릭스(ubuntu · macos · windows × Node 22 · 24)는 `.github/workflows/ci.yml`에 있습니다.
 
 ## License
 

@@ -8,8 +8,9 @@ or it stops and a human decides. They apply to any AI coding CLI reading this fi
 `harness` below is the cc-harness CLI. If it is not on PATH, use `npx github:hanbyeol/cc-harness <command>`
 (the npm package named `cc-harness` is a different project).
 The commands are: `harness init`, `harness lint-contract`, `harness approve`,
-`harness verify`, `harness eval`, `harness run`, `harness status`, `harness doctor`,
-`harness migrate-v1`. Run `harness --help` for the commands and `harness <command> --help` for a command's options.
+`harness verify`, `harness eval`, `harness run`, `harness status`, `harness stats`,
+`harness events`, `harness decide`, `harness backlog`, `harness doctor`, `harness claude-md`,
+`harness tf-check`, `harness migrate-v1`. Run `harness --help` for the commands and `harness <command> --help` for a command's options.
 
 ## Language
 Talk with the user — explanations, questions, reports — in the language set in

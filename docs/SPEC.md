@@ -13,7 +13,7 @@ AI 코딩 CLI(Claude Code · Codex CLI · Gemini CLI, 그 외 AGENTS.md 호환 �
 | 모드 | 흐름 |
 |------|------|
 | 대화형 | 사용자가 CLI 안에서 skill 호출(`spec` → `plan` → `build`) — skill이 코어 명령을 호출 |
-| 자율 | 사람이 계약을 일괄 승인한 뒤 `harness run` — 코어가 기능별로 headless 세션을 띄워 끝까지 진행, 종료 시 보고서 + PR |
+| 자율 | 사람이 계약을 일괄 승인한 뒤 `harness run` — 코어가 기능별로 headless 세션을 띄워 끝까지 진행, 종료 시 `runs/{ts}.md` 보고서와 `gh pr create` 명령 제안을 남긴다 — 코어는 PR 을 만들거나 push 하지 않는다 |
 
 telemetry(이벤트 내보내기·학습·insights 와 사람 개입·CI 기록 명령)는 v2.0.65 에서 뺐으며 config 의 `telemetry` 키는 오류 없이 무시된다.
 
