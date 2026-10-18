@@ -280,3 +280,19 @@ test('F131 AC-6: SPEC §4 and §8 describe run.worktree_dir', () => {
     assert.ok(s8.includes(w), `§8 names ${w}`);
   }
 });
+
+// A root whose real path differs from the path given (a symbolic link here; on Windows an 8.3
+// short temp path does the same): the default worktree directory is the given path, unchanged.
+test('F131 AC-1 regression: the default worktree directory is not rewritten to the real path', { skip: process.platform === 'win32' && 'symlink fixture' }, async () => {
+  const { resolveWorktreeDir } = await import('../lib/run/wtdir.mjs');
+  const box = tmpdir('harness-f131-');
+  const realRoot = path.join(box, 'real');
+  fs.mkdirSync(path.join(realRoot, '.harness'), { recursive: true });
+  fs.symlinkSync(realRoot, path.join(box, 'via'), 'dir');
+  const root = path.join(box, 'via');
+  const defaultDir = path.join(root, '.harness', 'wt');
+  for (const value of [undefined, '.harness/wt']) {
+    const r = resolveWorktreeDir({ root, top: root, value, defaultDir });
+    assert.deepEqual(r, { dir: defaultDir, external: false }, String(value));
+  }
+});
