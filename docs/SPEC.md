@@ -183,8 +183,8 @@ config의 `verify.commands`(예: test·lint·build)를 순서대로 실행. 하�
 `verify.flaky` `'retry'` 에서 재실행(2차·3차)이 일어나고 다음을 모두 만족하면, 재실행은 명령 전체가 아니라 1차 실행에서 실패한 테스트가 있는 파일만 실행한다:
 명령이 `node [--옵션...] --test [인자...]` 형식이다 — 첫 단어가 `node`, `--test` 앞의 단어는 모두 `--` 로 시작하고, 따옴표 밖에 `;`·`|`·`&`·`<`·`>`·`$`·`` ` ``·`(`·`)`·역슬래시·`#`·`^`·줄바꿈이 없으며,
 `--test` 뒤에 `--` 단독 인자나 `=` 없는 `--플래그` 바로 뒤에 `--` 로 시작하지 않는 단어(플래그의 값일 수 있다)가 없다; 1차 출력(stdout·stderr)의 spec reporter `✖ failing tests:` 줄 아래
-`test at <경로>:<줄>:<열>` 줄에서 파일을 하나 이상 얻는다(`file://` URL·절대 경로도 받는다); 얻은 파일이 모두 명령 cwd 안에 있는 존재하는 파일이다(실제 경로로 비교);
-그 절의 실패 테스트 수(`✖ ` 로 시작하는 줄)가 `test at` 줄 수보다 많지 않다; `verify.retry_scope` 가 `'failed_files'` 다. 하나라도 어긋나면(예: `npm test`, TAP reporter, cwd 밖 파일)
+`test at <경로>:<줄>:<열>` 줄에서 파일을 하나 이상 얻는다(`file://` URL·절대 경로도 받는다). 그 줄이 없으면 출력을 TAP 로 읽는다(Node 22 는 비 TTY 에서 TAP 가 기본이다): `# TODO`·`# SKIP` 이 없는 `not ok` 줄의 YAML 블록에서 그 줄 들여쓰기+2 의 `location: <경로>:<줄>:<열>` 키(더 깊은 `error: |-` 블록 안의 줄, `ok` 블록, TODO·SKIP 블록의 줄은 쓰지 않는다)를 파일로 얻는다. 값은 Node 가 `util.inspect` 로 쓴 JS 문자열이라 작은따옴표·큰따옴표·백틱 인용과 `\\`·`\'`·`\"`·`` \` `` 이스케이프를 풀어 경로로 쓰고, `location` 키가 없는 `not ok` 블록이나 풀 수 없는 값(닫히지 않은 따옴표, 그 밖의 이스케이프)이 있으면 파일을 얻지 못한다; 얻은 파일이 모두 명령 cwd 안에 있는 존재하는 파일이다(실제 경로로 비교);
+그 절의 실패 테스트 수(`✖ ` 로 시작하는 줄)가 `test at` 줄 수보다 많지 않다; `verify.retry_scope` 가 `'failed_files'` 다. 하나라도 어긋나면(예: `npm test`, dot reporter, cwd 밖 파일)
 이 기능 전처럼 명령 전체를 다시 실행한다. 재실행 명령은 `node [같은 --옵션] --test [원래 --test 뒤 인자 중 -- 로 시작하는 것] <실패 파일...>` 이고(원래 단어는 쓰인 그대로),
 실패 파일은 cwd 기준 상대 경로로 중복 없이 나온 순서대로 하나의 셸 인자로 인용된다 — POSIX 는 작은따옴표(`'` 는 `'\''`), Windows(cmd.exe)는 큰따옴표이고
 Windows 에서 `"`·`%`·`!`·줄바꿈이 든 파일이 있으면 명령 전체를 다시 실행한다. 부분 재실행의 판정·기록은 전체 재실행과 같고(`attempts`·`flaky`·`flaky_tests`·`flaky_passed`·`pass`),
@@ -326,7 +326,9 @@ run 도중 evaluator(또는 security-reviewer) 어댑터가 `adapter_unavailable
 9. 종료 → `runs/{ts}.md` 보고서. integration → main 병합은 하지 않는다(PR 생성은 `gh` 가 있으면 제안만).
 
 **병렬 실행** (`run.max_parallel`, `run.verify_parallel`, `harness run --parallel N`):
-- `run.max_parallel` 이 없거나 `'auto'`(기본)이고 `--parallel` 도 없으면 의존성이 충족된 `approved` 기능을 개수 제한 없이 모두 동시에 시작한다. `run.max_parallel` 이 1 이상의 정수이거나 `--parallel N`(우선, `--resume` 에서도 바꿀 수 있음)이면 그 수가 동시에 진행하는 기능의 상한이고, 1 이면 기능을 하나씩 진행한다. 동시에 시작하는 기능은 서로 의존하지 않는다. 범위 안의 기능에 직접·전이 의존하는 기능은 빈 슬롯이 있어도 의존 기능이 `passed`(병합과 병합 후 verify 완료)가 된 뒤에만 시작한다. `run.max_parallel` 이 `'auto'` 도 1 이상의 정수도 아니면(`'auto'` 가 아닌 문자열·0·소수 등), 또는 `run.verify_parallel` 이 `'auto'` 도 1 이상의 정수도 아니면 작업 없이 `config_invalid`(exit 2), `--parallel` 값이 양의 정수가 아니면 `usage`(exit 2)이고, 모두 메시지에 키·옵션 이름이 나온다.
+- `run.max_parallel` 이 없거나 `'auto'`(기본)이고 `--parallel` 도 없으면 의존성이 충족된 `approved` 기능을 동시에 최대 3개까지 시작한다(`'auto'` = 3, 보고서에는 `auto (3)`). `run.max_parallel` 이 1 이상의 정수이거나 `--parallel N`(우선, `--resume` 에서도 바꿀 수 있음)이면 명시한 정수는 그대로 그 수가 동시에 진행하는 기능의 상한이고(3으로 줄지 않는다), 1 이면 기능을 하나씩 진행한다. 동시에 시작하는 기능은 서로 의존하지 않는다. 범위 안의 기능에 직접·전이 의존하는 기능은 빈 슬롯이 있어도 의존 기능이 `passed`(병합과 병합 후 verify 완료)가 된 뒤에만 시작한다. `run.max_parallel` 이 `'auto'` 도 1 이상의 정수도 아니면(`'auto'` 가 아닌 문자열·0·소수 등), 또는 `run.verify_parallel` 이 `'auto'` 도 1 이상의 정수도 아니면 작업 없이 `config_invalid`(exit 2), `--parallel` 값이 양의 정수가 아니면 `usage`(exit 2)이고, 모두 메시지에 키·옵션 이름이 나온다.
+- **builder 예산 배정**: `budget.run_usd` 가 있으면 builder 호출(기능 build, 병합 충돌 해결, 병합 후 verify 복구)은 호출 시점에 `min(step_usd, (run_usd−누적 비용−실행 중 배정 합계) / 배정 없는 진행 기능 수)` 를 `budgetUsd` 로 받는다(`step_usd` 가 없으면 min 없음). 배정 합계와 누적 비용의 합은 `run_usd` 를 넘지 않는다. `run_usd` 가 없으면 `step_usd`(없으면 `budgetUsd` 없음)를 받는다. 진행 기능이 하나뿐이면 `min(step_usd, run_usd−누적 비용)` 이다. eval 단계 호출은 `step_usd` 만 쓴다.
+- **예산 대기**: 남은 몫이 0 이하인데 다른 builder 호출이 실행 중이면 그 호출이 끝나 배정이 풀릴 때까지 기다린 뒤 다시 계산한다(`budgetUsd` 0 으로 부르지 않는다). 실행 중인 배정이 없는데 남은 몫이 0 이하(누적 비용이 `run_usd` 이상)이면 builder 를 부르지 않고 그 기능은 `blocked`(`budget`), run 은 `budget` 으로 멈춘다.
 - **verify 풀**: 기능의 verify 와 병합 후 verify 는 build·eval 과 별도인 풀에서 실행되고 동시에 `run.verify_parallel` 개를 넘지 않는다. `run.verify_parallel` 이 없거나 `'auto'` 면 max(1, floor(CPU 수 / 8))(가용 CPU 수는 run 시작 때 한 번 읽는다)이다. build·eval 은 이 풀의 영향을 받지 않는다.
 - **git 직렬화**: `git worktree add`·`remove` 와 브랜치 생성·삭제·병합(`git branch`, `git merge`, `git worktree add -b` 포함)을 하는 모든 코어 git 호출, 그리고 코어가 기능·integration worktree 에서 실행하는 `git add`·`git commit`·`git reset --hard` 는 하나의 잠금으로 직렬화된다 — 병렬 기능들의 이런 호출은 서로 겹치지 않는다. 읽기만 하는 호출(`status`·`diff`·`rev-parse`·`merge-base`)은 잠금 밖이다.
 - 기능마다 자기 worktree(`.harness/wt/F{n}`)에서만 build·verify·eval 이 실행된다. 상태 파일의 `active` 가 진행 중인 기능 전부를 담는다(`current` 는 그 첫 항목). 한 프로세스가 동기적으로 쓰므로 쓰기가 유실되지 않는다.
@@ -343,7 +345,7 @@ run 도중 evaluator(또는 security-reviewer) 어댑터가 `adapter_unavailable
 - critical 기능이 blocked 되면(그 밖의 run 정지 사유도 마찬가지) 새 기능을 시작하지 않는다. 진행 중인 다른 기능은 현재 라운드를 끝낸다. 통과하면 병합까지 하고, 라운드가 fail 이면 다음 라운드 없이 blocked(`run_stopped`, backlog 재범위 제안 없음)가 된다. 그 뒤 run 이 `critical_blocked` 로 멈춘다.
 - SIGINT(SIGTERM·SIGHUP 도 같다) 는 진행 중인 모든 단계의 프로세스 트리를 종료하고 진행 중이던 기능 전부를 상태 파일에 저장한다. `--resume` 은 상태 파일의 `active` 기능을 병렬 한도만큼만 다시 시작한다 — 한도는 `--resume --parallel N` 이 있으면 N 이고(상태 파일의 `maxParallel` 을 N 으로 바꿔 저장한다) 없으면 상태 파일의 `maxParallel` 이다. 기다리는 기능은 `active` 에 남아 슬롯이 비면 새 기능보다 먼저 이어서 시작하고, 상태를 잃지 않는다(같은 라운드·같은 시도). 한 기능의 치명적 오류(시스템 잠자기 뒤 timeout 난 단계, 상태 파일 손상)도 다른 기능의 단계를 멈추고 같은 방식으로 저장한다.
 - critical 기능의 evaluator 와 security-reviewer 는 동시에 실행된다. evaluator 에 차단 finding 이 있으면 reviewer 결과는 `unused` 로 기록된다(§7.4).
-- 보고서에 실제 적용된 `max parallel: N`(`auto` 면 `auto (no limit)`)·`verify parallel: N`(`auto` 면 CPU 수와 함께), 병렬로 진행된 모든 기능의 결과와 기능별 충돌 해결 여부(`no`·`resolved`·`failed`)가 나온다. 기능 표의 `Merge recovery` 열은 병합 복구 시도와 결과다 — `none`, 또는 `conflict → passed|failed`·`post_merge_verify → passed|failed`(결과 객체의 `mergeRecovery`: `{kind, result}` 또는 null).
+- 보고서에 실제 적용된 `max parallel: N`(`auto` 면 `auto (3)`)·`verify parallel: N`(`auto` 면 CPU 수와 함께), 병렬로 진행된 모든 기능의 결과와 기능별 충돌 해결 여부(`no`·`resolved`·`failed`)가 나온다. 기능 표의 `Merge recovery` 열은 병합 복구 시도와 결과다 — `none`, 또는 `conflict → passed|failed`·`post_merge_verify → passed|failed`(결과 객체의 `mergeRecovery`: `{kind, result}` 또는 null).
 - 범위 밖: verify 명령의 병렬화(기준 check·base 실행·test_count 의 동시 실행은 §6.3), 여러 run 프로세스의 동시 실행, 진행 중 기능의 우선순위 조정, API 요금 한도(429)에 따른 자동 감속, 파일 겹침을 미리 예측하는 스케줄링.
 
 **실행 지표와 `harness stats`** (§8.11):
