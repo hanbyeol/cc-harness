@@ -1,0 +1,69 @@
+{
+  "id": "F129",
+  "title": "부분 재실행이 TAP reporter 출력에서도 실패 파일을 얻는다 — Node 22 의 비 TTY 기본 reporter(TAP)에서 verify 재시도가 명령 전체로 떨어지지 않게",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "1차 출력에 '✖ failing tests:' 줄이 없으면 TAP 로 읽어, '# TODO'·'# SKIP' 없는 'not ok' 줄의 YAML 블록 키 'location: <경로>:<줄>:<열>'(그 줄 들여쓰기+2)에서 파일을 얻는다 — --test-reporter=tap, 두 파일 중 하나 실패 fixture 에서 2·3차가 그 파일만 실행하고 retry_files 는 그 파일, head 테스트 수는 1차 '# tests' 값",
+      "check": "node test/t.mjs \"F129 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "TAP fixture(파일 A 의 중첩 subtest 실패 — 부모·자식 모두 'not ok', 통과 파일 B, import 때 throw 하는 파일 C)에서 retry_files 는 [A, C](cwd 기준 상대 경로, 중복 없이 나온 순서)이고 재시도는 B 를 실행하지 않는다",
+      "check": "node test/t.mjs \"F129 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "location 값은 Node 가 util.inspect 로 쓴 JS 문자열이다: 작은따옴표·큰따옴표·백틱 인용과 이스케이프(\\\\, \\', \\\", \\`)를 풀어 경로로 쓴다 — 이름에 공백과 ' 가 든 fixture 파일, util.inspect('<절대 경로>:1:1') 로 만든 출력(Windows 에서는 역슬래시가 두 겹)에서 그 파일을 얻는다",
+      "check": "node test/t.mjs \"F129 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "다음 'location:' 줄은 파일로 쓰지 않는다: 'not ok' 블록의 키 들여쓰기보다 깊은 줄(error |- 블록 안), 'ok' 줄의 블록, '# TODO'·'# SKIP' 이 붙은 'not ok' 줄의 블록 — 경우별 테스트(error 메시지에 다른 파일의 location 줄을 넣은 출력에서 retry_files 에 그 파일이 없다)",
+      "check": "node test/t.mjs \"F129 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "F100 의 테스트가 통과한다 — 'TAP reporter 는 파일을 얻지 못해 전체 재실행' 사례는 이 기능으로 기대가 뒤집히므로 파일 위치를 쓰지 않는 dot reporter(--test-reporter=dot)로 바꾸고, 그 밖의 F100 테스트는 그대로다",
+      "check": "node --test test/f100-retry-files.test.mjs",
+      "new": false
+    },
+    {
+      "id": "AC-6",
+      "criterion": "docs/SPEC.md §6.1 의 부분 재실행 설명이 TAP 출력에서 파일을 얻는 규칙(not ok 블록의 location 키, TODO·SKIP 제외, 값의 인용·이스케이프)을 적고, 전체 재실행 예에서 'TAP reporter' 를 뺀다(문서 check)",
+      "check": "node test/t.mjs \"F129 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "TAP 출력에서 다음이면 명령 전체를 다시 실행한다: location 키가 없는 'not ok' 블록이 있음, location 파일이 cwd 밖이거나 없음, 값을 풀 수 없음(닫히지 않은 따옴표, \\\\·\\'·\\\"·\\` 외 이스케이프) — 경우별 테스트, 예외를 던지지 않는다",
+      "check": "node test/t.mjs \"F129 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "POSIX 에서 location 이 Windows 경로('C:\\\\proj\\\\tests\\\\a.test.mjs:1:1')인 TAP 출력은 없는 파일이라 명령 전체를 다시 실행하고, 역슬래시를 푼 경로를 cwd 기준 상대 경로로 붙여 cwd 안 파일로 만들지 않는다",
+      "check": "node test/t.mjs \"F129 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "spec·TAP 외 reporter(dot·junit·lcov·사용자 reporter)와 여러 --test-reporter 를 함께 쓴 출력에서 파일 얻기",
+    "location 이 여러 줄(|- 블록)로 쓰인 경로(줄바꿈이 든 파일 이름)",
+    "failedTestNames(flaky_tests·retry_skipped 판정)가 TAP 의 '# TODO' 'not ok' 이름까지 세는 문제",
+    "Node 22 에서 reporter 를 지정하지 않은 명령을 실제로 Node 22 로 실행하는 테스트(테스트는 --test-reporter=tap 으로 TAP 를 고정한다)",
+    "verify.test_count 파싱 변경('# tests N' 은 이미 읽는다)"
+  ],
+  "removes_tests": [
+    "F100 AC-4"
+  ]
+}

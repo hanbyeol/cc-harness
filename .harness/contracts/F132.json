@@ -1,0 +1,82 @@
+{
+  "id": "F132",
+  "title": "run.max_parallel 'auto' 를 동시 기능 3개로 제한하고, run_usd 가 있으면 동시에 도는 builder 호출들이 남은 run 예산을 나눠 받는다(예약 합계가 run_usd 를 넘지 않게)",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "run.max_parallel 이 없거나 'auto' 이고 --parallel 이 없으면 독립 기능 5개 fixture 에서 동시에 진행하는 build 는 최대 3개이고 5개 모두 passed 다(F25 AC-1 의 '제한 없음'을 대체)",
+      "check": "node test/t.mjs \"F132 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "run.max_parallel 5 와 --parallel 5 는 각각 독립 기능 5개 fixture 에서 build 5개를 한 시점에 겹쳐 실행한다 — 명시한 정수는 3으로 줄지 않는다",
+      "check": "node test/t.mjs \"F132 AC-2\"",
+      "new": false
+    },
+    {
+      "id": "AC-3",
+      "criterion": "'auto' 로 실행한 run 보고서에 '- max parallel: auto (3)' 줄이 있고, 상태 파일의 maxParallel 이 'auto' 인 run 을 --resume 하면 active 기능 5개 중 동시에 최대 3개만 진행한다",
+      "check": "node test/t.mjs \"F132 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "budget.run_usd 3, step_usd 없음, 독립 기능 3개가 함께 시작하는 fixture 에서 각 기능의 첫 builder 호출이 받는 budgetUsd 는 1(±1e-9)이다(지금은 각각 3)",
+      "check": "node test/t.mjs \"F132 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "run_usd 3 에서 F2·F3 builder 가 1씩 받은 채 실행 중이고 F1 첫 build 가 비용 0.5 로 끝나 verify 실패로 다음 build 를 부르면 그 budgetUsd 는 0.5(=3−0.5−2)이고, 모든 builder 호출 시점에 누적 비용+실행 중 호출의 배정 합계 ≤ 3 이다",
+      "check": "node test/t.mjs \"F132 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "병합 충돌 해결 builder 호출도 같은 배정을 받는다 — run_usd 3 에서 다른 기능 builder 가 1을 받은 채 실행 중이고 누적 비용이 1 일 때 충돌 해결 호출의 budgetUsd 는 1(=3−1−1, 배정 없는 진행 기능 1개)이다",
+      "check": "node test/t.mjs \"F132 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "진행 중 기능이 하나뿐이면 배정은 지금과 같다 — max_parallel 1·run_usd 3·step_usd 2 에서 첫 builder 는 2, 비용 1.5 뒤 다음 builder 는 1.5 를 받고, run_usd 가 없으면 step_usd(없으면 budgetUsd 없음)를 받는다",
+      "check": "node test/t.mjs \"F132 AC-7\"",
+      "new": false
+    },
+    {
+      "id": "AC-8",
+      "criterion": "docs/SPEC.md §8 이 'auto'(기본) = 동시 기능 최대 3, 명시한 정수는 그대로, builder 배정 = min(step_usd, (run_usd−누적 비용−실행 중 배정 합계) / 배정 없는 진행 기능 수)와 아래 ES 의 대기·blocked 규칙을 적고, README 병렬 줄이 '제한 없이'를 쓰지 않는다(문서 check)",
+      "check": "node test/t.mjs \"F132 AC-8\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "run_usd 2 에서 F1 build 가 배정 1을 다 써(비용 1) 남은 몫이 0 이고 F2 builder 가 배정 1로 실행 중이면, F1 의 다음 builder 는 budgetUsd 0 으로 불리지 않고 F2 builder 가 비용 0.4 로 끝난 뒤 0.3(=(2−1.4)/2, 배정 없는 진행 기능 F1·F2)을 받아 시작한다",
+      "check": "node test/t.mjs \"F132 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "실행 중 배정이 없고 누적 비용이 run_usd 와 같으면(run_usd 1, 비용 1) 다음 builder 호출은 일어나지 않고 그 기능은 blocked(budget), run 은 budget 으로 멈춘다(지금은 budgetUsd 0 으로 builder 를 부른다)",
+      "check": "node test/t.mjs \"F132 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "eval 단계의 evaluator·reviewer 호출 예산(지금처럼 step_usd 만 — run_usd 배정은 별도 기능)",
+    "어댑터가 --max-budget-usd 를 넘겨 쓰는 경우(claude 의 예산은 턴 사이에 확인되는 소프트 한도) — 넘긴 비용은 누적 비용에 그대로 더해질 뿐이다",
+    "run.verify_parallel·verify.check_parallel 의 'auto' 공식",
+    "'auto' 상한을 CPU 수나 사용량 한도에 맞춰 바꾸는 것과 그 값을 설정하는 새 키",
+    "codex 등 예산 플래그가 없는 어댑터의 비용 제한"
+  ],
+  "removes_tests": [
+    "F25 AC-1",
+    "F25 AC-7"
+  ]
+}
