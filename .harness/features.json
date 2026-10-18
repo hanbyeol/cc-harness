@@ -1151,6 +1151,20 @@
       "security_tier": "standard",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F140",
+      "title": "이 저장소 테스트 suite 의 파일 동시성을 6 으로 — package.json scripts.test 를 `node --test --test-concurrency=6 \"test/**/*.test.mjs\"` 로 하고 그 부하에서 suite·timeout 파일이 통과함을 고정. baseline(2026-10-18, 4 CPU, Node 22, e551fac): 129 파일 1978 테스트 438 s, 기본 동시성 3, CPU 59%. 기대: 약 300 s(CPU 포화 하한 약 260 s)",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F141",
+      "title": "GitHub Actions 의 비밀이 아닌 메타데이터 환경 변수(GITHUB_HEAD_REF 등)를 가림에서 뺀다 — 가림 전용 목록이고 명령에는 넘기지 않는다 (CI 에서 GITHUB_HEAD_REF=contracts/f135-f139 가 'criterion_not_in_contract' 끝의 'contract' 를 잘린 조각으로 가려 F5 AC-3·F56 AC-1·F75 AC-3·F75 SC-1 이 실패한 재발 방지)",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }
