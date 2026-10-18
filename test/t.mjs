@@ -2,33 +2,39 @@
 // Criterion check runner: `node test/t.mjs "F3 AC-1"`.
 // Runs only tests whose name starts with the given id and FAILS when none match.
 // (node --test with a non-matching --test-name-pattern still exits 0 — a vacuous pass.)
-// Only the test files whose source contains the id are loaded; when no file does (a name
-// built from a template), every test file is, as before.
+// Only the test-shaped files whose source contains the id are loaded; when no file does (a name
+// built from a template), every test-shaped file in the project is.
 // Self-contained: it imports only node: built-ins, so copying this one file is enough.
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// test/**/*.test.mjs under `root` (relative, '/'-separated, sorted) whose source contains
-// `id`. A file that cannot be read is included: a missed verdict is worse than a slower run.
+// Test-shaped file names, the node --test defaults for a file name: *.test.*, *-test.*, *_test.*,
+// test-*, test.* and *.spec.* with a .js, .mjs or .cjs extension.
+const TEST_NAME = /^(?:.*[.\-_]test|.*\.spec|test-.*|test)\.(?:js|mjs|cjs)$/;
+
+// Test-shaped files under `root` (relative, '/'-separated, sorted) whose source contains `id`
+// (every one when `id` is null). node_modules and dot directories are skipped. A file that
+// cannot be read is included: a missed verdict is worse than a slower run.
 export function selectTestFiles(root, id, read = fs.readFileSync) {
   const out = [];
   const walk = (rel) => {
     let entries;
-    try { entries = fs.readdirSync(`${root}/${rel}`, { withFileTypes: true }); } catch { return; }
+    try { entries = fs.readdirSync(rel ? `${root}/${rel}` : root, { withFileTypes: true }); } catch { return; }
     for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
       if (e.name.startsWith('.') || e.name === 'node_modules') continue;
-      const child = `${rel}/${e.name}`;
+      const child = rel ? `${rel}/${e.name}` : e.name;
       if (e.isDirectory()) walk(child);
-      else if (e.name.endsWith('.test.mjs')) {
+      else if (TEST_NAME.test(e.name)) {
+        if (id === null) { out.push(child); continue; }
         let src;
         try { src = read(`${root}/${child}`, 'utf8'); } catch { out.push(child); continue; }
         if (src.includes(id)) out.push(child);
       }
     }
   };
-  walk('test');
+  walk('');
   return out;
 }
 
@@ -42,6 +48,8 @@ function isMain() {
 function main() {
   const id = process.argv[2];
   if (!id) {
+    // node --test loads this file as a test (its default pattern takes test/**/*.mjs): nothing to run.
+    if (process.env.NODE_TEST_CONTEXT) return;
     console.error('usage: node test/t.mjs "<F1 AC-1>"');
     process.exit(2);
   }
@@ -49,11 +57,16 @@ function main() {
   const pattern = `^${escaped}\\b`;
   const re = new RegExp(pattern);
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-  const files = selectTestFiles(root, id);
+  let files = selectTestFiles(root, id);
+  if (files.length === 0) files = selectTestFiles(root, null);
+
+  if (files.length === 0) {
+    console.error(`t.mjs: no test matched "${id}" — no test file found (vacuous)`);
+    process.exit(1);
+  }
 
   const res = spawnSync(process.execPath,
-    ['--test', '--test-reporter=tap', `--test-name-pattern=${pattern}`,
-      ...(files.length > 0 ? files : ['test/**/*.test.mjs'])],
+    ['--test', '--test-reporter=tap', `--test-name-pattern=${pattern}`, ...files],
     // NODE_TEST_CONTEXT (set when t.mjs itself runs under node --test) switches the
     // nested runner to a child protocol with no TAP on stdout — drop it.
     { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
