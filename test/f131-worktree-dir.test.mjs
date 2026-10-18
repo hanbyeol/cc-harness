@@ -259,6 +259,7 @@ test('F131 ES-3: a current.json without worktreeDir resumes in <project>/.harnes
   await runIn(repo, { build: first }, { signal: ac.signal });
   const f = path.join(repo, '.harness/runs/current.json');
   const state = JSON.parse(fs.readFileSync(f, 'utf8'));
+  assert.equal(state.worktreeDir, fs.realpathSync.native(path.join(repo, '.harness', 'wt')));
   delete state.worktreeDir;
   state.config.run = { ...state.config.run, worktree_dir: '../wt-a' };
   fs.writeFileSync(f, JSON.stringify(state));
