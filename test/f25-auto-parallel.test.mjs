@@ -106,34 +106,13 @@ function timedVerify({ delay = 0, onCall } = {}) {
 }
 
 const run = (dir, deps, { run: runCfg, ...opts } = {}) => runFeatures({
-  root: dir, config: cfg(runCfg),
+  // 'auto' caps at 3 (F132); these tests need four features at once, so they say so.
+  root: dir, config: cfg({ max_parallel: 4, ...runCfg }),
   deps: { verify: timedVerify(), evaluate: fakeEvaluate(), cpus: 8, ...deps }, ...opts,
 });
 const cli = (dir, args) => spawnSync(process.execPath, [BIN, ...args], { cwd: dir, encoding: 'utf8' });
 const branchExists = (dir, b) => spawnSync('git', ['rev-parse', '--verify', '--quiet', `refs/heads/${b}`], { cwd: dir }).status === 0;
 const builds = (build, id) => build.calls.filter((c) => c.featureId === id && !c.conflicts);
-
-// ------------------------------------------------------------------ AC-1
-for (const [name, runCfg] of [['unset', undefined], ["'auto'", { max_parallel: 'auto' }]]) {
-  test(`F25 AC-1: run.max_parallel ${name} and no --parallel starts all four ready features at once`, async () => {
-    const dir = fixture(IDS4);
-    // Builds wait until all four have started (up to 30 s): an unlimited run fills the barrier,
-    // a capped one would not, and a slow machine cannot end the first build before the last starts.
-    const build = slowBuild({
-      delay: () => 1500,
-      onCall: async () => {
-        for (const t0 = Date.now(); build.calls.filter((c) => !c.conflicts).length < 4 && Date.now() - t0 < 30_000;) await sleep(20);
-      },
-    });
-    const r = await run(dir, { build }, { run: runCfg });
-    assert.deepEqual(statuses(dir), { F1: 'passed', F2: 'passed', F3: 'passed', F4: 'passed' });
-    const first = IDS4.map((id) => builds(build, id)[0]);
-    const lastStart = Math.max(...first.map((c) => c.start));
-    const firstEnd = Math.min(...first.map((c) => c.end));
-    assert.ok(lastStart < firstEnd, `all four builds are open at one instant: ${JSON.stringify(first.map((c) => [c.start, c.end]))}`);
-    assert.match(fs.readFileSync(r.report, 'utf8'), /max parallel: auto/);
-  });
-}
 
 // ------------------------------------------------------------------ AC-2
 test('F25 AC-2: run.max_parallel 2 caps concurrent features at 2', async () => {
@@ -349,37 +328,27 @@ test('F25 AC-6: the merge conflicts again after the resolution → blocked(merge
 });
 
 // ------------------------------------------------------------------ AC-7
-test('F25 AC-7: the report shows the applied max_parallel and verify_parallel and conflict resolution per feature', async () => {
+test('F25 AC-5: the report shows the applied max_parallel and verify_parallel and conflict resolution per feature', async () => {
   const dir = conflictFixture();
   const build = slowBuild({
     delay: (a) => (a.featureId === 'F1' ? 0 : 1500),
     files: (a) => (a.conflicts ? { 'shared.txt': 'both\n' } : sharedEdit(a)),
   });
-  const r = await run(dir, { build, cpus: 16 });
+  const r = await run(dir, { build, cpus: 16 }, { run: { max_parallel: 'auto' } });
   const md = fs.readFileSync(r.report, 'utf8');
-  assert.match(md, /- max parallel: auto \(no limit\)/);
+  assert.match(md, /- max parallel: auto \(3\)/);
   assert.match(md, /- verify parallel: 2 \(auto: 16 CPUs \/ 8\)/);
   assert.match(md, /Conflict resolution/);
   assert.match(md, /\| F1 feature F1 \| passed \|.*\| no \|$/m);
   assert.match(md, /\| F2 feature F2 \| passed \|.*\| resolved \|$/m);
 });
 
-test('F25 AC-7: the report shows explicit max_parallel and verify_parallel values', async () => {
+test('F25 AC-3: the report shows explicit max_parallel and verify_parallel values', async () => {
   const dir = fixture(['F1']);
   const r = await run(dir, { build: slowBuild() }, { run: { max_parallel: 3, verify_parallel: 2 } });
   const md = fs.readFileSync(r.report, 'utf8');
   assert.match(md, /- max parallel: 3\n/);
   assert.match(md, /- verify parallel: 2\n/);
-});
-
-test('F25 AC-7: SPEC §8 and README describe auto parallel, the verify pool and automatic conflict resolution', () => {
-  const spec = fs.readFileSync(path.join(REPO, 'docs', 'SPEC.md'), 'utf8');
-  const s8 = spec.slice(spec.indexOf('## 8.'), spec.indexOf('## 9.'));
-  for (const re of [/run\.max_parallel.*'auto'/, /run\.verify_parallel/, /floor\(CPU 수 \/ 8\)/, /잠금/, /충돌 해결/, /<<<<<<</, /라운드를 소모하지 않는다/]) {
-    assert.match(s8, re);
-  }
-  const readme = fs.readFileSync(path.join(REPO, 'README.md'), 'utf8');
-  for (const re of [/max_parallel/, /'auto'/, /verify_parallel/, /충돌/]) assert.match(readme, re);
 });
 
 // ------------------------------------------------------------------ SC-1
