@@ -49,8 +49,8 @@ function fixture(tests = { 'tests/a.test.mjs': STABLE, [FLAKY_FILE]: FLAKY }) {
   });
 }
 
-// The spec reporter is named: without it Node 22 writes TAP when stdout is not a terminal, and a
-// TAP output gives no file (the whole command re-runs, SPEC §6.1). Node 23+ defaults to spec.
+// The spec reporter is named: Node 22 writes TAP when stdout is not a terminal; the tests here
+// are about the spec output. Node 23+ defaults to spec.
 const NODE_TEST = 'node --test --test-reporter=spec "tests/**/*.test.mjs"';
 const cfg = (verifyOver = {}) => resolveConfig({ base_branch: 'main', verify: { commands: [NODE_TEST], ...verifyOver }, budget: { step_timeout_sec: 120 } });
 const run = (dir, verifyOver) => verify({ root: dir, featureId: 'F9', base: 'main', config: cfg(verifyOver) });
@@ -146,9 +146,9 @@ test('F100 AC-4: a command that is not node --test is re-run whole', async () =>
   }
 });
 
-test('F100 AC-4: an output that locates no file is re-run whole (TAP reporter)', async () => {
+test('F100 AC-4: an output that locates no file is re-run whole (dot reporter)', async () => {
   const dir = fixture();
-  const r = await run(dir, { commands: ['node --test --test-reporter=tap "tests/**/*.test.mjs"'] });
+  const r = await run(dir, { commands: ['node --test --test-reporter=dot "tests/**/*.test.mjs"'] });
   const log = runsLog(dir);
   assert.equal(r.commands[0].attempts, 3, JSON.stringify(r.commands[0]));
   assert.equal(log.filter((l) => l === 'a').length, 3, log.join(','));
