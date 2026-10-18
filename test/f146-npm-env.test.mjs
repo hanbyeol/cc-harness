@@ -67,6 +67,14 @@ console.log('RESULT ' + JSON.stringify(out));`;
   const npm = fs.existsSync(npmCli) ? [process.execPath, [npmCli]] : ['npm', []];
   const env = { ...process.env };
   for (const k of Object.keys(env)) if (/^npm_/i.test(k)) delete env[k];
+  // Only npm's own variables are under test: drop inherited ones whose value lies inside a
+  // probed text (e.g. AGENT_TOOLSDIRECTORY=/opt/hostedtoolcache on GitHub runners, a prefix
+  // of process.execPath). Allowlisted names (PATH, TEMP, HOME…) stay: they are never redacted.
+  const probed = [dir, process.execPath];
+  for (const [k, v] of Object.entries(env)) {
+    if (BASE_ENV_ALLOWLIST.includes(k) || typeof v !== 'string' || v.length < 8) continue;
+    if (probed.some((t) => t.includes(v))) delete env[k];
+  }
   for (const args of [['test'], ['exec', '--', 'node', probeFile]]) {
     const r = spawnSync(npm[0], [...npm[1], ...args], { cwd: dir, encoding: 'utf8', env, shell: process.platform === 'win32' && npm[0] === 'npm' });
     assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`.slice(-2000));
