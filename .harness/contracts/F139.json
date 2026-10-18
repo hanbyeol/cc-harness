@@ -1,0 +1,86 @@
+{
+  "id": "F139",
+  "title": "run 의 verify 결과 캐시를 verify 풀 슬롯 전에 조회 — 적중은 슬롯을 기다리지 않고(queue_ms 0) 끝나 병합 잠금 안의 post_merge_verify 가 다음 병합을 막지 않는다. baseline(2026-10-18, 4 CPU, verify_parallel auto=1): post_merge_verify 12번 중 10번 적중인데 run 마다 슬롯을 약 2400 s(2426 s·2374 s) 기다림",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verify_parallel 1 인 run 에서 다른 verify 가 그 슬롯을 잡고 있는 동안, 통과 결과가 저장된 키의 runVerify 는 슬롯이 풀리기 전에 cache.status 'hit' 결과로 끝나고 verify 명령·기준 check 를 하나도 실행하지 않는다. 슬롯을 잡은 verify 는 그 뒤에도 그대로 끝난다",
+      "check": "node test/t.mjs \"F139 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "max_parallel 2·verify_parallel 1 인 run 에서 기능 A 의 verify 가 슬롯을 잡고 있는 동안 기능 B 의 post_merge_verify 가 적중하면, B 는 A 의 verify 가 끝나기 전에 passed 가 되고 B 의 post_merge_verify metrics 줄은 queue_ms 0·cached true·outcome pass 다",
+      "check": "node test/t.mjs \"F139 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "슬롯이 잡혀 있을 때 저장된 결과가 없는(miss) runVerify 는 슬롯이 풀린 뒤에야 첫 verify 명령을 실행하고, metrics 줄은 cached false·queue_ms 가 기다린 시간 이상이며, 결과의 commands·criteria 의 id·pass·exit code 는 같은 입력으로 verify() 를 직접 부른 결과와 같다",
+      "check": "node test/t.mjs \"F139 AC-3\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 에서도 모든 verify 가 슬롯 안에서 실행되므로 통과한다. 사전 조회를 넣으며 miss 의 슬롯 대기와 결과가 바뀌지 않는지 본다"
+    },
+    {
+      "id": "AC-4",
+      "criterion": "TOCTOU: 슬롯 전 조회에서 miss 였던(트리 T1) verify 가 슬롯을 기다리는 동안 worktree 의 추적 파일 하나를 바꾸면(T2), 슬롯을 얻은 verify 는 바뀐 내용으로 모든 명령·check 를 실행하고 저장 항목의 tree 는 T2 다. 그 뒤 T1 으로 되돌린 verify 는 miss 로 모두 실행한다",
+      "check": "node test/t.mjs \"F139 AC-4\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 는 슬롯 안에서만 키를 계산하므로 통과한다. 슬롯 전에 계산한 키를 슬롯 안에서 그대로 재사용·저장하는 구현을 막는다"
+    },
+    {
+      "id": "AC-5",
+      "criterion": "슬롯 전 조회에서 miss 였던 verify 가 기다리는 동안 다른 verify 가 같은 키의 통과 결과를 저장하면, 슬롯을 얻은 verify 는 지금처럼 그 결과로 적중(cache.status 'hit', 명령·check 0회)하고 metrics 줄은 cached true·queue_ms 는 기다린 시간이다",
+      "check": "node test/t.mjs \"F139 AC-5\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 의 슬롯 안 조회가 이미 이렇게 동작한다. 사전 조회 miss 가 슬롯 안 조회를 건너뛰게 하지 않는지 본다"
+    },
+    {
+      "id": "AC-6",
+      "criterion": "runVerify 하나마다 verify/cache 이벤트는 정확히 하나다 — 슬롯 전 적중은 status hit 와 verify/phases 하나(test_count_source null)만, miss 는 status miss 하나와 기존 command·check 이벤트를 남기고, data 키는 지금과 같다. post_merge_verify 적중은 head 테스트 수를 병합 커밋 키로 저장한다",
+      "check": "node test/t.mjs \"F139 AC-6\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 도 verify 마다 cache 이벤트 하나를 남긴다. 사전 조회가 이벤트를 두 번 남기거나 모양을 바꾸지 않는지 본다"
+    },
+    {
+      "id": "AC-7",
+      "criterion": "docs/SPEC.md §8 의 verify 풀 항목이 run 은 슬롯을 잡기 전에 결과 캐시를 조회하고 적중은 슬롯을 쓰지 않는다(queue_ms 0)고 적고, §8.11 queue_ms 문장과 §6.4 적중 항목이 같은 내용과 miss 면 슬롯 안에서 키를 다시 계산한다는 것을 담는다(문서 check)",
+      "check": "node test/t.mjs \"F139 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "verify-cache.json 이 JSON 이 아니면 슬롯 전 조회는 적중하지 않고 runVerify 는 슬롯을 기다린 뒤 모두 실행하며, 결과 warnings 에 `verify cache <경로>` 경고가 정확히 한 번, cache.status 는 miss 이고 통과하면 파일을 새로 쓴다",
+      "check": "node test/t.mjs \"F139 ES-1\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 도 이렇게 동작한다. 사전 조회와 슬롯 안 조회가 같은 경고를 두 번 넣지 않는지 본다"
+    },
+    {
+      "id": "ES-2",
+      "criterion": "프로젝트 밖 무시 파일이 있는 worktree(skipped, reason 에 ignored files)와 verify.cache 'off' 인 run 의 runVerify 는 슬롯을 기다린 뒤 모두 실행하고, cache.status 는 각각 skipped·off, metrics cached false, verify/cache 이벤트는 하나다",
+      "check": "node test/t.mjs \"F139 ES-2\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 도 skipped·off 는 슬롯 안에서 모두 실행한다. 사전 조회가 이 경우를 바꾸지 않는지 본다"
+    },
+    {
+      "id": "ES-3",
+      "criterion": "cwd 가 없는 worktree 의 runVerify 는 지금과 같은 `worktree not found` HarnessError(code usage)로 거부되고, 트리 키 git 호출이 실패하는 worktree 는 지금처럼 `verify cache: cannot compute the tree key` 경고 하나와 skipped 로 슬롯 안에서 모두 실행한다",
+      "check": "node test/t.mjs \"F139 ES-3\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 의 오류·경고와 같다. 슬롯 전 조회의 실패가 run 을 멈추거나 다른 오류를 내지 않는지 본다"
+    }
+  ],
+  "out_of_scope": [
+    "verify 풀 크기·verify_parallel auto 공식 변경",
+    "병합 잠금 범위 변경 — post_merge_verify 는 계속 병합 잠금 안에서 실행한다(D1 안전장치)",
+    "harness verify·harness eval 의 단독 verify(풀이 없다)",
+    "캐시 키 구성·저장 규칙(§6.4)의 변경, miss 일 때 키를 두 번 계산하는 비용의 최적화",
+    "build·eval 의 동시성, pre_merge_verify 를 없애는 것",
+    "캐시 파일을 일부러 고치거나 슬롯 대기 중 builder 가 아닌 주체가 worktree 를 바꾸는 경우의 일반 보장(AC-4 의 열거된 경우만, D1)"
+  ]
+}

@@ -1142,6 +1142,13 @@
       "security_tier": "critical",
       "depends_on": [],
       "status": "todo"
+    },
+    {
+      "id": "F139",
+      "title": "run 의 verify 결과 캐시를 verify 풀 슬롯 전에 조회 — 적중은 슬롯을 기다리지 않고(queue_ms 0) 끝나 병합 잠금 안의 post_merge_verify 가 다음 병합을 막지 않는다. baseline(2026-10-18, 4 CPU, verify_parallel auto=1): post_merge_verify 12번 중 10번 적중인데 run 마다 슬롯을 약 2400 s(2426 s·2374 s) 기다림",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "todo"
     }
   ]
 }
