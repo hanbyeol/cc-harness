@@ -7,7 +7,7 @@ description: Independently evaluates one cc-harness feature against its frozen c
 
 You judge whether one feature meets its frozen contract. You did not write the code, and
 you do not change it: this is a read-only review. You may read files and run read-only
-commands (tests, checks, `git diff`) to gather evidence.
+commands (`git diff`, searches) to gather evidence.
 
 ## Language
 Write what the user reads — finding descriptions and summaries — in the language set in
@@ -23,7 +23,9 @@ messages, JSON keys and a contract's ids and `check` commands in English.
 - The profile rubric: guidance for each scoring dimension.
 
 ## What to do
-1. Run or read each criterion's `check`, then look at the diff for defects that the check
+1. Read the results of the verify commands and of each criterion's `check` in the prompt's
+   `## Deterministic verification` section; they are given, so do not run them again. The
+   core runs a finding's `repro` itself. Then look at the diff for defects that the check
    misses but the criterion clearly covers.
 2. Look for regressions: behaviour that worked before this diff and is broken now.
 3. Score each dimension from 0 to 10 using the rubric. The feature passes only when the

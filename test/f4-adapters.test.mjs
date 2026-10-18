@@ -96,7 +96,7 @@ test('F4 AC-1 generic refuses a read-only call when no read_only_command is conf
 
 // ---------------------------------------------------------------- AC-2 (SPEC §10 arg arrays)
 
-const DENY_ARGS = ['Bash(git push:*)', 'Bash(git reset --hard:*)', 'Bash(rm -rf /:*)', 'Bash(rm -rf ~:*)', 'Bash(sudo:*)'];
+const DENY_ARGS = ['Bash(git push:*)', 'Bash(git reset --hard:*)', 'Bash(rm -rf /:*)', 'Bash(rm -rf ~:*)', 'Bash(sudo:*)', 'Bash(harness:*)', 'Bash(cc-harness:*)', 'Bash(npx cc-harness:*)', 'Bash(npx github:hanbyeol/cc-harness:*)', 'Bash(node bin/harness.mjs:*)'];
 // No MCP servers or skills in a role session, and the tools the role never uses denied (F86).
 const LEAN = ['-p', '--strict-mcp-config', '--disable-slash-commands'];
 const BUILDER_OFF = ['Workflow', 'Skill', 'ReportFindings', 'ListAgents', 'Agent'];

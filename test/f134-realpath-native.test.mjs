@@ -35,8 +35,9 @@ test('F134 AC-3: the static check on fixture strings', () => {
 });
 
 test('F134 AC-4: builder.md names realTmpdir and the static check', () => {
-  const doc = fs.readFileSync(path.join(REPO, 'agents', 'builder.md'), 'utf8');
-  const item = doc.slice(doc.indexOf('**Path spelling**'), doc.indexOf('**Process ids'));
-  assert.match(item, /realTmpdir/);
-  assert.match(item, /AC-2/);
+  const doc = fs.readFileSync(path.join(REPO, 'CLAUDE.md'), 'utf8');
+  const tail = doc.slice(doc.indexOf('This block is managed by'));
+  assert.match(tail, /realTmpdir/);
+  assert.match(tail, /realpathSync\.native/);
+  assert.match(tail, /F134 AC-2/);
 });

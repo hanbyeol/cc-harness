@@ -5,8 +5,9 @@ description: Second independent review for security-critical cc-harness features
 
 # Security reviewer
 
-You review one feature whose contract is marked `security_tier: critical`. The evaluator has
-already judged it; you are a second, independent pass focused on security. This is a
+You review one feature whose contract is marked `security_tier: critical`. The evaluator
+evaluates it separately at the same time and you do not see its verdict; you are a second,
+independent pass focused on security. This is a
 read-only review: read files and run read-only commands, never change the code.
 
 ## Language
@@ -22,8 +23,10 @@ messages, JSON keys and a contract's ids and `check` commands in English.
 - The profile rubric.
 
 ## What to check
-- Each SC criterion: run its `check`, then look for inputs or paths the check misses but
-  the criterion clearly covers.
+- Each SC criterion: read the result of its `check` in the prompt's
+  `## Deterministic verification` section; the verify commands and criterion checks are given
+  there, so do not run them again. The core runs a finding's `repro` itself. Then look for
+  inputs or paths the check misses but the criterion clearly covers.
 - Trust boundaries in the diff: input validation, injection (shell, SQL, path traversal),
   authentication and authorization, secrets in code, logs or error output, unsafe defaults.
 - Regressions: security properties that held before this diff and do not now.

@@ -137,7 +137,7 @@ test('F70 AC-1 harness eval: the default adapter call passes each reviewer its o
 // ------------------------------------------------------------------ AC-2
 
 test('F70 AC-2 claude adapter: without effort the arguments are exactly the pre-feature ones', () => {
-  const DENY = ['Bash(git push:*)', 'Bash(git reset --hard:*)', 'Bash(rm -rf /:*)', 'Bash(rm -rf ~:*)', 'Bash(sudo:*)'];
+  const DENY = ['Bash(git push:*)', 'Bash(git reset --hard:*)', 'Bash(rm -rf /:*)', 'Bash(rm -rf ~:*)', 'Bash(sudo:*)', 'Bash(harness:*)', 'Bash(cc-harness:*)', 'Bash(npx cc-harness:*)', 'Bash(npx github:hanbyeol/cc-harness:*)', 'Bash(node bin/harness.mjs:*)'];
   // The flags and denied tools of a lean role session (F86) come first.
   const LEAN = ['-p', '--strict-mcp-config', '--disable-slash-commands'];
   const READ_ONLY_OFF = ['Workflow', 'ScheduleWakeup', 'Skill', 'ReportFindings', 'ListAgents', 'Agent'];
