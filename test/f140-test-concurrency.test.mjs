@@ -31,7 +31,10 @@ test('F140 AC-2: scripts.test runs 6 test files at the same time', () => {
       '',
     ].join('\n'));
   }
-  const r = spawnSync(scriptTest(), { cwd: dir, shell: true, encoding: 'utf8', timeout: 120000 });
+  // An inherited NODE_TEST_CONTEXT makes the inner `node --test` run nothing and exit 0.
+  const env = { ...process.env };
+  delete env.NODE_TEST_CONTEXT;
+  const r = spawnSync(scriptTest(), { cwd: dir, shell: true, encoding: 'utf8', timeout: 120000, env });
   assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
 });
 
