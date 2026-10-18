@@ -247,13 +247,13 @@ test('F81 AC-5: with verify_parallel 1 the later of two concurrent verifies reco
   const lines = metricsLines(dir);
   const verifies = lines.filter((l) => l.step === 'verify');
   assert.equal(verifies.length, 2, JSON.stringify(lines));
-  for (const l of lines.filter((x) => x.step === 'verify' || x.step === 'post_merge_verify')) {
+  for (const l of lines.filter((x) => x.step === 'verify' || x.step === 'pre_merge_verify' || x.step === 'post_merge_verify')) {
     assert.ok(Number.isInteger(l.queue_ms) && l.queue_ms >= 0, JSON.stringify(l));
   }
   const first = calls.find((x) => !x.integration).featureId;
   const later = verifies.find((l) => l.feature !== first);
   assert.ok(later.queue_ms >= 1500, JSON.stringify(verifies));
-  const others = lines.filter((l) => l.step !== 'verify' && l.step !== 'post_merge_verify');
+  const others = lines.filter((l) => l.step !== 'verify' && l.step !== 'pre_merge_verify' && l.step !== 'post_merge_verify');
   assert.ok(others.some((l) => l.step === 'build') && others.some((l) => l.step === 'merge'), JSON.stringify(others));
   for (const l of others) assert.equal(l.queue_ms, null, JSON.stringify(l));
 });
