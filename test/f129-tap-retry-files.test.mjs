@@ -95,8 +95,9 @@ test('F129 AC-3: the location value is unquoted from util.inspect (quotes, escap
 
 test('F129 AC-4: location lines inside error blocks, ok blocks and TODO/SKIP blocks are not files', () => {
   const cwd = cwdWith('real.test.mjs', 'other.test.mjs');
-  const other = `'${path.join(cwd, 'other.test.mjs')}:1:1'`;
-  const real = `'${path.join(cwd, 'real.test.mjs')}:1:1'`;
+  // util.inspect, as Node writes it: a Windows path's backslashes are escaped.
+  const other = util.inspect(`${path.join(cwd, 'other.test.mjs')}:1:1`);
+  const real = util.inspect(`${path.join(cwd, 'real.test.mjs')}:1:1`);
   const deep = ['  error: |-', '    boom', `    location: ${other}`];
   assert.deepEqual(failedTestFiles(tap([['x', real, '', deep]]), cwd), { files: ['real.test.mjs'] });
   const okBlock = ['ok 2 - fine', '  ---', `  location: ${other}`, '  ...'].join('\n');

@@ -40,7 +40,8 @@ const script = (log, name, tail = '') => [
  * a config for the CLI (generic builder that records its call in `marker`). `scripts` adds files.
  */
 function fixture({ ids = ['F1'], prefix = '', setup = [], scripts = {}, config = {} } = {}) {
-  const tmp = fs.realpathSync(tmpdir('f130-'));
+  // .native: on Windows only the native realpath expands an 8.3 short temp path, as the scripts do.
+  const tmp = fs.realpathSync.native(tmpdir('f130-'));
   const log = path.join(tmp, 'setup.log');
   const marker = path.join(tmp, 'builder.called');
   const builder = path.join(tmp, 'builder.mjs');

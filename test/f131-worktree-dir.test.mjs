@@ -44,7 +44,8 @@ function initRepo(dir, ids, runCfg) {
 }
 
 function fixture(value, { ids = ['F1'] } = {}) {
-  const box = fs.realpathSync(tmpdir('harness-f131-'));
+  // .native: on Windows only the native realpath expands an 8.3 short temp path, as the core does.
+  const box = fs.realpathSync.native(tmpdir('harness-f131-'));
   const repo = path.join(box, 'repo');
   initRepo(repo, ids, value === undefined ? undefined : { worktree_dir: value, max_parallel: 1 });
   return { box, repo };
@@ -76,7 +77,7 @@ const setValue = (repo, value) => {
   c.run = { ...c.run, worktree_dir: value };
   fs.writeFileSync(f, JSON.stringify(c));
 };
-const worktrees = (repo) => git(repo, 'worktree', 'list', '--porcelain').split('\n').filter((l) => l.startsWith('worktree ')).map((l) => fs.realpathSync(l.slice(9)));
+const worktrees = (repo) => git(repo, 'worktree', 'list', '--porcelain').split('\n').filter((l) => l.startsWith('worktree ')).map((l) => fs.realpathSync.native(l.slice(9)));
 const refused = async (repo, value, re) => {
   setValue(repo, value);
   const branches = git(repo, 'branch', '--list');
