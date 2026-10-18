@@ -1,0 +1,96 @@
+{
+  "id": "F142",
+  "title": "현재 디렉터리 환경 변수(PWD·OLDPWD·INIT_CWD)를 가림에서 빼고(가림 전용, 명령에는 넘기지 않음) run 상태의 worktreeDir 를 가리지 않는다 — _integration 에서 verify 하면 'integration' 이 잘린 조각으로 가려져 F130 AC-5 가 실패하고, --resume 이 '[redacted]/.harness/wt' 에서 worktree 를 찾지 못한 결함의 수정",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "lib/failures.mjs 가 export 하는 동결 배열 CWD_ENV 가 정확히 ['PWD','OLDPWD','INIT_CWD'] 이고, CI_METADATA_ENV 는 F141 의 45개 이름 그대로(개수·순서 같음, 세 이름 없음)이며, 세 이름 모두 BASE_ENV_ALLOWLIST 에 없다",
+      "check": "node test/t.mjs \"F142 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "redactor({PWD:'/x/.harness/wt/_integration', OLDPWD:'/home/u/proj/.harness/wt/F1', INIT_CWD:'/home/u/proj'}) 는 'integration'·'/x/.harness/wt/_integration/a.txt'·'wt/F1 done'·'cwd /home/u/proj' 를 그대로 돌려준다",
+      "check": "node test/t.mjs \"F142 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "이름이 _integration 인 임시 디렉터리를 cwd 로, process.env 의 PWD 를 그 경로로 둔 자식 프로세스로 test/f130-worktree-setup.test.mjs 의 'F130 AC-5' 테스트를 실행하면 exit 0 이다(오늘 post_merge_verify 에서 ['F1','[redacted]'] 로 실패한 재현)",
+      "check": "node test/t.mjs \"F142 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "deps.env={PROJECT_ROOT:<프로젝트 루트>}(목록 밖 이름)로 F1 build 중 중단한 run 의 current.json worktreeDir 가 <루트>/.harness/wt realpath 이고, 같은 env 의 --resume 이 F1 을 기존 worktree 에서 이어 passed 로 끝내며 _integration 을 다시 쓰고 <루트>/[redacted] 를 만들지 않는다",
+      "check": "node test/t.mjs \"F142 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md SR-2 가 CWD_ENV(PWD·OLDPWD·INIT_CWD)를 가림에서만 빼고 명령에는 넘기지 않는다고 적고, SR-8 의 가리지 않는 식별자에 worktreeDir 가 있으며, §8 worktree 위치의 --resume 이 절대 경로가 아닌 worktreeDir 를 없는 것으로 본다고 적는다(문서 check)",
+      "check": "node test/t.mjs \"F142 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "목록 밖 비밀은 계속 가린다 — env {PWD:'/x/.harness/wt/_integration', MY_DIR:'/x/.harness/wt/_integration', API_KEY:'sk-secret-123456'} 이면 'integration' 은 '[redacted]' 이고, API_KEY 값이 텍스트 가운데·첫머리 접미사·끝 접두사(8자 이상)로 있으면 '[redacted]' 로 바뀐다",
+      "check": "node test/t.mjs \"F142 SC-1\"",
+      "new": false,
+      "new_reason": "회귀 확인 — 목록 밖 이름의 값과 잘린 조각은 base 에서도 가린다"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "CWD_ENV 는 명령에 넘어가지 않는다 — filteredEnv([], {PATH, PWD, OLDPWD, INIT_CWD}) 는 PATH 만 돌려주고, process.env 의 세 값을 표시 문자열로 둔 verify 의 기준 check 출력에 그 문자열이 없으며, 세 값만 다른 두 번째 verify 는 결과 캐시 hit 이다",
+      "check": "node test/t.mjs \"F142 SC-2\"",
+      "new": false,
+      "new_reason": "회귀 확인 — 세 이름은 base 에서도 BASE_ENV_ALLOWLIST 밖이라 명령 환경과 캐시 키에 들어가지 않는다"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "lib/run/common.mjs 의 KEEP_UNREDACTED 는 base 의 19개 키에 worktreeDir 하나만 더한 것이고, deps.env={PROJECT_ROOT:<루트>} 인 run 의 current.json 에서 루트 경로가 든 verify 실패 출력은 계속 '[redacted]' 로 가려진다",
+      "check": "node test/t.mjs \"F142 SC-3\"",
+      "new": true
+    },
+    {
+      "id": "SC-4",
+      "criterion": "기존 가림·resume 테스트가 그대로 통과한다 — test/f36-redact-boundary·f60-field-accuracy·f107-telemetry-followups·f110-salt-placeholder·f125-verify-failure-output·f141-ci-metadata-env·f131-worktree-dir·f105-resume-cleanup 테스트 파일 실행이 exit 0",
+      "check": "node --test test/f36-redact-boundary.test.mjs test/f60-field-accuracy.test.mjs test/f107-telemetry-followups.test.mjs test/f110-salt-placeholder.test.mjs test/f125-verify-failure-output.test.mjs test/f141-ci-metadata-env.test.mjs test/f131-worktree-dir.test.mjs test/f105-resume-cleanup.test.mjs",
+      "new": false,
+      "new_reason": "회귀 확인 — 기존 가림과 resume 동작은 base 에서도 통과해야 한다"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "current.json 의 worktreeDir 가 '[redacted]/.harness/wt'(F142 전에 저장된 상태 파일)이면 --resume 은 worktreeDir 가 없을 때처럼 <프로젝트>/.harness/wt 에서 F1 을 이어 passed 로 끝내고 <프로젝트>/[redacted] 를 만들지 않는다",
+      "check": "node test/t.mjs \"F142 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "CWD_ENV 이름의 값이 빈 문자열·8자 미만·문자열이 아님(undefined·숫자)이어도 redactor 가 예외 없이 텍스트를 그대로 돌려주고, config env_allowlist 에 PWD 가 또 있어도 결과가 같다",
+      "check": "node test/t.mjs \"F142 ES-2\"",
+      "new": false,
+      "new_reason": "base 의 redactor 도 문자열이 아니거나 8자 미만인 값은 건너뛰므로 통과한다 — 새 목록이 이 경우를 깨지 않는지 확인하는 회귀 기준"
+    }
+  ],
+  "out_of_scope": [
+    "CWD_ENV 이름을 BASE_ENV_ALLOWLIST 에 넣어 verify 명령·기준 check·repro 에 넘기기 — 결과 캐시 키(§6.4)가 실행 위치마다 달라진다",
+    "그 밖의 경로 값 환경 변수(npm_config_local_prefix·npm_package_json·`_`·사용자 정의 *_DIR 등) — 사용자가 config env_allowlist 로 더한다(backlog)",
+    "F141 의 CI_METADATA_ENV 45개 이름 바꾸기",
+    "worktreeDir 밖의 상태 파일 값 — 다른 절대 경로 값은 상태 파일에 저장되지 않는다(verify 캐시 결과의 cwd 는 hit 때 현재 cwd 로 바뀐다)",
+    "이미 '[redacted]' 로 저장된 과거 run 보고서·이벤트·verdict 고치기",
+    "builder·evaluator 어댑터 프로세스가 물려받는 환경",
+    "문자열 가운데의 부분 조각, 8자 미만 조각, 인코딩·분할된 값(SR-9 범위 밖 그대로)"
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-18T08:52:30.431Z",
+    "hash": "2ef1345b77987d192c343caa7a04d2ef8f16173e567dea7c2914ef62fc5b6bb5"
+  }
+}

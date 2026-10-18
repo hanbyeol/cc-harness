@@ -1165,6 +1165,15 @@
       "security_tier": "critical",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F142",
+      "title": "현재 디렉터리 환경 변수(PWD·OLDPWD·INIT_CWD)를 가림에서 빼고(가림 전용, 명령에는 넘기지 않음) run 상태의 worktreeDir 를 가리지 않는다 — _integration 에서 verify 하면 'integration' 이 잘린 조각으로 가려져 F130 AC-5 가 실패하고, --resume 이 '[redacted]/.harness/wt' 에서 worktree 를 찾지 못한 결함의 수정",
+      "security_tier": "critical",
+      "depends_on": [
+        "F141"
+      ],
+      "status": "approved"
     }
   ]
 }
