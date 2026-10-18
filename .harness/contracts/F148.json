@@ -1,0 +1,114 @@
+{
+  "id": "F148",
+  "title": "run.context_files 는 실제 경로(fs.realpathSync.native)가 기능 worktree 의 실제 경로 안에 있을 때만 읽는다 — 중간 디렉터리가 심볼릭 링크·junction 이면(예: docs -> /elsewhere) worktree 밖 파일 본문이 builder 프롬프트에 실리던 결함(B528)의 수정. 밖이면 본문을 읽지 않고 '- <경로>: outside the worktree' 한 줄로 표시한다",
+  "security_tier": "critical",
+  "version": 1,
+  "resolves": ["B528"],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "worktree 안을 가리키는 디렉터리 링크는 그대로 읽는다: <wt>/real/MAP.md 가 있고 <wt>/docs 가 <wt>/real 로의 junction(fs.symlinkSync 타입 'junction')일 때 readContextFiles(wt, ['docs/MAP.md']) 는 [{path:'docs/MAP.md', text:<MAP.md 본문>}] 이고 builderPrompt 의 Project context 절에 '### docs/MAP.md' 와 그 본문이 있다",
+      "check": "node test/t.mjs \"F148 AC-1\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 는 마지막 요소만 lstat 하므로 안쪽 링크 아래 파일을 읽는다. 링크가 경로에 있기만 하면 거부하는 과한 구현을 막는다"
+    },
+    {
+      "id": "AC-2",
+      "criterion": "cwd 가 링크로 적혀도 비교는 양쪽 실제 경로로 한다: realTmpdir 의 worktree wt 에 docs/MAP.md 가 있고 cwd 를 wt 로의 junction 경로로 주면 readContextFiles(cwd, ['docs/MAP.md']) 는 본문을 돌려준다(outside 아님)",
+      "check": "node test/t.mjs \"F148 AC-2\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 는 실제 경로를 비교하지 않아 읽는다. 파일만 realpath 하고 cwd 는 적힌 그대로 비교해 모든 파일을 outside 로 만드는 구현(macOS /var → /private/var)을 막는다"
+    },
+    {
+      "id": "AC-3",
+      "criterion": "contextSection·builderPrompt 는 contextFiles 의 {path:'docs/x.md', missing:true, outside:true} 를 '- docs/x.md: outside the worktree' 한 줄로 쓰고 '### docs/x.md' 제목·'docs/x.md: not found' 를 쓰지 않는다. {path, missing:true}(outside 없음)는 이전처럼 '- <경로>: not found' 다",
+      "check": "node test/t.mjs \"F148 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "docs/SPEC.md §8 의 프로젝트 컨텍스트 절이 이 규칙을 적는다: '실제 경로'·'realpathSync.native'·'outside the worktree' 를 담고, 마지막 요소가 링크면 여전히 not found 임을 적는다(문서 check)",
+      "check": "node test/t.mjs \"F148 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "F112(run.context_files)의 기존 테스트가 그대로 통과한다: `node test/t.mjs \"F112 \"` 가 exit 0",
+      "check": "node test/t.mjs \"F112 \"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 에서 통과한다. 경로 검사가 본문 읽기·redactor·16,384자 자르기·not found·config 검증(F112 ES-1·SC-1)을 바꾸지 않는지 본다"
+    },
+    {
+      "id": "AC-6",
+      "criterion": "lib/·test/ 에 일반 realpathSync( 호출이 없다(F134): `node test/t.mjs \"F134 AC-2\"` 가 exit 0",
+      "check": "node test/t.mjs \"F134 AC-2\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 에서 통과한다. 새 경로 검사가 realpathSync.native 대신 realpathSync 를 써서 Windows 짧은 이름과 어긋나는 것을 막는다"
+    },
+    {
+      "id": "AC-7",
+      "criterion": "기존 테스트를 약화하지 않는다: `node test/assert-count.mjs` 가 exit 0 이다(base_branch 대비 assert 수 감소·테스트 이름 변경·파일 삭제 없음)",
+      "check": "node test/assert-count.mjs",
+      "new": false,
+      "new_reason": "회귀 방지 — 변경이 없으면 base 에서 통과한다. f112 테스트의 assert 를 지우거나 이름을 바꿔 통과시키는 것을 막는다"
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "중간 디렉터리가 밖으로의 junction: <out>/x.md 에 'F148-OUTSIDE-MARKER' 가 있고 <wt>/docs 가 <out> 로의 junction 일 때 readContextFiles(wt, ['docs/x.md']) 는 [{path:'docs/x.md', missing:true, outside:true}] 이고 text 가 없으며, builderPrompt 에 '- docs/x.md: outside the worktree' 가 있고 마커가 없다",
+      "check": "node test/t.mjs \"F148 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "실제 run: worktree_setup 이 기능 worktree 에 <out> 로의 junction docs 를 만들고(.gitignore 에 docs) context_files 가 ['docs/x.md'] 인 runFeatures(가짜 claude builder)에서 기능은 passed 이고, 받은 builder 프롬프트가 1개 이상이며 모두 '- docs/x.md: outside the worktree' 를 담고 'F148-OUTSIDE-MARKER' 를 담지 않는다",
+      "check": "node test/t.mjs \"F148 SC-2\"",
+      "new": true
+    },
+    {
+      "id": "SC-3",
+      "criterion": "더 깊은·이어진 링크도 밖이다(cases): (a) <wt>/a/b 가 <out> 로의 junction, 목록 'a/b/c/x.md'(<out>/c/x.md 에 마커); (b) <wt>/docs 가 <wt>/hop 으로, <wt>/hop 이 <out> 로의 junction, 목록 'docs/x.md'. 두 경우 모두 결과는 {missing:true, outside:true}, text 없음, 프롬프트에 마커 없음",
+      "check": "node test/t.mjs \"F148 SC-3\"",
+      "new": true
+    },
+    {
+      "id": "SC-4",
+      "criterion": "config 검증을 거치지 않은 readContextFiles 직접 호출도 막는다(cases): wt 옆 <parent>/x.md 에 마커가 있을 때 '../x.md'·'sub/../../x.md' 는 {missing:true, outside:true}, 그 파일의 절대 경로는 missing:true 이고 셋 모두 text 가 없고 프롬프트에 마커가 없다",
+      "check": "node test/t.mjs \"F148 SC-4\"",
+      "new": true
+    },
+    {
+      "id": "SC-5",
+      "criterion": "마지막 요소가 링크면 이전처럼 따라가지 않는다: <wt>/docs/x.md 가 <out>/x.md(마커)로의 파일 심볼릭 링크면 결과는 {path:'docs/x.md', missing:true}(outside 없음)이고 프롬프트는 '- docs/x.md: not found' 이며 마커가 없다. 링크를 만들 수 없는 Windows(EPERM)에서는 진단을 남기고 끝난다",
+      "check": "node test/t.mjs \"F148 SC-5\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 가 lstat 로 마지막 링크를 따르지 않는다(F112). realpath 결과를 바로 읽도록 바꾸며 이 동작이 달라지는 것을 막는다"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "링크 고리: <wt>/docs 가 <wt>/loop 로, <wt>/loop 가 <wt>/docs 로의 링크일 때 readContextFiles(wt, ['docs/x.md']) 는 던지지 않고 [{path:'docs/x.md', missing:true}] 를 돌려준다",
+      "check": "node test/t.mjs \"F148 ES-1\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 의 lstat 가 ELOOP 를 던지고 catch 가 missing 으로 만든다. realpathSync.native 의 ELOOP 가 빌드를 멈추게 하는 구현을 막는다"
+    },
+    {
+      "id": "ES-2",
+      "criterion": "cwd 가 없는 디렉터리면 readContextFiles(cwd, ['docs/MAP.md', 'a.md']) 는 던지지 않고 두 항목 모두 missing:true 이며 text 가 없다",
+      "check": "node test/t.mjs \"F148 ES-2\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 의 lstat 실패가 missing 이 된다. worktree 실제 경로를 구하다 던지는(realpath ENOENT) 구현을 막는다"
+    }
+  ],
+  "out_of_scope": [
+    "검사와 읽기 사이에 링크를 바꾸는 경쟁(TOCTOU) — 위협 모델 D1(builder 는 협조적), 파일 시스템 경쟁은 OS 영역",
+    "하드 링크 — worktree 안의 일반 파일이므로 실제 경로가 안이다. 막으려면 OS 권한으로 한다",
+    "마지막 요소가 worktree 안을 가리키는 파일 링크를 따라가 읽기 — 지금처럼 not found(SC-5)",
+    "run 경고(stderr·보고서 warnings)나 이벤트 — not found 처럼 프롬프트 줄로만 알린다",
+    "run 시작 전 config 단계에서 링크 검사 — 파일은 기능 worktree 에서 읽고 worktree 마다 다를 수 있다",
+    "conflictMarkedFiles·evaluator·security-reviewer 프롬프트의 같은 검사 — git 은 링크 디렉터리 아래 경로를 추적하지 않으므로 충돌 파일 목록에 나오지 않는다. 필요하면 backlog",
+    "win32·darwin 대소문자 접기 — 양쪽 모두 realpathSync.native 의 디스크 표기로 비교하므로 별도 기준이 없다"
+  ]
+}

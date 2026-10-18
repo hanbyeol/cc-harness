@@ -1,0 +1,78 @@
+{
+  "id": "F145",
+  "title": "blocked 기능 이어받기의 base 커밋 — run 이 이전 run 의 worktree 를 이어받을 때 기능의 baseSha 를 integration 끝 커밋이 아니라 harness/F{n} 과 integration 의 merge-base 로 둔다. 그래서 그 사이 integration 이 움직였으면 pre_merge_verify 가 잠금 밖에서 돌고, 병합 후 verify 가 기능 verify 의 base vacuity 를 다른 base 에서 잘못 재사용하지 않는다. baseline(run 2026-10-18T09-32-28-305Z, F138): pre_merge_verify 없음, 잠금 안 post_merge_verify 437 s(cached false). 기대: 잠금 안 post_merge_verify 는 결과 캐시 적중(cached true)",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "재승인된 F1 의 남은 worktree(harness/F1, integration 과의 merge-base M0)를 이어받는 run 에서 integration 이 M0 뒤 커밋 M1 에 있으면 F1 의 기능 verify base 는 M0 이고, pre_merge_verify 가 base M1 으로 한 번 돌며 그 metrics 줄은 merge 줄 시작 전에 끝나고 F1 은 passed 다",
+      "check": "node test/t.mjs \"F145 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "AC-1 과 같은 run 을 실제 verify(lib/verify.mjs 의 verify)로 돌리면 F1 이 passed 이고 pre_merge_verify metrics 줄이 하나(outcome pass·cached false), post_merge_verify 줄은 cached true 다",
+      "check": "node test/t.mjs \"F145 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "이어받은 F1 의 new 기준 AC-1(check: X.txt 가 있으면 exit 0)이 M0 에서는 실패하고 M0 뒤 integration 커밋 M1 이 X.txt 를 더해 vacuous 가 된 run(실제 verify)에서 F1 은 passed 가 아니고, post_merge_verify 의 AC-1 verify/check 이벤트는 vacuous true·vacuity_reused false 다",
+      "check": "node test/t.mjs \"F145 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "이어받은 worktree 의 merge-base 가 integration 끝 커밋과 같으면(integration 이 움직이지 않음) 지금과 같다: 기능 verify base 는 그 커밋, pre_merge_verify 줄은 없고, 실제 verify 의 post_merge_verify 에서 new 기준 AC-1 의 vacuity_reused 가 true 이며 F1 은 passed 다",
+      "check": "node test/t.mjs \"F145 AC-4\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 에서도 merge-base 와 integration 끝 커밋이 같아 baseSha 가 같으므로 통과한다. 이어받기의 F79 재사용·pre_merge_verify 생략을 잃는 구현을 막는다"
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md 가 바뀐 규칙을 적는다: §8 'blocked 기능 이어받기' 문단이 기능 verify·eval·병합 전 verify 의 base 가 harness/F<n> 과 integration 의 merge-base 라고 적고, §6.3 의 '병합 후 verify 의 base vacuity 재사용' 문단의 baseSha 정의가 이어받기의 merge-base 를 포함한다(문서 check)",
+      "check": "node test/t.mjs \"F145 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "이어받기(F47)·worktree 준비(F130)의 기존 테스트가 그대로 통과한다: `node test/t.mjs \"F47 \"` 와 `node test/t.mjs \"F130 \"` 가 모두 exit 0",
+      "check": "node test/t.mjs \"F47 \" && node test/t.mjs \"F130 \"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 에서 통과한다. 이어받기 조건·carried work 커밋·변경 파일 목록(F47 AC-1·AC-3·SC-1)과 이어받기에서 준비 명령을 건너뛰는 것(F130 AC-4)을 바꾸지 않는지 본다"
+    },
+    {
+      "id": "AC-7",
+      "criterion": "base vacuity 재사용(F79)·병합 전 verify(F91)의 기존 테스트가 그대로 통과한다: `node test/t.mjs \"F79 \"` 와 `node test/t.mjs \"F91 \"` 가 모두 exit 0",
+      "check": "node test/t.mjs \"F79 \" && node test/t.mjs \"F91 \"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 에서 통과한다. 새로 만든 worktree·충돌 해결·병합 후 verify 복구 뒤의 baseSha 와 재사용·pre_merge_verify 조건을 바꾸지 않는지 본다"
+    },
+    {
+      "id": "AC-8",
+      "criterion": "기존 테스트를 약화하지 않는다: `node test/assert-count.mjs` 가 exit 0 이다(base_branch 대비 assert 수 감소·테스트 이름 변경·파일 삭제 없음)",
+      "check": "node test/assert-count.mjs",
+      "new": false,
+      "new_reason": "회귀 방지 — 변경이 없으면 base 에서 통과한다. f47·f79·f91 테스트의 assert 를 지우거나 이름을 바꾸는 것을 막는다"
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "남은 worktree 의 harness/F1 이 integration 과 공통 조상이 없으면(고아 커밋) F1 은 build 없이 blocked(worktree)이고 detail 에 'no merge base of' 와 integration·harness/F1 이름이 나오며 run 은 다른 기능을 계속한다",
+      "check": "node test/t.mjs \"F145 ES-1\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 의 takeOver 도 merge-base 를 gitOk 로 구해 실패하면 같은 blocked 다. merge-base 를 못 구할 때 integration 끝 커밋으로 조용히 돌아가는 구현을 막는다"
+    }
+  ],
+  "out_of_scope": [
+    "이 규칙 전에 저장된 run 상태의 --resume — 저장된 baseSha(integration 끝 커밋)를 고쳐 쓰지 않는다",
+    "이어받는 harness/F{n} 브랜치를 integration 에 맞추기(rebase·병합) — SPEC §8 base 동기화의 범위 밖 그대로다. integration 의 변경은 병합 전 verify·병합에서 들어온다",
+    "pre_merge_verify·post_merge_verify 를 없애거나 건너뛰기 — 병합된 트리는 전체 verify 를 통과해야 passed 다(D1)",
+    "F79 재사용이 기능 verify 에서 vacuity 실행이 실제로 있었는지 확인하기(backlog, F79 r1)",
+    "builder 프롬프트의 변경 파일 목록 — 이미 merge-base 기준이라 바뀌지 않는다(F47 AC-1)",
+    "벽시계 시간 단언 — 속도는 제목의 baseline·기대값으로만 적는다"
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "id": "F146",
+  "title": "npm 이 실행 때 넣는 비밀이 아닌 메타데이터 환경 변수 19개(npm_config_local_prefix·npm_package_name·NODE 등, 정확한 이름)를 가림에서 뺀다 — 가림 전용 목록이고 명령에는 넘기지 않는다. npx·npm test·npm exec 아래에서 프로젝트 경로가 '[redacted]/.harness/wt/F1/…', 'my-sample-project@1.0.0 test' 가 '[redacted]@1.0.0 test' 로 가려진 결함의 수정. npm_config_ 전체는 빼지 않는다(_authToken·password 등 비밀)",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "lib/failures.mjs 의 동결 배열 NPM_ENV 가 정확히 NODE·_·npm_command, npm_config_ + {cache·global_prefix·globalconfig·init_module·local_prefix·node_gyp·npm_version·prefix·user_agent·userconfig}, npm_execpath·npm_lifecycle_event·npm_node_execpath, npm_package_ + {json·name·version} 의 19개(이 순서, 중복 없음)다",
+      "check": "node test/t.mjs \"F146 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "CI_METADATA_ENV(45개)와 CWD_ENV(PWD·OLDPWD·INIT_CWD)는 base 그대로(개수·순서 같음)이고 NPM_ENV 와 겹치지 않으며, NPM_ENV 의 19개 이름은 모두 BASE_ENV_ALLOWLIST 에 없다",
+      "check": "node test/t.mjs \"F146 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "npm 10.9.4 가 /home/u/my-sample-project 에서 넣는 값의 19개 이름 env 로 만든 redactor 는 '<프로젝트>/.harness/wt/F1/test/a.test.mjs:3'·'> my-sample-project@1.0.0 test'·'sample-project@1.0.0'·'cd /home/u/my-sample'·user agent 문자열·'/opt/node22/bin/node --test'·'/root/.npm/_cacache' 를 그대로 돌려준다",
+      "check": "node test/t.mjs \"F146 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "package.json 이 {name:'my-sample-project',version:'1.0.0'} 인 임시 프로젝트에서 실행 중인 Node 와 함께 설치된 npm 으로 `npm test`(scripts.test 가 probe)와 `npm exec -- node <probe>` 를 실행하면, redactor(process.env) 를 거친 '<cwd>/.harness/wt/F1/a.txt'·'> my-sample-project@1.0.0 test'·process.execPath 가 둘 다 그대로다(오늘 triage 재현)",
+      "check": "node test/t.mjs \"F146 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "deps.env 가 npm 값(npm_config_local_prefix=<루트>, npm_package_json=<루트>/package.json, npm_package_name='my-sample-project', NODE=process.execPath)뿐인 run 에서 verify 실패 출력 'boom at <루트>/a.txt in > my-sample-project@1.0.0 test' 가 current.json 에 그대로 저장된다",
+      "check": "node test/t.mjs \"F146 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "docs/SPEC.md SR-2 가 NPM_ENV 를 설명한다 — npm_config_local_prefix·npm_package_name 등 npm 메타데이터 19개를 가림에서만 빼고 명령에는 넘기지 않으며, npm_lifecycle_script 와 그 밖의 npm_config_ 이름(_authToken·_auth·password·proxy 등)은 계속 가린다고 적는다(문서 check)",
+      "check": "node test/t.mjs \"F146 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "npm 비밀은 계속 가린다 — env 에 NPM_ENV 19개와 함께 npm_config__authToken·'npm_config_//registry.npmjs.org/:_authToken'·npm_config__auth·npm_config__password·npm_config_password·npm_config_https_proxy·npm_config_registry·NPM_TOKEN·NODE_AUTH_TOKEN 이 있으면 각 값(8자 이상)이 텍스트 가운데·첫머리 접미사·끝 접두사로 있을 때 '[redacted]' 가 된다",
+      "check": "node test/t.mjs \"F146 SC-1\"",
+      "new": false,
+      "new_reason": "회귀 확인 — 이 이름들은 base 에서도 허용 목록 밖이라 가려진다"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "npm_lifecycle_script(인라인 비밀이 들 수 있는 스크립트 명령)·npm_package_config_token·NODE_OPTIONS 는 NPM_ENV 에 없고, 값이 'API_KEY=sk-live-12345678 node --test' 이면 그 값과 'sk-live-12345678 node --test' 로 시작하는 텍스트의 첫머리가 '[redacted]' 가 된다",
+      "check": "node test/t.mjs \"F146 SC-2\"",
+      "new": false,
+      "new_reason": "회귀 확인 — 이 이름들은 base 에서도 가려진다. 목록에 넣지 않는 결정을 고정하는 기준"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "NPM_ENV 는 명령에 넘어가지 않는다 — filteredEnv([], {PATH, 19개}) 는 PATH 만 돌려주고, process.env 에 19개가 있어도 verify 의 기준 check 자식 프로세스는 그 이름을 보지 못하며, 19개 값만 다른 두 번째 verify 는 결과 캐시 hit 이다",
+      "check": "node test/t.mjs \"F146 SC-3\"",
+      "new": false,
+      "new_reason": "회귀 확인 — 19개 이름은 base 에서도 BASE_ENV_ALLOWLIST 밖이라 명령 환경과 캐시 키(§6.4)에 들어가지 않는다"
+    },
+    {
+      "id": "SC-4",
+      "criterion": "같은 값을 NPM_ENV 이름과 목록 밖 이름이 함께 가지면(npm_config_local_prefix 와 PROJECT_ROOT 가 같은 경로) 그 값과 조각을 가리고, 대소문자가 다른 이름(NPM_CONFIG_LOCAL_PREFIX·Npm_Package_Name)의 값도 가린다",
+      "check": "node test/t.mjs \"F146 SC-4\"",
+      "new": false,
+      "new_reason": "회귀 확인 — 목록 밖 이름의 값은 base 에서도 가리고, 이름 비교는 base 처럼 대소문자를 구분한다"
+    },
+    {
+      "id": "SC-5",
+      "criterion": "기존 가림 테스트가 그대로 통과한다 — test/f36-redact-boundary·f49-signals·f60-field-accuracy·f107-telemetry-followups·f110-salt-placeholder·f125-verify-failure-output·f141-ci-metadata-env·f142-cwd-env 테스트 파일 실행이 exit 0",
+      "check": "node --test test/f36-redact-boundary.test.mjs test/f49-signals.test.mjs test/f60-field-accuracy.test.mjs test/f107-telemetry-followups.test.mjs test/f110-salt-placeholder.test.mjs test/f125-verify-failure-output.test.mjs test/f141-ci-metadata-env.test.mjs test/f142-cwd-env.test.mjs",
+      "new": false,
+      "new_reason": "회귀 확인 — 기존 가림 동작과 F141·F142 목록 테스트는 base 에서도 통과해야 한다"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "NPM_ENV 이름의 값이 빈 문자열·8자 미만·문자열이 아님(undefined·숫자·null)이어도 redactor 가 예외 없이 텍스트를 그대로 돌려주고, config env_allowlist 에 npm_config_local_prefix 가 또 있어도 결과가 같다",
+      "check": "node test/t.mjs \"F146 ES-1\"",
+      "new": false,
+      "new_reason": "base 의 redactor 도 문자열이 아니거나 8자 미만인 값은 건너뛰므로 통과한다 — 새 목록이 이 경우를 깨지 않는지 확인하는 회귀 기준"
+    }
+  ],
+  "out_of_scope": [
+    "npm_config_ 로 시작하는 이름 전체나 접두사로 빼기 — _authToken·_auth·password·https_proxy(자격 증명이 든 URL)·registry 등 사용자 설정은 비밀일 수 있다. 19개 밖의 npm_config_ 이름은 사용자가 config env_allowlist 로 더한다",
+    "npm_lifecycle_script — 스크립트 명령에 인라인 비밀(API_KEY=… node …)이 들 수 있어 계속 가린다(npm 이 찍는 '> node …' 줄이 가려지는 것은 받아들인다)",
+    "이름이 package.json 에 따라 달라지는 npm_package_config_*·npm_package_engines_*·npm_package_bin_* — config 는 비밀일 수 있고 정확한 이름을 열거할 수 없다",
+    "COLOR·EDITOR·NODE_OPTIONS·npm_config_yes·대문자 NPM_CONFIG_* — COLOR·npm_config_yes 값은 8자 미만이라 가림에 영향이 없고, 나머지는 사용자가 정하는 값이다",
+    "yarn·pnpm·bun 고유 환경 변수(PNPM_*·BERRY_* 등)",
+    "NPM_ENV 이름을 BASE_ENV_ALLOWLIST 에 넣어 verify 명령·기준 check·repro 에 넘기기 — 결과 캐시 키(§6.4)가 실행 방법마다 달라진다",
+    "CI_METADATA_ENV·CWD_ENV 바꾸기, builder·evaluator 어댑터 프로세스가 물려받는 환경, 이미 '[redacted]' 로 저장된 과거 기록",
+    "문자열 가운데의 부분 조각, 8자 미만 조각, 인코딩·분할된 값(SR-9 범위 밖 그대로)"
+  ]
+}
