@@ -45,5 +45,10 @@
     "CI 에 Windows 를 evaluator 실행 환경으로 추가하기",
     "realpathSync 외 경로 함수(path.resolve 등)의 표기 비교 규칙",
     "lint-contract 에 이 규칙을 넣기 — 저장소 테스트로만 검사한다"
-  ]
+  ],
+  "approval": {
+    "by": "noreply@anthropic.com",
+    "at": "2026-10-18T04:31:55.390Z",
+    "hash": "3c909c1084599ea617f6384296862e9f1b542eb708529bcd3042330daa4f11d8"
+  }
 }
