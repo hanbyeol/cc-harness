@@ -1,0 +1,102 @@
+{
+  "id": "F143",
+  "title": "harness run 이 기능 브랜치를 git branch -D 대신 git update-ref -d 로 지워 run 도중 .git/config 를 다시 쓰지 않는다 — branch -D 는 언제나 config 를 잠금 파일+rename 으로 바꿔 써서, Windows 에서 같은 때 잠금 밖 git 읽기(git status)가 'unable to access .git/config: Permission denied' 로 실패한 결함(F91 AC-3, CI 1회)의 수정",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "max_parallel 2 의 F1·F2 run(F91 AC-3 모양: F2 는 F1 병합 뒤 pre_merge_verify)이 둘 다 passed 이고 harness/F1·F2 브랜치와 worktree 가 없으며, .git/config 의 ino(bigint)·mtimeMs·내용이 run 전과 같다",
+      "check": "node test/t.mjs \"F143 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "deps.git 로 기록한 단일 기능 run 의 코어 git 호출에 branch -D·-d·--delete·-m·-M 이 없고, 브랜치 삭제는 정확히 한 번 ['update-ref','-d','refs/heads/harness/F1',<병합된 harness/F1 커밋 sha>] 이다",
+      "check": "node test/t.mjs \"F143 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "남은 harness/F1 worktree·브랜치가 있는 저장소에서 --fresh F1 run 이 둘을 지우고 F1 을 passed 로 끝내며, .git/config 의 ino·mtimeMs·내용이 run 전과 같다",
+      "check": "node test/t.mjs \"F143 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "run 전에 git config branch.harness/F1.description x 를 둔 저장소에서 F1 이 병합되면 브랜치가 없고 git config --get-regexp '^branch\\.harness/F1\\.' 가 exit 1 이다(branch -D 처럼 그 절이 지워진다 — config 는 이때만 다시 쓴다)",
+      "check": "node test/t.mjs \"F143 AC-4\"",
+      "new": false,
+      "new_reason": "회귀 확인 — base 의 git branch -D 도 그 브랜치의 config 절을 지운다"
+    },
+    {
+      "id": "AC-5",
+      "criterion": "isSerializedGit 이 ['update-ref','-d','refs/heads/x','abc']·['config','--remove-section','branch.x'] 에 true, ['config','--get-regexp','^branch\\.x\\.']·['status','--porcelain'] 에 false 다",
+      "check": "node test/t.mjs \"F143 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "F25 AC-4 테스트가 branch 호출 1개(integration 생성)와 update-ref -d 호출 4개를 세고 그 모두가 겹치지 않음을 확인하며, node test/assert-count.mjs 가 exit 0 이다(assert 제거·테스트 이름 변경 없음)",
+      "check": "node test/t.mjs \"F25 AC-4\" && node test/assert-count.mjs",
+      "new": false,
+      "new_reason": "base 의 F25 AC-4 는 branch 호출 5개 이상을 세며 통과한다 — 바뀐 세기가 같은 assert 수로 직렬화를 계속 확인하는지 보는 회귀 기준"
+    },
+    {
+      "id": "AC-7",
+      "criterion": "docs/SPEC.md §8.10 git 직렬화가 브랜치 삭제를 git update-ref -d 로 적고 .git/config 를 다시 쓰지 않는 이유(Windows 의 잠금 밖 읽기)를 적으며, --fresh 문단이 git branch -D 대신 git update-ref -d 를 이름한다(문서 check)",
+      "check": "node test/t.mjs \"F143 AC-7\"",
+      "new": true
+    },
+    {
+      "id": "AC-8",
+      "criterion": "기존 병합·worktree 테스트가 그대로 통과한다 — test/f91-pre-merge-verify·f105-resume-cleanup·f130-worktree-setup·f38-merge-path·f47-carry-blocked·f131-worktree-dir·f90-cleanup 테스트 파일 실행이 exit 0",
+      "check": "node --test --test-concurrency=6 test/f91-pre-merge-verify.test.mjs test/f105-resume-cleanup.test.mjs test/f130-worktree-setup.test.mjs test/f38-merge-path.test.mjs test/f47-carry-blocked.test.mjs test/f131-worktree-dir.test.mjs test/f90-cleanup.test.mjs",
+      "new": false,
+      "new_reason": "회귀 확인 — 병합·정리·--fresh·resume 동작은 base 에서도 통과해야 한다"
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "deps.git 가 병합 뒤 ['worktree','remove',…] 를 code 1 로 돌려주면 F1 은 passed 이고 harness/F1 브랜치가 병합된 커밋에 그대로 있다(worktree 에 체크아웃된 브랜치는 지우지 않는다)",
+      "check": "node test/t.mjs \"F143 SC-1\"",
+      "new": false,
+      "new_reason": "회귀 확인 — base 의 git branch -D 는 체크아웃된 브랜치를 거부한다; update-ref -d 는 이 확인이 없으므로 코어가 대신 한다"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "harness/F1 이 다른 경로의 사용자 worktree 에 체크아웃된 저장소에서 --fresh F1 은 F1 을 blocked(worktree)로 두고 detail 에 harness/F1 이 나오며, 브랜치 sha 와 그 worktree 가 그대로다",
+      "check": "node test/t.mjs \"F143 SC-2\"",
+      "new": false,
+      "new_reason": "회귀 확인 — base 의 git branch -D 도 다른 곳에 체크아웃된 브랜치를 거부해 blocked(worktree)이다"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "deps.git 가 update-ref -d 직전에 refs/heads/harness/F1 을 다른 커밋 X 로 옮기면 그 삭제는 이전 값이 달라 실패하고 F1 은 passed, 브랜치는 X 에 그대로 있다(옮겨진 브랜치를 지우지 않는다)",
+      "check": "node test/t.mjs \"F143 SC-3\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "deps.git 가 --fresh 의 update-ref -d 를 code 1·stderr 'fatal: boom' 으로 돌려주면 F1 은 blocked(worktree)이고 detail 이 '--fresh could not delete the branch harness/F1: fatal: boom' 이며 builder 는 불리지 않는다",
+      "check": "node test/t.mjs \"F143 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "병합 뒤 update-ref -d 가 code 1 이면(deps.git 주입) F1 은 passed 이고 run 은 예외 없이 보고서를 쓰며 harness/F1 브랜치가 남는다(이전 branch -D 실패처럼 무시)",
+      "check": "node test/t.mjs \"F143 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "잠금 밖 git 읽기의 재시도 — 읽는 쪽은 코어 git·verify 의 git·builder·사용자 명령 모두라 재시도로는 막을 수 없고, 원인(코어의 config 쓰기)을 없앤다",
+    "사용자가 만든 branch.harness/F<n>.* 절을 지우는 git config --remove-section 이 그 순간 config 를 다시 쓰는 경우 — 직렬화 잠금 안이지만 잠금 밖 읽기와는 여전히 겹칠 수 있다(드묾)",
+    "builder·verify 명령·사용자가 실행하는 git config 쓰기, git gc·pack-refs 의 packed-refs 다시 쓰기",
+    "worktree.useRelativePaths 같은 사용자 git 설정으로 git worktree add 가 config 를 쓰는 경우",
+    "run 밖 명령(harness approve 의 git config user.email 읽기 등)"
+  ]
+}

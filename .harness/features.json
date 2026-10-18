@@ -1172,6 +1172,24 @@
         "F141"
       ],
       "status": "passed"
+    },
+    {
+      "id": "F143",
+      "title": "harness run 이 기능 브랜치를 git branch -D 대신 git update-ref -d 로 지워 run 도중 .git/config 를 다시 쓰지 않는다 — branch -D 는 언제나 config 를 잠금 파일+rename 으로 바꿔 써서, Windows 에서 같은 때 잠금 밖 git 읽기(git status)가 'unable to access .git/config: Permission denied' 로 실패한 결함(F91 AC-3, CI 1회)의 수정",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "todo"
+    },
+    {
+      "id": "F144",
+      "title": "run 의 병합 순번 — eval 을 통과한 기능은 앞 기능의 integration 병합이 끝난 뒤에야 integration 을 읽어 pre_merge_verify 를 하므로, 그 사이 다른 병합으로 무효가 되는 pre_merge_verify 와 그 뒤 잠금 안의 전체 post_merge_verify 가 없어진다. baseline(2026-10-17·18 run 4개, 4 CPU, verify_parallel 1): pre_merge_verify 15번 중 5번이 병합 전에 integration 이 움직여 무효(순 2791 s), 잠금 안 전체 post_merge_verify 4번 1644 s. 기대: 무효 5번 중 통과·충돌 2번(F123·F130)이 전체 verify 1번씩(동시성 6 기준 약 280 s) 덜 돈다",
+      "security_tier": "standard",
+      "depends_on": [
+        "F91",
+        "F139",
+        "F143"
+      ],
+      "status": "todo"
     }
   ]
 }

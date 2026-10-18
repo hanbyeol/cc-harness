@@ -1,0 +1,102 @@
+{
+  "id": "F144",
+  "title": "run 의 병합 순번 — eval 을 통과한 기능은 앞 기능의 integration 병합이 끝난 뒤에야 integration 을 읽어 pre_merge_verify 를 하므로, 그 사이 다른 병합으로 무효가 되는 pre_merge_verify 와 그 뒤 잠금 안의 전체 post_merge_verify 가 없어진다. baseline(2026-10-17·18 run 4개, 4 CPU, verify_parallel 1): pre_merge_verify 15번 중 5번이 병합 전에 integration 이 움직여 무효(순 2791 s), 잠금 안 전체 post_merge_verify 4번 1644 s. 기대: 무효 5번 중 통과·충돌 2번(F123·F130)이 전체 verify 1번씩(동시성 6 기준 약 280 s) 덜 돈다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "max_parallel 2·verify_parallel 2, build 중 integration 이 움직여 F1·F2 모두 pre_merge_verify 가 필요한 run 에서 F2 의 eval 은 F1 pre_merge_verify 시작 뒤에 끝나고 F1 의 그 verify 는 F2 가 integration 을 자기 worktree 에 병합하거나 10 s 가 지날 때까지 기다린다. F2 의 그 병합은 F1 의 integration 병합 뒤이고 F2 pre_merge_verify 의 base 는 F1 병합 커밋을 포함한다",
+      "check": "node test/t.mjs \"F144 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "AC-1 과 같은 run 을 실제 verify(lib/verify.mjs 의 verify)로 돌리면 F1·F2 가 passed 이고 pre_merge_verify metrics 줄은 기능마다 하나(outcome pass·cached false), post_merge_verify 줄은 둘 다 cached true 다",
+      "check": "node test/t.mjs \"F144 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "pre_merge_verify 가 필요 없는 기능도 순번을 따른다: max_parallel 2 run 에서 F1 병합 뒤 시작한 F3(base = 그 integration)이 F2 pre_merge_verify 동안 eval 을 통과하고 그 verify 가 F3 의 integration 병합이나 10 s 를 기다리면, F3 의 병합은 F2 병합 뒤이고 F3 은 F2 병합 커밋을 base 로 pre_merge_verify 를 한 번 한다",
+      "check": "node test/t.mjs \"F144 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "순번은 병합 후 verify 전에 풀린다: F1 의 post_merge_verify(가짜 verify, 적중 아님)가 F2 의 pre_merge_verify 가 시작할 때까지(상한 30 s) 기다리는 run 에서 두 구간이 겹치고, F2 pre_merge_verify 의 base 는 F1 병합 커밋이며 두 기능 모두 passed 다",
+      "check": "node test/t.mjs \"F144 AC-4\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 에는 순번이 없어 F91 AC-2 처럼 겹친다. 순번을 병합 후 verify 끝까지 잡아 F91 AC-2 의 겹침을 없애는 구현을 막는다"
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md §8.10 의 '병합 전 verify' 규칙이 병합 순번을 적는다: 순번을 잡아야 integration 을 읽고, integration 병합 시도(병합·충돌·blocked)가 끝나면 병합 후 verify 전에 풀리며, 그동안 다른 기능의 integration 병합은 없고, 앞 병합이 되돌려지면 병합 후 verify 가 모두 실행된다(문서 check)",
+      "check": "node test/t.mjs \"F144 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "F91(병합 전 verify)의 기존 테스트가 그대로 통과한다: `node test/t.mjs \"F91 \"` 가 exit 0",
+      "check": "node test/t.mjs \"F91 \"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 에서 통과한다. 순번이 조건·충돌·실패 흐름(F91 AC-5~7)·잠금 밖 실행(AC-2)·--resume(ES-1)을 바꾸지 않는지 본다"
+    },
+    {
+      "id": "AC-7",
+      "criterion": "기존 테스트를 약화하지 않는다: `node test/assert-count.mjs` 가 exit 0 이다(base_branch 대비 assert 수 감소·테스트 이름 변경·파일 삭제 없음)",
+      "check": "node test/assert-count.mjs",
+      "new": false,
+      "new_reason": "회귀 방지 — 변경이 없으면 base 에서 통과한다. 순번 때문에 f91·f32·f139 등 병합 테스트의 assert 를 지우거나 이름을 바꾸는 것을 막는다"
+    },
+    {
+      "id": "AC-8",
+      "criterion": "순번 테스트와 F91 테스트가 부하에서 통과한다: `node test/stress.mjs 2 --files \"test/f{91,144}-*.test.mjs\"` 가 exit 0",
+      "check": "node test/stress.mjs 2 --files \"test/f{91,144}-*.test.mjs\"",
+      "new": false,
+      "new_reason": "회귀 방지 — CLAUDE.md 가 대기·시간에 기대는 테스트에 stress 2 통과를 요구한다. 순번 테스트의 대기(10 s·30 s 상한)가 부하에서도 결정적인지 본다"
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "순번을 잡은 F1 의 integration 병합이 충돌하면 F1 은 순번을 놓고 잠금 밖에서 충돌 해결 build 를 하며, 그동안 F2 가 순번을 잡아 병합되고, 해결 뒤 F1 은 다시 순번을 잡아 병합된다 — 두 기능 passed, F1 conflictResolution 'resolved'",
+      "check": "node test/t.mjs \"F144 ES-1\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 에는 순번이 없어 이 흐름이 통과한다. 충돌 해결이 순번을 쥔 채 기다려 F2 가 멈추는(교착) 구현을 막는다"
+    },
+    {
+      "id": "ES-2",
+      "criterion": "순번을 잡은 F1 이 pre_merge_verify 뒤 worktree 를 브랜치로 되돌리지 못해(deps.git 가 checkout -f harness/F1 을 code 1 로) blocked(merge_conflict)이면 순번이 풀려 F2 는 pre_merge_verify·병합을 거쳐 passed 이고 run 은 보고서를 쓰고 끝난다",
+      "check": "node test/t.mjs \"F144 ES-2\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 에는 순번이 없어 F2 가 통과한다. blocked 로 끝난 기능이 순번을 놓지 않아 run 이 멈추는 구현을 막는다"
+    },
+    {
+      "id": "ES-3",
+      "criterion": "F1 이 순번을 잡고 pre_merge_verify 중일 때 순번을 기다리던 F2 의 run 이 SIGINT 를 받으면 상태가 저장되고(F2 stage merge, worktree 는 harness/F2·MERGE_HEAD 없음), --resume 은 build·eval 을 더 부르지 않고 F1·F2 를 passed 로 끝낸다",
+      "check": "node test/t.mjs \"F144 ES-3\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 의 F2 는 순번 대신 verify 풀 슬롯을 기다리다 같은 상태로 저장된다(F91 ES-1). 순번 대기가 중단 신호를 무시하거나 상태를 다르게 남기지 않는지 본다"
+    },
+    {
+      "id": "ES-4",
+      "criterion": "F2 가 F1 병합 커밋을 포함한 integration 으로 pre_merge_verify 를 통과한 뒤 F1 의 post_merge_verify 가 실패해 그 병합이 되돌려지면, F2 의 post_merge_verify 는 실제 verify 로 cached false·모두 실행되고, F2 가 passed 일 때 integration 에 되돌린 F1 병합 커밋이 없다",
+      "check": "node test/t.mjs \"F144 ES-4\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 도 integration 이 움직이면 병합 후 verify 를 모두 실행한다(F91 AC-4). 순번이 있으니 병합 후 verify 를 건너뛰는 구현을 막는다(병합된 트리의 전체 verify 보장)"
+    }
+  ],
+  "out_of_scope": [
+    "pre_merge_verify·post_merge_verify 를 없애거나 건너뛰기 — 병합된 트리가 전체 verify 를 통과해야 passed 다(D1). 바뀐 파일 집합이 서로 겹치지 않으면 건너뛰는 안도 같다: 2026-10-18 F136·F137 은 테스트 파일이 달랐는데도 병합 후 verify 가 실패했다",
+    "영향받는 테스트 파일만 도는 pre_merge_verify — affected 모드는 v2.0.67 에서 뺐다(F120: 영향 집합이 113개 중 67~104개, SPEC §6.1)",
+    "여러 기능을 묶어 한 번에 병합·verify 하기(batch merge)와 실패 시 나누어 찾기 — F91 과 같이 범위 밖",
+    "verify_parallel auto 공식(max(1, floor(CPU/8))) 변경 — 동시성 6 suite 하나가 4 CPU 를 포화(F140: 약 260 s 하한)해 슬롯 2개는 처리량이 늘지 않고, 12 파일 동시 실행은 stress 3(backlog)보다 무겁다",
+    "같은 트리에서 실패한 pre_merge_verify 뒤 병합·post_merge_verify 를 건너뛰고 바로 복구하기 — F91 AC-7 과 §6.4(실패한 결과는 저장하지 않고 다시 실행)가 정한 동작이다. 2026-10-18 F137·F138 의 무효 3번은 이 때문에 순번으로도 줄지 않는다",
+    "앞 기능의 post_merge_verify 가 끝날 때까지 순번을 잡기 — AC-4(F91 AC-2)의 겹침을 잃는다. 앞 병합이 되돌려진 경우는 ES-4 처럼 모두 다시 실행한다",
+    "순번의 우선순위·재정렬(먼저 eval 을 통과한 기능이 먼저), 순번 대기 시간의 metrics 필드",
+    "carried work 처럼 baseSha 가 integration 과 같지만 기능 브랜치에 integration 커밋이 없는 경우의 pre_merge_verify 조건(2026-10-18 09:33 F138 의 잠금 안 전체 post_merge_verify 437 s) — backlog",
+    "벽시계 시간 단언 — 속도는 제목의 baseline·기대값으로만 적는다. 대기는 명시한 조건과 상한(10 s·30 s)으로만 한다"
+  ]
+}
