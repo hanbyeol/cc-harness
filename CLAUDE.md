@@ -52,7 +52,10 @@ Correctness > Safety > Speed.
 
 ## Running the core from this checkout
 - `node bin/harness.mjs <command>` (there is no global install here).
-- Tests: `node --test "test/**/*.test.mjs"`. One criterion: `node test/t.mjs "F3 AC-2"` —
+- Tests: `node --test --test-concurrency=6 "test/**/*.test.mjs"` (`npm test`). 6 files at once on a
+  4 CPU machine is the same number of concurrent files as load stress 2 (default 3 × 2 suites). Put the
+  flag before the glob: placed after the glob it is ignored by Node 22. The verify command in `.harness/config.json`
+  is changed by the user, not the builder. One criterion: `node test/t.mjs "F3 AC-2"` —
   it fails when no test name starts with the id, so a mistyped check can never pass vacuously.
   It loads only the test files whose source contains the id; when no file contains it (a test
   name built from a template), it runs every test file.
