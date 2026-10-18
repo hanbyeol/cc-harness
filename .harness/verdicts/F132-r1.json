@@ -1,0 +1,38 @@
+{
+  "feature": "F132",
+  "round": 1,
+  "verdict": "pass",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 8,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 0.4159994999999999,
+  "contract_hash": "3cfd9024abd56e02f8d118faa93507ae44bf4b443dcef44cd7a9ad7ee8b98554",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 8,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-10-18T01:33:02.615Z",
+  "origin": "run"
+}

@@ -1076,14 +1076,14 @@
       "title": "부분 재실행이 TAP reporter 출력에서도 실패 파일을 얻는다 — Node 22 의 비 TTY 기본 reporter(TAP)에서 verify 재시도가 명령 전체로 떨어지지 않게",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F130",
       "title": "harness run 의 worktree 준비 명령 — config run.worktree_setup 을 새로 만든 기능·integration worktree 의 프로젝트 디렉터리에서 첫 build·병합 전에 한 번 실행하고, 실패하면 환경 실패로 멈춘다",
       "security_tier": "critical",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F131",
@@ -1092,21 +1092,21 @@
       "depends_on": [
         "F130"
       ],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F132",
       "title": "run.max_parallel 'auto' 를 동시 기능 3개로 제한하고, run_usd 가 있으면 동시에 도는 builder 호출들이 남은 run 예산을 나눠 받는다(예약 합계가 run_usd 를 넘지 않게)",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F133",
       "title": "계약 품질 경고 — 사유 없는 new: false·300자 초과 기준·AC 8개 초과를 승인 전 계약에만 lint warning 으로, 자기 기능이 해결한 resolves 경고는 생략",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }
