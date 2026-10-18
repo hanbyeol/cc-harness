@@ -56,7 +56,10 @@ test('F140 ES-1: the retry of the package.json command keeps the concurrency fla
   fs.mkdirSync(path.join(cwd, 'test'));
   fs.writeFileSync(path.join(cwd, 'test', 'b.test.mjs'), '');
   const out = ['✖ x (1ms)', 'ℹ tests 3', 'ℹ fail 1', '', '✖ failing tests:', '', 'test at test/b.test.mjs:3:1', '✖ b fails (1.2ms)', '  Error: boom', ''].join('\n');
-  const p = partialRetry(scriptTest(), out, cwd, { platform: 'linux' });
-  assert.equal(p.cmd, 'node --test --test-concurrency=6 test/b.test.mjs');
+  // The located file is a native relative path: on win32 it has a backslash and is
+  // double-quoted for cmd.exe (as in F100 AC-1).
+  const p = partialRetry(scriptTest(), out, cwd, { platform: process.platform });
+  const file = process.platform === 'win32' ? '"test\\b.test.mjs"' : 'test/b.test.mjs';
+  assert.equal(p.cmd, `node --test --test-concurrency=6 ${file}`);
   assert.deepEqual(p.files, [path.join('test', 'b.test.mjs')]);
 });
