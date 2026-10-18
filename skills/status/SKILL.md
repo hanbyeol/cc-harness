@@ -12,7 +12,9 @@ description: Show where every cc-harness feature stands and suggest the next ste
    the matching entries in `.harness/backlog.json`, and summarise the reason in one line.
 3. Suggest the next step, in this order:
    - a `blocked` critical feature — needs the user's decision before anything else runs;
-   - other `blocked` features — the user picks split, rewrite, or accept the risk;
+   - other `blocked` features — the user picks split, rewrite, or accept the risk, recorded with
+     `harness decide F{n} --split|--rewrite|--accept-risk` (it records only and does not change the
+     status); close a backlog item that is settled with `harness backlog close`;
    - runnable `approved` features — `build` skill, or `harness run` for unattended work;
    - `todo` features — `plan` skill to lint and approve;
    - nothing left — new work starts with the `spec` skill.

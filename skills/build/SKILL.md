@@ -66,7 +66,8 @@ with the same convergence rules as `harness run`:
   is — run `harness eval F{n}` again; twice in a row → `blocked` (`eval_error`).
 
 When the feature is `blocked`, stop. Show the user the reason and the re-scoping options the
-core wrote to `.harness/backlog.json` (split, rewrite a criterion, accept the risk). Do not
+core wrote to `.harness/backlog.json` (split, rewrite a criterion, accept the risk). To record the user's choice run `harness decide F{n}` with `--split`, `--rewrite` or
+`--accept-risk`; it records only and does not change the status. Do not
 retry: `harness eval` refuses a `passed` or `blocked` feature. If the status could not be
 written (exit 2, `io`), fix the cause and run `harness eval F{n}` again — it records the same
 round without a new evaluation.
