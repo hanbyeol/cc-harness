@@ -89,4 +89,6 @@ These exist because v1 looped 43+ evaluator rounds on one feature. Do not relax 
 
 ## Conventions
 - Code, comments in code, and commit messages in English; discussion with the user in Korean.
+- Pull request descriptions and PR comments in Korean.
+- Times shown to the user in Korea time (KST, UTC+9), not the UTC of logs and the container clock.
 - When implementation reveals a gap in `docs/SPEC.md`, fix the spec in the same change.
