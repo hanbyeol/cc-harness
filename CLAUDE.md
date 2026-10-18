@@ -69,6 +69,10 @@ Correctness > Safety > Speed.
 - Weakened tests: `node test/assert-count.mjs` compares each test file with its version at the
   merge base of the base branch and exits 1 when an assert was removed, a test name changed or
   a file was deleted. Run it after changing existing tests to make them stable.
+- Tests that touch paths: use `realTmpdir(prefix)` from `test/helpers.mjs` for a temporary
+  directory and compare paths with `fs.realpathSync.native` on both sides (Windows can spell one
+  directory as a short name). A repository test (F134 AC-2) fails any plain `realpathSync(` call
+  in `test/` and `lib/`.
 - Node ≥ 22, zero runtime dependencies, must work on Windows, macOS and Linux.
 
 ## Rules that keep this project converging

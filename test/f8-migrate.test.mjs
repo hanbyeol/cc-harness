@@ -182,7 +182,8 @@ test('F8 AC-2: v1-only files are gone from the v2 tree', () => {
 // tell users to run it.
 test('F8 AC-3 docs never point at the unrelated npm package cc-harness', () => {
   for (const f of ['README.md', 'AGENTS.md', 'docs/SPEC.md', ...fs.readdirSync(path.join(REPO, 'skills')).map((d) => `skills/${d}/SKILL.md`)]) {
-    const text = fs.readFileSync(path.join(REPO, f), 'utf8');
+    // The deny entry `Bash(npx cc-harness:*)` (SPEC §10) blocks the package; it does not point at it.
+    const text = fs.readFileSync(path.join(REPO, f), 'utf8').replaceAll('`Bash(npx cc-harness:*)`', '');
     assert.doesNotMatch(text, /npx\s+cc-harness\b|npm\s+(i|install)\s+(-g\s+)?cc-harness\b/, f);
   }
 });
