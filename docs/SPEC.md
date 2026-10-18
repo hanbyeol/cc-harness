@@ -23,7 +23,7 @@ telemetry(이벤트 내보내기·학습·insights 와 사람 개입·CI 기록 
 `project` 는 저장소 최상위 경로(`git rev-parse --show-toplevel`, git 밖이면 프로젝트 경로)의 sha256 앞 16자다. `data` 는 기록 전에
 run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값과 잘린 조각을 `[redacted]` 로)으로 가린다.
 - 계획 단계: `lint-contract` 는 검사한 계약마다(읽지 못한 계약 제외) `plan/lint` — `data` 는 `{version, errors, warnings, error_count, warning_count}`,
-  `errors`·`warnings` 는 `[{rule, id}]`(규칙 이름 — `shape`·`contract_id`·`security_tier`·`id`·`check`·`criterion_text`·`universal`·`size`·`critical_sc`·`rollout`·`resolves`·`approval`·`overlaid_helper`·`removes_tests` — 과 기준 id, 계약 전체 문제면 id 는 null).
+  `errors`·`warnings` 는 `[{rule, id}]`(규칙 이름 — `shape`·`contract_id`·`security_tier`·`id`·`check`·`criterion_text`·`universal`·`size`·`critical_sc`·`rollout`·`resolves`·`approval`·`overlaid_helper`·`removes_tests`·`new_reason`·`criterion_length`·`split_suggested` — 과 기준 id, 계약 전체 문제면 id 는 null).
   `approve` 는 계약마다 `plan/approve` — `{version, hash, previous_hash, added, removed, changed, criteria}`. `criteria` 는 기준 id → 기준 문장의 sha256 앞 16자이고,
   이전 승인(그 기능의 마지막 `plan/approve` 이벤트, 없으면 HEAD 에 커밋된 계약의 유효한 승인)과 비교해 추가·삭제·문장 변경된 기준 id 를 적는다. 이전 승인이 없으면 모든 기준이 `added` 다.
 - 상태 변경: features.json 의 status 가 바뀔 때마다 그 단계의 `status` 이벤트 `{from, to, reason}` 를 남긴다(값이 같으면 남기지 않는다) — `approve` 는 `plan/status`(reason `approve`),
@@ -150,6 +150,8 @@ lint 규칙(전부 결정적, 위반 = error):
 6. `approval.hash` = `sha256(JSON.stringify(계약에서 approval 키를 제거한 객체))` (키 순서는 파일에 저장된 순서). hash 가 있으면 현재 내용(approval 제외)의 해시와 일치해야 함 — 불일치 = 승인 후 변경 → 재승인 필요.
 
 `overlaid_helper` 경고(오류 아님 — exit 코드와 `approve` 를 바꾸지 않는다): `new: true` 기준의 criterion 문장에 저장소 상대 파일 경로(`/` 가 있고 확장자가 있는 토큰, 예: `test/t.mjs`)가 있고, 그 경로가 병합된 config(DEFAULTS ← profile ← config)의 `verify.test_paths` 에 걸리면서 파일 이름이 테스트 파일 모양(`*.test.*`·`*.spec.*`·`*_test.*`·`test_*.py`)이 아니면 기준 id 와 경로를 담아 경고한다. 이유: §6.3 base vacuity 실행은 `test_paths` 에 맞는 추가·수정 파일을 base 에 얹으므로, 그런 보조 파일(러너·헬퍼)로 판정되는 기준은 기능 이전 코드에서도 통과해 vacuous 로 보고될 수 있다. 권장 조치: 그 기준을 `new: false` 로 두거나 테스트를 테스트 파일 모양의 파일에 둔다. `new: false` 기준, 테스트 파일 모양의 경로, `test_paths` 밖 경로, `check` 명령에만 있는 경로는 경고하지 않고, `verify.test_paths` 가 비어 있으면 이 경고는 없다. criterion 문장이 없거나 문자열이 아니면 이 규칙은 건너뛴다(`criterion_text` 경고만). plan/lint 이벤트의 `warnings` 에 `{rule: 'overlaid_helper', id}` 로 남는다.
+
+계약 품질 경고(오류 아님 — exit 코드와 `approve` 를 바꾸지 않는다, 승인 전 계약에만): `new_reason` — `new: false` 인데 `new_reason` 이 비어 있지 않은 문자열(공백만이면 비어 있음)이 아닌 기준마다 id 를 담아 경고; `criterion_length` — criterion 문자열 길이(JS length)가 300 을 넘는 기준마다 id 와 길이를 경고(정확히 300 은 없음); `split_suggested` — acceptance_criteria 가 9–12개이면 개수와 split 을 담아 하나 경고(8개 이하는 없고, 13개 이상은 size error 만). 승인 계약(`approval.hash` 가 내용과 일치)은 이 세 경고를 내지 않고, 승인 후 고쳐 해시가 어긋나면 다시 나오며 `harness approve` 출력에도 나온다. `resolves` 의 backlog 항목 `resolved_by` 가 그 계약 자신의 id 이면 `already resolved` 경고를 생략한다(다른 기능 id 면 그대로 경고). plan/lint 이벤트의 `warnings` 에 `{rule, id}` 로 남는다.
 
 `harness approve F3 [F4 ...]`: 규칙 1–5·7 을 통과한 계약에 approval 을 (재)기록, features.status → `approved`. 기존 approval 의 hash 불일치(규칙 6)는 재승인을 막지 않는다 — 재승인이 곧 해소 수단이다. 허용 라운드를 다 써서 수렴 실패(`blocked_reason` 이 `rounds`·`max_rounds`·`stall`·`divergence` 이거나 없음)로 blocked 된 기능의 같은 해시 재승인은 거부되고, `--extra-round` 로만 한 라운드를 더한다(§7.6). hash 없는 approval 은 lint error 는 아니지만 실행 대상이 아니다.
 
