@@ -6853,7 +6853,12 @@
       "source": "evaluator",
       "file": "test/f112-context-files.test.mjs",
       "priority": "low",
-      "id": "B530"
+      "id": "B530",
+      "closed": {
+        "as": "resolved",
+        "reason": "F112 AC-6 now also fails on a stale docs/MAP.md entry (933be89)",
+        "at": "2026-10-19T04:13:09.862Z"
+      }
     },
     {
       "feature": "F111",
@@ -6941,7 +6946,12 @@
       "source": "evaluator",
       "file": "test/f113-run-split.test.mjs",
       "priority": "low",
-      "id": "B537"
+      "id": "B537",
+      "closed": {
+        "as": "obsolete",
+        "reason": "matches the definition written in the F113 contract; not a defect",
+        "at": "2026-10-19T04:10:14.973Z"
+      }
     },
     {
       "source": "run:F115",
@@ -6967,7 +6977,12 @@
           "summary": "accept the risk: drop or relax SC-1 with a recorded decision"
         }
       ],
-      "id": "B538"
+      "id": "B538",
+      "closed": {
+        "as": "obsolete",
+        "reason": "the feature passed later; the re-scope proposal no longer applies",
+        "at": "2026-10-19T04:10:15.266Z"
+      }
     },
     {
       "source": "run:F118",
@@ -6983,7 +6998,12 @@
       "sources": [
         "F118-r2"
       ],
-      "id": "B539"
+      "id": "B539",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F118",
@@ -7010,7 +7030,12 @@
           "summary": "accept the risk: drop or relax AC-2 with a recorded decision"
         }
       ],
-      "id": "B540"
+      "id": "B540",
+      "closed": {
+        "as": "obsolete",
+        "reason": "F118 was decided rewrite (B541): affected mode is shelved",
+        "at": "2026-10-19T04:10:15.564Z"
+      }
     },
     {
       "kind": "decision",
@@ -7045,7 +7070,12 @@
           "summary": "accept the risk: drop or relax VERIFY:commands with a recorded decision"
         }
       ],
-      "id": "B542"
+      "id": "B542",
+      "closed": {
+        "as": "obsolete",
+        "reason": "the feature passed later; the re-scope proposal no longer applies",
+        "at": "2026-10-19T04:10:15.266Z"
+      }
     },
     {
       "kind": "decision",
@@ -7078,7 +7108,12 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ],
-      "id": "B544"
+      "id": "B544",
+      "closed": {
+        "as": "obsolete",
+        "reason": "the feature passed later; the re-scope proposal no longer applies",
+        "at": "2026-10-19T04:10:15.266Z"
+      }
     },
     {
       "source": "run:F138",
@@ -7102,7 +7137,12 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ],
-      "id": "B545"
+      "id": "B545",
+      "closed": {
+        "as": "obsolete",
+        "reason": "the feature passed later; the re-scope proposal no longer applies",
+        "at": "2026-10-19T04:10:15.266Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7118,7 +7158,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B546"
+      "id": "B546",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7134,7 +7179,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B547"
+      "id": "B547",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7150,7 +7200,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B548"
+      "id": "B548",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7166,7 +7221,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B549"
+      "id": "B549",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7182,7 +7242,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B550"
+      "id": "B550",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7198,7 +7263,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B551"
+      "id": "B551",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7214,7 +7284,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B552"
+      "id": "B552",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7230,7 +7305,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B553"
+      "id": "B553",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7246,7 +7326,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B554"
+      "id": "B554",
+      "closed": {
+        "as": "resolved",
+        "reason": "F130 ES-4 reproduced under stress 2 (ENOENT: setup killed before it started); fixed in 2b845ee",
+        "at": "2026-10-19T04:55:56.565Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7262,7 +7347,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B555"
+      "id": "B555",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7278,7 +7368,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B556"
+      "id": "B556",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7294,7 +7389,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B557"
+      "id": "B557",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7310,7 +7410,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B558"
+      "id": "B558",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7326,7 +7431,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B559"
+      "id": "B559",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7342,7 +7452,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B560"
+      "id": "B560",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7358,7 +7473,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B561"
+      "id": "B561",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7374,7 +7494,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B562"
+      "id": "B562",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7390,7 +7515,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B563"
+      "id": "B563",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7406,7 +7536,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B564"
+      "id": "B564",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F149",
@@ -7422,7 +7557,12 @@
       "sources": [
         "F149-r1"
       ],
-      "id": "B565"
+      "id": "B565",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     }
   ]
 }
