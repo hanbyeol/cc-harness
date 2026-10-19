@@ -6941,7 +6941,12 @@
       "source": "evaluator",
       "file": "test/f113-run-split.test.mjs",
       "priority": "low",
-      "id": "B537"
+      "id": "B537",
+      "closed": {
+        "as": "obsolete",
+        "reason": "matches the definition written in the F113 contract; not a defect",
+        "at": "2026-10-19T04:10:14.973Z"
+      }
     },
     {
       "source": "run:F115",
@@ -6967,7 +6972,12 @@
           "summary": "accept the risk: drop or relax SC-1 with a recorded decision"
         }
       ],
-      "id": "B538"
+      "id": "B538",
+      "closed": {
+        "as": "obsolete",
+        "reason": "the feature passed later; the re-scope proposal no longer applies",
+        "at": "2026-10-19T04:10:15.266Z"
+      }
     },
     {
       "source": "run:F118",
@@ -7010,7 +7020,12 @@
           "summary": "accept the risk: drop or relax AC-2 with a recorded decision"
         }
       ],
-      "id": "B540"
+      "id": "B540",
+      "closed": {
+        "as": "obsolete",
+        "reason": "F118 was decided rewrite (B541): affected mode is shelved",
+        "at": "2026-10-19T04:10:15.564Z"
+      }
     },
     {
       "kind": "decision",
@@ -7045,7 +7060,12 @@
           "summary": "accept the risk: drop or relax VERIFY:commands with a recorded decision"
         }
       ],
-      "id": "B542"
+      "id": "B542",
+      "closed": {
+        "as": "obsolete",
+        "reason": "the feature passed later; the re-scope proposal no longer applies",
+        "at": "2026-10-19T04:10:15.266Z"
+      }
     },
     {
       "kind": "decision",
@@ -7078,7 +7098,12 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ],
-      "id": "B544"
+      "id": "B544",
+      "closed": {
+        "as": "obsolete",
+        "reason": "the feature passed later; the re-scope proposal no longer applies",
+        "at": "2026-10-19T04:10:15.266Z"
+      }
     },
     {
       "source": "run:F138",
@@ -7102,7 +7127,12 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ],
-      "id": "B545"
+      "id": "B545",
+      "closed": {
+        "as": "obsolete",
+        "reason": "the feature passed later; the re-scope proposal no longer applies",
+        "at": "2026-10-19T04:10:15.266Z"
+      }
     },
     {
       "source": "run:F149",
