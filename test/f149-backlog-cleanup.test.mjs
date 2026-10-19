@@ -88,6 +88,8 @@ test('F149 ES-1 a non-string or unknown backlog_id is a new item without the key
   const items = record([{ id: 'B1', summary: 'x', seen: 1 }], [{ summary: 'a', backlog_id: 1 }, { summary: 'b', backlog_id: 'B99' }]);
   assert.equal(items.length, 3);
   for (const i of items.slice(1)) assert.equal('backlog_id' in i, false);
+  // No branch reads the key at all, so no value of it can reach the merge path.
+  assert.ok(!read('lib/backlog.mjs').includes('backlog_id'));
 });
 
 // The parent criteria AC-2 and AC-5 run their cases together.
