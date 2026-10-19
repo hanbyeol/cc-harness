@@ -6853,7 +6853,12 @@
       "source": "evaluator",
       "file": "test/f112-context-files.test.mjs",
       "priority": "low",
-      "id": "B530"
+      "id": "B530",
+      "closed": {
+        "as": "resolved",
+        "reason": "F112 AC-6 now also fails on a stale docs/MAP.md entry (933be89)",
+        "at": "2026-10-19T04:13:09.862Z"
+      }
     },
     {
       "feature": "F111",
