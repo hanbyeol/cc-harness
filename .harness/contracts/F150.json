@@ -1,0 +1,90 @@
+{
+  "id": "F150",
+  "title": "run.context_files 의 비밀 경로 검사를 병합된 config(DEFAULTS ← profile ← user)의 secret_globs·context_files 로도 한다 — 사용자 파일만 보던 검사(B529)는 프로필이 secret_globs 나 context_files 를 줄 때 비밀 파일 본문이 builder 프롬프트에 실릴 수 있었다",
+  "security_tier": "critical",
+  "version": 1,
+  "resolves": [
+    "B529"
+  ],
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "resolveConfig(user, { label, profile }) 의 profile 옵션(객체)이 주어지면 loadProfile 대신 그 객체를 프로필로 병합한다: resolveConfig({}, { profile: { verify: { commands: ['x'] } } }).verify.commands 가 ['x'] 이고, 옵션이 없으면 이전처럼 user.profile(기본 sdlc)을 읽는다",
+      "check": "node test/t.mjs \"F150 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "비밀 경로가 아닌 항목은 그대로 받아들인다: profile 의 secret_globs ['private/**'] 와 user 의 run.context_files ['docs/MAP.md'] 를 병합한 resolveConfig 는 던지지 않고 run.context_files 가 ['docs/MAP.md'] 다",
+      "check": "node test/t.mjs \"F150 AC-2\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 과하게 거부하는 구현(목록이 있으면 모두 거부, 프로필 glob 을 잘못 매칭)을 막는다. AC-1 의 profile 옵션이 없는 base 에서는 무시된 옵션으로 통과한다"
+    },
+    {
+      "id": "AC-3",
+      "criterion": "docs/SPEC.md §8 의 프로젝트 컨텍스트 절이 비밀 경로 검사를 병합된 config 의 secret_globs·context_files 로 한다고 적는다: '병합된' 과 'secret_globs' 를 같은 문장에 담는다(문서 check)",
+      "check": "node test/t.mjs \"F150 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "F112 의 기존 테스트(사용자 파일의 secret_globs·context_files 검사 포함)와 F148 테스트가 그대로 통과한다",
+      "check": "node test/t.mjs \"F112 \" && node test/t.mjs \"F148 \"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 에서 통과한다. 검사를 병합 단계로 옮기며 사용자 파일 검사·run --resume 스냅샷 검사(validateUser)를 빼는 것을 막는다"
+    },
+    {
+      "id": "AC-5",
+      "criterion": "기존 테스트를 약화하지 않는다: `node test/assert-count.mjs` 가 exit 0 이다",
+      "check": "node test/assert-count.mjs",
+      "new": false,
+      "new_reason": "회귀 방지 — 변경이 없으면 base 에서 통과한다"
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "프로필의 secret_globs: resolveConfig({ run: { context_files: ['private/a.md'] } }, { profile: { secret_globs: ['private/**'] } }) 는 code 'config_invalid'·exit 2 로 던지고 메시지가 'run.context_files[0]' 과 'private/a.md' 를 담는다",
+      "check": "node test/t.mjs \"F150 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "프로필의 context_files: resolveConfig({ secret_globs: ['private/**'] }, { profile: { run: { context_files: ['private/a.md'] } } }) 는 code 'config_invalid'·exit 2 로 던지고 메시지가 'run.context_files[0]' 과 'private/a.md' 를 담는다",
+      "check": "node test/t.mjs \"F150 SC-2\"",
+      "new": true
+    },
+    {
+      "id": "SC-3",
+      "criterion": "프로필이 둘 다 줄 때(cases): profile { secret_globs: ['private/**'], run: { context_files: ['docs/MAP.md', 'private/a.md'] } } 와 user {} 는 'run.context_files[1]' 을 담은 config_invalid 이고, 같은 프로필에 내장 비밀 패턴 '.env' 를 context_files 로 줄 때도 config_invalid 다",
+      "check": "node test/t.mjs \"F150 SC-3\"",
+      "new": true
+    },
+    {
+      "id": "SC-4",
+      "criterion": "loadConfig 경로: 임시 프로젝트의 .harness/config.json 이 secret_globs ['private/**'] 와 run.context_files ['private/a.md'] 를 쓰면 loadConfig(root) 는 config_invalid 로 던진다(사용자 파일 검사가 그대로 남는다)",
+      "check": "node test/t.mjs \"F150 SC-4\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 의 validateUser 가 거부한다. 병합 검사로 옮기며 실제 config 파일 경로를 놓치는 것을 막는다"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "병합 검사는 형식이 틀린 병합 값에서 TypeError(internal error)를 내지 않는다(cases): profile { run: { context_files: 'private/a.md' } }(문자열)과 profile { secret_globs: 'private/**', run: { context_files: ['a.md'] } }(문자열) 모두 resolveConfig 는 각각 'run.context_files'·'secret_globs' 를 담은 config_invalid(exit 2)로 던진다",
+      "check": "node test/t.mjs \"F150 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "secret_globs 를 프로필과 사용자 값의 합집합으로 만들기 — 배열은 지금처럼 사용자 값이 프로필 값을 바꾼다(deepMerge). diff 제외(SR-4)·finding 위치와 같은 병합 값을 쓴다",
+    "검사 뒤 파일 내용 검사 — 경로 이름 검사만 한다. 내용은 run 의 redactor 가 맡는다",
+    "evaluator·security-reviewer 프롬프트의 컨텍스트 파일 — 그런 절이 없다",
+    "지금 배포된 프로필(sdlc·iac·ops)에 secret_globs·context_files 추가"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-19T00:10:16.219Z",
+    "hash": "e99fd76e246e50f9c64d98ee32119ce8a48c940b29ed5f4db17a8a60aa6c5a82"
+  }
+}
