@@ -2,7 +2,7 @@
   "id": "F149",
   "title": "backlog 정리 묶음(동작 변화 없음) — recordEntries 의 backlog_id 합치기 분기 제거(B532), F113 분할로 파일 머리로 밀려난 주석을 제자리로(B535), 충돌 표시 함수를 lib/run/merge.mjs 로 옮기고 prompt.mjs 끝 빈 줄 제거(B536). 이미 반영된 B531·B533·B534 는 회귀 방지 기준으로 함께 닫는다",
   "security_tier": "standard",
-  "version": 1,
+  "version": 2,
   "resolves": [
     "B531",
     "B532",
@@ -98,7 +98,8 @@
       "id": "ES-1",
       "criterion": "backlog_id 가 문자열이 아니거나(숫자 1) 없는 id('B99')인 항목도 recordEntries 는 던지지 않고 새 항목으로 추가하며, 추가된 항목에 backlog_id 키가 없다",
       "check": "node test/t.mjs \"F149 ES-1\"",
-      "new": true
+      "new": false,
+      "new_reason": "회귀 방지 — base 의 recordEntries 도 backlog_id 를 떼어 내고 새 항목으로 추가한다. 합치기 분기를 지우며 비문자열·없는 id 에서 던지거나 키를 남기는 구현을 막는다"
     }
   ],
   "out_of_scope": [
@@ -110,7 +111,7 @@
   ],
   "approval": {
     "by": "hanbyeol@gmail.com",
-    "at": "2026-10-19T00:10:16.219Z",
-    "hash": "e8eafc100149789addd7590ac542aa393332ed4613db4c763d71b0d0080ee298"
+    "at": "2026-10-19T01:02:43.217Z",
+    "hash": "ea3ce298ec1bfbb685b42d096bdd5a7002b3de0ba094fbe865e708e80b1f670a"
   }
 }
