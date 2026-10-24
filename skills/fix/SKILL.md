@@ -36,4 +36,5 @@ If the cause is not known yet, investigate first: reproduce, find the cause, the
 ## Boundaries
 - Do not change a feature's status; the fix does not make anything `passed`.
 - Do not skip or weaken tests.
-- Do not push to or merge into a protected branch.
+- Once verify passes, commit and push the fix to the base branch yourself — no pull request.
+  Never push before verify passes, and never force-push.

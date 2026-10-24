@@ -1,6 +1,6 @@
 # cc-harness (v2) — developing the harness itself
 
-<!-- cc-harness:begin v2.0.70 profile=sdlc -->
+<!-- cc-harness:begin v2.0.73 profile=sdlc -->
 ## Language
 Talk with the user in the language the user writes in.
 Keep code, code comments, commit messages and a contract's ids and `check` commands in English.
@@ -16,11 +16,13 @@ When `harness` is not on PATH, run `npx github:hanbyeol/cc-harness <command>`.
 3. **`build` skill** — TDD: a failing test → the smallest implementation → the criterion `check`.
 4. `harness verify F{n}` → `harness eval F{n}`. The verdict comes from a separate session
    (ideally a different model) and the core.
-5. `harness status` shows where things stand. Small, non-security fixes (3 files or fewer): **`fix` skill**.
+5. When `harness eval` records `passed`, merge the feature branch into the base branch and push it
+   yourself — no pull request, no force-push. A `fix` is committed and pushed once its verify passes.
+6. `harness status` shows where things stand. Small, non-security fixes (3 files or fewer): **`fix` skill**.
 
 ## When to keep going and when to stop
 - Keep going without asking when the next step needs no decision from the user: fixing a failed verify, the next round while rounds are left, running checks and tests. Put progress notes in the same message as the next action.
-- Stop and ask only when you cannot continue without the user: approving a contract (`harness approve`), a feature that is `blocked`, a criterion that is ambiguous or contradictory, merging or pushing to a protected branch, and anything destructive (deleting data, force-pushing, changing anything outside this repository).
+- Stop and ask only when you cannot continue without the user: approving a contract (`harness approve`), a feature that is `blocked`, a criterion that is ambiguous or contradictory, and anything destructive (deleting data, force-pushing, changing anything outside this repository).
 - End a long piece of work with what needs the user first, then what changed, then what was found.
 
 ## Convergence rules
@@ -36,7 +38,8 @@ When `harness` is not on PATH, run `npx github:hanbyeol/cc-harness <command>`.
 ## Prohibited
 - Editing `.harness/` (except contract and feature drafts in the spec step), changing a feature's
   status by hand, marking your own work passed.
-- Pushing or merging to a protected branch (`protected_branches`) — a human always decides.
+- Merging into or pushing to a protected branch (`protected_branches`) before the feature has passed `harness eval`
+  (a `fix`: before its verify passes), and force-pushing it.
 - Skipping, deleting or weakening tests to get verify green.
 - `harness approve` without the user's approval.
 

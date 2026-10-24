@@ -77,5 +77,6 @@ in this feature.
 
 ## 5. Report
 Tell the user: files changed, each criterion id and its result, the verdict and its round,
-and anything added to the backlog. Committing is fine; pushing to or merging into a
-protected branch is not — the user merges.
+and anything added to the backlog. Once the verdict is `passed`, merge the feature branch into
+the base branch and push it yourself — no pull request, no force-push. Do not merge or push a
+feature that has not passed.

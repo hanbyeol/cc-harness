@@ -83,8 +83,9 @@ They either break the guarantees above or cause damage that is hard to undo:
   `spec`. Approved contracts, config, verdicts and statuses belong to the core and the user.
   `harness verify` fails a round whose diff touches `.harness/`.
 - Mark a feature as passed, or set any status by hand.
-- Push to, or merge into, `main` or any other protected branch. Merging to main is always
-  a human decision.
+- Merge into, or push to, `main` or any other protected branch before the feature has passed
+  `harness eval` (a `fix`: before its verify passes), or force-push it. Once it has passed,
+  merge it into the base branch and push it yourself — no pull request.
 - Skip, focus, delete or weaken tests to make verification pass.
 - Run `harness approve` without the user's explicit approval in this conversation.
 - Put a live infrastructure change (the `rollout` skill) into `harness run`. Live changes

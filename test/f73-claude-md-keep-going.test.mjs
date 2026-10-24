@@ -10,7 +10,7 @@ import { blockStatus, findBlock, renderBlock } from '../lib/claudemd.mjs';
 
 const HEADING = '## When to keep going and when to stop';
 const KEEP_GOING = '- Keep going without asking when the next step needs no decision from the user: fixing a failed verify, the next round while rounds are left, running checks and tests. Put progress notes in the same message as the next action.';
-const STOP = '- Stop and ask only when you cannot continue without the user: approving a contract (`harness approve`), a feature that is `blocked`, a criterion that is ambiguous or contradictory, merging or pushing to a protected branch, and anything destructive (deleting data, force-pushing, changing anything outside this repository).';
+const STOP = '- Stop and ask only when you cannot continue without the user: approving a contract (`harness approve`), a feature that is `blocked`, a criterion that is ambiguous or contradictory, and anything destructive (deleting data, force-pushing, changing anything outside this repository).';
 const REPORT = '- End a long piece of work with what needs the user first, then what changed, then what was found.';
 const CLOSING = 'This block is managed by `harness claude-md`;';
 
