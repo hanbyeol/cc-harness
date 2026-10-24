@@ -1,0 +1,78 @@
+{
+  "id": "F151",
+  "title": "에이전트 규칙: 기능이 passed(eval) 되거나 fix 의 verify 가 통과하면 에이전트가 PR 없이 base 브랜치에 직접 merge·push 한다. 그 전의 보호 브랜치 merge·push 와 force-push 는 계속 금지. 코어(harness run)의 SR-5 는 그대로",
+  "security_tier": "critical",
+  "version": 1,
+  "context": "사용자 결정(2026-10-25): 'cc-harness 기반 commit, push 등은 PR 거치지 말고 처리' → '규칙 자체를 수정'. 지금 규칙은 보호 브랜치 merge·push 를 '항상 사람이 결정'으로 두어, 에이전트가 판정까지 통과한 기능도 PR 을 만들고 사람의 머지를 기다렸다. 판정 게이트(verify·eval)는 그대로 두고, 통과한 뒤의 merge·push 만 에이전트가 하도록 안내 문서(CLAUDE.md 블록 템플릿, AGENTS.md, build·fix skill, README, SPEC)를 바꾼다. 코드로 강제하는 SR-5(harness run 이 보호 브랜치에 병합하지 않음)는 바꾸지 않는다 — 무인 실행은 integration 브랜치까지만 가고, 그 뒤의 base 병합·push 를 에이전트가 한다.",
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "renderBlock() 의 '## When to keep going and when to stop' 절 Stop-and-ask 줄에 'merging or pushing to a protected branch' 가 없고, 파괴적인 일 목록에 'force-pushing' 은 남아 있다",
+      "check": "node test/t.mjs \"F151 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "renderBlock() 의 Workflow 절에 '`harness eval` 이 passed 를 기록하면 기능 브랜치를 base 브랜치에 merge 하고 push 한다 — pull request 없이' 취지의 단계가 있고(문자열 'no pull request' 포함), 'a human always decides' 문구가 없다",
+      "check": "node test/t.mjs \"F151 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "AGENTS.md 의 'Never do these' 에 'Merging to main is always a human decision' 이 없고, 판정 통과 전 보호 브랜치 merge·push 와 force-push 금지 항목이 있으며, 통과 후에는 PR 없이 직접 merge·push 한다는 문장이 있다",
+      "check": "node test/t.mjs \"F151 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "skills/build/SKILL.md 의 Report 단계에 'the user merges' 가 없고 passed 후 base 브랜치 merge·push(no pull request) 를 안내한다. skills/fix/SKILL.md 의 Boundaries 에 'Do not push to or merge into a protected branch.' 가 없고 verify 통과 후 직접 commit·push 하되 force-push 는 하지 않는다고 적는다",
+      "check": "node test/t.mjs \"F151 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "README.md 에 'main 병합은 사람이 결정합니다' 가 없고 판정 통과 후 에이전트가 PR 없이 merge·push 한다는 문장이 있다. docs/SPEC.md 의 CLAUDE.md 블록 설명에서 멈춤 목록에 '보호 브랜치 merge·push' 가 없다",
+      "check": "node test/t.mjs \"F151 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "저장소의 CLAUDE.md 관리 블록이 현재 템플릿 렌더링과 같다(blockStatus 가 current)",
+      "check": "node test/t.mjs \"F151 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "전체 테스트(node --test test/**/*.test.mjs)와 lint-contract 가 통과한다",
+      "check": "node --test --test-concurrency=6 \"test/**/*.test.mjs\" && node bin/harness.mjs lint-contract",
+      "new": false,
+      "new_reason": "회귀 방지 — base 에서도 통과한다. 문구 변경에 맞춰 바뀌는 기존 테스트(F73 STOP 문구)가 새 규칙을 검사하는지 함께 확인한다"
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "renderBlock() 의 '## Prohibited' 절에 'protected_branches' 와 함께 판정 통과 전(eval passed 전, fix 는 verify 통과 전) merge·push 금지와 force-push 금지가 남아 있다",
+      "check": "node test/t.mjs \"F151 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "코어 SR-5 는 그대로다: integration_branch 가 보호 브랜치이면 run 이 시작 전에 멈추고, docs/SPEC.md 의 SR-5 문장('코어는 main(및 config의 protected 브랜치)에 병합·push하지 않는다')이 남아 있다",
+      "check": "node test/t.mjs \"F151 SC-2\"",
+      "new": false,
+      "new_reason": "회귀 방지 — base 에서도 성립한다. 규칙 문서 변경이 코어 강제까지 풀지 않았는지 지킨다"
+    }
+  ],
+  "error_scenarios": [],
+  "out_of_scope": [
+    "코어 코드(lib/run/*)의 보호 브랜치 처리 변경 — harness run 은 계속 integration 브랜치까지만 병합한다",
+    "보호 브랜치 force-push 허용",
+    "이미 설치된 다른 프로젝트의 CLAUDE.md 블록 갱신(각 프로젝트에서 harness claude-md 로 갱신)"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-24T15:10:03.267Z",
+    "hash": "e15351ab4c3cf3825f73cd5f1b33f96bb0c579e068e6a49029bc6bee492c82b7"
+  }
+}
