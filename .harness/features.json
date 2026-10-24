@@ -1229,7 +1229,8 @@
       "title": "에이전트 규칙: passed(eval)·fix verify 통과 후 PR 없이 base 브랜치에 직접 merge·push, 그 전 보호 브랜치 merge·push 와 force-push 는 금지, 코어 SR-5 유지",
       "security_tier": "critical",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 1
     }
   ]
 }
