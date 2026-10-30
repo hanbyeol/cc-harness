@@ -1,0 +1,102 @@
+{
+  "id": "F152",
+  "title": "claude 역할 세션을 Claude Code 2.1.314 에 맞춘다 — 거부 시 자동 모델 전환을 끄고(CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK=1), independence 를 evaluator 의 실제 응답 모델로도 판정하며, 2.1.280 이후 생긴 쓰지 않는 도구(Cron·RemoteTrigger·PushNotification·SendMessage·DesignSync·Enter/ExitWorktree)를 역할 세션에서 뺀다",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "claude 어댑터 buildArgs 의 --disallowedTools 뒤 인자에 CronCreate·CronDelete·CronList·RemoteTrigger·PushNotification·SendMessage·DesignSync·EnterWorktree·ExitWorktree 가 readOnly false·true 모두에서 있고, readOnly false(builder)에는 ScheduleWakeup·Monitor·TaskStop·ToolSearch 가 없다",
+      "check": "node test/t.mjs \"F152 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "claude 어댑터 run() 은 CLI 프로세스 환경에 CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK=1 을 넣는다: 환경을 출력하는 가짜 CLI 로 builder 호출과 readOnly 호출 모두에서 값이 '1' 이고, 부모 환경의 다른 변수(예: HARNESS_F152_PROBE=x)도 그대로 전달된다",
+      "check": "node test/t.mjs \"F152 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "codex·generic 어댑터 호출의 CLI 환경에는 부모 환경에 없는 CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK 이 생기지 않는다(환경을 출력하는 가짜 CLI)",
+      "check": "node test/t.mjs \"F152 AC-3\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 환경 변수를 모든 어댑터에 넣는 구현을 막는다. base 에서는 어떤 어댑터도 넣지 않으므로 통과한다"
+    },
+    {
+      "id": "AC-4",
+      "criterion": "evaluate() 에서 evaluator 를 claude/claude-opus-5-5 로, builder 를 claude/claude-sonnet-5-5 로 요청했는데 evaluator 호출 결과의 servedModel 이 'claude-sonnet-5-5' 이면 verdict 의 independence 는 'fresh-context' 다",
+      "check": "node test/t.mjs \"F152 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "AC-4 와 같은 요청에서 evaluator 호출 결과의 servedModel 이 다른 이름이고 servedCanonical 이 'claude-sonnet-5-5' 여도 independence 는 'fresh-context' 다",
+      "check": "node test/t.mjs \"F152 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "AC-4 와 같은 요청에서 evaluator 호출 결과의 servedModel 이 'claude-opus-5-5' 이면 independence 는 'cross-model' 그대로다",
+      "check": "node test/t.mjs \"F152 AC-6\"",
+      "new": false,
+      "new_reason": "회귀 방지 — served model 이 있으면 항상 fresh-context 로 내리는 구현을 막는다. base 는 요청 모델로 cross-model 을 낸다"
+    },
+    {
+      "id": "AC-7",
+      "criterion": "test/fixtures/help/claude-2.1.314.txt 가 있고, 그 내용에 대해 missingFlags 가 claude 어댑터 requiredFlags({ readOnly, schema: {}, budgetUsd: 1, model: 'm', effort: 'high' }) 를 readOnly true·false 모두에서 빈 배열로 돌려준다",
+      "check": "node test/t.mjs \"F152 AC-7\"",
+      "new": false,
+      "new_reason": "측정 기준 갱신 — fixture 파일은 vacuity 실행에서 base 에 덧씌워지므로 base 에서도 통과한다. 2.1.314 의 --help 가 필수 플래그를 모두 담는다는 측정을 테스트로 고정한다"
+    },
+    {
+      "id": "AC-8",
+      "criterion": "docs/SPEC.md §10 이 CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK 을 적고, '실제 응답 모델' 과 'fresh-context' 를 같은 문장에 담아 served model 기준 independence 를 적으며, <builder 제외 도구> 목록에 EnterWorktree 를 적는다(문서 check)",
+      "check": "node test/t.mjs \"F152 AC-8\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "부모 환경에 CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK=0 이 있어도 claude 어댑터가 띄운 CLI 의 값은 '1' 이다(환경을 출력하는 가짜 CLI)",
+      "check": "node test/t.mjs \"F152 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "builder 인자에서 기존 <deny> 목록(DENY, Bash(git push:*) 부터 Bash(node bin/harness.mjs:*) 까지)은 그대로 --disallowedTools 바로 뒤에 같은 순서로 있고, --permission-mode auto 도 그대로다",
+      "check": "node test/t.mjs \"F152 SC-2\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 도구 목록을 바꾸다 기존 deny 항목을 빠뜨리거나 순서를 바꾸는 구현을 막는다. base 에서 통과한다"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "evaluator 호출 결과에 servedModel 이 없으면(null) independence 는 요청 모델로만 판정한다: AC-4 의 요청에서 'cross-model' 이고 예외나 경고가 없다",
+      "check": "node test/t.mjs \"F152 ES-1\"",
+      "new": false,
+      "new_reason": "회귀 방지 — served model 이 없을 때 판정이 바뀌거나 던지는 구현을 막는다. base 는 요청 모델로 cross-model 을 낸다"
+    },
+    {
+      "id": "ES-2",
+      "criterion": "stop_reason 'refusal' 인 claude 래퍼는 여전히 error 'refusal' 로 끝난다(가짜 CLI, F152 변경 후에도 같은 경로)",
+      "check": "node test/t.mjs \"F152 ES-2\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 자동 모델 전환을 끄면 거부가 다시 이 경로로 오므로 그 경로가 살아 있음을 확인한다. base 에서 통과한다"
+    }
+  ],
+  "out_of_scope": [
+    "사용자 settings 의 fallbackModel(과부하 시 전환)을 끄는 것 — 그 전환은 served model 기준 independence(AC-4, AC-5)로 드러난다",
+    "security-reviewer 의 served model 로 independence 를 바꾸는 것 — independence 는 지금처럼 evaluator 기준이다",
+    "builder 의 served model 을 기록해 비교하는 것 — builder 쪽은 요청 모델 목록(builderModels)을 그대로 쓴다",
+    "--bare 사용, 사용자 hook·플러그인·auto-memory 를 역할 세션에서 끄는 것",
+    "codex·gemini·generic 어댑터의 인자"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-30T12:18:47.571Z",
+    "hash": "b90be7d346da0ac052ac799103010a1d2d7c7fd4744d434d065d056218068bfc"
+  }
+}
