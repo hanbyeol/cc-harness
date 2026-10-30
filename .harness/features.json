@@ -1243,7 +1243,7 @@
       "title": "claude role sessions for Claude Code 2.1.314: no refusal model fallback, served-model independence, new unused tools denied",
       "security_tier": "critical",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }
