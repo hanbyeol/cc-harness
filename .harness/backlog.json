@@ -6841,7 +6841,8 @@
       "file": "lib/config.mjs",
       "line": 291,
       "priority": "low",
-      "id": "B529"
+      "id": "B529",
+      "resolved_by": "F150"
     },
     {
       "feature": "F112",
@@ -6852,7 +6853,12 @@
       "source": "evaluator",
       "file": "test/f112-context-files.test.mjs",
       "priority": "low",
-      "id": "B530"
+      "id": "B530",
+      "closed": {
+        "as": "resolved",
+        "reason": "F112 AC-6 now also fails on a stale docs/MAP.md entry (933be89)",
+        "at": "2026-10-19T04:13:09.862Z"
+      }
     },
     {
       "feature": "F111",
@@ -6864,7 +6870,8 @@
       "file": "lib/backlog.mjs",
       "line": 9,
       "priority": "low",
-      "id": "B531"
+      "id": "B531",
+      "resolved_by": "F149"
     },
     {
       "feature": "F111",
@@ -6876,7 +6883,8 @@
       "file": "lib/backlog.mjs",
       "line": 79,
       "priority": "low",
-      "id": "B532"
+      "id": "B532",
+      "resolved_by": "F149"
     },
     {
       "feature": "F111",
@@ -6888,7 +6896,8 @@
       "file": "lib/eval.mjs",
       "line": 695,
       "priority": "low",
-      "id": "B533"
+      "id": "B533",
+      "resolved_by": "F149"
     },
     {
       "feature": "F111",
@@ -6900,7 +6909,8 @@
       "file": "docs/SPEC.md",
       "line": 383,
       "priority": "low",
-      "id": "B534"
+      "id": "B534",
+      "resolved_by": "F149"
     },
     {
       "feature": "F113",
@@ -6912,7 +6922,8 @@
       "file": "lib/run/merge.mjs",
       "line": 3,
       "priority": "low",
-      "id": "B535"
+      "id": "B535",
+      "resolved_by": "F149"
     },
     {
       "feature": "F113",
@@ -6923,7 +6934,8 @@
       "source": "evaluator",
       "file": "lib/run/prompt.mjs",
       "priority": "low",
-      "id": "B536"
+      "id": "B536",
+      "resolved_by": "F149"
     },
     {
       "feature": "F113",
@@ -6934,7 +6946,12 @@
       "source": "evaluator",
       "file": "test/f113-run-split.test.mjs",
       "priority": "low",
-      "id": "B537"
+      "id": "B537",
+      "closed": {
+        "as": "obsolete",
+        "reason": "matches the definition written in the F113 contract; not a defect",
+        "at": "2026-10-19T04:10:14.973Z"
+      }
     },
     {
       "source": "run:F115",
@@ -6960,7 +6977,12 @@
           "summary": "accept the risk: drop or relax SC-1 with a recorded decision"
         }
       ],
-      "id": "B538"
+      "id": "B538",
+      "closed": {
+        "as": "obsolete",
+        "reason": "the feature passed later; the re-scope proposal no longer applies",
+        "at": "2026-10-19T04:10:15.266Z"
+      }
     },
     {
       "source": "run:F118",
@@ -6976,7 +6998,12 @@
       "sources": [
         "F118-r2"
       ],
-      "id": "B539"
+      "id": "B539",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     },
     {
       "source": "run:F118",
@@ -7003,7 +7030,12 @@
           "summary": "accept the risk: drop or relax AC-2 with a recorded decision"
         }
       ],
-      "id": "B540"
+      "id": "B540",
+      "closed": {
+        "as": "obsolete",
+        "reason": "F118 was decided rewrite (B541): affected mode is shelved",
+        "at": "2026-10-19T04:10:15.564Z"
+      }
     },
     {
       "kind": "decision",
@@ -7038,7 +7070,12 @@
           "summary": "accept the risk: drop or relax VERIFY:commands with a recorded decision"
         }
       ],
-      "id": "B542"
+      "id": "B542",
+      "closed": {
+        "as": "obsolete",
+        "reason": "the feature passed later; the re-scope proposal no longer applies",
+        "at": "2026-10-19T04:10:15.266Z"
+      }
     },
     {
       "kind": "decision",
@@ -7071,7 +7108,12 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ],
-      "id": "B544"
+      "id": "B544",
+      "closed": {
+        "as": "obsolete",
+        "reason": "the feature passed later; the re-scope proposal no longer applies",
+        "at": "2026-10-19T04:10:15.266Z"
+      }
     },
     {
       "source": "run:F138",
@@ -7095,7 +7137,432 @@
           "summary": "accept the risk: drop or relax the feature with a recorded decision"
         }
       ],
-      "id": "B545"
+      "id": "B545",
+      "closed": {
+        "as": "obsolete",
+        "reason": "the feature passed later; the re-scope proposal no longer applies",
+        "at": "2026-10-19T04:10:15.266Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F130 AC-5 each setup records build/worktree_setup without output; the report has one line per setup",
+      "summary": "flaky test 'F130 AC-5 each setup records build/worktree_setup without output; the report has one line per setup' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B546",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F130 AC-5 a failed and a timed-out setup are recorded with outcome fail / timeout",
+      "summary": "flaky test 'F130 AC-5 a failed and a timed-out setup are recorded with outcome fail / timeout' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B547",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F130 SC-1 the setup sees env_allowlist variables and nothing else of the harness environment",
+      "summary": "flaky test 'F130 SC-1 the setup sees env_allowlist variables and nothing else of the harness environment' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B548",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F130 SC-2 a secret a failing setup prints is redacted in stderr, the state file and the events",
+      "summary": "flaky test 'F130 SC-2 a secret a failing setup prints is redacted in stderr, the state file and the events' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B549",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F130 SC-3 a setup that leaves a non-ignored file or a tracked change stops the run before any build",
+      "summary": "flaky test 'F130 SC-3 a setup that leaves a non-ignored file or a tracked change stops the run before any build' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B550",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F130 SC-3 the feature worktree is checked too: its branch commit stays at base",
+      "summary": "flaky test 'F130 SC-3 the feature worktree is checked too: its branch commit stays at base' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B551",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F130 ES-2 a failing feature setup stops the run: no next command, no builder, the feature stays in_progress",
+      "summary": "flaky test 'F130 ES-2 a failing feature setup stops the run: no next command, no builder, the feature stays in_progress' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B552",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F130 ES-3 resume re-runs the whole setup in the same worktree, without carried work, then builds",
+      "summary": "flaky test 'F130 ES-3 resume re-runs the whole setup in the same worktree, without carried work, then builds' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B553",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F130 ES-4 a setup command that outlives budget.step_timeout_sec is killed with its process tree",
+      "summary": "flaky test 'F130 ES-4 a setup command that outlives budget.step_timeout_sec is killed with its process tree' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B554",
+      "closed": {
+        "as": "resolved",
+        "reason": "F130 ES-4 reproduced under stress 2 (ENOENT: setup killed before it started); fixed in 2b845ee",
+        "at": "2026-10-19T04:55:56.565Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F130 ES-5 a failing integration setup stops before any feature worktree or builder; resume sets it up again",
+      "summary": "flaky test 'F130 ES-5 a failing integration setup stops before any feature worktree or builder; resume sets it up again' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B555",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F139 AC-1: a stored key finishes as a hit while another verify holds the only slot",
+      "summary": "flaky test 'F139 AC-1: a stored key finishes as a hit while another verify holds the only slot' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B556",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F139 AC-2: a hit has queue_ms 0 while the slot is held (metrics source)",
+      "summary": "flaky test 'F139 AC-2: a hit has queue_ms 0 while the slot is held (metrics source)' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B557",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F139 AC-3: a miss waits for the slot, then runs everything like verify()",
+      "summary": "flaky test 'F139 AC-3: a miss waits for the slot, then runs everything like verify()' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B558",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F139 AC-4: a change made while waiting is verified and stored under the new tree, the old tree misses",
+      "summary": "flaky test 'F139 AC-4: a change made while waiting is verified and stored under the new tree, the old tree misses' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B559",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F139 AC-5: a result stored by another verify while waiting is a hit inside the slot",
+      "summary": "flaky test 'F139 AC-5: a result stored by another verify while waiting is a hit inside the slot' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B560",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F140 AC-2: scripts.test runs 6 test files at the same time",
+      "summary": "flaky test 'F140 AC-2: scripts.test runs 6 test files at the same time' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B561",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F141 AC-4 the CI-failing tests pass with GITHUB_HEAD_REF set",
+      "summary": "flaky test 'F141 AC-4 the CI-failing tests pass with GITHUB_HEAD_REF set' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B562",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F142 AC-3 F130 AC-5 passes when run from a directory named _integration with PWD set to it",
+      "summary": "flaky test 'F142 AC-3 F130 AC-5 passes when run from a directory named _integration with PWD set to it' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B563",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F143 AC-1: a two-feature run leaves .git/config untouched (ino, mtime, text) and removes branches and worktrees",
+      "summary": "flaky test 'F143 AC-1: a two-feature run leaves .git/config untouched (ino, mtime, text) and removes branches and worktrees' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B564",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
+    },
+    {
+      "source": "run:F149",
+      "feature": "F149",
+      "round": 1,
+      "at": "2026-10-19T01:41:10.810Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F143 AC-2: the only branch deletion is update-ref -d with the merged sha; no branch -D/-d/--delete/-m/-M",
+      "summary": "flaky test 'F143 AC-2: the only branch deletion is update-ref -d with the merged sha; no branch -D/-d/--delete/-m/-M' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F149-r1"
+      ],
+      "id": "B565",
+      "closed": {
+        "as": "obsolete",
+        "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
+        "at": "2026-10-19T04:55:56.816Z"
+      }
     }
   ]
 }

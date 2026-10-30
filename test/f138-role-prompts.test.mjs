@@ -95,7 +95,8 @@ test('F138 SC-1: claude write args keep the old deny list and excluded tools', (
 test('F138 SC-2: read-only args and required flags are unchanged', () => {
   const args = claude.buildArgs({ readOnly: true });
   assert.equal(args[args.indexOf('--permission-mode') + 1], 'plan');
-  assert.deepEqual(denied(args), ['Workflow', 'ScheduleWakeup', 'Skill', 'ReportFindings', 'ListAgents', 'Agent']);
+  assert.deepEqual(denied(args), ['Workflow', 'ScheduleWakeup', 'Skill', 'ReportFindings', 'ListAgents', 'Agent',
+    'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree']);
   const req = ['-p', '--strict-mcp-config', '--disable-slash-commands', '--disallowedTools', '--output-format=json'];
   assert.deepEqual(claude.requiredFlags({ readOnly: true }), [...req.slice(0, 3), '--permission-mode=plan', ...req.slice(3)]);
   assert.deepEqual(claude.requiredFlags({ readOnly: false }), [...req.slice(0, 3), '--permission-mode=auto', ...req.slice(3)]);

@@ -205,6 +205,24 @@ test('F112 AC-6 docs/MAP.md names every lib/*.mjs and bin/ file on a line with a
   assert.deepEqual(missing, []);
 });
 
+// Every '<path> — ' entry for lib/ or bin/ in a module map, a line may hold several (B530).
+const staleMapEntries = (root, text) => [...text.matchAll(/\b((?:lib|bin)\/[\w./-]+) — /g)]
+  .map((m) => m[1]).filter((f) => !fs.existsSync(path.join(root, f)));
+
+test('F112 AC-6 docs/MAP.md names no lib/ or bin/ file that no longer exists', () => {
+  const map = fs.readFileSync(path.join(REPO, 'docs', 'MAP.md'), 'utf8');
+  assert.ok((map.match(/ — /g) || []).length > 30);
+  assert.deepEqual(staleMapEntries(REPO, map), []);
+});
+
+test('F112 AC-6 a stale map entry is reported, also as the second entry on a line', () => {
+  const dir = tmpdir('f112-map-');
+  fs.mkdirSync(path.join(dir, 'lib'));
+  fs.writeFileSync(path.join(dir, 'lib', 'a.mjs'), '');
+  const map = '- lib/a.mjs — kept; lib/b.mjs — removed\n- lib/gone.mjs — removed\n- bin/x — removed\n';
+  assert.deepEqual(staleMapEntries(dir, map), ['lib/b.mjs', 'lib/gone.mjs', 'bin/x']);
+});
+
 test('F112 SC-1 a secret path in run.context_files is config_invalid', () => {
   for (const f of ['.env', 'secrets/key.pem']) {
     assert.throws(bad({ context_files: [f] }), (e) => e.code === 'config_invalid' && e.exit === 2 && e.message.includes('run.context_files') && e.message.includes(f));

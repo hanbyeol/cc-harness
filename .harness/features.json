@@ -1225,12 +1225,33 @@
       "status": "passed"
     },
     {
+      "id": "F149",
+      "title": "backlog 정리 묶음(동작 변화 없음) — recordEntries 의 backlog_id 합치기 분기 제거(B532), F113 분할로 파일 머리로 밀려난 주석을 제자리로(B535), 충돌 표시 함수를 lib/run/merge.mjs 로 옮기고 prompt.mjs 끝 빈 줄 제거(B536). 이미 반영된 B531·B533·B534 는 회귀 방지 기준으로 함께 닫는다",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "passed"
+    },
+    {
+      "id": "F150",
+      "title": "run.context_files 의 비밀 경로 검사를 병합된 config(DEFAULTS ← profile ← user)의 secret_globs·context_files 로도 한다 — 사용자 파일만 보던 검사(B529)는 프로필이 secret_globs 나 context_files 를 줄 때 비밀 파일 본문이 builder 프롬프트에 실릴 수 있었다",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "passed"
+    },
+    {
       "id": "F151",
       "title": "에이전트 규칙: passed(eval)·fix verify 통과 후 PR 없이 base 브랜치에 직접 merge·push, 그 전 보호 브랜치 merge·push 와 force-push 는 금지, 코어 SR-5 유지",
       "security_tier": "critical",
       "depends_on": [],
       "status": "passed",
       "eval_round": 1
+    },
+    {
+      "id": "F152",
+      "title": "claude role sessions for Claude Code 2.1.314: no refusal model fallback, served-model independence, new unused tools denied",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "passed"
     }
   ]
 }

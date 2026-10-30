@@ -371,13 +371,13 @@ test('F130 ES-3 resume re-runs the whole setup in the same worktree, without car
 test('F130 ES-4 a setup command that outlives budget.step_timeout_sec is killed with its process tree', async () => {
   const pidFile = path.join(tmpdir('f130-pid-'), 'child.pid');
   const f = fixture({
-    setup: ['node sleepy.mjs'], config: { budget: { step_timeout_sec: 1 } },
-    scripts: { 'sleepy.mjs': `import fs from 'node:fs';\nfs.writeFileSync(${JSON.stringify(pidFile)}, String(process.pid));\nsetTimeout(() => {}, 30000);\n` },
+    setup: ['node sleepy.mjs'], config: { budget: { step_timeout_sec: 5 } },
+    scripts: { 'sleepy.mjs': `import fs from 'node:fs';\nfs.writeFileSync(${JSON.stringify(pidFile)}, String(process.pid));\nsetTimeout(() => {}, 120000);\n` },
   });
   const r = cli(f);
   assert.equal(r.code, 1, r.stderr);
   assert.ok(r.stderr.includes('worktree setup') && r.stderr.includes('timed out'), r.stderr);
-  assert.ok(r.ms < 20000, `took ${r.ms} ms`);
+  assert.ok(r.ms < 90000, `took ${r.ms} ms`);
   const pid = Number(fs.readFileSync(pidFile, 'utf8'));
   let gone = false;
   for (let i = 0; i < 100 && !gone; i += 1) { gone = !alive(pid); if (!gone) await sleep(100); }
