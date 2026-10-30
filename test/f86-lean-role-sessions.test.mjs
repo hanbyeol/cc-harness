@@ -18,9 +18,9 @@ const CLAUDE_HELP = fs.readFileSync(path.join(FIX, 'help', 'claude-2.1.280.txt')
 
 // The pre-feature builder deny list (SPEC §10 <deny>), spelled out so a shrunk DENY is noticed.
 const DENY_ARGS = ['Bash(git push:*)', 'Bash(git reset --hard:*)', 'Bash(rm -rf /:*)', 'Bash(rm -rf ~:*)', 'Bash(sudo:*)', 'Bash(harness:*)', 'Bash(cc-harness:*)', 'Bash(npx cc-harness:*)', 'Bash(npx github:hanbyeol/cc-harness:*)', 'Bash(node bin/harness.mjs:*)'];
-const BUILDER_OFF = ['Workflow', 'Skill', 'ReportFindings', 'ListAgents', 'Agent'];
+const BUILDER_OFF = ['Workflow', 'Skill', 'ReportFindings', 'ListAgents', 'Agent', 'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree'];
 const BUILDER_KEPT = ['ScheduleWakeup', 'Monitor', 'ToolSearch'];
-const READ_ONLY_OFF = ['Workflow', 'ScheduleWakeup', 'Skill', 'ReportFindings', 'ListAgents', 'Agent'];
+const READ_ONLY_OFF = ['Workflow', 'ScheduleWakeup', 'Skill', 'ReportFindings', 'ListAgents', 'Agent', 'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree'];
 const NEW_FLAGS = ['--strict-mcp-config', '--disable-slash-commands'];
 const CLAUDE_ROLES = {
   builder: { adapter: 'claude', model: 'b1' },

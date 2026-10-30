@@ -140,9 +140,9 @@ test('F70 AC-2 claude adapter: without effort the arguments are exactly the pre-
   const DENY = ['Bash(git push:*)', 'Bash(git reset --hard:*)', 'Bash(rm -rf /:*)', 'Bash(rm -rf ~:*)', 'Bash(sudo:*)', 'Bash(harness:*)', 'Bash(cc-harness:*)', 'Bash(npx cc-harness:*)', 'Bash(npx github:hanbyeol/cc-harness:*)', 'Bash(node bin/harness.mjs:*)'];
   // The flags and denied tools of a lean role session (F86) come first.
   const LEAN = ['-p', '--strict-mcp-config', '--disable-slash-commands'];
-  const READ_ONLY_OFF = ['Workflow', 'ScheduleWakeup', 'Skill', 'ReportFindings', 'ListAgents', 'Agent'];
+  const READ_ONLY_OFF = ['Workflow', 'ScheduleWakeup', 'Skill', 'ReportFindings', 'ListAgents', 'Agent', 'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree'];
   assert.deepEqual(claude.buildArgs({ readOnly: false, budgetUsd: 2, model: 'm' }),
-    [...LEAN, '--permission-mode', 'auto', '--disallowedTools', ...DENY, 'Workflow', 'Skill', 'ReportFindings', 'ListAgents', 'Agent',
+    [...LEAN, '--permission-mode', 'auto', '--disallowedTools', ...DENY, 'Workflow', 'Skill', 'ReportFindings', 'ListAgents', 'Agent', 'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree',
       '--output-format', 'json', '--max-budget-usd', '2', '--model', 'm']);
   assert.deepEqual(claude.buildArgs({ readOnly: true, schema: { type: 'object' }, model: 'm', effort: null }),
     [...LEAN, '--permission-mode', 'plan', '--disallowedTools', ...READ_ONLY_OFF, '--output-format', 'json', '--json-schema', '{"type":"object"}', '--model', 'm']);
