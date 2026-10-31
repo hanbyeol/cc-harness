@@ -1,10 +1,9 @@
 {
   "profile": "sdlc",
-  "base_branch": "v2",
+  "base_branch": "main",
   "integration_branch": "harness/integration",
   "protected_branches": [
-    "main",
-    "v2"
+    "main"
   ],
   "verify": {
     "commands": [
