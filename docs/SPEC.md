@@ -65,8 +65,8 @@ run 보고서와 같은 규칙(SR-2·SR-8: `env_allowlist` 밖 환경 변수 값
   잘못된 옵션(없는 stage, `F<n>` 이 아닌 feature, 날짜가 아닌 since)은 `usage`(exit 2).
 - 피드백 단계: 사람이 명령으로 남기는 기록이다. 두 명령 모두 사유가 비어 있거나(공백만 포함) 옵션이 잘못되면 `usage`(exit 2)이고 아무것도 기록하지 않는다.
   이벤트를 쓰지 못하면(위 기록 실패) 경고 후 exit 1 이다 — 기록이 이 명령들의 목적이기 때문이다.
-  - `harness decide F<n> --accept-risk|--split|--rewrite "<사유>"` — 셋 중 정확히 하나, features.json 에 있는 기능만. backlog 에 `kind: decision` 항목
-    `{kind, feature, decision, reason, summary, at}`(id `B<n>` 은 §7.7 규칙)을 추가하고 `feedback/decision` 이벤트 `{decision, reason, backlog_id}` 를 남긴다. 기능의 status 는 바꾸지 않는다.
+  - `harness decide F<n> --accept-risk|--split|--rewrite|--drop "<사유>"` — 넷 중 정확히 하나, features.json 에 있는 기능만. backlog 에 `kind: decision` 항목
+    `{kind, feature, decision, reason, summary, at}`(id `B<n>` 은 §7.7 규칙)을 추가하고 `feedback/decision` 이벤트 `{decision, reason, backlog_id}` 를 남긴다. `--drop` 은 todo·approved·blocked 기능의 status 를 `skipped` 로 바꾼다(passed 등 그 밖의 status 는 `usage`, exit 2, 기록 없음). 나머지 결정은 기능의 status 를 바꾸지 않는다.
     `summary` 는 `decision <decision> for F<n>: <사유>` 이다(사유는 `reason` 과 같이 가린 값). `kind: decision` 항목(summary 가 없는 이전 항목 포함)은 기록이지
     열린 항목이 아니다 — backlog.json 에 그대로 남지만 `harness status` 의 `backlog: N open` 수,
     열린 항목 합치기(§7.7)에 들어가지 않는다.
