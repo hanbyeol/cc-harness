@@ -7563,6 +7563,15 @@
         "reason": "not reproduced: two full suites concurrently (node test/stress.mjs 2) passed twice; seen once under the heavier load of a parallel run",
         "at": "2026-10-19T04:55:56.816Z"
       }
+    },
+    {
+      "kind": "decision",
+      "feature": "F118",
+      "decision": "accept-risk",
+      "reason": "affected mode was removed by F120; nothing left to build",
+      "summary": "decision accept-risk for F118: affected mode was removed by F120; nothing left to build",
+      "at": "2026-10-31T00:36:50.797Z",
+      "id": "B566"
     }
   ]
 }

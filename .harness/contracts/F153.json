@@ -1,0 +1,93 @@
+{
+  "id": "F153",
+  "title": "claude 역할 세션을 사용자 환경에서 떼어 낸다 — --settings 로 사용자·플러그인 hook 과 auto-memory 를 끄고(builder 가 남긴 memory 를 evaluator 가 읽지 않게), 결과 wrapper 없이 exit 0 으로 끝난 claude 호출은 exit_nonzero 로 본다(2.1.314 미만의 시작 실패). v2 브랜치를 지웠으니 CI 트리거는 main 만 남긴다",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "claude 어댑터 buildArgs 는 readOnly false·true 모두에서 '--settings' 와 그 바로 뒤에 JSON 문자열 하나를 넘기고, 그 JSON 을 파싱하면 disableAllHooks 가 true, autoMemoryEnabled 가 false 다",
+      "check": "node test/t.mjs \"F153 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "claude 어댑터 requiredFlags 는 readOnly false·true 모두에서 '--settings' 를 담고, test/fixtures/help/claude-2.1.314.txt 에 대한 missingFlags 는 여전히 빈 배열이다",
+      "check": "node test/t.mjs \"F153 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "claude 어댑터 run() 에서 가짜 CLI 가 stdout 없이 exit 0 으로 끝나면 결과는 ok 가 아니고 error 'exit_nonzero', detail 에 'no result' 가 들어간다(schema 없는 builder 호출)",
+      "check": "node test/t.mjs \"F153 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "claude 어댑터 run() 에서 가짜 CLI 가 정상 result wrapper({type:'result', is_error:false, result:'done', total_cost_usd:0.01})를 내고 exit 0 이면 결과는 ok 이고 costUsd 가 0.01 이다",
+      "check": "node test/t.mjs \"F153 AC-4\"",
+      "new": false,
+      "new_reason": "회귀 방지 — wrapper 판정을 넓혀 정상 결과까지 오류로 만드는 구현을 막는다. base 에서 통과한다"
+    },
+    {
+      "id": "AC-5",
+      "criterion": "codex·generic 어댑터는 가짜 CLI 가 stdout 없이 exit 0 으로 끝나도 schema 가 없으면 지금처럼 ok 다",
+      "check": "node test/t.mjs \"F153 AC-5\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 빈 출력 판정을 모든 어댑터에 넣는 구현을 막는다. base 에서 통과한다"
+    },
+    {
+      "id": "AC-6",
+      "criterion": ".github/workflows/ci.yml 의 push·pull_request branches 가 둘 다 정확히 [main] 이다. F8 AC-4 테스트의 브랜치 기대도 main 하나로 바뀌고 그 테스트는 통과한다",
+      "check": "node test/t.mjs \"F153 AC-6\" && node test/t.mjs \"F8 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "docs/SPEC.md §10 이 claude 역할 세션의 --settings(disableAllHooks·autoMemoryEnabled)를 적고, claude 결과 분류 문단이 wrapper 없는 exit 0 을 exit_nonzero 로 적는다(문서 check: 'disableAllHooks'·'autoMemoryEnabled' 가 있고, 'wrapper' 와 'exit_nonzero' 와 'exit 0' 이 한 문장에 있다)",
+      "check": "node test/t.mjs \"F153 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "--settings 로 넘기는 JSON 의 키는 정확히 disableAllHooks 와 autoMemoryEnabled 두 개다 — permissions 같은 다른 설정을 덮어쓰지 않는다",
+      "check": "node test/t.mjs \"F153 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "builder 인자에서 --permission-mode auto, --disallowedTools 바로 뒤의 DENY 목록(같은 순서), F152 의 쓰지 않는 도구 9개는 그대로이고, readOnly 인자의 --permission-mode plan 도 그대로다",
+      "check": "node test/t.mjs \"F153 SC-2\"",
+      "new": false,
+      "new_reason": "회귀 방지 — --settings 를 끼워 넣다 기존 권한 인자를 빠뜨리거나 옮기는 구현을 막는다. base 에서 통과한다"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "claude 어댑터 run() 에서 가짜 CLI 가 JSON 이 아닌 텍스트('hello')만 내고 exit 0 이면 결과는 error 'exit_nonzero' 다",
+      "check": "node test/t.mjs \"F153 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "usage limit wrapper(is_error true, api_error 'usage_limit_reached')를 내고 exit 0 이면 결과는 여전히 error 'usage_limit' 이다",
+      "check": "node test/t.mjs \"F153 ES-2\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 빈 출력 판정이 usage limit 분류보다 먼저 와서 그것을 가리는 구현을 막는다. base 에서 통과한다"
+    }
+  ],
+  "out_of_scope": [
+    "--bare 사용 — ANTHROPIC_API_KEY 전용이라 OAuth 사용자의 역할 세션을 띄우지 못한다",
+    "관리형(managed) 설정의 hook — 사용자 설정은 그것을 끌 수 없다(Claude Code 의 정책)",
+    "지원 CLI 최소 버전 검사(doctor)",
+    "codex·gemini·generic 어댑터의 인자와 빈 출력 처리"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-31T00:36:50.603Z",
+    "hash": "a40e6049fdefdb0964dc8b5d363a2d3d5670d87b499ebfb20b9cd515c195aeda"
+  }
+}

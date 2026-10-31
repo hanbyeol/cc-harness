@@ -1252,6 +1252,15 @@
       "security_tier": "critical",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F153",
+      "title": "claude role sessions detached from user hooks and auto-memory; exit 0 without a result wrapper is exit_nonzero; CI on main only",
+      "security_tier": "critical",
+      "depends_on": [
+        "F152"
+      ],
+      "status": "approved"
     }
   ]
 }
