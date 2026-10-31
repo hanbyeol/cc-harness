@@ -139,14 +139,14 @@ test('F70 AC-1 harness eval: the default adapter call passes each reviewer its o
 test('F70 AC-2 claude adapter: without effort the arguments are exactly the pre-feature ones', () => {
   const DENY = ['Bash(git push:*)', 'Bash(git reset --hard:*)', 'Bash(rm -rf /:*)', 'Bash(rm -rf ~:*)', 'Bash(sudo:*)', 'Bash(harness:*)', 'Bash(cc-harness:*)', 'Bash(npx cc-harness:*)', 'Bash(npx github:hanbyeol/cc-harness:*)', 'Bash(node bin/harness.mjs:*)'];
   // The flags and denied tools of a lean role session (F86) come first.
-  const LEAN = ['-p', '--strict-mcp-config', '--disable-slash-commands'];
+  const LEAN = ['-p', '--strict-mcp-config', '--disable-slash-commands', '--settings', '{"disableAllHooks":true,"autoMemoryEnabled":false}'];
   const READ_ONLY_OFF = ['Workflow', 'ScheduleWakeup', 'Skill', 'ReportFindings', 'ListAgents', 'Agent', 'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree'];
   assert.deepEqual(claude.buildArgs({ readOnly: false, budgetUsd: 2, model: 'm' }),
     [...LEAN, '--permission-mode', 'auto', '--disallowedTools', ...DENY, 'Workflow', 'Skill', 'ReportFindings', 'ListAgents', 'Agent', 'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree',
       '--output-format', 'json', '--max-budget-usd', '2', '--model', 'm']);
   assert.deepEqual(claude.buildArgs({ readOnly: true, schema: { type: 'object' }, model: 'm', effort: null }),
     [...LEAN, '--permission-mode', 'plan', '--disallowedTools', ...READ_ONLY_OFF, '--output-format', 'json', '--json-schema', '{"type":"object"}', '--model', 'm']);
-  const req = [...LEAN, '--permission-mode=plan', '--disallowedTools', '--output-format=json'];
+  const req = [...LEAN.slice(0, 4), '--permission-mode=plan', '--disallowedTools', '--output-format=json'];
   assert.deepEqual(claude.requiredFlags({ readOnly: true, model: 'm' }), [...req, '--model']);
   assert.deepEqual(claude.requiredFlags({ readOnly: true, model: 'm', effort: 'low' }), [...req, '--model', '--effort']);
   // With effort, the rest is unchanged.

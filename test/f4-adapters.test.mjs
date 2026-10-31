@@ -47,7 +47,7 @@ test('F4 AC-1 run() passes the prompt on stdin and returns the common result sha
   for (const [name, a] of Object.entries(adapters())) {
     for (const readOnly of [false, true]) {
       const r = await a.run({ role: readOnly ? 'evaluator' : 'builder', prompt: 'PROMPT-TEXT\nline 2', cwd: REPO, readOnly,
-        schema: SCHEMA, timeoutSec: 30, budgetUsd: 1, model: 'm1', ...fake('echo-args') });
+        schema: SCHEMA, timeoutSec: 30, budgetUsd: 1, model: 'm1', ...fake(name === 'claude' ? 'echo-args-wrapper' : 'echo-args') });
       for (const k of RESULT_KEYS) assert.ok(k in r, `${name}: missing ${k}`);
       assert.equal(r.ok, true, `${name}: ${r.error} ${r.detail}`);
       assert.equal(r.error, null);
@@ -98,7 +98,7 @@ test('F4 AC-1 generic refuses a read-only call when no read_only_command is conf
 
 const DENY_ARGS = ['Bash(git push:*)', 'Bash(git reset --hard:*)', 'Bash(rm -rf /:*)', 'Bash(rm -rf ~:*)', 'Bash(sudo:*)', 'Bash(harness:*)', 'Bash(cc-harness:*)', 'Bash(npx cc-harness:*)', 'Bash(npx github:hanbyeol/cc-harness:*)', 'Bash(node bin/harness.mjs:*)'];
 // No MCP servers or skills in a role session, and the tools the role never uses denied (F86).
-const LEAN = ['-p', '--strict-mcp-config', '--disable-slash-commands'];
+const LEAN = ['-p', '--strict-mcp-config', '--disable-slash-commands', '--settings', '{"disableAllHooks":true,"autoMemoryEnabled":false}'];
 const BUILDER_OFF = ['Workflow', 'Skill', 'ReportFindings', 'ListAgents', 'Agent', 'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree'];
 const READ_ONLY_OFF = ['Workflow', 'ScheduleWakeup', 'Skill', 'ReportFindings', 'ListAgents', 'Agent', 'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree'];
 
