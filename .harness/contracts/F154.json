@@ -1,0 +1,66 @@
+{
+  "id": "F154",
+  "title": "harness decide F<n> --drop \"<사유>\" — 더 만들 필요가 없는 기능을 사람이 종결한다: status 를 skipped 로 바꾸고 decision 기록을 남긴다. accept-risk 는 상태를 바꾸지 않아 종결한 기능(예: F120 이후의 F118)이 status 에 blocked 로 계속 남는다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "blocked 기능 F7 에 'harness decide F7 --drop \"obsolete\"' 를 실행하면 exit 0 이고 features.json 의 F7 status 가 'skipped' 이며, stdout 이 'F7: decision drop recorded (backlog B' 로 시작하고 'status blocked -> skipped' 를 담는다",
+      "check": "node test/t.mjs \"F154 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "AC-1 의 실행은 backlog 에 kind 'decision', decision 'drop', reason 'obsolete' 항목 하나와 feedback/decision 이벤트(data.decision 'drop')를 남긴다",
+      "check": "node test/t.mjs \"F154 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "--drop 은 todo·approved·blocked 기능에 쓸 수 있다: todo 기능과 approved 기능에도 exit 0 이고 status 가 'skipped' 가 된다",
+      "check": "node test/t.mjs \"F154 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "status 가 passed 1개·skipped 1개인 프로젝트에서 'harness status --brief' 는 'skipped' 를 세어 보여 주고 'blocked' 는 담지 않는다",
+      "check": "node test/t.mjs \"F154 AC-4\"",
+      "new": false,
+      "new_reason": "회귀 방지 — status 는 ORDER 에 이미 skipped 가 있어 base 에서도 센다. --drop 이 만든 상태가 그대로 보이는지 고정한다"
+    },
+    {
+      "id": "AC-5",
+      "criterion": "'harness decide --help' 와 docs/SPEC.md 의 decide 설명이 --drop 을 적고, SPEC 은 '--drop' 과 'skipped' 를 한 문장에 담는다(문서 check)",
+      "check": "node test/t.mjs \"F154 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "passed 기능에 --drop 을 쓰면 exit 2(usage)이고 메시지에 'passed' 가 들어가며, features.json·backlog·이벤트는 바뀌지 않는다",
+      "check": "node test/t.mjs \"F154 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "--accept-risk·--split·--rewrite 는 지금처럼 기능 status 를 바꾸지 않는다(blocked 기능에 --accept-risk 후에도 'blocked')",
+      "check": "node test/t.mjs \"F154 ES-2\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 상태 변경을 모든 결정에 넣는 구현을 막는다. base 에서 통과한다"
+    },
+    {
+      "id": "ES-3",
+      "criterion": "--drop 과 --accept-risk 를 함께 주면 exit 2(usage)이고 아무것도 기록하지 않는다",
+      "check": "node test/t.mjs \"F154 ES-3\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "skipped 기능을 다시 여는 명령 — 필요하면 새 기능으로 계약한다",
+    "harness run 의 기능 선택 규칙 변경",
+    "이미 기록된 F118 의 처리 — 이 기능이 통과한 뒤 사람이 'harness decide F118 --drop' 을 실행한다"
+  ]
+}
