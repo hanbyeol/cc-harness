@@ -91,6 +91,7 @@ test('F154 ES-3 --drop with --accept-risk is a usage error and records nothing',
   const dir = project(feats(['blocked']));
   const r = harness(['decide', 'F1', '--drop', '--accept-risk', 'x'], { cwd: dir });
   assert.equal(r.code, 2);
+  assert.match(r.stderr, /give one decision, not --drop and --accept-risk/);
   assert.equal(statusOf(dir, 'F1'), 'blocked');
   assert.deepEqual(backlog(dir), []);
   assert.equal(eventsText(dir).includes('"decision"'), false);
