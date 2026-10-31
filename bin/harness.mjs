@@ -20,7 +20,7 @@ const COMMANDS = {
   status: ['show feature status and what can run next', false],
   stats: ['aggregate step metrics and suggest config changes', true],
   events: ['show the event log (.harness/events) oldest first', true],
-  decide: ['record a human decision on a feature (--accept-risk|--split|--rewrite)', true],
+  decide: ['record a human decision on a feature (--accept-risk|--split|--rewrite|--drop)', true],
   backlog: ['close open backlog items (close B<n>... --resolved|--obsolete "<reason>")', true],
   doctor: ['detect installed CLIs and check adapter flags', false],
   'claude-md': ['write the cc-harness block into CLAUDE.md (--check: report only)', false],
