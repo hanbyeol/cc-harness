@@ -62,5 +62,10 @@
     "skipped 기능을 다시 여는 명령 — 필요하면 새 기능으로 계약한다",
     "harness run 의 기능 선택 규칙 변경",
     "이미 기록된 F118 의 처리 — 이 기능이 통과한 뒤 사람이 'harness decide F118 --drop' 을 실행한다"
-  ]
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-10-31T01:47:44.231Z",
+    "hash": "aa63123735d9aa52d3c7ed750800c3b4f56076820cf7d05166ef681de6d3c04b"
+  }
 }
