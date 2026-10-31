@@ -357,7 +357,7 @@ test('F55 SC-1: no prompt, model response or diff reaches the events or metrics'
 
 // ---------- ES-1 ----------
 test('F55 ES-1: output that is not JSON, or a wrapper without usage, keeps the result and nulls only the usage fields', async () => {
-  const text = await claude.run({ prompt: 'x', cwd: REPO, bin: process.execPath, binArgs: [FAKE, 'text', 'plain words, no JSON'] });
+  const text = await codex.run({ prompt: 'x', cwd: REPO, bin: process.execPath, binArgs: [FAKE, 'text', 'plain words, no JSON'] });
   assert.equal(text.ok, true);
   assert.equal(text.text, 'plain words, no JSON');
   assert.deepEqual(usageOf(text), NULL_USAGE);
@@ -374,7 +374,7 @@ test('F55 ES-1: output that is not JSON, or a wrapper without usage, keeps the r
   // through the run: a plain-text builder output still builds, the metrics line and the event have nulls
   const dir = project();
   await runFeatures({ root: dir, config: runCfg(), deps: {
-    build: async (a) => { writeFiles(a.cwd, { 'F1.txt': 'x\n' }); return claude.run({ prompt: 'x', cwd: a.cwd, bin: process.execPath, binArgs: [FAKE, 'text', 'not json'] }); },
+    build: async (a) => { writeFiles(a.cwd, { 'F1.txt': 'x\n' }); return codex.run({ prompt: 'x', cwd: a.cwd, bin: process.execPath, binArgs: [FAKE, 'text', 'not json'] }); },
     verify: async () => RUN_PASSING,
     evaluate: async (a) => ({ feature: a.featureId, round: a.round, score: 9, scores, backlogged: [], blocking: [], independence: 'cross-model', costUsd: 0, file: null, verdict: 'pass' }),
   } });

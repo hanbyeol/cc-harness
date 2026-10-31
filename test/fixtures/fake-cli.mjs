@@ -1,5 +1,6 @@
 // Stand-in for a model CLI in adapter tests: `node fake-cli.mjs <mode> [arg] ...adapterArgs`.
 //   echo-args      print {"argv":[...adapterArgs],"stdin":"..."} as JSON
+//   echo-args-wrapper  the same, as the result of a claude wrapper
 //   print <file>   print the file's contents (e.g. a recorded claude wrapper)
 //   print-fail <file>  same, then exit 1 (the recorded run exited 1)
 //   text <string>  print the string
@@ -24,6 +25,11 @@ async function readStdin() {
 if (mode === 'echo-args') {
   const stdin = await readStdin();
   process.stdout.write(JSON.stringify({ argv: [arg, ...rest].filter((x) => x !== undefined), stdin }));
+} else if (mode === 'echo-args-wrapper') {
+  // the same as echo-args, inside a claude result wrapper
+  const stdin = await readStdin();
+  const echo = JSON.stringify({ argv: [arg, ...rest].filter((x) => x !== undefined), stdin });
+  process.stdout.write(JSON.stringify({ type: 'result', is_error: false, result: echo }));
 } else if (mode === 'print') {
   await readStdin();
   process.stdout.write(fs.readFileSync(arg, 'utf8'));

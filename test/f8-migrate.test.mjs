@@ -113,7 +113,7 @@ test('F8 AC-4: CI runs node --test on an ubuntu/macos/windows matrix', () => {
   assert.match(ci, /^\s*node:\s*\[\s*22\s*,\s*24\s*\]/m);
   assert.match(ci, /^\s*(-\s*)?run:\s*node --test\s+"?test\/\S*\.test\.mjs/m);
   assert.match(ci, /^\s*(-\s*)?run:\s*node bin\/harness\.mjs lint-contract\s*$/m);
-  assert.match(ci, /branches:\s*\[[^\]]*\bmain\b[^\]]*\bv2\b[^\]]*\]/);
+  assert.match(ci, /branches:\s*\[main\]/);
   // v1 shell tooling is gone from CI.
   assert.doesNotMatch(ci, /bats|shellcheck/);
 });

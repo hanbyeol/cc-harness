@@ -22,6 +22,8 @@ const BUILDER_OFF = ['Workflow', 'Skill', 'ReportFindings', 'ListAgents', 'Agent
 const BUILDER_KEPT = ['ScheduleWakeup', 'Monitor', 'ToolSearch'];
 const READ_ONLY_OFF = ['Workflow', 'ScheduleWakeup', 'Skill', 'ReportFindings', 'ListAgents', 'Agent', 'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree'];
 const NEW_FLAGS = ['--strict-mcp-config', '--disable-slash-commands'];
+// F153 added the role-session settings; these tests are about the F86 arguments only.
+const SETTINGS_ARGS = ['--settings', '{"disableAllHooks":true,"autoMemoryEnabled":false}'];
 const CLAUDE_ROLES = {
   builder: { adapter: 'claude', model: 'b1' },
   evaluator: { adapter: 'claude', model: 'e1', effort: 'medium' },
@@ -138,7 +140,7 @@ test('F86 AC-1 builder: the fake claude gets --strict-mcp-config, --disable-slas
 
 test('F86 AC-1 builder: without the new flags and tools the arguments are the pre-feature ones', async () => {
   const { calls } = await logged(() => fakeClaude({ prompt: '# Task: feature F1\n', cwd: tmpdir('harness-cwd-'), timeoutSec: 60, readOnly: false, budgetUsd: 2, model: 'm', effort: 'high' }));
-  const rest = calls[0].argv.filter((a) => !NEW_FLAGS.includes(a) && !BUILDER_OFF.includes(a));
+  const rest = calls[0].argv.filter((a) => !NEW_FLAGS.includes(a) && !SETTINGS_ARGS.includes(a) && !BUILDER_OFF.includes(a));
   assert.deepEqual(rest, ['-p', '--permission-mode', 'auto', '--disallowedTools', ...DENY_ARGS, '--output-format', 'json',
     '--max-budget-usd', '2', '--model', 'm', '--effort', 'high']);
 });
@@ -163,7 +165,7 @@ test('F86 AC-2 evaluator and security-reviewer: the fake claude gets the new fla
     const denied = deniedOf(argv);
     for (const t of READ_ONLY_OFF) assert.ok(denied.includes(t), `${role}: ${t} denied: ${JSON.stringify(denied)}`);
     // The pre-feature read-only arguments, in their order, once the new ones are taken out.
-    const rest = argv.filter((a) => !NEW_FLAGS.includes(a) && a !== '--disallowedTools' && !denied.includes(a));
+    const rest = argv.filter((a) => !NEW_FLAGS.includes(a) && !SETTINGS_ARGS.includes(a) && a !== '--disallowedTools' && !denied.includes(a));
     assert.deepEqual(rest, ['-p', '--permission-mode', 'plan', '--output-format', 'json', '--json-schema', JSON.stringify(OUTPUT_SCHEMA), ...expected[role]], role);
   }
 });
