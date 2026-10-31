@@ -7572,6 +7572,15 @@
       "summary": "decision accept-risk for F118: affected mode was removed by F120; nothing left to build",
       "at": "2026-10-31T00:36:50.797Z",
       "id": "B566"
+    },
+    {
+      "kind": "decision",
+      "feature": "F118",
+      "decision": "drop",
+      "reason": "affected mode was removed by F120; nothing left to build",
+      "summary": "decision drop for F118: affected mode was removed by F120; nothing left to build",
+      "at": "2026-10-31T02:02:47.298Z",
+      "id": "B567"
     }
   ]
 }

@@ -998,8 +998,7 @@
       "title": "affected 모드의 테스트 수를 소스에서 센다 — base 재실행(~300초) 제거",
       "security_tier": "critical",
       "depends_on": [],
-      "status": "blocked",
-      "blocked_reason": "divergence"
+      "status": "skipped"
     },
     {
       "id": "F119",
