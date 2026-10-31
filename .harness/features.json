@@ -1260,7 +1260,7 @@
       "depends_on": [
         "F152"
       ],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }
