@@ -1267,7 +1267,7 @@
       "title": "harness decide --drop: a human closes a feature that needs no more work (status skipped)",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }
