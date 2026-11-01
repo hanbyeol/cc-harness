@@ -301,10 +301,13 @@ test('F130 SC-3 a setup that leaves a non-ignored file or a tracked change stops
   }
 });
 
+// The setup scripts tell the feature worktree (.harness/wt/F1) by the end of the cwd: the random
+// temporary directory name can contain 'F1' too, which made includes() match the integration worktree.
+
 test('F130 SC-3 the feature worktree is checked too: its branch commit stays at base', () => {
   const f = fixture({
     setup: ['node feat.mjs'],
-    scripts: { 'feat.mjs': "import fs from 'node:fs';\nif (process.cwd().includes('F1')) fs.writeFileSync('.env', 'A=1\\n');\n" },
+    scripts: { 'feat.mjs': "import fs from 'node:fs';\nif (process.cwd().endsWith('F1')) fs.writeFileSync('.env', 'A=1\\n');\n" },
   });
   const r = cli(f);
   assert.equal(r.code, 1, r.stderr);
@@ -330,7 +333,7 @@ test('F130 ES-1 an invalid run.worktree_setup is config_invalid (exit 2) and cre
 test('F130 ES-2 a failing feature setup stops the run: no next command, no builder, the feature stays in_progress', () => {
   const f = fixture({
     ids: ['F1'], setup: ['node gate.mjs', 'node s2.mjs'],
-    scripts: { 'gate.mjs': "if (process.cwd().includes('F1')) process.exit(3);\n" },
+    scripts: { 'gate.mjs': "if (process.cwd().endsWith('F1')) process.exit(3);\n" },
   });
   const r = cli(f);
   assert.equal(r.code, 1, r.stderr);
@@ -348,7 +351,7 @@ test('F130 ES-3 resume re-runs the whole setup in the same worktree, without car
   const flag = path.join(tmpdir('f130-flag-'), 'fixed');
   const f = fixture({
     setup: ['node s1.mjs', 'node gate.mjs'],
-    scripts: { 'gate.mjs': `import fs from 'node:fs';\nif (process.cwd().includes('F1') && !fs.existsSync(${JSON.stringify(flag)})) process.exit(3);\n` },
+    scripts: { 'gate.mjs': `import fs from 'node:fs';\nif (process.cwd().endsWith('F1') && !fs.existsSync(${JSON.stringify(flag)})) process.exit(3);\n` },
   });
   const r1 = cli(f);
   assert.equal(r1.code, 1, r1.stderr);
