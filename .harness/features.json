@@ -1267,6 +1267,13 @@
       "security_tier": "standard",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F155",
+      "title": "merged feature cleanup (worktree remove, update-ref -d) retried up to 3 times; a final failure is a run warning",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }

@@ -1,0 +1,85 @@
+{
+  "id": "F155",
+  "title": "병합된 기능의 정리(git worktree remove --force, git update-ref -d)가 실패하면 코어가 짧게 기다렸다가 다시 시도하고(최대 3번), 끝내 실패하면 run 경고로 알린다 — 지금은 한 번 실패하면 말없이 harness/F<n> 브랜치를 남긴다(Windows 일시 파일 잠금, CI 41158179428 의 F143 AC-1 1회 실패)",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "deps.git 로 병합 뒤 첫 'worktree remove --force' 만 exit 1 로 만든 단일 기능 run 에서 F1 은 passed, worktree remove 호출은 2번이고 harness/F1 브랜치와 worktree 가 없다",
+      "check": "node test/t.mjs \"F155 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "병합 뒤 첫 'update-ref -d refs/heads/harness/F1' 만 exit 1 로 만든 run 에서 F1 은 passed, update-ref -d 호출은 같은 인자로 2번이고 harness/F1 브랜치가 없다",
+      "check": "node test/t.mjs \"F155 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "병합 뒤 'worktree remove --force' 가 매번 exit 1(stderr 'locked by test')인 run 에서 F1 은 passed, worktree remove 호출은 정확히 3번, update-ref -d 호출은 0번이고 harness/F1 브랜치가 남으며, run 출력과 state.warnings 에 'F1: merged, but could not remove worktree' 와 'locked by test' 를 담은 경고 한 줄이 있다",
+      "check": "node test/t.mjs \"F155 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "병합 뒤 'update-ref -d' 가 매번 exit 1(stderr 'ref locked')인 run 에서 F1 은 passed, update-ref -d 호출은 정확히 3번이고 브랜치가 남으며, 경고 한 줄이 'F1: merged, but could not delete branch harness/F1' 와 'ref locked' 를 담는다",
+      "check": "node test/t.mjs \"F155 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "정리가 처음에 성공하는 F1·F2 run(F143 AC-1 모양)은 worktree remove·update-ref -d 를 기능마다 한 번씩만 부르고 'could not' 경고가 없다",
+      "check": "node test/t.mjs \"F155 AC-5\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 성공한 정리를 다시 시도하거나 경고하는 구현을 막는다. base 에서도 한 번씩 부른다"
+    },
+    {
+      "id": "AC-6",
+      "criterion": "docs/SPEC.md §8.10 이 병합 뒤 정리의 재시도(3번)와 실패 경고를 적는다(문서 check: '3' 과 'update-ref -d' 와 'worktree remove' 와 경고 문구 'could not' 이 한 문단에 있다)",
+      "check": "node test/t.mjs \"F155 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "첫 update-ref -d 가 실패한 뒤 테스트가 harness/F1 을 다른 커밋으로 옮기면, 다시 시도한 update-ref -d 도 병합된 커밋 sha(처음 읽은 값)를 이전 값으로 넘기고 옮겨진 브랜치는 남는다",
+      "check": "node test/t.mjs \"F155 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "worktree remove 를 모두 실패시킨 run 에서 update-ref -d 는 한 번도 불리지 않는다(체크아웃된 브랜치를 지우지 않는다) — AC-3 와 같은 run 에서 확인",
+      "check": "node test/t.mjs \"F155 SC-2\"",
+      "new": false,
+      "new_reason": "회귀 방지 — F143 의 '실패한 remove 는 브랜치를 남긴다' 규칙. base 에서도 update-ref 를 부르지 않는다"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "재시도 사이의 기다림은 git 직렬화 잠금 밖이다: 정리가 매번 실패하는 F1 과 함께 도는 F2 의 직렬화 git 호출이 F1 의 기다림 동안 실행된다(호출 시각 기록으로 확인)",
+      "check": "node test/t.mjs \"F155 SC-3\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "정리 실패 경고가 있는 run 의 보고서(.harness/runs/<run>/report.md 또는 run 결과의 보고서 본문)의 '## Warnings' 에 그 경고가 들어간다",
+      "check": "node test/t.mjs \"F155 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "--fresh 의 남은 worktree·브랜치 제거 — 실패하면 지금처럼 blocked(worktree)",
+    "재시도 횟수·간격을 config 로 바꾸기",
+    "Windows 파일 잠금의 근본 원인(백신·인덱서 등) — OS 쪽 문제",
+    "이미 남은 harness/F<n> 브랜치 — 다음 run 이 이어받거나 --fresh 로 지운다"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-01T03:23:17.368Z",
+    "hash": "e76a581ae63bcbbc24e9a9b9fc745bda07db9b1b8302454d8095490fd6935397"
+  }
+}
