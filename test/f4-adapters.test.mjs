@@ -294,6 +294,19 @@ test('F4 AC-5 doctor warns when builder and evaluator are the same model', async
   assert.ok(!report.warnings.some((w) => /same model/.test(w)));
 });
 
+test('F4 AC-5 doctor uses the evaluator tier models: by_tier on every tier differing from the builder is cross-model', async () => {
+  const roles = { builder: { adapter: 'claude', model: 'sonnet' }, evaluator: { adapter: 'claude', model: 'sonnet', by_tier: { critical: 'opus', standard: 'opus' } } };
+  const report = await diagnose({ config: resolveConfig({ roles }), probe: fixtureProbe({ claude: CLAUDE_HELP }) });
+  assert.equal(report.independence, 'cross-model');
+  assert.ok(!report.warnings.some((w) => /same model|fresh-context/.test(w)), report.warnings.join('\n'));
+  // One tier still on the builder's model: fresh-context, with only that tier's warning.
+  const one = await diagnose({ config: resolveConfig({ roles: { ...roles, evaluator: { ...roles.evaluator, by_tier: { critical: 'opus' } } } }),
+    probe: fixtureProbe({ claude: CLAUDE_HELP }) });
+  assert.equal(one.independence, 'fresh-context');
+  assert.ok(one.warnings.some((w) => /fresh-context for standard/.test(w)));
+  assert.ok(!one.warnings.some((w) => /same model|fresh-context for critical/.test(w)), one.warnings.join('\n'));
+});
+
 // ---------------------------------------------------------------- SC-1 (SR-6)
 
 const WRITE_FLAGS = ['auto', 'yolo', 'workspace-write', 'bypassPermissions', 'acceptEdits', 'auto_edit',
