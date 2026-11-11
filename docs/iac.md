@@ -62,6 +62,9 @@ harness tf-check [--dir <path>] [--scan <name>]...
 - 스캐너를 verify 에 넣으려면 `.harness/config.json` 의 `verify.commands` 를 예컨대
   `["harness tf-check --scan tflint --scan trivy"]` 로 바꾼다. 스캐너 설치와 규칙 설정 파일(`.tflint.hcl` 등)은
   프로젝트가 준비한다.
+- 코어에는 심각도 필터나 예외 옵션이 없다. 허용할 규칙은 스캐너가 실행 디렉터리(검사 범위의 맨 위)에서 읽는
+  자체 파일로 남긴다: `.tflint.hcl`(규칙 끄기), `.trivyignore`(ID 한 줄에 하나), `.checkov.yaml`(`skip-check:`).
+  예외가 파일로 커밋되므로 리뷰에서 보인다.
 
 ## provider 캐시
 
