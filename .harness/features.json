@@ -1282,6 +1282,13 @@
       "depends_on": [],
       "status": "passed",
       "eval_round": 1
+    },
+    {
+      "id": "F157",
+      "title": "read-only claude role sessions and plugin evaluator agents disallow Edit, Write and NotebookEdit",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }
