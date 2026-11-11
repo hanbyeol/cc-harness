@@ -9,7 +9,7 @@ or it stops and a human decides. They apply to any AI coding CLI reading this fi
 (the npm package named `cc-harness` is a different project).
 The commands are: `harness init`, `harness lint-contract`, `harness approve`,
 `harness verify`, `harness eval`, `harness run`, `harness status`, `harness stats`,
-`harness events`, `harness decide`, `harness backlog`, `harness doctor`, `harness claude-md`,
+`harness events`, `harness decide`, `harness backlog`, `harness deploy-log`, `harness doctor`, `harness claude-md`,
 `harness tf-check`, `harness k8s-check`, `harness migrate-v1`. Run `harness --help` for the commands and `harness <command> --help` for a command's options.
 
 ## Language
@@ -26,6 +26,7 @@ All workflow state lives in `.harness/` and is tracked in git:
 - `contracts/F{n}.json` — the acceptance contract for one feature, frozen by hash on approval.
 - `verdicts/F{n}-r{k}.json` — the verdict of each round.
 - `backlog.json` — out-of-scope observations and re-scoping proposals.
+- `deployments.jsonl` — live apply/rollout results (`harness deploy-log record`); it never changes a status.
 
 Only the core writes status and verdicts. You read these files; you do not edit them
 outside the `spec` step described below.

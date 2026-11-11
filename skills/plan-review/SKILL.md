@@ -48,6 +48,12 @@ Run `terraform plan -detailed-exitcode` again. Exit code 0 means no drift: the a
 what the plan said. Exit code 2 means remaining changes; report them and investigate
 before anything else.
 
+Then record the result on the feature the change belongs to — `--ok` when the apply succeeded
+with no drift, `--failed` when it failed or left changes, `--rolled-back` when you reverted it —
+with the environment or workspace as `--target`:
+`harness deploy-log record F<n> --apply --ok|--failed|--rolled-back --target <environment/workspace> "<what was applied>"`.
+It only appends to `.harness/deployments.jsonl`; it never changes the feature status.
+
 ## Boundaries
 - Do not apply without a reviewed plan and the user's approval.
 - Do not run `terraform destroy`, `state rm`, `state push` or `force-unlock` unless the

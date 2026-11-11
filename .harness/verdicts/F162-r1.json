@@ -1,0 +1,38 @@
+{
+  "feature": "F162",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 0.2788488,
+  "contract_hash": "1e8f3d6853e57ffd1ef7fc2f8c33cce9180cc5b7eca52f7690f5efb139446aa2",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-11-11T17:48:37.829Z",
+  "origin": "eval"
+}

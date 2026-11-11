@@ -1328,7 +1328,8 @@
       "title": "harness deploy-log record/list: live apply and rollout results recorded per feature in .harness/deployments.jsonl; plan-review and rollout skills call it",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 1
     },
     {
       "id": "F163",

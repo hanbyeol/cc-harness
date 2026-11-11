@@ -22,6 +22,7 @@ const COMMANDS = {
   events: ['show the event log (.harness/events) oldest first', true],
   decide: ['record a human decision on a feature (--accept-risk|--split|--rewrite|--drop)', true],
   backlog: ['close open backlog items (close B<n>... --resolved|--obsolete "<reason>")', true],
+  'deploy-log': ['record or list live apply/rollout results (.harness/deployments.jsonl)', true],
   doctor: ['detect installed CLIs and check adapter flags', false],
   'claude-md': ['write the cc-harness block into CLAUDE.md (--check: report only)', false],
   'tf-check': ['terraform init/validate per module directory and fmt (iac profile verify)', false],
