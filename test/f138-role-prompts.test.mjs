@@ -96,7 +96,8 @@ test('F138 SC-2: read-only args and required flags are unchanged', () => {
   const args = claude.buildArgs({ readOnly: true });
   assert.equal(args[args.indexOf('--permission-mode') + 1], 'plan');
   assert.deepEqual(denied(args), ['Workflow', 'ScheduleWakeup', 'Skill', 'ReportFindings', 'ListAgents', 'Agent',
-    'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree']);
+    'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree',
+    'Edit', 'Write', 'NotebookEdit']); // F157 adds the file writing tools
   const req = ['-p', '--strict-mcp-config', '--disable-slash-commands', '--settings', '--disallowedTools', '--output-format=json'];
   assert.deepEqual(claude.requiredFlags({ readOnly: true }), [...req.slice(0, 4), '--permission-mode=plan', ...req.slice(4)]);
   assert.deepEqual(claude.requiredFlags({ readOnly: false }), [...req.slice(0, 4), '--permission-mode=auto', ...req.slice(4)]);

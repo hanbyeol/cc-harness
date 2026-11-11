@@ -1,6 +1,7 @@
 ---
 name: security-reviewer
 description: Second independent review for security-critical cc-harness features. Checks the contract's security criteria and the diff for exploitable defects and returns the same JSON verdict as the evaluator. Read-only.
+disallowedTools: Edit, Write, NotebookEdit
 ---
 
 # Security reviewer

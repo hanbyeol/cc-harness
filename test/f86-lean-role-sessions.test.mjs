@@ -20,7 +20,8 @@ const CLAUDE_HELP = fs.readFileSync(path.join(FIX, 'help', 'claude-2.1.280.txt')
 const DENY_ARGS = ['Bash(git push:*)', 'Bash(git reset --hard:*)', 'Bash(rm -rf /:*)', 'Bash(rm -rf ~:*)', 'Bash(sudo:*)', 'Bash(harness:*)', 'Bash(cc-harness:*)', 'Bash(npx cc-harness:*)', 'Bash(npx github:hanbyeol/cc-harness:*)', 'Bash(node bin/harness.mjs:*)'];
 const BUILDER_OFF = ['Workflow', 'Skill', 'ReportFindings', 'ListAgents', 'Agent', 'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree'];
 const BUILDER_KEPT = ['ScheduleWakeup', 'Monitor', 'ToolSearch'];
-const READ_ONLY_OFF = ['Workflow', 'ScheduleWakeup', 'Skill', 'ReportFindings', 'ListAgents', 'Agent', 'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree'];
+// F157 adds the file writing tools to the read-only list.
+const READ_ONLY_OFF = ['Workflow', 'ScheduleWakeup', 'Skill', 'ReportFindings', 'ListAgents', 'Agent', 'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree', 'Edit', 'Write', 'NotebookEdit'];
 const NEW_FLAGS = ['--strict-mcp-config', '--disable-slash-commands'];
 // F153 added the role-session settings; these tests are about the F86 arguments only.
 const SETTINGS_ARGS = ['--settings', '{"disableAllHooks":true,"autoMemoryEnabled":false}'];
