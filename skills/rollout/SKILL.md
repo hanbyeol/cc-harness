@@ -44,6 +44,13 @@ If any check fails, roll back immediately — `kubectl rollout undo <kind>/<name
 `helm rollback <release> <revision>` — and confirm health again. Then report what failed.
 Do not retry the same change; find the cause first.
 
+After the health check (section 4) or the rollback, record the result on the feature the change
+belongs to, with the kubectl context and namespace as `--target`:
+`harness deploy-log record F<n> --rollout --ok|--failed|--rolled-back --target <context>/<namespace> "<what changed>"`
+— `--ok` when healthy, `--rolled-back` after an undo or helm rollback, `--failed` when it failed
+and could not be rolled back. It only appends to `.harness/deployments.jsonl`; it never changes
+the feature status.
+
 ## Boundaries
 - Never act without observing first and without the user's approval of the specific change.
 - Never run `kubectl delete namespace`, `kubectl delete ... --all`, or cluster-wide deletes

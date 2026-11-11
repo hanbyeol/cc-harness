@@ -57,6 +57,7 @@ A test (`F112 AC-6`) fails when a file is missing here or when an entry names a 
 ## Commands
 - lib/commands/approve.mjs — `harness approve`: freezes a contract by hash after user approval
 - lib/commands/backlog.mjs — `harness backlog close`: closes backlog items with a reason
+- lib/commands/deploy-log.mjs — `harness deploy-log record|list`: live apply/rollout results in .harness/deployments.jsonl
 - lib/commands/claude-md.mjs — `harness claude-md`: writes or checks the managed CLAUDE.md block
 - lib/commands/decide.mjs — `harness decide`: records a human decision about a blocked feature
 - lib/commands/doctor.mjs — `harness doctor`: detects CLIs and reports whether each role is usable
