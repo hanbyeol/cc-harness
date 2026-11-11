@@ -1288,7 +1288,8 @@
       "title": "read-only claude role sessions and plugin evaluator agents disallow Edit, Write and NotebookEdit",
       "security_tier": "critical",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 1
     }
   ]
 }
