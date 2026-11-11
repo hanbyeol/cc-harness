@@ -12,7 +12,7 @@ const OPTIONS = {
   status: ['--brief', '--todo-v1'], stats: ['--since', '--json'], events: ['--stage', '--feature', '--since', '--json'],
   decide: ['--accept-risk', '--split', '--rewrite'], backlog: ['close', '--resolved', '--obsolete'],
   'deploy-log': ['record', 'list', '--apply', '--rollout', '--ok', '--failed', '--rolled-back', '--target', '--json'],
-  'claude-md': ['--check'], 'tf-check': ['--dir', '--scan'], 'k8s-check': ['--dir', '--ignore-missing-schemas'], 'migrate-v1': ['--force'],
+  'claude-md': ['--check'], 'tf-check': ['--dir', '--scan'], 'k8s-check': ['--dir', '--ignore-missing-schemas', '--scan'], 'migrate-v1': ['--force'],
 };
 
 const listed = () => {
