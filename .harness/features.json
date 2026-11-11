@@ -1306,6 +1306,20 @@
       "depends_on": [],
       "status": "passed",
       "eval_round": 1
+    },
+    {
+      "id": "F160",
+      "title": "tf-check runs terraform test where *.tftest.hcl exist and the policy scanners named with --scan (tflint, trivy, checkov); iac rubric and SPEC match what runs",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F161",
+      "title": "ops verify is harness k8s-check: plain, kustomize and helm manifests rendered and validated with kubeconform; --ignore-missing-schemas for CRDs",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }

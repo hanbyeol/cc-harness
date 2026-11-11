@@ -1,0 +1,90 @@
+{
+  "id": "F161",
+  "title": "ops 프로필의 verify 를 'harness k8s-check' 로 바꾼다: 평문 매니페스트, kustomization 디렉터리('kustomize build'), Chart.yaml 디렉터리('helm template')를 렌더링해 'kubeconform -strict -summary' 로 검증하고, '--ignore-missing-schemas' 로 CRD 를 허용한다 — 지금은 'kubeconform -strict -summary k8s/' 고정이라 kustomize·helm 저장소는 렌더링되지 않은 템플릿을 검증하거나 실패하고, ops 프로필 기본값이 SPEC 에 없다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "profiles/ops.json 의 verify.commands 는 ['harness k8s-check'] 이고, 'harness k8s-check [--dir <path>] [--ignore-missing-schemas]' 는 기본으로 프로젝트의 'k8s' 디렉터리를 검사한다. 'harness --help' 목록에 k8s-check 가 tf-check 바로 뒤에 있고 'harness k8s-check --help' 의 options 에 '--dir' 과 '--ignore-missing-schemas' 가 있다",
+      "check": "node test/t.mjs \"F161 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "kustomization.yaml·kustomization.yml·Kustomization 도 Chart.yaml 도 없는 디렉터리의 '*.yaml'·'*.yml' 파일은 'kubeconform -strict -summary <파일들>' 로 검증되고, 성공하면 stdout 에 'ok <경로>'(디렉터리, 프로젝트 기준 '/' 구분)이다. '.git'·'.harness' 와 심볼릭 링크 디렉터리는 들어가지 않는다",
+      "check": "node test/t.mjs \"F161 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "kustomization 파일이 있는 디렉터리는 'kustomize build <디렉터리>' 의 출력을, Chart.yaml 이 있는 디렉터리는 'helm template <디렉터리>' 의 출력을 'kubeconform -strict -summary' 로 검증하고, 그 디렉터리 아래로는 내려가지 않는다(그 안의 템플릿 YAML 파일을 따로 검증하지 않는다)",
+      "check": "node test/t.mjs \"F161 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "kubeconform 이 0 이 아닌 코드로 끝나면 k8s-check 는 나머지 디렉터리를 계속 검사한 뒤 exit 1 이고, stderr 에 '<경로>: kubeconform failed: <출력 꼬리>' 와 마지막 'k8s-check: failed: <경로들>' 을 쓴다",
+      "check": "node test/t.mjs \"F161 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "'--ignore-missing-schemas' 를 주면 모든 kubeconform 호출에 '-ignore-missing-schemas' 가 붙고, 주지 않으면 붙지 않는다",
+      "check": "node test/t.mjs \"F161 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "templates/profile-ops.md 가 verify 는 'harness k8s-check'(kubeconform 으로 평문·kustomize·helm 매니페스트를 오프라인 검증)라고 적고 30줄 이하이며, profiles/ops.json 의 rubric.tests 에 'k8s-check' 가 있다",
+      "check": "node test/t.mjs \"F161 AC-6\" && node test/t.mjs \"F64\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "docs/SPEC.md §4 의 프로필 설명에 ops 프로필 기본값 항목이 있고 'harness k8s-check' 의 검사 대상(평문·kustomize·helm), '--dir'·'--ignore-missing-schemas', 도구 없음의 exit 127 을 적는다",
+      "check": "node test/t.mjs \"F161 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "kubeconform 이 PATH 에 없으면 stderr 에 'harness k8s-check: command not found: kubeconform' 을 쓰고 exit 127 이다. kustomization 디렉터리가 있는데 kustomize 가, Chart.yaml 디렉터리가 있는데 helm 이 없으면 같은 형식으로 그 이름을 쓰고 exit 127 이다. 이 판정은 kubeconform·kustomize·helm 중 하나라도 실행하기 전에 한다",
+      "check": "node test/t.mjs \"F161 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "'kustomize build' 나 'helm template' 이 실패하면 stderr 에 '<경로>: render failed: <오류 꼬리>' 를 쓰고 그 디렉터리는 kubeconform 에 넘기지 않으며, 나머지 검사 뒤 exit 1 이다",
+      "check": "node test/t.mjs \"F161 ES-2\"",
+      "new": true
+    },
+    {
+      "id": "ES-3",
+      "criterion": "검사할 디렉터리가 없으면(기본 'k8s' 포함) usage 오류(exit 2)와 '<경로>: not a directory' 이다. 디렉터리에 매니페스트가 하나도 없으면 stdout 에 'k8s-check: no manifests under <경로>' 를 쓰고 exit 0 이다. 알 수 없는 인자는 usage 오류(exit 2)다",
+      "check": "node test/t.mjs \"F161 ES-3\"",
+      "new": true
+    },
+    {
+      "id": "ES-4",
+      "criterion": "기존 명령 help·tf-check·ops CLAUDE.md 절 동작은 그대로다(F126 의 명령 목록에는 k8s-check 가 추가된다)",
+      "check": "node test/t.mjs \"F126\" && node test/t.mjs \"F40\" && node test/t.mjs \"F64\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 새 명령 추가가 기존 명령 help·tf-check·프로필 절을 깨지 않는지 확인한다"
+    }
+  ],
+  "out_of_scope": [
+    "라이브 클러스터 접근(kubectl apply --dry-run=server 등) — rollout skill 의 일이다",
+    "Pod Security·RBAC·NetworkPolicy 정책 검사(kube-linter·conftest·kyverno) — 별도 기능",
+    "helm values 파일 선택(-f)과 kustomize 플러그인·helm 차트 의존성 내려받기(helm dependency build)",
+    "kubeconform 스키마 위치(-schema-location) 지정과 스키마 내려받기에 필요한 네트워크",
+    "kubeconform·kustomize·helm 설치(이 저장소의 개발 머신에 kubeconform 이 없어 실제 kubeconform 실측은 하지 않았다; 테스트는 가짜 프로그램을 쓴다)"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-11T14:01:07.289Z",
+    "hash": "9f6694647d88f3151e813180a225e32fb5c1bcbc1aa5ff94bfcfa70d541106e1"
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "id": "F160",
+  "title": "harness tf-check 가 *.tftest.hcl 이 있는 모듈에서 'terraform test' 를 실행하고, '--scan tflint|trivy|checkov' 로 지정한 정책 스캐너를 실행한다. iac 루브릭·SPEC 이 실제로 실행되는 검사와 일치한다 — 지금은 루브릭이 'configured policy scanners pass' 를 채점하라고 하지만 verify 는 스캐너를 실행하지 않고(SPEC §4: '정책 스캐너는 실행하지 않는다'), plan diff 를 판정할 실행 가능한 check 도 없다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "모듈 디렉터리(자체 또는 그 'tests/' 하위)에 '*.tftest.hcl' 또는 '*.tftest.json' 이 있으면 tf-check 는 그 디렉터리의 init·validate 가 성공한 뒤 그 디렉터리에서 'terraform test -no-color' 를 실행하고, exit 0 이면 stdout 에 'ok test <경로>' 를 쓴다(경로는 프로젝트 기준, '/' 구분)",
+      "check": "node test/t.mjs \"F160 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "'terraform test' 가 0 이 아닌 코드로 끝나면 tf-check 는 exit 1 이고, stderr 에 '<경로>: test failed: <출력 꼬리>' 를 쓰며, 마지막 'tf-check: failed: …' 목록에 'test <경로>' 가 있다. 나머지 디렉터리와 fmt 검사는 계속한다",
+      "check": "node test/t.mjs \"F160 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "테스트 파일이 없는 모듈 디렉터리와 init 또는 validate 가 실패한 디렉터리에서는 'terraform test' 를 실행하지 않는다(가짜 terraform 의 호출 기록으로 확인)",
+      "check": "node test/t.mjs \"F160 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "'--scan <name>'(여러 번 줄 수 있고 name 은 tflint·trivy·checkov 중 하나)으로 지정한 스캐너는 fmt 검사 뒤 검사 범위의 맨 위 디렉터리에서 지정 순서대로 한 번씩 실행된다 — tflint 는 'tflint --recursive --no-color', trivy 는 'trivy config --quiet --exit-code 1 .', checkov 는 'checkov -d . --quiet --compact'. exit 0 이면 stdout 에 'ok scan <name>' 이다",
+      "check": "node test/t.mjs \"F160 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "스캐너가 0 이 아닌 코드로 끝나면(tflint 의 이슈 exit 2 포함) tf-check 는 exit 1 이고 stderr 에 'scan <name> failed: <출력 꼬리>' 를 쓰며 'tf-check: failed: …' 목록에 'scan <name>' 이 있다",
+      "check": "node test/t.mjs \"F160 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "'--scan' 이 없으면 tf-check 는 stdout 에 'tf-check: no policy scanners (--scan tflint|trivy|checkov)' 한 줄을 쓰고, 다른 결과와 종료 코드는 이전과 같다",
+      "check": "node test/t.mjs \"F160 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "profiles/iac.json 의 rubric.security 와 rubric.tests 에 'tf-check --scan' 이 있고 rubric.tests 에 'terraform test' 가 있다. 'harness tf-check --help' 의 usage 와 options 에 '--scan <name>' 이 있다",
+      "check": "node test/t.mjs \"F160 AC-7\"",
+      "new": true
+    },
+    {
+      "id": "AC-8",
+      "criterion": "docs/SPEC.md §4 의 iac 프로필 항목과 docs/iac.md 가 'terraform test' 실행 조건과 '--scan' 의 세 스캐너 명령을 적고, §4 에 '정책 스캐너는 실행하지 않는다' 문장이 더는 없다",
+      "check": "node test/t.mjs \"F160 AC-8\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "'--scan' 에 값이 없거나 tflint·trivy·checkov 가 아닌 이름(예: '--scan rm')이면 terraform 이나 다른 프로그램을 실행하지 않고 usage 오류(exit 2)이며 메시지에 허용 이름 목록이 있다",
+      "check": "node test/t.mjs \"F160 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "'--scan' 으로 지정한 스캐너가 PATH 에 없으면 terraform 을 실행하기 전에 stderr 에 'harness tf-check: command not found: <name>' 을 쓰고 exit 127 이다(verify·run 이 환경 문제로 본다, §6.1)",
+      "check": "node test/t.mjs \"F160 ES-2\"",
+      "new": true
+    },
+    {
+      "id": "ES-3",
+      "criterion": "기존 tf-check 동작(모듈별 init·validate, fmt 한 번, provider 캐시, terraform 없음 exit 127, verify 에서 코어 자신의 bin 실행)은 그대로다",
+      "check": "node test/t.mjs \"F40 AC-1\" && node test/t.mjs \"F40 AC-2\" && node test/t.mjs \"F40 AC-3\" && node test/t.mjs \"F40 AC-4\" && node test/t.mjs \"F40 AC-5\" && node test/t.mjs \"F40 ES-1\" && node test/t.mjs \"F40 ES-2\" && node test/t.mjs \"F44 AC-2\" && node test/t.mjs \"F126 AC-1\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 기존 tf-check 와 명령 help 테스트가 새 옵션 추가 뒤에도 통과하는지 확인한다"
+    }
+  ],
+  "out_of_scope": [
+    "terraform plan·apply 실행(자격 증명이 verify 에 전달되지 않는다, SR-2) — plan-review skill 의 일이다",
+    "mock_provider 없이 실제 provider 를 부르는 terraform test 가 자격 증명 부족으로 실패하는 것 — 테스트 작성자의 몫이다",
+    "스캐너의 설치, 버전 고정, 규칙 설정 파일(.tflint.hcl·.checkov.yaml 등) 생성, trivy 의 검사 번들 내려받기에 필요한 네트워크",
+    "tflint·trivy·checkov 이외 스캐너, 스캐너 결과의 구조화(JSON) 파싱",
+    "init 이 만드는 .terraform.lock.hcl 처리(terraform 이 커밋을 권장하는 파일이다)"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-11T14:01:07.289Z",
+    "hash": "c433c914cdd4f4dc1b4fab4bfbf09e01a96c81b05ffb54980a7a05698b258c79"
+  }
+}
