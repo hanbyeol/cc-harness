@@ -1,0 +1,65 @@
+{
+  "id": "F163",
+  "title": "harness k8s-check 가 '--scan trivy|checkov' 로 지정한 정책 스캐너(Pod Security·RBAC·평문 시크릿 등)를 검사 디렉터리에 실행하고, ops 루브릭·SPEC 이 실제로 실행되는 검사와 일치한다 — 지금은 ops 루브릭이 RBAC·Pod Security·평문 시크릿을 채점하라고 하지만 verify 는 스키마 검증(kubeconform)만 한다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "'--scan <name>'(반복 가능, trivy·checkov, 중복은 한 번)으로 지정한 스캐너는 kubeconform 검사 뒤 프로젝트 루트에서 지정 순서대로 실행된다 — trivy 는 'trivy config --quiet --exit-code 1 <검사 디렉터리>', checkov 는 'checkov -d <검사 디렉터리> --quiet --compact --framework kubernetes helm kustomize'. exit 0 이면 stdout 에 'ok scan <name>' 이다",
+      "check": "node test/t.mjs \"F163 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "스캐너가 0 이 아닌 코드로 끝나면 k8s-check 는 exit 1 이고 stderr 에 'scan <name> failed: <출력 꼬리>' 를 쓰며 'k8s-check: failed: …' 목록에 'scan <name>' 이 있다. kubeconform 실패가 있어도 스캐너는 실행된다",
+      "check": "node test/t.mjs \"F163 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "'--scan' 이 없으면 stdout 에 'k8s-check: no policy scanners (--scan trivy|checkov)' 한 줄을 쓰고, 다른 결과와 종료 코드는 이전과 같다. 매니페스트가 없는 디렉터리('no manifests')에서는 스캐너를 실행하지 않는다",
+      "check": "node test/t.mjs \"F163 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "profiles/ops.json 의 rubric.security 에 'k8s-check --scan' 이 있고, 'harness k8s-check --help' 의 usage 와 options 에 '--scan <name>' 이 있다. docs/SPEC.md §4 의 ops 프로필 항목이 '--scan' 의 두 스캐너 명령을 적는다",
+      "check": "node test/t.mjs \"F163 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "'--scan' 에 값이 없거나 trivy·checkov 가 아닌 이름(예: '--scan rm')이면 kubeconform·kustomize·helm 이나 스캐너를 실행하지 않고 usage 오류(exit 2)이며 메시지에 허용 이름 목록이 있다",
+      "check": "node test/t.mjs \"F163 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "'--scan' 으로 지정한 스캐너가 PATH 에 없으면 kubeconform 을 실행하기 전에 stderr 에 'harness k8s-check: command not found: <name>' 을 쓰고 exit 127 이다",
+      "check": "node test/t.mjs \"F163 ES-2\"",
+      "new": true
+    },
+    {
+      "id": "ES-3",
+      "criterion": "기존 k8s-check·tf-check·명령 help 동작은 그대로다",
+      "check": "node test/t.mjs \"F161\" && node test/t.mjs \"F160\" && node test/t.mjs \"F126\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 새 옵션이 기존 k8s-check(F161)·tf-check(F160)·명령 help 를 깨지 않는지 확인한다"
+    }
+  ],
+  "out_of_scope": [
+    "kube-linter·conftest·kyverno 등 다른 스캐너(이 개발 머신에 없어 실측하지 않았다)",
+    "스캐너의 심각도 필터(--severity 등)·규칙 설정 파일·설치·검사 번들 내려받기 네트워크",
+    "의존성 없는 내장 YAML 정책 검사기",
+    "kustomize·helm 렌더링 결과를 스캐너에 넘기는 것 — 스캐너는 검사 디렉터리를 직접 읽는다(trivy 는 helm 차트를 스스로 렌더링한다, 2026-11-12 실측)"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-11T15:41:12.748Z",
+    "hash": "0ad35de721ef204e0796e213516b5f8bdbdcd19f832d5ef39b9067c57e744423"
+  }
+}

@@ -1322,6 +1322,22 @@
       "depends_on": [],
       "status": "passed",
       "eval_round": 1
+    },
+    {
+      "id": "F162",
+      "title": "harness deploy-log record/list: live apply and rollout results recorded per feature in .harness/deployments.jsonl; plan-review and rollout skills call it",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F163",
+      "title": "k8s-check --scan trivy|checkov runs policy scanners on the checked directory; ops rubric and SPEC match what runs",
+      "security_tier": "standard",
+      "depends_on": [
+        "F161"
+      ],
+      "status": "approved"
     }
   ]
 }

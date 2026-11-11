@@ -1,0 +1,83 @@
+{
+  "id": "F162",
+  "title": "'harness deploy-log record' 로 plan-review(terraform apply)·rollout(kubectl·helm) 의 라이브 적용 결과를 기능에 붙여 git 추적 파일 .harness/deployments.jsonl 에 남기고 'harness deploy-log list' 로 본다. 두 skill 이 적용 뒤 이 명령을 부른다 — 지금은 기능이 passed 여도 언제 어디에 적용됐고 롤백됐는지 남는 곳이 없다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "'deploy-log record F<n> --apply|--rollout --ok|--failed|--rolled-back --target <name> [--] <note>' 는 exit 0 이고 .harness/deployments.jsonl 에 JSON 한 줄 {feature, kind, result('ok'|'failed'|'rolled_back'), target, note, at(UTC ISO), by(git user.name|null), commit(HEAD sha|null)} 을 덧붙이며 stdout 은 'recorded <kind> <result> for F<n> (<target>)' 이다. 기존 줄은 그대로다",
+      "check": "node test/t.mjs \"F162 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "'harness deploy-log list [F<n>] [--json]' 은 기록을 파일 순서대로 한 줄에 하나씩 '<at> F<n> <kind> <result> <target> — <note>' 로 쓰고(F<n> 을 주면 그 기능만), '--json' 이면 각 기록을 JSON 한 줄로 쓴다. 파일이 없거나 해당 기록이 없으면 'no deployments' 를 쓰고 exit 0 이다",
+      "check": "node test/t.mjs \"F162 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "record 는 기능의 status 와 features.json·verdicts 를 바꾸지 않는다. 기능 status 가 passed 가 아니면 기록은 그대로 하고 stderr 에 'harness: warning: F<n> is <status>, not passed' 를 쓴다",
+      "check": "node test/t.mjs \"F162 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "'harness --help' 목록에 deploy-log 가 backlog 바로 뒤에 있고 'harness deploy-log --help' 의 options 에 '--apply'·'--rollout'·'--ok'·'--failed'·'--rolled-back'·'--target'·'--json' 이 있다. AGENTS.md·README.md·docs/MAP.md 의 명령 목록에 deploy-log 가 있다(README.md 는 200줄 미만으로 남는다)",
+      "check": "node test/t.mjs \"F162 AC-4\" && node test/t.mjs \"F126\" && node test/t.mjs \"F137\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "skills/plan-review/SKILL.md 의 '## 4. After apply' 절과 skills/rollout/SKILL.md 의 '## 4'·'## 5' 절 중 하나가 적용·롤백 뒤 결과 플래그와 --target(환경·workspace 또는 kubectl context/namespace)을 준 'harness deploy-log record' 실행을 적는다. 두 skill 의 name·description 은 그대로다",
+      "check": "node test/t.mjs \"F162 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "docs/SPEC.md §4 의 상태 파일 표에 deployments.jsonl 행이 있고(누가 쓰는지·필드·status 를 바꾸지 않음), 명령 설명에 deploy-log record·list 가 있다",
+      "check": "node test/t.mjs \"F162 AC-6\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "note 와 target 에 들어 있는 환경 변수 비밀값(config.env_allowlist 에 없는 process.env 값, backlog close 의 reason 과 같은 redactor)은 파일에 쓰기 전에 가려지고, note 는 가린 뒤 500자로 잘린다",
+      "check": "node test/t.mjs \"F162 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "kind 플래그나 result 플래그가 없거나 둘 이상이면, '--target' 이 없거나 비었으면, 기능 id 가 'F<n>' 형식이 아니면, note 가 두 인자 이상이면 usage 오류(exit 2)이고 파일을 쓰지 않는다",
+      "check": "node test/t.mjs \"F162 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "features.json 에 없는 기능이면 exit 2 와 'unknown feature F<n>' 이고 파일을 쓰지 않는다. .harness/ 가 없으면 다른 명령과 같은 'not initialized' 오류(exit 2)다",
+      "check": "node test/t.mjs \"F162 ES-2\"",
+      "new": true
+    },
+    {
+      "id": "ES-3",
+      "criterion": "list 가 읽는 deployments.jsonl 에 JSON 이 아닌 줄이 있으면 그 줄을 건너뛰고 stderr 에 'harness: warning: deployments.jsonl line <k> is not JSON' 을 쓴 뒤 나머지를 출력하고 exit 0 이다",
+      "check": "node test/t.mjs \"F162 ES-3\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "apply·rollout 실행 자체의 자동화나 harness run 에 포함 — 두 skill 은 계속 사람 승인으로만 적용한다",
+    "harness status·stats 에 배포 기록 표시",
+    "클러스터·클라우드에서 실제 상태를 읽어 기록을 검증하는 것",
+    "기록의 수정·삭제 명령"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-11T15:41:12.748Z",
+    "hash": "1e8f3d6853e57ffd1ef7fc2f8c33cce9180cc5b7eca52f7690f5efb139446aa2"
+  }
+}
