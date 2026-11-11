@@ -1,6 +1,7 @@
 ---
 name: evaluator
 description: Independently evaluates one cc-harness feature against its frozen contract and returns a JSON verdict with five scores and reproducible findings. Read-only. Use after harness verify passes, from a fresh context that did not write the code.
+disallowedTools: Edit, Write, NotebookEdit
 ---
 
 # Evaluator

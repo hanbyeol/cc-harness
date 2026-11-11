@@ -100,7 +100,7 @@ const DENY_ARGS = ['Bash(git push:*)', 'Bash(git reset --hard:*)', 'Bash(rm -rf 
 // No MCP servers or skills in a role session, and the tools the role never uses denied (F86).
 const LEAN = ['-p', '--strict-mcp-config', '--disable-slash-commands', '--settings', '{"disableAllHooks":true,"autoMemoryEnabled":false}'];
 const BUILDER_OFF = ['Workflow', 'Skill', 'ReportFindings', 'ListAgents', 'Agent', 'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree'];
-const READ_ONLY_OFF = ['Workflow', 'ScheduleWakeup', 'Skill', 'ReportFindings', 'ListAgents', 'Agent', 'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree'];
+const READ_ONLY_OFF = ['Workflow', 'ScheduleWakeup', 'Skill', 'ReportFindings', 'ListAgents', 'Agent', 'CronCreate', 'CronDelete', 'CronList', 'RemoteTrigger', 'PushNotification', 'SendMessage', 'DesignSync', 'EnterWorktree', 'ExitWorktree', 'Edit', 'Write', 'NotebookEdit'];
 
 test('F4 AC-2 claude builder: -p, auto mode, native deny list, json output, schema, budget, model', () => {
   const a = adapters().claude;
