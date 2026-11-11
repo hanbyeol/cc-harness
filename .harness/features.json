@@ -1320,7 +1320,8 @@
       "title": "ops verify is harness k8s-check: plain, kustomize and helm manifests rendered and validated with kubeconform; --ignore-missing-schemas for CRDs",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 1
     }
   ]
 }

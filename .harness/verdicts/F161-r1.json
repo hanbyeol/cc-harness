@@ -1,0 +1,38 @@
+{
+  "feature": "F161",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 0.27636279999999996,
+  "contract_hash": "9f6694647d88f3151e813180a225e32fb5c1bcbc1aa5ff94bfcfa70d541106e1",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-11-11T15:28:06.022Z",
+  "origin": "eval"
+}
