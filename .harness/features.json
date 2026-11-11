@@ -1298,6 +1298,13 @@
       "depends_on": [],
       "status": "passed",
       "eval_round": 1
+    },
+    {
+      "id": "F159",
+      "title": "claude error wrapper detail from subtype; a builder stopped by error_max_budget_usd is blocked(budget) without verify",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }

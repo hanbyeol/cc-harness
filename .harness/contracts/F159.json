@@ -1,0 +1,73 @@
+{
+  "id": "F159",
+  "title": "claude 결과 wrapper 의 subtype 을 읽는다: 오류 wrapper 의 detail 은 stdout 꼬리 대신 '<subtype>: <errors>' 이고, builder 호출이 error_max_budget_usd 로 끝나면 비용이 step_usd 보다 작아도(run_usd 몫) 그 기능은 verify 없이 blocked(budget) 다 — 지금은 몫에서 멈춘 일부 작업이 verify 로 넘어간다(SPEC §8 '단계 초과 시 blocked(budget)' 과 어긋남, 2.1.322 실측)",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "가짜 claude 가 test/fixtures/output/claude-json-budget-exhausted.json 을 출력하고 exit 1 이면 claude 어댑터 결과는 error 'exit_nonzero', budgetExhausted true, detail 'error_max_budget_usd: Reached maximum budget ($0.05)', costUsd 0.0663634 다",
+      "check": "node test/t.mjs \"F159 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "subtype 이 'success' 가 아닌 claude 오류 wrapper(예: error_max_turns, errors ['Reached maximum number of turns (1)'])로 exit 1 이면 detail 은 'error_max_turns: Reached maximum number of turns (1)' 이고 budgetExhausted 는 false 다. errors 가 없거나 배열이 아니면 detail 은 subtype 만이다",
+      "check": "node test/t.mjs \"F159 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "budget.run_usd 1(step_usd 없음)로 기능 하나를 run 할 때 builder 가 budgetExhausted true·costUsd 0.4 결과를 돌려주면 F1 은 blocked, blocked_reason 'budget', blocked detail 이 'stopped at its budget' 과 'error_max_budget_usd' 를 담고, F1 의 verify 는 한 번도 불리지 않으며 builder 는 한 번만 불린다",
+      "check": "node test/t.mjs \"F159 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "harness eval 에서 evaluator 호출이 budget wrapper 로 exit 1 이면 verdicts/F1-r1.eval_error.json 의 error 는 'exit_nonzero', detail 은 'error_max_budget_usd: Reached maximum budget ($0.05)' 이다(stdout JSON 이 detail 에 들어가지 않는다)",
+      "check": "node test/t.mjs \"F159 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md §8 의 예산 문단과 §10 의 'claude 결과 분류' 가 subtype 기반 detail 과 error_max_budget_usd 로 끝난 builder 의 blocked(budget) 를 적는다(문서 check: §10 의 'claude 결과 분류' 줄에 'subtype' 과 'error_max_budget_usd' 가 있고, §8 에 'error_max_budget_usd' 와 'blocked(`budget`)' 가 한 문단에 있다)",
+      "check": "node test/t.mjs \"F159 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "오류 wrapper 의 errors 문자열에 환경 변수 값(테스트용 비밀 HARNESS_F159_SECRET='sk-f159-secret-value')이 들어 있으면 어댑터 결과 detail 에는 그 값이 없다(가린 뒤 자른다, SR-9)",
+      "check": "node test/t.mjs \"F159 SC-1\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "success wrapper(claude-json-success.json, exit 0)는 지금처럼 ok true 이고 budgetExhausted 는 false 다. gemini 어댑터 출력에 subtype 'error_max_budget_usd' 필드가 있어도 budgetExhausted 는 false 다",
+      "check": "node test/t.mjs \"F159 ES-1\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 성공 경로와 claude 외 어댑터가 새 분류에 걸리지 않는지 확인한다. base 에는 budgetExhausted 가 없어 false 로 읽힌다"
+    },
+    {
+      "id": "ES-2",
+      "criterion": "step_usd 0.5 이고 builder 가 budgetExhausted 없이 costUsd 0.6 을 돌려주는 기존 경로는 지금처럼 blocked(budget) 와 'reached the step budget' detail 이다",
+      "check": "node test/t.mjs \"F159 ES-2\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 기존 step_usd 판정과 문구가 바뀌지 않는지 확인한다"
+    }
+  ],
+  "out_of_scope": [
+    "어댑터 error 이름 변경(budget 은 계속 exit_nonzero 이고 budgetExhausted 로 구분한다 — F4 AC-1·F55 ES-1 의 기존 판정 유지)",
+    "병합 충돌 해결·병합 후 verify 복구 builder 호출의 budget 처리(지금처럼 실패로 다룬다)",
+    "--max-turns 를 넘기는 것",
+    "permission_denials·terminal_reason 기록"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-11T12:18:32.337Z",
+    "hash": "81cee87b7d2a5ec33c5421b695a1cc6c989e8220eab73491f677abe61fbd5f95"
+  }
+}
