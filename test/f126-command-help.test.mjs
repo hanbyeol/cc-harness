@@ -11,7 +11,7 @@ const OPTIONS = {
   eval: ['--round', '--base', '--cwd', '--json'], run: ['--resume', '--fresh', '--max-usd', '--parallel'],
   status: ['--brief', '--todo-v1'], stats: ['--since', '--json'], events: ['--stage', '--feature', '--since', '--json'],
   decide: ['--accept-risk', '--split', '--rewrite'], backlog: ['close', '--resolved', '--obsolete'],
-  'claude-md': ['--check'], 'tf-check': ['--dir'], 'k8s-check': ['--dir', '--ignore-missing-schemas'], 'migrate-v1': ['--force'],
+  'claude-md': ['--check'], 'tf-check': ['--dir', '--scan'], 'k8s-check': ['--dir', '--ignore-missing-schemas'], 'migrate-v1': ['--force'],
 };
 
 const listed = () => {

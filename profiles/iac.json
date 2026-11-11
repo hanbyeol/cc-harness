@@ -12,8 +12,8 @@
   "rubric": {
     "functionality": "The resources added, changed or destroyed match the contract. A replace or destroy of a stateful resource (databases, state backends, DNS) that the contract does not name is a blocking REGRESSION finding.",
     "quality": "Follows the repository's module and environment layout; variables typed and described; no hard-coded account ids, regions or credentials.",
-    "security": "Least-privilege IAM, no public exposure the contract does not ask for, encryption at rest and in transit, configured policy scanners (tflint, trivy, checkov) pass.",
+    "security": "Least-privilege IAM, no public exposure the contract does not ask for, encryption at rest and in transit, the policy scanners the verify command names with tf-check --scan (tflint, trivy, checkov) pass.",
     "errors": "Lifecycle guards (prevent_destroy, create_before_destroy) where a replace would cause downtime; dependencies and outputs explicit.",
-    "tests": "fmt, validate and configured policy scans pass. terraform plan needs cloud credentials, which verify does not pass through (SR-2), so the plan is reviewed with the plan-review skill before apply instead of being run here."
+    "tests": "fmt and validate pass, terraform test passes in every module with *.tftest.hcl files (mock providers, no credentials), and the scanners named with tf-check --scan pass. terraform plan needs cloud credentials, which verify does not pass through (SR-2), so the plan is reviewed with the plan-review skill before apply instead of being run here."
   }
 }

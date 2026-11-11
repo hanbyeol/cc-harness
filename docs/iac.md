@@ -15,17 +15,25 @@ plan 은 `plan-review` skill 로 검토한다.
 ## tf-check 가 하는 일
 
 ```
-harness tf-check [--dir <path>]
+harness tf-check [--dir <path>] [--scan <name>]...
 ```
 
 1. 저장소(또는 `--dir` 아래)에서 `*.tf` 파일이 있는 디렉터리를 모두 찾는다. `.terraform`·`.harness`·`.git` 과
    심볼릭 링크 디렉터리는 들어가지 않는다.
 2. 그 디렉터리마다 `terraform init -backend=false -input=false` 와 `terraform validate` 를 **그 디렉터리에서** 실행한다.
    모듈이 여러 개여도 루트 하나만 검사하던 이전 방식과 달리 모듈마다 검증된다.
-3. `terraform fmt -check -recursive` 를 검사 범위의 맨 위 디렉터리에서 **한 번** 실행한다.
+3. 그 디렉터리 자체나 `tests/` 하위에 `*.tftest.hcl` 또는 `*.tftest.json` 이 있으면, init·validate 가 성공한 뒤
+   그 디렉터리에서 `terraform test -no-color` 를 실행한다. 테스트 파일이 없거나 init·validate 가 실패한 디렉터리에서는
+   실행하지 않는다. verify 에는 클라우드 자격 증명이 전달되지 않으므로 테스트는 `mock_provider` 로 쓴다.
+4. `terraform fmt -check -recursive` 를 검사 범위의 맨 위 디렉터리에서 **한 번** 실행한다.
+5. `--scan <name>` 으로 지정한 정책 스캐너를 검사 범위의 맨 위 디렉터리에서 지정 순서대로 한 번씩 실행한다.
 
 하나라도 실패하면 exit 1 이고, 실패한 디렉터리를 프로젝트 기준 경로(`modules/bad`)로 stderr 에 출력한다.
-성공한 디렉터리는 `ok <경로>` 로 stdout 에 나온다.
+성공한 디렉터리는 `ok <경로>` 로 stdout 에 나온다. 마지막 줄 `tf-check: failed: …` 에 실패한 항목이 모인다
+(디렉터리 경로, `test <경로>`, `fmt`, `scan <name>`).
+
+- **terraform test 실패**: stderr 에 `<경로>: test failed: <출력 꼬리>` 를 쓰고 실패 목록에 `test <경로>` 를 넣는다.
+  나머지 디렉터리와 fmt 검사는 계속한다. 성공하면 `ok test <경로>` 다.
 
 - **init 실패**: 그 디렉터리의 경로와 init 오류 앞 300자를 출력하고 validate 는 건너뛴다. 나머지 디렉터리 검사는
   계속하고 마지막에 exit 1 로 끝난다.
@@ -33,6 +41,27 @@ harness tf-check [--dir <path>]
   기능의 실패가 아니라 환경 문제로 보고 실행을 중단한다(`docs/SPEC.md` §8, F29). terraform 을 설치하거나 PATH 를
   고친 뒤 `harness run --resume` 으로 이어간다.
 - **`--dir <path>`**: 그 디렉터리 아래만 검사한다. 상대 경로는 현재 디렉터리 기준이다. 없는 디렉터리는 exit 2.
+
+## 정책 스캐너 (`--scan`)
+
+`--scan <name>` 은 여러 번 줄 수 있고 name 은 `tflint`·`trivy`·`checkov` 중 하나다. 각 스캐너는 fmt 검사 뒤에
+다음 명령으로 실행된다.
+
+| name | 명령 |
+| --- | --- |
+| `tflint` | `tflint --recursive --no-color` |
+| `trivy` | `trivy config --quiet --exit-code 1 .` |
+| `checkov` | `checkov -d . --quiet --compact` |
+
+- exit 0 이면 `ok scan <name>` 이다. 0 이 아니면(tflint 는 이슈가 있으면 exit 2) stderr 에
+  `scan <name> failed: <출력 꼬리>` 를 쓰고 실패 목록에 `scan <name>` 을 넣는다.
+- 값이 없거나 다른 이름(`--scan rm`)이면 아무것도 실행하지 않고 exit 2 이며, 메시지에 허용 이름 목록이 있다.
+- 지정한 스캐너가 PATH 에 없으면 terraform 을 실행하기 전에 `harness tf-check: command not found: <name>` 을
+  stderr 에 쓰고 exit 127 로 끝난다. terraform 이 없을 때처럼 `harness run` 은 환경 문제로 본다.
+- `--scan` 이 없으면 stdout 에 `tf-check: no policy scanners (--scan tflint|trivy|checkov)` 한 줄이 나온다.
+- 스캐너를 verify 에 넣으려면 `.harness/config.json` 의 `verify.commands` 를 예컨대
+  `["harness tf-check --scan tflint --scan trivy"]` 로 바꾼다. 스캐너 설치와 규칙 설정 파일(`.tflint.hcl` 등)은
+  프로젝트가 준비한다.
 
 ## provider 캐시
 

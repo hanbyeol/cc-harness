@@ -27,4 +27,20 @@ if (sub === 'init') {
   if (has(tfs('.', false), 'FAIL_VALIDATE')) { process.stderr.write('Error: Unsupported argument\n'); process.exit(1); }
 } else if (sub === 'fmt') {
   if (has(tfs('.', true), 'FAIL_FMT')) { process.stdout.write('main.tf\n'); process.exit(3); }
+} else if (sub === 'test') {
+  // *.tftest.hcl / *.tftest.json in the cwd or its tests/ subdirectory; FAIL_TEST in one makes it fail.
+  const tests = [];
+  for (const d of ['.', 'tests']) {
+    let entries = [];
+    try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch { /* no such directory */ }
+    for (const e of entries) {
+      if (e.isFile() && (e.name.endsWith('.tftest.hcl') || e.name.endsWith('.tftest.json'))) tests.push(fs.readFileSync(path.join(d, e.name), 'utf8'));
+    }
+  }
+  if (tests.some((t) => has(t, 'FAIL_TEST'))) {
+    process.stdout.write('main.tftest.hcl... run "check"... fail\n');
+    process.stderr.write('Error: Test assertion failed TAIL_OF_TEST_OUTPUT\n');
+    process.exit(1);
+  }
+  process.stdout.write(`Success! ${tests.length} passed, 0 failed.\n`);
 }
