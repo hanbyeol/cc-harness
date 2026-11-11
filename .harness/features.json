@@ -1340,6 +1340,13 @@
       ],
       "status": "passed",
       "eval_round": 1
+    },
+    {
+      "id": "F164",
+      "title": "conflict-resolution and post-merge recovery builders stopped at their budget (budgetExhausted or step_usd) block the feature as budget, like a feature build",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }

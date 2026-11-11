@@ -1,0 +1,59 @@
+{
+  "id": "F164",
+  "title": "병합 충돌 해결·병합 후 verify 복구 builder 가 예산에서 멈추면(budgetExhausted) 또는 비용이 step_usd 에 닿으면 그 기능은 blocked(budget) 다 — 지금은 기능 build 만 budget 으로 막히고(F159), 같은 예산 배정을 받는 두 복구 builder 는 merge_conflict·post_merge_verify 로 막혀 사용자가 원인을 잘못 읽는다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "병합 충돌 해결 builder 가 budgetExhausted true·costUsd 0.4·detail 'error_max_budget_usd: …' 인 exit_nonzero 결과를 돌려주면 F1 은 blocked, reason 'budget', detail 에 'conflict resolution build stopped at its budget' 과 'error_max_budget_usd' 가 있고, integration 은 F1 병합 전 커밋, MERGE_HEAD 가 없으며 해결 뒤 verify 는 없다",
+      "check": "node test/t.mjs \"F164 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "병합 후 verify 복구 builder 가 같은 budgetExhausted 결과를 돌려주면 F1 은 blocked, reason 'budget', detail 에 'post-merge verify recovery build stopped at its budget' 과 'error_max_budget_usd' 가 있고, integration 은 F1 병합 전 커밋이며 복구 builder 는 한 번만 불린다",
+      "check": "node test/t.mjs \"F164 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "budget.step_usd 0.5 이고 충돌 해결 builder 또는 복구 builder 가 budgetExhausted 없이 ok true·costUsd 0.6 을 돌려주면 그 기능은 verify 없이 blocked, reason 'budget', detail 에 'reached the step budget' 이 있다(기능 build 와 같은 판정)",
+      "check": "node test/t.mjs \"F164 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "docs/SPEC.md §8 의 예산 문단이 병합 충돌 해결과 병합 후 verify 복구 builder 에도 blocked(`budget`) 가 적용됨을 적는다(문서 check: 'error_max_budget_usd' 가 있는 §8 문단에 '병합 충돌 해결' 과 '병합 후 verify 복구' 가 있다)",
+      "check": "node test/t.mjs \"F164 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "budgetExhausted 없이 exit_nonzero 로 실패한 충돌 해결 builder 는 지금처럼 blocked(merge_conflict), 복구 builder 는 blocked(post_merge_verify) 이고, step_usd 가 없고 budgetExhausted 도 없는 성공한 두 builder 는 지금처럼 진행해 F1 이 passed 다",
+      "check": "node test/t.mjs \"F164 ES-1\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 예산과 무관한 실패·성공 경로의 기존 reason 과 흐름이 바뀌지 않는지 확인한다"
+    },
+    {
+      "id": "ES-2",
+      "criterion": "기존 병합 복구(F32)와 기능 build 예산(F159) 동작은 그대로다",
+      "check": "node test/t.mjs \"F32\" && node test/t.mjs \"F159\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 기존 병합 복구와 build 예산 테스트가 그대로 통과하는지 확인한다"
+    }
+  ],
+  "out_of_scope": [
+    "evaluator·security-reviewer 호출의 예산 처리(eval 쪽은 F159 대로 eval_error)",
+    "예산으로 막힌 복구를 --resume 으로 다시 시도하는 것",
+    "metrics 의 outcome 값 변경"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-11T23:59:03.803Z",
+    "hash": "b8f61eeed31c6bc6aa16581de6e6fe9d61aab7382f27a70b4acb2fde53d064d7"
+  }
+}
