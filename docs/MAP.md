@@ -69,4 +69,5 @@ A test (`F112 AC-6`) fails when a file is missing here or when an entry names a 
 - lib/commands/stats.mjs — `harness stats`: aggregates run metrics
 - lib/commands/status.mjs — `harness status`: feature and backlog overview
 - lib/commands/tf-check.mjs — `harness tf-check`: terraform validate and fmt check for the iac profile
+- lib/commands/k8s-check.mjs — `harness k8s-check`: kubeconform on plain, kustomize and helm manifests for the ops profile
 - lib/commands/verify.mjs — `harness verify`: runs deterministic verification for a feature
