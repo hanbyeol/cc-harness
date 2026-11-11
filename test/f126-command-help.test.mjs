@@ -5,13 +5,13 @@ import path from 'node:path';
 import { harness, tmpdir, writeJson, readJson, fakeExecutable, REPO } from './helpers.mjs';
 import { gitRepo } from './gitfixture.mjs';
 
-const NAMES = ['init', 'lint-contract', 'approve', 'verify', 'eval', 'run', 'status', 'stats', 'events', 'decide', 'backlog', 'doctor', 'claude-md', 'tf-check', 'migrate-v1'];
+const NAMES = ['init', 'lint-contract', 'approve', 'verify', 'eval', 'run', 'status', 'stats', 'events', 'decide', 'backlog', 'doctor', 'claude-md', 'tf-check', 'k8s-check', 'migrate-v1'];
 const OPTIONS = {
   init: ['--language'], approve: ['--by', '--extra-round'], verify: ['--base', '--cwd', '--json'],
   eval: ['--round', '--base', '--cwd', '--json'], run: ['--resume', '--fresh', '--max-usd', '--parallel'],
   status: ['--brief', '--todo-v1'], stats: ['--since', '--json'], events: ['--stage', '--feature', '--since', '--json'],
   decide: ['--accept-risk', '--split', '--rewrite'], backlog: ['close', '--resolved', '--obsolete'],
-  'claude-md': ['--check'], 'tf-check': ['--dir'], 'migrate-v1': ['--force'],
+  'claude-md': ['--check'], 'tf-check': ['--dir'], 'k8s-check': ['--dir', '--ignore-missing-schemas'], 'migrate-v1': ['--force'],
 };
 
 const listed = () => {
