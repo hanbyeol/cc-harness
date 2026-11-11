@@ -1,6 +1,7 @@
 ---
 name: build
 description: Implement one approved cc-harness feature with test-driven development, then run harness verify and harness eval. Use when the user asks to implement or continue a feature whose contract is approved, or to fix the blocking findings of a failed round.
+argument-hint: F{n}
 ---
 
 # build — implement one approved feature

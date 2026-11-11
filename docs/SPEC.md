@@ -445,6 +445,7 @@ bin/harness.mjs, lib/*.mjs   코어 (Node ≥ 22 — Node 20 은 2026-04 EOL 이
 test/t.mjs                   기준 check 러너 (`files` 에 포함 — `init` 이 node --test 프로젝트에 그대로 복사, §4)
 hooks/hooks.json             Claude SessionStart 1개: `harness status --brief` — Claude 전용(`${CLAUDE_PLUGIN_ROOT}`). Gemini 도 이 파일을 로드하지만 변수가 비어 실패(비치명). Gemini 는 `${extensionPath}` 변형을 쓰는 방법이 확인될 때까지 hook 없음으로 간주
 ```
+플러그인 검증: CI job `plugin-validate`(ubuntu, `.github/workflows/ci.yml`)가 고정 버전 Claude Code(`@anthropic-ai/claude-code@2.1.322`, 어댑터를 마지막으로 실측한 버전)를 설치하고 `node tools/plugin-validate.mjs` 로 매니페스트·skill·agent 를 검사한다(F158). 스크립트는 `claude plugin validate . --strict --json` 리포트를 읽어 error·advice 가 없고 warning 이 저장소 루트의 개발용 `CLAUDE.md` 경고(path `root`, "CLAUDE.md at the plugin root is not loaded") 하나뿐일 때만 exit 0 이다 — 런타임이 경고로만 넘기는 알 수 없는 키·누락 메타데이터는 exit 1(각 message 를 stderr 에), 리포트를 읽을 수 없거나 claude 가 없으면 exit 2. `directory.findings`(ICON_MISSING 등)는 validator 스스로 결과에 영향이 없다고 하므로 보지 않는다. 버전은 손으로 올린다.
 설치: `npx github:hanbyeol/cc-harness init` (npm 레지스트리의 `cc-harness` 는 다른 프로젝트) (대상 프로젝트에 `.harness/` 생성, 감지된 CLI별 설치 안내 출력).
 
 ## 12. 에러 시나리오
