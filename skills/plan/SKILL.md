@@ -1,6 +1,7 @@
 ---
 name: plan
 description: Lint one or more cc-harness contracts, present them as a plan, and record the user's approval with harness approve. Use after a contract is drafted and before any implementation, or when the user asks to approve features.
+argument-hint: F{n} [F{m} ...]
 ---
 
 # plan — lint, present, approve

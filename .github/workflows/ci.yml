@@ -40,3 +40,18 @@ jobs:
         run: node --test "test/**/*.test.mjs"
       - name: Lint the repository's own contracts
         run: node bin/harness.mjs lint-contract
+
+  # The plugin manifest, skills and agents, checked by the Claude Code version the adapter was
+  # last measured against; strict, except the known warning about the root CLAUDE.md (F158).
+  plugin-validate:
+    name: plugin validate (strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code@2.1.322
+      - name: Validate the plugin
+        run: node tools/plugin-validate.mjs

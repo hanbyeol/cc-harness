@@ -43,9 +43,10 @@ npx github:hanbyeol/cc-harness doctor    # 설치된 CLI·버전, 역할별 플�
 ### Claude Code 플러그인
 
 ```bash
-/plugin marketplace add hanbyeol/cc-harness
-/plugin install cc-harness
+/plugin install cc-harness --marketplace hanbyeol/cc-harness
 ```
+
+Claude Code 2.1.275 미만이면 `/plugin marketplace add hanbyeol/cc-harness` 뒤 `/plugin install cc-harness`로 설치합니다.
 
 skills·agents가 네이티브로 로딩되고, SessionStart 훅 하나(`harness status --brief`)가 세션 시작 시 현재 상태를 보여 줍니다.
 
