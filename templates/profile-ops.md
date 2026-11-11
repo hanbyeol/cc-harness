@@ -1,6 +1,7 @@
 This project uses the ops profile (Kubernetes): manifests are the desired state.
 - Manifests are validated offline: verify runs `harness k8s-check` (`kubeconform` on plain,
-  kustomize and helm manifests), never a live cluster.
+  kustomize and helm manifests), never a live cluster. Policy scanners (Pod Security, RBAC,
+  plain secrets) run with `harness k8s-check --scan trivy --scan checkov` in `verify.commands`.
 - Change a live cluster only through the `rollout` skill, one change at a time, and
   only after the user's approval of that change. Live changes are never part of `harness run`.
 - Before a change, tell the user the kubectl context and the namespace it will run in.

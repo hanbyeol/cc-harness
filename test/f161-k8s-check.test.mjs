@@ -38,6 +38,8 @@ const k8sCheck = (f, args = []) => harness(['k8s-check', ...args], { cwd: f.root
 const calls = (f, tool) => readLog(f.log).filter((c) => c.tool === tool).map((c) => ({ ...c, args: c.args.map(norm) }));
 const lines = (s) => s.split('\n').map((l) => l.trimEnd()).filter(Boolean);
 const DEP = 'apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: web\n';
+// Printed last on stdout when no --scan is given (F163 AC-3).
+const NO_SCANNERS = 'k8s-check: no policy scanners (--scan trivy|checkov)';
 
 // ------------------------------------------------------------------ criteria
 
@@ -61,7 +63,7 @@ test('F161 AC-1 the default directory is k8s', () => {
   const f = fixture({ 'k8s/app.yaml': DEP, 'other/app.yaml': 'FAIL_KUBECONFORM\n' });
   const r = k8sCheck(f);
   assert.equal(r.code, 0, r.stderr);
-  assert.deepEqual(lines(r.stdout), ['ok k8s']);
+  assert.deepEqual(lines(r.stdout), ['ok k8s', NO_SCANNERS]);
   const kc = calls(f, 'kubeconform');
   assert.equal(kc.length, 1);
   assert.deepEqual(kc[0].args, ['-strict', '-summary', 'k8s/app.yaml']);
@@ -83,7 +85,7 @@ test('F161 AC-2 plain YAML directories are checked with kubeconform -strict -sum
 
   const r = k8sCheck(f);
   assert.equal(r.code, 0, r.stderr);
-  assert.deepEqual(lines(r.stdout), ['ok k8s', 'ok k8s/apps/web']);
+  assert.deepEqual(lines(r.stdout), ['ok k8s', 'ok k8s/apps/web', NO_SCANNERS]);
   const kc = calls(f, 'kubeconform');
   assert.deepEqual(kc.map((c) => c.args), [
     ['-strict', '-summary', 'k8s/a.yaml', 'k8s/b.yml'],
@@ -103,7 +105,7 @@ test('F161 AC-3 kustomization and Chart.yaml directories are rendered and the ou
   });
   const r = k8sCheck(f);
   assert.equal(r.code, 0, r.stderr);
-  assert.deepEqual(lines(r.stdout).sort(), ['ok k8s/charts/web', 'ok k8s/overlays/dev', 'ok k8s/overlays/prod', 'ok k8s/overlays/stage']);
+  assert.deepEqual(lines(r.stdout).sort(), [NO_SCANNERS, 'ok k8s/charts/web', 'ok k8s/overlays/dev', 'ok k8s/overlays/prod', 'ok k8s/overlays/stage']);
 
   assert.deepEqual(calls(f, 'kustomize').map((c) => c.args).sort(), [
     ['build', 'k8s/overlays/dev'], ['build', 'k8s/overlays/prod'], ['build', 'k8s/overlays/stage'],
@@ -130,7 +132,7 @@ test('F161 AC-4 a kubeconform failure is reported, the rest is still checked, ex
   });
   const r = k8sCheck(f);
   assert.equal(r.code, 1, r.stdout + r.stderr);
-  assert.deepEqual(lines(r.stdout), ['ok k8s/c-good']);
+  assert.deepEqual(lines(r.stdout), ['ok k8s/c-good', NO_SCANNERS]);
   const err = lines(r.stderr);
   assert.ok(err.some((l) => l.startsWith('k8s/a-bad: kubeconform failed: ')), r.stderr);
   assert.match(r.stderr, /k8s\/a-bad: kubeconform failed: [^]*Invalid: 1/);
@@ -196,7 +198,7 @@ test('F161 ES-1 a missing kubeconform, kustomize or helm is exit 127 before any 
   const plain = fixture({ 'k8s/a.yaml': DEP }, { tools: ['kubeconform'] });
   const r = k8sCheck(plain);
   assert.equal(r.code, 0, r.stderr);
-  assert.deepEqual(lines(r.stdout), ['ok k8s']);
+  assert.deepEqual(lines(r.stdout), ['ok k8s', NO_SCANNERS]);
 });
 
 test('F161 ES-2 a failed render is reported, not validated, and the run ends with exit 1', () => {
@@ -212,7 +214,7 @@ test('F161 ES-2 a failed render is reported, not validated, and the run ends wit
   assert.ok(err.some((l) => l.startsWith('k8s/a-ov: render failed: ') && l.includes('kustomize cannot render')), r.stderr);
   assert.ok(err.some((l) => l.startsWith('k8s/b-chart: render failed: ') && l.includes('helm cannot render')), r.stderr);
   assert.equal(err.at(-1), 'k8s-check: failed: k8s/a-ov, k8s/b-chart');
-  assert.deepEqual(lines(r.stdout), ['ok k8s/c-good']);
+  assert.deepEqual(lines(r.stdout), ['ok k8s/c-good', NO_SCANNERS]);
   const kc = calls(f, 'kubeconform');
   assert.equal(kc.length, 1);
   assert.ok(kc[0].stdin.includes('GOOD_RENDER'));
@@ -240,11 +242,11 @@ test('F161 ES-3 a missing directory and an unknown argument are usage errors; no
 
   r = k8sCheck(none, ['--dir', 'other']);
   assert.equal(r.code, 0, r.stderr);
-  assert.deepEqual(lines(r.stdout), ['ok other']);
+  assert.deepEqual(lines(r.stdout), ['ok other', NO_SCANNERS]);
 
   const empty = fixture({ 'k8s/README.md': '# nothing\n', 'k8s/sub/notes.txt': 'x\n' });
   r = k8sCheck(empty);
   assert.equal(r.code, 0, r.stderr);
-  assert.deepEqual(lines(r.stdout), ['k8s-check: no manifests under k8s']);
+  assert.deepEqual(lines(r.stdout), ['k8s-check: no manifests under k8s', NO_SCANNERS]);
   assert.deepEqual(readLog(empty.log), []);
 });
