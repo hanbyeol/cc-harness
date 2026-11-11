@@ -1312,7 +1312,8 @@
       "title": "tf-check runs terraform test where *.tftest.hcl exist and the policy scanners named with --scan (tflint, trivy, checkov); iac rubric and SPEC match what runs",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 1
     },
     {
       "id": "F161",
