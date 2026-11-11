@@ -9,7 +9,7 @@
   "rubric": {
     "functionality": "The manifests express the desired state the contract names (image, replicas, resources, config) and nothing else changes.",
     "quality": "Labels and selectors consistent, resource requests and limits set, no duplicated config that should be shared.",
-    "security": "RBAC least privilege, NetworkPolicy for new workloads, Pod Security restricted (non-root, read-only root filesystem, no privilege escalation), no secrets in plain manifests.",
+    "security": "RBAC least privilege, NetworkPolicy for new workloads, Pod Security restricted (non-root, read-only root filesystem, no privilege escalation), no secrets in plain manifests. Run the policy scanners with harness k8s-check --scan trivy --scan checkov (config verify.commands) to check these mechanically.",
     "errors": "Readiness and liveness probes defined; a rollback path (previous image tag or revision) exists for every change that will reach a live cluster.",
     "tests": "Offline validation (harness k8s-check: kubeconform on plain, kustomize and helm manifests) passes. Live verification (rollout status, probes, smoke checks) belongs to the rollout skill and is not scored here."
   }
