@@ -1274,6 +1274,13 @@
       "security_tier": "critical",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F156",
+      "title": "builder_model price order ranks fable above opus (fable > opus > sonnet > haiku)",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }

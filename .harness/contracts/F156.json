@@ -1,0 +1,54 @@
+{
+  "id": "F156",
+  "title": "harness stats 의 builder_model 제안 가격 순서에 fable 을 opus 보다 비싼 낱말로 넣는다(fable > opus > sonnet > haiku) — 지금은 fable 모델이 순위 밖이라 builder 가 claude-fable-5-2 이면 더 싼 모델 제안이 나오지 않는다. F104 AC-1 의 가격 순서 문장(opus > sonnet > haiku)을 이 계약이 대신한다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "현재 builder 모델이 claude-fable-5-2(builder 비용 90%)이고 claude-opus-5-5 build 줄 5개의 시간 초과율이 fable 이하인 fixture 에서 suggest() 의 builder_model 제안은 model 'claude-opus-5-5', current_model 'claude-fable-5-2' 이다",
+      "check": "node test/t.mjs \"F156 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "현재 builder 모델이 claude-fable-5-2 이고 claude-haiku-5-5·claude-sonnet-5-5·claude-opus-5-5 가 모두 조건(5줄 이상, 시간 초과율 이하)을 채우면 제안 model 은 가장 싼 'claude-haiku-5-5' 다",
+      "check": "node test/t.mjs \"F156 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "현재 builder 모델이 claude-opus-5-5 이고 claude-fable-5-2 build 줄 5개가 시간 초과 0번인 fixture 에서 builder_model 제안이 없다(fable 은 opus 보다 싸지 않다)",
+      "check": "node test/t.mjs \"F156 AC-3\"",
+      "new": false,
+      "new_reason": "회귀 방지 — fable 을 opus 아래에 두는 구현을 막는다. base 에서는 fable 이 순위 밖이라 제안이 없다"
+    },
+    {
+      "id": "AC-4",
+      "criterion": "docs/SPEC.md 의 builder_model 제안 문단이 가격 순서를 'fable > opus > sonnet > haiku' 로 적고 'opus > sonnet > haiku 이고' 문구는 남지 않는다(문서 check)",
+      "check": "node test/t.mjs \"F156 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "현재 builder 모델 이름에 fable·opus·sonnet·haiku 중 어느 낱말도 없으면(예: 'gpt-5') claude-haiku-5-5 가 조건을 채워도 builder_model 제안이 없다",
+      "check": "node test/t.mjs \"F156 ES-1\"",
+      "new": false,
+      "new_reason": "회귀 방지 — 순위 밖 모델의 기존 동작(F104)이 낱말 추가 뒤에도 유지되는지 확인한다"
+    }
+  ],
+  "out_of_scope": [
+    "모델 이름이 아닌 실제 토큰 단가(modelUsage·가격표)로 순서를 정하는 것",
+    "같은 낱말 안의 세대 구분(예: claude-opus-4-8 과 claude-opus-5-5 의 가격 차이)",
+    "mythos 등 다른 모델 낱말",
+    "F104 계약 파일의 수정(동결된 계약은 그대로 두고 이 계약이 가격 순서 문장을 대신한다)"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-11T09:10:36.194Z",
+    "hash": "7c6b10913675ce7993d1f45ba65cde775c9bb794c595e58bb35c2adb127a9f61"
+  }
+}
