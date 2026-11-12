@@ -1,0 +1,65 @@
+{
+  "id": "F165",
+  "title": "harness doctor 와 run 사전 점검이 claude 인증을 모델 호출 없이 'claude auth status --json' 으로 판정한다 — 지금은 claude 인증을 판정하지 않아(SPEC §10) 로그아웃된 claude 가 usable 로 보이고 run 이 첫 builder 호출에서야 실패한다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "claude 어댑터의 authFromStatus({code, stdout}) 는 stdout JSON 의 loggedIn 이 true 면 {ok: true, via: <authMethod>}(authMethod 가 /^[A-Za-z0-9_.-]{1,40}$/ 가 아니면 via 'claude'), false 면 {ok: false, reason} 이고 reason 에 'not authenticated' 와 'claude auth login' 이 있다. JSON 이 아니거나 loggedIn 이 불리언이 아니면 null(알 수 없음)이다",
+      "check": "node test/t.mjs \"F165 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "PATH 의 가짜 claude 가 'auth status --json' 에 loggedIn true·authMethod 'claude.ai' JSON 을 내면 harness doctor 는 그 인자로 claude 를 한 번 실행하고 CLI 줄의 claude 에 'authenticated (claude.ai)' 를 표시한다",
+      "check": "node test/t.mjs \"F165 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "가짜 claude 가 loggedIn false JSON 으로 exit 1 이면 doctor 는 claude 를 쓰는 역할을 'NOT usable: not authenticated …' 로 보고 exit 1 이고, harness run 사전 점검은 'builder (claude): not authenticated' 를 담아 exit 2 이며 integration 브랜치를 만들지 않는다",
+      "check": "node test/t.mjs \"F165 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "auth status 출력의 email·orgName·orgId 값(테스트 값 'f165@example.com', 'F165 Org', 'org-f165-id')은 doctor 의 stdout·stderr 에 나오지 않는다",
+      "check": "node test/t.mjs \"F165 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md §10 이 claude 인증 판정('claude auth status --json', loggedIn, 알 수 없으면 막지 않음)을 적고, 'claude·codex 의 인증은 판정하지 않는다' 문장이 없다",
+      "check": "node test/t.mjs \"F165 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "가짜 claude 의 'auth status' 가 JSON 이 아닌 출력(또는 빈 출력)으로 exit 1 이거나 'auth' 를 모르는 CLI 라 오류로 끝나면 인증은 알 수 없음이고, claude 역할은 플래그 검사대로 usable 이며 CLI 줄에 인증 문구가 없다",
+      "check": "node test/t.mjs \"F165 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "기존 doctor·사전 점검·gemini 인증·어댑터 동작은 그대로다",
+      "check": "node test/t.mjs \"F51\" && node test/t.mjs \"F20\" && node test/t.mjs \"F4\"",
+      "new": false,
+      "new_reason": "회귀 방지 — probe 를 주입한 기존 doctor·사전 점검 테스트와 gemini 인증 판정이 바뀌지 않는지 확인한다"
+    }
+  ],
+  "out_of_scope": [
+    "--bare 사용(--bare 는 OAuth·키체인을 읽지 않아 구독 로그인이 동작하지 않는다, 2026-11-12 실측)",
+    "codex 인증 판정",
+    "loginExpiresAt 로 만료를 미리 판정하는 것",
+    "claude 의 apiKeyHelper·3P provider(Bedrock·Vertex) 인증을 따로 판정하는 것 — auth status 의 loggedIn 을 그대로 쓴다"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-12T00:56:37.510Z",
+    "hash": "0bf4ed63458286345d55bd71883ddea23a5158a5e1bbd95eb451f97bbae43999"
+  }
+}

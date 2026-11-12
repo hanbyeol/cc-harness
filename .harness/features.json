@@ -1348,6 +1348,13 @@
       "depends_on": [],
       "status": "passed",
       "eval_round": 1
+    },
+    {
+      "id": "F165",
+      "title": "doctor and run preflight judge claude authentication with claude auth status --json, without a model call",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }
