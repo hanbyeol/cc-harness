@@ -31,6 +31,10 @@ if (args[0] === '--version') {
   process.stdout.write('2.1.280 (Claude Code)\n');
 } else if (args[0] === '--help') {
   process.stdout.write(fs.readFileSync(HELP, 'utf8'));
+} else if (args[0] === 'auth') {
+  // `claude auth status --json` (doctor's auth check, F165): an older CLI without `auth`.
+  process.stderr.write("error: unknown command 'auth'\n");
+  process.exit(1);
 } else {
   let stdin = '';
   for await (const chunk of process.stdin) stdin += chunk;
