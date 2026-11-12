@@ -121,6 +121,8 @@ test('F165 AC-4: doctor never prints the email, organization name or organizatio
   for (const [auth, authExit] of [[LOGGED_IN, 0], [{ ...LOGGED_OUT, ...PRIVATE }, 1]]) {
     const r = harness(['doctor'], { auth, authExit });
     const all = r.stdout + r.stderr;
+    // The output was read: the claude line carries its verdict.
+    assert.match(claudeLine(r.stdout), authExit ? /not authenticated/ : /authenticated \(claude\.ai\)/, all);
     for (const v of Object.values(PRIVATE)) assert.ok(!all.includes(v), `${v} in doctor output`);
   }
 });
@@ -141,7 +143,10 @@ test('F165 AC-5: SPEC §10 describes the claude auth check and no longer says cl
 
 test('F165 ES-1: unknown auth status output leaves claude usable and the CLI line without auth text', () => {
   for (const [auth, authExit] of [['Not logged in. Run claude auth login to authenticate.', 1], ['', 1], [undefined, undefined]]) {
-    const r = harness(['doctor'], { auth, authExit });
+    const log = path.join(tmpdir('harness-f165-log-'), 'auth.log');
+    const r = harness(['doctor'], { auth, authExit, log });
+    // auth status was asked, and its answer was unknown.
+    assert.deepEqual(fs.readFileSync(log, 'utf8').trim().split('\n'), ['auth status --json']);
     const line = claudeLine(r.stdout);
     assert.ok(line, r.stdout + r.stderr);
     assert.doesNotMatch(line, /authenticated/, line);
