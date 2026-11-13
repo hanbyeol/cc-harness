@@ -1,0 +1,82 @@
+{
+  "id": "F171",
+  "title": "harness verify F{n} 의 .harness 무결성 검사가 코어가 쓴 F{n} 의 상태 필드 변경만 허용한다 — 지금은 대화형 2라운드에서 harness eval 이 features.json 에 쓴 status·eval_round 때문에 verify 가 항상 실패한다(F170 에서 발견). 그 밖의 변경(예: status passed)은 이전처럼 실패한다",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "merge-base 대비 .harness 변경이 features.json 뿐이고 그 차이가 F{n} 항목의 status 를 approved 또는 in_progress 로, eval_round 를 작업 트리 .harness/verdicts/F{n}-r{k}.json 의 가장 큰 k 로 바꾼 것뿐이면 harness verify F{n} 의 '.harness 변경' 검사는 0 건으로 통과한다",
+      "check": "node test/t.mjs \"F171 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "F{n} 항목의 blocked_reason 이 없어지거나, extra_rounds 가 {hash: 현재 계약 F{n} 의 hashContract 값, count: 1 이상의 정수} 로 바뀐 것도 AC-1 과 함께 허용된다",
+      "check": "node test/t.mjs \"F171 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "대화형 흐름: 1라운드 harness eval 이 fail 로 F{n} 을 in_progress·eval_round 1 로 기록한 같은 작업 트리에서 2라운드 harness verify F{n} 의 무결성 검사가 통과한다(커밋하지 않은 상태와 기능 브랜치에 커밋한 상태 모두)",
+      "check": "node test/t.mjs \"F171 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "docs/SPEC.md §6.2 가 허용되는 코어 필드 변경(필드·값 조건)과 그 밖은 이전처럼 보호된다는 것을 F171 과 함께 설명한다",
+      "check": "node test/t.mjs \"F171 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "F{n} 항목의 status 를 passed·blocked·todo·skipped 로 바꾸면 무결성 검사가 실패하고 .harness/features.json 이 변경 목록에 나온다 — builder 가 자기 기능을 통과로 표시할 수 없다",
+      "check": "node test/t.mjs \"F171 SC-1\"",
+      "new": false,
+      "new_reason": "지금도 features.json 의 모든 변경이 실패하므로 변경 전에도 통과한다 — 완화가 이 경우를 열지 않게 지키는 기준"
+    },
+    {
+      "id": "SC-2",
+      "criterion": "다른 기능 항목의 변경, F{n} 의 id·title·security_tier·depends_on 변경, 기능 항목의 추가·삭제, features 밖 최상위 키 변경은 각각 무결성 검사를 실패시킨다",
+      "check": "node test/t.mjs \"F171 SC-2\"",
+      "new": false,
+      "new_reason": "지금도 features.json 의 모든 변경이 실패하므로 변경 전에도 통과한다 — 회귀 방지"
+    },
+    {
+      "id": "SC-3",
+      "criterion": "eval_round 가 가장 큰 verdict 라운드와 다르거나(verdict 파일이 없을 때 포함), extra_rounds 의 hash 가 현재 계약의 hash 와 다르거나 count 가 1 이상의 정수가 아니면 무결성 검사가 실패한다",
+      "check": "node test/t.mjs \"F171 SC-3\"",
+      "new": false,
+      "new_reason": "지금도 features.json 의 모든 변경이 실패하므로 변경 전에도 통과한다 — 값 조건이 느슨해지지 않게 지키는 기준"
+    },
+    {
+      "id": "SC-4",
+      "criterion": "작업 트리나 merge-base 의 features.json 이 JSON 이 아니거나 features 배열이 없으면 이전처럼 변경 목록에 나오고 실패한다. contracts/·config.json 등 다른 .harness 경로의 변경은 이전처럼 실패한다",
+      "check": "node test/t.mjs \"F171 SC-4\"",
+      "new": false,
+      "new_reason": "지금의 동작과 같으므로 변경 전에도 통과한다 — 회귀 방지"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "기존 무결성 면제 테스트(F11)와 verify 테스트(F123·F125)가 그대로 통과한다",
+      "check": "node --test test/f11-integrity-exempt.test.mjs test/f123-verify-blocking.test.mjs test/f125-verify-failure-output.test.mjs",
+      "new": false,
+      "new_reason": "기존 동작을 검사하므로 변경 전에도 통과한다 — 회귀 방지"
+    }
+  ],
+  "out_of_scope": [
+    "contracts/F{n}.json 의 approval 블록 변경(재승인) 허용 — 재승인 흐름은 별도",
+    "harness run 의 동작 — run 은 기능 worktree 밖에 상태를 기록한다",
+    "verify 없이 기능 상태를 바꾸는 다른 명령",
+    "builder 가 git 내부를 일부러 조작하는 경우(evaluator 위협 모델과 같다)"
+  ],
+  "approval": {
+    "by": "Jay Sheen",
+    "at": "2026-11-13T14:32:39.945Z",
+    "hash": "e25a3d3e87dd914ed71288e1f9b115d7546315547c10fb605e14b581a81e45bc"
+  }
+}
