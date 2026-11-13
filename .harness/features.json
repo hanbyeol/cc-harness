@@ -1431,6 +1431,13 @@
       "security_tier": "standard",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F176",
+      "title": "harness run verifies in parallel and splits the CPUs: auto = max(1, floor(CPUs/4)); {verify_cpus} and HARNESS_VERIFY_CPUS per verify",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }

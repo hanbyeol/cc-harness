@@ -1,0 +1,65 @@
+{
+  "id": "F176",
+  "title": "harness run 이 verify 를 병렬로 돌리고 CPU 를 나눠 준다 — run.verify_parallel 'auto' 를 max(1, floor(CPU/4)) 로 하고, 각 verify 명령의 '{verify_cpus}' 자리에 floor(CPU / 동시 verify 수) 를 넣어(환경 변수 HARNESS_VERIFY_CPUS 도) 동시에 도는 테스트 프로세스 수를 CPU 수 안으로 묶는다. 지금은 8 CPU 에서 verify 가 하나씩만 돌아 대기가 run 시간의 대부분이다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "verifyParallelFor('auto' 또는 미설정, cpus) 는 max(1, floor(cpus / 4)) 다(예: 8 → 2, 4 → 1, 16 → 4, 2 → 1). 1 이상의 정수 설정은 그대로다. run 보고서 머리말은 'verify parallel: <n> (auto: <cpus> CPUs / 4)' 이다",
+      "check": "node test/t.mjs \"F176 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "harness run 의 verify 명령 실행(기능 verify, 병합 전 verify, 병합 후 verify, base 쪽 test count 실행)은 명령 문자열의 '{verify_cpus}' 를 모두 max(1, floor(cpus / verify 풀 크기)) 의 10진 정수로 바꿔 실행하고, 그 명령의 환경에 같은 값의 HARNESS_VERIFY_CPUS 를 둔다",
+      "check": "node test/t.mjs \"F176 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "대화형 harness verify F{n}(run 밖)은 '{verify_cpus}' 와 HARNESS_VERIFY_CPUS 를 max(1, cpus) 로 둔다",
+      "check": "node test/t.mjs \"F176 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "'{verify_cpus}' 가 없는 명령은 이전과 같은 문자열로 실행된다(HARNESS_VERIFY_CPUS 만 환경에 더해진다). verify.test_count 'from:commands[i]' 는 바꾼 명령의 출력에서 이전처럼 센다",
+      "check": "node test/t.mjs \"F176 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md §8.10 병렬 실행의 verify 풀 문장이 새 auto 공식과 '{verify_cpus}'·HARNESS_VERIFY_CPUS 규칙을 F176 과 함께 설명하고, §4 config 표나 §6 verify 명령 설명이 '{verify_cpus}' 자리 표시를 설명한다",
+      "check": "node test/t.mjs \"F176 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "기존 병렬 실행 테스트(F25·F113)의 auto 공식 단언은 새 공식으로 바뀌고(삭제가 아니라 교체), 두 파일과 verify 병렬 테스트 F26 이 통과한다",
+      "check": "node --test test/f25-auto-parallel.test.mjs test/f113-run-split.test.mjs test/f26-verify-parallel.test.mjs",
+      "new": false,
+      "new_reason": "F26 은 바뀌지 않는 동작이고 F25·F113 은 단언 교체 뒤에도 같은 파일로 통과해야 한다 — 회귀 방지"
+    },
+    {
+      "id": "ES-2",
+      "criterion": "기준의 check 명령과 vacuity 실행에는 '{verify_cpus}' 치환을 하지 않는다(verify.commands 만 대상) — check 문자열은 이전과 같이 실행된다",
+      "check": "node test/t.mjs \"F176 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "이 저장소 .harness/config.json 의 verify 명령을 '{verify_cpus}' 로 바꾸는 것 — 병합 뒤 사람이 config 로 한다",
+    "부하 평균을 보고 verify 시작을 미루는 것",
+    "흔들리는 테스트(F41·F93) 안정화",
+    "verify.check_parallel(기준 check 병렬) 규칙 변경"
+  ],
+  "approval": {
+    "by": "Jay Sheen",
+    "at": "2026-11-13T16:03:45.309Z",
+    "hash": "8de719a5e17e15f9f7c79f2d9fe5b3542943e03815dfbadb6411b8aedece3a8d"
+  }
+}
