@@ -1402,14 +1402,14 @@
       "title": "verify integrity allows only the core-written status fields of the verified feature in features.json",
       "security_tier": "critical",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F172",
       "title": "the stats effort suggestion counts core step time in the time per passed feature",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }
