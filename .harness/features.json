@@ -1356,6 +1356,13 @@
       "depends_on": [],
       "status": "passed",
       "eval_round": 1
+    },
+    {
+      "id": "F166",
+      "title": "builder works through ordinary obstacles, follows the check when wording is ambiguous, and reports only blockers that need a human",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }

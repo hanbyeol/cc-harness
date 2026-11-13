@@ -1,0 +1,86 @@
+{
+  "id": "F166",
+  "title": "builder 가 평범한 장애물에서 멈추지 않고 끝까지 일한다 — 문구가 모호해도 check 가 판정하면 check 를 따르고, 끝 보고에는 사람이 풀어야 할 차단만 남긴다 (Fable 5.2 프롬프팅 가이드 'Finish the whole task')",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "agents/builder.md 에 '## Finishing the work' 절이 정확히 하나 있고 '## Boundaries' 뒤, '## When the contract is wrong' 앞에 있다",
+      "check": "node test/t.mjs \"F166 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "그 절은 평범한 장애물(실패한 테스트, flaky 결과, 오류, 시간 초과, 잠긴 파일, 빈 결과)을 멈출 이유가 아니라 진단하고 넘어갈 것으로 말하고, 'wait and retry' 와 'use another tool' 을 담는다",
+      "check": "node test/t.mjs \"F166 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "그 절은 의도된 한계로 `.harness/`, `out_of_scope`, 보호 브랜치를 이름으로 들고, 그것은 건드리지 말고 발견한 것을 말한 뒤 나머지를 끝내라고 한다('Leave them alone' 과 'finish the rest' 를 담는다)",
+      "check": "node test/t.mjs \"F166 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "builder.md 의 '## When the contract is wrong' 절: 문구가 모호해도 check 가 판정하면 따르고 계속한다('follow the `check` and keep working'). 두 기준의 모순·실행할 수 없는 check·out_of_scope 작업 없이는 충족 못 하는 check 에서만 멈춰 기준 id·이유·명령 출력을 보고한다. 옛 문장 'If a criterion is ambiguous, contradicts another, or cannot be met' 은 없다",
+      "check": "node test/t.mjs \"F166 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "agents/builder.md 의 '## Finish' 절에 'anything you could not do' 가 없고, 끝내지 못한 일은 의도된 한계나 계약 문제로 멈춘 것만 이유와 함께 적고 평범한 장애물은 적지 말고 해결하라고 한다. harness run 아래에서 verify 결과를 보고하지 말라는 기존 문장은 그대로다",
+      "check": "node test/t.mjs \"F166 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "헤드리스 builder 프롬프트(loadRolePrompt('builder') 와 그것을 쓰는 builderPrompt 의 결과)에 '## Finishing the work' 절과 새 '## When the contract is wrong' 문장이 들어간다",
+      "check": "node test/t.mjs \"F166 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "skills/build/SKILL.md 에 옛 문장 'If a criterion is ambiguous or impossible, stop' 이 없고, 같은 자리에서 check 가 판정하면 check 를 따르고 계속하며 AC-4 의 세 조건에서만 사용자에게 기준 id 와 이유를 알리라고 한다. 평범한 장애물은 멈추지 말고 해결하라는 문장도 있다",
+      "check": "node test/t.mjs \"F166 AC-7\"",
+      "new": true
+    },
+    {
+      "id": "AC-8",
+      "criterion": "docs/SPEC.md 에 builder 역할 프롬프트의 마무리·멈춤 규칙(평범한 장애물은 해결, 의도된 한계는 보고, 모호한 문구는 check 를 따름)을 설명하는 문장이 F166 을 언급하며 있다",
+      "check": "node test/t.mjs \"F166 AC-8\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "agents/builder.md 의 '## Boundaries' 절(.harness/ 편집 금지, 상태 변경 금지, 테스트 skip·약화 금지, push·merge·브랜치 전환 금지, out_of_scope 금지)은 이 기능 전과 같다 — 마무리 규칙이 차단 경계를 느슨하게 하지 않는다",
+      "check": "node test/t.mjs \"F166 ES-1\"",
+      "new": false,
+      "new_reason": "Boundaries 절은 이 기능이 바꾸지 않는 기존 내용이라 변경 전에도 통과한다 — 회귀 방지용"
+    },
+    {
+      "id": "ES-2",
+      "criterion": "agents/builder.md 의 frontmatter(name·description)는 이 기능 전과 같고 플러그인 검증(tools/plugin-validate.mjs)이 통과한다",
+      "check": "node tools/plugin-validate.mjs",
+      "new": false,
+      "new_reason": "frontmatter 와 플러그인 구조는 바뀌지 않으므로 변경 전에도 통과한다 — 회귀 방지용"
+    }
+  ],
+  "out_of_scope": [
+    "templates/claude-block.md 의 멈춤 줄(메인 루프용 — spec·plan 단계에서는 모호한 기준을 사용자에게 묻는 것이 맞다)",
+    "evaluator·security-reviewer 프롬프트",
+    "코드 소유권 문장(owner/maintainer) 추가 — 계약 범위 밖 변경과 토큰 증가를 부른다",
+    "진행 업데이트·최종 보고 문체 지시",
+    "effort 설정과 역할 모델 정책",
+    "builder 의 실제 행동 변화 측정(조기 종료율) — 별도 측정 작업"
+  ],
+  "approval": {
+    "by": "Jay Sheen",
+    "at": "2026-11-13T12:27:32.578Z",
+    "hash": "b089083ee262ef4d48acefcb8ccc934da4513c3df96ed55207c7eb20b65751b8"
+  }
+}
