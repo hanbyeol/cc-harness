@@ -1372,6 +1372,13 @@
       "depends_on": [],
       "status": "passed",
       "eval_round": 1
+    },
+    {
+      "id": "F168",
+      "title": "a refused role call is asked once more with the configured roles.<role>.refusal_model",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }

@@ -1,0 +1,91 @@
+{
+  "id": "F168",
+  "title": "거부된 역할 호출을 설정한 다른 모델로 한 번 다시 부른다 — roles.<역할>.refusal_model. 지금은 거부(stop_reason refusal)가 곧 blocked 라(F103, SPEC §8) Fable 5.2 의 safety 분류기가 정상 보안·리뷰 작업을 막으면 사람이 손대야 한다 (Fable 5.2 프롬프팅 가이드 'Safeguard refusals')",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness run 에서 build 호출이 refusal 이고 roles.builder.refusal_model 이 그 호출의 모델과 다르면, 같은 라운드·시도에서 builder 를 refusal_model 로 한 번 더 부르고, 그 호출이 성공하면 기능은 verify·eval 로 이어져 passed 가 된다",
+      "check": "node test/t.mjs \"F168 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "refusal_model 호출도 refusal 이면 기능은 F103 처럼 blocked(reason refusal)이고 builder 호출은 정확히 두 번, verify 는 없다. refusal_model 이 없거나 그 호출의 모델과 같으면 다시 부르지 않는다(호출 한 번)",
+      "check": "node test/t.mjs \"F168 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "evaluator 호출이 refusal 이고 roles.evaluator.refusal_model 이 있으면 한 번 더 그 모델로 묻고, 답하면 판정 파일이 써지며 verdict reviews.evaluator 의 model 은 refusal_model 이다. refusal_model 이 builder 모델과 같으면 independence 는 fresh-context 다",
+      "check": "node test/t.mjs \"F168 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "critical 기능의 security-reviewer 호출이 refusal 이고 roles.security-reviewer.refusal_model 이 있으면 같은 방식으로 한 번 더 묻고, reviews.security-reviewer 의 model 은 refusal_model 이다",
+      "check": "node test/t.mjs \"F168 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "병합 충돌 해결 builder 와 병합 후 verify 복구 builder 의 호출이 refusal 이면 roles.builder.refusal_model 로 한 번 더 부르고, 성공하면 F103 의 refusal blocked 대신 이전처럼 다시 verify·eval 로 이어진다",
+      "check": "node test/t.mjs \"F168 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "다시 부를 때마다 refusal_fallback 이벤트(stage build·eval·security, data {role, from, to})가 기록되고, run metrics 에는 거부된 호출 줄(outcome refusal, 원래 model)과 다시 부른 호출 줄(model = refusal_model)이 따로 있다",
+      "check": "node test/t.mjs \"F168 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "harness doctor 는 refusal_model 이 있는 역할 아래에 'refusal <adapter/model>' 줄을 보여 주고, refusal_model 은 알 수 없는 config 키 경고(F135)를 내지 않는다",
+      "check": "node test/t.mjs \"F168 AC-7\"",
+      "new": true
+    },
+    {
+      "id": "AC-8",
+      "criterion": "docs/SPEC.md §4·§8·§10 이 refusal_model 의 형식, 한 번만 다시 부르는 규칙, 기록(이벤트·metrics·reviews), independence 를 설명하고, §8 의 '다른 모델로 자동 재시도는 범위 밖' 문장이 F168 을 가리키게 바뀐다",
+      "check": "node test/t.mjs \"F168 AC-8\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "refusal_model 이 빈 문자열·문자열이 아님·'-' 로 시작·공백이나 제어 문자를 포함하면 roles.<역할>.refusal_model 키 경로를 담은 config_invalid(exit 2)이고, harness run 은 모델 CLI 를 부르지 않는다",
+      "check": "node test/t.mjs \"F168 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "adapter 가 claude 가 아닌 역할의 refusal_model 은 'only supported by the claude adapter' 를 담은 config_invalid(exit 2)다 — 거부 감지가 claude 어댑터에만 있다",
+      "check": "node test/t.mjs \"F168 ES-2\"",
+      "new": true
+    },
+    {
+      "id": "ES-3",
+      "criterion": "refusal_model 이 없는 config 의 거부 처리는 이 기능 전과 같다 — F103 의 모든 테스트가 그대로 통과한다",
+      "check": "node --test test/f103-refusal.test.mjs",
+      "new": false,
+      "new_reason": "F103 테스트는 기존 거부 처리를 검사하므로 변경 전에도 통과한다 — 하위 호환 회귀 방지용"
+    }
+  ],
+  "out_of_scope": [
+    "거부 범주(cyber·bio 등) 기록 — 측정된 claude CLI 거부 출력에 범주 필드가 없다. 측정 후 별도 계약",
+    "CLAUDE_CODE_DISABLE_REFUSAL_FALLBACK 해제나 CLI 의 자동 모델 전환 사용 — 설정에 명시하고 기록하는 방식만",
+    "두 번 이상 다시 부르기, refusal_model 여러 개",
+    "프롬프트를 바꿔서 다시 묻기",
+    "claude 외 어댑터의 거부 감지",
+    "역할 effort 를 refusal_model 호출에 따로 정하기 — 그 호출의 effort 는 원래 호출과 같다"
+  ],
+  "approval": {
+    "by": "Jay Sheen",
+    "at": "2026-11-13T13:09:09.375Z",
+    "hash": "9e97160d59eb2db1a7c97459e64fc9791786a275f58113c87428ec11be61f2d0"
+  }
+}
