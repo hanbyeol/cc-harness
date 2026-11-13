@@ -153,15 +153,15 @@ test('F25 AC-2: --parallel 3 caps four features at 3', async () => {
 });
 
 // ------------------------------------------------------------------ AC-3
-test('F25 AC-3: verify_parallel auto is max(1, floor(cpus / 8)); an integer is used as is', () => {
-  assert.equal(verifyParallelFor('auto', 8), 1);
-  assert.equal(verifyParallelFor('auto', 16), 2);
+test('F25 AC-3: verify_parallel auto is max(1, floor(cpus / 4)); an integer is used as is', () => {
+  assert.equal(verifyParallelFor('auto', 8), 2);
+  assert.equal(verifyParallelFor('auto', 16), 4);
   assert.equal(verifyParallelFor('auto', 4), 1);
-  assert.equal(verifyParallelFor(undefined, 24), 3);
+  assert.equal(verifyParallelFor(undefined, 24), 6);
   assert.equal(verifyParallelFor(5, 4), 5);
 });
 
-for (const [cpus, pool] of [[8, 1], [16, 2], [4, 1]]) {
+for (const [cpus, pool] of [[8, 2], [16, 4], [4, 1]]) {
   test(`F25 AC-3: with ${cpus} CPUs (auto) at most ${pool} verify runs at a time; builds are not limited by the pool`, async () => {
     const dir = fixture(IDS4);
     // Each build waits until all four have started (up to 30 s) instead of relying on timing:
@@ -338,7 +338,7 @@ test('F25 AC-5: the report shows the applied max_parallel and verify_parallel an
   const r = await run(dir, { build, cpus: 16 }, { run: { max_parallel: 'auto' } });
   const md = fs.readFileSync(r.report, 'utf8');
   assert.match(md, /- max parallel: auto \(3\)/);
-  assert.match(md, /- verify parallel: 2 \(auto: 16 CPUs \/ 8\)/);
+  assert.match(md, /- verify parallel: 4 \(auto: 16 CPUs \/ 4\)/);
   assert.match(md, /Conflict resolution/);
   assert.match(md, /\| F1 feature F1 \| passed \|.*\| no \|$/m);
   assert.match(md, /\| F2 feature F2 \| passed \|.*\| resolved \|$/m);
