@@ -1,0 +1,49 @@
+{
+  "feature": "F170",
+  "round": 1,
+  "verdict": "fail",
+  "score": 5,
+  "scores": {
+    "functionality": 8,
+    "quality": 8,
+    "security": 9,
+    "errors": 5,
+    "tests": 6
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [
+    {
+      "criterion_id": "ES-2",
+      "dimension": "errors",
+      "summary": "ES-2 에 따르면 cost_usd·duration_ms 가 없거나 숫자가 아닌 줄은 effort 비교에서 빠져야 합니다. 그런데 builderGroups·evaluatorGroups 는 cost()/ms() 가 null 을 0 으로 바꾸는 값을 그대로 더하고, 그런 줄을 1라운드 build 줄이나 판정 줄로도 계속 셉니다. 그래서 비용을 보고하지 않은 build 줄(metricLine 은 비용을 모르면 cost_usd:null 을 기록함)만 있는 effort 묶음이 '$0.00 per passed feature' 로 계산되고, 그 effort 가 더 싸다는 잘못된 제안이 나옵니다. 재현: high 기능 5개($2), medium 기능 5개(build cost_usd:null) → 'consider roles.builder.effort_by_tier.standard = \"medium\"' 이 출력됩니다. 해당 줄을 빼면 medium 기능에는 1라운드 build 줄이 없으므로 기능도 빠지고, 제안이 없어야 합니다.",
+      "repro": "node --input-type=module -e \"import{computeStats}from'./lib/metrics.mjs';const rows=[];for(let i=1;i<=5;i++)for(const[p,e,c]of[['H','high',2],['M','medium',null]])rows.push({feature:p+i,round:1,step:'build',role:'builder',model:'sonnet',effort:e,cost_usd:c,duration_ms:90000,ended_at:'2026-11-01T00:00:00Z',outcome:'ok'},{feature:p+i,round:1,step:'eval',role:'evaluator',model:'opus',effort:null,cost_usd:0,duration_ms:0,ended_at:'2026-11-01T00:00:00Z',outcome:'pass'});const cur={model:'sonnet',effort:'high'};const s=computeStats(rows,{tiers:new Map(rows.map(r=>[r.feature,'standard'])),current:{builder:{standard:cur,critical:cur},evaluator:{}}}).suggestions.filter(x=>x.rule==='effort');process.exit(s.length?1:0)\"",
+      "source": "evaluator",
+      "exit": 1,
+      "file": "lib/metrics.mjs",
+      "line": 257
+    }
+  ],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 0.35681820000000003,
+  "contract_hash": "cf9bfa1cf6059ebc4228e55723f9172a7b482aea530c83f7cf2565d6d964e25b",
+  "contract_round": 1,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 8,
+        "quality": 8,
+        "security": 9,
+        "errors": 5,
+        "tests": 6
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-11-13T14:08:04.803Z",
+  "origin": "eval"
+}
