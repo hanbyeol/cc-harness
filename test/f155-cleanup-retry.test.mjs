@@ -178,7 +178,8 @@ test('F155 SC-3: the wait between retries is outside the git lock', async () => 
   const dir = fixture(['F1', 'F2']);
   const times = [];
   const g = async (args, cwd, opts) => {
-    if (isRm(args) && args[3].includes('F1')) {
+    // The worktree's own directory name, not a substring of the path: a temp dir name can contain 'F1'.
+    if (isRm(args) && path.basename(args[3].replace(/[\\/]+$/, '')) === 'F1') {
       times.push(['rm', Date.now()]);
       return { code: 1, stdout: '', stderr: 'locked' };
     }

@@ -7629,7 +7629,12 @@
       "sources": [
         "F173-r1"
       ],
-      "id": "B569"
+      "id": "B569",
+      "closed": {
+        "as": "resolved",
+        "reason": "test matched the F1 worktree by a substring of the full path; a temp dir name containing 'F1' also matched F2 (6 !== 3). Now compares the directory name",
+        "at": "2026-11-13T22:56:40.640Z"
+      }
     }
   ]
 }
