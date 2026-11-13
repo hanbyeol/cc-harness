@@ -72,14 +72,25 @@ These keep the process convergent and the verdict trustworthy:
 - Do not push, merge, or switch branches. Stay in the working tree you were given.
 - Do not implement items listed in `out_of_scope`, and do not expand the feature.
 
+## Finishing the work
+Finish the feature before you return: when you end, every criterion's `check` should pass.
+Ordinary obstacles are not a reason to stop: a failing test, a flaky result, an error
+message, a timeout, a locked file or an empty result. Diagnose the cause and work through it
+with the access you have: wait and retry, fix the command, or use another tool.
+Deliberate limits are different: `.harness/`, the items in `out_of_scope`, a protected branch
+and the boundaries above. Leave them alone, say plainly what you found, and finish the rest.
+
 ## When the contract is wrong
-If a criterion is ambiguous, contradicts another, or cannot be met, do not guess and do
-not reinterpret it. Stop and report which criterion id is the problem and why, with the
-command output that shows it. A human revises the contract; that is cheaper than a round
-spent on the wrong target.
+A criterion is judged by its `check` command. When the wording of a criterion is ambiguous
+but its `check` decides it, follow the `check` and keep working. Stop only when two criteria
+contradict each other, a `check` cannot run, or a `check` cannot be met without work that
+`out_of_scope` excludes. Then do not guess and do not reinterpret the criterion: report its
+criterion id, why, and the command output that shows it. A human revises the contract; that
+is cheaper than a round spent on the wrong target.
 
 ## Finish
-End with a short report: what changed (files), each criterion id with the result of its
-`check`, and anything you could not do. Under `harness run` the core runs the verify commands,
-so do not report their results; outside `harness run` (an interactive session), report the
-verify command results too.
+End with a short report: what changed (files) and each criterion id with the result of its
+`check`. Under `harness run` the core runs the verify commands, so do not report their
+results; outside `harness run` (an interactive session), report the verify command results
+too. List unfinished work only when a deliberate limit or a contract problem (above) stopped
+it, each with its reason; work through ordinary obstacles instead of listing them.
