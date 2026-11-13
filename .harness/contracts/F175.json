@@ -1,0 +1,45 @@
+{
+  "id": "F175",
+  "title": "spec 스킬이 vacuity 를 피하는 기준 작성법을 안내한다 — 기존 동작을 지키는 회귀 방지 기준은 new:false 와 new_reason, '일어나지 않는다' 만 단언하는 new:true 테스트에는 같은 테스트 안의 대조(일어나는 경우) 단언 (F172 AC-3·F170 AC-2·AC-6 에서 vacuity 로 라운드를 쓴 원인)",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "skills/spec/SKILL.md 의 '## 3. Rules that make a criterion decidable' 절은 이 변경 전에도 성립하는 동작을 지키는 기준(회귀 방지)은 'new: false' 와 'new_reason' 으로 쓴다고 말한다",
+      "check": "node test/t.mjs \"F175 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "같은 절은 무언가가 일어나지 않음(제안 없음·빠짐·거부)만 단언하는 new:true 기준의 테스트는 base 에서도 통과하므로, 같은 테스트 안에 그 동작이 일어나는 대조 사례 단언을 함께 두라고 말한다",
+      "check": "node test/t.mjs \"F175 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "agents/builder.md 의 테스트 단계(How to work 2 단계)도 '일어나지 않음' 만 단언하는 새 기준 테스트에 대조 단언을 두라고 한 문장으로 말한다",
+      "check": "node test/t.mjs \"F175 AC-3\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "spec 스킬·builder 프롬프트를 검사하는 기존 테스트(F133·F166·F169)가 통과하고 plugin-validate 가 통과한다",
+      "check": "node --test test/f133-contract-quality.test.mjs test/f166-builder-finish.test.mjs test/f169-builder-reuse.test.mjs && node tools/plugin-validate.mjs",
+      "new": false,
+      "new_reason": "기존 문서 검사이므로 변경 전에도 통과한다 — 회귀 방지"
+    }
+  ],
+  "out_of_scope": [
+    "lint-contract 의 새 규칙(정적 탐지)",
+    "vacuity 검사 동작 변경"
+  ],
+  "approval": {
+    "by": "Jay Sheen",
+    "at": "2026-11-13T15:23:12.927Z",
+    "hash": "c755060a2b0b76556df568818d9dc5d1de2c979615e490aa6caf941d49a22deb"
+  }
+}

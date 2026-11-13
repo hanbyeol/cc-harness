@@ -1,0 +1,45 @@
+{
+  "id": "F173",
+  "title": "run 보고서의 병합 안내를 v2 정책(F151)에 맞춘다 — 통과한 integration 브랜치를 base 브랜치에 PR 없이 병합하고 push 하며 force-push 하지 않는다. 지금 보고서는 'gh pr create' 와 '사람의 결정' 을 안내한다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "기능이 통과한 run 보고서의 '## Needs you' merge 줄은 '- merge: review `<integration>` and merge it into `<base>`, then push — no pull request, no force-push' 이고 'gh pr create' 를 담지 않는다",
+      "check": "node test/t.mjs \"F173 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "보고서의 '## Next' 절은 통과한 기능이 integration 에 병합됐고 그것을 base 브랜치에 PR 없이 병합해 push 하라고(force-push 금지) 안내하며 'open a PR'·'gh pr create'·'is a human decision' 을 담지 않는다",
+      "check": "node test/t.mjs \"F173 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "docs/SPEC.md 의 자율 모드 표 줄(§2)과 §8 종료 단계·Needs you 설명이 'gh pr create' 대신 PR 없는 병합·push 를 말한다. F6·F72·F137 테스트의 'gh pr create' 단언은 새 문구 단언으로 바뀐다(삭제가 아니라 교체, 테스트 수 유지)",
+      "check": "node test/t.mjs \"F173 AC-3\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "통과한 기능이 없는 run 보고서에는 이전처럼 merge 줄이 없고, F6·F72·F137·F151 테스트가 모두 통과한다",
+      "check": "node --test test/f6-run.test.mjs test/f72-needs-you.test.mjs test/f137-doc-commands.test.mjs test/f151-direct-merge.test.mjs",
+      "new": false,
+      "new_reason": "통과 기능이 없으면 merge 줄이 없는 것은 기존 동작이고, 테스트 파일들은 기존 동작을 검사한다 — 회귀 방지"
+    }
+  ],
+  "out_of_scope": [
+    "harness run 이 직접 base 브랜치에 병합하거나 push 하는 것 — 코어는 여전히 병합·push 하지 않는다",
+    "gh CLI 감지"
+  ],
+  "approval": {
+    "by": "Jay Sheen",
+    "at": "2026-11-13T15:23:12.927Z",
+    "hash": "6739c7abcd2bbe412443e137362787fec195b209048866bffeadbed51970e8a5"
+  }
+}

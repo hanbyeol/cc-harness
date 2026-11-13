@@ -1,0 +1,45 @@
+{
+  "id": "F174",
+  "title": "build 스킬의 blocked 안내에 다시 진행하는 길을 적는다 — 라운드가 남은 채 divergence·stall 로 막힌 기능은 사용자의 결정 뒤 같은 해시의 harness approve F{n} 으로, 라운드를 다 쓴 기능은 --extra-round 로만 다시 진행한다(F170 에서 헤맨 부분)",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "skills/build/SKILL.md 의 blocked 문단은 라운드가 남은 채 divergence 나 stall 로 막힌 기능을, 사용자가 같은 계약으로 계속하기로 정하면 같은 해시의 `harness approve F{n}` 으로 다시 approved 로 만든다고 말한다",
+      "check": "node test/t.mjs \"F174 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "같은 문단은 max_rounds(와 이미 받은 추가 라운드)를 다 써서 막힌 기능은 같은 해시 재승인이 거부되고 `harness approve F{n} --extra-round` 로만 한 라운드를 더한다고 말한다",
+      "check": "node test/t.mjs \"F174 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "같은 문단은 재승인·추가 라운드도 사용자의 결정 뒤에만 한다고 말하고, 기존의 split·rewrite·accept-risk 안내와 harness decide 기록 안내는 남아 있다",
+      "check": "node test/t.mjs \"F174 AC-3\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "build 스킬을 검사하는 기존 테스트(F137·F151)가 통과하고 plugin-validate 가 통과한다",
+      "check": "node --test test/f137-doc-commands.test.mjs test/f151-direct-merge.test.mjs && node tools/plugin-validate.mjs",
+      "new": false,
+      "new_reason": "기존 문서 검사이므로 변경 전에도 통과한다 — 회귀 방지"
+    }
+  ],
+  "out_of_scope": [
+    "approve·eval 코드의 동작 변경 — 문서만 고친다",
+    "AGENTS.md·CLAUDE.md 블록"
+  ],
+  "approval": {
+    "by": "Jay Sheen",
+    "at": "2026-11-13T15:23:12.927Z",
+    "hash": "bbb50153b57ef41a54cf5619b94ca78b915d91eea5404e4e7df55808b5983cc5"
+  }
+}
