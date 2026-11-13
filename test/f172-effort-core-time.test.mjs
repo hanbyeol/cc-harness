@@ -40,8 +40,8 @@ test('F172 AC-2 a lower effort whose verify time makes it slower overall is not 
 });
 
 test('F172 AC-3 role lines keep the F170 rules; a core line with a non-numeric duration is dropped alone', () => {
-  const base = [...group('H', 5, { effort: 'high', cost: 2, ms: 90_000 }), ...group('M', 5, { effort: 'medium', cost: 1, ms: 60_000, core: [{ duration_ms: 'x' }, { duration_ms: null }] })];
-  assert.equal(sugg(base)[0].duration_ms, 60_000);
+  const base = [...group('H', 5, { effort: 'high', cost: 2, ms: 90_000 }), ...group('M', 5, { effort: 'medium', cost: 1, ms: 60_000, core: [{ duration_ms: 5_000 }, { duration_ms: 'x' }, { duration_ms: null }] })];
+  assert.equal(sugg(base)[0].duration_ms, 65_000);
   // a role line without a numeric cost is left out, so the feature has no round 1 build line and no group
   const noCost = group('M', 5, { effort: 'medium', cost: null, ms: 60_000, core: [{ duration_ms: 5 }] });
   assert.equal(sugg([...group('H', 5, { effort: 'high', cost: 2, ms: 90_000 }), ...noCost]).length, 0);
