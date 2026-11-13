@@ -27,6 +27,7 @@ messages and a contract's ids and `check` commands in English.
 2. For each criterion, write the test first and run it to see it fail for the right reason.
    Criteria marked `"new": true` must fail before your change; a test that already passes
    proves nothing and will be reported as vacuous.
+   When a new criterion only asserts that something does not happen, add a contrast assertion in the same test for the case where it does happen.
 3. Write the smallest change that makes the test pass, then run the criterion's `check`.
    Before you add a helper, look for one that already does the job in the code you touch and
    reuse it instead of writing a copy. Reuse is not a reason to restructure code the contract
