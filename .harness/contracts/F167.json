@@ -1,0 +1,91 @@
+{
+  "id": "F167",
+  "title": "역할 effort 를 보안 등급과 라운드로 고른다 — roles.<역할>.effort_by_tier 와 roles.builder.effort_escalate. 지금은 effort 가 역할당 한 값이라(F70, SPEC §10) standard 는 낮게·critical 은 높게, 실패한 라운드 뒤에는 높게 둘 수 없다 (Fable 5.2 프롬프팅 가이드 'Calibrate effort')",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "roleCall(config, role, {tier}) 의 effort 는 roles.<역할>.effort_by_tier.<tier> 가 있으면 그 값, 없으면 roles.<역할>.effort, 둘 다 없으면 null 이다 (critical·standard 각각, builder·evaluator·security-reviewer 각각)",
+      "check": "node test/t.mjs \"F167 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "roles.builder.effort_escalate 가 있으면 builder 의 round ≥ 2 호출(충돌 해결 호출 포함)은 그 effort 이고, round 1 호출은 AC-1 의 값이다",
+      "check": "node test/t.mjs \"F167 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "harness run 은 가짜 claude 로 standard 기능 builder 에 effort_by_tier.standard 를, critical 기능 builder 에 effort_by_tier.critical 을 --effort 로 넘기고, 1라운드가 실패한 기능의 2라운드 builder 에는 effort_escalate 를 넘긴다",
+      "check": "node test/t.mjs \"F167 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "harness eval 은 evaluator·security-reviewer 각각에 그 역할의 effort_by_tier.<기능 등급> 을 --effort 로 넘긴다",
+      "check": "node test/t.mjs \"F167 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "run 의 metrics 줄과 step 이벤트의 effort 는 그 호출에 실제로 넘긴 값(AC-1·AC-2 로 고른 값)이다",
+      "check": "node test/t.mjs \"F167 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "doctor 는 effort_by_tier·effort_escalate 가 있는 역할에 등급별 effort 줄(critical·standard)과 builder 의 'effort escalate (r≥2)' 줄을 보여 주고, 어떤 호출에든 effort 가 있으면 --effort 를 필수 플래그로 검사한다. 두 키가 없는 역할은 이 기능 전과 같은 'effort <값>'·'effort not set' 한 줄이다",
+      "check": "node test/t.mjs \"F167 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "effort_by_tier 와 effort_escalate 는 알 수 없는 config 키 경고(F135)를 내지 않는다",
+      "check": "node test/t.mjs \"F167 AC-7\"",
+      "new": true
+    },
+    {
+      "id": "AC-8",
+      "criterion": "docs/SPEC.md §4·§10 이 effort_by_tier·effort_escalate 의 형식, 고르는 순서(escalate → 등급 → effort → 없음), 검증 오류를 설명하고, F167 을 언급하는 줄에 Fable 5.2 가이드에 근거한 시작 권장값(builder standard medium·critical high·escalate high, 검토 역할은 낮추지 않음)이 있다",
+      "check": "node test/t.mjs \"F167 AC-8\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "effort_by_tier 가 객체가 아니거나, 키가 critical·standard 가 아니거나, 값이 low·medium·high·xhigh·max 가 아니면(대문자·빈 문자열·'-' 로 시작하는 값 포함) harness run·doctor 는 그 키 경로를 담은 config_invalid 로 exit 2 이고 모델 CLI 를 부르지 않는다",
+      "check": "node test/t.mjs \"F167 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "effort_escalate 가 builder 가 아닌 역할에 있거나 값이 EFFORTS 밖이면 config_invalid(exit 2, 키 경로 포함)이고, 두 키 모두 adapter 가 claude 가 아닌 역할에 있으면 roles.<역할>.effort 와 같은 'only supported by the claude adapter' config_invalid 다",
+      "check": "node test/t.mjs \"F167 ES-2\"",
+      "new": true
+    },
+    {
+      "id": "ES-3",
+      "criterion": "effort_by_tier·effort_escalate 가 없는 config 는 이 기능 전과 같다 — F70 의 모든 테스트가 그대로 통과한다",
+      "check": "node --test test/f70-effort.test.mjs",
+      "new": false,
+      "new_reason": "F70 테스트는 기존 동작을 검사하므로 변경 전에도 통과한다 — 하위 호환 회귀 방지용"
+    }
+  ],
+  "out_of_scope": [
+    "코드나 프로필에 effort 기본값을 넣는 것 — 측정 전에는 모든 사용자의 동작을 바꾸지 않는다. 권장값은 SPEC 문서로만 둔다",
+    "라운드별로 여러 단계 상승(예: 3라운드 xhigh) — 가이드상 high 위 이득이 고르지 않다. escalate 는 model escalate 처럼 round ≥ 2 한 값",
+    "계약 크기·finding 수 같은 난이도 신호로 effort 를 고르는 것, harness stats 의 effort 제안 — 2단계 별도 계약",
+    "검토 역할(evaluator·security-reviewer)의 effort 하한 강제",
+    "verdict reviews 에 effort 기록 (F70 처럼 metrics·이벤트에만)",
+    "claude 외 어댑터의 effort"
+  ],
+  "approval": {
+    "by": "Jay Sheen",
+    "at": "2026-11-13T12:49:05.744Z",
+    "hash": "dab1e3df610632e238c2ce130f32bf997f557326a2f83905e95606a07331a808"
+  }
+}

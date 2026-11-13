@@ -1364,6 +1364,13 @@
       "depends_on": [],
       "status": "passed",
       "eval_round": 1
+    },
+    {
+      "id": "F167",
+      "title": "role effort chosen by security tier and round: roles.<role>.effort_by_tier and roles.builder.effort_escalate",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }
