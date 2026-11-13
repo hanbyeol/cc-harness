@@ -39,8 +39,14 @@ For a finding: run its `repro`, see it fail, fix the cause, see it exit 0.
 Do not edit `.harness/`, do not add skip or focus markers, do not delete or weaken existing
 tests. Verification detects all of these, so they only cost a round.
 
-If a criterion is ambiguous or impossible, stop and tell the user which id and why. Do not
-reinterpret it; a changed contract needs a new approval.
+Work through an ordinary obstacle (a failing test, an error, a timeout, a locked file)
+instead of stopping: diagnose the cause and fix it, retry, or use another tool.
+
+A criterion is judged by its `check`. When its wording is ambiguous but the `check` decides
+it, follow the `check` and keep going. Stop and tell the user the criterion id and why only
+when two criteria contradict each other, a `check` cannot run, or a `check` cannot be met
+without work that `out_of_scope` excludes. Do not reinterpret it; a changed contract needs a
+new approval.
 
 ## 3. Verify
 Run `harness verify F{n}`. It runs the profile's verify commands, checks that `.harness/` is
