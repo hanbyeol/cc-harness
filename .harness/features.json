@@ -1394,8 +1394,9 @@
       "title": "harness stats suggests per-tier effort (builder; evaluator without weakening the gate) that is cheaper and not slower per passed feature",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "in_progress",
-      "eval_round": 1
+      "status": "blocked",
+      "eval_round": 2,
+      "blocked_reason": "divergence"
     }
   ]
 }

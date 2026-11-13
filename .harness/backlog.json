@@ -7581,6 +7581,34 @@
       "summary": "decision drop for F118: affected mode was removed by F120; nothing left to build",
       "at": "2026-10-31T02:02:47.298Z",
       "id": "B567"
+    },
+    {
+      "source": "F170-blocked",
+      "feature": "F170",
+      "kind": "rescope",
+      "reason": "divergence",
+      "round": 2,
+      "blocking": [
+        "AC-1",
+        "AC-5"
+      ],
+      "at": "2026-11-13T14:17:40.649Z",
+      "summary": "F170 blocked (divergence): criteria that were not blocking came back — the change to fix one breaks another",
+      "options": [
+        {
+          "kind": "split",
+          "summary": "split F170 so AC-1, AC-5 ship as a separate feature with its own contract"
+        },
+        {
+          "kind": "rewrite",
+          "summary": "rewrite the criteria for AC-1, AC-5 (new contract version, re-approval)"
+        },
+        {
+          "kind": "accept",
+          "summary": "accept the risk: drop or relax AC-1, AC-5 with a recorded decision"
+        }
+      ],
+      "id": "B568"
     }
   ]
 }

@@ -1,0 +1,59 @@
+{
+  "feature": "F170",
+  "round": 2,
+  "verdict": "fail",
+  "score": 6,
+  "scores": {
+    "functionality": 6,
+    "quality": 8,
+    "security": 9,
+    "errors": 9,
+    "tests": 7
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [
+    {
+      "criterion_id": "AC-1",
+      "dimension": "functionality",
+      "summary": "beats() 가 1라운드 통과율을 round2 로 반올림한 값으로 비교한다. 그래서 실제로는 현재 effort 보다 통과율이 낮은 effort 도 제안된다. 예: 후보 medium 22/31=0.7097, 현재 high 5/7=0.714 는 둘 다 0.71 로 반올림되고, 비용과 시간이 더 낮다는 이유로 medium 이 제안된다. AC-1 은 '1라운드 통과율이 낮지 않으면' 에만 제안하라고 한다. 비교는 반올림하지 않은 비율(firstPass/count)로 해야 한다.",
+      "repro": "node --input-type=module -e \"import{computeStats}from'./lib/metrics.mjs';const rows=[],tiers=new Map();const L=(o)=>({round:1,ended_at:'2026-11-01T00:00:00Z',duration_ms:1000,cost_usd:0,adapter:'claude',outcome:'ok',...o});const f=(id,e,c,ms,first)=>{tiers.set(id,'standard');rows.push(L({feature:id,step:'build',role:'builder',model:'sonnet',effort:e,cost_usd:c,duration_ms:ms}),L({feature:id,step:'eval',role:'evaluator',model:'opus',outcome:first?'pass':'fail'}));if(!first)rows.push(L({feature:id,round:2,step:'eval',role:'evaluator',model:'opus',outcome:'pass'}))};for(let i=0;i<7;i++)f('H'+i,'high',2,90000,i<5);for(let i=0;i<31;i++)f('M'+i,'medium',1,60000,i<22);const C={model:'sonnet',effort:'high'},V={model:'opus',effort:'high'};const s=computeStats(rows,{tiers,current:{builder:{standard:C,critical:C},evaluator:{standard:V,critical:V}}}).suggestions.filter(x=>x.rule==='effort'&&x.role==='builder');if(s.length){console.error('suggested although first-round pass rate 22/31 < 5/7:',JSON.stringify(s));process.exit(1)}\"",
+      "source": "evaluator",
+      "exit": 1,
+      "file": "lib/metrics.mjs",
+      "line": 240
+    },
+    {
+      "criterion_id": "AC-5",
+      "dimension": "functionality",
+      "summary": "evaluator 의 fail 판정 비율도 round2 로 반올림한 뒤 비교한다. 그래서 fail 비율이 현재보다 낮은 effort 가 제안된다. 예: 후보 medium 22/31=0.7097, 현재 high 5/7=0.714 가 둘 다 0.71 이 된다. AC-5 는 'fail 비율이 낮으면 생기지 않는다' 고 하는데, 이 경우 게이트를 약하게 하는 effort 가 제안된다.",
+      "repro": "node --input-type=module -e \"import{computeStats}from'./lib/metrics.mjs';const rows=[],tiers=new Map();const L=(o)=>({round:1,ended_at:'2026-11-01T00:00:00Z',duration_ms:1000,cost_usd:1,adapter:'claude',outcome:'ok',...o});const r=(id,e,c,ms,fail)=>{tiers.set(id,'standard');rows.push(L({feature:id,step:'build',role:'builder',model:'sonnet',effort:'high'}),L({feature:id,step:'eval',role:'evaluator',model:'opus',effort:e,cost_usd:c,duration_ms:ms,outcome:fail?'fail':'pass'}))};for(let i=0;i<7;i++)r('A'+i,'high',0.5,30000,i<5);for(let i=0;i<31;i++)r('B'+i,'medium',0.2,20000,i<22);const C={model:'sonnet',effort:'high'},V={model:'opus',effort:'high'};const s=computeStats(rows,{tiers,current:{builder:{standard:C,critical:C},evaluator:{standard:V,critical:V}}}).suggestions.filter(x=>x.rule==='effort'&&x.role==='evaluator');if(s.length){console.error('evaluator suggested although fail rate 22/31 < 5/7:',JSON.stringify(s));process.exit(1)}\"",
+      "source": "evaluator",
+      "exit": 1,
+      "file": "lib/metrics.mjs",
+      "line": 240
+    }
+  ],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 0.5167493999999999,
+  "contract_hash": "cf9bfa1cf6059ebc4228e55723f9172a7b482aea530c83f7cf2565d6d964e25b",
+  "contract_round": 2,
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 6,
+        "quality": 8,
+        "security": 9,
+        "errors": 9,
+        "tests": 7
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-11-13T14:17:40.643Z",
+  "origin": "eval"
+}
