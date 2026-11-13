@@ -1,0 +1,85 @@
+{
+  "id": "F170",
+  "title": "harness stats 가 등급별 effort 를 제안한다 — 통과한 기능 하나당 비용·시간이 둘 다 나쁘지 않고 하나는 나은 effort 를 roles.<역할>.effort_by_tier 로 (builder, 검토 역할은 게이트를 약하게 하지 않는 조건에서). 자동 적용하지 않는다 (P1 2단계, F167 다음)",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "builder: 같은 등급에서 effort E 의 기능 묶음이 현재 effort(config 의 그 등급 round 1 builder effort) 묶음보다 통과 기능당 비용과 시간이 둘 다 크지 않고 하나는 작으며 1라운드 통과율이 낮지 않으면, suggestions 에 rule 'effort'·role builder·tier·effort E·current_effort 항목이 생긴다",
+      "check": "node test/t.mjs \"F170 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "builder 제안이 생기지 않는 경우: E 가 더 싸지만 더 느림, 더 빠르지만 더 비쌈, 1라운드 통과율이 더 낮음, 두 묶음 중 하나라도 기능이 5개 미만, E 가 현재 effort 와 같음",
+      "check": "node test/t.mjs \"F170 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "통과 기능당 비용·시간은 묶음의 모든 기능(통과 못 한 기능 포함)의 모든 metrics 줄 비용·시간 합을 통과한 기능 수로 나눈 값이다 — 통과 못 한 기능의 비용 때문에 E 가 더 비싸지면 제안하지 않는다",
+      "check": "node test/t.mjs \"F170 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "기능의 등급은 features.json 의 security_tier, builder effort 는 그 기능 1라운드 build 줄의 effort 다(없으면 'not set' 묶음). 1라운드 build 줄의 effort 가 섞였거나, 그 줄이 없거나, 그 model 이 현재 config 의 그 등급 round 1 builder 모델과 다른 기능은 builder 비교에서 빠진다",
+      "check": "node test/t.mjs \"F170 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "evaluator: standard 등급에서 현재 evaluator 모델의 eval 줄 중 effort E 의 검토 하나당 비용·시간이 둘 다 크지 않고 하나는 작으며 fail 판정 비율이 현재 effort 보다 낮지 않을 때만(검토 각 5개 이상) role evaluator 제안이 생긴다. fail 비율이 낮으면 생기지 않는다",
+      "check": "node test/t.mjs \"F170 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "critical 등급 검토 역할과 security-reviewer 에는 effort 제안이 생기지 않는다(critical 게이트는 내리지 않고, run metrics 의 eval 줄은 security-reviewer effort 를 따로 담지 않는다)",
+      "check": "node test/t.mjs \"F170 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "harness stats 텍스트는 제안을 '[effort] …' 줄로 보여 주고 config 키(roles.<역할>.effort_by_tier.<tier>)와 두 effort 의 통과 기능당(검토당) 비용·시간을 담는다. --json 항목은 role·tier·effort·current_effort·count·current_count·cost_usd·current_cost_usd·duration_ms·current_duration_ms·rate·current_rate 를 담는다. config.json 은 바뀌지 않는다",
+      "check": "node test/t.mjs \"F170 AC-7\"",
+      "new": true
+    },
+    {
+      "id": "AC-8",
+      "criterion": "docs/SPEC.md §8.11 이 effort 제안 규칙(비교 단위, 통과 기능당 계산, 1라운드 통과율·fail 비율 조건, 최소 5개, 검토 역할 제외 조건, 자동 적용 안 함)을 F170 과 함께 설명한다",
+      "check": "node test/t.mjs \"F170 AC-8\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "effort 가 기록된 줄이 없는 metrics 에서는 effort 제안이 없고, 기존 stats 테스트(F27·F70·F104)가 그대로 통과한다",
+      "check": "node --test test/f27-metrics.test.mjs test/f70-effort.test.mjs test/f104-stats-effort-test-paths.test.mjs",
+      "new": false,
+      "new_reason": "기존 stats 동작을 검사하므로 변경 전에도 통과한다 — 회귀 방지용"
+    },
+    {
+      "id": "ES-2",
+      "criterion": "features.json 에 없는 기능의 줄, feature·round·duration_ms·cost_usd 가 없거나 숫자가 아닌 줄이 있어도 harness stats 는 오류 없이 끝나고, 그런 기능·줄은 effort 비교에서 빠진다",
+      "check": "node test/t.mjs \"F170 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "config 자동 적용",
+    "effort_escalate(2라운드 이상) 제안",
+    "기준 수·finding 수 같은 계약 난이도 신호로 묶음 나누기",
+    "모델과 effort 를 함께 바꾸는 제안 — 같은 모델 안에서 effort 만 비교한다",
+    "대화형 build(run 밖)의 비용 — metrics 줄이 없다",
+    "통계적 유의성 검정"
+  ],
+  "approval": {
+    "by": "Jay Sheen",
+    "at": "2026-11-13T13:50:45.525Z",
+    "hash": "cf9bfa1cf6059ebc4228e55723f9172a7b482aea530c83f7cf2565d6d964e25b"
+  }
+}

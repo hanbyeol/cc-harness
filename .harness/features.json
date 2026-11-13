@@ -1388,6 +1388,13 @@
       "depends_on": [],
       "status": "passed",
       "eval_round": 1
+    },
+    {
+      "id": "F170",
+      "title": "harness stats suggests per-tier effort (builder; evaluator without weakening the gate) that is cheaper and not slower per passed feature",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }
