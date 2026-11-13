@@ -73,7 +73,7 @@ test('F137 AC-5 README CI matrix points to ci.yml with the matrix values', () =>
   for (const v of [...os, ...node]) assert.ok(line.includes(v), `${v} missing in: ${line}`);
 });
 
-test('F137 AC-6 SPEC autonomous row says report and merge-without-PR guidance', () => {
+test('F137 AC-6 SPEC autonomous row says report and gh pr create suggestion', () => {
   const row = read('docs/SPEC.md').split('\n').find((l) => l.startsWith('| 자율 |'));
   assert.ok(row, 'no 자율 row');
   assert.ok(!row.includes('보고서 + PR'), row);
