@@ -1,0 +1,84 @@
+{
+  "id": "F177",
+  "title": "실패한 테스트의 출력 발췌를 남긴다 — verify 명령이 실패한 테스트마다 실패 블록(오류 메시지·위치)을 발췌해 결과에 두고, flaky 테스트의 backlog 항목과 run 보고서의 '## Flaky tests', 새 '## Verify failures' 절에 남긴다. 지금은 테스트 이름만 남아 B569(F155 SC-3)와 F171 의 F93 실패 원인을 추적할 수 없다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "lib/failures.mjs 의 failedTestExcerpts(text) 는 failedTestNames 와 같은 이름 줄로 찾은 실패 테스트마다 {test, excerpt} 를 낸다. excerpt 는 이름 줄 아래 더 깊이 들여쓴 줄(ANSI·공통 들여쓰기 제거)이고 TAP 의 '---'·'...'·'duration_ms:'·'type:' 줄과 'stack:' 블록은 뺀다. 예: assert.equal(2, 3) 실패는 'location:'·'2 !== 3' 을 담고 'runInAsyncScope' 는 담지 않는다",
+      "check": "node test/t.mjs \"F177 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "spec 리포터 출력('✖ <이름> (1.2ms)' 다음 들여쓴 오류 줄, 끝의 '✖ failing tests:' 반복 포함)에서도 테스트마다 한 항목이고, 이름은 failedTestNames 와 같으며, 내용이 있는 첫 블록을 쓴다. excerpt 는 최대 12줄·600자이고 잘리면 끝이 '…' 다. 블록이 비어 있는 테스트는 항목이 없다",
+      "check": "node test/t.mjs \"F177 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "verify 명령의 첫 실행이 실패하고 그 출력에서 발췌가 나오면 결과의 그 명령 항목(harness verify --json 의 commands[i])에 failure_excerpts: [{test, excerpt}](최대 20개, redact 적용)가 있다 — 나중 실행에서 통과한 flaky 명령도, 끝내 실패한 명령도 같다. 대화형 harness verify 출력은 실패·flaky 명령 아래에 테스트마다 이름과 들여쓴 발췌 줄을 보여 준다",
+      "check": "node test/t.mjs \"F177 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "flaky 테스트를 backlog 에 기록할 때(recordFlakyTests) 그 테스트의 발췌가 있으면 새 항목에 excerpt 필드를 두고, 이미 열린 같은 테스트 항목에는 seen·sources 갱신과 함께 excerpt 를 이번 발췌로 바꾼다",
+      "check": "node test/t.mjs \"F177 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "run 보고서의 '## Flaky tests' 절은 기능 줄 다음에 발췌가 있는 테스트마다 '  - `<이름>`:' 줄과 들여쓴 ```text 펜스 블록으로 발췌를 보여 준다. 발췌 안의 ``` 는 펜스를 닫지 않도록 바뀐다. 결과 항목(run 결과의 기능 항목)은 flaky_excerpts 로 그 발췌들을 가진다",
+      "check": "node test/t.mjs \"F177 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "harness run 에서 기능의 verify·pre_merge_verify·post_merge_verify 가 실패할 때마다(뒤에 통과해도) run 상태에 {feature, round, step, items} 가 남고(run 당 최대 30개, --resume 뒤에도 유지), 보고서 '## Verify failures' 절이 '- F{n} round <r> <step>:' 줄, verifyFailures 항목, 실패 명령의 발췌(최대 5개, AC-5 의 펜스)를 보여 준다. 실패가 없으면 절이 없다",
+      "check": "node test/t.mjs \"F177 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "docs/SPEC.md §6.1 이 failure_excerpts 와 발췌 규칙(줄 선택, 12줄·600자, 20개)을 F177 과 함께 설명하고, §8 의 run 보고서 흔들린 테스트 문단이 backlog excerpt·보고서 발췌와 '## Verify failures' 절을 설명한다",
+      "check": "node test/t.mjs \"F177 AC-7\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "실패한 테스트 출력에 비밀 값(redactor 가 가리는 환경 변수 값)이 있으면 failure_excerpts·backlog excerpt·보고서의 두 절 어디에도 그 값이 나오지 않고 '[redacted]' 가 나온다. 같은 발췌의 비밀이 아닌 부분(예: 단언 메시지)은 그대로 나온다",
+      "check": "node test/t.mjs \"F177 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "테스트 이름을 알 수 없는 출력(실패 줄이 없는 명령 실패)은 failure_excerpts 키가 없고, backlog 항목에 excerpt 가 없으며, '## Verify failures' 의 그 명령은 verifyFailures 메시지만 보여 준다. 같은 테스트에서 이름이 있는 출력은 발췌가 나온다(대조)",
+      "check": "node test/t.mjs \"F177 ES-2\"",
+      "new": true
+    },
+    {
+      "id": "ES-3",
+      "criterion": "기존 flaky 재실행·backlog·run 보고서 테스트가 그대로 통과한다(flaky_tests 이름 목록, '## Flaky tests' 기능 줄 형식, verify 이벤트에 출력이 기록되지 않음은 바뀌지 않는다)",
+      "check": "node --test test/f65-flaky-retry.test.mjs test/f22-backlog.test.mjs test/f53-cleanup-report.test.mjs",
+      "new": false,
+      "new_reason": "이미 있는 동작의 회귀 방지 — 새 필드와 절은 더해질 뿐 기존 형식을 바꾸지 않는다"
+    }
+  ],
+  "out_of_scope": [
+    "verify 이벤트(.harness/events)나 metrics 에 출력·발췌를 기록하는 것 — 이벤트는 출력을 기록하지 않는 규칙을 유지한다",
+    "builder 에게 주는 실패 메시지(verifyFailures 의 300자 메시지) 형식 변경",
+    "기준 check 실패의 발췌 — verify.commands 만 대상",
+    "흔들리는 테스트(F155 SC-3·F93) 자체의 안정화",
+    "node test 러너 외 러너(pytest·go)의 블록 형식 — 이름 줄 규칙이 맞는 범위에서만 동작한다"
+  ],
+  "approval": {
+    "by": "Jay Sheen",
+    "at": "2026-11-13T22:16:37.188Z",
+    "hash": "d02a0e6e1209a6290a39d50fb021a43e46389b6de6f2bef665e140ee08fb91b1"
+  }
+}

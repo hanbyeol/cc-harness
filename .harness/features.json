@@ -1438,6 +1438,13 @@
       "security_tier": "standard",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F177",
+      "title": "keep an excerpt of each failed test output (error, location) in verify results, flaky backlog items and the run report (## Flaky tests, new ## Verify failures)",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }
