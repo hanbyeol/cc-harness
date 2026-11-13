@@ -1380,6 +1380,13 @@
       "depends_on": [],
       "status": "passed",
       "eval_round": 1
+    },
+    {
+      "id": "F169",
+      "title": "builder reuses an existing helper instead of copying it; the decision not to add a code ownership sentence is recorded in the SPEC",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }
