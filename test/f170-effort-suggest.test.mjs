@@ -193,3 +193,21 @@ test('F170 ES-2 lines of unknown features or with missing numbers are left out w
   assert.equal(r.code, 0, r.stderr);
   assert.ok(r.stdout.includes('[effort] builder standard-tier: effort medium'), r.stdout);
 });
+
+test('F170 ES-2 a build line without a cost is left out, so its feature has no round 1 build and no $0 group is suggested', () => {
+  // Round 1 finding: medium builds with cost_usd null counted as $0 and were suggested.
+  const rows = [...group('H', 5, { effort: 'high', cost: 2, ms: 90_000 }),
+    ...group('M', 5, { effort: 'medium', ms: 90_000 }).map((r) => (r.step === 'build' ? { ...r, cost_usd: null } : r))];
+  assert.deepEqual(effortSuggestions(rows), []);
+  // Same for a duration that is not a number.
+  const noMs = [...group('H', 5, { effort: 'high', cost: 2, ms: 90_000 }),
+    ...group('M', 5, { effort: 'medium', cost: 1 }).map((r) => (r.step === 'build' ? { ...r, duration_ms: 'x' } : r))];
+  assert.deepEqual(effortSuggestions(noMs), []);
+});
+
+test('F170 ES-2 an evaluator line without a cost is left out of the review groups', () => {
+  const reviews = (prefix, count, effort, opts = {}) => group(prefix, count, { effort: 'high', evalEffort: effort, evalCost: 0.5, evalMs: 30_000, ...opts });
+  const rows = [...reviews('A', 5, 'high'), ...reviews('B', 5, 'medium', { evalMs: 20_000 })]
+    .map((r) => (r.step === 'eval' && r.effort === 'medium' ? { ...r, cost_usd: null } : r));
+  assert.deepEqual(effortSuggestions(rows).filter((x) => x.role === 'evaluator'), []);
+});
