@@ -7608,7 +7608,12 @@
           "summary": "accept the risk: drop or relax AC-1, AC-5 with a recorded decision"
         }
       ],
-      "id": "B568"
+      "id": "B568",
+      "closed": {
+        "as": "resolved",
+        "reason": "F170 re-approved with the same contract after divergence; round 3 fixed the rounded comparison and passed (score 9)",
+        "at": "2026-11-13T14:26:58.993Z"
+      }
     }
   ]
 }
