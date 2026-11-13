@@ -49,6 +49,32 @@ test('F170 AC-1 a builder effort no worse in cost and time per passed feature, b
   assert.equal(effortSuggestions(faster)[0]?.effort, 'medium');
 });
 
+// Round 2 finding: rates rounded to 2 decimals made 22/31 (0.7097) look equal to 5/7 (0.714).
+// `firstPass` of the `count` features pass in round 1; the rest fail it and pass in round 2.
+function passGroup(prefix, count, firstPass, opts) {
+  return Array.from({ length: count }, (_, i) => {
+    const id = `${prefix}${i + 1}`;
+    const rows = feature(id, { ...opts, verdict: i < firstPass ? 'pass' : 'fail' });
+    if (i >= firstPass) rows.push(line({ feature: id, round: 2, step: 'eval', role: 'evaluator', model: 'opus', outcome: 'pass' }));
+    return rows;
+  }).flat();
+}
+
+test('F170 AC-1 the first-round pass rate is compared unrounded: 22/31 is lower than 5/7', () => {
+  const rows = [...passGroup('H', 7, 5, { effort: 'high', cost: 2, ms: 90_000 }), ...passGroup('M', 31, 22, { effort: 'medium', cost: 1, ms: 60_000 })];
+  assert.deepEqual(effortSuggestions(rows).filter((x) => x.role === 'builder'), []);
+  // At an equal rate (5/7 vs 15/21) it is suggested.
+  const equal = [...passGroup('H', 7, 5, { effort: 'high', cost: 2, ms: 90_000 }), ...passGroup('M', 21, 15, { effort: 'medium', cost: 1, ms: 60_000 })];
+  assert.equal(effortSuggestions(equal).find((x) => x.role === 'builder')?.effort, 'medium');
+});
+
+test('F170 AC-1 cost is compared unrounded: a group dearer by less than the shown precision is not cheaper', () => {
+  // medium costs $1.0000001 per passed feature, high $1 — equal after rounding to 6 decimals —
+  // and medium is faster: it is not "no worse in cost", so it is not suggested.
+  const rows = [...group('H', 5, { effort: 'high', cost: 1, ms: 90_000 }), ...group('M', 5, { effort: 'medium', cost: 1.0000001, ms: 60_000 })];
+  assert.deepEqual(effortSuggestions(rows).filter((x) => x.role === 'builder'), []);
+});
+
 // ------------------------------------------------------------------ AC-2
 
 test('F170 AC-2 no builder suggestion when slower, more expensive, a lower pass rate, under 5 features, or the current effort', () => {
@@ -115,6 +141,18 @@ test('F170 AC-5 an evaluator effort cheaper and not slower per review is suggest
   const lower = [...reviews('A', 4, 'high'), ...reviews('A5', 1, 'high', { verdict: 'fail' }),
     ...reviews('B', 5, 'medium', { evalCost: 0.2, evalMs: 20_000 })];
   assert.deepEqual(effortSuggestions(lower).filter((x) => x.role === 'evaluator'), [], 'fail rate dropped from 20% to 0%');
+});
+
+test('F170 AC-5 the fail-verdict rate is compared unrounded: 22/31 is lower than 5/7', () => {
+  // Reviews only (each feature's build at the current effort): current high fails 5 of 7,
+  // medium fails 22 of 31 — 0.7097 < 0.714, a weaker gate even though both round to 0.71.
+  const reviews = (prefix, count, fails, effort, cost, ms) => Array.from({ length: count }, (_, i) =>
+    feature(`${prefix}${i + 1}`, { effort: 'high', evalEffort: effort, evalCost: cost, evalMs: ms, verdict: i < fails ? 'fail' : 'pass' })).flat();
+  const rows = [...reviews('A', 7, 5, 'high', 0.5, 30_000), ...reviews('B', 31, 22, 'medium', 0.2, 20_000)];
+  assert.deepEqual(effortSuggestions(rows).filter((x) => x.role === 'evaluator'), []);
+  // At an equal fail rate (5/7 vs 15/21) it is suggested.
+  const equal = [...reviews('A', 7, 5, 'high', 0.5, 30_000), ...reviews('B', 21, 15, 'medium', 0.2, 20_000)];
+  assert.equal(effortSuggestions(equal).find((x) => x.role === 'evaluator')?.effort, 'medium');
 });
 
 // ------------------------------------------------------------------ AC-6
