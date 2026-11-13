@@ -123,10 +123,15 @@ test('F176 ES-2: a criterion check is run as written (no {verify_cpus} replaceme
   const log = logFile();
   const check = `node scripts/rec.mjs ${JSON.stringify(log)} {verify_cpus}`;
   const dir = repo(check);
-  const r = await verify({ root: dir, featureId: 'F9', base: 'main', config: cfg(), cpus: 8, verifyCpus: 3 });
+  const vlog = logFile();
+  const vcmd = `node scripts/rec.mjs ${JSON.stringify(vlog)} {verify_cpus}`;
+  const r = await verify({ root: dir, featureId: 'F9', base: 'main', config: cfg({ commands: [vcmd] }), cpus: 8, verifyCpus: 3 });
   assert.equal(r.criteria[0].check, check);
   assert.ok(lines(log).length >= 1);
   assert.ok(lines(log).every((l) => l.arg === '{verify_cpus}'));
+  // contrast: the verify command, unlike the check, is replaced
+  assert.ok(lines(vlog).length >= 1);
+  assert.ok(lines(vlog).every((l) => l.arg === '3'));
 });
 
 test('F176 AC-5: SPEC §8.10 explains the new auto formula and the {verify_cpus} rule; §4 or §6 names the placeholder', () => {

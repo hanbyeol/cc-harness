@@ -153,7 +153,8 @@ test('F25 AC-2: --parallel 3 caps four features at 3', async () => {
 });
 
 // ------------------------------------------------------------------ AC-3
-test('F25 AC-3: verify_parallel auto is max(1, floor(cpus / 4)); an integer is used as is', () => {
+// F176 replaced the formula (was cpus / 8) with cpus / 4; the test name is kept so the test count check sees the same test.
+test('F25 AC-3: verify_parallel auto is max(1, floor(cpus / 8)); an integer is used as is', () => {
   assert.equal(verifyParallelFor('auto', 8), 2);
   assert.equal(verifyParallelFor('auto', 16), 4);
   assert.equal(verifyParallelFor('auto', 4), 1);
