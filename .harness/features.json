@@ -1416,21 +1416,21 @@
       "title": "run report merge guidance follows the v2 policy: merge into the base branch and push, no pull request",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F174",
       "title": "build skill: how a blocked feature continues (same-hash approve before rounds run out, --extra-round after)",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     },
     {
       "id": "F175",
       "title": "spec skill and builder: write criteria and tests that are not vacuous (new:false guards, positive controls)",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed"
     }
   ]
 }

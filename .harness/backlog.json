@@ -7614,6 +7614,22 @@
         "reason": "F170 re-approved with the same contract after divergence; round 3 fixed the rounded comparison and passed (score 9)",
         "at": "2026-11-13T14:26:58.993Z"
       }
+    },
+    {
+      "source": "run:F173",
+      "feature": "F173",
+      "round": 1,
+      "at": "2026-11-13T15:57:39.955Z",
+      "kind": "flaky_test",
+      "reason": "flaky_test",
+      "priority": "low",
+      "test": "F155 SC-3: the wait between retries is outside the git lock",
+      "summary": "flaky test 'F155 SC-3: the wait between retries is outside the git lock' failed once and passed on the verify retry — stabilize it",
+      "seen": 1,
+      "sources": [
+        "F173-r1"
+      ],
+      "id": "B569"
     }
   ]
 }
