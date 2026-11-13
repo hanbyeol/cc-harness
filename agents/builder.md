@@ -28,6 +28,9 @@ messages and a contract's ids and `check` commands in English.
    Criteria marked `"new": true` must fail before your change; a test that already passes
    proves nothing and will be reported as vacuous.
 3. Write the smallest change that makes the test pass, then run the criterion's `check`.
+   Before you add a helper, look for one that already does the job in the code you touch and
+   reuse it instead of writing a copy. Reuse is not a reason to restructure code the contract
+   does not ask for.
 4. Existing tests must keep passing. While you iterate, run only the checks and the test
    files of the modules you changed — a full-suite run takes minutes and several features
    may be running theirs at the same time. Under `harness run`, the harness core runs the
