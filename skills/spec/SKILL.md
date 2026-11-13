@@ -83,6 +83,11 @@ speed or cost, write the measured baseline and the expected gain in the contract
 - Describe one observable behaviour per criterion: a command, an input, an output.
 - `"new": true` marks behaviour that does not exist yet. Its check must fail on the base
   branch; a check that already passes proves nothing and is reported as vacuous.
+- A criterion that guards behaviour which already holds before this change (a regression
+  guard) is written with `"new": false` and a `new_reason`, not `"new": true`.
+- When a `"new": true` criterion asserts only that something does not happen (no suggestion,
+  an omission, a refusal), its test also passes on the base branch and is reported as vacuous.
+  Put a contrast assertion in the same test: a case where that behaviour does happen.
 - Avoid universal claims ("never", "cannot be bypassed", "any possible input", "no way to").
   No command can prove them, so they cause endless review. If the property matters, list
   the concrete cases in a `cases` array, each with its own `check`, or move the guarantee

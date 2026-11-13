@@ -7,7 +7,7 @@ import * as run from '../lib/run.mjs';
 
 const CFG = { integration_branch: 'harness/integration', base_branch: 'main' };
 const DECIDE = 'split · rewrite criteria · accept risk — see Blocked — decisions needed';
-const MERGE = '- merge: review `harness/integration` and merge into `main` (gh pr create --base main --head harness/integration)';
+const MERGE = '- merge: review `harness/integration` and merge it into `main`, then push — no pull request, no force-push';
 
 const result = (feature, status, extra = {}) => ({
   feature, title: `title ${feature}`, status, rounds: 1, history: [[]], costUsd: 0, mergeRecovery: null, conflictResolution: 'no', ...extra,
@@ -133,7 +133,7 @@ test('F72 AC-6: the existing sections stay after ## Needs you with the same cont
     '- re-scope options (recorded in backlog.json): split · rewrite criteria · accept risk',
     '- something odd',
     '- F9: not approved',
-    'Passed features are merged into `harness/integration`. Merging into `main` is a human decision —',
+    'Passed features are merged into `harness/integration`.',
   ]) assert.ok(lines.includes(want), `missing: ${want}`);
   // Needs you adds exactly one blank line before itself and before ## Features.
   assert.ok(md.includes('\n\n## Needs you\n\n- ') && !/\n\n\n## (Needs you|Features)/.test(md));
@@ -145,7 +145,7 @@ test('F72 AC-7: docs/SPEC.md describes the ## Needs you section — position, li
   const rule = s8.split('\n').find((l) => l.includes('`## Needs you`'));
   assert.ok(rule, 'no ## Needs you rule in §8');
   for (const w of ['첫 번째', '## Features', 'blocked (<reason>)', 'split · rewrite criteria · accept risk',
-    'run stopped (<reason>): <detail>', '- merge: review', 'gh pr create --base', 'nothing — no decision needed', '순서', '한 줄']) {
+    'run stopped (<reason>): <detail>', '- merge: review', 'no pull request, no force-push', 'nothing — no decision needed', '순서', '한 줄']) {
     assert.ok(rule.includes(w), `rule lacks ${w}`);
   }
 });
@@ -168,4 +168,28 @@ test('F72 ES-1: |, newlines and backticks in a blocked reason or stopped detail 
   const lines = md.split('\n');
   const start = lines.indexOf('## Needs you');
   assert.equal(lines.indexOf('## Features'), start + 6);
+});
+
+test('F173 AC-1: the Needs you merge line says merge then push, no pull request, no force-push', () => {
+  const md = render({ results: [result('F1', 'passed')] });
+  assert.ok(md.split('\n').includes('- merge: review `harness/integration` and merge it into `main`, then push — no pull request, no force-push'));
+  assert.ok(!md.includes('gh pr create'));
+});
+
+test('F173 AC-2: the Next section tells to merge into base without a PR and push, never force-push', () => {
+  const md = render({ results: [result('F1', 'passed')] });
+  const next = md.slice(md.indexOf('## Next'));
+  assert.match(next, /merged into `harness\/integration`/);
+  assert.match(next, /into `main` without a pull request and push it — never force-push/);
+  for (const w of ['open a PR', 'gh pr create', 'is a human decision']) assert.ok(!next.includes(w), w);
+});
+
+test('F173 AC-3: docs/SPEC.md autonomous row, §8 end step and Needs you rule say merge without PR and push', () => {
+  const spec = fs.readFileSync(path.join(REPO, 'docs', 'SPEC.md'), 'utf8');
+  assert.ok(!spec.includes('gh pr create'));
+  const row = spec.split('\n').find((l) => l.startsWith('| 자율 |'));
+  assert.match(row, /PR 없이 병합·push/);
+  const s8 = spec.slice(spec.indexOf('## 8.'), spec.indexOf('## 9.'));
+  assert.ok(s8.includes('PR 없이 병합해 push'));
+  assert.ok(s8.includes('then push — no pull request, no force-push'));
 });

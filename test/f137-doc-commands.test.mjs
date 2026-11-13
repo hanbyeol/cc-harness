@@ -78,6 +78,6 @@ test('F137 AC-6 SPEC autonomous row says report and gh pr create suggestion', ()
   assert.ok(row, 'no 자율 row');
   assert.ok(!row.includes('보고서 + PR'), row);
   assert.ok(row.includes('runs/{ts}.md'), row);
-  assert.ok(row.includes('gh pr create'), row);
-  assert.match(row, /PR.*(만들|push).*않/, row);
+  assert.ok(row.includes('PR 없이'), row);
+  assert.match(row, /병합.*push/, row);
 });

@@ -74,8 +74,13 @@ with the same convergence rules as `harness run`:
 
 When the feature is `blocked`, stop. Show the user the reason and the re-scoping options the
 core wrote to `.harness/backlog.json` (split, rewrite a criterion, accept the risk). To record the user's choice run `harness decide F{n}` with `--split`, `--rewrite` or
-`--accept-risk`; it records only and does not change the status. Do not
-retry: `harness eval` refuses a `passed` or `blocked` feature. If the status could not be
+`--accept-risk`; it records only and does not change the status. To continue a blocked
+feature, only after the user has decided: when it was blocked by `divergence` or `stall` with
+rounds left and the user chooses to go on with the same contract, `harness approve F{n}` with
+the same hash makes it `approved` again. When it used up `max_rounds` (and any extra round
+already granted), the same-hash re-approval is refused and `harness approve F{n} --extra-round`
+is the only way to add one round. Never re-approve or add a round before the user's decision.
+Do not retry: `harness eval` refuses a `passed` or `blocked` feature. If the status could not be
 written (exit 2, `io`), fix the cause and run `harness eval F{n}` again — it records the same
 round without a new evaluation.
 

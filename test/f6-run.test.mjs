@@ -350,7 +350,7 @@ test('F6 AC-10: runs/{ts}.md records per-feature result, rounds, independence, c
   assert.match(md, /\| F2 feature F2 \| blocked \| 2 \| cross-model \| 1\.50 \| stall: still blocking: AC-1 \|/);
   assert.match(md, /total cost: \$3\.00/);
   assert.match(md, /round 1 blocking: AC-1/);
-  assert.match(md, /gh pr create --base main --head harness\/integration/);
+  assert.match(md, /then push — no pull request, no force-push/);
   assert.ok(!fs.existsSync(statePath(dir)), 'resumable state is dropped after a completed run');
 });
 
