@@ -9,7 +9,7 @@ import { resolveConfig, loadConfig } from '../lib/config.mjs';
 import { HarnessError } from '../lib/errors.mjs';
 import { loadRolePrompt } from '../lib/roles.mjs';
 
-const SKILLS = ['spec', 'plan', 'build', 'fix', 'status', 'plan-review', 'rollout'];
+const SKILLS = ['spec', 'plan', 'build', 'fix', 'status', 'plan-review', 'rollout', 'auto'];
 const ROLES = ['builder', 'evaluator', 'security-reviewer'];
 const PROFILES = ['sdlc', 'iac', 'ops'];
 const DIMENSIONS = ['functionality', 'quality', 'security', 'errors', 'tests'];

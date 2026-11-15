@@ -74,3 +74,4 @@ A test (`F112 AC-6`) fails when a file is missing here or when an entry names a 
 - lib/commands/verify.mjs — `harness verify`: runs deterministic verification for a feature
 - lib/commands/worktree.mjs — `harness worktree add|list|prune`: worktrees in .harness/wt, their states, removing merged clean ones
 - lib/commands/guard-worktree.mjs — `harness guard-worktree`: PreToolUse hook that denies `git worktree add` outside the repository
+- lib/commands/auto-allow.mjs — `harness auto-allow`: PreToolUse hook that allows one harness core command without a permission prompt

@@ -1469,7 +1469,8 @@
       "title": "plugin autonomous mode: PreToolUse harness auto-allow lets harness core commands run without a permission prompt (approve only with approval: auto); auto skill loops status, parallel build, verify, eval, merge, prune",
       "security_tier": "critical",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 1
     }
   ]
 }
