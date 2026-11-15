@@ -1481,6 +1481,22 @@
       ],
       "status": "passed",
       "eval_round": 1
+    },
+    {
+      "id": "F182",
+      "title": "run from a subdirectory: the core uses the nearest ancestor with .harness/config.json as root, not past a .git boundary; init does not search",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F183",
+      "title": "prune from a linked worktree: merged branches are deleted with git branch -d in the worktree that has base_branch checked out",
+      "security_tier": "critical",
+      "depends_on": [
+        "F181"
+      ],
+      "status": "approved"
     }
   ]
 }

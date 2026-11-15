@@ -1,0 +1,50 @@
+{
+  "id": "F182",
+  "title": "하위 디렉터리에서 실행 — cwd 에 .harness/ 가 없으면 코어는 가장 가까운 상위 디렉터리의 .harness/config.json 을 찾아 그 디렉터리를 root 로 쓴다. 지금은 프로젝트(또는 worktree)의 하위 디렉터리에서 harness status 를 실행하면 'not initialized' 로 실패한다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "초기화된 프로젝트의 하위 디렉터리 a/b 에서 harness status 를 실행하면 프로젝트 최상위에서 실행한 것과 같은 출력으로 exit 0 이다",
+      "check": "node test/t.mjs \"F182 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "상위 탐색은 .git(디렉터리 또는 파일)이 있는 디렉터리를 넘지 않는다: 초기화된 프로젝트 안의 .harness/wt/x worktree(자체 .git 파일과 .harness/ 를 가진) 하위 디렉터리에서 실행하면 그 worktree 가 root 다. 같은 테스트에서 .git 이 없는 하위 디렉터리는 바깥 프로젝트를 root 로 쓴다",
+      "check": "node test/t.mjs \"F182 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "harness init 은 상위를 찾지 않는다: 초기화된 프로젝트의 하위 디렉터리에서 harness init 을 실행하면 그 하위 디렉터리에 .harness/ 를 만든다",
+      "check": "node test/t.mjs \"F182 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "docs/SPEC.md 는 root 를 cwd 에서 가장 가까운 상위 .harness/config.json 으로 정하고 .git 경계를 넘지 않으며 init 은 예외라는 것을 설명한다(문자열 'nearest' 포함)",
+      "check": "node test/t.mjs \"F182 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "cwd 와 .git 경계까지의 어느 상위에도 .harness/config.json 이 없으면 지금처럼 'not initialized — run `harness init`' 으로 exit 1 이다. 같은 테스트에서 상위에 있으면 exit 0 이다",
+      "check": "node test/t.mjs \"F182 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "PreToolUse 훅(guard-worktree, auto-allow)의 root 판단",
+    "여러 .harness/ 가 중첩된 모노레포에서 어느 것을 고를지 선택하는 옵션"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-15T22:47:12.980Z",
+    "hash": "21ccc51da22f27acc4b52d96e31fef3333a17d77a79946c1a18fbe51e7c4ad97"
+  }
+}
