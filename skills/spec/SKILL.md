@@ -14,8 +14,17 @@ it is not set, in the language the user writes in. Keep code, code comments, com
 messages and a contract's ids and `check` commands in English.
 
 ## 1. Understand the request
-If you can talk to the user, interview them before writing anything. Ask only what you
-cannot find in the code, a few questions at a time:
+When one request holds several features, draft them together: one contract per feature,
+written in the same pass, so the `plan` skill can present and approve them at once.
+
+Decide on a best effort: when the code, the request or a convention gives a reasonable
+default, choose it, write the assumption into the plan (the user sees it before approval)
+and keep going. Stop and ask only for `harness approve` (when config.approval is "user"), a
+`blocked` feature, and work that is destructive or changes something outside the
+repository — and put those questions together in one message.
+
+If you can talk to the user and an answer has no reasonable default, ask before writing
+anything. Ask only what you cannot find in the code, all in one message:
 - What should be observably different when this is done? Ask for concrete examples:
   input, expected output, expected error.
 - What is explicitly out of scope?
