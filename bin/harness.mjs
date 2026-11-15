@@ -27,6 +27,7 @@ const COMMANDS = {
   'claude-md': ['write the cc-harness block into CLAUDE.md (--check: report only)', false],
   worktree: ['add a worktree in .harness/wt, list worktrees, prune merged clean ones', true],
   'guard-worktree': ['PreToolUse hook: deny git worktree add outside the repository', false],
+  'auto-allow': ['PreToolUse hook: allow one harness core command without a prompt', false],
   'tf-check': ['terraform init/validate per module directory and fmt (iac profile verify)', false],
   'k8s-check': ['kubeconform on plain, kustomize and helm manifests (ops profile verify)', false],
   'migrate-v1': ['convert cc-harness v1 progress/ state into .harness/', false],
@@ -63,8 +64,9 @@ export async function main(argv, { root = process.cwd(), out = console.log, err 
     // init may complete a partial .harness/ (e.g. only contracts/), so a file that
     // is missing is not an error for it — one that exists is still checked.
     // guard-worktree runs before every Bash call (PreToolUse hook): it reads no state, so a
-    // corrupt .harness/ never blocks a command.
-    if (name === 'guard-worktree') { /* no state */ }
+    // corrupt .harness/ never blocks a command. auto-allow (the other PreToolUse hook) likewise
+    // reads only the raw config.json it needs.
+    if (name === 'guard-worktree' || name === 'auto-allow') { /* no state */ }
     else if (isInitialized(root)) {
       const p = paths(root);
       if (name !== 'init' || fs.existsSync(p.config)) loadConfig(root);

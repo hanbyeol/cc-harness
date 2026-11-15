@@ -175,7 +175,7 @@ test('F8 AC-2: v1-only files are gone from the v2 tree', () => {
   const hookScripts = fs.readdirSync(path.join(REPO, 'hooks')).filter((f) => f.endsWith('.sh'));
   assert.deepEqual(hookScripts, []);
   assert.deepEqual(fs.readdirSync(path.join(REPO, 'agents')).sort(), ['builder.md', 'evaluator.md', 'security-reviewer.md']);
-  assert.deepEqual(fs.readdirSync(path.join(REPO, 'skills')).sort(), ['build', 'fix', 'plan', 'plan-review', 'rollout', 'spec', 'status']);
+  assert.deepEqual(fs.readdirSync(path.join(REPO, 'skills')).sort(), ['auto', 'build', 'fix', 'plan', 'plan-review', 'rollout', 'spec', 'status']);
 });
 
 // The npm registry name cc-harness belongs to an unrelated project: docs must never

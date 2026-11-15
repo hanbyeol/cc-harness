@@ -19,6 +19,11 @@
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/harness.mjs\" guard-worktree",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/bin/harness.mjs\" auto-allow",
+            "timeout": 10
           }
         ]
       }

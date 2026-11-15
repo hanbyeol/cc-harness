@@ -10,7 +10,7 @@ or it stops and a human decides. They apply to any AI coding CLI reading this fi
 The commands are: `harness init`, `harness lint-contract`, `harness approve`,
 `harness verify`, `harness eval`, `harness run`, `harness status`, `harness stats`,
 `harness events`, `harness decide`, `harness backlog`, `harness deploy-log`, `harness doctor`, `harness claude-md`,
-`harness worktree`, `harness guard-worktree`, `harness tf-check`, `harness k8s-check`, `harness migrate-v1`. Run `harness --help` for the commands and `harness <command> --help` for a command's options.
+`harness worktree`, `harness guard-worktree`, `harness auto-allow`, `harness tf-check`, `harness k8s-check`, `harness migrate-v1`. Run `harness --help` for the commands and `harness <command> --help` for a command's options.
 
 ## Language
 Talk with the user — explanations, questions, reports — in the language set in
@@ -111,6 +111,7 @@ Skills live in `skills/<name>/SKILL.md`. Load the one that matches the request:
 | `status` | The user asks where things stand or what to do next |
 | `plan-review` | iac profile: review a `terraform plan` before apply |
 | `rollout` | ops profile: change a live Kubernetes cluster, with human approval |
+| `auto` | Run the loop on its own: status, parallel builds, verify, eval, merge, prune (`/loop /cc-harness:auto`) |
 
 If a request is unclear, ask before choosing a skill. If a skill's steps conflict with what
 the user asks for, follow the user and say what you skipped.
