@@ -1471,6 +1471,15 @@
       "depends_on": [],
       "status": "passed",
       "eval_round": 1
+    },
+    {
+      "id": "F181",
+      "title": "worktree prune safety: fresh worktrees (branch reflog has at most one entry) and the worktree holding the cwd are kept, not pruned",
+      "security_tier": "critical",
+      "depends_on": [
+        "F178"
+      ],
+      "status": "approved"
     }
   ]
 }
