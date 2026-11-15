@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { harness, REPO } from './helpers.mjs';
+import { harness, REPO, realTmpdir } from './helpers.mjs';
 import { git, gitRepo, writeFiles, commitAll } from './gitfixture.mjs';
 import { resolveConfig } from '../lib/config.mjs';
 import { hashContract } from '../lib/contract.mjs';
@@ -424,7 +424,8 @@ test('F5 AC-7 verdict written to .harness/verdicts/F9-r1.json with independence,
 
 test('F5 AC-7 independence is cross-model when builder and evaluator differ; the verdict is written under root, not cwd', async () => {
   const dir = fixture();
-  const wt = path.join(dir, '..', `${path.basename(dir)}-wt`);
+  // A worktree outside the repo, in a temp dir of its own so the exit cleanup removes it.
+  const wt = path.join(realTmpdir('harness-wt-'), `${path.basename(dir)}-wt`);
   git(dir, 'worktree', 'add', '-q', wt, 'HEAD');
   const r = await evaluate({
     root: dir, cwd: wt, featureId: 'F9', base: 'main', verifyResult: PASS_VERIFY,
@@ -543,8 +544,7 @@ test('F5 SC-2 deny pattern variants and near misses', () => {
 // ---------- SC-3 ----------
 test('F5 SC-3 repro runs with the worktree as cwd', async () => {
   const dir = fixture();
-  const wt = fs.realpathSync.native(path.dirname(dir));
-  const wtDir = path.join(wt, `${path.basename(dir)}-cwd-wt`);
+  const wtDir = path.join(realTmpdir('harness-wt-'), `${path.basename(dir)}-cwd-wt`);
   git(dir, 'worktree', 'add', '-q', wtDir, 'HEAD');
   const out = path.join(dir, 'cwd-out.txt');
   const r = await evaluate({
