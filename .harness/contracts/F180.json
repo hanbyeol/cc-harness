@@ -1,0 +1,83 @@
+{
+  "id": "F180",
+  "title": "플러그인 자율 모드 — 플러그인을 설치한 프로젝트에서 PreToolUse 훅(harness auto-allow)이 하네스 코어 명령을 권한 프롬프트 없이 허용하고(approve 는 config.approval 이 auto 일 때만), auto 스킬이 status→병렬 build→verify→eval→merge·push→prune 을 loop 로 돈다. 지금은 프로젝트마다 권한 규칙을 손으로 넣어야 한다",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "hooks/hooks.json PreToolUse(matcher Bash) 에 harness auto-allow 훅을 더한다(guard-worktree 는 그대로). stdin 의 tool_input.command 가 하네스 코어 명령 하나면 permissionDecision allow 와 이유 cc-harness core command 를 출력한다. 형태: harness status, npx github:hanbyeol/cc-harness verify F1, node bin/harness.mjs eval F1(cwd package.json name 이 cc-harness)",
+      "check": "node test/t.mjs \"F180 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "AC-1 의 명령 뒤에 '2>&1' 가 붙거나, 그 뒤에 '| tail -<n>', '| head -<n>', '| grep <단어>' 하나가 붙어도 allow 다",
+      "check": "node test/t.mjs \"F180 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "harness approve F{n} 은 cwd 프로젝트의 .harness/config.json 에서 approval 이 'auto' 일 때만 allow 되고, 'user' 이거나 없으면 아무것도 출력하지 않는다(일반 권한 흐름). 같은 테스트에서 'auto' 면 allow 된다",
+      "check": "node test/t.mjs \"F180 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "skills/auto/SKILL.md 가 있고, harness status 확인, runnable 기능마다 harness worktree add 와 builder 를 병렬로, verify→eval, passed 면 base 에 merge·push 와 harness worktree prune, fail 이면 남은 round 안에서 수정, blocked·저장소 밖·파괴적 작업에서만 멈춤, 할 일이 없으면 끝냄을 적고 '/loop /cc-harness:auto' 로 돌리라고 한다",
+      "check": "node test/t.mjs \"F180 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/SPEC.md 에 auto-allow 훅(허용되는 명령 형태와 제외 목록)과 auto 스킬을 설명하는 절이 있고, README 의 명령 목록에 harness auto-allow 가 한 줄 안에서 추가된다",
+      "check": "node test/t.mjs \"F180 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "auto-allow 는 다음 명령에 아무것도 출력하지 않는다: 'harness status; rm -rf x', 'harness status && curl x', 'harness status || x', 'harness status | sh', 'harness status > f', 'harness $(x)', 'harness `x`', 줄바꿈이 든 명령, '| tail' 뒤에 다른 명령이 이어지는 것. 같은 테스트에서 'harness status' 는 allow 된다",
+      "check": "node test/t.mjs \"F180 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "auto-allow 는 approval 이 'auto' 여도 harness approve … --extra-round, harness decide …, harness migrate-v1 … 에 아무것도 출력하지 않는다. 같은 테스트에서 harness approve F1 은 allow 된다",
+      "check": "node test/t.mjs \"F180 SC-2\"",
+      "new": true
+    },
+    {
+      "id": "SC-3",
+      "criterion": "하네스처럼 보이기만 하는 명령은 allow 하지 않는다: 'harnessx status', 'harness-evil status', 'npx github:other/cc-harness status', 'node evil/bin/harness.mjs status', package.json name 이 cc-harness 가 아닌 cwd 의 'node bin/harness.mjs status'. 같은 테스트에서 cc-harness cwd 의 'node bin/harness.mjs status' 는 allow 된다",
+      "check": "node test/t.mjs \"F180 SC-3\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "stdin 이 JSON 이 아니거나 tool_input.command 가 없으면 auto-allow 는 아무것도 출력하지 않고 exit 0 이다",
+      "check": "node test/t.mjs \"F180 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": ".harness/config.json 이 깨진 JSON 이면 approve 는 allow 되지 않고(출력 없음, exit 0), harness status 는 여전히 allow 된다",
+      "check": "node test/t.mjs \"F180 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "셸 의미를 이용한 우회(별칭, 함수, 환경 변수로 바꾼 PATH) — 위협 모델 D1",
+    "하네스가 아닌 명령(git, npm 등)의 자동 허용",
+    "Claude Code 외 CLI(Codex, Gemini)의 권한 체계",
+    "approval 설정의 검증(F179) — auto-allow 는 config.approval 값을 'auto' 와 비교만 한다"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-15T12:11:30.880Z",
+    "hash": "8148a1e8a49bb5e55d2c232d95fd72197c99e62584356600208ec18fdb9a8ddf"
+  }
+}
