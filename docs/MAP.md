@@ -55,7 +55,7 @@ A test (`F112 AC-6`) fails when a file is missing here or when an entry names a 
 - lib/adapters/generic.mjs — configurable adapter for any headless CLI that reads its prompt on stdin
 
 ## Commands
-- lib/commands/approve.mjs — `harness approve`: freezes a contract by hash after user approval
+- lib/commands/approve.mjs — `harness approve`: freezes a contract by hash after user approval (or `--by auto` when config.approval is "auto")
 - lib/commands/backlog.mjs — `harness backlog close`: closes backlog items with a reason
 - lib/commands/deploy-log.mjs — `harness deploy-log record|list`: live apply/rollout results in .harness/deployments.jsonl
 - lib/commands/claude-md.mjs — `harness claude-md`: writes or checks the managed CLAUDE.md block
@@ -68,7 +68,7 @@ A test (`F112 AC-6`) fails when a file is missing here or when an entry names a 
 - lib/commands/migrate-v1.mjs — `harness migrate-v1`: converts a v1 project
 - lib/commands/run.mjs — `harness run`: argument handling and report output around lib/run.mjs
 - lib/commands/stats.mjs — `harness stats`: aggregates run metrics
-- lib/commands/status.mjs — `harness status`: feature and backlog overview
+- lib/commands/status.mjs — `harness status`: feature and backlog overview, and the `parallel:` line for features buildable at the same time
 - lib/commands/tf-check.mjs — `harness tf-check`: terraform validate and fmt check for the iac profile
 - lib/commands/k8s-check.mjs — `harness k8s-check`: kubeconform on plain, kustomize and helm manifests for the ops profile
 - lib/commands/verify.mjs — `harness verify`: runs deterministic verification for a feature

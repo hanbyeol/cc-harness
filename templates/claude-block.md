@@ -9,7 +9,9 @@ When `harness` is not on PATH, run `npx github:hanbyeol/cc-harness <command>`.
 1. **`spec` skill** — write `.harness/contracts/F{n}.json` and its `features.json` entry (`todo`).
    Every criterion needs an executable `check` (exit 0 on success). When unclear, ask the user first.
 2. **`plan` skill** — `harness lint-contract F{n}` passes → show it to the user → only after
-   **explicit approval** run `harness approve F{n}` (freezes the contract by hash).
+   **explicit approval** run `harness approve F{n}` (freezes the contract by hash). When
+   config.approval is "auto", run `harness approve F{n} --by auto` right after lint passes,
+   without asking; decisions on a `blocked` feature stay with the user.
 3. **`build` skill** — TDD: a failing test → the smallest implementation → the criterion `check`.
 4. `harness verify F{n}` → `harness eval F{n}`. The verdict comes from a separate session
    (ideally a different model) and the core.
@@ -38,6 +40,6 @@ When `harness` is not on PATH, run `npx github:hanbyeol/cc-harness <command>`.
 - Merging into or pushing to a protected branch (`protected_branches`) before the feature has passed `harness eval`
   (a `fix`: before its verify passes), and force-pushing it.
 - Skipping, deleting or weakening tests to get verify green.
-- `harness approve` without the user's approval.
+- `harness approve` without the user's approval, unless config.approval is "auto" (`--by auto` once lint passes).
 
 This block is managed by `harness claude-md`; edits inside it are replaced on the next update.

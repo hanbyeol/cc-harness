@@ -18,6 +18,23 @@ skill — building against an unapproved target wastes rounds.
 
 Work on a feature branch, not on a protected branch such as `main`.
 
+## Parallel
+When two or more features are runnable (`harness status` prints a `parallel:` line), do not
+build them one at a time. Hand them to `harness run <id> <id> …`, or create one worktree per
+feature with `harness worktree add F{n}` and start one builder in each at the same time, in
+one message. Keep one writer per worktree: never two sessions or agents editing the same one.
+
+Do not wait while verify or eval runs: start it in the background and meanwhile do the next
+independent work — build another feature, review the diff. Make independent reads, searches
+and commands as tool calls in parallel in one turn.
+
+## Decide on a best effort
+When a question has a reasonable default (a name, a file location, a message wording, the
+order of work), choose it on a best effort, keep going, and write the assumption in your
+report. Stop and ask only for `harness approve` (when config.approval is "user"), a `blocked`
+feature, a contract problem (step 2), and work that is destructive or changes something
+outside the repository — and ask those questions together in one message.
+
 ## 1. Read the target
 Read `.harness/contracts/F{n}.json`. The criteria and their `check` commands are the whole
 target; `out_of_scope` is explicitly not your job. If this is round 2 or later, read the last

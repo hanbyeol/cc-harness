@@ -29,6 +29,8 @@ messages, JSON keys and a contract's ids and `check` commands in English.
    core runs a finding's `repro` itself. Then look at the diff for defects that the check
    misses but the criterion clearly covers.
 2. Look for regressions: behaviour that worked before this diff and is broken now.
+   Make independent reads, searches and commands (the diff, the files it touches, the tests)
+   as tool calls in parallel in one turn; one after another only when one needs the other's result.
 3. Score each dimension from 0 to 10 using the rubric. The feature passes only when the
    lowest of the five scores reaches the threshold, so a score is a claim: any score below
    the threshold must be explained by a blocking finding below.

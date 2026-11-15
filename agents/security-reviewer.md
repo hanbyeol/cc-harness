@@ -32,6 +32,9 @@ messages, JSON keys and a contract's ids and `check` commands in English.
   authentication and authorization, secrets in code, logs or error output, unsafe defaults.
 - Regressions: security properties that held before this diff and do not now.
 
+Make independent reads, searches and commands (the diff, the files it touches, the tests) as
+tool calls in parallel in one turn; one after another only when one needs the other's result.
+
 Report concrete, reproducible defects, not categories of risk. "An attacker could bypass
 X somehow" cannot be verified and would make the review endless; an input that bypasses X,
 shown by a command, can be fixed and re-checked.

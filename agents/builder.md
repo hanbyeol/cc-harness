@@ -38,9 +38,13 @@ messages and a contract's ids and `check` commands in English.
    verify commands and every criterion's `check` right after you return (the prompt's
    `## Verification` section lists them), so do not run the full verify commands yourself.
    Outside `harness run` (an interactive session), when all checks pass, run the project's
-   verify commands (tests, lint, build) once and fix anything you broke.
+   verify commands (tests, lint, build) once — the full suite once, before verify — and fix
+   anything you broke.
 5. For a finding from a previous round, run its `repro`, fix the cause, and confirm the
    `repro` now exits 0 and no other check regressed.
+6. Make reads, searches and commands that do not depend on each other as tool calls
+   in parallel in one turn: read the contract and the files it touches together, run independent
+   checks together. Run them one after another only when one needs the other's result.
 
 ## Tests that hold on every platform
 Verification runs where you run, but a release is checked on other platforms too, and a test that

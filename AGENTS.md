@@ -42,6 +42,9 @@ outside the `spec` step described below.
 2. **Lint** (skill `plan`). Run `harness lint-contract F{n}` and fix every error it reports.
 3. **Approval** (skill `plan`). Present the contract to the user. Only after they say yes,
    run `harness approve F{n}`. This records who approved it and freezes the contract by hash.
+   When config.approval is "auto" (`harness init` writes it), run `harness approve F{n} --by auto`
+   right after lint passes and the plan is shown, without asking; decisions on a `blocked`
+   feature stay with the user.
 4. **Build** (skill `build`). Implement with test-driven development: failing test first,
    then the smallest change that passes, then the criterion's `check`.
 5. **Verify**. Run `harness verify F{n}`. It runs the profile's verify commands, checks test
@@ -55,6 +58,11 @@ still verified. Anything larger or security-related goes through the full workfl
 
 `harness run` performs steps 4–6 unattended for approved features, each in its own git
 worktree, and writes a report to `.harness/runs/`. It never merges into protected branches.
+
+Work in parallel first: when `harness status` prints `parallel: harness run …`, build those
+features at the same time (`harness run`, or one worktree and one builder each — one writer
+per worktree), keep working while verify or eval runs, and decide on a best effort instead of
+asking when a reasonable default exists (see `docs/SPEC.md` §2.1).
 
 Parallel work goes through `harness run` or `harness worktree add <name>`, which creates
 `.harness/wt/<name>` on a new branch; never create a worktree outside the project (the Claude
@@ -95,7 +103,8 @@ They either break the guarantees above or cause damage that is hard to undo:
   `harness eval` (a `fix`: before its verify passes), or force-push it. Once it has passed,
   merge it into the base branch and push it yourself — no pull request.
 - Skip, focus, delete or weaken tests to make verification pass.
-- Run `harness approve` without the user's explicit approval in this conversation.
+- Run `harness approve` without the user's explicit approval in this conversation, unless
+  config.approval is "auto" (then `--by auto` once lint passes).
 - Put a live infrastructure change (the `rollout` skill) into `harness run`. Live changes
   are always approved by a human, one at a time.
 

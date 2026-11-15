@@ -199,7 +199,7 @@ test('F23 AC-5: init writes no test_count when nothing is detected', () => {
   ]) {
     const c = initIn(files);
     assert.equal(c.verify?.test_count, undefined, JSON.stringify(files));
-    assert.deepEqual(c, { profile: 'sdlc', base_branch: 'main' }, JSON.stringify(files));
+    assert.deepEqual(c, { profile: 'sdlc', base_branch: 'main', approval: 'auto' }, JSON.stringify(files));
   }
 });
 
