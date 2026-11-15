@@ -1462,6 +1462,13 @@
         "F178"
       ],
       "status": "approved"
+    },
+    {
+      "id": "F180",
+      "title": "plugin autonomous mode: PreToolUse harness auto-allow lets harness core commands run without a permission prompt (approve only with approval: auto); auto skill loops status, parallel build, verify, eval, merge, prune",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }
