@@ -10,7 +10,7 @@ or it stops and a human decides. They apply to any AI coding CLI reading this fi
 The commands are: `harness init`, `harness lint-contract`, `harness approve`,
 `harness verify`, `harness eval`, `harness run`, `harness status`, `harness stats`,
 `harness events`, `harness decide`, `harness backlog`, `harness deploy-log`, `harness doctor`, `harness claude-md`,
-`harness tf-check`, `harness k8s-check`, `harness migrate-v1`. Run `harness --help` for the commands and `harness <command> --help` for a command's options.
+`harness worktree`, `harness guard-worktree`, `harness tf-check`, `harness k8s-check`, `harness migrate-v1`. Run `harness --help` for the commands and `harness <command> --help` for a command's options.
 
 ## Language
 Talk with the user — explanations, questions, reports — in the language set in
@@ -55,6 +55,13 @@ still verified. Anything larger or security-related goes through the full workfl
 
 `harness run` performs steps 4–6 unattended for approved features, each in its own git
 worktree, and writes a report to `.harness/runs/`. It never merges into protected branches.
+
+Parallel work goes through `harness run` or `harness worktree add <name>`, which creates
+`.harness/wt/<name>` on a new branch; never create a worktree outside the project (the Claude
+Code plugin's `guard-worktree` hook denies `git worktree add` to a path outside the
+repository). After you merge and push a feature, run `harness worktree prune`: it removes
+worktrees whose branch is merged into the base branch and that have no changes, with their
+branches (`--dry-run` only lists them). `harness worktree list` shows every worktree and its state.
 
 ## Why a contract must be decidable
 A criterion that no command can decide ("cannot be bypassed in any way", "never leaks
