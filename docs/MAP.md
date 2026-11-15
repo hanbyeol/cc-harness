@@ -4,7 +4,7 @@ One line per file under `lib/` (`.mjs`) and `bin/`: the path, then what the file
 A test (`F112 AC-6`) fails when a file is missing here or when an entry names a file that no longer exists. Requirements are in `docs/SPEC.md`.
 
 ## bin
-- bin/harness.mjs — CLI entry point: parses the command line, dispatches to lib/commands/*, maps errors to exit codes
+- bin/harness.mjs — CLI entry point: parses the command line, finds the project root (nearest .harness/config.json up to .git), dispatches to lib/commands/*, maps errors to exit codes
 
 ## Core
 - lib/run.mjs — `harness run`: `runFeatures`, the scheduler over the modules below (re-exports their public names)
