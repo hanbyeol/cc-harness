@@ -129,7 +129,7 @@ test('F7 AC-4 manifests: plugin.json and gemini-extension.json are valid and mat
 
 test('F7 AC-5 hooks: hooks.json has exactly one SessionStart hook running harness status --brief', () => {
   const h = readJson(path.join(REPO, 'hooks', 'hooks.json'));
-  assert.deepEqual(Object.keys(h.hooks), ['SessionStart']);
+  assert.deepEqual(Object.keys(h.hooks), ['SessionStart', 'PreToolUse']);
   assert.equal(h.hooks.SessionStart.length, 1);
   const inner = h.hooks.SessionStart[0].hooks;
   assert.equal(inner.length, 1);

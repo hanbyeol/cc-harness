@@ -64,6 +64,12 @@ Make changes as small, exact replacements with the editor tool. Do not regenerat
 file or a large block through a script (python, sed, heredoc) to change a few lines: writing
 the script takes far longer than the edit, and a stale anchor silently changes nothing.
 
+## Worktrees
+Do not create git worktrees outside the project (`git worktree add ../<repo>-x`). Work that
+needs a worktree of its own runs through `harness run` or `harness worktree add <name>`, which
+creates `.harness/wt/<name>` on a new branch. Whoever merges and pushes a feature runs
+`harness worktree prune` afterwards; it removes merged, clean worktrees and their branches.
+
 ## Boundaries
 These keep the process convergent and the verdict trustworthy:
 - Do not edit anything under `.harness/` (config, contracts, verdicts, features, backlog).
