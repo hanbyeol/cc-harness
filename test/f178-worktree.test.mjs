@@ -25,13 +25,22 @@ function project({ config = {}, head = 'main' } = {}) {
   return dir;
 }
 
-// A linked worktree at `dir` on a new branch `branch` from main; `commit` adds a commit on it.
-function addWt(repo, dir, branch, { commit = false } = {}) {
+// A linked worktree at `dir` on a new branch `branch` from main; `commit` adds a commit on it,
+// `merged` adds one and fast-forwards main (and the main worktree's branch) to it, so the
+// branch has work on it (not fresh, F181) and is merged.
+function addWt(repo, dir, branch, { commit = false, merged = false } = {}) {
   fs.mkdirSync(path.dirname(dir), { recursive: true });
   git(repo, 'worktree', 'add', '-q', '-b', branch, dir, 'main');
-  if (commit) {
+  if (commit || merged) {
     writeFiles(dir, { [`${branch.replace(/\W/g, '_')}.txt`]: 'x\n' });
     commitAll(dir, `on ${branch}`);
+  }
+  if (merged) {
+    const onMain = git(repo, 'worktree', 'list', '--porcelain').split('\n\n')
+      .find((b) => b.split('\n').includes('branch refs/heads/main'));
+    if (onMain) git(path.resolve(onMain.split('\n')[0].slice('worktree '.length)), 'merge', '-q', '--ff-only', branch);
+    else git(repo, 'branch', '-f', 'main', branch);
+    if (git(repo, 'rev-parse', '--abbrev-ref', 'HEAD') !== 'main') git(repo, 'merge', '-q', '--ff-only', branch);
   }
   return dir;
 }
@@ -76,7 +85,7 @@ function everyKind() {
   const wt = (n) => path.join(repo, '.harness', 'wt', n);
   const k = {
     repo,
-    prunable: addWt(repo, wt('merged'), 'merged'),
+    prunable: addWt(repo, wt('merged'), 'merged', { merged: true }),
     dirty: addWt(repo, path.join(repo, '.claude', 'worktrees', 'dirty'), 'dirty'),
     untracked: addWt(repo, wt('untracked'), 'untracked'),
     locked: addWt(repo, wt('locked'), 'locked'),
@@ -84,7 +93,7 @@ function everyKind() {
     detached: wt('detached'),
     integration: addWt(repo, wt('integration'), 'harness/integration'),
     release: addWt(repo, wt('release'), 'release'),
-    outside: addWt(repo, path.join(out, 'repo-f210'), 'f210'),
+    outside: addWt(repo, path.join(out, 'repo-f210'), 'f210', { merged: true }),
   };
   fs.mkdirSync(path.dirname(k.detached), { recursive: true });
   git(repo, 'worktree', 'add', '-q', '--detach', k.detached, 'main');
@@ -150,10 +159,10 @@ test('F178 AC-2 worktree list prints path, branch and state of every worktree, m
 test('F178 AC-3 worktree prune removes merged clean worktrees inside and outside the project and stale registrations', () => {
   const repo = project();
   const out = realTmpdir('f178-out-');
-  const a = addWt(repo, path.join(repo, '.harness', 'wt', 'a'), 'a');
-  const b = addWt(repo, path.join(repo, '.claude', 'worktrees', 'agent-b'), 'agent-b');
-  const c = addWt(repo, path.join(out, 'repo-f210'), 'f210');
-  const gone = addWt(repo, path.join(out, 'gone'), 'gone');
+  const a = addWt(repo, path.join(repo, '.harness', 'wt', 'a'), 'a', { merged: true });
+  const b = addWt(repo, path.join(repo, '.claude', 'worktrees', 'agent-b'), 'agent-b', { merged: true });
+  const c = addWt(repo, path.join(out, 'repo-f210'), 'f210', { merged: true });
+  const gone = addWt(repo, path.join(out, 'gone'), 'gone', { merged: true });
   const keep = addWt(repo, path.join(repo, '.harness', 'wt', 'keep'), 'keep', { commit: true });
   fs.rmSync(gone, { recursive: true, force: true });
   const r = harness(['worktree', 'prune'], { cwd: repo });
@@ -170,9 +179,9 @@ test('F178 AC-3 worktree prune removes merged clean worktrees inside and outside
 test('F178 AC-4 worktree prune --dry-run prints would remove for the same targets and changes nothing', () => {
   const repo = project();
   const out = realTmpdir('f178-out-');
-  const a = addWt(repo, path.join(repo, '.harness', 'wt', 'a'), 'a');
-  const b = addWt(repo, path.join(repo, '.claude', 'worktrees', 'agent-b'), 'agent-b');
-  const c = addWt(repo, path.join(out, 'repo-f210'), 'f210');
+  const a = addWt(repo, path.join(repo, '.harness', 'wt', 'a'), 'a', { merged: true });
+  const b = addWt(repo, path.join(repo, '.claude', 'worktrees', 'agent-b'), 'agent-b', { merged: true });
+  const c = addWt(repo, path.join(out, 'repo-f210'), 'f210', { merged: true });
   addWt(repo, path.join(repo, '.harness', 'wt', 'keep'), 'keep', { commit: true });
   const before = { b: branches(repo), w: registered(repo) };
   const r = harness(['worktree', 'prune', '--dry-run'], { cwd: repo });
@@ -196,7 +205,7 @@ test('F178 AC-5 status --brief adds the worktrees line only when there is someth
   // An unmerged worktree inside the project counts for neither.
   addWt(repo, path.join(repo, '.harness', 'wt', 'busy'), 'busy', { commit: true });
   assert.deepEqual(line(harness(['status', '--brief'], { cwd: repo })), []);
-  addWt(repo, path.join(repo, '.harness', 'wt', 'done'), 'done');
+  addWt(repo, path.join(repo, '.harness', 'wt', 'done'), 'done', { merged: true });
   addWt(repo, path.join(realTmpdir('f178-out-'), 'repo-f210'), 'f210', { commit: true });
   const r = harness(['status', '--brief'], { cwd: repo });
   assert.equal(r.code, 0, r.stderr);
@@ -266,7 +275,7 @@ test('F178 SC-1 prune keeps dirty, untracked, locked, unmerged, detached, protec
   fs.writeFileSync(path.join(keep.dirty, 'a.txt'), 'changed\n');
   fs.writeFileSync(path.join(keep.untracked, 'new.txt'), 'new\n');
   git(repo, 'worktree', 'lock', keep.locked);
-  const ok = addWt(repo, wt('ok'), 'ok');
+  const ok = addWt(repo, wt('ok'), 'ok', { merged: true });
   const before = branches(repo);
   const r = harness(['worktree', 'prune'], { cwd: repo });
   assert.equal(r.code, 0, r.stderr);
@@ -302,8 +311,8 @@ test('F178 SC-3 prune deletes branches with branch -d and never uses branch -D o
   const { git: coreGit } = await import('../lib/run/worktree.mjs');
   const { loadConfig } = await import('../lib/config.mjs');
   const repo = project();
-  const a = addWt(repo, path.join(repo, '.harness', 'wt', 'a'), 'a');
-  const b = addWt(repo, path.join(repo, '.claude', 'worktrees', 'b'), 'b');
+  const a = addWt(repo, path.join(repo, '.harness', 'wt', 'a'), 'a', { merged: true });
+  const b = addWt(repo, path.join(repo, '.claude', 'worktrees', 'b'), 'b', { merged: true });
   const calls = [];
   const run = (args, cwd) => { calls.push(args); return coreGit(args, cwd); };
   const code = await pruneWorktrees({ root: repo, cfg: loadConfig(repo), run, out: () => {}, err: () => {} });
@@ -338,8 +347,8 @@ test('F178 ES-2 a failing worktree remove is reported, keeps its branch and the 
   const { git: coreGit } = await import('../lib/run/worktree.mjs');
   const { loadConfig } = await import('../lib/config.mjs');
   const repo = project();
-  const a = addWt(repo, path.join(repo, '.harness', 'wt', 'a'), 'a');
-  const b = addWt(repo, path.join(repo, '.harness', 'wt', 'b'), 'b');
+  const a = addWt(repo, path.join(repo, '.harness', 'wt', 'a'), 'a', { merged: true });
+  const b = addWt(repo, path.join(repo, '.harness', 'wt', 'b'), 'b', { merged: true });
   // A file appears in `a` after it was classified: git refuses the remove without --force.
   const run = (args, cwd) => {
     if (args[0] === 'worktree' && args[1] === 'remove' && same(args.at(-1), a)) fs.writeFileSync(path.join(a, 'late.txt'), 'late\n');

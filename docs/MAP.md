@@ -72,6 +72,6 @@ A test (`F112 AC-6`) fails when a file is missing here or when an entry names a 
 - lib/commands/tf-check.mjs — `harness tf-check`: terraform validate and fmt check for the iac profile
 - lib/commands/k8s-check.mjs — `harness k8s-check`: kubeconform on plain, kustomize and helm manifests for the ops profile
 - lib/commands/verify.mjs — `harness verify`: runs deterministic verification for a feature
-- lib/commands/worktree.mjs — `harness worktree add|list|prune`: worktrees in .harness/wt, their states, removing merged clean ones
+- lib/commands/worktree.mjs — `harness worktree add|list|prune`: worktrees in .harness/wt, their states (fresh and current ones are kept), removing merged clean ones
 - lib/commands/guard-worktree.mjs — `harness guard-worktree`: PreToolUse hook that denies `git worktree add` outside the repository
 - lib/commands/auto-allow.mjs — `harness auto-allow`: PreToolUse hook that allows one harness core command without a permission prompt
