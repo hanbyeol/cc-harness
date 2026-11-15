@@ -1,0 +1,95 @@
+{
+  "id": "F179",
+  "title": "병렬 우선(빨리빨리) 워크플로 — 대화형 build·spec·plan 과 builder·evaluator 가 독립 작업을 동시에 처리하고, harness status 가 동시에 만들 수 있는 기능을 알려 주며, 묻기보다 best effort 로 판단해 진행한다. 지금 대화형 흐름은 기능 하나씩, verify·eval 이 끝날 때까지 기다리며 진행한다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness status 는 runnable 기능이 2개 이상이면 'parallel: harness run <id> <id> … — independent, can be built at the same time' 한 줄을 출력하고, 1개 이하면 그 줄이 없다. --brief 도 같다",
+      "check": "node test/t.mjs \"F179 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "skills/build/SKILL.md 에 '## Parallel' 절이 있고, runnable 기능이 둘 이상이면 하나씩 만들지 말고 기능마다 harness worktree add F{n} worktree 와 builder 하나씩 동시에 돌리거나 harness run <ids> 에 맡기라고 하며, 한 worktree 에는 쓰는 주체가 하나뿐이라고 한다(문자열 'harness worktree add', 'harness run', 'one writer per worktree' 포함)",
+      "check": "node test/t.mjs \"F179 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "skills/build/SKILL.md 는 verify 나 eval 이 백그라운드로 도는 동안 기다리지 말고 다음 독립 작업(다른 기능의 build, diff 점검)을 하라고 한다(문자열 'while verify or eval runs' 포함)",
+      "check": "node test/t.mjs \"F179 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "agents/builder.md, agents/evaluator.md, agents/security-reviewer.md 는 서로 독립인 읽기·검색·명령을 한 턴에 병렬 도구 호출로 내라고 한다(각 파일에 문자열 'in parallel in one turn' 포함)",
+      "check": "node test/t.mjs \"F179 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "agents/builder.md 는 반복 중에는 criterion check 와 바뀐 테스트 파일만 돌리고 전체 테스트는 verify 전에 한 번 돌리라고 한다(문자열 'full suite once' 포함)",
+      "check": "node test/t.mjs \"F179 AC-5\"",
+      "new": true
+    },
+    {
+      "id": "AC-6",
+      "criterion": "skills/spec/SKILL.md 는 한 요청에 기능이 여럿이면 계약을 함께 쓰라고 하고, skills/plan/SKILL.md 는 그 계약들을 한 번에 제시하고 승인받아 harness approve F{n} F{m} 로 기록하라고 한다(spec 에 'draft them together', plan 에 'in one batch' 포함)",
+      "check": "node test/t.mjs \"F179 AC-6\"",
+      "new": true
+    },
+    {
+      "id": "AC-7",
+      "criterion": "docs/SPEC.md 에 병렬 우선 워크플로 절이 있고 AC-1 의 parallel 줄과 AC-2~AC-6 의 지침을 설명한다(문자열 'parallel: harness run' 포함)",
+      "check": "node test/t.mjs \"F179 AC-7\"",
+      "new": true
+    },
+    {
+      "id": "AC-8",
+      "criterion": "skills/spec/SKILL.md 와 skills/build/SKILL.md 는 합리적인 기본값이 있으면 묻지 말고 best effort 로 정해 진행하고 그 가정을 계획·보고에 적으라고 하며, 멈춰 묻는 경우를 harness approve, blocked 기능, 파괴적이거나 저장소 밖을 바꾸는 작업으로 한정하고 그 질문은 한 번에 묶으라고 한다(각 파일에 'best effort' 포함)",
+      "check": "node test/t.mjs \"F179 AC-8\"",
+      "new": true
+    },
+    {
+      "id": "AC-9",
+      "criterion": "config 'approval' 은 'auto' 또는 'user'(기본 'user')다. harness init 이 만드는 새 config 는 'approval': 'auto' 를 갖는다. harness approve --by auto 는 기존과 같이 해시로 동결하고 approval.by 에 'auto' 를 기록한다",
+      "check": "node test/t.mjs \"F179 AC-9\"",
+      "new": true
+    },
+    {
+      "id": "AC-10",
+      "criterion": "skills/plan/SKILL.md 는 config.approval 이 'auto' 이면 lint 통과 뒤 사용자에게 묻지 말고 계획을 보여 준 다음 바로 harness approve F{n} --by auto 를 실행하라고 하고, 'user' 이면 지금처럼 묻는다. 계획 전에 최선의 해법을 고르고 구현 준비를 마치라고 한다(문자열 'approval is \"auto\"' 포함). AGENTS.md, templates/claude-block.md(CLAUDE.md 관리 블록 원본), docs/SPEC.md 도 같은 규칙을 적는다",
+      "check": "node test/t.mjs \"F179 AC-10\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "harness status 는 runnable 기능이 정확히 1개이면 parallel 줄을 출력하지 않고 'runnable: <id>' 는 그대로 출력한다(같은 테스트에서 2개일 때 parallel 줄이 나온다)",
+      "check": "node test/t.mjs \"F179 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "config 'approval' 이 'auto'·'user' 가 아니면(예: true, 'yes') 다른 config 오류처럼 config_invalid 로 거부된다. 같은 테스트에서 'auto' 는 받아들여진다",
+      "check": "node test/t.mjs \"F179 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "harness run 의 병렬 실행 방식 변경(이미 max_parallel·verify_parallel 로 병렬)",
+    "모델·effort 정책 변경",
+    "계약 동결(해시)과 동결 뒤 기준 변경 시 재승인 규칙 자체 — auto 면 재승인도 --by auto 로 기록될 뿐 동결은 유지된다",
+    "blocked 기능의 계속 결정(harness decide, --extra-round)은 auto 여도 사용자가 정한다",
+    "다른 CLI(Codex, Gemini) 의 병렬 도구 호출 지원 여부"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-15T11:59:34.350Z",
+    "hash": "ac9e80ba66788045087f37116ce50a93b31dc8d61cdd843ab2c0e96d5fe0470f"
+  }
+}

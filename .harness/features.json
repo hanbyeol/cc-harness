@@ -1452,6 +1452,15 @@
       "security_tier": "critical",
       "depends_on": [],
       "status": "approved"
+    },
+    {
+      "id": "F179",
+      "title": "parallel-first workflow: status prints the features that can be built at the same time; build/spec/plan and the agents work concurrently and decide by best effort",
+      "security_tier": "standard",
+      "depends_on": [
+        "F178"
+      ],
+      "status": "approved"
     }
   ]
 }
