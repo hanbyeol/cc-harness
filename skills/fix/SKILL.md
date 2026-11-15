@@ -38,3 +38,7 @@ If the cause is not known yet, investigate first: reproduce, find the cause, the
 - Do not skip or weaken tests.
 - Once verify passes, commit and push the fix to the base branch yourself — no pull request.
   Never push before verify passes, and never force-push.
+- Parallel work goes through `harness run` or `harness worktree add <name>` (a worktree in
+  `.harness/wt/<name>`); never create a worktree outside the project. Once that work is merged
+  into the base branch and pushed, run `harness worktree prune` to remove merged, clean
+  worktrees and their branches.

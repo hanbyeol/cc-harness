@@ -92,3 +92,7 @@ Tell the user: files changed, each criterion id and its result, the verdict and 
 and anything added to the backlog. Once the verdict is `passed`, merge the feature branch into
 the base branch and push it yourself — no pull request, no force-push. Do not merge or push a
 feature that has not passed.
+
+Parallel work goes through `harness run` or `harness worktree add <name>` (a worktree in
+`.harness/wt/<name>` on a new branch); never create a worktree outside the project. After the
+merge and push, run `harness worktree prune` to remove merged, clean worktrees and their branches.
