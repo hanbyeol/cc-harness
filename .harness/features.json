@@ -1445,6 +1445,13 @@
       "security_tier": "standard",
       "depends_on": [],
       "status": "passed"
+    },
+    {
+      "id": "F178",
+      "title": "worktree hygiene: harness worktree add|list|prune inside the project, PreToolUse guard against git worktree add outside it, status --brief reports leftovers",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }
