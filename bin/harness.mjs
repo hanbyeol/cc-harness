@@ -40,6 +40,20 @@ function help() {
   return lines.join('\n');
 }
 
+// Commands that create .harness/ in the directory they run in: they never search upward.
+const CREATES_STATE = new Set(['init', 'migrate-v1']);
+
+// Run from a subdirectory (F182, SPEC §4): the nearest ancestor of `dir` holding
+// .harness/config.json is the root. The search stops at (and includes) the first directory
+// with a .git entry — a directory, or the file of a linked worktree — so it never leaves the
+// repository or worktree it started in. undefined when there is none.
+function findRoot(dir) {
+  for (let d = path.resolve(dir); ; d = path.dirname(d)) {
+    if (fs.existsSync(path.join(d, '.harness', 'config.json'))) return d;
+    if (fs.existsSync(path.join(d, '.git')) || path.dirname(d) === d) return undefined;
+  }
+}
+
 export async function main(argv, { root = process.cwd(), out = console.log, err = console.error } = {}) {
   const [name, ...args] = argv;
   const known = (n) => Object.hasOwn(COMMANDS, n);
@@ -66,7 +80,9 @@ export async function main(argv, { root = process.cwd(), out = console.log, err 
     // guard-worktree runs before every Bash call (PreToolUse hook): it reads no state, so a
     // corrupt .harness/ never blocks a command. auto-allow (the other PreToolUse hook) likewise
     // reads only the raw config.json it needs.
-    if (name === 'guard-worktree' || name === 'auto-allow') { /* no state */ }
+    const hook = name === 'guard-worktree' || name === 'auto-allow';
+    if (!hook && !CREATES_STATE.has(name) && !isInitialized(root)) root = findRoot(root) ?? root;
+    if (hook) { /* no state */ }
     else if (isInitialized(root)) {
       const p = paths(root);
       if (name !== 'init' || fs.existsSync(p.config)) loadConfig(root);

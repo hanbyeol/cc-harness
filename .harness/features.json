@@ -1487,7 +1487,8 @@
       "title": "run from a subdirectory: the core uses the nearest ancestor with .harness/config.json as root, not past a .git boundary; init does not search",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 1
     },
     {
       "id": "F183",
