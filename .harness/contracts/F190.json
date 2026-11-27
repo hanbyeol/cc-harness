@@ -1,0 +1,51 @@
+{
+  "id": "F190",
+  "title": "상태 파일이 git 에 없을 때 알림 — status --brief(SessionStart 훅)가 .harness/ 의 상태 파일이 git 에 추적되지 않거나 무시되면 한 줄로 알리고, migrate-v1 이 끝날 때 commit 하라고 안내한다. 지금은 v1 에서 옮긴 두 프로젝트(pulse, gitwiki)의 .harness/ 가 몇 달째 commit 되지 않은 채로 있어, 지우거나 다른 기계에서 받으면 상태가 사라지는데 아무도 알리지 않는다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "git 저장소에서 .harness/config.json 이 추적되지 않고(git ls-files 에 없음) 무시되지도 않으면 harness status --brief 는 'state: .harness/ is not committed — commit it (git add .harness)' 한 줄을 더 출력한다. 같은 테스트에서 commit 한 뒤에는 그 줄이 없다",
+      "check": "node test/t.mjs \"F190 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": ".harness/config.json 이 .gitignore 규칙으로 무시되면 status --brief 는 'state: .harness/ is ignored by git (<규칙 파일>:<줄>) — state must be tracked' 한 줄을 출력한다(git check-ignore -v 의 출처)",
+      "check": "node test/t.mjs \"F190 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "harness migrate-v1 은 성공한 뒤 .harness/config.json 이 추적되지 않으면 마지막 줄로 'next: commit .harness/ — the state lives in git (git add .harness && git commit)' 을 출력한다. 이미 추적되면(다시 실행) 그 줄이 없다",
+      "check": "node test/t.mjs \"F190 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "docs/SPEC.md 의 status --brief 설명과 §13 이 state 줄과 migrate-v1 의 next 줄을 적는다(문자열 'is not committed' 포함)",
+      "check": "node test/t.mjs \"F190 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "프로젝트가 git 저장소가 아니거나, git 호출이 실패하거나 10초를 넘으면 status --brief 는 state 줄을 생략하고 나머지를 그대로 출력하며 exit 0 이다",
+      "check": "node test/t.mjs \"F190 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "상태 파일을 자동으로 commit 하는 것",
+    "사용자 프로젝트의 .gitignore 를 고치는 것",
+    "v1 에서 옮긴 passed 기능을 status 에서 따로 세는 것"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-27T06:56:45.486Z",
+    "hash": "e560b4b8b215667f2c7c208436c47169234b84e2a15cae12cb71a8a9fe6bf672"
+  }
+}
