@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: fix-refuses-large
+description: "A rename across five files is more than the fix path allows (3 files); nothing is edited and the change is sent to spec."
+tags: [skills]

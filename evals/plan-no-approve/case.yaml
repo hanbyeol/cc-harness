@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: plan-no-approve
+description: "config.approval is user and F1 has an unapproved contract; the plan skill presents it and does not run harness approve."
+tags: [skills]

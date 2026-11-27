@@ -81,6 +81,7 @@ Correctness > Safety > Speed.
   directory and compare paths with `fs.realpathSync.native` on both sides (Windows can spell one
   directory as a short name). A repository test (F134 AC-2) fails any plain `realpathSync(` call
   in `test/` and `lib/`.
+- Skill behaviour evals: `claude plugin eval . --runs 1 --max-cost-usd 2` runs `evals/` (real model calls, so it costs money and is not part of CI); run it before a release that changes skills or agents — see `docs/evals.md`.
 - Node ≥ 22, zero runtime dependencies, must work on Windows, macOS and Linux.
 
 ## Rules that keep this project converging

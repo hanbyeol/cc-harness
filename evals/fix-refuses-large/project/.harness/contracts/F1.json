@@ -1,0 +1,24 @@
+{
+  "id": "F1",
+  "title": "greet(name) returns the greeting line for one name",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "greet('Ada') returns 'Hello, Ada!'",
+      "check": "node --test --test-name-pattern=\"F1 AC-1\" test/",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [],
+  "out_of_scope": [
+    "languages other than English"
+  ],
+  "approval": {
+    "by": "maintainer@example.invalid",
+    "at": "2026-11-27T09:34:29.124Z",
+    "hash": "fcbb4e7c75e85ed4ed01b0c5a1beba1727a1019920259a4f3399bd24b732b7da"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "profile": "sdlc",
+  "base_branch": "main",
+  "approval": "user",
+  "verify": {
+    "commands": ["npm test"]
+  }
+}
