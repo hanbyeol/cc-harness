@@ -19,7 +19,7 @@ A test (`F112 AC-6`) fails when a file is missing here or when an entry names a 
 - lib/run/prompt.mjs — builder prompt, default build and evaluate calls; lib/run/preflight.mjs — role preflight, effective tier; lib/run/common.mjs — stop signals, constants, pure helpers
 - lib/eval.mjs — independent evaluation: evaluator and security-reviewer calls, verdict rules, secret-path filtering of diffs
 - lib/eval-status.mjs — interactive `harness eval`: records feature status with the same convergence rules as a run
-- lib/verify.mjs — deterministic verify: verify commands, criterion checks, integrity (skip markers, test count, .harness changes)
+- lib/verify.mjs — deterministic verify: verify commands, criterion checks, integrity (skip markers, test count, .harness changes), the evaluated tree of a worktree (evaluatedTree)
 - lib/verify-cache.mjs — verify result cache keyed by a digest of everything that decides the result
 - lib/contract.mjs — contract loading, lint rules, canonical hash and approval
 - lib/config.mjs — config defaults, validation and resolution (profile ← user config)
@@ -63,6 +63,7 @@ A test (`F112 AC-6`) fails when a file is missing here or when an entry names a 
 - lib/commands/doctor.mjs — `harness doctor`: detects CLIs and reports whether each role is usable
 - lib/commands/eval.mjs — `harness eval`: one interactive evaluation round
 - lib/commands/events.mjs — `harness events`: prints the redacted event log
+- lib/commands/merge-check.mjs — `harness merge-check`: before a merge, compares the working tree (without .harness/) with the tree of the last passed verdict
 - lib/commands/init.mjs — `harness init`: creates `.harness/` for a project
 - lib/commands/lint-contract.mjs — `harness lint-contract`: checks contracts against the lint rules
 - lib/commands/migrate-v1.mjs — `harness migrate-v1`: converts a v1 project

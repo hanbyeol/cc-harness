@@ -8,7 +8,7 @@ or it stops and a human decides. They apply to any AI coding CLI reading this fi
 `harness` below is the cc-harness CLI. If it is not on PATH, use `npx github:hanbyeol/cc-harness <command>`
 (the npm package named `cc-harness` is a different project).
 The commands are: `harness init`, `harness lint-contract`, `harness approve`,
-`harness verify`, `harness eval`, `harness run`, `harness status`, `harness stats`,
+`harness verify`, `harness eval`, `harness merge-check`, `harness run`, `harness status`, `harness stats`,
 `harness events`, `harness decide`, `harness backlog`, `harness deploy-log`, `harness doctor`, `harness claude-md`,
 `harness worktree`, `harness guard-worktree`, `harness auto-allow`, `harness tf-check`, `harness k8s-check`, `harness migrate-v1`. Run `harness --help` for the commands and `harness <command> --help` for a command's options.
 
@@ -50,7 +50,11 @@ outside the `spec` step described below.
 5. **Verify**. Run `harness verify F{n}`. It runs the profile's verify commands, checks test
    integrity against the base branch, and runs every criterion's `check`.
 6. **Evaluate**. Run `harness eval F{n}`. A separate, read-only session scores the feature
-   and reports findings; the core decides pass or fail and records the verdict.
+   and reports findings; the core decides pass or fail and records the verdict, with the
+   working tree it judged (`tree`).
+   Before you merge a passed feature, run `harness merge-check F{n}` in its worktree: exit 0 means
+   the tree is still the one eval judged. When it is not 0, do not merge: revert the changes made
+   after eval, or ask the user.
 7. **Status**. `harness status` shows where every feature stands and what can run next.
 
 Small, low-risk fixes use the skill `fix`: at most three files, not security-critical, and

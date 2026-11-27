@@ -16,6 +16,7 @@ const COMMANDS = {
   approve: ['record plan approval and freeze contracts by hash', true],
   verify: ['run deterministic verification for a feature', true],
   eval: ['run the independent evaluator for a feature', true],
+  'merge-check': ['before merging a passed feature: is the tree the one eval judged?', true],
   run: ['autonomously build, verify and evaluate approved features', true],
   status: ['show feature status and what can run next', false],
   stats: ['aggregate step metrics and suggest config changes', true],

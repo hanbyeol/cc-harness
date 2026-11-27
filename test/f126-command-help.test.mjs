@@ -5,7 +5,7 @@ import path from 'node:path';
 import { harness, tmpdir, writeJson, readJson, fakeExecutable, REPO } from './helpers.mjs';
 import { gitRepo } from './gitfixture.mjs';
 
-const NAMES = ['init', 'lint-contract', 'approve', 'verify', 'eval', 'run', 'status', 'stats', 'events', 'decide', 'backlog', 'deploy-log', 'doctor', 'claude-md', 'worktree', 'guard-worktree', 'auto-allow', 'tf-check', 'k8s-check', 'migrate-v1'];
+const NAMES = ['init', 'lint-contract', 'approve', 'verify', 'eval', 'merge-check', 'run', 'status', 'stats', 'events', 'decide', 'backlog', 'deploy-log', 'doctor', 'claude-md', 'worktree', 'guard-worktree', 'auto-allow', 'tf-check', 'k8s-check', 'migrate-v1'];
 const OPTIONS = {
   init: ['--language'], approve: ['--by', '--extra-round'], verify: ['--base', '--cwd', '--json'],
   eval: ['--round', '--base', '--cwd', '--json'], run: ['--resume', '--fresh', '--max-usd', '--parallel'],

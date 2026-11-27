@@ -21,8 +21,10 @@ Run it repeatedly with `/loop /cc-harness:auto`; each invocation is one pass. Th
    all in one message so they run at the same time.
 3. When a builder returns, run `harness verify F{n}` in its worktree; fix a failed verify and
    run it again. Then `harness eval F{n}` (a separate context decides the verdict, never you).
-4. `passed`: merge the feature branch into the base branch and push it — no pull request, no
-   force-push — then run `harness worktree prune`.
+4. `passed`: run `harness merge-check F{n}` in its worktree. When it is not 0, do not merge:
+   revert the changes made after eval, or ask the user. When it is 0, merge the feature branch
+   into the base branch and push it — no pull request, no force-push — then run
+   `harness worktree prune`.
 5. Failed: fix the blocking findings within the rounds that are left (the `build` skill, round
    2 or later), then verify and eval again.
 6. Stop and ask the user only for: a feature that is `blocked`, a change outside this repository,
