@@ -1545,7 +1545,8 @@
       "title": "evals/ suite for claude plugin eval: plan, auto, fix and spec skill behaviour",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 1
     },
     {
       "id": "F190",
