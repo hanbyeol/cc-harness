@@ -1,0 +1,39 @@
+{
+  "feature": "F190",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 0.2420208,
+  "contract_hash": "e560b4b8b215667f2c7c208436c47169234b84e2a15cae12cb71a8a9fe6bf672",
+  "contract_round": 1,
+  "tree": "7b509ec94218013f1ed986081ead45d7ff79e686",
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-11-27T08:28:28.952Z",
+  "origin": "eval"
+}

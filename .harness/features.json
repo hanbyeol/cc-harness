@@ -1536,7 +1536,8 @@
       "title": "harness init writes .harness/.gitattributes so append-only JSON Lines records merge with merge=union",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 2
     },
     {
       "id": "F189",
@@ -1550,7 +1551,8 @@
       "title": "status --brief warns when .harness/ state is not tracked by git; migrate-v1 says to commit it",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 1
     }
   ]
 }
