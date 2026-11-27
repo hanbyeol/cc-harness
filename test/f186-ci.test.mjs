@@ -241,7 +241,8 @@ test('F186 ES-1 gh missing or failing exits 2 with the reason', () => {
 });
 
 test('F186 ES-2 no run for the commit, or runs that never complete, exit 2', () => {
-  const dir = setup({ ci: { poll_sec: 1, find_timeout_sec: 1, timeout_sec: 2 }, responses: { list: { json: [] } } });
+  // Bounds several poll intervals wide, so a slow gh start under load still leaves room for a second read.
+  const dir = setup({ ci: { poll_sec: 1, find_timeout_sec: 6, timeout_sec: 6 }, responses: { list: { json: [] } } });
   const sha7 = head(dir).slice(0, 7);
   const now = ci(dir);
   assert.equal(now.code, 2, now.stdout);
