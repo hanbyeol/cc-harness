@@ -8,7 +8,7 @@ or it stops and a human decides. They apply to any AI coding CLI reading this fi
 `harness` below is the cc-harness CLI. If it is not on PATH, use `npx github:hanbyeol/cc-harness <command>`
 (the npm package named `cc-harness` is a different project).
 The commands are: `harness init`, `harness lint-contract`, `harness approve`,
-`harness verify`, `harness eval`, `harness merge-check`, `harness run`, `harness status`, `harness stats`,
+`harness verify`, `harness eval`, `harness merge-check`, `harness ci`, `harness run`, `harness status`, `harness stats`,
 `harness events`, `harness decide`, `harness backlog`, `harness deploy-log`, `harness doctor`, `harness claude-md`,
 `harness worktree`, `harness guard-worktree`, `harness auto-allow`, `harness tf-check`, `harness k8s-check`, `harness migrate-v1`. Run `harness --help` for the commands and `harness <command> --help` for a command's options.
 
@@ -74,6 +74,14 @@ Code plugin's `guard-worktree` hook denies `git worktree add` to a path outside 
 repository). After you merge and push a feature, run `harness worktree prune`: it removes
 worktrees whose branch is merged into the base branch and that have no changes, with their
 branches (`--dry-run` only lists them). `harness worktree list` shows every worktree and its state.
+
+After you push the base branch, run `harness ci --wait` in the background, without waiting for it — go on with the next work —
+and act on its exit code when it ends: exit 0, CI passed; exit 1, read the failed jobs it lists
+(`gh run view <id> --log-failed`) and fix them as a REGRESSION with a new commit on the base
+branch, verified and pushed like any fix (no force-push, no history rewriting); exit 2, CI could
+not be read (gh missing or not logged in, no run for the commit, timed out): tell the user.
+`harness status --brief` (the session-start summary) also prints `ci: <base_branch> <sha7> failing`
+when the latest completed run on the base branch failed (`docs/SPEC.md` §8.14).
 
 ## Why a contract must be decidable
 A criterion that no command can decide ("cannot be bypassed in any way", "never leaks

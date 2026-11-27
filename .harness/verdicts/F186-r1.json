@@ -1,0 +1,39 @@
+{
+  "feature": "F186",
+  "round": 1,
+  "verdict": "pass",
+  "score": 9,
+  "scores": {
+    "functionality": 9,
+    "quality": 9,
+    "security": 9,
+    "errors": 9,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 0.3844464,
+  "contract_hash": "7d089bb500674ab45ac8b3435375fdcaac4e1df481356ad8ffd19f9104c7ec65",
+  "contract_round": 1,
+  "tree": "7571bff978362390b01f1b5150edb063d0b27e1b",
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 9,
+        "security": 9,
+        "errors": 9,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-11-27T05:29:39.155Z",
+  "origin": "eval"
+}
