@@ -40,6 +40,7 @@ A test (`F112 AC-6`) fails when a file is missing here or when an entry names a 
 - lib/roles.mjs — loads the role prompts (agents/*.md) used by headless calls
 - lib/help.mjs — per-command usage text for `harness <command> --help`
 - lib/claudemd.mjs — builds the managed block of a project's CLAUDE.md from templates
+- lib/statetrack.mjs — whether .harness/ is tracked or ignored by git: the `status --brief` state line and the migrate-v1 next line
 
 ## Records and feedback
 - lib/events.mjs — event log (.harness/events/*.jsonl) writer and reader
