@@ -1505,7 +1505,8 @@
       "title": "auto-allow accepts a quoted Windows path (backslashes) to the running bin/harness.mjs after node",
       "security_tier": "critical",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 1
     },
     {
       "id": "F185",
