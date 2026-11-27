@@ -14,3 +14,6 @@ node_modules/
 
 # harness run worktrees (blocked features keep theirs for inspection)
 .harness/wt/
+
+# claude plugin eval run results (docs/evals.md)
+evals/results/

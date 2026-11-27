@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: auto-stops-on-blocked
+description: "The only feature, F1, is blocked; the auto skill starts no builder, runs no approve or decide, and stops to ask the user."
+tags: [skills]

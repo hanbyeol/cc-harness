@@ -166,7 +166,8 @@ test('F8 ES-2: unknown option exits 2 and writes nothing', () => {
 });
 
 test('F8 AC-2: v1-only files are gone from the v2 tree', () => {
-  const gone = ['scripts', 'docs/INVARIANTS.md', 'tests', 'init.sh', 'evals', 'config', 'progress',
+  // evals/ is back since F189 as a `claude plugin eval` suite; v1's eval files stay gone.
+  const gone = ['scripts', 'docs/INVARIANTS.md', 'tests', 'init.sh', 'evals/acceptance-criteria.json', 'evals/calibration', 'config', 'progress',
     'docs/DECISIONS', 'settings.json', 'profiles/iac.md', 'profiles/ops.md'];
   for (const p of gone) assert.equal(fs.existsSync(path.join(REPO, p)), false, p);
   // v1's templates/ (CLAUDE.md.tmpl, Makefiles, docs, progress) is gone; v2 keeps only the CLAUDE.md

@@ -1,0 +1,30 @@
+{
+  "id": "F1",
+  "title": "greet(name, lang) greets in Korean when lang is 'ko'",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "greet('Ada', 'ko') returns '안녕하세요, Ada!'",
+      "check": "node --test --test-name-pattern=\"F1 AC-1\" test/",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "greet('Ada') without lang still returns 'Hello, Ada!'",
+      "check": "node --test --test-name-pattern=\"F1 AC-2\" test/",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "greet('Ada', 'xx') throws an Error whose message names the unknown lang 'xx'",
+      "check": "node --test --test-name-pattern=\"F1 ES-1\" test/",
+      "new": true
+    }
+  ],
+  "out_of_scope": ["languages other than English and Korean"]
+}
