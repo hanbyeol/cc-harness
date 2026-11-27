@@ -1545,6 +1545,13 @@
       "security_tier": "standard",
       "depends_on": [],
       "status": "approved"
+    },
+    {
+      "id": "F190",
+      "title": "status --brief warns when .harness/ state is not tracked by git; migrate-v1 says to commit it",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }
