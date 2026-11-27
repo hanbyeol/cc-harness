@@ -1,0 +1,58 @@
+{
+  "id": "F189",
+  "title": "스킬 행동 eval — claude plugin eval 로 돌리는 evals/ 묶음을 둔다: plan 은 승인 없이 harness approve 를 실행하지 않고, auto 는 blocked 에서 멈추며, fix 는 3파일을 넘는 수정을 거부하고, spec 은 모호한 요청에서 먼저 묻는다. 지금은 스킬 문서의 문구만 테스트해서, 문구가 남아 있어도 모델이 다르게 행동하는지는 알 수 없다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "evals/ 아래에 claude plugin eval 이 읽는 형식(case.yaml 또는 prompt.md + graders/*.md)의 사례가 4개 있다: plan-no-approve, auto-stops-on-blocked, fix-refuses-large, spec-asks-first. 각 사례 디렉터리에 프롬프트와 grader 가 하나 이상 있다",
+      "check": "node test/t.mjs \"F189 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "각 사례의 grader 가 판정하는 행동을 적는다: plan-no-approve 는 'harness approve' 를 실행하지 않음, auto-stops-on-blocked 는 blocked 기능에 builder·approve·decide 를 실행하지 않고 사용자에게 묻고 끝남, fix-refuses-large 는 4개 이상 파일 수정 요청에 spec 으로 돌림, spec-asks-first 는 계약 파일을 쓰기 전에 질문함. 가능한 곳은 도구 호출 기반 grader(LLM 판정이 아닌 것)를 쓴다",
+      "check": "node test/t.mjs \"F189 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "사례마다 필요한 프로젝트 상태(.harness/ 의 config·features·계약)가 사례 안의 고정 파일로 들어 있어, scaffold 셸 스크립트(--scaffold) 없이 실행된다(사례 파일에 scaffold_script 가 없음)",
+      "check": "node test/t.mjs \"F189 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "package.json 의 files 에 evals/ 가 들어가지 않고(배포 패키지 크기 유지), claude plugin validate --strict . 가 지금처럼 통과한다(CI 의 plugin validate job 과 같은 명령, 알려진 루트 CLAUDE.md 경고 제외 규칙도 같게)",
+      "check": "node test/t.mjs \"F189 AC-4\"",
+      "new": true
+    },
+    {
+      "id": "AC-5",
+      "criterion": "docs/ 의 한 파일(docs/SPEC.md 또는 docs/evals.md)이 eval 묶음을 어떻게 돌리는지(claude plugin eval . --runs 1 --max-cost-usd <n>), 비용이 들어 CI 에서 돌리지 않는다는 것, 릴리스 전에 돌린다는 것을 적고, CLAUDE.md 의 Running the core 절에 한 줄로 안내한다",
+      "check": "node test/t.mjs \"F189 AC-5\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "evals/ 의 사례가 저장소 밖 경로나 실제 원격(git push, gh)에 닿는 명령을 요구하지 않는다: 사례 파일 어디에도 'git push', 'gh ', '../' 가 프롬프트·고정 파일 경로로 나오지 않는다",
+      "check": "node test/t.mjs \"F189 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "eval 을 CI 에서 돌리는 것(비용·비결정성)",
+    "eval 점수를 기능의 통과 조건으로 쓰는 것",
+    "auto-allow·guard-worktree 훅의 eval(이미 결정적 테스트가 있다)",
+    "build 스킬 전체 흐름의 eval"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-27T06:11:50.544Z",
+    "hash": "cfd21a82d4612f059f419847284acc7f263fb5ebcdb13d673fb023df9886ea15"
+  }
+}

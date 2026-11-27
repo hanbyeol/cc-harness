@@ -1,0 +1,52 @@
+{
+  "id": "F187",
+  "title": "auto·build 스킬의 builder 지정과 알림 — builder 를 subagent_type cc-harness:builder 로 시작하고 fork 로 시작하지 않으며, auto 패스가 사용자 결정 때문에 멈출 때 푸시 알림을 보낸다. 지금은 'builder subagent' 라고만 적혀 있어 fork 기본 모드에서 오케스트레이터의 대화 전체가 builder 에 넘어갈 수 있고, 무인 루프가 blocked 로 멈춰도 사람이 모른다",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "skills/auto/SKILL.md 와 skills/build/SKILL.md 의 ## Parallel 절이 builder 를 subagent_type 'cc-harness:builder' 로 시작하라고 적고, fork(subagent_type 'fork' 또는 대화를 상속하는 서브에이전트)로 시작하지 말라고 그 이유(builder 는 계약과 worktree 만 받아야 한다)와 함께 적는다",
+      "check": "node test/t.mjs \"F187 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "skills/auto/SKILL.md 가 패스를 사용자 결정 때문에 멈출 때(blocked 기능, 저장소 밖 변경, 파괴적 작업) 푸시 알림 도구(Claude Code 의 PushNotification)가 있으면 기능 id 와 멈춘 이유 한 줄로 알림을 보내고, 없으면 건너뛴다고 적는다. 할 일이 없어 끝날 때는 알림을 보내지 않는다고 적는다",
+      "check": "node test/t.mjs \"F187 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "docs/SPEC.md §8.13 의 auto 스킬 설명이 builder 의 subagent_type 지정과 멈출 때의 푸시 알림을 적는다(문자열 'cc-harness:builder' 와 'PushNotification' 포함)",
+      "check": "node test/t.mjs \"F187 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "F180 AC-4 의 auto 스킬 문구 검사가 계속 통과한다",
+      "check": "node test/t.mjs \"F180 AC-4\"",
+      "new": false,
+      "new_reason": "회귀 방지: 지금도 통과하고, 문구를 고친 뒤에도 기존 필수 문구가 남아 있음을 고정한다"
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "skills/auto/SKILL.md 가 알림을 보내지 못해도(도구 없음·실패) 패스는 멈춘 이유를 대화에 그대로 보고하고 끝난다고 적는다(문자열 'notification' 과 'still' 또는 'anyway' 를 같은 문단에 포함)",
+      "check": "node test/t.mjs \"F187 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "Claude Code 외 CLI 의 알림",
+    "harness run(headless) 의 알림",
+    "알림 내용의 형식 강제(문서 지침이며 코드로 강제하지 않는다)"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-27T06:11:50.544Z",
+    "hash": "123d413a58676eef316c6d1faf22aba23ed94fb41cf352905e09ff88dbc063db"
+  }
+}

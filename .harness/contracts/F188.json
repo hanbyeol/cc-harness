@@ -1,0 +1,51 @@
+{
+  "id": "F188",
+  "title": "기록 파일의 merge 충돌 없애기 — harness init 이 .harness/.gitattributes 에 append 전용 JSON Lines 기록(runs/*.jsonl, deployments.jsonl)을 merge=union 으로 적는다. 지금은 두 기능의 eval 이 같은 runs/eval.metrics.jsonl 에 줄을 더하면 merge 가 충돌해 손으로 풀어야 한다(F185 merge 에서 발생)",
+  "security_tier": "standard",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "새 프로젝트에서 harness init 은 .harness/.gitattributes 를 만들고 그 안에 'runs/*.jsonl merge=union' 과 'deployments.jsonl merge=union' 줄이 있으며 'created .harness/.gitattributes' 를 출력한다",
+      "check": "node test/t.mjs \"F188 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "이미 초기화된 프로젝트에서 harness init 을 다시 실행하면 .gitattributes 가 없을 때만 만들고, 있으면 내용을 바꾸지 않고 'kept    .harness/.gitattributes' 를 출력한다. config·features·backlog 는 어느 경우든 그대로다",
+      "check": "node test/t.mjs \"F188 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "init 으로 만든 git 저장소에서 두 브랜치가 각각 runs/eval.metrics.jsonl 끝에 서로 다른 줄을 더한 뒤 git merge 하면 충돌 없이 끝나고, 결과 파일은 두 줄을 모두 담으며 모든 줄이 JSON 으로 읽힌다. 같은 테스트에서 .gitattributes 가 없으면 같은 merge 가 충돌한다",
+      "check": "node test/t.mjs \"F188 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "docs/SPEC.md §4 가 .harness/.gitattributes 와 union merge 를 쓰는 파일을 적는다(문자열 'merge=union' 포함)",
+      "check": "node test/t.mjs \"F188 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": ".harness/.gitattributes 를 쓸 수 없으면(같은 이름의 디렉터리가 있음) init 은 stderr 에 'harness: warning:' 과 그 경로를 내고, config·features·backlog·.gitignore 는 만들며 exit 0 이다",
+      "check": "node test/t.mjs \"F188 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "JSON 파일(features.json, backlog.json, verdicts) 의 merge — 줄 단위 union 은 JSON 을 깨뜨린다",
+    "이미 생긴 merge 충돌을 푸는 것",
+    "사용자 저장소의 루트 .gitattributes 를 바꾸는 것"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-27T06:11:50.544Z",
+    "hash": "07f80f1b44dcdc5f5bfaa522f6de74f5d196e9fc9e61e1faadb5225216c6ff20"
+  }
+}

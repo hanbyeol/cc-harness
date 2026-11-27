@@ -1523,6 +1523,27 @@
       "depends_on": [],
       "status": "passed",
       "eval_round": 1
+    },
+    {
+      "id": "F187",
+      "title": "auto/build skills start the builder as subagent_type cc-harness:builder (never a fork); auto sends a push notification when it stops for a user decision",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F188",
+      "title": "harness init writes .harness/.gitattributes so append-only JSON Lines records merge with merge=union",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F189",
+      "title": "evals/ suite for claude plugin eval: plan, auto, fix and spec skill behaviour",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }
