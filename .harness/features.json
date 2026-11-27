@@ -1521,7 +1521,8 @@
       "title": "harness ci reads the GitHub Actions result of a commit (gh); status --brief reports a failing base branch; skills watch CI after a push",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 1
     }
   ]
 }
