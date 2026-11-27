@@ -15,10 +15,12 @@ Run it repeatedly with `/loop /cc-harness:auto`; each invocation is one pass. Th
 (`harness approve` only when `config.approval` is `auto`).
 
 1. Run `harness status`. When no feature is runnable and none is in progress, say there is
-   nothing to do and end the pass — and the loop.
+   nothing to do and end the pass — and the loop — with no notification.
 2. For every runnable feature, in parallel: `harness worktree add F{n}` (prints the path), then
    start a `builder` subagent for it in that worktree (follow the `build` skill there). Start them
-   all in one message so they run at the same time.
+   all in one message so they run at the same time. Start each with subagent_type
+   `cc-harness:builder`, never as a fork (subagent_type `fork` or any subagent that inherits this
+   conversation): a builder gets only the contract and its worktree.
 3. When a builder returns, run `harness verify F{n}` in its worktree; fix a failed verify and
    run it again. Then `harness eval F{n}` (a separate context decides the verdict, never you).
 4. `passed`: run `harness merge-check F{n}` in its worktree. When it is not 0, do not merge:
@@ -35,4 +37,8 @@ Run it repeatedly with `/loop /cc-harness:auto`; each invocation is one pass. Th
 6. Stop and ask the user only for: a feature that is `blocked`, a change outside this repository,
    or anything destructive (deleting data, force-pushing, rewriting history). Everything else —
    failed checks, the next round, merge conflicts you can resolve — keep going.
+   When the pass stops for one of these, send a push notification with the PushNotification tool
+   (Claude Code) in one line: the feature id and the reason it stopped. When the tool is not
+   available, skip it. When the notification fails or is skipped, still report the reason in the
+   conversation and end the pass.
 7. End the pass with what needs the user first, then what passed, merged and pruned.
