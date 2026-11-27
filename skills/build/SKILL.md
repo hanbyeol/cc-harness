@@ -115,3 +115,9 @@ not passed.
 Parallel work goes through `harness run` or `harness worktree add <name>` (a worktree in
 `.harness/wt/<name>` on a new branch); never create a worktree outside the project. After the
 merge and push, run `harness worktree prune` to remove merged, clean worktrees and their branches.
+
+After you push the base branch, run `harness ci --wait` in the background, without waiting for it — go on with the next work —
+and act on its exit code when it ends: exit 0, CI passed; exit 1, read the failed jobs it lists
+(`gh run view <id> --log-failed`) and fix them as a REGRESSION with a new commit on the base
+branch, verified and pushed like any fix (no force-push, no history rewriting); exit 2, CI could
+not be read (gh missing or not logged in, no run for the commit, timed out): tell the user.

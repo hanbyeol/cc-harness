@@ -64,6 +64,7 @@ A test (`F112 AC-6`) fails when a file is missing here or when an entry names a 
 - lib/commands/eval.mjs — `harness eval`: one interactive evaluation round
 - lib/commands/events.mjs — `harness events`: prints the redacted event log
 - lib/commands/merge-check.mjs — `harness merge-check`: before a merge, compares the working tree (without .harness/) with the tree of the last passed verdict
+- lib/commands/ci.mjs — `harness ci`: the GitHub Actions result of a commit through gh (exit 0/1/3), and the ci line of `status --brief`
 - lib/commands/init.mjs — `harness init`: creates `.harness/` for a project
 - lib/commands/lint-contract.mjs — `harness lint-contract`: checks contracts against the lint rules
 - lib/commands/migrate-v1.mjs — `harness migrate-v1`: converts a v1 project

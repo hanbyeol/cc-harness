@@ -17,6 +17,7 @@ const COMMANDS = {
   verify: ['run deterministic verification for a feature', true],
   eval: ['run the independent evaluator for a feature', true],
   'merge-check': ['before merging a passed feature: is the tree the one eval judged?', true],
+  ci: ['GitHub Actions result of a commit after a push (exit 0 success, 1 failure, 3 pending)', true],
   run: ['autonomously build, verify and evaluate approved features', true],
   status: ['show feature status and what can run next', false],
   stats: ['aggregate step metrics and suggest config changes', true],
