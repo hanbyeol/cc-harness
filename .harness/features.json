@@ -1499,6 +1499,20 @@
       ],
       "status": "passed",
       "eval_round": 1
+    },
+    {
+      "id": "F184",
+      "title": "auto-allow accepts a quoted Windows path (backslashes) to the running bin/harness.mjs after node",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "approved"
+    },
+    {
+      "id": "F185",
+      "title": "verdict records the evaluated tree; harness merge-check F{n} compares it with the working tree before a merge",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "approved"
     }
   ]
 }

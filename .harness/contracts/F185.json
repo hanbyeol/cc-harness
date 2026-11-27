@@ -1,0 +1,77 @@
+{
+  "id": "F185",
+  "title": "판정된 tree 고정 — harness eval 이 판정한 working tree 를 verdict 에 'tree' 로 기록하고, 새 명령 harness merge-check F{n} 이 merge 직전에 지금 working tree 가 passed 판정의 tree 와 같은지 확인한다. 지금 verdict 에는 contract_hash 만 있어 eval 뒤에 바뀐 코드가 판정 없이 merge 될 수 있다",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "harness eval F{n} 이 쓰는 verdict 에 'tree' 필드가 있고, 그 값은 evaluator 세션과 repro 가 끝난 뒤 verdict 를 쓰기 직전의 working tree 를 verify 캐시(§6.4)와 같은 방식(추적 파일과 무시되지 않은 미추적 파일, 임시 index)으로 만든 git tree id 이되 .harness/ 전체를 뺀 것이다(40 또는 64 자리 16진수)",
+      "check": "node test/t.mjs \"F185 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "기능이 passed 이고 eval 뒤에 아무것도 바뀌지 않았으면 harness merge-check F{n} 은 'ok F{n} tree <id 앞 12자>' 를 출력하고 exit 0 이다. .harness/ 아래만 바뀐 경우(verdict·features.json 기록)도 exit 0 이다",
+      "check": "node test/t.mjs \"F185 AC-2\"",
+      "new": true
+    },
+    {
+      "id": "AC-3",
+      "criterion": "skills/auto/SKILL.md, skills/build/SKILL.md, AGENTS.md 가 passed 기능을 merge 하기 전에 harness merge-check F{n} 을 실행하고, exit 0 이 아니면 merge 하지 말고 eval 뒤의 변경을 되돌리거나 사용자에게 묻는다고 적는다",
+      "check": "node test/t.mjs \"F185 AC-3\"",
+      "new": true
+    },
+    {
+      "id": "AC-4",
+      "criterion": "merge-check 는 lib/help.mjs 의 USAGE 에 있고(harness --help 에 표시), docs/SPEC.md §7 에 verdict 의 tree 와 merge-check 를 설명하는 절이 있으며, README 의 명령 목록에 한 줄 안에서 추가된다",
+      "check": "node test/t.mjs \"F185 AC-4\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "passed 판정 뒤 다음 각 경우에 merge-check 는 'tree changed since eval' 과 바뀐 경로를 stderr 에 내고 exit 1 이다: 추적 파일 수정, 무시되지 않은 새 미추적 파일, 추적 파일 삭제, 그 변경을 commit 한 경우. 같은 테스트에서 변경을 되돌리면 exit 0 이다",
+      "check": "node test/t.mjs \"F185 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "merge-check 는 기능이 passed 가 아니면('F{n} is <status>, not passed'), 또는 passed verdict 에 tree 가 없으면('no evaluated tree', F185 전에 쓴 verdict) exit 1 이다. 같은 테스트에서 tree 가 있는 passed verdict 는 exit 0 이다",
+      "check": "node test/t.mjs \"F185 SC-2\"",
+      "new": true
+    },
+    {
+      "id": "SC-3",
+      "criterion": "merge-check 가 비교하는 verdict 는 지금 계약 해시(contract_hash)와 같은 verdict 중 마지막 passed verdict 다. 계약 해시가 다른 이전 passed verdict 의 tree 와만 같으면 exit 1 이다",
+      "check": "node test/t.mjs \"F185 SC-3\"",
+      "new": true
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "인자가 없거나 없는 기능 id 면 usage 오류로 exit 2 이고, cwd 가 git worktree 가 아니면 git 오류로 exit 2 이며, 어느 경우든 상태 파일을 바꾸지 않는다",
+      "check": "node test/t.mjs \"F185 ES-1\"",
+      "new": true
+    },
+    {
+      "id": "ES-2",
+      "criterion": "merge-check 는 저장소의 index 를 쓰지 않는다: 실행 전후 .git/index(linked worktree 면 그 worktree 의 index) 의 내용과 git status --porcelain 출력이 같다",
+      "check": "node test/t.mjs \"F185 ES-2\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "harness run 의 merge 단계에서 tree 를 비교하는 것(post_merge_verify 가 이미 merge 결과를 검증한다)",
+    "fix 스킬 경로(eval 이 없다)",
+    "merge-check 를 git hook 으로 강제하는 것(in-process 무결성 훅 금지 원칙)",
+    "의도적으로 git 내부를 조작한 우회(위협 모델 D1)"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-27T03:54:33.278Z",
+    "hash": "e7b3574bc29a2d8f286cc65c66fe799d1235b1c887b83c8f8c00a44c362bd5cc"
+  }
+}

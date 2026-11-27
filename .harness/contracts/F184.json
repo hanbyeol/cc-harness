@@ -1,0 +1,66 @@
+{
+  "id": "F184",
+  "title": "auto-allow 의 Windows 절대 경로 — 'node <p>' 의 따옴표 안 경로 인자에 백슬래시를 허용해, 플러그인 bin/harness.mjs 의 Windows 경로(D:\\…\\bin\\harness.mjs)로 실행한 코어 명령도 allow 한다. 지금은 백슬래시가 명령 어디에 있어도 거부돼 Windows CI 에서 F180 AC-1 이 실패한다",
+  "security_tier": "critical",
+  "version": 1,
+  "acceptance_criteria": [
+    {
+      "id": "AC-1",
+      "criterion": "'node <p> status --brief' 에서 <p> 가 작은따옴표나 큰따옴표로 감싸이고 백슬래시를 담고 있어도, 그 경로를 cwd 에 대해 푼 실제 경로가 실행 중인 bin/harness.mjs 이면 allow 한다. win32 에서는 process.execPath 로 쓴 BIN 의 네이티브 경로, 그 밖의 OS 에서는 이름에 백슬래시가 든 디렉터리 안의 BIN 심볼릭 링크로 확인한다",
+      "check": "node test/t.mjs \"F184 AC-1\"",
+      "new": true
+    },
+    {
+      "id": "AC-2",
+      "criterion": "F180 AC-1 테스트가 win32 를 포함한 모든 OS 에서 바뀌지 않은 채 통과한다(test/f180-auto-allow.test.mjs 는 이 변경에서 수정하지 않는다)",
+      "check": "node test/t.mjs \"F180 AC-1\" && git diff --quiet $(git merge-base HEAD main) -- test/f180-auto-allow.test.mjs",
+      "new": false,
+      "new_reason": "macOS·Linux 에서는 이미 통과한다. win32 에서의 통과는 CI 의 windows-latest job 이 확인하고, 이 check 는 테스트 파일이 바뀌지 않았음을 고정한다"
+    },
+    {
+      "id": "AC-3",
+      "criterion": "docs/SPEC.md §8.13 의 허용 형태와 거부 목록이, 백슬래시는 'node' 바로 뒤 따옴표 안 경로 인자에서만 허용되고 그 밖은 지금처럼 거부된다고 적는다(문자열 'backslash' 또는 '백슬래시' 와 'node <p>' 를 같은 문단에 포함)",
+      "check": "node test/t.mjs \"F184 AC-3\"",
+      "new": true
+    }
+  ],
+  "security_criteria": [
+    {
+      "id": "SC-1",
+      "criterion": "백슬래시가 든 다음 명령은 여전히 아무것도 출력하지 않는다: 따옴표 없는 'node C:\\x\\bin\\harness.mjs status', 실제 경로가 실행 중인 bin/harness.mjs 가 아닌 'node \"C:\\evil\\harness.mjs\" status', 경로 뒤 인자의 백슬래시 'harness status \"a\\b\"', subcommand 의 백슬래시, 'harness' prefix 형태의 백슬래시('harness\\ status'). 같은 테스트에서 AC-1 의 경로는 allow 된다",
+      "check": "node test/t.mjs \"F184 SC-1\"",
+      "new": true
+    },
+    {
+      "id": "SC-2",
+      "criterion": "큰따옴표 경로 안에서 백슬래시 뒤에 '\"', '\\', '$', 백틱 중 하나가 오면(셸이 이스케이프로 읽어 파서와 해석이 달라지는 경우) 아무것도 출력하지 않는다. 작은따옴표 안에서는 백슬래시가 글자 그대로라 AC-1 처럼 판정한다. 같은 테스트에서 '\\' 뒤에 영숫자가 오는 큰따옴표 경로는 allow 된다",
+      "check": "node test/t.mjs \"F184 SC-2\"",
+      "new": true
+    },
+    {
+      "id": "SC-3",
+      "criterion": "F180 SC-1·SC-2·SC-3 의 거부 사례가 모두 그대로 아무것도 출력하지 않는다",
+      "check": "node test/t.mjs \"F180 SC-\"",
+      "new": false,
+      "new_reason": "회귀 방지: 이 변경 전에도 통과하고, 백슬래시 허용 범위가 다른 거부를 풀지 않았음을 고정한다"
+    }
+  ],
+  "error_scenarios": [
+    {
+      "id": "ES-1",
+      "criterion": "백슬래시가 든 따옴표 경로가 존재하지 않는 파일을 가리키면 오류 없이 exit 0 이고 아무것도 출력하지 않는다(stderr 비어 있음)",
+      "check": "node test/t.mjs \"F184 ES-1\"",
+      "new": true
+    }
+  ],
+  "out_of_scope": [
+    "셸 의미를 이용한 우회(별칭·함수·PATH 변경, 위협 모델 D1)",
+    "백슬래시를 'node <p>' 경로 인자 밖에서 허용하는 것",
+    "Windows 의 cmd.exe·PowerShell 인용 규칙(Claude Code 의 Bash 도구는 POSIX 셸로 실행한다)"
+  ],
+  "approval": {
+    "by": "hanbyeol@gmail.com",
+    "at": "2026-11-27T03:54:33.278Z",
+    "hash": "c445aa6ee229a561894882e46b4353df5211a0bfb293feeb4d6493fc9916a268"
+  }
+}
