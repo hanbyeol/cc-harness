@@ -1512,7 +1512,8 @@
       "title": "verdict records the evaluated tree; harness merge-check F{n} compares it with the working tree before a merge",
       "security_tier": "critical",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 1
     }
   ]
 }
