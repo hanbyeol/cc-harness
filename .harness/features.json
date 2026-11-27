@@ -1529,7 +1529,8 @@
       "title": "auto/build skills start the builder as subagent_type cc-harness:builder (never a fork); auto sends a push notification when it stops for a user decision",
       "security_tier": "standard",
       "depends_on": [],
-      "status": "approved"
+      "status": "passed",
+      "eval_round": 1
     },
     {
       "id": "F188",

@@ -23,6 +23,8 @@ When two or more features are runnable (`harness status` prints a `parallel:` li
 build them one at a time. Hand them to `harness run <id> <id> …`, or create one worktree per
 feature with `harness worktree add F{n}` and start one builder in each at the same time, in
 one message. Keep one writer per worktree: never two sessions or agents editing the same one.
+Start each builder with subagent_type `cc-harness:builder`, never as a fork (subagent_type `fork`
+or any subagent that inherits this conversation): a builder gets only the contract and its worktree.
 
 Do not wait while verify or eval runs: start it in the background and meanwhile do the next
 independent work — build another feature, review the diff. Make independent reads, searches
