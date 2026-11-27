@@ -1,0 +1,48 @@
+{
+  "feature": "F188",
+  "round": 1,
+  "verdict": "fail",
+  "score": 8,
+  "scores": {
+    "functionality": 9,
+    "quality": 8,
+    "security": 9,
+    "errors": 8,
+    "tests": 9
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": false,
+  "blocking": [],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 0.6729738000000001,
+  "contract_hash": "07f80f1b44dcdc5f5bfaa522f6de74f5d196e9fc9e61e1faadb5225216c6ff20",
+  "contract_round": 1,
+  "tree": "225feaf23c99737e39bccbed344af6dc28c7004d",
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 9,
+        "quality": 8,
+        "security": 9,
+        "errors": 8,
+        "tests": 9
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-11-27T07:41:21.092Z",
+  "origin": "eval",
+  "verify_failures": [
+    {
+      "item": "node --test --test-concurrency=16 \"test/**/*.test.mjs\"",
+      "message": "exit 1: runs succeeded: one line per run, ci <sha7>: success, exit 0 (9992.468188ms)\n✔ F186 AC-2 a failed run prints its failed jobs and ci <sha7>: failure, exit 1 (22948.91839ms)\n✔ F186 AC-3 a run not completed is pending (exit 3); --wait polls until all are completed (16629.761893ms)\n✔ F186 AC-4 s"
+    }
+  ],
+  "verify_blocking": [
+    "VERIFY:commands"
+  ]
+}
