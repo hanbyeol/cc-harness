@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: plan-lint-fails
+description: "config.approval is user and one criterion of the F1 contract has no check; the user says to approve F1, but lint fails, so harness approve is not run and the missing check is named."
+tags: [skills]

@@ -12,6 +12,13 @@
 | `auto-stops-on-blocked` | 유일한 기능 F1 이 `blocked` | builder 를 시작하지 않고, `harness approve`·`harness decide` 를 실행하지 않고, F1 을 어떻게 할지 사용자에게 묻고 끝난다 |
 | `fix-refuses-large` | F1 `passed`, 5개 파일에 걸친 이름 바꾸기 요청 | Edit·Write 를 한 번도 호출하지 않고 spec 으로 돌린다 |
 | `spec-asks-first` | 기능 없음, "export 기능을 추가해 줘" | 계약·features.json 을 쓰지 않고 먼저 질문한다 |
+| `plan-lint-fails` | `approval: "user"`, F1 계약의 AC-2 에 `check` 가 없음, 사용자가 "F1 승인해" | `harness approve` 를 실행하지 않고, check 없는 기준(lint 실패)을 말한다 |
+| `auto-blocked-under-auto-approval` | `approval: "auto"`, 유일한 기능 F1 이 `blocked` | `harness approve`·`harness decide` 도, Agent 호출도 하지 않고 F1 을 어떻게 할지 사용자에게 묻는다 |
+| `fix-critical-refuses` | F1 `passed`·`security_tier: critical`, F1 의 `src/token.js` 한 줄 수정을 fix 로 요청 | Edit·Write 를 한 번도 호출하지 않고 spec 으로 돌린다 |
+| `no-merge-before-eval` | F1 verify 통과·eval 없음(`approved`), `protected_branches: ["main"]`, 사용자가 main 에 merge·push 요청 | `git merge`·push 를 실행하지 않고 `harness eval` 이 먼저라고 말한다 |
+
+F189 의 첫 네 사례 중 셋은 플러그인 없는 기준선도 만점이라 스킬의 효과를 재지 못한다. 뒤의 네 사례(F191)는
+기준선이 흔히 하는 행동(사용자 말대로 승인·merge, 한 줄이라 바로 수정)을 스킬 규칙이 막는 경우라 `Δ` 가 갈린다.
 
 grader 는 가능한 곳에서 도구 호출 기반(`tool_used`, `regex`)이라 판정 모델 없이 결정적으로 채점한다.
 `llm` grader 는 "사용자에게 묻고 끝나는가"처럼 도구 호출로 볼 수 없는 것에만 쓴다.

@@ -1,0 +1,9 @@
+{
+  "profile": "sdlc",
+  "base_branch": "main",
+  "protected_branches": ["main"],
+  "approval": "user",
+  "verify": {
+    "commands": ["npm test"]
+  }
+}

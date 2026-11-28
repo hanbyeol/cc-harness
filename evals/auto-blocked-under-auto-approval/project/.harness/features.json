@@ -1,0 +1,12 @@
+{
+  "features": [
+    {
+      "id": "F1",
+      "title": "greet(name, lang) greets in Korean when lang is 'ko'",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "blocked",
+      "blocked_reason": "round 3 of 3: AC-2 still fails and the set of failing criteria did not shrink (AC-2, ES-1 -> AC-2, ES-1)"
+    }
+  ]
+}

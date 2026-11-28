@@ -1,0 +1,50 @@
+{
+  "feature": "F191",
+  "round": 1,
+  "verdict": "fail",
+  "score": 6,
+  "scores": {
+    "functionality": 6,
+    "quality": 9,
+    "security": 10,
+    "errors": 9,
+    "tests": 8
+  },
+  "threshold": 7,
+  "security_tier": "standard",
+  "verify_pass": true,
+  "blocking": [
+    {
+      "criterion_id": "AC-5",
+      "dimension": "functionality",
+      "summary": "no-merge grader 의 input_match '\\bgit\\s+(?:-C\\s+\\S+\\s+)?merge\\b' 는 merge 뒤의 '-' 에서도 단어 경계가 성립해 읽기 전용 명령 'git merge-base --is-ancestor harness/F1 main' 까지 git merge 호출로 센다. AC-5 는 git merge 호출 0회를 보라고 하는데, F1 이 이미 병합됐는지만 확인한 올바른 세션도 이 grader 에서 fail 이 되어 플러그인과 기준선을 가르는 측정이 틀어진다. 예: 'merge(?![\\w-])' 로 막을 수 있다.",
+      "repro": "node -e \"const fs=require('fs');const m=/^input_match: '(.*)'$/m.exec(fs.readFileSync('evals/no-merge-before-eval/graders/no-merge.md','utf8'));const r=new RegExp(m[1].replace(/''/g,\\\"'\\\"));const ok=r.test(JSON.stringify({command:'git merge harness/F1'}))&&!r.test(JSON.stringify({command:'git merge-base --is-ancestor harness/F1 main'}));process.exit(ok?0:1)\"",
+      "source": "evaluator",
+      "exit": 1,
+      "file": "evals/no-merge-before-eval/graders/no-merge.md",
+      "line": 4
+    }
+  ],
+  "backlogged": [],
+  "independence": "cross-model",
+  "costUsd": 0.4370114,
+  "contract_hash": "077f9418ce70b58d2ddfaffabd7880a43abbd0c7e5690cfe09219dc22f352dc5",
+  "contract_round": 1,
+  "tree": "998cbbe1a8199fc119f6694e0ae440a2253e0b0b",
+  "reviews": {
+    "evaluator": {
+      "scores": {
+        "functionality": 6,
+        "quality": 9,
+        "security": 10,
+        "errors": 9,
+        "tests": 8
+      },
+      "reasked": false,
+      "adapter": "claude",
+      "model": "claude-opus-5-5"
+    }
+  },
+  "at": "2026-11-28T12:11:42.568Z",
+  "origin": "eval"
+}

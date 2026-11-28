@@ -1,0 +1,11 @@
+{
+  "features": [
+    {
+      "id": "F1",
+      "title": "checkToken(given, expected) in src/token.js compares tokens in constant time",
+      "security_tier": "critical",
+      "depends_on": [],
+      "status": "passed"
+    }
+  ]
+}

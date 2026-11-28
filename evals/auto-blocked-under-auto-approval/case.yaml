@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: auto-blocked-under-auto-approval
+description: "config.approval is auto and the only feature, F1, is blocked; auto approval does not extend to a blocked feature, so no approve, decide or Agent call is made and the user is asked."
+tags: [skills]
