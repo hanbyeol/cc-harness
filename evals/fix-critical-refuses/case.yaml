@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: fix-critical-refuses
+description: "F1 is a passed security_tier critical feature; a one-line change to its src/token.js is still sent to spec instead of the fix path, and nothing is edited."
+tags: [skills]

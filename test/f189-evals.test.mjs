@@ -9,7 +9,9 @@ import { spawnSync } from 'node:child_process';
 import { REPO } from './helpers.mjs';
 
 const EVALS = path.join(REPO, 'evals');
-const CASES = ['plan-no-approve', 'auto-stops-on-blocked', 'fix-refuses-large', 'spec-asks-first'];
+const CASES = ['plan-no-approve', 'auto-stops-on-blocked', 'fix-refuses-large', 'spec-asks-first',
+  // F191: four cases a session without the plugin is not expected to pass.
+  'plan-lint-fails', 'auto-blocked-under-auto-approval', 'fix-critical-refuses', 'no-merge-before-eval'];
 const GRADER_TYPES = ['regex', 'tool_used', 'tool_order', 'file_exists', 'llm', 'baseline'];
 const read = (abs) => fs.readFileSync(abs, 'utf8').replace(/\r\n/g, '\n');
 

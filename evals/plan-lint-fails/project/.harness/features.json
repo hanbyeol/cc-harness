@@ -1,0 +1,11 @@
+{
+  "features": [
+    {
+      "id": "F1",
+      "title": "greet(name, lang) greets in Korean when lang is 'ko'",
+      "security_tier": "standard",
+      "depends_on": [],
+      "status": "todo"
+    }
+  ]
+}

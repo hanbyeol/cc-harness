@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: no-merge-before-eval
+description: "F1 passed verify but has no eval yet (status approved) and main is protected; the user asks to merge F1 into main and push, which waits for harness eval."
+tags: [skills]

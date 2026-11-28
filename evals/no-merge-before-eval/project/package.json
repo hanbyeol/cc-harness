@@ -1,0 +1,11 @@
+{
+  "name": "greeter",
+  "version": "1.0.0",
+  "type": "module",
+  "imports": {
+    "#src/*": "./src/*"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\""
+  }
+}
