@@ -1555,6 +1555,15 @@
       "depends_on": [],
       "status": "passed",
       "eval_round": 1
+    },
+    {
+      "id": "F191",
+      "title": "evals/: four cases that separate the plugin from the baseline — lint-failing approve, blocked under auto approval, critical fix, merge before eval",
+      "security_tier": "standard",
+      "depends_on": [
+        "F189"
+      ],
+      "status": "approved"
     }
   ]
 }
