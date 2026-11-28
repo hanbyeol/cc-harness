@@ -1563,8 +1563,8 @@
       "depends_on": [
         "F189"
       ],
-      "status": "in_progress",
-      "eval_round": 1
+      "status": "passed",
+      "eval_round": 2
     }
   ]
 }
