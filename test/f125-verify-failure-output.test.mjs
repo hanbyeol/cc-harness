@@ -221,7 +221,9 @@ test('F125 ES-2 a check killed on timeout keeps the stdout it wrote before', asy
     check: 'node scripts/slow.mjs',
     files: { 'scripts/slow.mjs': "process.stdout.write('before-kill\\n');\nsetTimeout(() => {}, 60000);\n" },
   });
-  const v = await verifyOf(dir, cfg({ budget: { step_timeout_sec: 2 } }));
+  // The timeout must outlast node's start under load (3 concurrent suites took longer than 2 s), or the
+  // check is killed before it writes anything; the check never finishes on its own, so it still times out.
+  const v = await verifyOf(dir, cfg({ budget: { step_timeout_sec: 10 } }));
   assert.equal(v.criteria[0].message, 'timed out — process tree killed');
   assert.ok(v.criteria[0].output.includes('before-kill'), JSON.stringify(v.criteria[0]));
 });
