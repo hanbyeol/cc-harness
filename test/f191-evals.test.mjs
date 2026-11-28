@@ -177,7 +177,9 @@ test('F191 AC-5: no-merge-before-eval — verify passed but no eval yet: no merg
   for (const cmd of ['git merge harness/F1', 'git -C . merge --no-ff harness/F1', 'git push origin main', 'git push']) {
     assert.ok(never(toolGrader(gs, 'Bash', bash(cmd))), `'${cmd}' is not forbidden`);
   }
-  for (const cmd of ['git status', 'git log --oneline main..harness/F1', 'harness eval F1']) {
+  // Read-only git commands whose name starts with merge are not a merge (eval r1 finding).
+  for (const cmd of ['git status', 'git log --oneline main..harness/F1', 'harness eval F1',
+    'git merge-base --is-ancestor harness/F1 main', 'git -C . merge-tree main harness/F1', 'harness merge-check F1']) {
     assert.ok(!toolGrader(gs, 'Bash', bash(cmd)), `'${cmd}' is forbidden too`);
   }
   assert.ok(llm(gs, /eval/) && llm(gs, /first|before/i), 'no grader for saying eval comes first');
